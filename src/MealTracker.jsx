@@ -59,6 +59,14 @@ const haptic = (pattern = 10) => {
   }
 };
 
+// Returns YYYY-MM-DD in user's LOCAL timezone (not UTC)
+const getLocalDate = (d = new Date()) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 // localStorage adapter that mimics the window.storage API used in claude.ai artifacts.
 // All data is stored locally in the user's browser.
 if (typeof window !== 'undefined' && !window.storage) {
@@ -97,6 +105,7 @@ if (typeof window !== 'undefined' && !window.storage) {
   };
 }
 
+
 export default function MealTracker() {
   const [view, setView] = useState('loading');
   const [goals, setGoals] = useState(null);
@@ -120,7 +129,7 @@ export default function MealTracker() {
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDate();
 
   useEffect(() => {
     (async () => {
@@ -140,9 +149,22 @@ export default function MealTracker() {
         let storedHistoryDetail = histDetailRes?.value ? JSON.parse(histDetailRes.value) : {};
         const storedName = nameRes?.value ? JSON.parse(nameRes.value) : '';
         const storedFav = favRes?.value ? JSON.parse(favRes.value) : [];
-        const storedMsgs = msgsRes?.value ? JSON.parse(msgsRes.value) : [];
+        let storedMsgs = msgsRes?.value ? JSON.parse(msgsRes.value) : [];
         const storedPerfect = perfectRes?.value ? JSON.parse(perfectRes.value) : [];
         const lastDay = lastDayRes?.value ? JSON.parse(lastDayRes.value) : null;
+
+        // MIGRATION: collect all entry IDs from today + all historical days, drop orphan messages
+        const todayRawRes = await window.storage.get(`day:${today}`).catch(() => null);
+        const todayRawEntries = todayRawRes?.value ? JSON.parse(todayRawRes.value) : [];
+        const allEntryIds = new Set(todayRawEntries.map(e => e.id));
+        Object.values(storedHistoryDetail).forEach(arr => {
+          (arr || []).forEach(e => allEntryIds.add(e.id));
+        });
+        const beforeCount = storedMsgs.length;
+        storedMsgs = storedMsgs.filter(m => !m.isLogged || !m.entryId || allEntryIds.has(m.entryId));
+        if (storedMsgs.length !== beforeCount) {
+          await window.storage.set('messages', JSON.stringify(storedMsgs)).catch(() => {});
+        }
 
         if (lastDay && lastDay !== today) {
           const prevDayRes = await window.storage.get(`day:${lastDay}`).catch(() => null);
@@ -210,6 +232,39 @@ export default function MealTracker() {
       }
     })();
   }, []);
+
+  // Midnight watcher: detects day change while app is open, archives entries, resets rings
+  useEffect(() => {
+    if (view !== 'main') return;
+    const checkDayChange = () => {
+      const now = getLocalDate();
+      if (now !== today) {
+        // Archive current day's entries to history
+        if (entries.length > 0) {
+          const dayTotals = entries.reduce((acc, e) => ({
+            kcal: acc.kcal + (e.kcal || 0),
+            p: acc.p + (e.p || 0),
+            c: acc.c + (e.c || 0),
+            g: acc.g + (e.g || 0),
+          }), { kcal: 0, p: 0, c: 0, g: 0 });
+          setHistory(h => ({ ...h, [today]: { ...dayTotals, water } }));
+          setHistoryDetail(hd => ({ ...hd, [today]: entries }));
+        }
+        // Reset for new day
+        setEntries([]);
+        setWater(0);
+        setPerfectDayShown(false);
+        setMessages(m => [
+          ...m,
+          { role: 'system', isDaySeparator: true, date: now, ts: Date.now() }
+        ]);
+        window.storage.set('lastDay', JSON.stringify(now)).catch(() => {});
+        // Force re-render with new `today` by reloading; simpler: just leave anillos at 0 (totals recompute from entries)
+      }
+    };
+    const interval = setInterval(checkDayChange, 30000); // every 30s
+    return () => clearInterval(interval);
+  }, [view, today, entries, water]);
 
   // Keyboard detection (mobile)
   useEffect(() => {
@@ -623,7 +678,30 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
   const predictedMeal = predictMealType();
 
   return (
-    <div className="min-h-screen relative" style={{ background: BG, color: TEXT, fontFamily: FONT_UI }}>
+    <div className="min-h-screen relative" style={{ background: '#F9F7F1', color: TEXT, fontFamily: FONT_UI }}>
+      {/* Organic cream blobs — only on main screen */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+        <div className="main-blob-1 absolute" style={{
+          top: '-10%', left: '-15%', width: '70%', height: '55%',
+          background: 'radial-gradient(circle, rgba(245,240,225,0.95), transparent 65%)',
+          filter: 'blur(60px)'
+        }} />
+        <div className="main-blob-2 absolute" style={{
+          top: '30%', right: '-20%', width: '65%', height: '60%',
+          background: 'radial-gradient(circle, rgba(220,225,230,0.4), transparent 65%)',
+          filter: 'blur(70px)'
+        }} />
+        <div className="main-blob-3 absolute" style={{
+          bottom: '-10%', left: '20%', width: '75%', height: '55%',
+          background: 'radial-gradient(circle, rgba(250,247,240,0.95), transparent 60%)',
+          filter: 'blur(65px)'
+        }} />
+        <div className="main-blob-4 absolute" style={{
+          top: '50%', left: '10%', width: '55%', height: '45%',
+          background: 'radial-gradient(circle, rgba(200,208,174,0.18), transparent 70%)',
+          filter: 'blur(80px)'
+        }} />
+      </div>
       <FontStyles />
 
       <style>{`
@@ -636,6 +714,14 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         @keyframes float1 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(30px, -20px) scale(1.05); } }
         @keyframes float2 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-25px, 30px) scale(1.08); } }
         @keyframes float3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(20px, 25px) scale(1.04); } }
+        @keyframes mainBlob1 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(50px, -30px) scale(1.1); } }
+        @keyframes mainBlob2 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-40px, 40px) scale(1.08); } }
+        @keyframes mainBlob3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(30px, 20px) scale(1.12); } }
+        @keyframes mainBlob4 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-25px, -35px) scale(1.06); } }
+        .main-blob-1 { animation: mainBlob1 22s ease-in-out infinite; }
+        .main-blob-2 { animation: mainBlob2 26s ease-in-out infinite; }
+        .main-blob-3 { animation: mainBlob3 20s ease-in-out infinite; }
+        .main-blob-4 { animation: mainBlob4 24s ease-in-out infinite; }
         .fade-up { animation: fadeUp 0.45s cubic-bezier(0.2, 0, 0, 1); }
         .pulse-ring { animation: pulseRing 1.5s ease-in-out infinite; }
         .shimmer-text {
@@ -798,6 +884,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           {messages.map((m, i) => (
             <MessageBubble key={i} message={m} goals={goals} totals={totals}
               entries={entries}
+              historyDetail={historyDetail}
               onEdit={(id) => { haptic(8); setEditingEntry(id); }}
               onDelete={deleteEntry}
               onFavorite={addToFavorites} />
@@ -1060,8 +1147,8 @@ function DaySeparator({ date }) {
   return (
     <div className="flex items-center gap-3 my-5">
       <div className="flex-1 h-px" style={{ background: BORDER }} />
-      <div className="px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider capitalize" style={{
-        background: ACCENT_PASTEL + '50', color: ACCENT_DARK
+      <div className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold uppercase tracking-wider capitalize" style={{
+        background: ACCENT_PASTEL + '60', color: ACCENT_DARK, letterSpacing: '0.05em'
       }}>
         {formatDate(date)}
       </div>
@@ -1070,7 +1157,7 @@ function DaySeparator({ date }) {
   );
 }
 
-function MessageBubble({ message, goals, totals, entries, onEdit, onDelete, onFavorite }) {
+function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite }) {
   if (message.isDaySeparator) return <DaySeparator date={message.date} />;
 
   if (message.role === 'user') {
@@ -1151,17 +1238,17 @@ function MessageBubble({ message, goals, totals, entries, onEdit, onDelete, onFa
   }
 
   if (message.isLogged && message.entryId) {
-    const e = entries.find(x => x.id === message.entryId);
+    let e = entries.find(x => x.id === message.entryId);
+    let isHistorical = false;
+    if (!e && historyDetail) {
+      for (const dayEntries of Object.values(historyDetail)) {
+        const found = (dayEntries || []).find(x => x.id === message.entryId);
+        if (found) { e = found; isHistorical = true; break; }
+      }
+    }
     if (!e) {
-      return (
-        <div className="flex justify-start fade-up">
-          <div className="px-4 py-2.5 rounded-2xl rounded-bl-md text-sm italic" style={{
-            background: SURFACE_2, color: TEXT_LIGHT, border: `1px solid ${BORDER}`
-          }}>
-            Comida eliminada del registro
-          </div>
-        </div>
-      );
+      // Hide orphan messages silently (no more "Comida eliminada" ghost)
+      return null;
     }
     return (
       <div className="flex justify-start fade-up">
@@ -1180,12 +1267,16 @@ function MessageBubble({ message, goals, totals, entries, onEdit, onDelete, onFa
               <button onClick={() => onFavorite(e)} className="p-1 rounded-full hover:bg-black/5 transition">
                 <Star size={12} style={{ color: TEXT_LIGHT }} />
               </button>
-              <button onClick={() => onEdit(e.id)} className="p-1 rounded-full hover:bg-black/5 transition">
-                <Pencil size={12} style={{ color: TEXT_LIGHT }} />
-              </button>
-              <button onClick={() => onDelete(e.id)} className="p-1 rounded-full hover:bg-black/5 transition">
-                <Trash2 size={12} style={{ color: TEXT_LIGHT }} />
-              </button>
+              {!isHistorical && (
+                <>
+                  <button onClick={() => onEdit(e.id)} className="p-1 rounded-full hover:bg-black/5 transition">
+                    <Pencil size={12} style={{ color: TEXT_LIGHT }} />
+                  </button>
+                  <button onClick={() => onDelete(e.id)} className="p-1 rounded-full hover:bg-black/5 transition">
+                    <Trash2 size={12} style={{ color: TEXT_LIGHT }} />
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -1223,9 +1314,11 @@ function MessageBubble({ message, goals, totals, entries, onEdit, onDelete, onFa
               <span style={{ color: C_FAT }}>G {e.g}g</span>
             </div>
           </div>
-          <div className="mt-3 pt-3 border-t text-[10px] num" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT }}>
-            Acumulado: {totals.kcal}/{goals.kcal} kcal · faltan {Math.max(0, goals.kcal - totals.kcal)}
-          </div>
+          {!isHistorical && (
+            <div className="mt-3 pt-3 border-t text-[10px] num" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT }}>
+              Acumulado: {totals.kcal}/{goals.kcal} kcal · faltan {Math.max(0, goals.kcal - totals.kcal)}
+            </div>
+          )}
         </div>
       </div>
     );
