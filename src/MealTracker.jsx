@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
-  Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown,
+  Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat
 } from 'lucide-react';
 
@@ -67,41 +67,13 @@ const getLocalDate = (d = new Date()) => {
   return `${y}-${m}-${day}`;
 };
 
-// localStorage adapter that mimics the window.storage API used in claude.ai artifacts.
-// All data is stored locally in the user's browser.
 if (typeof window !== 'undefined' && !window.storage) {
   const PREFIX = 'mt:';
   window.storage = {
-    get: async (key) => {
-      try {
-        const v = localStorage.getItem(PREFIX + key);
-        return v !== null ? { value: v } : null;
-      } catch (e) { return null; }
-    },
-    set: async (key, value) => {
-      try {
-        localStorage.setItem(PREFIX + key, value);
-        return { value };
-      } catch (e) { return null; }
-    },
-    delete: async (key) => {
-      try {
-        localStorage.removeItem(PREFIX + key);
-        return { deleted: true };
-      } catch (e) { return null; }
-    },
-    list: async (prefix = '') => {
-      try {
-        const keys = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith(PREFIX + prefix)) {
-            keys.push(k.slice(PREFIX.length));
-          }
-        }
-        return { keys };
-      } catch (e) { return null; }
-    },
+    get: async (key) => { try { const v = localStorage.getItem(PREFIX + key); return v !== null ? { value: v } : null; } catch (e) { return null; } },
+    set: async (key, value) => { try { localStorage.setItem(PREFIX + key, value); return { value }; } catch (e) { return null; } },
+    delete: async (key) => { try { localStorage.removeItem(PREFIX + key); return { deleted: true }; } catch (e) { return null; } },
+    list: async (prefix = '') => { try { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(PREFIX + prefix)) keys.push(k.slice(PREFIX.length)); } return { keys }; } catch (e) { return null; } },
   };
 }
 
@@ -232,6 +204,217 @@ export default function MealTracker() {
       }
     })();
   }, []);
+
+  // Weekly report auto-send: when client opens app, if 7+ days since last send, send report
+  useEffect(() => {
+    if (view !== 'main' || !name) return;
+    const checkAndSend = async () => {
+      try {
+        const lastSentRes = await window.storage.get('weeklyReportLastSent').catch(() => null);
+        const lastSent = lastSentRes?.value ? JSON.parse(lastSentRes.value) : null;
+        const now = Date.now();
+        const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+        if (lastSent && (now - lastSent) < ONE_WEEK) return; // Already sent this week
+
+        // Build summary from history of last 7 days
+        const last7Days = [];
+        const todayDate = new Date();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(todayDate);
+          d.setDate(d.getDate() - i);
+          last7Days.push(getLocalDate(d));
+        }
+        const daysData = last7Days.map(date => {
+          if (date === today) {
+            const t = entries.reduce((acc, e) => ({
+              kcal: acc.kcal + (e.kcal || 0), p: acc.p + (e.p || 0),
+              c: acc.c + (e.c || 0), g: acc.g + (e.g || 0),
+            }), { kcal: 0, p: 0, c: 0, g: 0 });
+            return { date, ...t, entries: entries.length };
+          }
+          const h = history[date];
+          const det = historyDetail[date] || [];
+          return h ? { date, ...h, entries: det.length } : { date, kcal: 0, p: 0, c: 0, g: 0, entries: 0 };
+        });
+        const daysRegistered = daysData.filter(d => d.entries > 0).length;
+        if (daysRegistered === 0) return; // No data, skip
+
+        const avgKcal = Math.round(daysData.reduce((s, d) => s + d.kcal, 0) / 7);
+        const avgP = Math.round(daysData.reduce((s, d) => s + d.p, 0) / 7);
+        const avgC = Math.round(daysData.reduce((s, d) => s + d.c, 0) / 7);
+        const avgG = Math.round(daysData.reduce((s, d) => s + d.g, 0) / 7);
+        const perfectDays = daysData.filter(d =>
+          d.entries > 0 &&
+          Math.abs(d.kcal - goals.kcal) <= goals.kcal * 0.1 &&
+          Math.abs(d.p - goals.p) <= goals.p * 0.1
+        ).length;
+
+        const fmtDay = (date) => {
+          const [y, m, dd] = date.split('-').map(Number);
+          return new Date(y, m - 1, dd).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
+        };
+
+        const summary = `
+<div style="font-family: -apple-system, sans-serif; max-width: 600px; color: #1A1A1A;">
+  <div style="background: #0E0E0E; color: #fff; padding: 24px; border-radius: 12px 12px 0 0;">
+    <div style="font-size: 24px; font-weight: 700; letter-spacing: 0.01em;">REPORTE SEMANAL</div>
+    <div style="height: 2px; width: 40px; background: #C8D0AE; margin: 8px 0;"></div>
+    <div style="font-size: 14px; opacity: 0.85;">Entrena con Método</div>
+  </div>
+  <div style="background: #F9F7F1; padding: 24px; border-radius: 0 0 12px 12px; border: 1px solid #E5E2D5;">
+    <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">${name}</div>
+    <div style="font-size: 12px; color: #6B6B6B; margin-bottom: 20px;">Últimos 7 días · enviado automáticamente</div>
+
+    <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;">
+      <tr>
+        <td style="padding: 12px; background: #fff; border-radius: 8px; text-align: center; width: 25%;">
+          <div style="font-size: 10px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.1em;">Promedio kcal</div>
+          <div style="font-size: 20px; font-weight: 700; color: #7A8450; margin-top: 4px;">${avgKcal}</div>
+          <div style="font-size: 10px; color: #9A9A9A;">meta ${goals.kcal}</div>
+        </td>
+        <td style="padding: 12px; background: #fff; border-radius: 8px; text-align: center; width: 25%;">
+          <div style="font-size: 10px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.1em;">Proteína</div>
+          <div style="font-size: 20px; font-weight: 700; color: #E07856; margin-top: 4px;">${avgP}g</div>
+          <div style="font-size: 10px; color: #9A9A9A;">meta ${goals.p}g</div>
+        </td>
+        <td style="padding: 12px; background: #fff; border-radius: 8px; text-align: center; width: 25%;">
+          <div style="font-size: 10px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.1em;">Carbos</div>
+          <div style="font-size: 20px; font-weight: 700; color: #C9A66B; margin-top: 4px;">${avgC}g</div>
+          <div style="font-size: 10px; color: #9A9A9A;">meta ${goals.c}g</div>
+        </td>
+        <td style="padding: 12px; background: #fff; border-radius: 8px; text-align: center; width: 25%;">
+          <div style="font-size: 10px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.1em;">Grasas</div>
+          <div style="font-size: 20px; font-weight: 700; color: #5A6478; margin-top: 4px;">${avgG}g</div>
+          <div style="font-size: 10px; color: #9A9A9A;">meta ${goals.g}g</div>
+        </td>
+      </tr>
+    </table>
+
+    <div style="background: #fff; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 12px;">Resumen de adherencia</div>
+      <div style="display: flex; gap: 16px;">
+        <div>
+          <div style="font-size: 24px; font-weight: 700; color: #1A1A1A;">${daysRegistered}/7</div>
+          <div style="font-size: 11px; color: #6B6B6B;">Días con registro</div>
+        </div>
+        <div style="border-left: 1px solid #E5E2D5; padding-left: 16px;">
+          <div style="font-size: 24px; font-weight: 700; color: #7A8450;">${perfectDays}</div>
+          <div style="font-size: 11px; color: #6B6B6B;">Días en rango ±10%</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #fff; padding: 16px; border-radius: 8px;">
+      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 12px;">Detalle diario</div>
+      ${daysData.map(d => `
+        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F2F2F2; font-size: 13px;">
+          <span style="color: ${d.entries === 0 ? '#C5C5C5' : '#1A1A1A'}; text-transform: capitalize;">${fmtDay(d.date)}</span>
+          <span style="color: ${d.entries === 0 ? '#C5C5C5' : '#6B6B6B'}; font-variant-numeric: tabular-nums;">
+            ${d.entries === 0 ? 'Sin registro' : `${d.kcal} kcal · P ${d.p}g · C ${d.c}g · G ${d.g}g`}
+          </span>
+        </div>
+      `).join('')}
+    </div>
+
+    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E2D5; font-size: 11px; color: #9A9A9A; text-align: center;">
+      Reporte generado automáticamente por Meal Tracker<br>
+      Mauro Morón · ISSA Certified Fitness and Nutrition Coach
+    </div>
+  </div>
+</div>
+        `;
+
+        // Generate PDF using existing logic
+        let pdfBase64 = null;
+        try {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          await new Promise((resolve, reject) => {
+            if (window.jspdf) { resolve(); return; }
+            script.onload = resolve;
+            script.onerror = reject;
+            document.body.appendChild(script);
+          });
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+          doc.setFillColor(14, 14, 14);
+          doc.rect(0, 0, 210, 30, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(20);
+          doc.setFont('helvetica', 'bold');
+          doc.text('REPORTE SEMANAL', 15, 18);
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Entrena con Método', 15, 25);
+          doc.setTextColor(30, 30, 30);
+          let y = 45;
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'bold');
+          doc.text(name, 15, y);
+          y += 6;
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(120, 120, 120);
+          doc.text('Últimos 7 días · enviado automáticamente', 15, y);
+          y += 12;
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(30, 30, 30);
+          doc.text('Promedios semanales', 15, y);
+          y += 6;
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`Calorías: ${avgKcal} / ${goals.kcal} kcal`, 15, y); y += 5;
+          doc.text(`Proteína: ${avgP}g / ${goals.p}g`, 15, y); y += 5;
+          doc.text(`Carbohidratos: ${avgC}g / ${goals.c}g`, 15, y); y += 5;
+          doc.text(`Grasas: ${avgG}g / ${goals.g}g`, 15, y); y += 10;
+          doc.setFont('helvetica', 'bold');
+          doc.text(`Adherencia: ${daysRegistered}/7 días con registro · ${perfectDays} días en rango ±10%`, 15, y);
+          y += 12;
+          doc.setFont('helvetica', 'bold');
+          doc.text('Detalle diario', 15, y);
+          y += 6;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          daysData.forEach(d => {
+            const line = d.entries === 0
+              ? `${fmtDay(d.date)}: Sin registro`
+              : `${fmtDay(d.date)}: ${d.kcal} kcal · P ${d.p}g · C ${d.c}g · G ${d.g}g`;
+            doc.text(line, 15, y);
+            y += 5;
+          });
+          const pdfDataUri = doc.output('datauristring');
+          pdfBase64 = pdfDataUri.split(',')[1];
+        } catch (e) {
+          // PDF generation failed, send without attachment
+          pdfBase64 = null;
+        }
+
+        // Send to backend
+        const weekLabel = today;
+        const sendRes = await fetch('/api/send-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientName: name, summary, pdfBase64, weekLabel }),
+        });
+        if (sendRes.ok) {
+          await window.storage.set('weeklyReportLastSent', JSON.stringify(now)).catch(() => {});
+          // Silent success - or show a subtle message
+          setMessages(m => [...m, {
+            role: 'system',
+            isInfo: true,
+            content: 'Reporte semanal enviado a tu coach.',
+            ts: Date.now(),
+          }]);
+        }
+      } catch (e) {
+        console.error('Weekly report error:', e);
+      }
+    };
+    // Run after a short delay so app finishes loading first
+    const timer = setTimeout(checkAndSend, 5000);
+    return () => clearTimeout(timer);
+  }, [view, name, today]);
 
   // Midnight watcher: detects day change while app is open, archives entries, resets rings
   useEffect(() => {
@@ -588,26 +771,30 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
     }
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-CO';
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.onstart = () => { setRecording(true); haptic(15); };
     recognition.onend = () => setRecording(false);
     recognition.onerror = () => setRecording(false);
     recognition.onresult = (event) => {
-      let transcript = '';
-      for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript;
-      setInput(transcript);
-      if (event.results[event.results.length - 1].isFinal) {
-        setTimeout(() => handleSend(transcript), 200);
+      let finalTranscript = '';
+      let interimTranscript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+        else interimTranscript += event.results[i][0].transcript;
       }
+      setInput((finalTranscript + interimTranscript).trim());
     };
     recognitionRef.current = recognition;
-    recognition.start();
+    try { recognition.start(); } catch (e) { setRecording(false); }
   };
 
   const stopVoice = () => {
-    if (recognitionRef.current) recognitionRef.current.stop();
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
     setRecording(false);
+    haptic(10);
   };
 
   const deleteEntry = (id) => {
@@ -722,6 +909,8 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         .main-blob-2 { animation: mainBlob2 26s ease-in-out infinite; }
         .main-blob-3 { animation: mainBlob3 20s ease-in-out infinite; }
         .main-blob-4 { animation: mainBlob4 24s ease-in-out infinite; }
+        @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .sheet-up { animation: sheetUp 0.32s cubic-bezier(0.2, 0, 0, 1); }
         .fade-up { animation: fadeUp 0.45s cubic-bezier(0.2, 0, 0, 1); }
         .pulse-ring { animation: pulseRing 1.5s ease-in-out infinite; }
         .shimmer-text {
@@ -766,55 +955,60 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
 
       <div className="relative max-w-2xl mx-auto px-5 pt-5 pb-32" style={{ zIndex: 1 }}>
 
-        {/* Header dark — Apple style — ALWAYS visible (does not collapse) */}
-        <div className="rounded-3xl p-6 mb-3 relative overflow-hidden" style={{
+        {/* Header — slim app-style bar */}
+        <div className="rounded-2xl px-4 py-3 mb-3 relative overflow-hidden" style={{
           background: '#0E0E0E',
           color: '#FFF',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
+          boxShadow: '0 4px 20px rgba(0,0,0,0.18)'
         }}>
-          <div className="absolute inset-0 pointer-events-none opacity-50" style={{
-            background: `radial-gradient(circle at 80% 20%, ${ACCENT}40, transparent 60%)`
+          <div className="absolute inset-0 pointer-events-none opacity-40" style={{
+            background: `radial-gradient(circle at 90% 30%, ${ACCENT}40, transparent 55%)`
           }} />
           <div className="relative">
             <div className="display font-normal" style={{
               color: '#FFF',
-              fontSize: '46px',
-              lineHeight: 0.9,
-              letterSpacing: '0.01em',
+              fontSize: '24px',
+              lineHeight: 1,
+              letterSpacing: '0.03em',
               textTransform: 'uppercase'
             }}>
               Meal Tracker
             </div>
-            <div className="h-[2px] w-12 mt-3 rounded-full" style={{ background: ACCENT_PASTEL }} />
-            <div className="text-[15px] font-semibold mt-3" style={{
-              color: '#FFF',
-              opacity: 0.85,
-              letterSpacing: '0.02em'
-            }}>
-              Entrena con Método
-            </div>
-            <div className="text-[10px] mt-3" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.02em', lineHeight: 1.5 }}>
-              <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>Mauro Morón</span>
-              <br />
-              <span>ISSA Certified Fitness and Nutrition Coach</span>
+            <div className="text-[10px] mt-1.5" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.01em', lineHeight: 1.4 }}>
+              <span style={{ color: ACCENT_PASTEL, fontWeight: 600 }}>Entrena con Método</span>
+              {' · '}
+              <span>Mauro Morón · ISSA Certified Fitness and Nutrition Coach</span>
             </div>
           </div>
         </div>
 
-        {/* Goals card — white glass only */}
-        <div className="px-4 py-4 rounded-3xl relative mb-3" style={{
-          background: 'rgba(255,255,255,0.85)',
-          backdropFilter: 'blur(28px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(28px) saturate(180%)',
-          border: '1px solid rgba(255,255,255,0.6)',
-          boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 24px rgba(0,0,0,0.06)'
+        {/* Goals card — sticky white glass with organic touch */}
+        <div className="sticky top-0 z-30 -mx-5 px-5 pt-2 pb-3" style={{
+          background: 'linear-gradient(180deg, #F9F7F1 0%, rgba(249,247,241,0.92) 80%, rgba(249,247,241,0.6) 100%)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
         }}>
+        <div className="px-4 py-4 rounded-3xl relative" style={{
+          background: 'rgba(255,255,255,0.78)',
+          backdropFilter: 'blur(32px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(32px) saturate(200%)',
+          border: '1px solid rgba(255,255,255,0.7)',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 8px 28px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
+          overflow: 'hidden'
+        }}>
+          {/* Subtle organic blob inside the card */}
+          <div className="absolute pointer-events-none" style={{
+            top: '-30%', right: '-20%', width: '60%', height: '120%',
+            background: `radial-gradient(circle, ${ACCENT_PASTEL}30, transparent 65%)`,
+            filter: 'blur(40px)'
+          }} />
+          <div className="relative">
           <button
             onClick={() => { haptic(8); setView('onboarding'); }}
-            className="absolute top-2.5 right-2.5 flex items-center gap-1 px-2.5 py-1 rounded-full transition active:scale-95"
+            className="absolute top-0 right-0 flex items-center gap-1 px-2.5 py-1 rounded-full transition active:scale-95"
             style={{
               color: TEXT_MUTED,
-              background: 'rgba(255,255,255,0.7)',
+              background: 'rgba(255,255,255,0.85)',
               border: `1px solid rgba(0,0,0,0.06)`
             }}
             title="Cambiar meta nutricional">
@@ -834,73 +1028,170 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
             <GlassRing val={totals.c} goal={goals.c} color={C_CARBS} label="Carbos" unit="g" />
             <GlassRing val={totals.g} goal={goals.g} color={C_FAT} label="Grasas" unit="g" />
           </div>
+          </div>
+        </div>
         </div>
 
         {/* Action chips — collapsible glass */}
-        {actionsExpanded ? (
-          <div className="space-y-1.5 mb-2">
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <ActionChipMini icon={<PieChart size={18} strokeWidth={1.5} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                onClick={() => { haptic(8); setInput('Ayúdame con proporciones, tengo: '); setActionsExpanded(false); }} />
-              <ActionChipMini icon={<Star size={18} strokeWidth={1.5} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
-                onClick={() => { haptic(8); setActiveModal('favorites'); setActionsExpanded(false); }} />
-              <ActionChipMini icon={<Calendar size={18} strokeWidth={1.5} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
-                onClick={() => { haptic(8); setActiveModal('calendar'); setActionsExpanded(false); }} />
-              <ActionChipMini icon={<LineChart size={18} strokeWidth={1.5} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
-                onClick={() => { haptic(8); handleSend('ver resumen diario'); setActionsExpanded(false); }} />
-              <ActionChipMini icon={<FileText size={18} strokeWidth={1.5} />} label="Descargar reporte al coach" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                onClick={() => { haptic(8); setActiveModal('export'); setActionsExpanded(false); }} />
-              <ActionChipMini icon={<RotateCcw size={18} strokeWidth={1.5} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
-                onClick={() => { haptic(8); setActiveModal('reset'); setActionsExpanded(false); }} />
-            </div>
-          </div>
-        ) : (
-          <div className="flex justify-center mb-2">
-            <button
-              onClick={() => { haptic(8); setActionsExpanded(true); }}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition active:scale-95"
+        {/* Ver acciones — fixed button that opens bottom sheet */}
+        <div className="flex justify-center mb-3 mt-1">
+          <button
+            onClick={() => { haptic(8); setActionsExpanded(true); }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl transition active:scale-95"
+            style={{
+              background: 'rgba(255,255,255,0.85)',
+              backdropFilter: 'blur(20px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+              border: `1px solid rgba(0,0,0,0.06)`,
+              color: TEXT,
+              boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 4px 14px rgba(0,0,0,0.06)'
+            }}>
+            <Sparkles size={14} strokeWidth={1.8} style={{ color: ACCENT }} />
+            <span className="text-[13px] font-semibold">Ver acciones</span>
+            <ChevronUp size={14} strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Bottom sheet — actions */}
+        {actionsExpanded && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center"
+            style={{ background: 'rgba(0,0,0,0.32)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+            onClick={() => { haptic(6); setActionsExpanded(false); }}>
+            <div
+              className="w-full max-w-md rounded-t-3xl px-5 pt-3 sheet-up"
               style={{
-                background: 'rgba(255,255,255,0.55)',
-                backdropFilter: 'blur(20px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                border: `1px solid rgba(255,255,255,0.7)`,
-                color: TEXT_MUTED,
-                boxShadow: '0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 12px rgba(0,0,0,0.04)'
-              }}>
-              <span className="text-[10px] font-semibold">Ver acciones</span>
-              <ChevronDown size={11} />
-            </button>
+                background: '#F9F7F1',
+                boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
+                paddingBottom: '40px'
+              }}
+              onClick={(e) => e.stopPropagation()}>
+              {/* Grabber */}
+              <div className="flex justify-center mb-4">
+                <div className="h-1 w-10 rounded-full" style={{ background: BORDER }} />
+              </div>
+              <div className="flex items-center justify-between mb-4 px-1">
+                <div>
+                  <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
+                  <div className="text-[17px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
+                </div>
+                <button onClick={() => { haptic(6); setActionsExpanded(false); }}
+                  className="p-2 rounded-full transition active:scale-90" style={{ background: SURFACE_2 }}>
+                  <X size={16} style={{ color: TEXT_MUTED }} />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <ActionChipMini icon={<PieChart size={19} strokeWidth={1.75} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
+                  onClick={() => { haptic(8); setInput('Ayúdame con proporciones, tengo: '); setActionsExpanded(false); }} />
+                <ActionChipMini icon={<Star size={19} strokeWidth={1.75} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                  onClick={() => { haptic(8); setActiveModal('favorites'); setActionsExpanded(false); }} />
+                <ActionChipMini icon={<Calendar size={19} strokeWidth={1.75} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
+                  onClick={() => { haptic(8); setActiveModal('calendar'); setActionsExpanded(false); }} />
+                <ActionChipMini icon={<LineChart size={19} strokeWidth={1.75} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
+                  onClick={() => { haptic(8); handleSend('ver resumen diario'); setActionsExpanded(false); }} />
+                <ActionChipMini icon={<FileText size={19} strokeWidth={1.75} />} label="Descargar reporte al coach" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                  onClick={() => { haptic(8); setActiveModal('export'); setActionsExpanded(false); }} />
+                <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
+                  onClick={() => { haptic(8); setActiveModal('reset'); setActionsExpanded(false); }} />
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Section divider — chat starts */}
-        <div className="flex items-center gap-3 my-4">
-          <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: TEXT_LIGHT }}>Conversación</div>
-          <div className="flex-1 h-px" style={{ background: BORDER }} />
-        </div>
-
-        {/* Chat */}
-        <div ref={scrollRef} className="space-y-3 mb-6" style={{ paddingBottom: keyboardOpen ? '120px' : '20px' }}>
-          {messages.map((m, i) => (
-            <MessageBubble key={i} message={m} goals={goals} totals={totals}
-              entries={entries}
-              historyDetail={historyDetail}
-              onEdit={(id) => { haptic(8); setEditingEntry(id); }}
-              onDelete={deleteEntry}
-              onFavorite={addToFavorites} />
-          ))}
-          {loading && (
-            <div className="flex items-center gap-2 text-sm px-4 py-3">
-              <Loader2 size={14} className="animate-spin" style={{ color: ACCENT }} />
-              <span className="shimmer-text font-medium">{loadingPreview || 'Procesando…'}</span>
-            </div>
-          )}
+        {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
+        <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '20px' }}>
+          {/* Editorial hand-drawn food silhouettes — thin organic lines */}
+          <div className="absolute inset-0 pointer-events-none select-none" style={{
+            backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'>
+              <g fill='none' stroke='%237A8450' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='0.28'>
+                <!-- Aguacate (rotated 12deg) -->
+                <g transform='translate(28,30) rotate(12)'>
+                  <path d='M0,18 C0,7 8,0 16,0 C24,0 32,7 32,18 C32,32 24,42 16,42 C8,42 0,32 0,18 Z'/>
+                  <ellipse cx='16' cy='22' rx='8' ry='9'/>
+                </g>
+                <!-- Connector curve -->
+                <path d='M75,38 Q92,30 105,42' stroke-opacity='0.18'/>
+                <!-- Plátano (rotated -18deg) -->
+                <g transform='translate(108,22) rotate(-18)'>
+                  <path d='M2,6 C12,0 28,2 38,12 C42,16 44,22 40,26 C36,22 28,18 20,18 C12,18 6,22 0,22 C-2,18 -2,10 2,6 Z'/>
+                  <path d='M2,6 L0,2'/>
+                </g>
+                <!-- Zanahoria (rotated 35deg) -->
+                <g transform='translate(195,30) rotate(35)'>
+                  <path d='M16,12 L24,12 L14,50 L4,50 L0,16 L4,14 Z'/>
+                  <path d='M10,12 L7,2 M14,12 L15,0 M18,12 L22,3'/>
+                </g>
+                <!-- Big connector curve between rows -->
+                <path d='M40,90 Q90,75 140,95 T240,88' stroke-opacity='0.14'/>
+                <!-- Pescado (rotated -8deg) -->
+                <g transform='translate(22,105) rotate(-8)'>
+                  <path d='M0,16 C5,4 22,2 34,10 C40,14 40,22 34,26 C22,32 5,30 0,16 Z'/>
+                  <path d='M34,10 L44,2 L44,26 L34,26'/>
+                  <circle cx='26' cy='14' r='1.5'/>
+                </g>
+                <!-- Manzana (rotated 8deg) -->
+                <g transform='translate(105,108) rotate(8)'>
+                  <path d='M6,12 C2,18 0,30 6,38 C10,44 16,46 22,42 C28,46 34,44 38,38 C44,30 42,18 38,12 C32,6 24,8 22,12 C20,8 12,6 6,12 Z'/>
+                  <path d='M22,12 C22,6 26,2 30,4'/>
+                  <path d='M28,2 L30,0'/>
+                </g>
+                <!-- Brócoli (rotated 22deg) -->
+                <g transform='translate(195,108) rotate(22)'>
+                  <circle cx='10' cy='10' r='8'/>
+                  <circle cx='24' cy='8' r='8'/>
+                  <circle cx='17' cy='20' r='8'/>
+                  <path d='M17,28 L17,42 M14,38 L20,38'/>
+                </g>
+                <!-- Curved swirl between groups -->
+                <path d='M50,180 C70,170 80,195 100,185' stroke-opacity='0.18'/>
+                <path d='M180,180 Q200,170 220,185' stroke-opacity='0.18'/>
+                <!-- Tenedor + Cuchara (rotated -12deg) -->
+                <g transform='translate(28,195) rotate(-12)'>
+                  <path d='M0,0 L0,14 M4,0 L4,14 M8,0 L8,14 M12,0 L12,14 M0,14 L12,14 L8,42 L4,42 Z'/>
+                  <path d='M24,4 C18,8 18,18 24,22 L24,42 L30,42 L30,22 C36,18 36,8 30,4 C28,2 26,2 24,4 Z'/>
+                </g>
+                <!-- Huevo (rotated 5deg) -->
+                <g transform='translate(115,200) rotate(5)'>
+                  <ellipse cx='14' cy='20' rx='12' ry='18'/>
+                </g>
+                <!-- Pollo / muslo (rotated -25deg) -->
+                <g transform='translate(195,200) rotate(-25)'>
+                  <path d='M10,4 C2,6 -2,16 4,22 C10,28 22,28 28,22 L40,34 L34,40 L22,28 C28,24 30,14 24,8 C20,4 14,2 10,4 Z'/>
+                  <circle cx='14' cy='14' r='1' fill='%237A8450' fill-opacity='0.4' stroke='none'/>
+                </g>
+                <!-- Final loose squiggles for organic feel -->
+                <path d='M60,260 Q80,250 100,262' stroke-opacity='0.16'/>
+                <path d='M170,255 C185,250 200,265 215,258' stroke-opacity='0.16'/>
+              </g>
+            </svg>`)}")`,
+            backgroundRepeat: 'repeat',
+            backgroundSize: '280px 280px'
+          }} />
+          <div className="relative">
+            {messages.map((m, i) => (
+              <div key={i} className="mb-3">
+                <MessageBubble message={m} goals={goals} totals={totals}
+                  entries={entries}
+                  historyDetail={historyDetail}
+                  onEdit={(id) => { haptic(8); setEditingEntry(id); }}
+                  onDelete={deleteEntry}
+                  onFavorite={addToFavorites} />
+              </div>
+            ))}
+            {loading && (
+              <div className="flex items-center gap-2 text-sm px-4 py-3">
+                <Loader2 size={14} className="animate-spin" style={{ color: ACCENT }} />
+                <span className="shimmer-text font-medium">{loadingPreview || 'Procesando…'}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Input bar */}
-      <div className="fixed bottom-0 left-0 right-0 px-4 pb-5 pt-6 z-50" style={{
-        background: `linear-gradient(180deg, transparent, ${BG}E6 30%, ${BG} 100%)`
+      <div className="fixed bottom-0 left-0 right-0 px-4 pb-5 pt-6 z-40" style={{
+        background: `linear-gradient(180deg, transparent, ${BG}E6 30%, ${BG} 100%)`,
+        display: actionsExpanded ? 'none' : 'block'
       }}>
         <div className="max-w-2xl mx-auto">
           {input.trim() && !input.toLowerCase().match(/desayuno|almuerzo|cena|snack|reiniciar|cambiar|resumen|semanal|calendario|exportar|favoritos|proporciones|agua|cuántas|cuanto|cuánto/) && (
@@ -912,21 +1203,34 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           )}
           <div className="flex items-center gap-2 p-2 rounded-2xl" style={{
             background: SURFACE,
-            border: `1px solid ${BORDER}`,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)'
+            border: `1px solid ${recording ? C_PROTEIN : BORDER}`,
+            boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, 0 8px 32px rgba(0,0,0,0.08)` : '0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
+            transition: 'border 0.2s, box-shadow 0.2s'
           }}>
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
               onFocus={() => setActionsExpanded(false)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), e.target.blur(), handleSend())}
-              placeholder="Escribe lo que comiste…"
-              className="flex-1 bg-transparent px-4 py-3 outline-none"
+              placeholder={recording ? 'Escuchando…' : 'Escribe o dicta lo que comiste…'}
+              className="flex-1 bg-transparent px-3 py-3 outline-none"
               style={{ color: TEXT, fontSize: '16px' }}
+              readOnly={recording}
             />
             <button
+              onClick={recording ? stopVoice : startVoice}
+              className="p-3 rounded-xl transition active:scale-[0.95]"
+              style={{
+                background: recording ? C_PROTEIN : SURFACE_2,
+                color: recording ? '#fff' : TEXT_MUTED,
+                transition: 'background 0.2s'
+              }}
+              title={recording ? 'Detener dictado' : 'Dictar por voz'}>
+              <Mic size={16} strokeWidth={2} className={recording ? 'pulse-ring' : ''} />
+            </button>
+            <button
               onClick={() => handleSend()}
-              disabled={!input.trim() || loading}
+              disabled={!input.trim() || loading || recording}
               className="p-3 rounded-xl transition disabled:opacity-30 active:scale-[0.95]"
               style={{ background: '#0E0E0E', color: '#fff' }}>
               <ArrowUp size={16} strokeWidth={2.5} />
@@ -1056,6 +1360,17 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
   const dash = circ * pct;
   const isComplete = val >= goal * 0.95 && val <= goal * 1.05;
   const ringId = `ring-${label}-${color.replace('#', '')}`;
+  const [popped, setPopped] = useState(false);
+  const prevVal = useRef(val);
+
+  useEffect(() => {
+    if (prevVal.current !== val) {
+      setPopped(true);
+      const t = setTimeout(() => setPopped(false), 360);
+      prevVal.current = val;
+      return () => clearTimeout(t);
+    }
+  }, [val]);
 
   // Darker shade for gradient start (Apple Activity style)
   const darkenColor = (hex, amount = 30) => {
@@ -1107,7 +1422,11 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-[16px] font-bold num" style={{ color: TEXT, lineHeight: 1, letterSpacing: '-0.02em' }}>
+          <div className="text-[16px] font-bold num" style={{
+            color: TEXT, lineHeight: 1, letterSpacing: '-0.02em',
+            transform: popped ? 'scale(1.18)' : 'scale(1)',
+            transition: 'transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          }}>
             {Math.round(val)}
           </div>
           <div className="text-[9px] num mt-0.5 font-semibold" style={{ color: TEXT_LIGHT }}>
@@ -1126,19 +1445,17 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
 function ActionChipMini({ icon, label, color, pastel, onClick }) {
   return (
     <button onClick={onClick}
-      className="flex flex-col items-center gap-2 p-3 rounded-2xl transition hover:scale-[1.03] active:scale-[0.97]"
+      className="flex items-center gap-3 px-3.5 py-3.5 rounded-2xl transition active:scale-[0.97]"
       style={{
-        background: 'rgba(255,255,255,0.55)',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-        border: `1px solid rgba(255,255,255,0.7)`,
-        boxShadow: '0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 16px rgba(0,0,0,0.04)',
-        transitionDuration: '0.2s'
+        background: 'rgba(255,255,255,0.7)',
+        border: `1px solid rgba(0,0,0,0.05)`,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+        transitionDuration: '0.18s'
       }}>
-      <div className="p-2 rounded-xl" style={{ background: pastel || `${color}25`, color: color }}>
+      <div className="shrink-0" style={{ color: TEXT }}>
         {icon}
       </div>
-      <div className="text-[11px] font-semibold leading-tight text-center px-0.5" style={{ color: TEXT }}>{label}</div>
+      <div className="text-[12.5px] font-medium leading-tight text-left" style={{ color: TEXT }}>{label}</div>
     </button>
   );
 }
@@ -1160,11 +1477,25 @@ function DaySeparator({ date }) {
 function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite }) {
   if (message.isDaySeparator) return <DaySeparator date={message.date} />;
 
+  if (message.isInfo) {
+    return (
+      <div className="flex justify-center fade-up">
+        <div className="px-4 py-2 rounded-full text-[12px] font-medium flex items-center gap-2" style={{
+          background: ACCENT_PASTEL + '50', color: ACCENT_DARK, letterSpacing: '0.01em',
+        }}>
+          <CheckCircle2 size={12} strokeWidth={2.2} />
+          {message.content}
+        </div>
+      </div>
+    );
+  }
+
   if (message.role === 'user') {
     return (
       <div className="flex justify-end fade-up">
         <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-br-md text-[15px]" style={{
-          background: ACCENT_PASTEL, color: TEXT, fontWeight: 500, lineHeight: 1.4
+          background: ACCENT_PASTEL, color: TEXT, fontWeight: 500, lineHeight: 1.4,
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13)'
         }}>
           {message.content}
         </div>
@@ -1176,7 +1507,10 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: SURFACE, border: `1px solid ${BORDER}`
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="mb-3" style={{ color: TEXT }}>{message.content}</div>
           <div className="space-y-2 text-xs" style={{ color: TEXT_MUTED }}>
@@ -1201,7 +1535,10 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
     return (
       <div className="flex justify-start fade-up">
         <div className="px-4 py-2.5 rounded-2xl rounded-bl-md text-sm flex items-center gap-2" style={{
-          background: SURFACE, border: `1px solid ${BORDER}`
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <Droplet size={14} style={{ color: C_WATER }} />
           <span style={{ color: TEXT }}>+{message.ml} ml registrados</span>
@@ -1215,7 +1552,10 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[85%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: SURFACE, border: `1px solid ${BORDER}`
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Info size={12} style={{ color: ACCENT }} />
@@ -1253,7 +1593,10 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: SURFACE, border: `1px solid ${BORDER}`
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -1329,13 +1672,16 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: SURFACE, border: `1px solid ${BORDER}`
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-3">
-            <div className="p-1 rounded-full" style={{ background: C_PROTEIN_PASTEL + '60' }}>
-              <Sparkles size={11} style={{ color: C_PROTEIN }} />
+            <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
+              <Sparkles size={11} style={{ color: ACCENT }} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: C_PROTEIN }}>Proporciones</span>
+            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>Proporciones</span>
           </div>
           <div className="space-y-2 mb-3">
             {d.proportions?.map((p, i) => (
@@ -1366,7 +1712,10 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: SURFACE, border: `1px solid ${BORDER}`
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-3">
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
@@ -1423,7 +1772,10 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: SURFACE, border: `1px solid ${BORDER}`
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-3">
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
@@ -1445,7 +1797,11 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
   return (
     <div className="flex justify-start fade-up">
       <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md text-[15px] whitespace-pre-wrap" style={{
-        background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT, lineHeight: 1.5
+        background: 'rgba(255,255,255,0.72)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        color: TEXT, lineHeight: 1.5,
+        boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
       }}>
         {message.content}
       </div>
@@ -2266,31 +2622,24 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
           filter: 'blur(90px)'
         }} />
 
-        {/* Single signature ring — fills progressively like a macro register */}
-        <svg className="absolute" style={{
-          top: '-220px', right: '-220px', width: '480px', height: '480px',
-        }} viewBox="0 0 480 480">
-          <defs>
-            <linearGradient id="welcomeRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor={ACCENT} stopOpacity="0.55" />
-              <stop offset="100%" stopColor={ACCENT} stopOpacity="0.25" />
-            </linearGradient>
-          </defs>
-          {/* Track */}
-          <circle cx="240" cy="240" r="220"
-            fill="none"
-            stroke="rgba(120,130,140,0.12)"
-            strokeWidth="22" />
-          {/* Animated progress fill */}
-          <circle cx="240" cy="240" r="220"
-            fill="none"
-            stroke="url(#welcomeRingGrad)"
-            strokeWidth="22"
-            strokeLinecap="round"
-            strokeDasharray="1382"
-            transform="rotate(-90 240 240)"
-            className="ring-fill" />
-        </svg>
+        {/* Editorial avocado image — integrates with background */}
+        <img src="/avocado.png" alt=""
+          onError={(e) => { e.target.style.display = 'none'; }}
+          style={{
+            position: 'absolute',
+            top: '50%',
+            right: '-90px',
+            transform: 'translateY(-50%) rotate(8deg)',
+            width: '380px',
+            height: 'auto',
+            opacity: 0.88,
+            mixBlendMode: 'multiply',
+            filter: 'drop-shadow(0 30px 50px rgba(80,90,60,0.25)) contrast(1.05) saturate(1.1)',
+            maskImage: 'radial-gradient(ellipse at center, black 60%, transparent 95%)',
+            WebkitMaskImage: 'radial-gradient(ellipse at center, black 60%, transparent 95%)',
+            pointerEvents: 'none',
+            userSelect: 'none'
+          }} />
       </div>
 
       {/* Content above background */}
@@ -2340,7 +2689,7 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
       </div>
 
       {/* Bottom: actions */}
-      <div className="max-w-md w-full mx-auto pb-4 fade-up-4 relative" style={{ zIndex: 1 }}>
+      <div className="max-w-md w-full mx-auto pb-16 fade-up-4 relative" style={{ zIndex: 1 }}>
 
         {/* How it works — prominent secondary action ABOVE Empezar */}
         <button onClick={onTutorial}
@@ -2551,7 +2900,7 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
               </div>
               <div className="h-[2px] w-12 mt-1 mb-4 rounded-full" style={{ background: ACCENT }} />
               <div className="text-[15px] mb-5 leading-relaxed" style={{ color: TEXT_MUTED }}>
-                Escribe tu <strong style={{ color: TEXT }}>nombre y apellido</strong> exactamente como lo registraste con tu coach.
+                Escribe tu <strong style={{ color: TEXT }}>nombre y apellido</strong>.
               </div>
               <input value={name}
                 onChange={e => { setName(e.target.value); setNameError(''); }}
@@ -2627,7 +2976,7 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
         </div>
 
         <div className="text-center mt-6 text-[10px]" style={{ color: TEXT_LIGHT }}>
-          Tus datos se guardan localmente en este navegador.
+          Tus datos se guardan localmente. Cada semana se envía un resumen a tu coach.
         </div>
       </div>
     </div>
