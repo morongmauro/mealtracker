@@ -2623,21 +2623,26 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
           filter: 'blur(90px)'
         }} />
 
-        {/* Editorial avocado image — side decoration */}
+        {/* Editorial avocado image — full background */}
         <img src="/avocado.png" alt=""
           onError={(e) => { e.target.style.display = 'none'; }}
           style={{
             position: 'absolute',
-            top: '50%',
-            right: '0',
-            transform: 'translateY(-50%)',
-            width: '55%',
-            maxWidth: '420px',
-            height: 'auto',
-            objectFit: 'contain',
-            opacity: 1,
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center',
+            opacity: 0.85,
             pointerEvents: 'none',
             userSelect: 'none'
+        }} />
+        {/* Readability overlay — soft fade from left so text stays legible over the image */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(90deg, rgba(249,247,241,0.92) 0%, rgba(249,247,241,0.75) 35%, rgba(249,247,241,0.35) 70%, rgba(249,247,241,0.15) 100%)',
+          pointerEvents: 'none'
         }} />
       </div>
 
