@@ -952,10 +952,8 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       `}</style>
 
       {/* Background blobs removed for cleaner look */}
-
-      <div className="relative max-w-2xl mx-auto px-5 pt-5 pb-32" style={{ zIndex: 1 }}>
-
-        {/* Header — full-width app bar */}
+      
+      {/* Header — full-width app bar */}
       <div className="relative w-full overflow-hidden" style={{
         background: '#0E0E0E',
         color: '#FFF',
