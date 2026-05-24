@@ -952,13 +952,13 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       `}</style>
 
       {/* Background blobs removed for cleaner look */}
-      
-      {/* Header — full-width app bar */}
-      <div className="relative w-full overflow-hidden" style={{
+
+      {/* Header — full-width app bar (sticky) */}
+      <div className="sticky top-0 w-full overflow-hidden" style={{
         background: '#0E0E0E',
         color: '#FFF',
         boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
-        zIndex: 2
+        zIndex: 50
       }}>
         <div className="absolute inset-0 pointer-events-none opacity-40" style={{
           background: `radial-gradient(circle at 90% 30%, ${ACCENT}40, transparent 55%)`
@@ -981,8 +981,10 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
 
       <div className="relative max-w-2xl mx-auto px-5 pt-3 pb-32" style={{ zIndex: 1 }}>
 
+
         {/* Goals card — sticky white glass with organic touch */}
-        <div className="sticky top-0 z-30 -mx-5 px-5 pt-2 pb-3" style={{
+        <div className="sticky z-30 -mx-5 px-5 pt-2 pb-3" style={{
+          top: '40px',
           background: 'linear-gradient(180deg, #F9F7F1 0%, rgba(249,247,241,0.92) 80%, rgba(249,247,241,0.6) 100%)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
@@ -2621,24 +2623,27 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
           filter: 'blur(90px)'
         }} />
 
-        {/* Editorial avocado image — integrates with background */}
+        {/* Editorial avocado image — full background */}
         <img src="/avocado.png" alt=""
           onError={(e) => { e.target.style.display = 'none'; }}
           style={{
             position: 'absolute',
-            top: '50%',
-            right: '-90px',
-            transform: 'translateY(-50%) rotate(8deg)',
-            width: '380px',
-            height: 'auto',
-            opacity: 0.88,
-            mixBlendMode: 'multiply',
-            filter: 'drop-shadow(0 30px 50px rgba(80,90,60,0.25)) contrast(1.05) saturate(1.1)',
-            maskImage: 'radial-gradient(ellipse at center, black 60%, transparent 95%)',
-            WebkitMaskImage: 'radial-gradient(ellipse at center, black 60%, transparent 95%)',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center',
+            opacity: 0.95,
             pointerEvents: 'none',
             userSelect: 'none'
           }} />
+        {/* Soft white overlay so text remains readable */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(180deg, rgba(249,247,241,0.55) 0%, rgba(249,247,241,0.35) 50%, rgba(249,247,241,0.75) 100%)',
+          pointerEvents: 'none'
+        }} />
       </div>
 
       {/* Content above background */}
