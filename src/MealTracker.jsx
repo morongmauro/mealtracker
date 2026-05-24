@@ -955,32 +955,33 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
 
       <div className="relative max-w-2xl mx-auto px-5 pt-5 pb-32" style={{ zIndex: 1 }}>
 
-        {/* Header — slim app-style bar */}
-        <div className="rounded-2xl px-4 py-3 mb-3 relative overflow-hidden" style={{
-          background: '#0E0E0E',
-          color: '#FFF',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.18)'
-        }}>
-          <div className="absolute inset-0 pointer-events-none opacity-40" style={{
-            background: `radial-gradient(circle at 90% 30%, ${ACCENT}40, transparent 55%)`
-          }} />
-          <div className="relative">
-            <div className="display font-normal" style={{
-              color: '#FFF',
-              fontSize: '24px',
-              lineHeight: 1,
-              letterSpacing: '0.03em',
-              textTransform: 'uppercase'
-            }}>
-              Meal Tracker
-            </div>
-            <div className="text-[10px] mt-1.5" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.01em', lineHeight: 1.4 }}>
-              <span style={{ color: ACCENT_PASTEL, fontWeight: 600 }}>Entrena con Método</span>
-              {' · '}
-              <span>Mauro Morón · ISSA Certified Fitness and Nutrition Coach</span>
-            </div>
+        {/* Header — full-width app bar */}
+      <div className="relative w-full overflow-hidden" style={{
+        background: '#0E0E0E',
+        color: '#FFF',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+        zIndex: 2
+      }}>
+        <div className="absolute inset-0 pointer-events-none opacity-40" style={{
+          background: `radial-gradient(circle at 90% 30%, ${ACCENT}40, transparent 55%)`
+        }} />
+        <div className="relative max-w-2xl mx-auto px-5 py-2 flex items-center gap-3">
+          <div className="display font-normal" style={{
+            color: '#FFF',
+            fontSize: '18px',
+            lineHeight: 1,
+            letterSpacing: '0.03em',
+            textTransform: 'uppercase'
+          }}>
+            Meal Tracker
+          </div>
+          <div style={{ color: ACCENT_PASTEL, fontWeight: 600, fontSize: '10px', letterSpacing: '0.02em' }}>
+            Entrena con Método
           </div>
         </div>
+      </div>
+
+      <div className="relative max-w-2xl mx-auto px-5 pt-3 pb-32" style={{ zIndex: 1 }}>
 
         {/* Goals card — sticky white glass with organic touch */}
         <div className="sticky top-0 z-30 -mx-5 px-5 pt-2 pb-3" style={{
