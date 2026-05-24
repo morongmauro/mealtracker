@@ -2638,7 +2638,8 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
             opacity: 1,
             pointerEvents: 'none',
             userSelect: 'none'
-          }} />
+        }} />
+      </div>
 
       {/* Content above background */}
       <div className="relative" style={{ zIndex: 1 }}>
