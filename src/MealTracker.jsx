@@ -475,15 +475,22 @@ export default function MealTracker() {
       const sentRes = await window.storage.get(key).catch(() => null);
       if (sentRes?.value) return; // already sent today
       if (entries.length === 0) return; // no data to summarize
+      // Recompute totals locally to avoid TDZ on outer `totals`
+      const t = entries.reduce((acc, e) => ({
+        kcal: acc.kcal + (e.kcal || 0),
+        p: acc.p + (e.p || 0),
+        c: acc.c + (e.c || 0),
+        g: acc.g + (e.g || 0),
+      }), { kcal: 0, p: 0, c: 0, g: 0 });
       const firstName = name ? name.split(' ')[0] : '';
       const intro = firstName ? `${firstName}, ` : '';
       const diff = (v, g) => v - g;
-      const pDiff = diff(totals.p, goals.p);
-      const cDiff = diff(totals.c, goals.c);
-      const gDiff = diff(totals.g, goals.g);
-      const kDiff = diff(totals.kcal, goals.kcal);
+      const pDiff = diff(t.p, goals.p);
+      const cDiff = diff(t.c, goals.c);
+      const gDiff = diff(t.g, goals.g);
+      const kDiff = diff(t.kcal, goals.kcal);
       const inRange = (v, g, tol = 0.07) => Math.abs(v - g) <= g * tol;
-      const allInRange = inRange(totals.kcal, goals.kcal) && inRange(totals.p, goals.p) && inRange(totals.c, goals.c) && inRange(totals.g, goals.g);
+      const allInRange = inRange(t.kcal, goals.kcal) && inRange(t.p, goals.p) && inRange(t.c, goals.c) && inRange(t.g, goals.g);
       let narrative;
       if (allInRange) {
         narrative = `${intro}cerraste el día en línea con las cuatro metas. Día sólido. Mañana seguimos con el mismo ritmo.`;
@@ -498,7 +505,7 @@ export default function MealTracker() {
         const ajuste = main.diff > 0
           ? `mañana moderamos ${main.name} desde el desayuno`
           : `mañana sumamos ${main.name} desde el desayuno`;
-        narrative = `${intro}cerraste con ${totals.kcal} kcal (meta ${goals.kcal}, ${kDiff >= 0 ? '+' : ''}${kDiff}). ${main.name.charAt(0).toUpperCase() + main.name.slice(1)} quedó ${Math.abs(main.diff)}${main.unit} ${dir}. Plan: ${ajuste}.`;
+        narrative = `${intro}cerraste con ${t.kcal} kcal (meta ${goals.kcal}, ${kDiff >= 0 ? '+' : ''}${kDiff}). ${main.name.charAt(0).toUpperCase() + main.name.slice(1)} quedó ${Math.abs(main.diff)}${main.unit} ${dir}. Plan: ${ajuste}.`;
       }
       setMessages(m => [...m, { role: 'assistant', content: narrative, ts: Date.now() }]);
       await window.storage.set(key, JSON.stringify(Date.now())).catch(() => {});
@@ -506,7 +513,7 @@ export default function MealTracker() {
     const timer = setTimeout(check, 6000);
     const interval = setInterval(check, 5 * 60 * 1000); // re-check every 5 min in case user is on app
     return () => { clearTimeout(timer); clearInterval(interval); };
-  }, [view, name, today, goals, entries.length, totals.kcal]);
+  }, [view, name, today, goals, entries]);
 
   // Midnight watcher: detects day change while app is open, archives entries, resets rings
   useEffect(() => {
