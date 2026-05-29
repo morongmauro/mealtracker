@@ -107,6 +107,7 @@ export default function MealTracker() {
   const [showPlannerModal, setShowPlannerModal] = useState(false);
   const [plannerProposal, setPlannerProposal] = useState(null); // result from LLM
   const [plannerLoading, setPlannerLoading] = useState(false);
+  const [showCapabilitiesModal, setShowCapabilitiesModal] = useState(false);
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
   const voiceInputRef = useRef(false);
@@ -456,7 +457,7 @@ export default function MealTracker() {
       setMessages(m => [...m, {
         role: 'assistant',
         isFavSuggestion: true,
-        content: `${firstName ? firstName + ', ' : ''}veo que ya llevás varios días registrando. Si me decís qué ingredientes solés comprar, te puedo armar el día con eso cuando quieras y no perdés tiempo decidiendo. ¿Te interesa?`,
+        content: `${firstName ? firstName + ', ' : ''}veo que ya llevas varios días registrando. Si me dices qué ingredientes sueles comprar, te puedo armar el día con eso cuando quieras y no pierdes tiempo decidiendo. ¿Te interesa?`,
         ts: Date.now()
       }]);
     };
@@ -560,10 +561,37 @@ export default function MealTracker() {
   }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    // Scroll to bottom using window (the body scrolls, not the chat div)
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    });
   }, [messages, loading]);
+
+  // On mount/load: jump (no animation) to the last message so users open at the most recent
+  useEffect(() => {
+    if (view === 'main' && messages.length > 0) {
+      // Use a small delay so layout settles first
+      const t = setTimeout(() => {
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
+      }, 80);
+      return () => clearTimeout(t);
+    }
+  }, [view]);
+
+  // Track if user is scrolled away from bottom (to show "go to latest" button)
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  useEffect(() => {
+    const onScroll = () => {
+      const docH = document.documentElement.scrollHeight;
+      const winH = window.innerHeight;
+      const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      const distFromBottom = docH - winH - scrollY;
+      setShowJumpToLatest(distFromBottom > 220);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [messages.length]);
 
   useEffect(() => {
     if (view === 'main') {
@@ -693,6 +721,13 @@ export default function MealTracker() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Listen for "open capabilities" custom event dispatched from welcome card
+  useEffect(() => {
+    const handler = () => setShowCapabilitiesModal(true);
+    window.addEventListener('openCapabilities', handler);
+    return () => window.removeEventListener('openCapabilities', handler);
+  }, []);
+
   // Persist frequentItems & wellbeing when they change
   useEffect(() => {
     if (Object.keys(frequentItems).length > 0) {
@@ -745,13 +780,13 @@ SCHEMA:
   "warning": "string | null"
 }`;
     try {
-      const result = await callClaude('Armá la distribución del día con los ingredientes que te di.', sys);
+      const result = await callClaude('Arma la distribución del día con los ingredientes que te di.', sys);
       const clean = result.replace(/```json|```/g, '').trim();
       const match = clean.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(match ? match[0] : clean);
       setPlannerProposal(parsed);
     } catch (e) {
-      setPlannerProposal({ error: 'No pude armar la propuesta ahora. Probá de nuevo en un momento.' });
+      setPlannerProposal({ error: 'No pude armar la propuesta ahora. Prueba de nuevo en un momento.' });
     }
     setPlannerLoading(false);
   };
@@ -795,7 +830,7 @@ SCHEMA:
     setFavorites(f => [...f, ...newFavorites]);
     setPlannerProposal(null);
     setShowPlannerModal(false);
-    setMessages(m => [...m, { role: 'assistant', content: 'Guardé esa propuesta en tus menús favoritos. Los podés usar cuando quieras.', ts: Date.now() }]);
+    setMessages(m => [...m, { role: 'assistant', content: 'Guardé esa propuesta en tus menús favoritos. Los puedes usar cuando quieras.', ts: Date.now() }]);
   };
 
   const trackFrequency = (items) => {
@@ -947,7 +982,7 @@ ${contextSnippet}
 - Si el texto incluye "ah me acordé que comí también X", "olvidé decirte X", "me faltó X", "agregale X a lo de antes" Y hay última comida → SIEMPRE intent=append_to_last.
 - Si menciona nombre propio en saludo ("soy Juan", "me llamo Ana") → intent=name, name_detected.
 - "direct" tipo "250 kcal 22p 30c 5g" → intent=log_meal con 1 item.
-- Si SOLO saluda ("hola", "buenas") sin comida → intent=off_topic, message="Hola${name ? ' ' + name.split(' ')[0] : ''}, contame qué comiste y lo registro."
+- Si SOLO saluda ("hola", "buenas") sin comida → intent=off_topic, message="Hola${name ? ' ' + name.split(' ')[0] : ''}, cuéntame qué comiste y lo registro."
 - Si pregunta qué comer / dieta → intent=off_topic, message="Yo calculo y registro. La recomendación es trabajo de Mauro. Para criterio personalizado escribile directo."
 - Números enteros realistas. SIEMPRE llenar "preview" salvo en off_topic/clarify/name.
 - needs_quantity SIEMPRE false (estima si no se especifica, deja nota en quantity_warning).`;
@@ -1063,7 +1098,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       // NAME only
       if (intent === 'name') {
         const firstName = parsed.name_detected ? parsed.name_detected.split(' ')[0] : '';
-        setMessages(m => [...m, { role: 'assistant', content: firstName ? `Listo, ${firstName}. Cuando comas, contame y registro.` : 'Listo. Cuando comas, contame y registro.', ts: Date.now() }]);
+        setMessages(m => [...m, { role: 'assistant', content: firstName ? `Listo, ${firstName}. Cuando comas, cuéntame y registro.` : 'Listo. Cuando comas, cuéntame y registro.', ts: Date.now() }]);
         setLoading(false); setLoadingPreview('');
         return;
       }
@@ -1108,7 +1143,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           } else {
             setMessages(m => [...m, {
               role: 'assistant',
-              content: 'Indicame qué alimentos tenés disponibles. Calculo proporciones para cuadrar tus macros faltantes.\n\nEjemplo: "tengo pollo, arroz integral, brócoli y aceite de oliva"',
+              content: 'Indicame qué alimentos tienes disponibles. Calculo proporciones para cuadrar tus macros faltantes.\n\nEjemplo: "tengo pollo, arroz integral, brócoli y aceite de oliva"',
               ts: Date.now()
             }]);
           }
@@ -1182,7 +1217,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       const greeting = firstName ? `${firstName}, ` : '';
       setMessages(m => [...m, {
         role: 'assistant',
-        content: `${greeting}contame con un poco más de detalle qué comiste, así lo registro bien. Ej: "almuerzo: 150g pollo, taza de arroz, ensalada".`,
+        content: `${greeting}cuéntame con un poco más de detalle qué comiste, así lo registro bien. Ej: "almuerzo: 150g pollo, taza de arroz, ensalada".`,
         ts: Date.now()
       }]);
     } catch (e) {
@@ -1190,8 +1225,8 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       const firstName = name ? name.split(' ')[0] : '';
       const greeting = firstName ? `${firstName}, ` : '';
       const msg = isOverload
-        ? `${greeting}el servicio está saturado un momento. Probá de nuevo en unos segundos.`
-        : `${greeting}tuve un problema procesando eso. ¿Podés volver a escribirlo o agregar un detalle más?`;
+        ? `${greeting}el servicio está saturado un momento. Prueba de nuevo en unos segundos.`
+        : `${greeting}tuve un problema procesando eso. ¿Puedes volver a escribirlo o agregar un detalle más?`;
       setMessages(m => [...m, { role: 'assistant', content: msg, ts: Date.now() }]);
     }
 
@@ -1403,12 +1438,14 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
 
       {/* Background blobs removed for cleaner look */}
 
-      {/* Header — full-width app bar (sticky) */}
+      {/* Header — full-width app bar (sticky, robust against iOS keyboard) */}
       <div className="sticky top-0 w-full overflow-hidden" style={{
         background: '#1F1F1F',
         color: '#FFF',
         boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
-        zIndex: 50
+        zIndex: 50,
+        transform: 'translate3d(0, 0, 0)',
+        willChange: 'transform'
       }}>
         <div className="absolute inset-0 pointer-events-none opacity-40" style={{
           background: `radial-gradient(circle at 90% 30%, ${ACCENT}40, transparent 55%)`
@@ -1432,7 +1469,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       <div className="relative max-w-2xl mx-auto px-5 pt-3 pb-32" style={{ zIndex: 1 }}>
 
 
-        {/* Goals card — sticky white glass; shrinks on scroll */}
+        {/* Goals card — sticky white glass; shrinks on scroll. Robust against iOS keyboard. */}
         <div className="sticky z-30 -mx-5 px-5" style={{
           top: '40px',
           paddingTop: cardCompact ? '4px' : '8px',
@@ -1440,7 +1477,9 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           background: 'linear-gradient(180deg, #F9F7F1 0%, rgba(249,247,241,0.92) 80%, rgba(249,247,241,0.6) 100%)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
-          transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)'
+          transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)',
+          transform: 'translate3d(0, 0, 0)',
+          willChange: 'transform'
         }}>
         <div className="rounded-3xl relative" style={{
           padding: cardCompact ? '8px 12px' : '16px',
@@ -1556,7 +1595,9 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2.5">
-                <ActionChipMini icon={<ChefHat size={19} strokeWidth={1.75} />} label="Armá mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                <ActionChipMini icon={<Info size={19} strokeWidth={1.75} />} label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                  onClick={() => { haptic(8); setShowCapabilitiesModal(true); setActionsExpanded(false); }} />
+                <ActionChipMini icon={<ChefHat size={19} strokeWidth={1.75} />} label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                   onClick={() => { haptic(8); setShowPlannerModal(true); setActionsExpanded(false); generatePlan(); }} />
                 <ActionChipMini icon={<Utensils size={19} strokeWidth={1.75} />} label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
                   onClick={() => { haptic(8); setShowIngredientsModal(true); setActionsExpanded(false); }} />
@@ -1675,6 +1716,26 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       </div>
 
       {/* Input bar */}
+      {/* Jump-to-latest floating arrow — appears when scrolled away from bottom */}
+      {showJumpToLatest && (
+        <button
+          onClick={() => { haptic(6); window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }); }}
+          className="fixed z-40 rounded-full transition active:scale-90 flex items-center justify-center"
+          style={{
+            bottom: keyboardOpen ? '156px' : '170px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '40px',
+            height: '40px',
+            background: 'rgba(255,255,255,0.95)',
+            color: TEXT,
+            boxShadow: '0 6px 18px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04) inset'
+          }}
+          title="Ir al último mensaje">
+          <ChevronDown size={18} strokeWidth={2.2} style={{ color: TEXT_MUTED }} />
+        </button>
+      )}
+
       <div className="fixed bottom-0 left-0 right-0 px-4 pb-5 pt-6 z-40" style={{
         background: `linear-gradient(180deg, transparent, ${BG}E6 30%, ${BG} 100%)`,
         display: actionsExpanded ? 'none' : 'block'
@@ -1837,14 +1898,20 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           onEditIngredients={() => { setShowPlannerModal(false); setShowIngredientsModal(true); }}
           onClose={() => { setShowPlannerModal(false); setPlannerProposal(null); }} />
       )}
+
+      {showCapabilitiesModal && (
+        <CapabilitiesModal onClose={() => setShowCapabilitiesModal(false)} />
+      )}
     </div>
   );
 }
 
 function composeDayOpening(name, yesterday, goals) {
   const firstName = name ? name.split(' ')[0] : '';
-  const intro = firstName ? `${firstName}. ` : '';
-  if (!yesterday || !goals) return `${intro}Día nuevo. La primera comida la marco como desayuno.`;
+  const greeting = firstName ? `Hola ${firstName}, bienvenido(a) de vuelta.` : 'Bienvenido(a) de vuelta.';
+  if (!yesterday || !goals) {
+    return `${greeting} Empecemos a registrar. Cuéntame qué comiste hoy o pregúntame las calorías y macros de cualquier alimento. También puedo armar tu día si me dices qué ingredientes te gustan.`;
+  }
 
   const tolerance = 0.05;
   const inRange = (val, goal) => val >= goal * (1 - tolerance) && val <= goal * (1 + tolerance);
@@ -1852,22 +1919,27 @@ function composeDayOpening(name, yesterday, goals) {
   const cDiff = goals.c - yesterday.c;
   const gDiff = goals.g - yesterday.g;
 
-  if (inRange(yesterday.kcal, goals.kcal) && inRange(yesterday.p, goals.p) &&
+  let dayNote;
+  if (yesterday.kcal === 0) {
+    dayNote = 'Ayer no quedó registro. Hoy lo retomamos sin presión.';
+  } else if (inRange(yesterday.kcal, goals.kcal) && inRange(yesterday.p, goals.p) &&
       inRange(yesterday.c, goals.c) && inRange(yesterday.g, goals.g)) {
-    return `${intro}Ayer cerraste con precisión en las cuatro metas. Hoy seguimos.`;
+    dayNote = 'Ayer cerraste con precisión en las cuatro metas. Hoy seguimos en ese ritmo.';
+  } else {
+    const offBy = [
+      { name: 'proteína', diff: pDiff, abs: Math.abs(pDiff), unit: 'g' },
+      { name: 'carbohidratos', diff: cDiff, abs: Math.abs(cDiff), unit: 'g' },
+      { name: 'grasas', diff: gDiff, abs: Math.abs(gDiff), unit: 'g' },
+    ].sort((a, b) => b.abs - a.abs)[0];
+    if (offBy.abs < 10) {
+      dayNote = 'Ayer cerraste muy cerca de las metas. Hoy ajustamos los detalles.';
+    } else if (offBy.diff > 0) {
+      dayNote = `Ayer cerraste con ${offBy.name} bajo por ${offBy.abs}${offBy.unit}. Hoy podemos compensar desde el desayuno.`;
+    } else {
+      dayNote = `Ayer cerraste con ${offBy.name} ${offBy.abs}${offBy.unit} por encima. Hoy moderamos.`;
+    }
   }
-
-  const offBy = [
-    { name: 'proteína', diff: pDiff, abs: Math.abs(pDiff), unit: 'g' },
-    { name: 'carbohidratos', diff: cDiff, abs: Math.abs(cDiff), unit: 'g' },
-    { name: 'grasas', diff: gDiff, abs: Math.abs(gDiff), unit: 'g' },
-  ].sort((a, b) => b.abs - a.abs)[0];
-
-  if (yesterday.kcal === 0) return `${intro}Ayer no hubo registro. Empezamos.`;
-  if (offBy.abs < 10) return `${intro}Ayer cerraste cerca de las metas. Hoy ajustamos los detalles.`;
-
-  if (offBy.diff > 0) return `${intro}Ayer cerraste con ${offBy.name} bajo por ${offBy.abs}${offBy.unit}. Hoy podemos compensar desde el desayuno.`;
-  return `${intro}Ayer cerraste con ${offBy.name} ${offBy.abs}${offBy.unit} por encima. Hoy moderamos.`;
+  return `${greeting} ${dayNote}`;
 }
 
 function FontStyles() {
@@ -2082,20 +2154,30 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
           WebkitBackdropFilter: 'blur(20px) saturate(180%)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
-          <div className="mb-3" style={{ color: TEXT }}>{message.content}</div>
+          <div className="mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>{message.content}</div>
           <div className="space-y-2 text-xs" style={{ color: TEXT_MUTED }}>
             <div className="flex items-start gap-2">
-              <Star size={11} style={{ color: C_CARBS, marginTop: 2, flexShrink: 0 }} />
-              <span>Las comidas que repites guárdalas en <strong style={{ color: TEXT }}>menús favoritos</strong>.</span>
+              <Utensils size={11} style={{ color: ACCENT_DARK, marginTop: 2, flexShrink: 0 }} />
+              <span>Registra lo que comiste en lenguaje natural: <em>"2 huevos, avena con plátano y café"</em>.</span>
             </div>
             <div className="flex items-start gap-2">
               <Info size={11} style={{ color: ACCENT, marginTop: 2, flexShrink: 0 }} />
-              <span>Pregunta macros sin registrar: <em>"¿calorías de una manzana?"</em></span>
+              <span>Consulta macros sin registrar: <em>"¿cuántas calorías tiene una manzana?"</em></span>
+            </div>
+            <div className="flex items-start gap-2">
+              <ChefHat size={11} style={{ color: ACCENT_DARK, marginTop: 2, flexShrink: 0 }} />
+              <span>Dime tus ingredientes habituales y te <strong style={{ color: TEXT }}>armo el día</strong>: <em>"armame el día con lo que me gusta"</em>.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <Mic size={11} style={{ color: C_PROTEIN, marginTop: 2, flexShrink: 0 }} />
+              <span>También puedes dictar por voz. Toca el micrófono.</span>
             </div>
           </div>
-          <div className="mt-3 pt-3 border-t text-[11px]" style={{ borderColor: BORDER_SOFT, color: ACCENT_DARK }}>
-            👇 Escribe abajo lo que comiste, en lenguaje natural.
-          </div>
+          <button onClick={() => { haptic(8); window.dispatchEvent(new CustomEvent('openCapabilities')); }}
+            className="mt-3 w-full py-2.5 rounded-xl text-[12px] font-semibold transition active:scale-[0.98] flex items-center justify-center gap-1.5"
+            style={{ background: '#1F1F1F', color: '#fff' }}>
+            <Info size={12} /> ¿Qué puedo hacer aquí?
+          </button>
         </div>
       </div>
     );
@@ -3036,6 +3118,114 @@ function ExportModal({ name, goals, history, historyDetail, today, todayEntries,
   );
 }
 
+function CapabilitiesModal({ onClose }) {
+  const Section = ({ icon, title, items, accent }) => (
+    <div className="mb-5">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="p-1.5 rounded-lg" style={{ background: (accent || ACCENT) + '20', color: accent || ACCENT_DARK }}>
+          {icon}
+        </div>
+        <div className="text-[13px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT }}>{title}</div>
+      </div>
+      <ul className="space-y-1.5 text-[13px]" style={{ color: TEXT_MUTED, lineHeight: 1.55 }}>
+        {items.map((it, i) => (
+          <li key={i} className="flex gap-2 pl-1">
+            <span style={{ color: accent || ACCENT, marginTop: 1 }}>•</span>
+            <span>{it}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
+  return (
+    <ModalShell onClose={onClose} maxWidth="max-w-lg">
+      <ModalHeader accent={ACCENT_DARK} label="Guía" title="¿Qué puedo hacer aquí?" onClose={onClose} />
+      <div className="text-[13px] mb-5" style={{ color: TEXT_MUTED, lineHeight: 1.6 }}>
+        Esto no es un coach. Es una herramienta para que registres tu día sin fricción y para que tu coach tenga información real para trabajar contigo.
+      </div>
+
+      <Section
+        icon={<Utensils size={14} strokeWidth={1.8} />}
+        title="Registrar comidas"
+        accent={ACCENT_DARK}
+        items={[
+          'Escribe lo que comiste en lenguaje natural: "2 huevos, avena con plátano y café".',
+          'Si olvidaste un alimento, dime: "se me olvidó, también comí un huevo" y lo sumo a la última comida.',
+          'También puedes dictar por voz tocando el micrófono.',
+          'Si no especificas gramos, estimo con valores estándar (USDA) y te aviso.',
+        ]} />
+
+      <Section
+        icon={<Info size={14} strokeWidth={1.8} />}
+        title="Consultar sin registrar"
+        accent={ACCENT}
+        items={[
+          'Pregunta calorías y macros de cualquier alimento: "¿cuántas calorías tiene una manzana?".',
+          'Funciona también con marcas comerciales y porciones: "¿macros de 100g de pollo?".',
+          'Si solo es consulta, no lo registro como comida del día.',
+        ]} />
+
+      <Section
+        icon={<ChefHat size={14} strokeWidth={1.8} />}
+        title="Armar tu día con tus ingredientes"
+        accent={ACCENT_DARK}
+        items={[
+          'Guarda en "Mis ingredientes" lo que sueles comprar y comer.',
+          'Pide: "armame el día con lo que me gusta" y propongo una distribución en desayuno, almuerzo, snack y cena que llega a tu meta.',
+          'No es recetario: solo distribución y macros de alimentos cocidos.',
+          'Decides si lo registras, lo guardas como favorito o regeneras otra variante.',
+        ]} />
+
+      <Section
+        icon={<PieChart size={14} strokeWidth={1.8} />}
+        title="Cuadrar macros faltantes"
+        accent={C_PROTEIN}
+        items={[
+          'Si te faltan macros y tienes algunos ingredientes, dime cuáles tienes.',
+          'Te devuelvo gramos exactos para cuadrar. Solo matemática, no recetas.',
+          'Ejemplo: "tengo pollo, arroz y aceite, qué proporciones uso".',
+        ]} />
+
+      <Section
+        icon={<Star size={14} strokeWidth={1.8} />}
+        title="Favoritos y atajos"
+        accent={C_CARBS}
+        items={[
+          'Toca la estrella en cualquier comida para guardarla como menú favorito y reutilizarla.',
+          'Usa "Repetir comida de ayer" desde acciones para clonar el último registro del día anterior.',
+          'Arriba del input ves tus alimentos más frecuentes para tocarlos y registrar rápido.',
+        ]} />
+
+      <Section
+        icon={<FileText size={14} strokeWidth={1.8} />}
+        title="Reportes para tu coach"
+        accent={ACCENT_DARK}
+        items={[
+          'Descarga un PDF con tu data de 7 o 14 días para que tu coach lo revise.',
+          'O envíalo directo por correo desde la misma pantalla.',
+          'Si haces el check-in del día (energía, hambre, ánimo), tu coach lo ve en el reporte.',
+        ]} />
+
+      <Section
+        icon={<X size={14} strokeWidth={2} />}
+        title="Lo que NO hago"
+        accent={WARN}
+        items={[
+          'No te digo qué comer ni te doy plan nutricional. Eso es trabajo del coach.',
+          'No reemplazo el criterio de un profesional de la salud.',
+          'Si me preguntas "¿qué dieta hago?" o similar, te remito al coach.',
+        ]} />
+
+      <button onClick={onClose}
+        className="w-full mt-2 py-3.5 rounded-2xl text-[15px] font-semibold transition active:scale-[0.98] flex items-center justify-center gap-2"
+        style={{ background: '#1F1F1F', color: '#fff' }}>
+        Entendido, vamos
+      </button>
+    </ModalShell>
+  );
+}
+
 function IngredientsModal({ ingredients, onSave, onClose }) {
   const [list, setList] = useState(ingredients);
   const [input, setInput] = useState('');
@@ -3054,7 +3244,7 @@ function IngredientsModal({ ingredients, onSave, onClose }) {
     <ModalShell onClose={onClose}>
       <ModalHeader accent={ACCENT_DARK} label="Favoritos" title="Mis ingredientes" onClose={onClose} />
       <div className="text-[12px] mb-4" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
-        Tu lista de alimentos que sueles comprar y comer. La uso cuando me pides "armá mi día" para distribuir kcal y macros sin recetario.
+        Tu lista de alimentos que sueles comprar y comer. La uso cuando me pides "arma mi día" para distribuir kcal y macros sin recetario.
       </div>
 
       <div className="flex gap-2 mb-4">
@@ -3098,11 +3288,11 @@ function IngredientsModal({ ingredients, onSave, onClose }) {
 function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister, onSaveFavorite, onEditIngredients, onClose }) {
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-lg">
-      <ModalHeader accent={ACCENT_DARK} label="Planificador" title="Armá mi día" onClose={onClose} />
+      <ModalHeader accent={ACCENT_DARK} label="Planificador" title="Arma mi día" onClose={onClose} />
 
       {ingredients.length === 0 && (
         <div className="mb-5 p-4 rounded-2xl text-[13px]" style={{ background: SURFACE_2, border: `1px solid ${BORDER}`, color: TEXT }}>
-          Antes necesito tu lista de ingredientes. Agregá los alimentos que te gustan y compras.
+          Antes necesito tu lista de ingredientes. Agrega los alimentos que te gustan y compras.
           <button onClick={onEditIngredients} className="block mt-3 px-4 py-2 rounded-xl text-[13px] font-semibold"
             style={{ background: '#1F1F1F', color: '#fff' }}>
             Configurar ingredientes
@@ -3587,13 +3777,13 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
             <span style={{ color: TEXT_MUTED }}>Recibe criterio.</span>
           </div>
           <div className="text-[14px] mt-4" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
-            <span style={{ color: TEXT, fontWeight: 600 }}>Mauro Morón</span> · ISSA Certified Coach
+            <span style={{ color: TEXT, fontWeight: 600 }}>Mauro Morón</span> · ISSA Certified Fitness and Nutrition Coach
           </div>
         </div>
       </div>
 
-      {/* Bottom: actions */}
-      <div className="max-w-md w-full mx-auto pb-16 fade-up-4 relative" style={{ zIndex: 1 }}>
+      {/* Bottom: actions — lifted up so they don't get cut off on smaller phones */}
+      <div className="max-w-md w-full mx-auto pb-28 fade-up-4 relative" style={{ zIndex: 1 }}>
 
         {/* How it works — prominent secondary action ABOVE Empezar */}
         <button onClick={onTutorial}
@@ -3630,15 +3820,15 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
 function TutorialModal({ onClose }) {
   const [step, setStep] = useState(0);
   const steps = [
-    { icon: <Utensils size={28} strokeWidth={1.5} />, title: 'Registra natural', body: 'Escribí lo que comiste como si lo dijeras en voz alta. La app calcula calorías y macros con valores reales (USDA, comerciales).', example: '"Desayuno: 2 huevos revueltos, avena con plátano y café con leche"' },
-    { icon: <Star size={28} strokeWidth={1.5} />, title: 'Menús favoritos', body: 'Las comidas que repetís se guardan con un tap en la estrella. Reuso instantáneo, cero fricción.', example: 'Desde "Menús favoritos", tocá Usar y queda registrado.' },
-    { icon: <Info size={28} strokeWidth={1.5} />, title: 'Preguntá antes de comer', body: 'Consultá los macros de cualquier alimento sin registrarlo. Útil para decidir antes de servirte.', example: '"¿Calorías de una manzana?" o "¿Macros de 100g de pollo?"' },
-    { icon: <PieChart size={28} strokeWidth={1.5} />, title: 'Cuadrá macros', body: 'Si te faltan macros y tenés ingredientes, decile qué tenés. La app calcula gramos exactos. Solo matemática, no recetas, no recomendación.', example: '"Tengo pollo, arroz integral, brócoli y aceite de oliva"' },
-    { icon: <ChefHat size={28} strokeWidth={1.5} />, title: 'Armá tu día con lo que te gusta', body: 'Guardá los ingredientes que solés comprar y comer. Pedí "armá mi día" y te propongo una distribución en desayuno, almuerzo, snack y cena que llega a tu meta. No es recetario: son tus ingredientes cocidos con kcal y macros. Decidís si lo registrás, lo guardás como favorito o regenerás otra variante.', example: 'Tus ingredientes → "armame el día" → propuesta editable' },
-    { icon: <Pencil size={28} strokeWidth={1.5} />, title: 'Editá o eliminá', body: 'Tocá el lápiz para ajustar cantidades. Los valores se recalculan automáticamente. Tocá la papelera para eliminar.', example: 'En cualquier comida: favorito · editar · eliminar' },
+    { icon: <Utensils size={28} strokeWidth={1.5} />, title: 'Registra natural', body: 'Escribe lo que comiste como si lo dijeras en voz alta. La app calcula calorías y macros con valores reales (USDA, comerciales).', example: '"Desayuno: 2 huevos revueltos, avena con plátano y café con leche"' },
+    { icon: <Star size={28} strokeWidth={1.5} />, title: 'Menús favoritos', body: 'Las comidas que repites se guardan con un tap en la estrella. Reuso instantáneo, cero fricción.', example: 'Desde "Menús favoritos", toca Usar y queda registrado.' },
+    { icon: <Info size={28} strokeWidth={1.5} />, title: 'Pregunta antes de comer', body: 'Consulta los macros de cualquier alimento sin registrarlo. Útil para decidir antes de servirte.', example: '"¿Calorías de una manzana?" o "¿Macros de 100g de pollo?"' },
+    { icon: <PieChart size={28} strokeWidth={1.5} />, title: 'Cuadrá macros', body: 'Si te faltan macros y tienes ingredientes, decile qué tienes. La app calcula gramos exactos. Solo matemática, no recetas, no recomendación.', example: '"Tengo pollo, arroz integral, brócoli y aceite de oliva"' },
+    { icon: <ChefHat size={28} strokeWidth={1.5} />, title: 'Arma tu día con lo que te gusta', body: 'Guarda los ingredientes que sueles comprar y comer. Pide "arma mi día" y te propongo una distribución en desayuno, almuerzo, snack y cena que llega a tu meta. No es recetario: son tus ingredientes cocidos con kcal y macros. Decides si lo registras, lo guardas como favorito o regeneras otra variante.', example: 'Tus ingredientes → "armame el día" → propuesta editable' },
+    { icon: <Pencil size={28} strokeWidth={1.5} />, title: 'Edita o elimina', body: 'Toca el lápiz para ajustar cantidades. Los valores se recalculan automáticamente. Toca la papelera para eliminar.', example: 'En cualquier comida: favorito · editar · eliminar' },
     { icon: <FileText size={28} strokeWidth={1.5} />, title: 'Reporte al coach', body: 'PDF con detalle completo de tu data. Diseñado para que tu coach revise el patrón y aporte criterio.', example: 'Calendario, resumen, exportable. Tu data, su criterio.' },
     { icon: <CheckCircle2 size={28} strokeWidth={1.5} />, title: 'Importante', body: 'Esta herramienta calcula y registra. No recomienda qué comer ni sustituye el criterio de un coach nutricional.', example: 'La app mide. El coach decide.' },
-    { icon: <Download size={28} strokeWidth={1.5} />, title: 'Guardá esta app', body: 'Agregá esta página a tus favoritos del navegador. Si minimizás en lugar de cerrar, mantenés la conversación abierta.', example: 'iPhone: Compartir → Añadir a inicio · Android: ⋮ → Añadir a pantalla' }
+    { icon: <Download size={28} strokeWidth={1.5} />, title: 'Guarda esta app', body: 'Agrega esta página a tus favoritos del navegador. Si la minimizas en lugar de cerrarla, mantienes la conversación abierta.', example: 'iPhone: Compartir → Añadir a inicio · Android: ⋮ → Añadir a pantalla' }
   ];
 
   const s = steps[step];
@@ -3807,7 +3997,7 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
               </div>
               <div className="h-[2px] w-12 mt-1 mb-4 rounded-full" style={{ background: ACCENT }} />
               <div className="text-[15px] mb-5 leading-relaxed" style={{ color: TEXT_MUTED }}>
-                Soy tu Meal Tracker. Antes de arrancar, decime tu <strong style={{ color: TEXT }}>nombre y apellido</strong>.
+                Soy tu Meal Tracker. Antes de arrancar, dime tu <strong style={{ color: TEXT }}>nombre y apellido</strong>.
               </div>
               <input value={name}
                 onChange={e => { setName(e.target.value); setNameError(''); }}
