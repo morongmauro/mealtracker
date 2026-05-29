@@ -510,6 +510,8 @@ export default function MealTracker() {
       }
       setMessages(m => [...m, { role: 'assistant', content: narrative, ts: Date.now() }]);
       await window.storage.set(key, JSON.stringify(Date.now())).catch(() => {});
+      // Also append gap suggestion if any macro is in deficit ≥25%
+      maybeAppendGapSuggestion();
     };
     const timer = setTimeout(check, 6000);
     const interval = setInterval(check, 5 * 60 * 1000); // re-check every 5 min in case user is on app
@@ -744,6 +746,93 @@ export default function MealTracker() {
   }, [favoriteIngredients]);
 
   // Generate a daily meal plan from favorite ingredients
+  // Compute deficit % for each macro. Returns the macro with the biggest gap, or null.
+  const computeBiggestGap = () => {
+    if (!goals) return null;
+    const gaps = [
+      { key: 'kcal', label: 'calorías', remaining: Math.max(0, goals.kcal - totals.kcal), goal: goals.kcal, unit: ' kcal' },
+      { key: 'p', label: 'proteína', remaining: Math.max(0, goals.p - totals.p), goal: goals.p, unit: 'g' },
+      { key: 'c', label: 'carbohidratos', remaining: Math.max(0, goals.c - totals.c), goal: goals.c, unit: 'g' },
+      { key: 'g', label: 'grasas', remaining: Math.max(0, goals.g - totals.g), goal: goals.g, unit: 'g' },
+    ];
+    const withPct = gaps.map(g => ({ ...g, pct: g.goal > 0 ? g.remaining / g.goal : 0 }));
+    return withPct.sort((a, b) => b.pct - a.pct)[0];
+  };
+
+  // If a macro has >=25% deficit, ask the LLM for equivalences using ONLY favoriteIngredients.
+  // Append a gap_suggestions message. Safe: no prescription, no "you should X", no value judgment.
+  const maybeAppendGapSuggestion = async () => {
+    const biggest = computeBiggestGap();
+    if (!biggest || biggest.pct < 0.25) return;
+    const allGaps = [
+      { key: 'kcal', label: 'calorías', remaining: Math.max(0, goals.kcal - totals.kcal), goal: goals.kcal, unit: ' kcal' },
+      { key: 'p', label: 'proteína', remaining: Math.max(0, goals.p - totals.p), goal: goals.p, unit: 'g' },
+      { key: 'c', label: 'carbohidratos', remaining: Math.max(0, goals.c - totals.c), goal: goals.c, unit: 'g' },
+      { key: 'g', label: 'grasas', remaining: Math.max(0, goals.g - totals.g), goal: goals.g, unit: 'g' },
+    ];
+
+    // Not enough ingredients in client's list — nudge to add more
+    if (favoriteIngredients.length < 3) {
+      setMessages(m => [...m, {
+        role: 'assistant',
+        isGapSuggestions: true,
+        data: {
+          gaps: allGaps,
+          missingFavorites: true,
+        },
+        ts: Date.now()
+      }]);
+      return;
+    }
+
+    const sys = `Eres una calculadora de equivalencias nutricionales. Devuelves SOLO JSON válido, sin markdown.
+
+IDIOMA: español neutro latinoamericano. PROHIBIDO voseo argentino.
+
+LISTA DE INGREDIENTES DEL CLIENTE: ${favoriteIngredients.join(', ')}
+DÉFICITS PENDIENTES:
+- kcal: faltan ${allGaps[0].remaining} de meta ${allGaps[0].goal}
+- proteína: faltan ${allGaps[1].remaining}g de meta ${allGaps[1].goal}g
+- carbohidratos: faltan ${allGaps[2].remaining}g de meta ${allGaps[2].goal}g
+- grasas: faltan ${allGaps[3].remaining}g de meta ${allGaps[3].goal}g
+
+REGLAS DURAS:
+- Genera 2 a 3 "opciones" de combinaciones de alimentos que aproximadamente cubran lo que falta.
+- USA EXCLUSIVAMENTE los ingredientes de la lista del cliente. Está PROHIBIDO inventar o sugerir alimentos que no estén en la lista.
+- Cada opción es una COMBINACIÓN de 2 a 4 alimentos con cantidades en gramos o unidades.
+- Los valores nutricionales son REALES (USDA, alimentos cocidos por defecto).
+- PROHIBIDO dar juicios de valor sobre alimentos ("X es mejor", "X es bueno para Y", "evita Z"). PROHIBIDO recomendar prescriptivamente ("deberías", "te recomiendo"). Solo enumeras equivalencias matemáticas.
+- Si los déficits son muy pequeños y no merece la pena sugerir, devuelve "options": [].
+
+SCHEMA:
+{
+  "options": [
+    {
+      "items": [{"name": "...", "amount": "Xg" o "X unidades", "kcal": N, "p": N, "c": N, "g": N}],
+      "subtotal": {"kcal": N, "p": N, "c": N, "g": N}
+    }
+  ]
+}`;
+    try {
+      const result = await callClaude('Genera 2 a 3 opciones para cubrir lo que falta usando solo los ingredientes del cliente.', sys);
+      const clean = result.replace(/```json|```/g, '').trim();
+      const match = clean.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(match ? match[0] : clean);
+      if (!parsed.options || parsed.options.length === 0) return;
+      setMessages(m => [...m, {
+        role: 'assistant',
+        isGapSuggestions: true,
+        data: {
+          gaps: allGaps,
+          options: parsed.options,
+        },
+        ts: Date.now()
+      }]);
+    } catch (e) {
+      // silent fail — gap suggestion is a nice-to-have
+    }
+  };
+
   const generatePlan = async () => {
     if (favoriteIngredients.length === 0) {
       setShowIngredientsModal(true);
@@ -1119,6 +1208,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       if (intent === 'summary_day') {
         setMessages(m => [...m, { role: 'assistant', content: 'summary_detailed', isSummaryDetailed: true, entries: [...entries], totals: { ...totals }, ts: Date.now() }]);
         setLoading(false); setLoadingPreview('');
+        maybeAppendGapSuggestion();
         return;
       }
       if (intent === 'summary_week') {
@@ -1179,16 +1269,20 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         trackFrequency(cleanItems);
         haptic(12);
         const r1 = (n) => Math.round(n * 10) / 10;
+        const addKcal = cleanItems.reduce((s, i) => s + (i.kcal || 0), 0);
+        const addP = cleanItems.reduce((s, i) => s + (i.p || 0), 0);
+        const addC = cleanItems.reduce((s, i) => s + (i.c || 0), 0);
+        const addG = cleanItems.reduce((s, i) => s + (i.g || 0), 0);
         setEntries(es => es.map(e => {
           if (e.id !== lastEntry.id) return e;
           const newItems = [...e.items, ...cleanItems];
           return {
             ...e,
             items: newItems,
-            kcal: Math.round(newItems.reduce((s, i) => s + (i.kcal || 0), 0)),
-            p: r1(newItems.reduce((s, i) => s + (i.p || 0), 0)),
-            c: r1(newItems.reduce((s, i) => s + (i.c || 0), 0)),
-            g: r1(newItems.reduce((s, i) => s + (i.g || 0), 0)),
+            kcal: Math.round((e.kcal || 0) + addKcal),
+            p: r1((e.p || 0) + addP),
+            c: r1((e.c || 0) + addC),
+            g: r1((e.g || 0) + addG),
           };
         }));
         setMessages(m => [...m, {
@@ -1561,22 +1655,23 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         </div>
         </div>
 
-        {/* Action FAB — fixed circular floating button, always visible while chatting */}
+        {/* Action FAB — fixed pill-shaped button, always visible while chatting */}
         {!actionsExpanded && (
           <button
             onClick={() => { haptic(10); setActionsExpanded(true); }}
-            className="fixed z-40 rounded-full transition active:scale-90 flex items-center justify-center"
+            className="fixed z-40 rounded-full transition active:scale-95 flex items-center justify-center gap-1.5"
             style={{
               bottom: '96px',
               right: '20px',
-              width: '56px',
-              height: '56px',
+              height: '46px',
+              padding: '0 16px 0 14px',
               background: '#1F1F1F',
               color: '#fff',
               boxShadow: '0 8px 24px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.08) inset'
             }}
-            title="Acciones rápidas">
-            <Sparkles size={20} strokeWidth={1.8} style={{ color: ACCENT_PASTEL }} />
+            title="Herramientas y acciones">
+            <Sparkles size={16} strokeWidth={2} style={{ color: ACCENT_PASTEL }} />
+            <span className="text-[13px] font-semibold tracking-wide">Herramientas</span>
           </button>
         )}
 
@@ -1755,19 +1850,6 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         display: actionsExpanded ? 'none' : 'block'
       }}>
         <div className="max-w-2xl mx-auto">
-          {/* Quick-add bar: top frequent items */}
-          {!recording && !input.trim() && topFrequent.length > 0 && (
-            <div className="flex gap-1.5 mb-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-              {topFrequent.map((f, i) => (
-                <button key={i} onClick={() => quickAddItem(f)}
-                  className="flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition active:scale-95"
-                  style={{ background: 'rgba(255,255,255,0.75)', border: `1px solid ${BORDER}`, color: TEXT, whiteSpace: 'nowrap' }}
-                  title={`Registrar ${f.displayName || f.name} rápido (${f.kcal} kcal)`}>
-                  + {f.displayName || f.name}
-                </button>
-              ))}
-            </div>
-          )}
           {/* Voice waveform when recording */}
           {recording && (
             <div className="flex items-center justify-center gap-1 mb-2 h-6">
@@ -1805,6 +1887,16 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
               className="flex-1 bg-transparent px-3 py-3 outline-none"
               style={{ color: TEXT, fontSize: '16px' }}
               readOnly={recording}
+              type="text"
+              name="meal-input"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck="false"
+              inputMode="text"
+              enterKeyHint="send"
+              data-1p-ignore="true"
+              data-lpignore="true"
             />
             <button
               onClick={recording ? stopVoice : startVoice}
@@ -2333,10 +2425,81 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
     );
   }
 
+  if (message.isGapSuggestions && message.data) {
+    const { gaps = [], options = [], missingFavorites } = message.data;
+    const significantGaps = gaps.filter(g => g.remaining > 0 && (g.goal > 0 && g.remaining / g.goal >= 0.10));
+    return (
+      <div className="flex justify-start fade-up">
+        <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        }}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
+              <PieChart size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
+            </div>
+            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>Lo que falta hoy</span>
+          </div>
+
+          <div className="space-y-1 mb-3">
+            {significantGaps.map((g, i) => (
+              <div key={i} className="text-[12px] flex justify-between gap-3">
+                <span style={{ color: TEXT }}>Faltan <strong>{Math.round(g.remaining * 10) / 10}{g.unit}</strong> de {g.label}</span>
+                <span className="num" style={{ color: TEXT_LIGHT }}>meta {g.goal}{g.unit}</span>
+              </div>
+            ))}
+          </div>
+
+          {missingFavorites ? (
+            <div className="p-3 rounded-xl text-[12px]" style={{ background: ACCENT_PASTEL + '30', color: TEXT, lineHeight: 1.55 }}>
+              Para ayudarte con equivalencias de lo que comes habitualmente, agrega tus alimentos favoritos en <strong>Mis ingredientes</strong> (desde Herramientas). Necesito al menos 3 para calcular opciones reales.
+            </div>
+          ) : options.length > 0 && (
+            <>
+              <div className="text-[10px] uppercase tracking-wider font-semibold mb-2 mt-1" style={{ color: TEXT_LIGHT }}>
+                De tus ingredientes, equivalencias para cubrirlo
+              </div>
+              <div className="space-y-2.5">
+                {options.map((opt, i) => (
+                  <div key={i} className="p-3 rounded-xl" style={{ background: ACCENT_PASTEL + '25', border: `1px solid ${ACCENT_PASTEL}80` }}>
+                    <div className="text-[10px] uppercase tracking-wider font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
+                    <div className="space-y-0.5">
+                      {opt.items.map((it, j) => (
+                        <div key={j} className="text-[12px] flex justify-between gap-3">
+                          <span style={{ color: TEXT }}>{it.name}{it.amount ? ` · ${it.amount}` : ''}</span>
+                          <span className="num" style={{ color: TEXT_LIGHT }}>{Math.round(it.kcal || 0)} kcal</span>
+                        </div>
+                      ))}
+                    </div>
+                    {opt.subtotal && (
+                      <div className="text-[10px] pt-1.5 mt-1.5 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
+                        <span>≈ {Math.round(opt.subtotal.kcal || 0)} kcal</span>
+                        <span style={{ color: C_PROTEIN }}>P {Math.round((opt.subtotal.p || 0) * 10) / 10}g</span>
+                        <span style={{ color: C_CARBS }}>C {Math.round((opt.subtotal.c || 0) * 10) / 10}g</span>
+                        <span style={{ color: C_FAT }}>G {Math.round((opt.subtotal.g || 0) * 10) / 10}g</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="mt-3 pt-3 border-t text-[10px] italic" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
+            Esto es solo cálculo organizativo. No constituye consejo nutricional ni reemplaza la valoración de un profesional.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (message.isAppended && message.entryId) {
     const e = entries.find(x => x.id === message.entryId);
     if (!e) return null;
     const added = message.addedItems || [];
+    const addedKeys = new Set(added.map(it => `${it.name}|${it.amount || ''}`));
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
@@ -2345,27 +2508,63 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
           WebkitBackdropFilter: 'blur(20px) saturate(180%)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
-              <CheckCircle2 size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
+                <CheckCircle2 size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
+              </div>
+              <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal} actualizado</span>
+              <span className="text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
             </div>
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>Sumado a {e.meal}</span>
-            <span className="text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
+            <div className="flex gap-1">
+              <button onClick={() => onFavorite(e)} className="p-1 rounded-full hover:bg-black/5 transition">
+                <Star size={12} style={{ color: TEXT_LIGHT }} />
+              </button>
+              <button onClick={() => onEdit(e.id)} className="p-1 rounded-full hover:bg-black/5 transition">
+                <Pencil size={12} style={{ color: TEXT_LIGHT }} />
+              </button>
+              <button onClick={() => onDelete(e.id)} className="p-1 rounded-full hover:bg-black/5 transition">
+                <Trash2 size={12} style={{ color: TEXT_LIGHT }} />
+              </button>
+            </div>
           </div>
+
           {message.quantityWarning && (
             <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[11px]" style={{ background: '#FBF1E5', color: WARN }}>
               <Info size={12} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>{message.quantityWarning}</span>
             </div>
           )}
-          <div className="space-y-1 mb-3">
+
+          <div className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: ACCENT_DARK }}>
+            Sumé estos {added.length === 1 ? 'ítem' : 'ítems'}
+          </div>
+          <div className="space-y-1 mb-3 p-2.5 rounded-xl" style={{ background: ACCENT_PASTEL + '30' }}>
             {added.map((it, i) => (
               <div key={i} className="text-xs flex justify-between gap-3">
                 <span style={{ color: TEXT }}>+ {it.name}{it.amount ? ` · ${it.amount}` : ''}</span>
-                <span className="num" style={{ color: TEXT_LIGHT }}>{it.kcal} kcal</span>
+                <span className="num" style={{ color: TEXT_LIGHT }}>{Math.round(it.kcal ?? 0)} kcal</span>
               </div>
             ))}
           </div>
+
+          <div className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: TEXT_LIGHT }}>
+            Comida completa
+          </div>
+          <div className="space-y-1 mb-3">
+            {e.items.map((it, i) => {
+              const isAdded = addedKeys.has(`${it.name}|${it.amount || ''}`);
+              return (
+                <div key={i} className="text-xs flex justify-between gap-3">
+                  <span style={{ color: isAdded ? ACCENT_DARK : TEXT, fontWeight: isAdded ? 600 : 400 }}>
+                    {it.name}{it.amount ? ` · ${it.amount}` : ''}
+                  </span>
+                  <span className="num" style={{ color: TEXT_LIGHT }}>{Math.round(it.kcal ?? 0)} kcal</span>
+                </div>
+              );
+            })}
+          </div>
+
           <div className="pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
             <div className="flex justify-between text-xs">
               <span style={{ color: TEXT_MUTED }}>Nuevo total comida</span>
@@ -3226,7 +3425,6 @@ function CapabilitiesModal({ onClose }) {
         title="Lo que NO hago"
         accent={WARN}
         items={[
-          'No te digo qué comer ni te doy plan nutricional. Eso es trabajo del coach.',
           'No te doy recetas. Pero si me dices qué ingredientes o alimentos te gustan o tienes disponibles, sí te ayudo a definir cómo distribuirlos para llegar a tu meta.',
           'Si quieres recetas, tienes la galería de recetas en el módulo Meals de la app Trainerize.',
           'No reemplazo el criterio de un profesional de la salud.',
