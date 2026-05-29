@@ -761,9 +761,13 @@ REGLAS DURAS:
 - NO es recetario. NO indiques modo de preparación, recetas, salsas ni guarniciones que no estén en la lista.
 - Devuelve SOLO los ingredientes de la lista (cocidos por defecto) con kcal y macros REALES (USDA).
 - NO inventes alimentos fuera de la lista.
-- Distribuye en desayuno, almuerzo, snack y cena para sumar APROXIMADAMENTE la meta diaria (±5%).
+- OBLIGATORIO: la suma total del día debe quedar dentro del ±5% de CADA meta (kcal, P, C, G). Ajusta gramos de cada item hasta cuadrar. Si una cantidad típica no encaja, modifica los gramos hacia arriba o abajo libremente — no estás limitado a porciones estándar.
 - Reparte proteína entre comidas. Carbos más altos en desayuno/almuerzo. Grasas moderadas en todo.
-- Si la lista no permite llegar a la meta, indícalo en "warning".
+- "warning" SOLO debe llenarse en estos dos casos:
+  1) La lista tiene menos de 4 ingredientes: warning="La lista es muy corta para armar un día completo. Agrega más alimentos para una distribución mejor."
+  2) Es matemáticamente imposible cuadrar la meta con esos ingredientes (ej: solo dan grasas y la meta es alta en carbos): warning describe brevemente qué macro no se puede alcanzar.
+- En cualquier otro caso, "warning" debe ser null. NUNCA llenes warning con frases tipo "considera aumentar X o reducir Y" — esos ajustes los haces TÚ directamente en los gramos antes de devolver el JSON.
+- Antes de responder, VERIFICA que tu total esté en ±5% de cada meta. Si no lo está, vuelve a ajustar los gramos.
 - Frase de introducción FIJA: "Bueno, entendiendo que estos son los ingredientes que te gustan y compras, la distribución podría ser esta."
 
 SCHEMA:
@@ -942,6 +946,13 @@ CONTEXTO DEL CLIENTE:
 2. SIEMPRE haz tu mejor interpretación. Si tienes >70% de certeza, REGISTRA directo y opcionalmente deja una nota breve tipo "asumí 1 huevo entero (~50g)".
 3. Solo usa intent="clarify" cuando la ambigüedad es REAL (palabras inventadas, cantidad disparatada como "200 huevos", producto desconocido sin marca). En ese caso propón tu interpretación + pregunta breve.
 4. Para cantidades sin gramos: ESTIMA con USDA estándar (1 huevo ≈ 50g, banana mediana ≈ 120g, arepa media ≈ 80g, taza de arroz cocido ≈ 160g, cucharada aceite ≈ 14g). NUNCA rechaces por "valores no cuadran".
+5. IDIOMA: español neutro latinoamericano. PROHIBIDO usar voseo argentino ("querés", "tenés", "decís", "podés", "registrá", "armá", "guardá", "olvidá"). USA SIEMPRE: quieres, tienes, dices, puedes, registra, arma, guarda, olvida. Trato de "tú", nunca "vos".
+6. PRIORIDAD DE INTENT (orden estricto al clasificar). Aplica la PRIMERA que matchee:
+   a) Si menciona "resumen", "reenvíame", "mándame", "muéstrame", "qué llevo", "cómo voy", "cuánto llevo", "qué he comido", "qué comí hoy" → SIEMPRE intent=summary_day (aunque mencione alimentos previos para contexto, tu trabajo es mostrar el día actual, NO registrar ni preguntar).
+   b) Si menciona "semana", "semanal", "resumen semanal", "cómo voy esta semana" → intent=summary_week.
+   c) Si hay última comida registrada hoy y dice "me faltó X", "olvidé X", "también comí X", "agrégale X a lo anterior", "súmale X" → intent=append_to_last.
+   d) Si describe alimentos por primera vez sin las palabras de (a)(b)(c) → intent=log_meal.
+   e) Resto de casos según las reglas de intents abajo.
 
 ═══ VALORES NUTRICIONALES ═══
 Usa SOLO valores reales (USDA, etiquetas comerciales). 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal.
@@ -1013,13 +1024,14 @@ ${contextSnippet}
       if (kcal > 0 && macroKcal > 0 && (kcal < macroKcal * 0.6 || kcal > macroKcal * 1.6)) {
         kcal = Math.round(macroKcal);
       }
-      // Hard upper bounds (sanity ceiling, not validation)
+      // Round every macro to 1 decimal to avoid floating-point noise like 17.400000000000002
+      const round1 = (n) => Math.round(n * 10) / 10;
       return {
         ...it,
-        kcal: Math.min(kcal, 5000),
-        p: Math.min(p, 400),
-        c: Math.min(c, 700),
-        g: Math.min(g, 300),
+        kcal: Math.min(Math.round(kcal), 5000),
+        p: Math.min(round1(p), 400),
+        c: Math.min(round1(c), 700),
+        g: Math.min(round1(g), 300),
         needs_quantity: false,
       };
     });
@@ -1166,16 +1178,17 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         const cleanItems = sanitizeItems(parsed.items);
         trackFrequency(cleanItems);
         haptic(12);
+        const r1 = (n) => Math.round(n * 10) / 10;
         setEntries(es => es.map(e => {
           if (e.id !== lastEntry.id) return e;
           const newItems = [...e.items, ...cleanItems];
           return {
             ...e,
             items: newItems,
-            kcal: newItems.reduce((s, i) => s + (i.kcal || 0), 0),
-            p: newItems.reduce((s, i) => s + (i.p || 0), 0),
-            c: newItems.reduce((s, i) => s + (i.c || 0), 0),
-            g: newItems.reduce((s, i) => s + (i.g || 0), 0),
+            kcal: Math.round(newItems.reduce((s, i) => s + (i.kcal || 0), 0)),
+            p: r1(newItems.reduce((s, i) => s + (i.p || 0), 0)),
+            c: r1(newItems.reduce((s, i) => s + (i.c || 0), 0)),
+            g: r1(newItems.reduce((s, i) => s + (i.g || 0), 0)),
           };
         }));
         setMessages(m => [...m, {
@@ -1191,14 +1204,15 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         const cleanItems = sanitizeItems(parsed.items);
         trackFrequency(cleanItems);
         haptic(12);
+        const r1 = (n) => Math.round(n * 10) / 10;
         const newEntry = {
           id: Date.now(),
           meal: parsed.meal || predictMealType(),
           items: cleanItems,
-          kcal: cleanItems.reduce((s, i) => s + (i.kcal || 0), 0),
-          p: cleanItems.reduce((s, i) => s + (i.p || 0), 0),
-          c: cleanItems.reduce((s, i) => s + (i.c || 0), 0),
-          g: cleanItems.reduce((s, i) => s + (i.g || 0), 0),
+          kcal: Math.round(cleanItems.reduce((s, i) => s + (i.kcal || 0), 0)),
+          p: r1(cleanItems.reduce((s, i) => s + (i.p || 0), 0)),
+          c: r1(cleanItems.reduce((s, i) => s + (i.c || 0), 0)),
+          g: r1(cleanItems.reduce((s, i) => s + (i.g || 0), 0)),
           time: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
           rawInput: userMsg,
           hasMissingQuantity: false,
@@ -2301,12 +2315,12 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
           <div className="pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
             <div className="flex justify-between text-xs">
               <span style={{ color: TEXT_MUTED }}>Total comida</span>
-              <span className="num font-medium" style={{ color: ACCENT_DARK }}>{e.kcal} kcal</span>
+              <span className="num font-medium" style={{ color: ACCENT_DARK }}>{Math.round(e.kcal ?? 0)} kcal</span>
             </div>
             <div className="flex gap-3 text-[10px] mt-1 num">
-              <span style={{ color: C_PROTEIN }}>P {e.p}g</span>
-              <span style={{ color: C_CARBS }}>C {e.c}g</span>
-              <span style={{ color: C_FAT }}>G {e.g}g</span>
+              <span style={{ color: C_PROTEIN }}>P {Math.round((e.p ?? 0) * 10) / 10}g</span>
+              <span style={{ color: C_CARBS }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
+              <span style={{ color: C_FAT }}>G {Math.round((e.g ?? 0) * 10) / 10}g</span>
             </div>
           </div>
           {!isHistorical && (
@@ -2355,12 +2369,12 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
           <div className="pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
             <div className="flex justify-between text-xs">
               <span style={{ color: TEXT_MUTED }}>Nuevo total comida</span>
-              <span className="num font-medium" style={{ color: ACCENT_DARK }}>{e.kcal} kcal</span>
+              <span className="num font-medium" style={{ color: ACCENT_DARK }}>{Math.round(e.kcal ?? 0)} kcal</span>
             </div>
             <div className="flex gap-3 text-[10px] mt-1 num">
-              <span style={{ color: C_PROTEIN }}>P {e.p}g</span>
-              <span style={{ color: C_CARBS }}>C {e.c}g</span>
-              <span style={{ color: C_FAT }}>G {e.g}g</span>
+              <span style={{ color: C_PROTEIN }}>P {Math.round((e.p ?? 0) * 10) / 10}g</span>
+              <span style={{ color: C_CARBS }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
+              <span style={{ color: C_FAT }}>G {Math.round((e.g ?? 0) * 10) / 10}g</span>
             </div>
           </div>
         </div>
@@ -2446,10 +2460,10 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
                     ))}
                   </div>
                   <div className="flex gap-3 text-[10px] num">
-                    <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{e.kcal} kcal</span>
-                    <span style={{ color: C_PROTEIN }}>P {e.p}g</span>
-                    <span style={{ color: C_CARBS }}>C {e.c}g</span>
-                    <span style={{ color: C_FAT }}>G {e.g}g</span>
+                    <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{Math.round(e.kcal ?? 0)} kcal</span>
+                    <span style={{ color: C_PROTEIN }}>P {Math.round((e.p ?? 0) * 10) / 10}g</span>
+                    <span style={{ color: C_CARBS }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
+                    <span style={{ color: C_FAT }}>G {Math.round((e.g ?? 0) * 10) / 10}g</span>
                   </div>
                 </div>
               ))}
@@ -2740,10 +2754,10 @@ function CalendarModal({ history, historyDetail, goals, today, todayEntries, tod
                       ))}
                     </div>
                     <div className="text-[10px] num mt-1.5 pt-1.5 border-t flex gap-3" style={{ borderColor: BORDER_SOFT }}>
-                      <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{e.kcal} kcal</span>
-                      <span style={{ color: C_PROTEIN }}>P{e.p}</span>
-                      <span style={{ color: C_CARBS }}>C{e.c}</span>
-                      <span style={{ color: C_FAT }}>G{e.g}</span>
+                      <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{Math.round(e.kcal ?? 0)} kcal</span>
+                      <span style={{ color: C_PROTEIN }}>P{Math.round((e.p ?? 0) * 10) / 10}</span>
+                      <span style={{ color: C_CARBS }}>C{Math.round((e.c ?? 0) * 10) / 10}</span>
+                      <span style={{ color: C_FAT }}>G{Math.round((e.g ?? 0) * 10) / 10}</span>
                     </div>
                   </div>
                 ))}
@@ -3213,6 +3227,8 @@ function CapabilitiesModal({ onClose }) {
         accent={WARN}
         items={[
           'No te digo qué comer ni te doy plan nutricional. Eso es trabajo del coach.',
+          'No te doy recetas. Pero si me dices qué ingredientes o alimentos te gustan o tienes disponibles, sí te ayudo a definir cómo distribuirlos para llegar a tu meta.',
+          'Si quieres recetas, tienes la galería de recetas en el módulo Meals de la app Trainerize.',
           'No reemplazo el criterio de un profesional de la salud.',
           'Si me preguntas "¿qué dieta hago?" o similar, te remito al coach.',
         ]} />
