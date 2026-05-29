@@ -277,7 +277,7 @@ export default function MealTracker() {
 
         const fmtDay = (date) => {
           const [y, m, dd] = date.split('-').map(Number);
-          return new Date(y, m - 1, dd).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
+          return new Date(y, m - 1, dd).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
         };
 
         const summary = `
@@ -833,6 +833,72 @@ SCHEMA:
     }
   };
 
+  // Suggest 2-3 meal combos based on the client's favorite ingredients
+  const handleMealSuggestion = async (mealType) => {
+    const remaining = {
+      kcal: Math.max(0, goals.kcal - totals.kcal),
+      p: Math.max(0, goals.p - totals.p),
+      c: Math.max(0, goals.c - totals.c),
+      g: Math.max(0, goals.g - totals.g),
+    };
+
+    if (favoriteIngredients.length < 3) {
+      setMessages(m => [...m, {
+        role: 'assistant',
+        isMealSuggestion: true,
+        data: { missingFavorites: true, mealType, remaining },
+        ts: Date.now()
+      }]);
+      return;
+    }
+
+    const sys = `Eres una calculadora de combinaciones de alimentos. Devuelves SOLO JSON válido, sin markdown.
+
+IDIOMA: español neutro latinoamericano. PROHIBIDO voseo argentino.
+
+LISTA DE INGREDIENTES DEL CLIENTE: ${favoriteIngredients.join(', ')}
+COMIDA SOLICITADA: ${mealType || 'cualquiera (elige tú)'}
+MACROS RESTANTES DEL DÍA: ${remaining.kcal} kcal · ${remaining.p}g P · ${remaining.c}g C · ${remaining.g}g G
+
+REGLAS DURAS:
+- Genera 2 o 3 "opciones" de combinaciones para esa comida.
+- USA EXCLUSIVAMENTE los ingredientes de la lista del cliente. PROHIBIDO inventar o sugerir alimentos fuera de la lista.
+- Cada opción es una COMBINACIÓN de 2 a 4 alimentos con cantidades en gramos o unidades.
+- Valores nutricionales REALES (USDA, alimentos cocidos).
+- Los subtotales de cada opción deberían encajar en lo que falta del día (sin pasarse mucho), pero no obsesionarte: el cliente decide.
+- PROHIBIDO juicios de valor sobre alimentos ("X es mejor", "X es bueno para Y", "evita Z").
+- PROHIBIDO prescribir ("deberías", "te recomiendo"). Solo enumeras opciones matemáticas.
+- Si la lista no es suficiente para esa comida, devuelve "options": [].
+
+SCHEMA:
+{
+  "options": [
+    {
+      "items": [{"name": "...", "amount": "Xg" o "X unidades", "kcal": N, "p": N, "c": N, "g": N}],
+      "subtotal": {"kcal": N, "p": N, "c": N, "g": N}
+    }
+  ]
+}`;
+    try {
+      const result = await callClaude(`Genera 2 o 3 opciones para ${mealType || 'una comida'} usando solo los ingredientes del cliente.`, sys);
+      const clean = result.replace(/```json|```/g, '').trim();
+      const match = clean.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(match ? match[0] : clean);
+      setMessages(m => [...m, {
+        role: 'assistant',
+        isMealSuggestion: true,
+        data: { options: parsed.options || [], mealType, remaining },
+        ts: Date.now()
+      }]);
+    } catch (e) {
+      setMessages(m => [...m, {
+        role: 'assistant',
+        content: 'No pude armar opciones ahora, intenta de nuevo en un momento.',
+        ts: Date.now()
+      }]);
+    }
+  };
+
   const generatePlan = async () => {
     if (favoriteIngredients.length === 0) {
       setShowIngredientsModal(true);
@@ -896,7 +962,7 @@ SCHEMA:
       p: m.subtotal?.p || m.items.reduce((s, i) => s + (i.p || 0), 0),
       c: m.subtotal?.c || m.items.reduce((s, i) => s + (i.c || 0), 0),
       g: m.subtotal?.g || m.items.reduce((s, i) => s + (i.g || 0), 0),
-      time: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
+      time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
       rawInput: 'plan del día',
       hasMissingQuantity: false,
     }));
@@ -927,16 +993,18 @@ SCHEMA:
   };
 
   const trackFrequency = (items) => {
+    const newlyHotKeys = []; // items that just crossed the favorite-suggestion threshold
     setFrequentItems(prev => {
       const next = { ...prev };
       const now = Date.now();
       for (const it of items) {
         const key = (it.name || '').trim().toLowerCase();
         if (!key) continue;
-        const existing = next[key] || { count: 0, kcal: it.kcal, p: it.p, c: it.c, g: it.g, amount: it.amount, displayName: it.name };
+        const existing = next[key] || { count: 0, kcal: it.kcal, p: it.p, c: it.c, g: it.g, amount: it.amount, displayName: it.name, suggested: false };
+        const newCount = existing.count + 1;
         next[key] = {
           ...existing,
-          count: existing.count + 1,
+          count: newCount,
           lastSeen: now,
           kcal: it.kcal || existing.kcal,
           p: it.p || existing.p,
@@ -945,9 +1013,37 @@ SCHEMA:
           amount: it.amount || existing.amount,
           displayName: it.name || existing.displayName,
         };
+        // Crossed threshold: 3+ times AND not yet suggested AND not already in favoriteIngredients
+        if (newCount >= 3 && !existing.suggested && !favoriteIngredients.includes(key)) {
+          newlyHotKeys.push({ key, displayName: it.name || key });
+          next[key].suggested = true;
+        }
       }
       return next;
     });
+    // After state updates, push a suggestion bubble for each newly-hot item (max 1 at a time to avoid spam)
+    if (newlyHotKeys.length > 0) {
+      const { key, displayName } = newlyHotKeys[0];
+      setTimeout(() => {
+        setMessages(m => [...m, {
+          role: 'assistant',
+          isAutoFavoriteSuggestion: true,
+          suggestedKey: key,
+          suggestedName: displayName,
+          ts: Date.now()
+        }]);
+      }, 600);
+    }
+  };
+
+  const acceptAutoFavorite = (key) => {
+    haptic(10);
+    if (!favoriteIngredients.includes(key)) {
+      setFavoriteIngredients(prev => [...prev, key]);
+    }
+  };
+  const dismissAutoFavorite = (key) => {
+    // Already marked as suggested in frequentItems; nothing else needed
   };
 
   // Repeat last meal from yesterday matching predicted meal type
@@ -966,7 +1062,7 @@ SCHEMA:
     const newEntry = {
       ...match,
       id: Date.now(),
-      time: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
+      time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
       rawInput: 'repetido de ayer',
     };
     setEntries(e => [...e, newEntry]);
@@ -987,7 +1083,7 @@ SCHEMA:
       p: item.p || 0,
       c: item.c || 0,
       g: item.g || 0,
-      time: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
+      time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
       rawInput: `quick: ${item.displayName || item.name}`,
       hasMissingQuantity: false,
     };
@@ -1018,7 +1114,7 @@ SCHEMA:
       ? `\nÚLTIMA COMIDA REGISTRADA HOY (id=${lastEntry.id}, meal=${lastEntry.meal}, time=${lastEntry.time}):\n${JSON.stringify(lastEntry.items.map(i => ({ name: i.name, amount: i.amount, kcal: i.kcal, p: i.p, c: i.c, g: i.g })))}\n`
       : '\nÚLTIMA COMIDA REGISTRADA HOY: ninguna aún.\n';
     const voiceHint = voiceInput
-      ? '\nIMPORTANTE: este texto vino por DICTADO DE VOZ. Puede faltar puntuación. Separá los items por contexto (ej: "3 arepas 2 huevos un café con leche" → 3 items distintos).\n'
+      ? '\nIMPORTANTE: este texto vino por DICTADO DE VOZ. Puede faltar puntuación. Separa los items por contexto (ej: "3 arepas 2 huevos un café con leche" → 3 items distintos).\n'
       : '';
     const contextSnippet = `
 CONTEXTO DEL CLIENTE:
@@ -1026,7 +1122,7 @@ CONTEXTO DEL CLIENTE:
 - Comidas registradas hoy: ${entries.length}
 - Totales hoy: ${totals.kcal} kcal · P ${totals.p}g · C ${totals.c}g · G ${totals.g}g
 - Meta diaria: ${goals?.kcal || '?'} kcal · P ${goals?.p || '?'}g · C ${goals?.c || '?'}g · G ${goals?.g || '?'}g
-- Hora actual: ${new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${voiceHint}`;
+- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${voiceHint}`;
 
     const sys = `Eres un asistente nutricional inteligente y cálido. Devuelves SOLO JSON válido, sin markdown.
 
@@ -1035,7 +1131,13 @@ CONTEXTO DEL CLIENTE:
 2. SIEMPRE haz tu mejor interpretación. Si tienes >70% de certeza, REGISTRA directo y opcionalmente deja una nota breve tipo "asumí 1 huevo entero (~50g)".
 3. Solo usa intent="clarify" cuando la ambigüedad es REAL (palabras inventadas, cantidad disparatada como "200 huevos", producto desconocido sin marca). En ese caso propón tu interpretación + pregunta breve.
 4. Para cantidades sin gramos: ESTIMA con USDA estándar (1 huevo ≈ 50g, banana mediana ≈ 120g, arepa media ≈ 80g, taza de arroz cocido ≈ 160g, cucharada aceite ≈ 14g). NUNCA rechaces por "valores no cuadran".
-5. IDIOMA: español neutro latinoamericano. PROHIBIDO usar voseo argentino ("querés", "tenés", "decís", "podés", "registrá", "armá", "guardá", "olvidá"). USA SIEMPRE: quieres, tienes, dices, puedes, registra, arma, guarda, olvida. Trato de "tú", nunca "vos".
+5. IDIOMA: español neutro latinoamericano estándar. Trato de "tú" siempre, nunca "vos" ni "usted".
+   PROHIBIDO ABSOLUTO:
+   - Voseo argentino: "querés/tenés/decís/podés/registrá/armá/guardá/olvidá/sumá/pedí/dale". USA: quieres, tienes, dices, puedes, registra, arma, guarda, olvida, suma, pide.
+   - Colombianismos: "regálame, parce, parcero, chévere, bacano, qué hubo, qué más, porfa, listo pues, ¡rico!, sabroso". USA: por favor, amigo (evítalo), bien, hola, listo (a secas), sabroso (evita), gracias.
+   - Mexicanismos coloquiales: "órale, qué onda, chido, padre (=cool), híjole, ándale". USA equivalentes neutros.
+   - Españolismos: "vale, tío/tía, mola, currar, guay, vosotros/vosotras". USA: bien, listo, está bien, trabajar, ustedes.
+   Mantén tono cálido y profesional pero geográficamente neutro.
 6. PRIORIDAD DE INTENT (orden estricto al clasificar). Aplica la PRIMERA que matchee:
    a) Si menciona "resumen", "reenvíame", "mándame", "muéstrame", "qué llevo", "cómo voy", "cuánto llevo", "qué he comido", "qué comí hoy" → SIEMPRE intent=summary_day (aunque mencione alimentos previos para contexto, tu trabajo es mostrar el día actual, NO registrar ni preguntar).
    b) Si menciona "semana", "semanal", "resumen semanal", "cómo voy esta semana" → intent=summary_week.
@@ -1051,6 +1153,7 @@ ${contextSnippet}
 - "log_meal": registrar comida nueva. Ej: "desayuno: 2 huevos y café", "almorcé pollo con arroz".
 - "append_to_last": SUMAR alimentos a la ÚLTIMA comida registrada hoy (no crear meal nuevo). DETECTAR estos signos: "me faltó", "olvidé decirte", "también comí", "agregale", "sumá", "ah me acordé", "no te dije que también", "ese tercero suma a lo que ya registraste". SI hay última comida, los items van EN ELLA.
 - "nutrition_query": pregunta informativa SIN registrar. Ej: "¿cuántas kcal tiene una manzana?", "¿es alta en proteína el atún?".
+- "meal_suggestion": pregunta abierta sobre QUÉ COMER en una comida específica. DETECTAR: "qué puedo comer", "qué como", "ideas de cena", "qué me sugieres", "qué desayuno", "qué hago de almuerzo", "no sé qué cenar". Indica también el "meal" deseado (desayuno/almuerzo/snack/cena) si lo menciona. EL FRONTEND MANEJA la respuesta usando los ingredientes favoritos del cliente, así que tú solo clasifica.
 - "summary_day": pide ver progreso/totales del día. Ej: "cómo voy", "cuánto llevo hoy", "resumen", "qué me falta".
 - "summary_week": pide resumen semanal. Ej: "resumen semana", "cómo voy esta semana".
 - "water": registra agua. "1 vaso"=250ml, "1 termo"=500ml, "1 botella"=500ml, "1 litro"=1000ml.
@@ -1061,7 +1164,7 @@ ${contextSnippet}
 
 ═══ SCHEMA ═══
 {
-  "intent": "log_meal | append_to_last | nutrition_query | summary_day | summary_week | water | command | clarify | off_topic | name",
+  "intent": "log_meal | append_to_last | nutrition_query | meal_suggestion | summary_day | summary_week | water | command | clarify | off_topic | name",
   "meal": "desayuno | almuerzo | cena | snack | null",
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "needs_quantity": false}],
   "append_to_entry_id": N | null,
@@ -1181,6 +1284,13 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       }
 
       // WATER
+      // MEAL SUGGESTION — what should I eat (uses favoriteIngredients)
+      if (intent === 'meal_suggestion') {
+        await handleMealSuggestion(parsed.meal || null);
+        setLoading(false); setLoadingPreview('');
+        return;
+      }
+
       if (intent === 'water' && parsed.water_ml) {
         setWater(w => w + parsed.water_ml);
         haptic(15);
@@ -1199,7 +1309,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       // NAME only
       if (intent === 'name') {
         const firstName = parsed.name_detected ? parsed.name_detected.split(' ')[0] : '';
-        setMessages(m => [...m, { role: 'assistant', content: firstName ? `Listo, ${firstName}. Cuando comas, cuéntame y registro.` : 'Listo. Cuando comas, cuéntame y registro.', ts: Date.now() }]);
+        setMessages(m => [...m, { role: 'assistant', content: firstName ? `Perfecto, ${firstName}. Cuando comas, cuéntame y lo registro.` : 'Perfecto. Cuando comas, cuéntame y lo registro.', ts: Date.now() }]);
         setLoading(false); setLoadingPreview('');
         return;
       }
@@ -1307,7 +1417,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           p: r1(cleanItems.reduce((s, i) => s + (i.p || 0), 0)),
           c: r1(cleanItems.reduce((s, i) => s + (i.c || 0), 0)),
           g: r1(cleanItems.reduce((s, i) => s + (i.g || 0), 0)),
-          time: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
+          time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
           rawInput: userMsg,
           hasMissingQuantity: false,
         };
@@ -1348,7 +1458,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       return;
     }
     const recognition = new SpeechRecognition();
-    recognition.lang = 'es-CO';
+    recognition.lang = 'es';
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.onstart = () => { setRecording(true); haptic(15); };
@@ -1402,7 +1512,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       meal: predictMealType(),
       items: fav.items,
       kcal: fav.kcal, p: fav.p, c: fav.c, g: fav.g,
-      time: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
+      time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
       rawInput: fav.name
     };
     setEntries(e => [...e, newEntry]);
@@ -1699,33 +1809,50 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
                   <div className="text-[17px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
                 </div>
                 <button onClick={() => { haptic(6); setActionsExpanded(false); }}
-                  className="p-2 rounded-full transition active:scale-90" style={{ background: SURFACE_2 }}>
+                  className="p-2 rounded-full transition active:scale-95" style={{ background: SURFACE_2 }}>
                   <X size={16} style={{ color: TEXT_MUTED }} />
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <ActionChipMini icon={<Info size={19} strokeWidth={1.75} />} label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                  onClick={() => { haptic(8); setShowCapabilitiesModal(true); setActionsExpanded(false); }} />
-                <ActionChipMini icon={<ChefHat size={19} strokeWidth={1.75} />} label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                  onClick={() => { haptic(8); setShowPlannerModal(true); setActionsExpanded(false); generatePlan(); }} />
-                <ActionChipMini icon={<Utensils size={19} strokeWidth={1.75} />} label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
-                  onClick={() => { haptic(8); setShowIngredientsModal(true); setActionsExpanded(false); }} />
-                <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                  onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
-                <ActionChipMini icon={<Sparkles size={19} strokeWidth={1.75} />} label="Check-in del día" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                  onClick={() => { haptic(8); setShowWellbeingModal(true); setActionsExpanded(false); }} />
-                <ActionChipMini icon={<PieChart size={19} strokeWidth={1.75} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                  onClick={() => { haptic(8); setInput('Ayúdame con proporciones, tengo: '); setActionsExpanded(false); }} />
-                <ActionChipMini icon={<Star size={19} strokeWidth={1.75} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
-                  onClick={() => { haptic(8); setActiveModal('favorites'); setActionsExpanded(false); }} />
-                <ActionChipMini icon={<Calendar size={19} strokeWidth={1.75} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
-                  onClick={() => { haptic(8); setActiveModal('calendar'); setActionsExpanded(false); }} />
-                <ActionChipMini icon={<LineChart size={19} strokeWidth={1.75} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
-                  onClick={() => { haptic(8); handleSend('ver resumen diario'); setActionsExpanded(false); }} />
-                <ActionChipMini icon={<FileText size={19} strokeWidth={1.75} />} label="Descargar reporte al coach" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                  onClick={() => { haptic(8); setActiveModal('export'); setActionsExpanded(false); }} />
-                <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
-                  onClick={() => { haptic(8); setActiveModal('reset'); setActionsExpanded(false); }} />
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <ActionChipMini icon={<ChefHat size={19} strokeWidth={1.75} />} label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                      onClick={() => { haptic(8); setShowPlannerModal(true); setActionsExpanded(false); generatePlan(); }} />
+                    <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                      onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
+                    <ActionChipMini icon={<Star size={19} strokeWidth={1.75} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                      onClick={() => { haptic(8); setActiveModal('favorites'); setActionsExpanded(false); }} />
+                    <ActionChipMini icon={<Utensils size={19} strokeWidth={1.75} />} label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                      onClick={() => { haptic(8); setShowIngredientsModal(true); setActionsExpanded(false); }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <ActionChipMini icon={<LineChart size={19} strokeWidth={1.75} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
+                      onClick={() => { haptic(8); handleSend('ver resumen diario'); setActionsExpanded(false); }} />
+                    <ActionChipMini icon={<Sparkles size={19} strokeWidth={1.75} />} label="Check-in del día" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
+                      onClick={() => { haptic(8); setShowWellbeingModal(true); setActionsExpanded(false); }} />
+                    <ActionChipMini icon={<Calendar size={19} strokeWidth={1.75} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
+                      onClick={() => { haptic(8); setActiveModal('calendar'); setActionsExpanded(false); }} />
+                    <ActionChipMini icon={<PieChart size={19} strokeWidth={1.75} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
+                      onClick={() => { haptic(8); setInput('Ayúdame con proporciones, tengo: '); setActionsExpanded(false); }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <ActionChipMini icon={<FileText size={19} strokeWidth={1.75} />} label="Reporte al coach" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                      onClick={() => { haptic(8); setActiveModal('export'); setActionsExpanded(false); }} />
+                    <ActionChipMini icon={<Info size={19} strokeWidth={1.75} />} label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                      onClick={() => { haptic(8); setShowCapabilitiesModal(true); setActionsExpanded(false); }} />
+                    <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
+                      onClick={() => { haptic(8); setActiveModal('reset'); setActionsExpanded(false); }} />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1811,6 +1938,9 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
                   onFavorite={addToFavorites}
                   onAcceptFavSuggestion={() => { haptic(10); setShowIngredientsModal(true); }}
                   onDismissFavSuggestion={() => { window.storage.set('favSuggestionDismissed', JSON.stringify(Date.now())).catch(() => {}); }}
+                  onAcceptAutoFav={acceptAutoFavorite}
+                  onDismissAutoFav={dismissAutoFavorite}
+                  favoriteIngredients={favoriteIngredients}
                 />
               </div>
             ))}
@@ -1829,7 +1959,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       {showJumpToLatest && (
         <button
           onClick={() => { haptic(6); window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }); }}
-          className="fixed z-40 rounded-full transition active:scale-90 flex items-center justify-center"
+          className="fixed z-40 rounded-full transition active:scale-95 flex items-center justify-center"
           style={{
             bottom: keyboardOpen ? '156px' : '170px',
             left: '50%',
@@ -1872,12 +2002,15 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
               → se registrará como {predictedMeal}
             </div>
           )}
-          <div className="flex items-center gap-2 p-2 rounded-2xl" style={{
+          <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} autoComplete="off" className="flex items-center gap-2 p-2 rounded-2xl" style={{
             background: SURFACE,
             border: `1px solid ${recording ? C_PROTEIN : BORDER}`,
             boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, 0 8px 32px rgba(0,0,0,0.08)` : '0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
             transition: 'border 0.2s, box-shadow 0.2s'
           }}>
+            {/* Honeypot fields trick iOS into not showing autofill bar (key/credit-card/address) on the real input */}
+            <input type="text" name="username" autoComplete="username" tabIndex={-1} style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none', height: 0, width: 0 }} />
+            <input type="password" name="password" autoComplete="current-password" tabIndex={-1} style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none', height: 0, width: 0 }} />
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -1887,8 +2020,9 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
               className="flex-1 bg-transparent px-3 py-3 outline-none"
               style={{ color: TEXT, fontSize: '16px' }}
               readOnly={recording}
-              type="text"
-              name="meal-input"
+              type="search"
+              role="textbox"
+              name="q"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="sentences"
@@ -1897,6 +2031,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
               enterKeyHint="send"
               data-1p-ignore="true"
               data-lpignore="true"
+              data-form-type="other"
             />
             <button
               onClick={recording ? stopVoice : startVoice}
@@ -1910,13 +2045,13 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
               <Mic size={16} strokeWidth={2} className={recording ? 'pulse-ring' : ''} />
             </button>
             <button
-              onClick={() => handleSend()}
+              type="submit"
               disabled={!input.trim() || loading || recording}
               className="p-3 rounded-xl transition disabled:opacity-30 active:scale-[0.95]"
               style={{ background: '#1F1F1F', color: '#fff' }}>
               <ArrowUp size={16} strokeWidth={2.5} />
             </button>
-          </div>
+          </form>
         </div>
       </div>
 
@@ -2060,12 +2195,12 @@ function FontStyles() {
 
 function formatDate(iso) {
   const d = new Date(iso + 'T12:00:00');
-  return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  return d.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 function formatDateShort(iso) {
   const d = new Date(iso + 'T12:00:00');
-  return d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
+  return d.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 // True Apple-style glass ring — the chart is the focal element
@@ -2164,14 +2299,14 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
 function ActionChipMini({ icon, label, color, pastel, onClick }) {
   return (
     <button onClick={onClick}
-      className="flex items-center gap-3 px-3.5 py-3.5 rounded-2xl transition active:scale-[0.97]"
+      className="flex items-center gap-3 px-3.5 py-3.5 rounded-2xl active:scale-[0.97]"
       style={{
         background: 'rgba(255,255,255,0.7)',
         border: `1px solid rgba(0,0,0,0.05)`,
         boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        transitionDuration: '0.18s'
+        transition: 'transform 0.08s ease-out, background 0.12s ease-out'
       }}>
-      <div className="shrink-0" style={{ color: TEXT }}>
+      <div className="shrink-0" style={{ color: color || TEXT }}>
         {icon}
       </div>
       <div className="text-[12.5px] font-medium leading-tight text-left" style={{ color: TEXT }}>{label}</div>
@@ -2193,7 +2328,47 @@ function DaySeparator({ date }) {
   );
 }
 
-function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion }) {
+function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [] }) {
+  if (message.isAutoFavoriteSuggestion && message.suggestedKey) {
+    const alreadyAdded = favoriteIngredients.includes(message.suggestedKey);
+    return (
+      <div className="flex justify-start fade-up">
+        <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
+          background: ACCENT_PASTEL + '40',
+          border: `1px solid ${ACCENT_PASTEL}`,
+        }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Star size={14} style={{ color: ACCENT_DARK }} />
+            <span className="text-[10px] uppercase tracking-[0.15em] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
+          </div>
+          {alreadyAdded ? (
+            <div className="text-[13px]" style={{ color: TEXT, lineHeight: 1.5 }}>
+              Agregué <strong>{message.suggestedName}</strong> a tus ingredientes favoritos.
+            </div>
+          ) : (
+            <>
+              <div className="text-[13px] mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>
+                Noto que registras <strong>{message.suggestedName}</strong> con frecuencia. ¿Lo agrego a tu lista de ingredientes favoritos para usarlo en "Arma mi día"?
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => onAcceptAutoFav(message.suggestedKey)}
+                  className="flex-1 py-2 rounded-xl text-[12px] font-semibold active:scale-95"
+                  style={{ background: '#1F1F1F', color: '#fff' }}>
+                  Sí, agregar
+                </button>
+                <button onClick={() => onDismissAutoFav(message.suggestedKey)}
+                  className="flex-1 py-2 rounded-xl text-[12px] font-semibold active:scale-95"
+                  style={{ background: 'rgba(255,255,255,0.7)', color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
+                  No, gracias
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (message.isFavSuggestion) {
     return (
       <div className="flex justify-start fade-up">
@@ -2420,6 +2595,74 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
               Acumulado: {totals.kcal}/{goals.kcal} kcal · faltan {Math.max(0, goals.kcal - totals.kcal)}
             </div>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  if (message.isMealSuggestion && message.data) {
+    const { options = [], missingFavorites, mealType, remaining } = message.data;
+    const mealLabel = mealType ? mealType.charAt(0).toUpperCase() + mealType.slice(1) : 'Comida';
+    return (
+      <div className="flex justify-start fade-up">
+        <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
+          background: 'rgba(255,255,255,0.72)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        }}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
+              <ChefHat size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
+            </div>
+            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>{mealLabel} · opciones</span>
+          </div>
+
+          {missingFavorites ? (
+            <div className="p-3 rounded-xl text-[12.5px]" style={{ background: ACCENT_PASTEL + '30', color: TEXT, lineHeight: 1.55 }}>
+              Para sugerirte opciones con lo que comes habitualmente, necesito que primero configures tus alimentos favoritos en <strong>Mis ingredientes</strong> (desde Herramientas).
+              <div className="mt-2 text-[11.5px]" style={{ color: TEXT_MUTED }}>
+                Cuanto más completa esté tu lista de ingredientes saludables, mejores opciones puedo darte. Para criterio personalizado, también puedes consultar con tu coach.
+              </div>
+            </div>
+          ) : options.length === 0 ? (
+            <div className="p-3 rounded-xl text-[12.5px]" style={{ background: ACCENT_PASTEL + '30', color: TEXT, lineHeight: 1.55 }}>
+              Con la lista actual de ingredientes no puedo armar opciones para esa comida. Agrega más alimentos en <strong>Mis ingredientes</strong> y te doy mejores propuestas.
+            </div>
+          ) : (
+            <>
+              <div className="text-[11.5px] mb-3" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+                Basándome en los ingredientes que sueles tener, podrías combinar:
+              </div>
+              <div className="space-y-2.5">
+                {options.map((opt, i) => (
+                  <div key={i} className="p-3 rounded-xl" style={{ background: ACCENT_PASTEL + '25', border: `1px solid ${ACCENT_PASTEL}80` }}>
+                    <div className="text-[10px] uppercase tracking-wider font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
+                    <div className="space-y-0.5">
+                      {opt.items.map((it, j) => (
+                        <div key={j} className="text-[12.5px] flex justify-between gap-3">
+                          <span style={{ color: TEXT }}>{it.name}{it.amount ? ` · ${it.amount}` : ''}</span>
+                          <span className="num" style={{ color: TEXT_LIGHT }}>{Math.round(it.kcal || 0)} kcal</span>
+                        </div>
+                      ))}
+                    </div>
+                    {opt.subtotal && (
+                      <div className="text-[10px] pt-1.5 mt-1.5 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
+                        <span>≈ {Math.round(opt.subtotal.kcal || 0)} kcal</span>
+                        <span style={{ color: C_PROTEIN }}>P {Math.round((opt.subtotal.p || 0) * 10) / 10}g</span>
+                        <span style={{ color: C_CARBS }}>C {Math.round((opt.subtotal.c || 0) * 10) / 10}g</span>
+                        <span style={{ color: C_FAT }}>G {Math.round((opt.subtotal.g || 0) * 10) / 10}g</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="mt-3 pt-3 border-t text-[10px] italic" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
+            Esto es solo cálculo organizativo basado en los ingredientes que registraste como habituales. No constituye consejo nutricional. Para criterio personalizado, consulta con tu coach.
+          </div>
         </div>
       </div>
     );
@@ -2831,7 +3074,7 @@ function CalendarModal({ history, historyDetail, goals, today, todayEntries, tod
   const month = viewDate.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const monthName = viewDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  const monthName = viewDate.toLocaleDateString('es', { month: 'long', year: 'numeric' });
 
   const allHistory = { ...history };
   if (todayEntries.length > 0) {
@@ -3092,7 +3335,7 @@ function ExportModal({ name, goals, history, historyDetail, today, todayEntries,
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      const metaLine = `${name ? `Cliente: ${name}  ·  ` : ''}Periodo: ${days} días  ·  Generado: ${new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+      const metaLine = `${name ? `Cliente: ${name}  ·  ` : ''}Periodo: ${days} días  ·  Generado: ${new Date().toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}`;
       doc.text(metaLine, margin, y);
       y += 10;
 
@@ -3592,7 +3835,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
 
       {!loading && !proposal && ingredients.length > 0 && (
         <div className="py-8 flex flex-col items-center gap-3">
-          <div className="text-[13px]" style={{ color: TEXT_MUTED }}>Listo, generá la propuesta cuando quieras.</div>
+          <div className="text-[13px]" style={{ color: TEXT_MUTED }}>Genera la propuesta cuando quieras.</div>
           <button onClick={onRegenerate}
             className="px-5 py-2.5 rounded-xl text-[14px] font-semibold transition active:scale-95"
             style={{ background: '#1F1F1F', color: '#fff' }}>
