@@ -30,6 +30,11 @@ const TEXT_LIGHT = '#9A9A9A';
 const SUCCESS = '#7A9579';
 const WARN = '#B8732B';
 
+// LLM model — single source of truth. To switch to Sonnet, change this one line:
+//   'claude-haiku-4-5-20251001'  (rápido, económico, actual)
+//   'claude-sonnet-4-6'          (más capaz, ~3x costo)
+const CHAT_MODEL = 'claude-haiku-4-5-20251001';
+
 // Glass tokens — Apple-style
 const GLASS_BG = 'rgba(255, 255, 255, 0.45)';
 const GLASS_BG_STRONG = 'rgba(255, 255, 255, 0.65)';
@@ -644,17 +649,54 @@ export default function MealTracker() {
     }
   }, [totals, goals, entries.length, perfectDayShown, today]);
 
+  // Serialize the recent chat into plain text so the model has conversation memory.
+  // We embed it in the prompt (instead of a multi-turn array) to avoid API alternating constraints.
+  const buildHistoryText = (maxTurns = 16) => {
+    const recent = messages.slice(-maxTurns);
+    const lines = [];
+    for (const m of recent) {
+      if (m.isDaySeparator) continue;
+      if (m.role === 'user') {
+        lines.push(`Cliente: ${m.content}`);
+        continue;
+      }
+      // assistant / system messages — serialize the meaningful action
+      if (m.isLogged && m.entryId) {
+        const e = entries.find(x => x.id === m.entryId);
+        if (e) lines.push(`Asistente: (registré ${e.meal || 'comida'}: ${e.items.map(i => `${i.name}${i.amount ? ' ' + i.amount : ''}`).join(', ')} — total ${Math.round(e.kcal)} kcal)`);
+      } else if (m.isAppended && m.entryId) {
+        const e = entries.find(x => x.id === m.entryId);
+        const added = (m.addedItems || []).map(i => `${i.name}${i.amount ? ' ' + i.amount : ''}`).join(', ');
+        if (e) lines.push(`Asistente: (sumé a ${e.meal || 'comida'}: ${added} — nuevo total ${Math.round(e.kcal)} kcal)`);
+      } else if (m.isMacroQuery && m.data) {
+        lines.push(`Asistente: (consulta sin registrar — ${m.data.food}: ${Math.round(m.data.kcal)} kcal)`);
+      } else if (m.isWater) {
+        lines.push(`Asistente: (registré ${m.ml} ml de agua)`);
+      } else if (m.isSummaryDetailed) {
+        lines.push(`Asistente: (mostré el resumen del día)`);
+      } else if (m.isMealSuggestion || m.isGapSuggestions) {
+        lines.push(`Asistente: (di opciones de alimentos)`);
+      } else if (typeof m.content === 'string' && m.content && !['logged', 'appended', 'water', 'macro_query', 'summary', 'summary_detailed', 'proportion'].includes(m.content)) {
+        lines.push(`Asistente: ${m.content}`);
+      }
+    }
+    return lines.join('\n');
+  };
+
   const callClaude = async (prompt, systemPrompt, retries = 2) => {
     let lastError = null;
+    // Send the system prompt as a cacheable block. If it's identical across calls
+    // (and reused within ~5 min), Anthropic charges ~10% for it (prompt caching).
+    const systemBlocks = [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }];
     for (let i = 0; i <= retries; i++) {
       try {
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "claude-haiku-4-5-20251001",
+            model: CHAT_MODEL,
             max_tokens: 1500,
-            system: systemPrompt,
+            system: systemBlocks,
             messages: [{ role: "user", content: prompt }],
           })
         });
@@ -1114,7 +1156,11 @@ SCHEMA:
       ? `\nÚLTIMA COMIDA REGISTRADA HOY (id=${lastEntry.id}, meal=${lastEntry.meal}, time=${lastEntry.time}):\n${JSON.stringify(lastEntry.items.map(i => ({ name: i.name, amount: i.amount, kcal: i.kcal, p: i.p, c: i.c, g: i.g })))}\n`
       : '\nÚLTIMA COMIDA REGISTRADA HOY: ninguna aún.\n';
     const voiceHint = voiceInput
-      ? '\nIMPORTANTE: este texto vino por DICTADO DE VOZ. Puede faltar puntuación. Separa los items por contexto (ej: "3 arepas 2 huevos un café con leche" → 3 items distintos).\n'
+      ? '\nIMPORTANTE: este texto vino por DICTADO DE VOZ. Puede haber errores de transcripción y faltar puntuación. Corrige palabras mal transcritas por contexto (ej: si dictado dice "quesito" pero hablaban de un postre, probablemente es "ponquecito/ponqué"; "faena" probablemente es "fainá"). Separa los items por contexto (ej: "3 arepas 2 huevos un café con leche" → 3 items distintos).\n'
+      : '';
+    const historyText = buildHistoryText();
+    const historyBlock = historyText
+      ? `\n═══ HISTORIAL RECIENTE DE LA CONVERSACIÓN (úsalo para mantener coherencia; si el cliente se refiere a algo dicho antes, recuérdalo) ═══\n${historyText}\n`
       : '';
     const contextSnippet = `
 CONTEXTO DEL CLIENTE:
@@ -1122,35 +1168,59 @@ CONTEXTO DEL CLIENTE:
 - Comidas registradas hoy: ${entries.length}
 - Totales hoy: ${totals.kcal} kcal · P ${totals.p}g · C ${totals.c}g · G ${totals.g}g
 - Meta diaria: ${goals?.kcal || '?'} kcal · P ${goals?.p || '?'}g · C ${goals?.c || '?'}g · G ${goals?.g || '?'}g
-- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${voiceHint}`;
+- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${voiceHint}${historyBlock}`;
 
     const sys = `Eres un asistente nutricional inteligente y cálido. Devuelves SOLO JSON válido, sin markdown.
 
 ═══ FILOSOFÍA CENTRAL ═══
-1. PROHIBIDO ABSOLUTO decir "no entiendo", "no pude interpretar", "no comprendo" o frases similares. Eso genera fricción y el cliente abandona.
+1. PROHIBIDO ABSOLUTO decir "no entiendo", "no pude interpretar", "no comprendo", "no tengo acceso al historial" o frases similares. Eso genera fricción y el cliente abandona. SÍ tienes el historial reciente (viene junto al mensaje del cliente): úsalo.
 2. SIEMPRE haz tu mejor interpretación. Si tienes >70% de certeza, REGISTRA directo y opcionalmente deja una nota breve tipo "asumí 1 huevo entero (~50g)".
-3. Solo usa intent="clarify" cuando la ambigüedad es REAL (palabras inventadas, cantidad disparatada como "200 huevos", producto desconocido sin marca). En ese caso propón tu interpretación + pregunta breve.
-4. Para cantidades sin gramos: ESTIMA con USDA estándar (1 huevo ≈ 50g, banana mediana ≈ 120g, arepa media ≈ 80g, taza de arroz cocido ≈ 160g, cucharada aceite ≈ 14g). NUNCA rechaces por "valores no cuadran".
-5. IDIOMA: español neutro latinoamericano estándar. Trato de "tú" siempre, nunca "vos" ni "usted".
+3. PROCESA SIEMPRE TODOS LOS ALIMENTOS DEL MENSAJE. Está PROHIBIDO ignorar parte de una lista. Si el cliente menciona 8 alimentos, registras los 8. Nunca tomes solo una parte y dejes el resto.
+4. CLARIFY ES EL ÚLTIMO RECURSO. Usa intent="clarify" SOLO cuando es literalmente imposible interpretar (palabra inventada sin sentido, o cantidad absurda como "200 huevos"). En CUALQUIER otro caso, REGISTRA con tu mejor estimación y deja nota en quantity_warning. Si el cliente responde algo corto como "una porción", "sí", "el grande", REVISA EL HISTORIAL para saber de qué alimento habla y regístralo — NO preguntes "¿de qué?".
+5. Para cantidades sin gramos: ESTIMA con USDA estándar (1 huevo ≈ 50g, banana mediana ≈ 120g, arepa media ≈ 80g, taza de arroz cocido ≈ 160g, cucharada aceite ≈ 14g, 1 porción ≈ porción estándar del alimento en cuestión). NUNCA rechaces por "valores no cuadran".
+6. COHERENCIA: si el cliente se refiere a algo que dijo antes ("esos ponquecitos", "lo que te dije", "la receta de antes"), búscalo en el HISTORIAL RECIENTE y sé consistente. NUNCA digas que no recuerdas.
+7. IDIOMA: español neutro latinoamericano estándar. Trato de "tú" siempre, nunca "vos" ni "usted".
    PROHIBIDO ABSOLUTO:
    - Voseo argentino: "querés/tenés/decís/podés/registrá/armá/guardá/olvidá/sumá/pedí/dale". USA: quieres, tienes, dices, puedes, registra, arma, guarda, olvida, suma, pide.
    - Colombianismos: "regálame, parce, parcero, chévere, bacano, qué hubo, qué más, porfa, listo pues, ¡rico!, sabroso". USA: por favor, amigo (evítalo), bien, hola, listo (a secas), sabroso (evita), gracias.
    - Mexicanismos coloquiales: "órale, qué onda, chido, padre (=cool), híjole, ándale". USA equivalentes neutros.
    - Españolismos: "vale, tío/tía, mola, currar, guay, vosotros/vosotras". USA: bien, listo, está bien, trabajar, ustedes.
    Mantén tono cálido y profesional pero geográficamente neutro.
-6. PRIORIDAD DE INTENT (orden estricto al clasificar). Aplica la PRIMERA que matchee:
+8. PRIORIDAD DE INTENT (orden estricto al clasificar). Aplica la PRIMERA que matchee:
    a) Si menciona "resumen", "reenvíame", "mándame", "muéstrame", "qué llevo", "cómo voy", "cuánto llevo", "qué he comido", "qué comí hoy" → SIEMPRE intent=summary_day (aunque mencione alimentos previos para contexto, tu trabajo es mostrar el día actual, NO registrar ni preguntar).
    b) Si menciona "semana", "semanal", "resumen semanal", "cómo voy esta semana" → intent=summary_week.
    c) Si hay última comida registrada hoy y dice "me faltó X", "olvidé X", "también comí X", "agrégale X a lo anterior", "súmale X" → intent=append_to_last.
    d) Si describe alimentos por primera vez sin las palabras de (a)(b)(c) → intent=log_meal.
    e) Resto de casos según las reglas de intents abajo.
 
+═══ CÓMO REGISTRAR COMIDAS (categorización) ═══
+El cliente puede registrar de dos formas. Adáptate a su intención:
+- Si ETIQUETA explícitamente la comida ("desayuno: X", "en la cena comí Y", "almuerzo Z") → respeta esa etiqueta.
+- Si dicta UNA LISTA LARGA de TODO el día de una vez:
+  · Si hay PISTAS de momento ("en la mañana / al desayuno / al almuerzo / en la tarde / en la noche / de cena / de snack") → DIVIDE en varias comidas, una por cada bloque. Usa el campo "meals" (array) con un objeto por comida.
+  · Si NO hay pistas de momento → regístralo TODO como UNA sola comida con meal="comida" (sin discriminar). NO inventes divisiones falsas.
+- Si NO etiqueta y es claramente una sola comida puntual → asígnale la comida según la hora actual (antes 11h=desayuno, 11-16h=almuerzo, 16-21h=cena, resto=snack). Si dudas, usa meal="comida".
+- REGLA DE ORO: procesa SIEMPRE el mensaje completo. Si es una lista de 10 cosas, las 10 quedan registradas en esta misma respuesta. JAMÁS tomes una parte y dejes el resto para "después".
+
+═══ GLOSARIO DE ALIMENTOS REGIONALES (reconócelos aunque vengan mal transcritos por voz) ═══
+- "ponqué/ponquecito/poncecito/quesito (si hablaban de postre)" = bizcocho/cupcake casero. ~250-350 kcal según receta.
+- "fainá/faina/faena" = masa de garbanzos horneada. ~110 kcal/100g.
+- "arepa" = ~150 kcal (media, maíz blanco).
+- "patacón/tostón" = plátano verde frito. ~150 kcal/unidad.
+- "tequeño" = dedo de queso frito. ~110 kcal/unidad.
+- "palta/aguacate" = ~160 kcal/100g.
+- "choclo" = maíz. "poroto" = frijol. "frutilla" = fresa. "durazno" = melocotón.
+- "mate/yerba" = infusión, ~0 kcal sin azúcar.
+Si una palabra dictada no calza con ningún alimento conocido, busca el alimento fonéticamente más cercano según el contexto antes de preguntar.
+
 ═══ VALORES NUTRICIONALES ═══
 Usa SOLO valores reales (USDA, etiquetas comerciales). 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal.
 Sanity: huevo grande ~75 kcal, 100g pollo cocido ~165 kcal, 100g arroz cocido ~130 kcal, 100g avena cruda ~380 kcal, 1 manzana ~95 kcal, 1 plátano ~105 kcal, 1 arepa media maíz blanco ~150 kcal.
-${contextSnippet}
+
+NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un HISTORIAL RECIENTE. Úsalos siempre.
+
 ═══ INTENTS (elige UNO) ═══
-- "log_meal": registrar comida nueva. Ej: "desayuno: 2 huevos y café", "almorcé pollo con arroz".
+- "log_meal": registrar comida(s) nueva(s). Ej: "desayuno: 2 huevos y café", "almorcé pollo con arroz". Si el mensaje cubre VARIAS comidas del día, usa el campo "meals" (array) con un objeto por comida. Si es UNA sola comida, usa "items" + "meal".
 - "append_to_last": SUMAR alimentos a la ÚLTIMA comida registrada hoy (no crear meal nuevo). DETECTAR estos signos: "me faltó", "olvidé decirte", "también comí", "agregale", "sumá", "ah me acordé", "no te dije que también", "ese tercero suma a lo que ya registraste". SI hay última comida, los items van EN ELLA.
 - "nutrition_query": pregunta informativa SIN registrar. Ej: "¿cuántas kcal tiene una manzana?", "¿es alta en proteína el atún?".
 - "meal_suggestion": pregunta abierta sobre QUÉ COMER en una comida específica. DETECTAR: "qué puedo comer", "qué como", "ideas de cena", "qué me sugieres", "qué desayuno", "qué hago de almuerzo", "no sé qué cenar". Indica también el "meal" deseado (desayuno/almuerzo/snack/cena) si lo menciona. EL FRONTEND MANEJA la respuesta usando los ingredientes favoritos del cliente, así que tú solo clasifica.
@@ -1165,8 +1235,9 @@ ${contextSnippet}
 ═══ SCHEMA ═══
 {
   "intent": "log_meal | append_to_last | nutrition_query | meal_suggestion | summary_day | summary_week | water | command | clarify | off_topic | name",
-  "meal": "desayuno | almuerzo | cena | snack | null",
+  "meal": "desayuno | almuerzo | cena | snack | comida | null",
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "needs_quantity": false}],
+  "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N}]}] | null,
   "append_to_entry_id": N | null,
   "command": "reset_day | change_goals | calendar | favorites | export | proportion | null",
   "name_detected": "..." | null,
@@ -1180,7 +1251,9 @@ ${contextSnippet}
 }
 
 ═══ REGLAS ADICIONALES ═══
-- Si intent=log_meal y no se especifica meal, predice según hora actual y comidas previas: 1ra del día y hora<11 → "desayuno"; hora 11-16 → "almuerzo"; hora 16-21 → "cena"; resto → "snack".
+- Si intent=log_meal con UNA comida y no se especifica meal: si hay pista de momento úsala; si no, predice por hora (1ra del día y hora<11 → "desayuno"; hora 11-16 → "almuerzo"; hora 16-21 → "cena"; resto → "snack"); si igual dudas usa "comida".
+- Si intent=log_meal con VARIAS comidas (lista de todo el día con pistas de momento): usa "meals" array, una entrada por comida, cada una con su "meal" e "items". Deja "items" vacío o null en ese caso.
+- Si es lista de todo el día SIN pistas de momento: una sola comida con meal="comida" e todos los items en "items".
 - Si intent=append_to_last, "append_to_entry_id" = id de la última comida (te lo pasé en CONTEXTO).
 - Si el texto incluye "ah me acordé que comí también X", "olvidé decirte X", "me faltó X", "agregale X a lo de antes" Y hay última comida → SIEMPRE intent=append_to_last.
 - Si menciona nombre propio en saludo ("soy Juan", "me llamo Ana") → intent=name, name_detected.
@@ -1190,10 +1263,14 @@ ${contextSnippet}
 - Números enteros realistas. SIEMPRE llenar "preview" salvo en off_topic/clarify/name.
 - needs_quantity SIEMPRE false (estima si no se especifica, deja nota en quantity_warning).`;
 
+    // Dynamic context goes in the USER message (not the system prompt) so the system
+    // prompt stays identical across calls and the cache hits.
+    const userMessage = `${contextSnippet}\n\n═══ MENSAJE ACTUAL DEL CLIENTE ═══\n${text}`;
+
     let lastErr = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const result = await callClaude(text, sys);
+        const result = await callClaude(userMessage, sys);
         const clean = result.replace(/```json|```/g, '').trim();
         const jsonMatch = clean.match(/\{[\s\S]*\}/);
         return JSON.parse(jsonMatch ? jsonMatch[0] : clean);
@@ -1403,12 +1480,48 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         return;
       }
 
-      // LOG MEAL (new entry)
+      const r1 = (n) => Math.round(n * 10) / 10;
+
+      // LOG MULTIPLE MEALS (whole day dictated with meal cues)
+      if (intent === 'log_meal' && Array.isArray(parsed.meals) && parsed.meals.length > 0) {
+        haptic(15);
+        const baseId = Date.now();
+        const newEntries = parsed.meals
+          .filter(mealObj => mealObj && Array.isArray(mealObj.items) && mealObj.items.length > 0)
+          .map((mealObj, idx) => {
+            const cleanItems = sanitizeItems(mealObj.items);
+            trackFrequency(cleanItems);
+            return {
+              id: baseId + idx,
+              meal: mealObj.meal || 'comida',
+              items: cleanItems,
+              kcal: Math.round(cleanItems.reduce((s, i) => s + (i.kcal || 0), 0)),
+              p: r1(cleanItems.reduce((s, i) => s + (i.p || 0), 0)),
+              c: r1(cleanItems.reduce((s, i) => s + (i.c || 0), 0)),
+              g: r1(cleanItems.reduce((s, i) => s + (i.g || 0), 0)),
+              time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
+              rawInput: userMsg,
+              hasMissingQuantity: false,
+            };
+          });
+        if (newEntries.length > 0) {
+          setEntries(e => [...e, ...newEntries]);
+          const newMsgs = newEntries.map(ne => ({
+            role: 'assistant', content: 'logged', isLogged: true,
+            entryId: ne.id, quantityWarning: null, ts: Date.now() + Math.random()
+          }));
+          if (parsed.quantity_warning) newMsgs[0].quantityWarning = parsed.quantity_warning;
+          setMessages(m => [...m, ...newMsgs]);
+          setLoading(false); setLoadingPreview('');
+          return;
+        }
+      }
+
+      // LOG MEAL (single new entry)
       if (intent === 'log_meal' && parsed.items?.length > 0) {
         const cleanItems = sanitizeItems(parsed.items);
         trackFrequency(cleanItems);
         haptic(12);
-        const r1 = (n) => Math.round(n * 10) / 10;
         const newEntry = {
           id: Date.now(),
           meal: parsed.meal || predictMealType(),
@@ -3607,8 +3720,9 @@ function CapabilitiesModal({ onClose }) {
         accent={ACCENT_DARK}
         items={[
           'Escribe lo que comiste en lenguaje natural: "2 huevos, avena con plátano y café".',
+          'Puedes registrar comida por comida, o contarme TODO tu día de una vez. Si dices "en el desayuno... al almuerzo... en la cena...", lo organizo por comidas. Si solo me das la lista, la registro como tu día.',
           'Si olvidaste un alimento, dime: "se me olvidó, también comí un huevo" y lo sumo a la última comida.',
-          'También puedes dictar por voz tocando el micrófono.',
+          'También puedes dictar por voz tocando el micrófono. Recuerdo lo que hablamos antes, así que puedes referirte a algo que ya mencionaste.',
           'Si no especificas gramos, estimo con valores estándar (USDA) y te aviso.',
         ]} />
 
@@ -3973,7 +4087,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
+          model: CHAT_MODEL,
           max_tokens: 200,
           system: sys,
           messages: [{ role: "user", content: `${item.name}: ${newAmount}` }],
