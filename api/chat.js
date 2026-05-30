@@ -21,6 +21,19 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const hasContent = (c) => {
+      if (typeof c === 'string') return c.trim().length > 0;
+      if (Array.isArray(c)) return c.length > 0;
+      return c != null;
+    };
+    const cleanedMessages = Array.isArray(messages)
+      ? messages.filter((m) => m && hasContent(m.content))
+      : messages;
+
+    if (Array.isArray(cleanedMessages) && cleanedMessages.length === 0) {
+      return res.status(400).json({ error: 'No messages with content' });
+    }
+
     // Llamada real a Anthropic
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -33,7 +46,7 @@ export default async function handler(req, res) {
         model: model || 'claude-haiku-4-5-20251001',
         max_tokens: max_tokens || 1500,
         system: system || '',
-        messages,
+        messages: cleanedMessages,
       }),
     });
 
