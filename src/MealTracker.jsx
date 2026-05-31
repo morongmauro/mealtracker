@@ -113,6 +113,7 @@ export default function MealTracker() {
   const [plannerProposal, setPlannerProposal] = useState(null); // result from LLM
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [showCapabilitiesModal, setShowCapabilitiesModal] = useState(false);
+  const [showPerformanceModal, setShowPerformanceModal] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -1893,7 +1894,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           transform: 'translate3d(0, 0, 0)',
           willChange: 'transform'
         }}>
-        <div className="rounded-3xl relative" style={{
+        <div className="rounded-3xl relative cursor-pointer" style={{
           padding: cardCompact ? '8px 12px' : '16px',
           background: 'rgba(255,255,255,0.78)',
           backdropFilter: 'blur(32px) saturate(200%)',
@@ -1902,7 +1903,9 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 8px 28px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
           overflow: 'hidden',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)'
-        }}>
+        }}
+          onClick={() => { haptic(8); setShowPerformanceModal(true); }}
+          title="Ver desempeño">
           {/* Subtle organic blob inside the card */}
           <div className="absolute pointer-events-none" style={{
             top: '-30%', right: '-20%', width: '60%', height: '120%',
@@ -1912,7 +1915,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           <div className="relative">
           {!cardCompact && (
             <button
-              onClick={() => { haptic(8); setView('onboarding'); }}
+              onClick={(e) => { e.stopPropagation(); haptic(8); setView('onboarding'); }}
               className="absolute top-0 right-0 flex items-center gap-1 px-2.5 py-1 rounded-full transition active:scale-95"
               style={{
                 color: TEXT_MUTED,
@@ -1948,12 +1951,19 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
               <CompactMacro val={totals.g} goal={goals.g} color={C_FAT} label="G" unit="g" />
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-1">
-              <GlassRing val={totals.kcal} goal={goals.kcal} color={ACCENT} label="Calorías" unit="" />
-              <GlassRing val={totals.p} goal={goals.p} color={C_PROTEIN} label="Proteína" unit="g" />
-              <GlassRing val={totals.c} goal={goals.c} color={C_CARBS} label="Carbos" unit="g" />
-              <GlassRing val={totals.g} goal={goals.g} color={C_FAT} label="Grasas" unit="g" />
-            </div>
+            <>
+              <div className="grid grid-cols-4 gap-1">
+                <GlassRing val={totals.kcal} goal={goals.kcal} color={ACCENT} label="Calorías" unit="" />
+                <GlassRing val={totals.p} goal={goals.p} color={C_PROTEIN} label="Proteína" unit="g" />
+                <GlassRing val={totals.c} goal={goals.c} color={C_CARBS} label="Carbos" unit="g" />
+                <GlassRing val={totals.g} goal={goals.g} color={C_FAT} label="Grasas" unit="g" />
+              </div>
+              <div className="text-center mt-3">
+                <span className="text-[10px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>
+                  Ver desempeño <span aria-hidden="true">→</span>
+                </span>
+              </div>
+            </>
           )}
           </div>
         </div>
@@ -2025,6 +2035,8 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
                 <div>
                   <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
                   <div className="grid grid-cols-2 gap-2.5">
+                    <ActionChipMini icon={<BarChart3 size={19} strokeWidth={1.75} />} label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                      onClick={() => { haptic(8); setShowPerformanceModal(true); setActionsExpanded(false); }} />
                     <ActionChipMini icon={<LineChart size={19} strokeWidth={1.75} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
                       onClick={() => { haptic(8); handleSend('ver resumen diario'); setActionsExpanded(false); }} />
                     <ActionChipMini icon={<Sparkles size={19} strokeWidth={1.75} />} label="Check-in del día" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
@@ -2135,6 +2147,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
                   onAcceptAutoFav={acceptAutoFavorite}
                   onDismissAutoFav={dismissAutoFavorite}
                   favoriteIngredients={favoriteIngredients}
+                  onOpenPerformance={() => { haptic(8); setShowPerformanceModal(true); }}
                 />
               </div>
             ))}
@@ -2338,6 +2351,18 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           onClose={() => { setShowPlannerModal(false); setPlannerProposal(null); }} />
       )}
 
+      {showPerformanceModal && (
+        <PerformanceModal
+          history={history}
+          historyDetail={historyDetail}
+          entries={entries}
+          goals={goals}
+          today={today}
+          name={name}
+          wellbeing={wellbeing}
+          onClose={() => setShowPerformanceModal(false)} />
+      )}
+
       {showCapabilitiesModal && (
         <CapabilitiesModal onClose={() => setShowCapabilitiesModal(false)} />
       )}
@@ -2526,7 +2551,7 @@ function DaySeparator({ date }) {
   );
 }
 
-function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [] }) {
+function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance }) {
   if (message.isAutoFavoriteSuggestion && message.suggestedKey) {
     const alreadyAdded = favoriteIngredients.includes(message.suggestedKey);
     return (
@@ -3116,6 +3141,13 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
                   <Row label="Grasas" val={`${message.totals.g} / ${goals.g}`} diff={goals.g - message.totals.g} unit="g" color={C_FAT} />
                 </div>
               </div>
+              {onOpenPerformance && (
+                <button onClick={onOpenPerformance}
+                  className="mt-3 w-full py-2.5 rounded-xl text-[12px] font-semibold active:scale-[0.98]"
+                  style={{ background: ACCENT_PASTEL + '60', color: ACCENT_DARK, border: `1px solid ${ACCENT_PASTEL}` }}>
+                  Ver desempeño de la semana →
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -3768,6 +3800,434 @@ function ExportModal({ name, goals, history, historyDetail, today, todayEntries,
           Aún no hay días con registro. En cuanto comas y lo cuentes, lo voy guardando acá.
         </div>
       )}
+    </ModalShell>
+  );
+}
+
+// Approximate USDA micronutrient density (per gram of food).
+// Conservative estimates for common items. The goal is directional, not clinical.
+const MICRO_DB = {
+  // fiber g, calcium mg, iron mg, vitD μg, omega3 g per 1g of food
+  'arroz':       { fiber: 0.004, calcium: 0.1,  iron: 0.002, vitD: 0,    omega3: 0 },
+  'pollo':       { fiber: 0,     calcium: 0.15, iron: 0.009, vitD: 0.001,omega3: 0.0001 },
+  'pechuga':     { fiber: 0,     calcium: 0.15, iron: 0.009, vitD: 0.001,omega3: 0.0001 },
+  'pescado':     { fiber: 0,     calcium: 0.2,  iron: 0.005, vitD: 0.04, omega3: 0.012 },
+  'salmon':      { fiber: 0,     calcium: 0.12, iron: 0.003, vitD: 0.11, omega3: 0.022 },
+  'atun':        { fiber: 0,     calcium: 0.1,  iron: 0.008, vitD: 0.02, omega3: 0.013 },
+  'huevo':       { fiber: 0,     calcium: 0.5,  iron: 0.018, vitD: 0.02, omega3: 0.001 },
+  'avena':       { fiber: 0.1,   calcium: 0.54, iron: 0.047, vitD: 0,    omega3: 0.0014 },
+  'banana':      { fiber: 0.026, calcium: 0.05, iron: 0.003, vitD: 0,    omega3: 0 },
+  'platano':     { fiber: 0.026, calcium: 0.05, iron: 0.003, vitD: 0,    omega3: 0 },
+  'manzana':     { fiber: 0.024, calcium: 0.06, iron: 0.001, vitD: 0,    omega3: 0 },
+  'palta':       { fiber: 0.067, calcium: 0.12, iron: 0.006, vitD: 0,    omega3: 0.0011 },
+  'aguacate':    { fiber: 0.067, calcium: 0.12, iron: 0.006, vitD: 0,    omega3: 0.0011 },
+  'arepa':       { fiber: 0.03,  calcium: 0.5,  iron: 0.01,  vitD: 0,    omega3: 0 },
+  'pan':         { fiber: 0.07,  calcium: 0.8,  iron: 0.025, vitD: 0,    omega3: 0 },
+  'yogur':       { fiber: 0,     calcium: 1.1,  iron: 0,     vitD: 0.001,omega3: 0 },
+  'leche':       { fiber: 0,     calcium: 1.2,  iron: 0,     vitD: 0.001,omega3: 0 },
+  'queso':       { fiber: 0,     calcium: 7,    iron: 0.001, vitD: 0.006,omega3: 0.001 },
+  'almendra':    { fiber: 0.13,  calcium: 2.7,  iron: 0.036, vitD: 0,    omega3: 0.0001 },
+  'mantequilla mani': { fiber: 0.06, calcium: 0.5, iron: 0.018, vitD: 0,omega3: 0.0001 },
+  'espinaca':    { fiber: 0.022, calcium: 1,    iron: 0.027, vitD: 0,    omega3: 0.0014 },
+  'brocoli':     { fiber: 0.026, calcium: 0.47, iron: 0.007, vitD: 0,    omega3: 0.001 },
+  'lenteja':     { fiber: 0.079, calcium: 0.19, iron: 0.033, vitD: 0,    omega3: 0.001 },
+  'frijol':      { fiber: 0.06,  calcium: 0.27, iron: 0.029, vitD: 0,    omega3: 0.001 },
+  'tomate':      { fiber: 0.012, calcium: 0.1,  iron: 0.003, vitD: 0,    omega3: 0 },
+  'aceite oliva':{ fiber: 0,     calcium: 0.01, iron: 0.001, vitD: 0,    omega3: 0.008 },
+};
+const DAILY_MICRO_GOALS = { fiber: 28, calcium: 1000, iron: 18, vitD: 15, omega3: 1.6 };
+
+function matchMicroKey(name) {
+  if (!name) return null;
+  const n = name.toLowerCase();
+  for (const key of Object.keys(MICRO_DB)) {
+    if (n.includes(key)) return key;
+  }
+  return null;
+}
+
+function estimateMicros(items) {
+  const result = { fiber: 0, calcium: 0, iron: 0, vitD: 0, omega3: 0 };
+  for (const it of items) {
+    const key = matchMicroKey(it.name);
+    if (!key) continue;
+    // Try to extract grams from amount string ("100g", "50 g", "1 unidad (~50g)")
+    let grams = 0;
+    const amt = (it.amount || '').toLowerCase();
+    const gMatch = amt.match(/(\d+(?:\.\d+)?)\s*g/);
+    if (gMatch) grams = parseFloat(gMatch[1]);
+    else if (it.kcal && it.kcal > 0) {
+      // Rough fallback: assume 1.5 kcal per gram (mixed foods average)
+      grams = it.kcal / 1.5;
+    }
+    if (grams <= 0) continue;
+    const db = MICRO_DB[key];
+    result.fiber += db.fiber * grams;
+    result.calcium += db.calcium * grams;
+    result.iron += db.iron * grams;
+    result.vitD += db.vitD * grams;
+    result.omega3 += db.omega3 * grams;
+  }
+  return result;
+}
+
+function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, onClose }) {
+  const [tab, setTab] = useState('semana'); // semana | mes | tendencia
+
+  // Combined history including today
+  const combinedHistory = { ...history };
+  const combinedDetail = { ...historyDetail };
+  if (entries.length > 0) {
+    const t = entries.reduce((acc, e) => ({
+      kcal: acc.kcal + (e.kcal || 0),
+      p: acc.p + (e.p || 0),
+      c: acc.c + (e.c || 0),
+      g: acc.g + (e.g || 0),
+    }), { kcal: 0, p: 0, c: 0, g: 0 });
+    combinedHistory[today] = t;
+    combinedDetail[today] = entries;
+  }
+
+  const daysBack = (n) => {
+    const arr = [];
+    const base = new Date();
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(base);
+      d.setDate(d.getDate() - i);
+      const key = getLocalDate(d);
+      arr.push({ date: key, jsDate: new Date(d), data: combinedHistory[key] || null });
+    }
+    return arr;
+  };
+
+  const week = daysBack(7);
+  const month = daysBack(30);
+
+  // Trend: group last 12 weeks by week
+  const trendDays = daysBack(84);
+  const weeks = [];
+  for (let i = 0; i < 12; i++) {
+    const chunk = trendDays.slice(i * 7, i * 7 + 7);
+    const recorded = chunk.filter(d => d.data && d.data.kcal > 0);
+    const avg = (key) => recorded.length > 0
+      ? recorded.reduce((s, d) => s + (d.data[key] || 0), 0) / recorded.length
+      : 0;
+    weeks.push({
+      label: `S${i + 1}`,
+      startDate: chunk[0]?.date,
+      kcal: Math.round(avg('kcal')),
+      p: Math.round(avg('p')),
+      c: Math.round(avg('c')),
+      g: Math.round(avg('g')),
+      registered: recorded.length,
+    });
+  }
+
+  const stats = (days, key) => {
+    const recorded = days.filter(d => d.data && d.data.kcal > 0);
+    if (recorded.length === 0) return { avg: 0, pct: 0, inGoal: 0 };
+    const avg = recorded.reduce((s, d) => s + (d.data[key] || 0), 0) / recorded.length;
+    const goal = goals[key] || 1;
+    const inGoal = recorded.filter(d => {
+      const v = d.data[key] || 0;
+      return v >= goal * 0.9 && v <= goal * 1.1;
+    }).length;
+    return { avg: Math.round(avg), pct: Math.round((avg / goal) * 100), inGoal };
+  };
+
+  // Wellbeing averages (week)
+  const weekWb = week
+    .map(d => wellbeing[d.date])
+    .filter(Boolean);
+  const wbAvg = weekWb.length > 0 ? {
+    energy: (weekWb.reduce((s, w) => s + (w.energy || 0), 0) / weekWb.length).toFixed(1),
+    hunger: (weekWb.reduce((s, w) => s + (w.hunger || 0), 0) / weekWb.length).toFixed(1),
+    mood: (weekWb.reduce((s, w) => s + (w.mood || 0), 0) / weekWb.length).toFixed(1),
+    count: weekWb.length,
+  } : null;
+
+  // Micros (last 7 days, average per day with data)
+  const microSum = { fiber: 0, calcium: 0, iron: 0, vitD: 0, omega3: 0 };
+  let microDays = 0;
+  for (const d of week) {
+    const det = combinedDetail[d.date];
+    if (!det || det.length === 0) continue;
+    const allItems = det.flatMap(e => e.items || []);
+    const m = estimateMicros(allItems);
+    microSum.fiber += m.fiber;
+    microSum.calcium += m.calcium;
+    microSum.iron += m.iron;
+    microSum.vitD += m.vitD;
+    microSum.omega3 += m.omega3;
+    microDays++;
+  }
+  const microAvg = microDays > 0 ? {
+    fiber: microSum.fiber / microDays,
+    calcium: microSum.calcium / microDays,
+    iron: microSum.iron / microDays,
+    vitD: microSum.vitD / microDays,
+    omega3: microSum.omega3 / microDays,
+  } : null;
+
+  const dayShort = (date) => {
+    const [y, m, dd] = date.split('-').map(Number);
+    const d = new Date(y, m - 1, dd);
+    return d.toLocaleDateString('es', { weekday: 'short' }).slice(0, 1).toUpperCase();
+  };
+  const monthDay = (date) => {
+    const [y, m, dd] = date.split('-').map(Number);
+    return dd;
+  };
+
+  const Chart = ({ days, color, goal, label, unit, showLabels = false, type = 'day' }) => {
+    if (!goal || goal <= 0) return null;
+    const maxScale = goal * 1.3;
+    const barW = type === 'day' ? `${100 / days.length}%` : `${100 / days.length}%`;
+    return (
+      <div>
+        <div className="flex items-end gap-px w-full" style={{ height: '80px' }}>
+          {days.map((d, i) => {
+            const val = d.data ? (d.data[label] || 0) : 0;
+            const pct = goal > 0 ? val / goal : 0;
+            const heightPct = Math.min((val / maxScale) * 100, 100);
+            const inGoal = val > 0 && pct >= 0.9 && pct <= 1.1;
+            const fillColor = val === 0 ? '#D0CFC6' : (inGoal ? SUCCESS : color);
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center justify-end" style={{ minWidth: 0 }}>
+                <div
+                  className="w-full rounded-t-sm"
+                  style={{
+                    height: `${heightPct}%`,
+                    background: fillColor,
+                    opacity: val === 0 ? 0.5 : 1,
+                    minHeight: val > 0 ? '2px' : '1px',
+                    transition: 'height 0.3s ease',
+                  }}
+                  title={`${d.date}: ${Math.round(val)}${unit}`}
+                />
+              </div>
+            );
+          })}
+        </div>
+        {showLabels && (
+          <div className="flex gap-px w-full mt-1">
+            {days.map((d, i) => {
+              const showLbl = type === 'day' || i === 0 || i === days.length - 1 || (type === 'month' && i % 7 === 0);
+              return (
+                <div key={i} className="flex-1 text-center" style={{ fontSize: '8px', color: TEXT_LIGHT, minWidth: 0 }}>
+                  {showLbl ? (type === 'day' ? dayShort(d.date) : monthDay(d.date)) : ''}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const StatBlock = ({ label, color, goal, unit, data, statKey }) => {
+    const s = stats(data, statKey);
+    const goalLine = data.filter(d => d.data && d.data.kcal > 0).length;
+    return (
+      <div className="mb-5">
+        <div className="flex justify-between items-baseline mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color }}>{label}</span>
+            <span className="text-[10px] num" style={{ color: TEXT_LIGHT }}>meta {goal}{unit}</span>
+          </div>
+          <div className="text-right">
+            <span className="text-[14px] font-bold num" style={{ color: TEXT }}>{s.avg}{unit}</span>
+            <span className="text-[10px] num ml-1" style={{ color: TEXT_LIGHT }}>· {s.pct}%</span>
+          </div>
+        </div>
+        <Chart days={data} color={color} goal={goal} label={statKey} unit={unit} showLabels={true} type={data.length > 14 ? 'month' : 'day'} />
+        {goalLine > 0 && (
+          <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>
+            {s.inGoal} de {goalLine} días en rango ±10%
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const TrendBlock = ({ label, color, goal, unit, statKey }) => {
+    const recorded = weeks.filter(w => w.registered > 0);
+    if (recorded.length === 0) return null;
+    const avg = Math.round(recorded.reduce((s, w) => s + w[statKey], 0) / recorded.length);
+    const pct = Math.round((avg / goal) * 100);
+    const maxScale = goal * 1.3;
+    return (
+      <div className="mb-5">
+        <div className="flex justify-between items-baseline mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color }}>{label}</span>
+            <span className="text-[10px] num" style={{ color: TEXT_LIGHT }}>meta {goal}{unit}</span>
+          </div>
+          <div className="text-right">
+            <span className="text-[14px] font-bold num" style={{ color: TEXT }}>{avg}{unit}</span>
+            <span className="text-[10px] num ml-1" style={{ color: TEXT_LIGHT }}>· {pct}% promedio</span>
+          </div>
+        </div>
+        <svg width="100%" height="60" viewBox={`0 0 ${weeks.length * 30} 60`} preserveAspectRatio="none" style={{ display: 'block' }}>
+          {/* Goal line */}
+          <line x1="0" y1="20" x2={weeks.length * 30} y2="20" stroke={SUCCESS} strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5" />
+          {/* Trend line */}
+          {(() => {
+            const points = weeks.map((w, i) => {
+              const x = i * 30 + 15;
+              const v = w[statKey] || 0;
+              const y = 60 - Math.min((v / maxScale) * 60, 60);
+              return { x, y, v, registered: w.registered };
+            });
+            const path = points
+              .filter(p => p.registered > 0)
+              .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+              .join(' ');
+            return (
+              <>
+                {path && <path d={path} stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+                {points.map((p, i) => p.registered > 0 && (
+                  <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={color} />
+                ))}
+              </>
+            );
+          })()}
+        </svg>
+        <div className="flex justify-between text-[8px] mt-1" style={{ color: TEXT_LIGHT }}>
+          <span>hace 12 sem</span>
+          <span>esta semana</span>
+        </div>
+      </div>
+    );
+  };
+
+  const MicroRow = ({ label, value, goal, unit, hint }) => {
+    const pct = goal > 0 ? value / goal : 0;
+    const status = pct >= 0.9 ? '✓' : pct >= 0.6 ? '⚠ algo bajo' : '⚠ bajo';
+    const statusColor = pct >= 0.9 ? SUCCESS : WARN;
+    return (
+      <div className="flex justify-between items-baseline py-2" style={{ borderBottom: `1px solid ${BORDER_SOFT}` }}>
+        <div>
+          <div className="text-[12px] font-medium" style={{ color: TEXT }}>{label}</div>
+          {hint && <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>{hint}</div>}
+        </div>
+        <div className="text-right">
+          <div className="text-[12px] num" style={{ color: TEXT }}>
+            <strong>{value < 10 ? value.toFixed(1) : Math.round(value)}{unit}</strong>
+            <span style={{ color: TEXT_LIGHT, fontWeight: 400 }}>/día · meta {goal}{unit}</span>
+          </div>
+          <div className="text-[10px]" style={{ color: statusColor }}>{status}</div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <ModalShell onClose={onClose} maxWidth="max-w-xl">
+      <ModalHeader accent={ACCENT_DARK} label="Mi desempeño" title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
+
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 rounded-xl mb-5" style={{ background: SURFACE_2 }}>
+        {[
+          { key: 'semana', label: 'Semana' },
+          { key: 'mes', label: 'Mes' },
+          { key: 'tendencia', label: 'Tendencia' },
+        ].map(t => (
+          <button key={t.key} onClick={() => { haptic(6); setTab(t.key); }}
+            className="flex-1 py-2 rounded-lg text-[12px] font-semibold transition active:scale-[0.98]"
+            style={{
+              background: tab === t.key ? '#1F1F1F' : 'transparent',
+              color: tab === t.key ? '#fff' : TEXT_MUTED,
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'semana' && (
+        <div>
+          <StatBlock label="Calorías" color={ACCENT} goal={goals.kcal} unit="" data={week} statKey="kcal" />
+          <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={week} statKey="p" />
+          <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={week} statKey="c" />
+          <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={week} statKey="g" />
+
+          {/* Wellbeing */}
+          {wbAvg && (
+            <div className="mb-5 p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: ACCENT_DARK }}>Bienestar promedio</div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Energía</div>
+                  <div className="text-[16px] font-bold num" style={{ color: ACCENT }}>{wbAvg.energy}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
+                </div>
+                <div>
+                  <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Hambre</div>
+                  <div className="text-[16px] font-bold num" style={{ color: C_PROTEIN }}>{wbAvg.hunger}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
+                </div>
+                <div>
+                  <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Ánimo</div>
+                  <div className="text-[16px] font-bold num" style={{ color: C_FAT }}>{wbAvg.mood}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
+                </div>
+              </div>
+              <div className="text-[10px] mt-2" style={{ color: TEXT_LIGHT }}>{wbAvg.count} de 7 check-ins</div>
+            </div>
+          )}
+
+          {/* Micronutrients */}
+          {microAvg && (
+            <div className="mb-3">
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: ACCENT_DARK }}>Micronutrientes (promedio diario)</div>
+              <div>
+                <MicroRow label="Fibra" value={microAvg.fiber} goal={DAILY_MICRO_GOALS.fiber} unit="g" hint="digestión, saciedad" />
+                <MicroRow label="Calcio" value={microAvg.calcium} goal={DAILY_MICRO_GOALS.calcium} unit="mg" hint="hueso, contracción muscular" />
+                <MicroRow label="Hierro" value={microAvg.iron} goal={DAILY_MICRO_GOALS.iron} unit="mg" hint="oxigenación, energía" />
+                <MicroRow label="Vitamina D" value={microAvg.vitD} goal={DAILY_MICRO_GOALS.vitD} unit="μg" hint="hueso, inmunidad" />
+                <MicroRow label="Omega-3" value={microAvg.omega3} goal={DAILY_MICRO_GOALS.omega3} unit="g" hint="cardiovascular, antiinflamatorio" />
+              </div>
+              <div className="text-[10px] mt-3 italic" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
+                Estimaciones aproximadas basadas en USDA. Información educativa, no constituye diagnóstico ni recomendación de suplementación. Para deficiencias específicas, consulta con un profesional de la salud.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'mes' && (
+        <div>
+          <StatBlock label="Calorías" color={ACCENT} goal={goals.kcal} unit="" data={month} statKey="kcal" />
+          <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={month} statKey="p" />
+          <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={month} statKey="c" />
+          <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={month} statKey="g" />
+        </div>
+      )}
+
+      {tab === 'tendencia' && (
+        <div>
+          <div className="text-[12px] mb-4" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+            Promedio semanal de los últimos 3 meses. Cada punto es una semana.
+          </div>
+          <TrendBlock label="Calorías" color={ACCENT} goal={goals.kcal} unit="" statKey="kcal" />
+          <TrendBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" statKey="p" />
+          <TrendBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" statKey="c" />
+          <TrendBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" statKey="g" />
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-4 mt-4 pt-3 text-[10px]" style={{ color: TEXT_MUTED, borderTop: `1px solid ${BORDER_SOFT}` }}>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-sm" style={{ background: SUCCESS }} />
+          <span>En meta ±10%</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-sm" style={{ background: ACCENT }} />
+          <span>Con registro</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-sm" style={{ background: '#D0CFC6', opacity: 0.6 }} />
+          <span>Sin registro</span>
+        </div>
+      </div>
     </ModalShell>
   );
 }
