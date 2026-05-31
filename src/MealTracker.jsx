@@ -1944,12 +1944,18 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           )}
 
           {cardCompact ? (
-            <div className="flex items-center justify-between gap-2">
-              <CompactMacro val={totals.kcal} goal={goals.kcal} color={ACCENT} label="kcal" />
-              <CompactMacro val={totals.p} goal={goals.p} color={C_PROTEIN} label="P" unit="g" />
-              <CompactMacro val={totals.c} goal={goals.c} color={C_CARBS} label="C" unit="g" />
-              <CompactMacro val={totals.g} goal={goals.g} color={C_FAT} label="G" unit="g" />
-            </div>
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <CompactMacro val={totals.kcal} goal={goals.kcal} color={ACCENT} label="kcal" />
+                <CompactMacro val={totals.p} goal={goals.p} color={C_PROTEIN} label="P" unit="g" />
+                <CompactMacro val={totals.c} goal={goals.c} color={C_CARBS} label="C" unit="g" />
+                <CompactMacro val={totals.g} goal={goals.g} color={C_FAT} label="G" unit="g" />
+                <div className="flex items-center gap-1 pl-2" style={{ borderLeft: `1px solid ${BORDER_SOFT}` }}>
+                  <span className="text-[9px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>Ver</span>
+                  <span style={{ color: ACCENT_DARK, fontSize: '12px' }}>→</span>
+                </div>
+              </div>
+            </>
           ) : (
             <>
               <div className="grid grid-cols-4 gap-1">
@@ -3981,40 +3987,62 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   const Chart = ({ days, color, goal, label, unit, showLabels = false, type = 'day' }) => {
     if (!goal || goal <= 0) return null;
-    const maxScale = goal * 1.3;
-    const barW = type === 'day' ? `${100 / days.length}%` : `${100 / days.length}%`;
+    // Scale top = max(140% of goal, max recorded value with some padding)
+    const maxRecorded = Math.max(0, ...days.map(d => (d.data ? (d.data[label] || 0) : 0)));
+    const maxScale = Math.max(goal * 1.4, maxRecorded * 1.1, goal * 1.1);
+    const goalPct = (goal / maxScale) * 100; // % from bottom where the goal line sits
+    const showBarValues = type === 'day'; // weekly view has room for values
     return (
       <div>
-        <div className="flex items-end gap-px w-full" style={{ height: '80px' }}>
-          {days.map((d, i) => {
-            const val = d.data ? (d.data[label] || 0) : 0;
-            const pct = goal > 0 ? val / goal : 0;
-            const heightPct = Math.min((val / maxScale) * 100, 100);
-            const inGoal = val > 0 && pct >= 0.9 && pct <= 1.1;
-            const fillColor = val === 0 ? '#D0CFC6' : (inGoal ? SUCCESS : color);
-            return (
-              <div key={i} className="flex-1 flex flex-col items-center justify-end" style={{ minWidth: 0 }}>
-                <div
-                  className="w-full rounded-t-sm"
-                  style={{
-                    height: `${heightPct}%`,
-                    background: fillColor,
-                    opacity: val === 0 ? 0.5 : 1,
-                    minHeight: val > 0 ? '2px' : '1px',
-                    transition: 'height 0.3s ease',
-                  }}
-                  title={`${d.date}: ${Math.round(val)}${unit}`}
-                />
-              </div>
-            );
-          })}
+        <div className="relative w-full" style={{ height: '110px', background: SURFACE_2 + '60', borderRadius: '8px', padding: '8px 6px' }}>
+          {/* Goal line — horizontal dashed at goal level */}
+          <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 1 }}>
+            <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: SUCCESS, opacity: 0.6 }} />
+            <span className="px-1.5 text-[8px] font-semibold uppercase tracking-wider" style={{ color: SUCCESS, background: SURFACE_2 + 'F0' }}>meta {goal}{unit}</span>
+          </div>
+          {/* Bars */}
+          <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
+            {days.map((d, i) => {
+              const val = d.data ? (d.data[label] || 0) : 0;
+              const pct = goal > 0 ? val / goal : 0;
+              const heightPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
+              const inGoal = val > 0 && pct >= 0.9 && pct <= 1.1;
+              const over = val > goal * 1.1;
+              const fillColor = val === 0 ? '#D0CFC6' : (inGoal ? SUCCESS : over ? WARN : color);
+              const isToday = d.date === today;
+              return (
+                <div key={i} className="flex-1 h-full flex flex-col justify-end items-center" style={{ minWidth: 0 }}>
+                  {showBarValues && val > 0 && (
+                    <div className="text-[9px] font-bold mb-0.5 num" style={{ color: fillColor }}>
+                      {Math.round(val)}
+                    </div>
+                  )}
+                  <div
+                    className="w-full"
+                    style={{
+                      height: val > 0 ? `${heightPct}%` : '2px',
+                      background: fillColor,
+                      opacity: val === 0 ? 0.45 : 1,
+                      borderRadius: '3px 3px 1px 1px',
+                      minHeight: val > 0 ? '4px' : '2px',
+                      transition: 'height 0.4s cubic-bezier(0.2, 0, 0, 1)',
+                      outline: isToday ? `1.5px solid ${TEXT}` : 'none',
+                      outlineOffset: '1px',
+                    }}
+                    title={`${d.date}: ${Math.round(val)}${unit} (${Math.round(pct * 100)}% de la meta)`}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
         {showLabels && (
-          <div className="flex gap-px w-full mt-1">
+          <div className="flex gap-[3px] w-full mt-1.5 px-2">
             {days.map((d, i) => {
               const showLbl = type === 'day' || i === 0 || i === days.length - 1 || (type === 'month' && i % 7 === 0);
+              const isToday = d.date === today;
               return (
-                <div key={i} className="flex-1 text-center" style={{ fontSize: '8px', color: TEXT_LIGHT, minWidth: 0 }}>
+                <div key={i} className="flex-1 text-center" style={{ fontSize: '9px', color: isToday ? TEXT : TEXT_LIGHT, minWidth: 0, fontWeight: isToday ? 700 : 500 }}>
                   {showLbl ? (type === 'day' ? dayShort(d.date) : monthDay(d.date)) : ''}
                 </div>
               );
@@ -4027,23 +4055,38 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   const StatBlock = ({ label, color, goal, unit, data, statKey }) => {
     const s = stats(data, statKey);
-    const goalLine = data.filter(d => d.data && d.data.kcal > 0).length;
+    const recorded = data.filter(d => d.data && d.data.kcal > 0).length;
     return (
       <div className="mb-5">
-        <div className="flex justify-between items-baseline mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color }}>{label}</span>
-            <span className="text-[10px] num" style={{ color: TEXT_LIGHT }}>meta {goal}{unit}</span>
+        <div className="flex justify-between items-end mb-2">
+          <div>
+            <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color }}>{label}</div>
+            <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>
+              Promedio diario · meta {goal}{unit}
+            </div>
           </div>
           <div className="text-right">
-            <span className="text-[14px] font-bold num" style={{ color: TEXT }}>{s.avg}{unit}</span>
-            <span className="text-[10px] num ml-1" style={{ color: TEXT_LIGHT }}>· {s.pct}%</span>
+            <div className="text-[18px] font-bold num leading-tight" style={{ color: TEXT }}>
+              {s.avg}<span className="text-[11px] num" style={{ color: TEXT_MUTED }}>{unit}</span>
+            </div>
+            <div className="text-[10px] num" style={{ color: s.pct >= 90 && s.pct <= 110 ? SUCCESS : TEXT_LIGHT }}>
+              {s.pct}% de meta
+            </div>
           </div>
         </div>
         <Chart days={data} color={color} goal={goal} label={statKey} unit={unit} showLabels={true} type={data.length > 14 ? 'month' : 'day'} />
-        {goalLine > 0 && (
+        {recorded > 0 && (
           <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>
-            {s.inGoal} de {goalLine} días en rango ±10%
+            {recorded === 1 && s.inGoal === 0
+              ? '1 día registrado · fuera del rango ±10% de la meta'
+              : recorded === 1 && s.inGoal === 1
+              ? '1 día registrado · en meta ±10%'
+              : `${s.inGoal} de ${recorded} días en meta ±10%`}
+          </div>
+        )}
+        {recorded === 0 && (
+          <div className="text-[10px] mt-1.5 italic" style={{ color: TEXT_LIGHT }}>
+            Aún sin registros en este periodo.
           </div>
         )}
       </div>
