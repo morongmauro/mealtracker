@@ -113,8 +113,11 @@ export default function MealTracker() {
   const [plannerProposal, setPlannerProposal] = useState(null); // result from LLM
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [showCapabilitiesModal, setShowCapabilitiesModal] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
   const voiceInputRef = useRef(false);
 
   const today = getLocalDate();
@@ -1564,10 +1567,44 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
     setLoading(false); setLoadingPreview('');
   };
 
-  const startVoice = () => {
+  const startVoice = async () => {
+    // Try Whisper-based recording first (MediaRecorder). Fallback to Web Speech if it fails.
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined') {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunksRef.current = [];
+        const candidateMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/mpeg'];
+        const mimeType = candidateMimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+        const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+        recorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blobType = recorder.mimeType || 'audio/webm';
+          const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
+          audioChunksRef.current = [];
+          if (audioBlob.size < 1000) return; // muy corto, ignorar
+          await transcribeAudio(audioBlob, blobType);
+        };
+        recorder.start();
+        mediaRecorderRef.current = recorder;
+        setRecording(true);
+        haptic(15);
+        return;
+      } catch (err) {
+        // Permisos denegados o error de mic -> caemos a Web Speech
+        console.warn('MediaRecorder failed, falling back to Web Speech:', err);
+      }
+    }
+    // Fallback: Web Speech API del navegador
+    startVoiceFallback();
+  };
+
+  const startVoiceFallback = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Tu navegador no soporta dictado por voz. Usa Chrome o Safari.');
+      alert('No pude acceder al micrófono. Verifica los permisos del navegador o escribe directamente.');
       return;
     }
     const recognition = new SpeechRecognition();
@@ -1593,11 +1630,55 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
   };
 
   const stopVoice = () => {
+    // MediaRecorder path
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try { mediaRecorderRef.current.stop(); } catch (e) {}
+      mediaRecorderRef.current = null;
+      setRecording(false);
+      haptic(10);
+      return;
+    }
+    // Web Speech fallback path
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
     }
     setRecording(false);
     haptic(10);
+  };
+
+  const transcribeAudio = async (audioBlob, mimeType) => {
+    setTranscribing(true);
+    try {
+      const ext = mimeType.includes('mp4') ? 'mp4'
+                : mimeType.includes('mpeg') ? 'mp3'
+                : mimeType.includes('wav') ? 'wav'
+                : 'webm';
+      const formData = new FormData();
+      formData.append('file', audioBlob, `recording.${ext}`);
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'es');
+      formData.append('response_format', 'json');
+      // Glosario de palabras frecuentes que Whisper tiende a oír mal en español latam.
+      // Esto le da contexto y reduce errores como "quesito" en lugar de "ponquecito".
+      formData.append('prompt', 'Transcripción de una persona dictando lo que comió. Vocabulario frecuente: desayuno, almuerzo, cena, snack, ponqué, ponquecito, arepa, patacón, fainá, tequeño, palta, aguacate, plátano, banana, palta, choclo, poroto, yogur griego, mantequilla de maní, café con leche, huevo, claras de huevo, avena, arroz, pollo, pechuga, atún, salmón, lentejas, quinoa, brócoli, espinaca, almendras, nueces, mantequilla, aceite de oliva.');
+
+      const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Transcribe failed');
+      }
+      const data = await res.json();
+      const txt = (data.text || '').trim();
+      if (txt) {
+        setInput(prev => (prev && prev.trim() ? prev.trim() + ' ' + txt : txt));
+        voiceInputRef.current = true;
+      }
+    } catch (err) {
+      console.error('Transcribe error:', err);
+      alert('No pude transcribir el audio. Intenta de nuevo o escribe directamente.');
+    } finally {
+      setTranscribing(false);
+    }
   };
 
   const deleteEntry = (id) => {
@@ -2129,10 +2210,10 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
               onChange={e => setInput(e.target.value)}
               onFocus={() => setActionsExpanded(false)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), e.target.blur(), handleSend())}
-              placeholder={recording ? 'Escuchando…' : 'Escribe o dicta lo que comiste…'}
+              placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Escribe o dicta lo que comiste…'}
               className="flex-1 bg-transparent px-3 py-3 outline-none"
               style={{ color: TEXT, fontSize: '16px' }}
-              readOnly={recording}
+              readOnly={recording || transcribing}
               type="search"
               role="textbox"
               name="q"
@@ -2147,15 +2228,19 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
               data-form-type="other"
             />
             <button
+              type="button"
               onClick={recording ? stopVoice : startVoice}
-              className="p-3 rounded-xl transition active:scale-[0.95]"
+              disabled={transcribing}
+              className="p-3 rounded-xl transition active:scale-[0.95] disabled:opacity-60"
               style={{
                 background: recording ? C_PROTEIN : SURFACE_2,
                 color: recording ? '#fff' : TEXT_MUTED,
                 transition: 'background 0.2s'
               }}
-              title={recording ? 'Detener dictado' : 'Dictar por voz'}>
-              <Mic size={16} strokeWidth={2} className={recording ? 'pulse-ring' : ''} />
+              title={recording ? 'Detener dictado' : transcribing ? 'Transcribiendo…' : 'Dictar por voz'}>
+              {transcribing
+                ? <Loader2 size={16} strokeWidth={2} className="animate-spin" />
+                : <Mic size={16} strokeWidth={2} className={recording ? 'pulse-ring' : ''} />}
             </button>
             <button
               type="submit"
