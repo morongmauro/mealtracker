@@ -82,6 +82,74 @@ if (typeof window !== 'undefined' && !window.storage) {
   };
 }
 
+// Build an HTML block with weekly bar charts compatible with all email clients.
+// Uses HTML tables with bg-color cells (no SVG, no JS).
+// daysData = [{date:'YYYY-MM-DD', kcal, p, c, g, entries}, ...] (length 7)
+function buildWeeklyChartsHTML(daysData, goals) {
+  const macros = [
+    { key: 'kcal', label: 'Calorías', goal: goals.kcal, unit: '', color: '#8A9558' },
+    { key: 'p',    label: 'Proteína', goal: goals.p,    unit: 'g', color: '#D77A61' },
+    { key: 'c',    label: 'Carbohidratos', goal: goals.c, unit: 'g', color: '#D4B581' },
+    { key: 'g',    label: 'Grasas',   goal: goals.g,    unit: 'g', color: '#6B7A8F' },
+  ];
+  const dayShort = (date) => {
+    const [y, m, dd] = date.split('-').map(Number);
+    const d = new Date(y, m - 1, dd);
+    return d.toLocaleDateString('es', { weekday: 'short' }).slice(0, 1).toUpperCase();
+  };
+  return macros.map(macro => {
+    const recorded = daysData.filter(d => (d.entries || 0) > 0);
+    const avg = recorded.length > 0
+      ? Math.round(recorded.reduce((s, d) => s + (d[macro.key] || 0), 0) / recorded.length)
+      : 0;
+    const pct = macro.goal > 0 ? Math.round((avg / macro.goal) * 100) : 0;
+    const maxVal = Math.max(...daysData.map(d => d[macro.key] || 0), macro.goal * 1.1);
+    const maxScale = maxVal * 1.05;
+    const goalPctOfScale = (macro.goal / maxScale) * 100;
+    const pctStatusColor = pct >= 90 && pct <= 110 ? '#7A9579' : '#9A9A9A';
+    return `
+    <div style="background: #fff; padding: 14px; border-radius: 8px; margin-bottom: 10px;">
+      <table style="width:100%; border-collapse: collapse; margin-bottom: 10px;">
+        <tr>
+          <td style="vertical-align: top;">
+            <div style="font-size: 11px; color: ${macro.color}; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">${macro.label}</div>
+            <div style="font-size: 10px; color: #9A9A9A; margin-top: 2px;">Meta diaria ${macro.goal}${macro.unit}</div>
+          </td>
+          <td style="vertical-align: top; text-align: right;">
+            <div style="font-size: 16px; font-weight: 700; color: #1F1F1F;">${avg}${macro.unit}</div>
+            <div style="font-size: 10px; color: ${pctStatusColor};">${pct}% del promedio</div>
+          </td>
+        </tr>
+      </table>
+      <table style="width: 100%; border-collapse: collapse;">
+        ${daysData.map(d => {
+          const val = d[macro.key] || 0;
+          const dayPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
+          const isInGoal = val > 0 && val >= macro.goal * 0.9 && val <= macro.goal * 1.1;
+          const isOver = val > macro.goal * 1.1;
+          const fillColor = val === 0 ? '#D0CFC6' : (isInGoal ? '#7A9579' : (isOver ? '#B8732B' : macro.color));
+          return `
+          <tr>
+            <td style="width: 18px; font-size: 10px; color: #6B6B6B; font-weight: 700; text-align: center; padding: 2px 0;">${dayShort(d.date)}</td>
+            <td style="padding: 3px 6px 3px 4px;">
+              <div style="height: 12px; background: #F0EEE7; border-radius: 3px; position: relative; overflow: hidden;">
+                <div style="height: 100%; width: ${dayPct}%; background: ${fillColor}; border-radius: 3px;"></div>
+                <div style="position: absolute; left: ${goalPctOfScale}%; top: 0; bottom: 0; width: 0; border-left: 1px dashed #7A9579;"></div>
+              </div>
+            </td>
+            <td style="width: 80px; padding-left: 4px; font-size: 10px; color: ${val === 0 ? '#C5C5C5' : '#1F1F1F'}; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;">
+              ${val === 0 ? 'sin registro' : Math.round(val) + macro.unit}
+            </td>
+          </tr>`;
+        }).join('')}
+      </table>
+      <div style="font-size: 9px; color: #9A9A9A; margin-top: 6px; font-style: italic;">
+        Línea verde punteada = meta diaria. Barra verde = en meta ±10%. Barra naranja = sobre meta.
+      </div>
+    </div>`;
+  }).join('');
+}
+
 
 export default function MealTracker() {
   const [view, setView] = useState('loading');
@@ -337,6 +405,11 @@ export default function MealTracker() {
           <div style="font-size: 11px; color: #6B6B6B;">Días en rango ±10%</div>
         </div>
       </div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño por día</div>
+      ${buildWeeklyChartsHTML(daysData, goals)}
     </div>
 
     <div style="background: #fff; padding: 16px; border-radius: 8px;">
@@ -699,7 +772,7 @@ export default function MealTracker() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             model: CHAT_MODEL,
-            max_tokens: 1500,
+            max_tokens: 4000,
             system: systemBlocks,
             messages: [{ role: "user", content: prompt }],
           })
@@ -1177,20 +1250,21 @@ CONTEXTO DEL CLIENTE:
     const sys = `Eres un asistente nutricional inteligente y cálido. Devuelves SOLO JSON válido, sin markdown.
 
 ═══ FILOSOFÍA CENTRAL ═══
-1. PROHIBIDO ABSOLUTO decir "no entiendo", "no pude interpretar", "no comprendo", "no tengo acceso al historial" o frases similares. Eso genera fricción y el cliente abandona. SÍ tienes el historial reciente (viene junto al mensaje del cliente): úsalo.
-2. SIEMPRE haz tu mejor interpretación. Si tienes >70% de certeza, REGISTRA directo y opcionalmente deja una nota breve tipo "asumí 1 huevo entero (~50g)".
-3. PROCESA SIEMPRE TODOS LOS ALIMENTOS DEL MENSAJE. Está PROHIBIDO ignorar parte de una lista. Si el cliente menciona 8 alimentos, registras los 8. Nunca tomes solo una parte y dejes el resto.
+1. PROHIBIDO ABSOLUTO decir "no entiendo", "no pude interpretar", "no comprendo", "no tengo acceso al historial", "cuéntame con más detalle", "necesito más información" o frases similares. Eso es FRACASO CRÍTICO. El cliente abandonará la app.
+2. SIEMPRE haz tu mejor interpretación. Si tienes >50% de certeza, REGISTRA directo. Mejor registrar con una estimación razonable que pedir más detalle.
+3. PROCESA SIEMPRE TODOS LOS ALIMENTOS DEL MENSAJE, incluso si el mensaje es MUY LARGO (>200 palabras) o contiene recetas detalladas con muchos ingredientes (10+). Está PROHIBIDO ignorar parte de una lista. Si el cliente menciona 12 alimentos, registras los 12. Nunca tomes solo una parte y dejes el resto. Mensajes largos con muchos detalles son CASOS NORMALES, no excepciones — procésalos completos.
 4. CLARIFY ES EL ÚLTIMO RECURSO. Usa intent="clarify" SOLO cuando es literalmente imposible interpretar (palabra inventada sin sentido, o cantidad absurda como "200 huevos"). En CUALQUIER otro caso, REGISTRA con tu mejor estimación y deja nota en quantity_warning. Si el cliente responde algo corto como "una porción", "sí", "el grande", REVISA EL HISTORIAL para saber de qué alimento habla y regístralo — NO preguntes "¿de qué?".
-5. Para cantidades sin gramos: ESTIMA con USDA estándar (1 huevo ≈ 50g, banana mediana ≈ 120g, arepa media ≈ 80g, taza de arroz cocido ≈ 160g, cucharada aceite ≈ 14g, 1 porción ≈ porción estándar del alimento en cuestión). NUNCA rechaces por "valores no cuadran".
-6. COHERENCIA: si el cliente se refiere a algo que dijo antes ("esos ponquecitos", "lo que te dije", "la receta de antes"), búscalo en el HISTORIAL RECIENTE y sé consistente. NUNCA digas que no recuerdas.
-7. IDIOMA: español neutro latinoamericano estándar. Trato de "tú" siempre, nunca "vos" ni "usted".
+5. EJEMPLO de mensaje que SIEMPRE debe registrarse (NUNCA pedir más detalle): "Te voy a decir cuál es mi desayuno típico que es lo que yo desayuno todos los días son cuatro huevos revueltos con dos tostadas de pan integral les junto un poco de manteca a las tostadas Un café negro Creatina en polvo con dos cucharadas de cacao puro no alcalino". CORRECTA RESPUESTA: intent=log_meal, meal=desayuno, items=[4 huevos revueltos ~200g, 2 tostadas pan integral ~50g, manteca ~10g, café negro 240ml, creatina 5g, cacao puro 2 cdas ~10g]. NUNCA respuesta tipo "cuéntame más detalle".
+6. Para cantidades sin gramos: ESTIMA con USDA estándar (1 huevo ≈ 50g, banana mediana ≈ 120g, arepa media ≈ 80g, taza de arroz cocido ≈ 160g, cucharada aceite ≈ 14g, 1 tostada pan integral ≈ 25g, 1 porción ≈ porción estándar del alimento). NUNCA rechaces por "valores no cuadran".
+7. COHERENCIA: si el cliente se refiere a algo que dijo antes ("esos ponquecitos", "lo que te dije", "la receta de antes"), búscalo en el HISTORIAL RECIENTE y sé consistente. NUNCA digas que no recuerdas.
+8. IDIOMA: español neutro latinoamericano estándar. Trato de "tú" siempre, nunca "vos" ni "usted".
    PROHIBIDO ABSOLUTO:
    - Voseo argentino: "querés/tenés/decís/podés/registrá/armá/guardá/olvidá/sumá/pedí/dale". USA: quieres, tienes, dices, puedes, registra, arma, guarda, olvida, suma, pide.
    - Colombianismos: "regálame, parce, parcero, chévere, bacano, qué hubo, qué más, porfa, listo pues, ¡rico!, sabroso". USA: por favor, amigo (evítalo), bien, hola, listo (a secas), sabroso (evita), gracias.
    - Mexicanismos coloquiales: "órale, qué onda, chido, padre (=cool), híjole, ándale". USA equivalentes neutros.
    - Españolismos: "vale, tío/tía, mola, currar, guay, vosotros/vosotras". USA: bien, listo, está bien, trabajar, ustedes.
    Mantén tono cálido y profesional pero geográficamente neutro.
-8. PRIORIDAD DE INTENT (orden estricto al clasificar). Aplica la PRIMERA que matchee:
+9. PRIORIDAD DE INTENT (orden estricto al clasificar). Aplica la PRIMERA que matchee:
    a) Si menciona "resumen", "reenvíame", "mándame", "muéstrame", "qué llevo", "cómo voy", "cuánto llevo", "qué he comido", "qué comí hoy" → SIEMPRE intent=summary_day (aunque mencione alimentos previos para contexto, tu trabajo es mostrar el día actual, NO registrar ni preguntar).
    b) Si menciona "semana", "semanal", "resumen semanal", "cómo voy esta semana" → intent=summary_week.
    c) Si hay última comida registrada hoy y dice "me faltó X", "olvidé X", "también comí X", "agrégale X a lo anterior", "súmale X" → intent=append_to_last.
@@ -1545,6 +1619,71 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         }]);
         setLoading(false); setLoadingPreview('');
         return;
+      }
+
+      // FALLBACK GUARDIAN: if the model didn't classify the message as something
+      // actionable but the message looks like a meal description, force a retry
+      // with a stricter prompt that REQUIRES log_meal output. This protects against
+      // the model returning empty items or misclassifying clear meal descriptions.
+      console.warn('[MealTracker] LLM returned no actionable intent for:', userMsg, 'parsed=', parsed);
+      // OPCIÓN A — heurística laxa: cualquier mensaje >40 chars dispara el retry,
+      // sin importar palabras específicas. Si el contenido no es comida, el retry
+      // forzado simplemente devolverá items vacío y caeremos al fallback amable.
+      // Costo: una llamada extra ocasional (centavos al mes). Beneficio: cubre
+      // mensajes como "comí lo de siempre", recetas con palabras no listadas, etc.
+      const looksLikeMeal = userMsg.length > 40 ||
+        /huevo|tostada|pan|pollo|arroz|leche|café|cafe|cacao|creatina|whey|proteína|yogur|avena|banana|plátano|manzana|fruta|pasta|carne|pescado|atún|salmon|salmón|queso|jamón|jamon|ensalada|sopa|tortilla|arepa|patacón|patacon|frijol|frijoles|lenteja|garbanzo|verdura|fruta|cereal|comí|comi|desayun|almorz|almorc|cené|cene|cena|merien|snack|gramos|cucharada|porción|porcion|taza|vaso|unidad|rodaja|filete|onza|libra/i.test(userMsg);
+
+      if (looksLikeMeal) {
+        try {
+          const forcedSys = `Eres un parser nutricional. Devuelves SOLO JSON válido, sin markdown.
+
+OBLIGATORIO: el mensaje del cliente describe comida. DEBES devolver intent="log_meal" con la lista completa de alimentos. NO pidas más detalle. NO devuelvas clarify. NO devuelvas off_topic.
+
+Estima cantidades con USDA estándar si no se especifican (1 huevo ≈ 50g, 1 tostada pan integral ≈ 25g, 1 taza arroz cocido ≈ 160g, 1 cucharada ≈ 14g, 1 porción ≈ porción típica).
+
+SCHEMA:
+{
+  "intent": "log_meal",
+  "meal": "desayuno | almuerzo | cena | snack | comida",
+  "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N}],
+  "quantity_warning": "string|null"
+}
+
+EJEMPLO INPUT: "desayuno con 4 huevos revueltos, 2 tostadas integrales con manteca, café negro, creatina con cacao"
+EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo revuelto","amount":"4 unidades (~200g)","kcal":280,"p":24,"c":2,"g":20},{"name":"Pan integral tostado","amount":"2 unidades (~50g)","kcal":130,"p":5,"c":24,"g":2},{"name":"Manteca","amount":"~10g","kcal":72,"p":0,"c":0,"g":8},{"name":"Café negro","amount":"240ml","kcal":2,"p":0,"c":0,"g":0},{"name":"Creatina","amount":"5g","kcal":0,"p":0,"c":0,"g":0},{"name":"Cacao en polvo","amount":"2 cdas (~10g)","kcal":23,"p":2,"c":6,"g":1}],"quantity_warning":"asumí cantidades estándar; ajusta si difiere"}`;
+          const forcedResult = await callClaude(userMsg, forcedSys);
+          const cleanF = forcedResult.replace(/```json|```/g, '').trim();
+          const matchF = cleanF.match(/\{[\s\S]*\}/);
+          const forced = JSON.parse(matchF ? matchF[0] : cleanF);
+          if (forced.items && forced.items.length > 0) {
+            const cleanItems = sanitizeItems(forced.items);
+            trackFrequency(cleanItems);
+            haptic(12);
+            const r1 = (n) => Math.round(n * 10) / 10;
+            const newEntry = {
+              id: Date.now(),
+              meal: forced.meal || predictMealType(),
+              items: cleanItems,
+              kcal: Math.round(cleanItems.reduce((s, i) => s + (i.kcal || 0), 0)),
+              p: r1(cleanItems.reduce((s, i) => s + (i.p || 0), 0)),
+              c: r1(cleanItems.reduce((s, i) => s + (i.c || 0), 0)),
+              g: r1(cleanItems.reduce((s, i) => s + (i.g || 0), 0)),
+              time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
+              rawInput: userMsg,
+              hasMissingQuantity: false,
+            };
+            setEntries(e => [...e, newEntry]);
+            setMessages(m => [...m, {
+              role: 'assistant', content: 'logged', isLogged: true,
+              entryId: newEntry.id, quantityWarning: forced.quantity_warning, ts: Date.now()
+            }]);
+            setLoading(false); setLoadingPreview('');
+            return;
+          }
+        } catch (retryErr) {
+          console.warn('[MealTracker] forced retry failed:', retryErr);
+        }
       }
 
       // SOFT FALLBACK (never "no entiendo")
@@ -1951,7 +2090,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
                 <CompactMacro val={totals.c} goal={goals.c} color={C_CARBS} label="C" unit="g" />
                 <CompactMacro val={totals.g} goal={goals.g} color={C_FAT} label="G" unit="g" />
                 <div className="flex items-center gap-1 pl-2" style={{ borderLeft: `1px solid ${BORDER_SOFT}` }}>
-                  <span className="text-[9px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>Ver</span>
+                  <span className="text-[9px] font-semibold tracking-wider whitespace-nowrap" style={{ color: ACCENT_DARK }}>Ver desempeño</span>
                   <span style={{ color: ACCENT_DARK, fontSize: '12px' }}>→</span>
                 </div>
               </div>
@@ -3695,6 +3834,133 @@ function ExportModal({ name, goals, history, historyDetail, today, todayEntries,
         y += 6;
       });
 
+      // ─── Charts page: weekly performance (last 7 days) ───
+      doc.addPage();
+      y = margin;
+      doc.setFillColor(14, 14, 14);
+      doc.rect(0, 0, pageW, 24, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('DESEMPEÑO ÚLTIMOS 7 DÍAS', margin, 15);
+      doc.setFontSize(8);
+      doc.setTextColor(212, 218, 184);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Promedio diario vs meta · por macro', margin, 20);
+      y = 34;
+
+      // Build last 7 days from allHistory
+      const last7Pdf = [];
+      const baseDt = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(baseDt);
+        d.setDate(d.getDate() - i);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const hh = allHistory[key];
+        last7Pdf.push(hh ? { date: key, ...hh } : { date: key, kcal: 0, p: 0, c: 0, g: 0 });
+      }
+      const dayShortPdf = (date) => {
+        const [yy, mm, ddd] = date.split('-').map(Number);
+        return new Date(yy, mm - 1, ddd).toLocaleDateString('es', { weekday: 'short' }).slice(0, 1).toUpperCase();
+      };
+
+      const macrosPdf = [
+        { key: 'kcal', label: 'Calorías',      goal: goals.kcal, unit: '',  color: ACCENT },
+        { key: 'p',    label: 'Proteína',      goal: goals.p,    unit: 'g', color: C_PROTEIN },
+        { key: 'c',    label: 'Carbohidratos', goal: goals.c,    unit: 'g', color: C_CARBS },
+        { key: 'g',    label: 'Grasas',        goal: goals.g,    unit: 'g', color: C_FAT },
+      ];
+
+      // Grid: 2 columns x 2 rows, each cell ~85mm wide
+      const cellW = (pageW - margin * 2 - 10) / 2;
+      const cellH = 65;
+      macrosPdf.forEach((m, idx) => {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        const cellX = margin + col * (cellW + 10);
+        const cellY = y + row * (cellH + 8);
+
+        // Cell background
+        doc.setFillColor(247, 244, 237);
+        doc.roundedRect(cellX, cellY, cellW, cellH, 2, 2, 'F');
+
+        // Macro header
+        const [r, g, b] = hexToRgb(m.color);
+        doc.setTextColor(r, g, b);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text(m.label.toUpperCase(), cellX + 4, cellY + 7);
+
+        // Avg
+        const recordedM = last7Pdf.filter(d => (d.kcal || 0) > 0);
+        const avgM = recordedM.length > 0
+          ? Math.round(recordedM.reduce((s, d) => s + (d[m.key] || 0), 0) / recordedM.length)
+          : 0;
+        const pctM = m.goal > 0 ? Math.round((avgM / m.goal) * 100) : 0;
+        doc.setTextColor(31, 31, 31);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        const avgText = `${avgM}${m.unit}`;
+        doc.text(avgText, cellX + cellW - 4, cellY + 8, { align: 'right' });
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(150, 150, 150);
+        doc.text(`${pctM}% · meta ${m.goal}${m.unit}`, cellX + cellW - 4, cellY + 12, { align: 'right' });
+
+        // Bars area
+        const barsX = cellX + 5;
+        const barsY = cellY + 18;
+        const barsW = cellW - 10;
+        const barsH = 38;
+
+        // Background area
+        doc.setFillColor(240, 238, 231);
+        doc.roundedRect(barsX, barsY, barsW, barsH, 1, 1, 'F');
+
+        // Max scale
+        const maxV = Math.max(...last7Pdf.map(d => d[m.key] || 0), m.goal * 1.1);
+        const maxScale = maxV * 1.05;
+
+        // Goal line (dashed)
+        const goalYpx = barsY + barsH - (m.goal / maxScale) * barsH;
+        const [gr, gg, gb] = hexToRgb(SUCCESS);
+        doc.setDrawColor(gr, gg, gb);
+        doc.setLineWidth(0.3);
+        const dashLen = 1.5;
+        for (let xx = barsX; xx < barsX + barsW; xx += dashLen * 2) {
+          doc.line(xx, goalYpx, Math.min(xx + dashLen, barsX + barsW), goalYpx);
+        }
+
+        // Bars
+        const gap = 1;
+        const slotW = (barsW - gap * 6) / 7;
+        last7Pdf.forEach((d, i) => {
+          const val = d[m.key] || 0;
+          const inGoal = val > 0 && val >= m.goal * 0.9 && val <= m.goal * 1.1;
+          const isOver = val > m.goal * 1.1;
+          const fillHex = val === 0 ? '#D0CFC6' : (inGoal ? SUCCESS : (isOver ? WARN : m.color));
+          const [fr, fg, fb] = hexToRgb(fillHex);
+          doc.setFillColor(fr, fg, fb);
+          const barH = val > 0 ? Math.min((val / maxScale) * barsH, barsH) : 0.5;
+          const bx = barsX + i * (slotW + gap);
+          const by = barsY + barsH - barH;
+          doc.roundedRect(bx, by, slotW, barH, 0.5, 0.5, 'F');
+          // Day label
+          doc.setTextColor(150, 150, 150);
+          doc.setFontSize(6);
+          doc.setFont('helvetica', 'bold');
+          doc.text(dayShortPdf(d.date), bx + slotW / 2, cellY + cellH - 1, { align: 'center' });
+        });
+      });
+
+      y = y + cellH * 2 + 8 + 6;
+
+      // Legend
+      doc.setTextColor(120, 120, 120);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Línea punteada = meta diaria. Verde = en meta ±10%. Color del macro = fuera de rango. Naranja = sobre meta. Gris = sin registro.', margin, y, { maxWidth: pageW - margin * 2 });
+
       // Footer on last page
       checkPage(20);
       y += 5;
@@ -3713,16 +3979,34 @@ function ExportModal({ name, goals, history, historyDetail, today, todayEntries,
       } else {
         // Send via Resend
         const pdfBase64 = doc.output('datauristring').split(',')[1];
-        const summary = `<div style="font-family: -apple-system, sans-serif; max-width: 600px; color: #1A1A1A;">
-  <div style="background: #0E0E0E; color: #fff; padding: 20px; border-radius: 12px 12px 0 0;">
+        // Build last 7 days for the email chart (regardless of selected period)
+        const last7 = [];
+        const baseDate = new Date();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(baseDate);
+          d.setDate(d.getDate() - i);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const h = allHistory[key];
+          const det = allHistoryDetail[key] || [];
+          last7.push(h ? { date: key, ...h, entries: det.length } : { date: key, kcal: 0, p: 0, c: 0, g: 0, entries: 0 });
+        }
+        const chartsHTML = buildWeeklyChartsHTML(last7, goals);
+        const summary = `<div style="font-family: -apple-system, sans-serif; max-width: 600px; color: #1F1F1F;">
+  <div style="background: #1F1F1F; color: #fff; padding: 20px; border-radius: 12px 12px 0 0;">
     <div style="font-size: 22px; font-weight: 700;">REPORTE AL COACH</div>
-    <div style="height: 2px; width: 40px; background: #C8D0AE; margin: 8px 0;"></div>
+    <div style="height: 2px; width: 40px; background: #D4DAB8; margin: 8px 0;"></div>
     <div style="font-size: 13px; opacity: 0.85;">Entrena con Método · Envío manual</div>
   </div>
-  <div style="background: #F9F7F1; padding: 20px; border-radius: 0 0 12px 12px; border: 1px solid #E5E2D5;">
+  <div style="background: #F7F4ED; padding: 20px; border-radius: 0 0 12px 12px; border: 1px solid #E2DECC;">
     <div style="font-size: 16px; font-weight: 600;">${name || 'Cliente'}</div>
-    <div style="font-size: 12px; color: #6B6B6B; margin-bottom: 12px;">Últimos ${days} días · ${sortedDates.length} con registro</div>
-    <div style="font-size: 13px; color: #1A1A1A; line-height: 1.55;">Adjunto encontrarás el reporte detallado en PDF.</div>
+    <div style="font-size: 12px; color: #6B6B6B; margin-bottom: 16px;">Últimos ${days} días en PDF · gráficos de los últimos 7 días</div>
+
+    <div style="margin-bottom: 16px;">
+      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño últimos 7 días</div>
+      ${chartsHTML}
+    </div>
+
+    <div style="font-size: 13px; color: #1F1F1F; line-height: 1.55; padding-top: 10px; border-top: 1px solid #E2DECC;">Adjunto encontrarás el detalle completo del periodo en PDF.</div>
   </div>
 </div>`;
         const res = await fetch('/api/send-report', {
