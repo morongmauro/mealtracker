@@ -183,11 +183,14 @@ export default function MealTracker() {
   const [showCapabilitiesModal, setShowCapabilitiesModal] = useState(false);
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [pendingFavoriteEntry, setPendingFavoriteEntry] = useState(null);
+  const [renamingFavoriteId, setRenamingFavoriteId] = useState(null);
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const voiceInputRef = useRef(false);
+  const inputDivRef = useRef(null);
 
   const today = getLocalDate();
 
@@ -832,6 +835,32 @@ export default function MealTracker() {
     .sort((a, b) => (b.count - a.count) || ((b.lastSeen || 0) - (a.lastSeen || 0)))
     .slice(0, 6);
 
+  // Keep the contenteditable input in sync when `input` is changed programmatically
+  // (action chips, voice transcription, clear-after-send). We only write when the
+  // values differ so we don't reset the caret while the user is typing.
+  useEffect(() => {
+    const el = inputDivRef.current;
+    if (!el) return;
+    const current = el.textContent || '';
+    if (!input) {
+      // Clear fully (browsers leave a <br> that would break the :empty placeholder)
+      if (el.innerHTML !== '') el.innerHTML = '';
+      return;
+    }
+    if (current !== input) {
+      el.textContent = input;
+      // Move caret to the end if the element is focused
+      if (document.activeElement === el) {
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+  }, [input]);
+
   // Scroll listener: shrink card when scrolled down
   useEffect(() => {
     const onScroll = () => {
@@ -1019,22 +1048,31 @@ SCHEMA:
   };
 
   const generatePlan = async () => {
-    if (favoriteIngredients.length === 0) {
+    // Allow planning if has either ingredients or saved meal menus
+    if (favoriteIngredients.length === 0 && favorites.length === 0) {
       setShowIngredientsModal(true);
       return;
     }
     setPlannerLoading(true);
     setPlannerProposal(null);
+
+    // Build favorite menus block (combos the client already validated as "this works for me")
+    const favoriteMenusBlock = favorites.length > 0
+      ? `\nMENÚS FAVORITOS DEL CLIENTE (combos completos que ya validó, puedes reutilizarlos enteros para una comida):\n${favorites.slice(0, 20).map((f, i) => `[Menú ${i + 1}] "${f.name}" — ${f.kcal} kcal · P${f.p}g C${f.c}g G${f.g}g — items: ${f.items.map(it => `${it.name}${it.amount ? ' ' + it.amount : ''}`).join(', ')}`).join('\n')}\n`
+      : '';
+
     const sys = `Eres un organizador de macros. Devuelves SOLO JSON válido, sin markdown.
 
 CLIENTE: ${name || 'Cliente'}
 META DIARIA: ${goals.kcal} kcal · P ${goals.p}g · C ${goals.c}g · G ${goals.g}g
-INGREDIENTES QUE LE GUSTAN Y COMPRA: ${favoriteIngredients.join(', ')}
-
+INGREDIENTES QUE LE GUSTAN Y COMPRA: ${favoriteIngredients.join(', ') || '(ninguno)'}
+${favoriteMenusBlock}
 REGLAS DURAS:
-- NO es recetario. NO indiques modo de preparación, recetas, salsas ni guarniciones que no estén en la lista.
-- Devuelve SOLO los ingredientes de la lista (cocidos por defecto) con kcal y macros REALES (USDA).
-- NO inventes alimentos fuera de la lista.
+- Puedes elegir LIBREMENTE entre: (a) combinar ingredientes sueltos para armar una comida, o (b) reutilizar un MENÚ FAVORITO completo como una comida del día. Mezcla ambos según convenga para cuadrar macros.
+- Si reutilizas un menú favorito, copia sus items tal cual (mismo nombre, amount, kcal, macros) y opcionalmente indícalo en el campo "from_favorite" del meal con el nombre del menú.
+- NO es recetario. NO indiques modo de preparación, recetas, salsas ni guarniciones.
+- Devuelve SOLO los ingredientes de la lista o los items de los menús favoritos (cocidos por defecto) con kcal y macros REALES (USDA).
+- NO inventes alimentos fuera de la lista ni de los menús favoritos.
 - OBLIGATORIO: la suma total del día debe quedar dentro del ±5% de CADA meta (kcal, P, C, G). Ajusta gramos de cada item hasta cuadrar. Si una cantidad típica no encaja, modifica los gramos hacia arriba o abajo libremente — no estás limitado a porciones estándar.
 - Reparte proteína entre comidas. Carbos más altos en desayuno/almuerzo. Grasas moderadas en todo.
 - "warning" SOLO debe llenarse en estos dos casos:
@@ -1050,6 +1088,7 @@ SCHEMA:
   "meals": [
     {
       "meal": "desayuno | almuerzo | snack | cena",
+      "from_favorite": "nombre del menú favorito si reutilizaste uno entero | null",
       "items": [{"name": "...", "amount": "Xg" o "X unidades", "kcal": N, "p": N, "c": N, "g": N}],
       "subtotal": {"kcal": N, "p": N, "c": N, "g": N}
     }
@@ -1228,10 +1267,23 @@ SCHEMA:
   };
 
   const parseFoodEntry = async (text, opts = {}) => {
-    const { voiceInput = false, lastEntry = null } = opts;
-    const lastEntrySnippet = lastEntry
-      ? `\nÚLTIMA COMIDA REGISTRADA HOY (id=${lastEntry.id}, meal=${lastEntry.meal}, time=${lastEntry.time}):\n${JSON.stringify(lastEntry.items.map(i => ({ name: i.name, amount: i.amount, kcal: i.kcal, p: i.p, c: i.c, g: i.g })))}\n`
-      : '\nÚLTIMA COMIDA REGISTRADA HOY: ninguna aún.\n';
+    const { voiceInput = false, lastEntry = null, hasExplicitAppendIntent = false } = opts;
+    let lastEntrySnippet;
+    let minutesAgo = 0;
+    if (lastEntry) {
+      // Calculate minutes since last entry (rough — using time field "HH:MM")
+      const [lh, lm] = (lastEntry.time || '00:00').split(':').map(Number);
+      const lastDate = new Date();
+      lastDate.setHours(lh || 0, lm || 0, 0, 0);
+      minutesAgo = Math.max(0, Math.round((Date.now() - lastDate.getTime()) / 60000));
+      const hoursAgo = (minutesAgo / 60).toFixed(1);
+      lastEntrySnippet = `\nÚLTIMA COMIDA REGISTRADA HOY (id=${lastEntry.id}, meal=${lastEntry.meal}, time=${lastEntry.time}, hace ${hoursAgo} horas / ${minutesAgo} minutos):\n${JSON.stringify(lastEntry.items.map(i => ({ name: i.name, amount: i.amount, kcal: i.kcal, p: i.p, c: i.c, g: i.g })))}\n`;
+    } else {
+      lastEntrySnippet = '\nÚLTIMA COMIDA REGISTRADA HOY: ninguna aún.\n';
+    }
+    const appendHint = lastEntry
+      ? `\nSEÑAL DETERMINÍSTICA DEL FRONTEND sobre intención de adición: ${hasExplicitAppendIntent ? 'TRUE — el cliente usó palabras explícitas de "agregar a la anterior" ("me faltó", "olvidé", "agrégale", "súmale", etc.). Considera APPEND.' : 'FALSE — el cliente NO usó palabras explícitas de adición. Considera log_meal NUEVO por default a menos que el contexto sea inequívoco.'}\n`
+      : '';
     const voiceHint = voiceInput
       ? '\nIMPORTANTE: este texto vino por DICTADO DE VOZ. Puede haber errores de transcripción y faltar puntuación. Corrige palabras mal transcritas por contexto (ej: si dictado dice "quesito" pero hablaban de un postre, probablemente es "ponquecito/ponqué"; "faena" probablemente es "fainá"). Separa los items por contexto (ej: "3 arepas 2 huevos un café con leche" → 3 items distintos).\n'
       : '';
@@ -1245,7 +1297,7 @@ CONTEXTO DEL CLIENTE:
 - Comidas registradas hoy: ${entries.length}
 - Totales hoy: ${totals.kcal} kcal · P ${totals.p}g · C ${totals.c}g · G ${totals.g}g
 - Meta diaria: ${goals?.kcal || '?'} kcal · P ${goals?.p || '?'}g · C ${goals?.c || '?'}g · G ${goals?.g || '?'}g
-- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${voiceHint}${historyBlock}`;
+- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${appendHint}${voiceHint}${historyBlock}`;
 
     const sys = `Eres un asistente nutricional inteligente y cálido. Devuelves SOLO JSON válido, sin markdown.
 
@@ -1267,7 +1319,15 @@ CONTEXTO DEL CLIENTE:
 9. PRIORIDAD DE INTENT (orden estricto al clasificar). Aplica la PRIMERA que matchee:
    a) Si menciona "resumen", "reenvíame", "mándame", "muéstrame", "qué llevo", "cómo voy", "cuánto llevo", "qué he comido", "qué comí hoy" → SIEMPRE intent=summary_day (aunque mencione alimentos previos para contexto, tu trabajo es mostrar el día actual, NO registrar ni preguntar).
    b) Si menciona "semana", "semanal", "resumen semanal", "cómo voy esta semana" → intent=summary_week.
-   c) Si hay última comida registrada hoy y dice "me faltó X", "olvidé X", "también comí X", "agrégale X a lo anterior", "súmale X" → intent=append_to_last.
+   c) APPEND_TO_LAST tiene un umbral ESTRICTO. Para clasificar como append_to_last DEBEN cumplirse las DOS condiciones siguientes:
+      i) La SEÑAL DETERMINÍSTICA DEL FRONTEND es TRUE (el cliente usó palabras explícitas tipo "me faltó", "olvidé", "agrégale a lo anterior", "súmale", "también comí en ese snack/desayuno"). Si esa señal es FALSE, NO uses append_to_last.
+      ii) La última comida fue hace ≤60 minutos. Si pasó >60 minutos, NO uses append_to_last incluso si el cliente menciona la comida anterior.
+      Si SÓLO una de las dos se cumple, prefiere log_meal NUEVA.
+      Ejemplos:
+      • Cliente registra snack a las 10:00. A las 10:15 dice "me faltó decir que también comí una banana en el snack" → señal TRUE + 15 min → append_to_last ✓
+      • Cliente registra snack a las 10:00. A las 14:00 dice "comí una manzana" → señal FALSE + 240 min → log_meal NUEVO ✓
+      • Cliente registra snack a las 10:00. A las 10:30 dice "comí una manzana" → señal FALSE + 30 min → log_meal NUEVO (no usó palabras explícitas) ✓
+      • Cliente registra snack a las 10:00. A las 13:00 dice "agrégale una manzana al snack" → señal TRUE pero pasaron 180 min → log_meal NUEVO (la regla de tiempo manda) ✓
    d) Si describe alimentos por primera vez sin las palabras de (a)(b)(c) → intent=log_meal.
    e) Resto de casos según las reglas de intents abajo.
 
@@ -1373,12 +1433,18 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
       }
       // Round every macro to 1 decimal to avoid floating-point noise like 17.400000000000002
       const round1 = (n) => Math.round(n * 10) / 10;
+      // Coerce to a finite non-negative number, then clamp to a sane ceiling.
+      const safe = (n, max) => {
+        const v = Number(n);
+        if (!Number.isFinite(v) || v < 0) return 0;
+        return Math.min(v, max);
+      };
       return {
         ...it,
-        kcal: Math.min(Math.round(kcal), 5000),
-        p: Math.min(round1(p), 400),
-        c: Math.min(round1(c), 700),
-        g: Math.min(round1(g), 300),
+        kcal: Math.round(safe(kcal, 5000)),
+        p: round1(safe(p, 400)),
+        c: round1(safe(c, 700)),
+        g: round1(safe(g, 300)),
         needs_quantity: false,
       };
     });
@@ -1420,8 +1486,16 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
     voiceInputRef.current = false;
     const lastEntry = entries.length > 0 ? entries[entries.length - 1] : null;
 
+    // Deterministic append-intent detector. Run on the client BEFORE the LLM call.
+    // Catches explicit append phrases; the absence of these words is a strong signal
+    // that the client probably wants a NEW meal, not adding to the previous one.
+    // No usar \b: en JS las vocales acentuadas (ó, é, í) son caracteres no-palabra,
+    // así que \b después de "faltó/olvidé/comí" falla y rompía la detección.
+    const APPEND_REGEX = /(me falt[oó]|olvid[eé]|olvid[oó]|tambi[eé]n com[ií] (antes|en (el|esa|ese)|el del?|del? (desayun|almuerz|cena|snack|merienda))|agr[eé]ga(le|me)?|s[uú]ma(le)? a|s[uú]male|no te dije que tambi[eé]n|ah,? (me )?acord[eé] (que|de)|le falta(ba|ban|ron)?|en (esa|ese|el) (desayun|almuerz|cena|snack|merienda)|adem[aá]s de eso com[ií])/i;
+    const hasExplicitAppendIntent = APPEND_REGEX.test(userMsg);
+
     try {
-      const parsed = await parseFoodEntry(userMsg, { voiceInput: fromVoice, lastEntry });
+      const parsed = await parseFoodEntry(userMsg, { voiceInput: fromVoice, lastEntry, hasExplicitAppendIntent });
       if (parsed.preview) setLoadingPreview(`Calculando: ${parsed.preview}`);
 
       if (parsed.name_detected) {
@@ -1827,17 +1901,77 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     setEditingEntry(null);
   };
 
+  // When user taps the star, open a small naming modal first
   const addToFavorites = (entry) => {
     haptic(15);
+    setPendingFavoriteEntry(entry);
+  };
+  const confirmFavorite = (customName) => {
+    if (!pendingFavoriteEntry) return;
+    const entry = pendingFavoriteEntry;
+    const autoName = entry.items.map(i => i.name).join(', ').slice(0, 60);
     const fav = {
       id: Date.now(),
-      name: entry.items.map(i => i.name).join(', ').slice(0, 60),
+      name: (customName && customName.trim()) || autoName,
+      autoName,
       items: entry.items,
       kcal: entry.kcal, p: entry.p, c: entry.c, g: entry.g,
       meal: entry.meal
     };
     setFavorites(f => [...f, fav]);
+    setPendingFavoriteEntry(null);
   };
+  const renameFavorite = (id, newName) => {
+    setFavorites(f => f.map(x => x.id === id ? { ...x, name: (newName && newName.trim()) || x.autoName || x.name } : x));
+  };
+
+  // Split an appended item set out of its parent entry into a brand new entry.
+  // Used when the model put items in a previous meal but the client meant a new meal.
+  const separateAppendedItems = (parentEntryId, itemsToSeparate) => {
+    if (!Array.isArray(itemsToSeparate) || itemsToSeparate.length === 0) return;
+    haptic(12);
+    const r1 = (n) => Math.round(n * 10) / 10;
+    const keys = new Set(itemsToSeparate.map(it => `${it.name}|${it.amount || ''}`));
+    let newEntry = null;
+    setEntries(es => {
+      const updated = [];
+      for (const e of es) {
+        if (e.id !== parentEntryId) { updated.push(e); continue; }
+        // Filter out items that were appended
+        const remaining = e.items.filter(it => !keys.has(`${it.name}|${it.amount || ''}`));
+        // Recalculate parent totals
+        updated.push({
+          ...e,
+          items: remaining,
+          kcal: Math.round(remaining.reduce((s, i) => s + (i.kcal || 0), 0)),
+          p: r1(remaining.reduce((s, i) => s + (i.p || 0), 0)),
+          c: r1(remaining.reduce((s, i) => s + (i.c || 0), 0)),
+          g: r1(remaining.reduce((s, i) => s + (i.g || 0), 0)),
+        });
+      }
+      // Build new entry from separated items
+      newEntry = {
+        id: Date.now(),
+        meal: predictMealType(),
+        items: itemsToSeparate.map(i => ({ ...i, needs_quantity: false })),
+        kcal: Math.round(itemsToSeparate.reduce((s, i) => s + (i.kcal || 0), 0)),
+        p: r1(itemsToSeparate.reduce((s, i) => s + (i.p || 0), 0)),
+        c: r1(itemsToSeparate.reduce((s, i) => s + (i.c || 0), 0)),
+        g: r1(itemsToSeparate.reduce((s, i) => s + (i.g || 0), 0)),
+        time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
+        rawInput: 'separado de comida anterior',
+        hasMissingQuantity: false,
+      };
+      return [...updated, newEntry];
+    });
+    if (newEntry) {
+      setMessages(m => [...m, {
+        role: 'assistant', content: 'logged', isLogged: true,
+        entryId: newEntry.id, quantityWarning: null, ts: Date.now()
+      }]);
+    }
+  };
+
 
   const useFavorite = (fav) => {
     haptic(12);
@@ -1948,6 +2082,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-up { animation: sheetUp 0.32s cubic-bezier(0.2, 0, 0, 1); }
         @keyframes wave { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1.4); } }
+        .msg-input:empty:before { content: attr(data-placeholder); color: ${TEXT_LIGHT}; pointer-events: none; }
+        .msg-input { -webkit-user-modify: read-write-plaintext-only; }
         .fade-up { animation: fadeUp 0.45s cubic-bezier(0.2, 0, 0, 1); }
         .pulse-ring { animation: pulseRing 1.5s ease-in-out infinite; }
         .shimmer-text {
@@ -2293,6 +2429,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   onDismissAutoFav={dismissAutoFavorite}
                   favoriteIngredients={favoriteIngredients}
                   onOpenPerformance={() => { haptic(8); setShowPerformanceModal(true); }}
+                  onSeparateAppended={separateAppendedItems}
                 />
               </div>
             ))}
@@ -2354,42 +2491,43 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               → se registrará como {predictedMeal}
             </div>
           )}
-          <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} autoComplete="off" className="flex items-center gap-2 p-2 rounded-2xl" style={{
+          <div className="flex items-center gap-2 p-2 rounded-2xl" style={{
             background: SURFACE,
             border: `1px solid ${recording ? C_PROTEIN : BORDER}`,
             boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, 0 8px 32px rgba(0,0,0,0.08)` : '0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
             transition: 'border 0.2s, box-shadow 0.2s'
           }}>
-            {/* Honeypot fields trick iOS into not showing autofill bar (key/credit-card/address) on the real input */}
-            <input type="text" name="username" autoComplete="username" tabIndex={-1} style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none', height: 0, width: 0 }} />
-            <input type="password" name="password" autoComplete="current-password" tabIndex={-1} style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none', height: 0, width: 0 }} />
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onFocus={() => setActionsExpanded(false)}
-              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), e.target.blur(), handleSend())}
-              placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Escribe o dicta lo que comiste…'}
-              className="flex-1 bg-transparent px-3 py-3 outline-none"
-              style={{ color: TEXT, fontSize: '16px' }}
-              readOnly={recording || transcribing}
-              type="search"
+            {/* contenteditable instead of <input> — iOS does NOT show the AutoFill
+                accessory bar (key/credit-card/location) on contenteditable elements. */}
+            <div
+              ref={inputDivRef}
+              contentEditable={!recording && !transcribing}
+              suppressContentEditableWarning={true}
               role="textbox"
-              name="q"
-              autoComplete="off"
+              aria-multiline="false"
+              data-placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Escribe o dicta lo que comiste…'}
+              onInput={(e) => setInput(e.currentTarget.textContent || '')}
+              onFocus={() => setActionsExpanded(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                  handleSend();
+                }
+              }}
               autoCorrect="off"
               autoCapitalize="sentences"
               spellCheck="false"
               inputMode="text"
               enterKeyHint="send"
-              data-1p-ignore="true"
-              data-lpignore="true"
-              data-form-type="other"
+              className="msg-input flex-1 bg-transparent px-3 py-3 outline-none"
+              style={{ color: TEXT, fontSize: '16px', minHeight: '24px', maxHeight: '120px', overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
             />
             <button
               type="button"
               onClick={recording ? stopVoice : startVoice}
               disabled={transcribing}
-              className="p-3 rounded-xl transition active:scale-[0.95] disabled:opacity-60"
+              className="p-3 rounded-xl transition active:scale-[0.95] disabled:opacity-60 shrink-0"
               style={{
                 background: recording ? C_PROTEIN : SURFACE_2,
                 color: recording ? '#fff' : TEXT_MUTED,
@@ -2401,13 +2539,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 : <Mic size={16} strokeWidth={2} className={recording ? 'pulse-ring' : ''} />}
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={() => handleSend()}
               disabled={!input.trim() || loading || recording}
-              className="p-3 rounded-xl transition disabled:opacity-30 active:scale-[0.95]"
+              className="p-3 rounded-xl transition disabled:opacity-30 active:scale-[0.95] shrink-0"
               style={{ background: '#1F1F1F', color: '#fff' }}>
               <ArrowUp size={16} strokeWidth={2.5} />
             </button>
-          </form>
+          </div>
         </div>
       </div>
 
@@ -2440,8 +2579,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <FavoritesModal
           favorites={favorites}
           onUse={useFavorite}
+          onRename={renameFavorite}
           onDelete={(id) => { haptic(10); setFavorites(f => f.filter(x => x.id !== id)); }}
           onClose={() => setActiveModal(null)} />
+      )}
+
+      {pendingFavoriteEntry && (
+        <FavoriteNameModal
+          entry={pendingFavoriteEntry}
+          onConfirm={(name) => confirmFavorite(name)}
+          onCancel={() => setPendingFavoriteEntry(null)} />
       )}
 
       {activeModal === 'export' && (
@@ -2696,7 +2843,7 @@ function DaySeparator({ date }) {
   );
 }
 
-function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance }) {
+function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended }) {
   if (message.isAutoFavoriteSuggestion && message.suggestedKey) {
     const alreadyAdded = favoriteIngredients.includes(message.suggestedKey);
     return (
@@ -3119,7 +3266,7 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
           WebkitBackdropFilter: 'blur(20px) saturate(180%)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
                 <CheckCircle2 size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
@@ -3139,6 +3286,16 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
               </button>
             </div>
           </div>
+
+          {/* Confirmation banner: makes "this was added to existing meal" obvious */}
+          {onSeparateAppended && (
+            <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[11px]" style={{ background: ACCENT_PASTEL + '40', border: `1px solid ${ACCENT_PASTEL}` }}>
+              <Info size={12} style={{ color: ACCENT_DARK, flexShrink: 0, marginTop: 1 }} />
+              <div style={{ color: ACCENT_DARK, lineHeight: 1.4 }}>
+                Sumé esto a tu <strong>{e.meal} de las {e.time}</strong>. Si era una comida nueva, sepárala con el botón de abajo.
+              </div>
+            </div>
+          )}
 
           {message.quantityWarning && (
             <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[11px]" style={{ background: '#FBF1E5', color: WARN }}>
@@ -3187,6 +3344,17 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
               <span style={{ color: C_FAT }}>G {Math.round((e.g ?? 0) * 10) / 10}g</span>
             </div>
           </div>
+
+          {onSeparateAppended && (
+            <button
+              onClick={() => onSeparateAppended(e.id, added)}
+              className="mt-3 w-full py-2 rounded-xl text-[11px] font-semibold transition active:scale-[0.98] flex items-center justify-center gap-1.5"
+              style={{ background: 'rgba(255,255,255,0.7)', color: TEXT_MUTED, border: `1px dashed ${BORDER}` }}
+              title="Si esto era una comida nueva y no un agregado, sepárala">
+              <span style={{ fontSize: '12px' }}>↗</span>
+              Separar como comida nueva
+            </button>
+          )}
         </div>
       </div>
     );
@@ -3601,7 +3769,9 @@ function Stat({ label, val, goal, color, unit = '' }) {
   );
 }
 
-function FavoritesModal({ favorites, onUse, onDelete, onClose }) {
+function FavoritesModal({ favorites, onUse, onDelete, onRename, onClose }) {
+  const [editingId, setEditingId] = useState(null);
+  const [editValue, setEditValue] = useState('');
   return (
     <ModalShell onClose={onClose}>
       <ModalHeader accent={C_CARBS} label="Favoritos" title="Menús favoritos" onClose={onClose} />
@@ -3619,11 +3789,35 @@ function FavoritesModal({ favorites, onUse, onDelete, onClose }) {
               background: SURFACE_2, border: `1px solid ${BORDER_SOFT}`
             }}>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate" style={{ color: TEXT }}>{f.name}</div>
+                {editingId === f.id ? (
+                  <input
+                    autoFocus
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    onBlur={() => { onRename(f.id, editValue); setEditingId(null); }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { onRename(f.id, editValue); setEditingId(null); }
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                    placeholder={f.autoName || f.name}
+                    className="w-full bg-white text-sm font-medium px-2 py-1 rounded border outline-none"
+                    style={{ color: TEXT, borderColor: BORDER }}
+                  />
+                ) : (
+                  <div className="text-sm font-medium truncate" style={{ color: TEXT }}>{f.name}</div>
+                )}
                 <div className="text-[10px] num" style={{ color: TEXT_LIGHT }}>
                   {f.kcal} kcal · P{f.p} C{f.c} G{f.g}
                 </div>
               </div>
+              {editingId !== f.id && (
+                <button
+                  onClick={() => { setEditValue(f.name); setEditingId(f.id); }}
+                  className="p-1.5 rounded-full hover:bg-black/5 transition"
+                  title="Renombrar">
+                  <Pencil size={12} style={{ color: TEXT_LIGHT }} />
+                </button>
+              )}
               <button onClick={() => onUse(f)} className="px-3 py-1.5 rounded-full text-xs font-medium transition hover:scale-105"
                 style={{ background: ACCENT, color: '#fff' }}>
                 Usar
@@ -3635,6 +3829,46 @@ function FavoritesModal({ favorites, onUse, onDelete, onClose }) {
           ))}
         </div>
       )}
+    </ModalShell>
+  );
+}
+
+function FavoriteNameModal({ entry, onConfirm, onCancel }) {
+  const autoName = (entry?.items || []).map(i => i.name).join(', ').slice(0, 60);
+  const [value, setValue] = useState('');
+  return (
+    <ModalShell onClose={onCancel} maxWidth="max-w-sm">
+      <ModalHeader accent={C_CARBS} label="Guardar favorito" title="Ponle un nombre" onClose={onCancel} />
+      <div className="text-[12px] mb-3" style={{ color: TEXT_MUTED, lineHeight: 1.55 }}>
+        Opcional. Si lo dejas vacío, lo guardo con los nombres de los alimentos.
+      </div>
+      <input
+        autoFocus
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { onConfirm(value); }
+          if (e.key === 'Escape') onCancel();
+        }}
+        placeholder={autoName}
+        className="w-full bg-white text-sm font-medium px-3 py-2.5 rounded-xl border outline-none mb-4"
+        style={{ color: TEXT, borderColor: BORDER }}
+      />
+      <div className="text-[10px] mb-4" style={{ color: TEXT_LIGHT }}>
+        Sin nombre quedaría: <em>{autoName}</em>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={onCancel}
+          className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition active:scale-[0.98]"
+          style={{ background: SURFACE_2, color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
+          Cancelar
+        </button>
+        <button onClick={() => onConfirm(value)}
+          className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition active:scale-[0.98]"
+          style={{ background: '#1F1F1F', color: '#fff' }}>
+          Guardar
+        </button>
+      </div>
     </ModalShell>
   );
 }
@@ -4764,7 +4998,15 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
 
           {proposal.meals.map((m, i) => (
             <div key={i} className="mb-4 p-3 rounded-2xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
-              <div className="text-[11px] uppercase tracking-[0.15em] font-bold mb-2" style={{ color: ACCENT_DARK }}>{m.meal}</div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="text-[11px] uppercase tracking-[0.15em] font-bold" style={{ color: ACCENT_DARK }}>{m.meal}</div>
+                {m.from_favorite && (
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold" style={{ background: C_CARBS_PASTEL, color: C_CARBS }}>
+                    <Star size={9} strokeWidth={2.2} />
+                    De tus favoritos
+                  </div>
+                )}
+              </div>
               <div className="space-y-1 mb-2">
                 {m.items.map((it, j) => (
                   <div key={j} className="text-[12px] flex justify-between gap-3">
