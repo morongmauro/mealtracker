@@ -48,8 +48,8 @@ const FONT_DISPLAY = "'Bebas Neue', 'Inter', sans-serif";
 const AUTHORIZED_CLIENTS = [
   'Mauro Morón', 'Alejandro Aguirre', 'Amauri Barbosa', 'Andrea Angulo',
   'Andres Yepes', 'Carlos Martinez', 'Carlos Pirela', 'David Forero',
-  'Diana Tovar', 'Julio Dieguez', 'Laura Lorena Cardenas', 'Mar Alzate',
-  'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez',
+  'Diana Tovar', 'Julio Dieguez', 'Laura Lorena Cardenas', 'Mar Alzate', 
+  'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez', 'Maria Alejandra Gonzales', 'Natalia Samper',
 ];
 
 const normalizeName = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
