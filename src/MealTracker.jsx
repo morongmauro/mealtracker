@@ -281,6 +281,18 @@ export default function MealTracker() {
   const today = getLocalDate();
 
   useEffect(() => {
+    const anyOpen = showWellbeingModal || showIngredientsModal || showPlannerModal
+      || showPerformanceModal || showCapabilitiesModal || activeModal
+      || editingEntry !== null || pendingFavoriteEntry || actionsExpanded;
+    if (anyOpen) {
+      document.body.setAttribute('data-modal-open', '1');
+    } else {
+      document.body.removeAttribute('data-modal-open');
+    }
+    return () => document.body.removeAttribute('data-modal-open');
+  }, [showWellbeingModal, showIngredientsModal, showPlannerModal, showPerformanceModal, showCapabilitiesModal, activeModal, editingEntry, pendingFavoriteEntry, actionsExpanded]);
+
+  useEffect(() => {
     (async () => {
       try {
         const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes] = await Promise.all([
@@ -2208,6 +2220,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: ${BORDER}; border-radius: 3px; }
+        button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulseRing { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
         @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
@@ -2224,6 +2237,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         .main-blob-3 { animation: mainBlob3 20s ease-in-out infinite; }
         .main-blob-4 { animation: mainBlob4 24s ease-in-out infinite; }
         .main-blob-5 { animation: mainBlob5 28s ease-in-out infinite; }
+        body[data-modal-open="1"] .main-blob-1,
+        body[data-modal-open="1"] .main-blob-2,
+        body[data-modal-open="1"] .main-blob-3,
+        body[data-modal-open="1"] .main-blob-4,
+        body[data-modal-open="1"] .main-blob-5,
+        body[data-modal-open="1"] .blob-1,
+        body[data-modal-open="1"] .blob-2,
+        body[data-modal-open="1"] .blob-3,
+        body[data-modal-open="1"] .shimmer-text,
+        body[data-modal-open="1"] .pulse-ring { animation-play-state: paused !important; }
         @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-up { animation: sheetUp 0.32s cubic-bezier(0.2, 0, 0, 1); }
         @keyframes wave { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1.4); } }
@@ -2419,7 +2442,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         {actionsExpanded && (
           <div
             className="fixed inset-0 z-50 flex items-end justify-center"
-            style={{ background: 'rgba(0,0,0,0.45)' }}
+            style={{
+              background: 'rgba(0,0,0,0.45)',
+              display: (showWellbeingModal || showIngredientsModal || showPlannerModal || showPerformanceModal || showCapabilitiesModal || activeModal || editingEntry !== null || pendingFavoriteEntry) ? 'none' : 'flex'
+            }}
             onClick={() => { haptic(6); setActionsExpanded(false); }}>
             <div
               className="w-full max-w-md rounded-t-3xl px-5 pt-3 sheet-up"
@@ -2448,13 +2474,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
                   <div className="grid grid-cols-2 gap-2.5">
                     <ActionChipMini icon={<ChefHat size={19} strokeWidth={1.75} />} label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); setShowPlannerModal(true); setActionsExpanded(false); generatePlan(); }} />
+                      onClick={() => { haptic(8); setShowPlannerModal(true); generatePlan(); }} />
                     <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
                     <ActionChipMini icon={<Star size={19} strokeWidth={1.75} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
-                      onClick={() => { haptic(8); setActiveModal('favorites'); setActionsExpanded(false); }} />
+                      onClick={() => { haptic(8); setActiveModal('favorites'); }} />
                     <ActionChipMini icon={<Utensils size={19} strokeWidth={1.75} />} label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
-                      onClick={() => { haptic(8); setShowIngredientsModal(true); setActionsExpanded(false); }} />
+                      onClick={() => { haptic(8); setShowIngredientsModal(true); }} />
                   </div>
                 </div>
 
@@ -2462,13 +2488,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
                   <div className="grid grid-cols-2 gap-2.5">
                     <ActionChipMini icon={<BarChart3 size={19} strokeWidth={1.75} />} label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); setShowPerformanceModal(true); setActionsExpanded(false); }} />
+                      onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
                     <ActionChipMini icon={<LineChart size={19} strokeWidth={1.75} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
                       onClick={() => { haptic(8); handleSend('ver resumen diario'); setActionsExpanded(false); }} />
                     <ActionChipMini icon={<Sparkles size={19} strokeWidth={1.75} />} label="Check-in del día" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); setShowWellbeingModal(true); setActionsExpanded(false); }} />
+                      onClick={() => { haptic(8); setShowWellbeingModal(true); }} />
                     <ActionChipMini icon={<Calendar size={19} strokeWidth={1.75} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
-                      onClick={() => { haptic(8); setActiveModal('calendar'); setActionsExpanded(false); }} />
+                      onClick={() => { haptic(8); setActiveModal('calendar'); }} />
                     <ActionChipMini icon={<PieChart size={19} strokeWidth={1.75} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
                       onClick={() => { haptic(8); setInput('Ayúdame con proporciones, tengo: '); setActionsExpanded(false); }} />
                   </div>
@@ -2478,11 +2504,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
                   <div className="grid grid-cols-2 gap-2.5">
                     <ActionChipMini icon={<FileText size={19} strokeWidth={1.75} />} label="Reporte al coach" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); setActiveModal('export'); setActionsExpanded(false); }} />
+                      onClick={() => { haptic(8); setActiveModal('export'); }} />
                     <ActionChipMini icon={<Info size={19} strokeWidth={1.75} />} label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); setShowCapabilitiesModal(true); setActionsExpanded(false); }} />
+                      onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
                     <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
-                      onClick={() => { haptic(8); setActiveModal('reset'); setActionsExpanded(false); }} />
+                      onClick={() => { haptic(8); setActiveModal('reset'); }} />
                   </div>
                 </div>
               </div>
