@@ -19,7 +19,7 @@ const C_FAT = '#6B7A8F';         // smoke blue
 const C_FAT_PASTEL = '#CDD2DB';
 const C_WATER = '#5BA3C7';
 
-const BG = '#F7F4ED';            // warm cream, less grey than before
+const BG = '#FBF9F3';            // lighter warm cream
 const SURFACE = '#FFFFFF';
 const SURFACE_2 = '#EFEBE0';
 const BORDER = '#E2DECC';
@@ -160,6 +160,78 @@ function buildWeeklyChartsHTML(daysData, goals) {
       <div style="font-size: 9px; color: #9A9A9A; margin-top: 6px; font-style: italic;">
         Línea verde punteada = meta diaria. Barra verde = en meta ±10%. Barra naranja = sobre meta.
       </div>
+    </div>`;
+  }).join('');
+}
+
+// Monthly version: aggregates the last 28 days into 4 weekly averages.
+// monthDays = array of {date, kcal, p, c, g, entries} (length ~28-30, oldest first).
+function buildMonthlyChartsHTML(monthDays, goals) {
+  const macros = [
+    { key: 'kcal', label: 'Calorías', goal: goals.kcal, unit: '', color: '#8A9558' },
+    { key: 'p',    label: 'Proteína', goal: goals.p,    unit: 'g', color: '#D77A61' },
+    { key: 'c',    label: 'Carbohidratos', goal: goals.c, unit: 'g', color: '#D4B581' },
+    { key: 'g',    label: 'Grasas',   goal: goals.g,    unit: 'g', color: '#6B7A8F' },
+  ];
+  // Take last 28 days, split into 4 weekly buckets (oldest -> newest)
+  const last28 = monthDays.slice(-28);
+  const weeks = [];
+  for (let w = 0; w < 4; w++) {
+    const chunk = last28.slice(w * 7, w * 7 + 7);
+    const rec = chunk.filter(d => (d.entries || 0) > 0);
+    weeks.push({ label: `Sem ${w + 1}`, rec });
+  }
+  const weekAvg = (week, key) => week.rec.length > 0
+    ? Math.round(week.rec.reduce((s, d) => s + (d[key] || 0), 0) / week.rec.length)
+    : 0;
+
+  return macros.map(macro => {
+    const allRec = last28.filter(d => (d.entries || 0) > 0);
+    const monthAvg = allRec.length > 0
+      ? Math.round(allRec.reduce((s, d) => s + (d[macro.key] || 0), 0) / allRec.length)
+      : 0;
+    const pct = macro.goal > 0 ? Math.round((monthAvg / macro.goal) * 100) : 0;
+    const vals = weeks.map(w => weekAvg(w, macro.key));
+    const maxVal = Math.max(...vals, macro.goal * 1.1);
+    const maxScale = maxVal * 1.05;
+    const goalPctOfScale = (macro.goal / maxScale) * 100;
+    const pctStatusColor = pct >= 90 && pct <= 110 ? '#7A9579' : '#9A9A9A';
+    return `
+    <div style="background: #fff; padding: 14px; border-radius: 8px; margin-bottom: 10px;">
+      <table style="width:100%; border-collapse: collapse; margin-bottom: 10px;">
+        <tr>
+          <td style="vertical-align: top;">
+            <div style="font-size: 11px; color: ${macro.color}; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">${macro.label}</div>
+            <div style="font-size: 10px; color: #9A9A9A; margin-top: 2px;">Promedio semanal · meta ${macro.goal}${macro.unit}/día</div>
+          </td>
+          <td style="vertical-align: top; text-align: right;">
+            <div style="font-size: 16px; font-weight: 700; color: #1F1F1F;">${monthAvg}${macro.unit}</div>
+            <div style="font-size: 10px; color: ${pctStatusColor};">${pct}% del promedio mensual</div>
+          </td>
+        </tr>
+      </table>
+      <table style="width: 100%; border-collapse: collapse;">
+        ${weeks.map((w, i) => {
+          const val = vals[i];
+          const dayPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
+          const isInGoal = val > 0 && val >= macro.goal * 0.9 && val <= macro.goal * 1.1;
+          const isOver = val > macro.goal * 1.1;
+          const fillColor = val === 0 ? '#D0CFC6' : (isInGoal ? '#7A9579' : (isOver ? '#B8732B' : macro.color));
+          return `
+          <tr>
+            <td style="width: 42px; font-size: 10px; color: #6B6B6B; font-weight: 700; text-align: left; padding: 2px 0;">${w.label}</td>
+            <td style="padding: 3px 6px 3px 4px;">
+              <div style="height: 12px; background: #F0EEE7; border-radius: 3px; position: relative; overflow: hidden;">
+                <div style="height: 100%; width: ${dayPct}%; background: ${fillColor}; border-radius: 3px;"></div>
+                <div style="position: absolute; left: ${goalPctOfScale}%; top: 0; bottom: 0; width: 0; border-left: 1px dashed #7A9579;"></div>
+              </div>
+            </td>
+            <td style="width: 80px; padding-left: 4px; font-size: 10px; color: ${val === 0 ? '#C5C5C5' : '#1F1F1F'}; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;">
+              ${val === 0 ? 'sin registro' : Math.round(val) + macro.unit}
+            </td>
+          </tr>`;
+        }).join('')}
+      </table>
     </div>`;
   }).join('');
 }
@@ -367,6 +439,25 @@ export default function MealTracker() {
         const daysRegistered = daysData.filter(d => d.entries > 0).length;
         if (daysRegistered === 0) return; // No data, skip
 
+        // Last 30 days for monthly charts
+        const last30Data = [];
+        for (let i = 29; i >= 0; i--) {
+          const d = new Date(todayDate);
+          d.setDate(d.getDate() - i);
+          const key = getLocalDate(d);
+          if (key === today) {
+            const t = entries.reduce((acc, e) => ({
+              kcal: acc.kcal + (e.kcal || 0), p: acc.p + (e.p || 0),
+              c: acc.c + (e.c || 0), g: acc.g + (e.g || 0),
+            }), { kcal: 0, p: 0, c: 0, g: 0 });
+            last30Data.push({ date: key, ...t, entries: entries.length });
+          } else {
+            const h = history[key];
+            const det = historyDetail[key] || [];
+            last30Data.push(h ? { date: key, ...h, entries: det.length } : { date: key, kcal: 0, p: 0, c: 0, g: 0, entries: 0 });
+          }
+        }
+
         const avgKcal = Math.round(daysData.reduce((s, d) => s + d.kcal, 0) / 7);
         const avgP = Math.round(daysData.reduce((s, d) => s + d.p, 0) / 7);
         const avgC = Math.round(daysData.reduce((s, d) => s + d.c, 0) / 7);
@@ -433,8 +524,13 @@ export default function MealTracker() {
     </div>
 
     <div style="margin-bottom: 16px;">
-      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño por día</div>
+      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño · semana (por día)</div>
       ${buildWeeklyChartsHTML(daysData, goals)}
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño · mes (promedio por semana)</div>
+      ${buildMonthlyChartsHTML(last30Data, goals)}
     </div>
 
     <div style="background: #fff; padding: 16px; border-radius: 8px;">
@@ -1904,10 +2000,27 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         throw new Error(errData.error || 'Transcribe failed');
       }
       const data = await res.json();
-      const txt = (data.text || '').trim();
+      let txt = (data.text || '').trim();
+      // Whisper alucina frases típicas de subtítulos cuando el audio está en
+      // silencio o casi vacío. Las filtramos para que el cliente no vea texto raro.
+      const HALLUCINATIONS = [
+        /subt[ií]tulos?.*(amara\.org|comunidad)/i,
+        /amara\.org/i,
+        /subt[ií]tulos? realizados por/i,
+        /subt[ií]tulos? por la comunidad/i,
+        /www\.[^\s]+\.(org|com)/i,
+        /gracias por (ver|watching)/i,
+        /\bsubscribe\b/i,
+        /transcripci[oó]n por/i,
+      ];
+      const isHallucination = txt.length > 0 && HALLUCINATIONS.some(rx => rx.test(txt));
+      if (isHallucination) txt = '';
       if (txt) {
         setInput(prev => (prev && prev.trim() ? prev.trim() + ' ' + txt : txt));
         voiceInputRef.current = true;
+      } else {
+        // Silencio o sólo alucinación → aviso suave, sin texto fantasma
+        setMessages(m => [...m, { role: 'assistant', content: 'No alcancé a escuchar nada. Toca el micrófono y cuéntame qué comiste.', ts: Date.now() }]);
       }
     } catch (err) {
       console.error('Transcribe error:', err);
@@ -1942,7 +2055,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     };
     setFavorites(f => [...f, fav]);
     setPendingFavoriteEntry(null);
+    haptic(15);
+    setMessages(m => [...m, { role: 'assistant', content: `Guardado en favoritos como "${fav.name}". Lo puedes reusar desde Herramientas → Menús favoritos.`, ts: Date.now() }]);
   };
+
+  // Signature to know if an entry is already in favorites (for the colored star)
+  const favSignature = (e) => `${e.meal || ''}|${(e.items || []).map(i => (i.name || '').toLowerCase().trim()).sort().join(',')}`;
+  const favoriteSignatures = new Set(favorites.map(favSignature));
   const renameFavorite = (id, newName) => {
     setFavorites(f => f.map(x => x.id === id ? { ...x, name: (newName && newName.trim()) || x.autoName || x.name } : x));
   };
@@ -2069,13 +2188,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         {/* Subtle peach — middle */}
         <div className="main-blob-4 absolute" style={{
           top: '38%', left: '5%', width: '55%', height: '48%',
-          background: `radial-gradient(circle, ${C_PROTEIN_PASTEL}30, transparent 70%)`,
+          background: `radial-gradient(circle, ${C_PROTEIN_PASTEL}40, transparent 70%)`,
           filter: 'blur(90px)'
         }} />
         {/* Smoke blue accent — bottom-right */}
         <div className="main-blob-5 absolute" style={{
           bottom: '5%', right: '-12%', width: '52%', height: '48%',
-          background: `radial-gradient(circle, ${C_FAT_PASTEL}28, transparent 70%)`,
+          background: `radial-gradient(circle, ${C_FAT_PASTEL}38, transparent 70%)`,
           filter: 'blur(95px)'
         }} />
       </div>
@@ -2296,7 +2415,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         {actionsExpanded && (
           <div
             className="fixed inset-0 z-50 flex items-end justify-center"
-            style={{ background: 'rgba(0,0,0,0.32)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+            style={{ background: 'rgba(0,0,0,0.45)' }}
             onClick={() => { haptic(6); setActionsExpanded(false); }}>
             <div
               className="w-full max-w-md rounded-t-3xl px-5 pt-3 sheet-up"
@@ -2315,9 +2434,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
                   <div className="text-[17px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
                 </div>
-                <button onClick={() => { haptic(6); setActionsExpanded(false); }}
-                  className="p-2 rounded-full transition active:scale-95" style={{ background: SURFACE_2 }}>
-                  <X size={16} style={{ color: TEXT_MUTED }} />
+                <button onClick={() => { haptic(6); setActionsExpanded(false); }} aria-label="Cerrar"
+                  className="p-3 rounded-full active:scale-95" style={{ background: SURFACE_2, touchAction: 'manipulation' }}>
+                  <X size={18} style={{ color: TEXT_MUTED }} />
                 </button>
               </div>
               <div className="space-y-4">
@@ -2452,6 +2571,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   favoriteIngredients={favoriteIngredients}
                   onOpenPerformance={() => { haptic(8); setShowPerformanceModal(true); }}
                   onSeparateAppended={separateAppendedItems}
+                  favoriteSignatures={favoriteSignatures}
+                  favSignature={favSignature}
                 />
               </div>
             ))}
@@ -2881,7 +3002,7 @@ function DaySeparator({ date }) {
   );
 }
 
-function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended }) {
+function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature }) {
   if (message.isAutoFavoriteSuggestion && message.suggestedKey) {
     const alreadyAdded = favoriteIngredients.includes(message.suggestedKey);
     return (
@@ -3093,9 +3214,11 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
               <span className="text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
             </div>
             <div className="flex gap-1">
-              <button onClick={() => onFavorite(e)} className="p-1 rounded-full hover:bg-black/5 transition">
-                <Star size={12} style={{ color: TEXT_LIGHT }} />
+              {(() => { const isFav = favoriteSignatures && favSignature && favoriteSignatures.has(favSignature(e)); return (
+              <button onClick={() => onFavorite(e)} className="p-1 rounded-full hover:bg-black/5 transition" title={isFav ? 'Ya está en favoritos' : 'Guardar en favoritos'}>
+                <Star size={12} style={{ color: isFav ? C_CARBS : TEXT_LIGHT, fill: isFav ? C_CARBS : 'none' }} />
               </button>
+              ); })()}
               {!isHistorical && (
                 <>
                   <button onClick={() => onEdit(e.id)} className="p-1 rounded-full hover:bg-black/5 transition">
@@ -3318,9 +3441,11 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
               <span className="text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
             </div>
             <div className="flex gap-1">
-              <button onClick={() => onFavorite(e)} className="p-1 rounded-full hover:bg-black/5 transition">
-                <Star size={12} style={{ color: TEXT_LIGHT }} />
+              {(() => { const isFav = favoriteSignatures && favSignature && favoriteSignatures.has(favSignature(e)); return (
+              <button onClick={() => onFavorite(e)} className="p-1 rounded-full hover:bg-black/5 transition" title={isFav ? 'Ya está en favoritos' : 'Guardar en favoritos'}>
+                <Star size={12} style={{ color: isFav ? C_CARBS : TEXT_LIGHT, fill: isFav ? C_CARBS : 'none' }} />
               </button>
+              ); })()}
               <button onClick={() => onEdit(e.id)} className="p-1 rounded-full hover:bg-black/5 transition">
                 <Pencil size={12} style={{ color: TEXT_LIGHT }} />
               </button>
@@ -3572,7 +3697,7 @@ function Row({ label, val, diff, unit, color }) {
 function ModalShell({ children, onClose, maxWidth = 'max-w-md' }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{
-      background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)'
+      background: 'rgba(0,0,0,0.45)'
     }} onClick={onClose}>
       <div className={`w-full ${maxWidth} max-h-[85vh] overflow-y-auto p-6 rounded-3xl fade-up`} style={{
         background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI
@@ -3607,8 +3732,10 @@ function ModalHeader({ accent, label, title, onClose }) {
         <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: accent }}>{label}</div>
         <div className="text-xl font-bold tracking-tight mt-0.5" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
       </div>
-      <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5">
-        <X size={16} style={{ color: TEXT_MUTED }} />
+      <button onClick={onClose} aria-label="Cerrar"
+        className="-m-2 p-3 rounded-full active:bg-black/10"
+        style={{ touchAction: 'manipulation' }}>
+        <X size={18} style={{ color: TEXT_MUTED }} />
       </button>
     </div>
   );
@@ -4269,6 +4396,17 @@ function ExportModal({ name, goals, history, historyDetail, today, todayEntries,
           last7.push(h ? { date: key, ...h, entries: det.length } : { date: key, kcal: 0, p: 0, c: 0, g: 0, entries: 0 });
         }
         const chartsHTML = buildWeeklyChartsHTML(last7, goals);
+        // Last 30 days for the monthly charts
+        const last30 = [];
+        for (let i = 29; i >= 0; i--) {
+          const d = new Date(baseDate);
+          d.setDate(d.getDate() - i);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const h = allHistory[key];
+          const det = allHistoryDetail[key] || [];
+          last30.push(h ? { date: key, ...h, entries: det.length } : { date: key, kcal: 0, p: 0, c: 0, g: 0, entries: 0 });
+        }
+        const monthlyHTML = buildMonthlyChartsHTML(last30, goals);
         const summary = `<div style="font-family: -apple-system, sans-serif; max-width: 600px; color: #1F1F1F;">
   <div style="background: #1F1F1F; color: #fff; padding: 20px; border-radius: 12px 12px 0 0;">
     <div style="font-size: 22px; font-weight: 700;">REPORTE AL COACH</div>
@@ -4277,11 +4415,16 @@ function ExportModal({ name, goals, history, historyDetail, today, todayEntries,
   </div>
   <div style="background: #F7F4ED; padding: 20px; border-radius: 0 0 12px 12px; border: 1px solid #E2DECC;">
     <div style="font-size: 16px; font-weight: 600;">${name || 'Cliente'}</div>
-    <div style="font-size: 12px; color: #6B6B6B; margin-bottom: 16px;">Últimos ${days} días en PDF · gráficos de los últimos 7 días</div>
+    <div style="font-size: 12px; color: #6B6B6B; margin-bottom: 16px;">Últimos ${days} días en PDF · gráficos semanales y mensuales</div>
 
     <div style="margin-bottom: 16px;">
-      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño últimos 7 días</div>
+      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño · últimos 7 días</div>
       ${chartsHTML}
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño · último mes (promedio por semana)</div>
+      ${monthlyHTML}
     </div>
 
     <div style="font-size: 13px; color: #1F1F1F; line-height: 1.55; padding-top: 10px; border-top: 1px solid #E2DECC;">Adjunto encontrarás el detalle completo del periodo en PDF.</div>
