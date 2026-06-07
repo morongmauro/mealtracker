@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
@@ -821,12 +821,12 @@ export default function MealTracker() {
     }
   }, [messages, view]);
 
-  const totals = entries.reduce((acc, e) => ({
+  const totals = useMemo(() => entries.reduce((acc, e) => ({
     kcal: acc.kcal + (e.kcal || 0),
     p: acc.p + (e.p || 0),
     c: acc.c + (e.c || 0),
     g: acc.g + (e.g || 0),
-  }), { kcal: 0, p: 0, c: 0, g: 0 });
+  }), { kcal: 0, p: 0, c: 0, g: 0 }), [entries]);
 
   useEffect(() => {
     if (!goals || perfectDayShown || entries.length === 0) return;
@@ -929,7 +929,7 @@ export default function MealTracker() {
   };
 
   // ─── Streak: consecutive days with any registration (today counts if entries>0) ───
-  const streak = (() => {
+  const streak = useMemo(() => {
     let count = 0;
     const d = new Date();
     // include today only if it has entries already
@@ -945,13 +945,13 @@ export default function MealTracker() {
       } else break;
     }
     return count;
-  })();
+  }, [entries, history, today]);
 
   // ─── Top frequent items (by count, recency tiebreaker) for quick-add bar ───
-  const topFrequent = Object.entries(frequentItems)
+  const topFrequent = useMemo(() => Object.entries(frequentItems)
     .map(([name, info]) => ({ name, ...info }))
     .sort((a, b) => (b.count - a.count) || ((b.lastSeen || 0) - (a.lastSeen || 0)))
-    .slice(0, 6);
+    .slice(0, 6), [frequentItems]);
 
   // Keep the contenteditable input in sync when `input` is changed programmatically
   // (action chips, voice transcription, clear-after-send). We only write when the
@@ -1312,15 +1312,13 @@ SCHEMA:
     }
   };
 
-  const acceptAutoFavorite = (key) => {
+  const acceptAutoFavorite = useCallback((key) => {
     haptic(10);
-    if (!favoriteIngredients.includes(key)) {
-      setFavoriteIngredients(prev => [...prev, key]);
-    }
-  };
-  const dismissAutoFavorite = (key) => {
+    setFavoriteIngredients(prev => prev.includes(key) ? prev : [...prev, key]);
+  }, []);
+  const dismissAutoFavorite = useCallback((key) => {
     // Already marked as suggested in frequentItems; nothing else needed
-  };
+  }, []);
 
   // Repeat last meal from yesterday matching predicted meal type
   const repeatYesterday = () => {
@@ -2030,17 +2028,23 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     }
   };
 
-  const deleteEntry = (id) => {
+  const deleteEntry = useCallback((id) => {
     haptic(10);
     setEntries(e => e.filter(x => x.id !== id));
     setEditingEntry(null);
-  };
+  }, []);
+
+  // Stable handlers passed to MessageBubble (so React.memo can skip re-renders on modal toggles)
+  const handleEditEntry = useCallback((id) => { haptic(8); setEditingEntry(id); }, []);
+  const handleAcceptFavSuggestion = useCallback(() => { haptic(10); setShowIngredientsModal(true); }, []);
+  const handleDismissFavSuggestion = useCallback(() => { window.storage.set('favSuggestionDismissed', JSON.stringify(Date.now())).catch(() => {}); }, []);
+  const handleOpenPerformance = useCallback(() => { haptic(8); setShowPerformanceModal(true); }, []);
 
   // When user taps the star, open a small naming modal first
-  const addToFavorites = (entry) => {
+  const addToFavorites = useCallback((entry) => {
     haptic(15);
     setPendingFavoriteEntry(entry);
-  };
+  }, []);
   const confirmFavorite = (customName) => {
     if (!pendingFavoriteEntry) return;
     const entry = pendingFavoriteEntry;
@@ -2060,27 +2064,28 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
   };
 
   // Signature to know if an entry is already in favorites (for the colored star)
-  const favSignature = (e) => `${e.meal || ''}|${(e.items || []).map(i => (i.name || '').toLowerCase().trim()).sort().join(',')}`;
-  const favoriteSignatures = new Set(favorites.map(favSignature));
+  const favSignature = useCallback((e) => `${e.meal || ''}|${(e.items || []).map(i => (i.name || '').toLowerCase().trim()).sort().join(',')}`, []);
+  const favoriteSignatures = useMemo(() => new Set(favorites.map(favSignature)), [favorites, favSignature]);
   const renameFavorite = (id, newName) => {
     setFavorites(f => f.map(x => x.id === id ? { ...x, name: (newName && newName.trim()) || x.autoName || x.name } : x));
   };
 
   // Split an appended item set out of its parent entry into a brand new entry.
   // Used when the model put items in a previous meal but the client meant a new meal.
-  const separateAppendedItems = (parentEntryId, itemsToSeparate) => {
+  const separateAppendedItems = useCallback((parentEntryId, itemsToSeparate) => {
     if (!Array.isArray(itemsToSeparate) || itemsToSeparate.length === 0) return;
     haptic(12);
     const r1 = (n) => Math.round(n * 10) / 10;
     const keys = new Set(itemsToSeparate.map(it => `${it.name}|${it.amount || ''}`));
+    // Time-based meal prediction (no closure dependency on entries)
+    const hour = new Date().getHours();
+    const mealByHour = hour < 11 ? 'desayuno' : hour < 16 ? 'almuerzo' : hour < 21 ? 'cena' : 'snack';
     let newEntry = null;
     setEntries(es => {
       const updated = [];
       for (const e of es) {
         if (e.id !== parentEntryId) { updated.push(e); continue; }
-        // Filter out items that were appended
         const remaining = e.items.filter(it => !keys.has(`${it.name}|${it.amount || ''}`));
-        // Recalculate parent totals
         updated.push({
           ...e,
           items: remaining,
@@ -2090,10 +2095,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           g: r1(remaining.reduce((s, i) => s + (i.g || 0), 0)),
         });
       }
-      // Build new entry from separated items
       newEntry = {
         id: Date.now(),
-        meal: predictMealType(),
+        meal: mealByHour,
         items: itemsToSeparate.map(i => ({ ...i, needs_quantity: false })),
         kcal: Math.round(itemsToSeparate.reduce((s, i) => s + (i.kcal || 0), 0)),
         p: r1(itemsToSeparate.reduce((s, i) => s + (i.p || 0), 0)),
@@ -2111,7 +2115,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         entryId: newEntry.id, quantityWarning: null, ts: Date.now()
       }]);
     }
-  };
+  }, []);
 
 
   const useFavorite = (fav) => {
@@ -2561,15 +2565,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <MessageBubble message={m} goals={goals} totals={totals}
                   entries={entries}
                   historyDetail={historyDetail}
-                  onEdit={(id) => { haptic(8); setEditingEntry(id); }}
+                  onEdit={handleEditEntry}
                   onDelete={deleteEntry}
                   onFavorite={addToFavorites}
-                  onAcceptFavSuggestion={() => { haptic(10); setShowIngredientsModal(true); }}
-                  onDismissFavSuggestion={() => { window.storage.set('favSuggestionDismissed', JSON.stringify(Date.now())).catch(() => {}); }}
+                  onAcceptFavSuggestion={handleAcceptFavSuggestion}
+                  onDismissFavSuggestion={handleDismissFavSuggestion}
                   onAcceptAutoFav={acceptAutoFavorite}
                   onDismissAutoFav={dismissAutoFavorite}
                   favoriteIngredients={favoriteIngredients}
-                  onOpenPerformance={() => { haptic(8); setShowPerformanceModal(true); }}
+                  onOpenPerformance={handleOpenPerformance}
                   onSeparateAppended={separateAppendedItems}
                   favoriteSignatures={favoriteSignatures}
                   favSignature={favSignature}
@@ -3002,7 +3006,7 @@ function DaySeparator({ date }) {
   );
 }
 
-function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature }) {
+const MessageBubble = memo(function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature }) {
   if (message.isAutoFavoriteSuggestion && message.suggestedKey) {
     const alreadyAdded = favoriteIngredients.includes(message.suggestedKey);
     return (
@@ -3675,7 +3679,7 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
       </div>
     </div>
   );
-}
+});
 
 function Row({ label, val, diff, unit, color }) {
   return (
