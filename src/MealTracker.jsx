@@ -35,6 +35,19 @@ const WARN = '#B8732B';
 //   'claude-sonnet-4-6'          (más capaz, ~3x costo)
 const CHAT_MODEL = 'claude-haiku-4-5-20251001';
 
+// Display helpers — kills 25.100000004 floats once and for all.
+// fmt1: at most 1 decimal, no trailing zeros. fmt0: rounded to integer.
+const fmt1 = (n) => {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '0';
+  return parseFloat(v.toFixed(1)).toString();
+};
+const fmt0 = (n) => {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '0';
+  return String(Math.round(v));
+};
+
 // Glass tokens — Apple-style
 const GLASS_BG = 'rgba(255, 255, 255, 0.45)';
 const GLASS_BG_STRONG = 'rgba(255, 255, 255, 0.65)';
@@ -48,8 +61,9 @@ const FONT_DISPLAY = "'Bebas Neue', 'Inter', sans-serif";
 const AUTHORIZED_CLIENTS = [
   'Mauro Morón', 'Alejandro Aguirre', 'Amauri Barbosa', 'Andrea Angulo',
   'Andres Yepes', 'Carlos Martinez', 'Carlos Pirela', 'David Forero',
-  'Diana Tovar', 'Julio Dieguez', 'Laura Lorena Cardenas', 'Mar Alzate', 
-  'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez', 'Maria Alejandra Gonzales', 'Natalia Samper',
+  'Diana Tovar', 'Julio Dieguez', 'Laura Lorena Cardenas', 'Mar Alzate',
+  'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez',
+  'Maria Alejandra Gonzales', 'Natalia Samper',
 ];
 
 const normalizeName = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
@@ -259,9 +273,17 @@ export default function MealTracker() {
 
           const separator = { role: 'system', isDaySeparator: true, date: today, ts: Date.now() };
           const goalsRef = goalsRes?.value ? JSON.parse(goalsRes.value) : null;
+          // Days elapsed since last use (for recovery messaging)
+          let gapDays = 1;
+          try {
+            const [ly, lm, ld] = lastDay.split('-').map(Number);
+            const [ty, tm, td] = today.split('-').map(Number);
+            const diff = Math.round((new Date(ty, tm - 1, td) - new Date(ly, lm - 1, ld)) / 86400000);
+            if (Number.isFinite(diff) && diff > 0) gapDays = diff;
+          } catch (e) {}
           const greeting = {
             role: 'assistant',
-            content: composeDayOpening(storedName, yesterdayTotals, goalsRef),
+            content: composeDayOpening(storedName, yesterdayTotals, goalsRef, { gapDays, hour: new Date().getHours() }),
             isWelcomeHints: !storedMsgs.length
           };
           setMessages([...storedMsgs, separator, greeting]);
@@ -2505,7 +2527,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               suppressContentEditableWarning={true}
               role="textbox"
               aria-multiline="false"
-              data-placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Escribe o dicta lo que comiste…'}
+              data-placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Dicta o escribe lo que comiste…'}
               onInput={(e) => setInput(e.currentTarget.textContent || '')}
               onFocus={() => setActionsExpanded(false)}
               onKeyDown={(e) => {
@@ -2523,29 +2545,35 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               className="msg-input flex-1 bg-transparent px-3 py-3 outline-none"
               style={{ color: TEXT, fontSize: '16px', minHeight: '24px', maxHeight: '120px', overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
             />
+            {/* Voice is the PRIMARY action (grafito, prominent). Send only appears when there's text. */}
             <button
               type="button"
               onClick={recording ? stopVoice : startVoice}
               disabled={transcribing}
-              className="p-3 rounded-xl transition active:scale-[0.95] disabled:opacity-60 shrink-0"
+              className="rounded-xl transition active:scale-[0.95] disabled:opacity-60 shrink-0 flex items-center justify-center"
               style={{
-                background: recording ? C_PROTEIN : SURFACE_2,
-                color: recording ? '#fff' : TEXT_MUTED,
-                transition: 'background 0.2s'
+                width: '46px', height: '46px',
+                background: recording ? C_PROTEIN : '#1F1F1F',
+                color: '#fff',
+                boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}30` : '0 2px 8px rgba(0,0,0,0.18)',
+                transition: 'background 0.2s, box-shadow 0.2s'
               }}
               title={recording ? 'Detener dictado' : transcribing ? 'Transcribiendo…' : 'Dictar por voz'}>
               {transcribing
-                ? <Loader2 size={16} strokeWidth={2} className="animate-spin" />
-                : <Mic size={16} strokeWidth={2} className={recording ? 'pulse-ring' : ''} />}
+                ? <Loader2 size={20} strokeWidth={2} className="animate-spin" />
+                : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} />}
             </button>
-            <button
-              type="button"
-              onClick={() => handleSend()}
-              disabled={!input.trim() || loading || recording}
-              className="p-3 rounded-xl transition disabled:opacity-30 active:scale-[0.95] shrink-0"
-              style={{ background: '#1F1F1F', color: '#fff' }}>
-              <ArrowUp size={16} strokeWidth={2.5} />
-            </button>
+            {input.trim() && !recording && (
+              <button
+                type="button"
+                onClick={() => handleSend()}
+                disabled={loading}
+                className="rounded-xl transition disabled:opacity-30 active:scale-[0.95] shrink-0 flex items-center justify-center fade-up"
+                style={{ width: '46px', height: '46px', background: ACCENT, color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+                title="Enviar">
+                <ArrowUp size={18} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -2662,12 +2690,22 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
   );
 }
 
-function composeDayOpening(name, yesterday, goals) {
+function composeDayOpening(name, yesterday, goals, opts = {}) {
+  const { gapDays = 1, hour = new Date().getHours() } = opts;
   const firstName = name ? name.split(' ')[0] : '';
-  const greeting = firstName ? `Hola ${firstName}, bienvenido(a) de vuelta.` : 'Bienvenido(a) de vuelta.';
-  if (!yesterday || !goals) {
-    return `${greeting} Empecemos a registrar. Cuéntame qué comiste hoy o pregúntame las calorías y macros de cualquier alimento. También puedo armar tu día si me dices qué ingredientes te gustan.`;
+  const hi = firstName ? `Hola ${firstName}.` : 'Hola.';
+
+  // Recovery: 2+ días sin usar la app. Sin culpa, sin arrastrar déficit.
+  if (gapDays >= 2) {
+    const dStr = gapDays >= 7 ? 'una semana' : `${gapDays} días`;
+    return `${hi} Pasaron ${dStr} desde tu último registro. Retomamos hoy desde cero, sin arrastrar nada de antes. Cuando quieras, cuéntame qué comiste.`;
   }
+
+  if (!yesterday || !goals) {
+    return `${hi} Empecemos. Cuéntame qué comiste o pregúntame las calorías de cualquier alimento. También puedo organizar tu día con los ingredientes que te gustan.`;
+  }
+
+  const timePhrase = hour < 11 ? 'Arrancamos el día.' : hour < 16 ? 'Seguimos con el día.' : 'Cerramos bien el día.';
 
   const tolerance = 0.05;
   const inRange = (val, goal) => val >= goal * (1 - tolerance) && val <= goal * (1 + tolerance);
@@ -2677,10 +2715,10 @@ function composeDayOpening(name, yesterday, goals) {
 
   let dayNote;
   if (yesterday.kcal === 0) {
-    dayNote = 'Ayer no quedó registro. Hoy lo retomamos sin presión.';
+    dayNote = 'Ayer no quedó registro; hoy lo retomamos.';
   } else if (inRange(yesterday.kcal, goals.kcal) && inRange(yesterday.p, goals.p) &&
       inRange(yesterday.c, goals.c) && inRange(yesterday.g, goals.g)) {
-    dayNote = 'Ayer cerraste con precisión en las cuatro metas. Hoy seguimos en ese ritmo.';
+    dayNote = 'Ayer cerraste alineado con tus cuatro metas.';
   } else {
     const offBy = [
       { name: 'proteína', diff: pDiff, abs: Math.abs(pDiff), unit: 'g' },
@@ -2688,14 +2726,14 @@ function composeDayOpening(name, yesterday, goals) {
       { name: 'grasas', diff: gDiff, abs: Math.abs(gDiff), unit: 'g' },
     ].sort((a, b) => b.abs - a.abs)[0];
     if (offBy.abs < 10) {
-      dayNote = 'Ayer cerraste muy cerca de las metas. Hoy ajustamos los detalles.';
+      dayNote = 'Ayer cerraste muy cerca de tus metas.';
     } else if (offBy.diff > 0) {
-      dayNote = `Ayer cerraste con ${offBy.name} bajo por ${offBy.abs}${offBy.unit}. Hoy podemos compensar desde el desayuno.`;
+      dayNote = `Ayer la ${offBy.name} quedó ${offBy.abs}${offBy.unit} por debajo; hoy la priorizamos desde el desayuno.`;
     } else {
-      dayNote = `Ayer cerraste con ${offBy.name} ${offBy.abs}${offBy.unit} por encima. Hoy moderamos.`;
+      dayNote = `Ayer la ${offBy.name} quedó ${offBy.abs}${offBy.unit} por encima; hoy la moderamos.`;
     }
   }
-  return `${greeting} ${dayNote}`;
+  return `${hi} ${timePhrase} ${dayNote}`;
 }
 
 function FontStyles() {
@@ -2953,8 +2991,12 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
           <div className="mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>{message.content}</div>
           <div className="space-y-2 text-xs" style={{ color: TEXT_MUTED }}>
             <div className="flex items-start gap-2">
+              <Mic size={11} style={{ color: C_PROTEIN, marginTop: 2, flexShrink: 0 }} />
+              <span>La forma más rápida: <strong style={{ color: TEXT }}>toca el micrófono</strong> y cuéntame qué comiste, hablando normal. También puedes escribir si prefieres.</span>
+            </div>
+            <div className="flex items-start gap-2">
               <Utensils size={11} style={{ color: ACCENT_DARK, marginTop: 2, flexShrink: 0 }} />
-              <span>Registra lo que comiste en lenguaje natural: <em>"2 huevos, avena con plátano y café"</em>.</span>
+              <span>En lenguaje natural: <em>"2 huevos, avena con plátano y café"</em>.</span>
             </div>
             <div className="flex items-start gap-2">
               <Info size={11} style={{ color: ACCENT, marginTop: 2, flexShrink: 0 }} />
@@ -2963,10 +3005,6 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
             <div className="flex items-start gap-2">
               <ChefHat size={11} style={{ color: ACCENT_DARK, marginTop: 2, flexShrink: 0 }} />
               <span>Dime tus ingredientes habituales y te <strong style={{ color: TEXT }}>armo el día</strong>: <em>"armame el día con lo que me gusta"</em>.</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <Mic size={11} style={{ color: C_PROTEIN, marginTop: 2, flexShrink: 0 }} />
-              <span>También puedes dictar por voz. Toca el micrófono.</span>
             </div>
           </div>
           <button onClick={() => { haptic(8); window.dispatchEvent(new CustomEvent('openCapabilities')); }}
@@ -3012,10 +3050,10 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
           <div className="text-base font-semibold mb-1" style={{ color: TEXT }}>{d.food}</div>
           <div className="text-xs num mb-2" style={{ color: TEXT_LIGHT }}>{d.amount}</div>
           <div className="flex gap-3 text-xs num">
-            <span style={{ color: ACCENT, fontWeight: 600 }}>{d.kcal} kcal</span>
-            <span style={{ color: C_PROTEIN }}>P {d.p}g</span>
-            <span style={{ color: C_CARBS }}>C {d.c}g</span>
-            <span style={{ color: C_FAT }}>G {d.g}g</span>
+            <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(d.kcal)} kcal</span>
+            <span style={{ color: C_PROTEIN }}>P {fmt1(d.p)}g</span>
+            <span style={{ color: C_CARBS }}>C {fmt1(d.c)}g</span>
+            <span style={{ color: C_FAT }}>G {fmt1(d.g)}g</span>
           </div>
           <div className="mt-2 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
             Consulta informativa — no se registra.
@@ -3107,7 +3145,12 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
           </div>
           {!isHistorical && (
             <div className="mt-3 pt-3 border-t text-[10px] num" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT }}>
-              Acumulado: {totals.kcal}/{goals.kcal} kcal · faltan {Math.max(0, goals.kcal - totals.kcal)}
+              {(() => {
+                const left = Math.round(goals.kcal - totals.kcal);
+                if (left > 0) return `Llevas ${Math.round(totals.kcal)} kcal · te quedan ${left} disponibles`;
+                if (left === 0) return `Llevas ${Math.round(totals.kcal)} kcal · meta del día alcanzada`;
+                return `Llevas ${Math.round(totals.kcal)} kcal · ${Math.abs(left)} sobre la meta`;
+              })()}
             </div>
           )}
         </div>
@@ -3384,8 +3427,8 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
                   <div className="text-[10px] num" style={{ color: TEXT_LIGHT }}>{p.amount}</div>
                 </div>
                 <div className="text-right num text-[10px]" style={{ color: TEXT_MUTED }}>
-                  <div>{p.kcal} kcal</div>
-                  <div>P{p.p} C{p.c} G{p.g}</div>
+                  <div>{fmt0(p.kcal)} kcal</div>
+                  <div>P{fmt1(p.p)} C{fmt1(p.c)} G{fmt1(p.g)}</div>
                 </div>
               </div>
             ))}
@@ -3448,10 +3491,10 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
               <div className="pt-2">
                 <div className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: TEXT_LIGHT }}>Total acumulado</div>
                 <div className="space-y-1.5 text-xs">
-                  <Row label="Calorías" val={`${message.totals.kcal} / ${goals.kcal}`} diff={goals.kcal - message.totals.kcal} unit="kcal" color={ACCENT} />
-                  <Row label="Proteína" val={`${message.totals.p} / ${goals.p}`} diff={goals.p - message.totals.p} unit="g" color={C_PROTEIN} />
-                  <Row label="Carbos" val={`${message.totals.c} / ${goals.c}`} diff={goals.c - message.totals.c} unit="g" color={C_CARBS} />
-                  <Row label="Grasas" val={`${message.totals.g} / ${goals.g}`} diff={goals.g - message.totals.g} unit="g" color={C_FAT} />
+                  <Row label="Calorías" val={`${fmt0(message.totals.kcal)} / ${fmt0(goals.kcal)}`} diff={goals.kcal - message.totals.kcal} unit="kcal" color={ACCENT} />
+                  <Row label="Proteína" val={`${fmt1(message.totals.p)} / ${fmt1(goals.p)}`} diff={goals.p - message.totals.p} unit="g" color={C_PROTEIN} />
+                  <Row label="Carbos" val={`${fmt1(message.totals.c)} / ${fmt1(goals.c)}`} diff={goals.c - message.totals.c} unit="g" color={C_CARBS} />
+                  <Row label="Grasas" val={`${fmt1(message.totals.g)} / ${fmt1(goals.g)}`} diff={goals.g - message.totals.g} unit="g" color={C_FAT} />
                 </div>
               </div>
               {onOpenPerformance && (
@@ -3484,10 +3527,10 @@ function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit,
             <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>Resumen del día</span>
           </div>
           <div className="space-y-2 text-xs">
-            <Row label="Calorías" val={`${totals.kcal} / ${goals.kcal}`} diff={goals.kcal - totals.kcal} unit="kcal" color={ACCENT} />
-            <Row label="Proteína" val={`${totals.p} / ${goals.p}`} diff={goals.p - totals.p} unit="g" color={C_PROTEIN} />
-            <Row label="Carbos" val={`${totals.c} / ${goals.c}`} diff={goals.c - totals.c} unit="g" color={C_CARBS} />
-            <Row label="Grasas" val={`${totals.g} / ${goals.g}`} diff={goals.g - totals.g} unit="g" color={C_FAT} />
+            <Row label="Calorías" val={`${fmt0(totals.kcal)} / ${fmt0(goals.kcal)}`} diff={goals.kcal - totals.kcal} unit="kcal" color={ACCENT} />
+            <Row label="Proteína" val={`${fmt1(totals.p)} / ${fmt1(goals.p)}`} diff={goals.p - totals.p} unit="g" color={C_PROTEIN} />
+            <Row label="Carbos" val={`${fmt1(totals.c)} / ${fmt1(goals.c)}`} diff={goals.c - totals.c} unit="g" color={C_CARBS} />
+            <Row label="Grasas" val={`${fmt1(totals.g)} / ${fmt1(goals.g)}`} diff={goals.g - totals.g} unit="g" color={C_FAT} />
           </div>
         </div>
       </div>
@@ -3519,7 +3562,7 @@ function Row({ label, val, diff, unit, color }) {
       <div className="flex gap-2 items-baseline">
         <span className="num" style={{ color: TEXT }}>{val} {unit}</span>
         <span className="text-[10px] num" style={{ color: diff >= 0 ? TEXT_LIGHT : WARN }}>
-          {diff >= 0 ? `−${diff}` : `+${Math.abs(diff)}`}
+          {diff >= 0 ? `−${fmt1(diff)}` : `+${fmt1(Math.abs(diff))}`}
         </span>
       </div>
     </div>
@@ -3760,11 +3803,12 @@ function CalendarModal({ history, historyDetail, goals, today, todayEntries, tod
 }
 
 function Stat({ label, val, goal, color, unit = '' }) {
+  const fmt = unit ? fmt1 : fmt0;
   return (
     <div className="text-center p-2 rounded-xl" style={{ background: SURFACE_2 }}>
       <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
-      <div className="text-sm font-medium num mt-0.5" style={{ color }}>{val}{unit}</div>
-      <div className="text-[9px] num" style={{ color: TEXT_LIGHT }}>de {goal}{unit}</div>
+      <div className="text-sm font-medium num mt-0.5" style={{ color }}>{fmt(val)}{unit}</div>
+      <div className="text-[9px] num" style={{ color: TEXT_LIGHT }}>de {fmt0(goal)}{unit}</div>
     </div>
   );
 }
@@ -4470,6 +4514,50 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     count: weekWb.length,
   } : null;
 
+  // ─── BEHAVIOR METRICS (process-focused, not goal-binary) ───
+  // 1. Adherencia: días registrados últimos 7 vs 7 anteriores
+  const prev7 = daysBack(14).slice(0, 7);
+  const recordedLast7 = week.filter(d => d.data && d.data.kcal > 0).length;
+  const recordedPrev7 = prev7.filter(d => d.data && d.data.kcal > 0).length;
+  const adherenceDelta = recordedLast7 - recordedPrev7;
+
+  // 2. Hora promedio del primer registro (cuándo arranca el día)
+  const firstEntryHours = week.map(d => {
+    const det = combinedDetail[d.date];
+    if (!det || det.length === 0) return null;
+    const sorted = [...det].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+    const [h, m] = (sorted[0].time || '12:00').split(':').map(Number);
+    return (h || 0) + (m || 0) / 60;
+  }).filter(x => x !== null);
+  const avgFirstHour = firstEntryHours.length > 0
+    ? firstEntryHours.reduce((s, h) => s + h, 0) / firstEntryHours.length
+    : null;
+  const fmtHour = (h) => {
+    if (h === null) return '—';
+    const hh = Math.floor(h);
+    const mm = Math.round((h - hh) * 60);
+    return `${hh}:${String(mm).padStart(2, '0')}`;
+  };
+
+  // 3. Tendencia de proteína (últimos 7 vs 7 anteriores)
+  const protLast7 = recordedLast7 > 0
+    ? Math.round(week.filter(d => d.data && d.data.kcal > 0).reduce((s, d) => s + (d.data.p || 0), 0) / recordedLast7)
+    : 0;
+  const protPrev7 = recordedPrev7 > 0
+    ? Math.round(prev7.filter(d => d.data && d.data.kcal > 0).reduce((s, d) => s + (d.data.p || 0), 0) / recordedPrev7)
+    : 0;
+  const protDelta = protLast7 - protPrev7;
+
+  // 4. Detalle promedio: items registrados por día (mide cuán completo es el registro)
+  const itemsPerDay = week.map(d => {
+    const det = combinedDetail[d.date];
+    if (!det || det.length === 0) return null;
+    return det.reduce((s, e) => s + ((e.items && e.items.length) || 0), 0);
+  }).filter(x => x !== null);
+  const avgItemsPerDay = itemsPerDay.length > 0
+    ? Math.round(itemsPerDay.reduce((s, n) => s + n, 0) / itemsPerDay.length)
+    : 0;
+
   // Micros (last 7 days, average per day with data)
   const microSum = { fiber: 0, calcium: 0, iron: 0, vitD: 0, omega3: 0 };
   let microDays = 0;
@@ -4712,6 +4800,42 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={week} statKey="c" />
           <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={week} statKey="g" />
 
+          {/* Behavior metrics — process-focused, celebrate the habit, not just the goal */}
+          {recordedLast7 > 0 && (
+            <div className="mb-5">
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: ACCENT_DARK }}>Tu comportamiento esta semana</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
+                  <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Adherencia</div>
+                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: ACCENT }}>{recordedLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/7 días</span></div>
+                  <div className="text-[10px] mt-0.5 num" style={{ color: adherenceDelta > 0 ? SUCCESS : adherenceDelta < 0 ? WARN : TEXT_LIGHT }}>
+                    {adherenceDelta > 0 ? `+${adherenceDelta} vs semana anterior` : adherenceDelta < 0 ? `${adherenceDelta} vs semana anterior` : 'igual que la semana anterior'}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
+                  <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Inicio del día</div>
+                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{fmtHour(avgFirstHour)}</div>
+                  <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>hora del primer registro en promedio</div>
+                </div>
+
+                <div className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
+                  <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Proteína · tendencia</div>
+                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: C_PROTEIN }}>{protLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>g/día</span></div>
+                  <div className="text-[10px] mt-0.5 num" style={{ color: protDelta > 0 ? SUCCESS : protDelta < 0 ? WARN : TEXT_LIGHT }}>
+                    {protDelta > 0 ? `+${protDelta}g vs semana anterior` : protDelta < 0 ? `${protDelta}g vs semana anterior` : 'igual que la semana anterior'}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
+                  <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Detalle del registro</div>
+                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{avgItemsPerDay}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}> items/día</span></div>
+                  <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>promedio de alimentos registrados por día</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Wellbeing */}
           {wbAvg && (
             <div className="mb-5 p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
@@ -4825,10 +4949,11 @@ function CapabilitiesModal({ onClose }) {
         title="Registrar comidas"
         accent={ACCENT_DARK}
         items={[
-          'Escribe lo que comiste en lenguaje natural: "2 huevos, avena con plátano y café".',
+          'Lo más rápido: toca el micrófono y cuéntame qué comiste, hablando normal. La app transcribe y calcula.',
+          'O escribe en lenguaje natural: "2 huevos, avena con plátano y café".',
           'Puedes registrar comida por comida, o contarme TODO tu día de una vez. Si dices "en el desayuno... al almuerzo... en la cena...", lo organizo por comidas. Si solo me das la lista, la registro como tu día.',
           'Si olvidaste un alimento, dime: "se me olvidó, también comí un huevo" y lo sumo a la última comida.',
-          'También puedes dictar por voz tocando el micrófono. Recuerdo lo que hablamos antes, así que puedes referirte a algo que ya mencionaste.',
+          'Recuerdo lo que hablamos antes, así que puedes referirte a algo que ya mencionaste.',
           'Si no especificas gramos, estimo con valores estándar (USDA) y te aviso.',
         ]} />
 
@@ -5508,7 +5633,7 @@ function TutorialModal({ onClose }) {
     { icon: <Utensils size={28} strokeWidth={1.5} />, title: 'Registra natural', body: 'Escribe lo que comiste como si lo dijeras en voz alta. La app calcula calorías y macros con valores reales (USDA, comerciales).', example: '"Desayuno: 2 huevos revueltos, avena con plátano y café con leche"' },
     { icon: <Star size={28} strokeWidth={1.5} />, title: 'Menús favoritos', body: 'Las comidas que repites se guardan con un tap en la estrella. Reuso instantáneo, cero fricción.', example: 'Desde "Menús favoritos", toca Usar y queda registrado.' },
     { icon: <Info size={28} strokeWidth={1.5} />, title: 'Pregunta antes de comer', body: 'Consulta los macros de cualquier alimento sin registrarlo. Útil para decidir antes de servirte.', example: '"¿Calorías de una manzana?" o "¿Macros de 100g de pollo?"' },
-    { icon: <PieChart size={28} strokeWidth={1.5} />, title: 'Cuadrá macros', body: 'Si te faltan macros y tienes ingredientes, decile qué tienes. La app calcula gramos exactos. Solo matemática, no recetas, no recomendación.', example: '"Tengo pollo, arroz integral, brócoli y aceite de oliva"' },
+    { icon: <PieChart size={28} strokeWidth={1.5} />, title: 'Cuadra tus macros', body: 'Si te faltan macros y tienes ingredientes, dime cuáles. La app calcula gramos exactos. Solo matemática, no recetas, no recomendación.', example: '"Tengo pollo, arroz integral, brócoli y aceite de oliva"' },
     { icon: <ChefHat size={28} strokeWidth={1.5} />, title: 'Arma tu día con lo que te gusta', body: 'Guarda los ingredientes que sueles comprar y comer. Pide "arma mi día" y te propongo una distribución en desayuno, almuerzo, snack y cena que llega a tu meta. No es recetario: son tus ingredientes cocidos con kcal y macros. Decides si lo registras, lo guardas como favorito o regeneras otra variante.', example: 'Tus ingredientes → "armame el día" → propuesta editable' },
     { icon: <Pencil size={28} strokeWidth={1.5} />, title: 'Edita o elimina', body: 'Toca el lápiz para ajustar cantidades. Los valores se recalculan automáticamente. Toca la papelera para eliminar.', example: 'En cualquier comida: favorito · editar · eliminar' },
     { icon: <FileText size={28} strokeWidth={1.5} />, title: 'Reporte al coach', body: 'PDF con detalle completo de tu data. Diseñado para que tu coach revise el patrón y aporte criterio.', example: 'Calendario, resumen, exportable. Tu data, su criterio.' },
