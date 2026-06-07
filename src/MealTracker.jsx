@@ -271,6 +271,7 @@ export default function MealTracker() {
   const [transcribing, setTranscribing] = useState(false);
   const [pendingFavoriteEntry, setPendingFavoriteEntry] = useState(null);
   const [renamingFavoriteId, setRenamingFavoriteId] = useState(null);
+  const initialLoadDone = useRef(false);
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -413,6 +414,8 @@ export default function MealTracker() {
         }
       } catch (e) {
         setView('welcome');
+      } finally {
+        initialLoadDone.current = true;
       }
     })();
   }, []);
@@ -823,6 +826,7 @@ export default function MealTracker() {
   }, [water, today, view]);
 
   useEffect(() => {
+    if (!initialLoadDone.current) return;
     window.storage.set('favorites', JSON.stringify(favorites)).catch(() => {});
   }, [favorites]);
 
@@ -1020,6 +1024,7 @@ export default function MealTracker() {
     }
   }, [wellbeing]);
   useEffect(() => {
+    if (!initialLoadDone.current) return;
     window.storage.set('favoriteIngredients', JSON.stringify(favoriteIngredients)).catch(() => {});
   }, [favoriteIngredients]);
 
@@ -2438,17 +2443,21 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           </button>
         )}
 
-        {/* Bottom sheet — actions */}
-        {actionsExpanded && (
+        {/* Bottom sheet — actions (always mounted to keep close instant on mobile) */}
+        {(() => {
+          const anyModalOpen = showWellbeingModal || showIngredientsModal || showPlannerModal || showPerformanceModal || showCapabilitiesModal || activeModal || editingEntry !== null || pendingFavoriteEntry;
+          const visible = actionsExpanded && !anyModalOpen;
+          return (
           <div
             className="fixed inset-0 z-50 flex items-end justify-center"
             style={{
               background: 'rgba(0,0,0,0.45)',
-              display: (showWellbeingModal || showIngredientsModal || showPlannerModal || showPerformanceModal || showCapabilitiesModal || activeModal || editingEntry !== null || pendingFavoriteEntry) ? 'none' : 'flex'
+              display: visible ? 'flex' : 'none',
+              contain: 'strict'
             }}
             onClick={() => { haptic(6); setActionsExpanded(false); }}>
             <div
-              className="w-full max-w-md rounded-t-3xl px-5 pt-3 sheet-up"
+              className={`w-full max-w-md rounded-t-3xl px-5 pt-3 ${visible ? 'sheet-up' : ''}`}
               style={{
                 background: '#F9F7F1',
                 boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
@@ -2490,13 +2499,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     <ActionChipMini icon={<BarChart3 size={19} strokeWidth={1.75} />} label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
                     <ActionChipMini icon={<LineChart size={19} strokeWidth={1.75} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
-                      onClick={() => { haptic(8); handleSend('ver resumen diario'); setActionsExpanded(false); }} />
+                      onClick={() => { haptic(8); setActionsExpanded(false); setTimeout(() => handleSend('ver resumen diario'), 0); }} />
                     <ActionChipMini icon={<Sparkles size={19} strokeWidth={1.75} />} label="Check-in del día" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
                       onClick={() => { haptic(8); setShowWellbeingModal(true); }} />
                     <ActionChipMini icon={<Calendar size={19} strokeWidth={1.75} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
                       onClick={() => { haptic(8); setActiveModal('calendar'); }} />
                     <ActionChipMini icon={<PieChart size={19} strokeWidth={1.75} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); setInput('Ayúdame con proporciones, tengo: '); setActionsExpanded(false); }} />
+                      onClick={() => { haptic(8); setActionsExpanded(false); setTimeout(() => setInput('Ayúdame con proporciones, tengo: '), 0); }} />
                   </div>
                 </div>
 
@@ -2514,7 +2523,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '20px' }}>
