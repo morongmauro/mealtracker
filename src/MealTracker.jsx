@@ -278,6 +278,18 @@ export default function MealTracker() {
   const audioChunksRef = useRef([]);
   const voiceInputRef = useRef(false);
   const inputDivRef = useRef(null);
+  const actionsSheetRef = useRef(null);
+
+  // Closes the actions sheet INSTANTLY via direct DOM mutation, bypassing
+  // React's re-render cycle. The 6000-line component re-render takes 1-2s on
+  // mobile, which makes the close feel laggy. By hiding the sheet via inline
+  // style first, the user sees the close immediately; React catches up after.
+  const closeActionsSheet = useCallback(() => {
+    if (actionsSheetRef.current) {
+      actionsSheetRef.current.style.display = 'none';
+    }
+    setActionsExpanded(false);
+  }, []);
 
   const today = getLocalDate();
 
@@ -2454,13 +2466,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           const visible = actionsExpanded && !anyModalOpen;
           return (
           <div
+            ref={actionsSheetRef}
             className="fixed inset-0 z-50 flex items-end justify-center"
             style={{
               background: 'rgba(0,0,0,0.45)',
               display: visible ? 'flex' : 'none',
               contain: 'strict'
             }}
-            onClick={() => { haptic(6); setActionsExpanded(false); }}>
+            onClick={() => { haptic(6); closeActionsSheet(); }}>
             <div
               className={`w-full max-w-md rounded-t-3xl px-5 pt-3 ${visible ? 'sheet-up' : ''}`}
               style={{
@@ -2478,7 +2491,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
                   <div className="text-[17px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
                 </div>
-                <button onClick={() => { haptic(6); setActionsExpanded(false); }} aria-label="Cerrar"
+                <button onClick={() => { haptic(6); closeActionsSheet(); }} aria-label="Cerrar"
                   className="p-3 rounded-full active:scale-95" style={{ background: SURFACE_2, touchAction: 'manipulation' }}>
                   <X size={18} style={{ color: TEXT_MUTED }} />
                 </button>
@@ -2504,13 +2517,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     <ActionChipMini icon={<BarChart3 size={19} strokeWidth={1.75} />} label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
                     <ActionChipMini icon={<LineChart size={19} strokeWidth={1.75} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
-                      onClick={() => { haptic(8); setActionsExpanded(false); setTimeout(() => handleSend('ver resumen diario'), 0); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); setTimeout(() => handleSend('ver resumen diario'), 0); }} />
                     <ActionChipMini icon={<Sparkles size={19} strokeWidth={1.75} />} label="Check-in del día" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
                       onClick={() => { haptic(8); setShowWellbeingModal(true); }} />
                     <ActionChipMini icon={<Calendar size={19} strokeWidth={1.75} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
                       onClick={() => { haptic(8); setActiveModal('calendar'); }} />
                     <ActionChipMini icon={<PieChart size={19} strokeWidth={1.75} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); setActionsExpanded(false); setTimeout(() => setInput('Ayúdame con proporciones, tengo: '), 0); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); setTimeout(() => setInput('Ayúdame con proporciones, tengo: '), 0); }} />
                   </div>
                 </div>
 
