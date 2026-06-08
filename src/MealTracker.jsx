@@ -287,10 +287,15 @@ export default function MealTracker() {
       || editingEntry !== null || pendingFavoriteEntry || actionsExpanded;
     if (anyOpen) {
       document.body.setAttribute('data-modal-open', '1');
-    } else {
-      document.body.removeAttribute('data-modal-open');
+      return;
     }
-    return () => document.body.removeAttribute('data-modal-open');
+    // Delay un-pausing the heavy infinite animations so they don't fight
+    // the closing repaint on mobile (causes a perceived 1-2s delay).
+    const t = setTimeout(() => document.body.removeAttribute('data-modal-open'), 400);
+    return () => {
+      clearTimeout(t);
+      document.body.removeAttribute('data-modal-open');
+    };
   }, [showWellbeingModal, showIngredientsModal, showPlannerModal, showPerformanceModal, showCapabilitiesModal, activeModal, editingEntry, pendingFavoriteEntry, actionsExpanded]);
 
   useEffect(() => {
@@ -2527,7 +2532,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         })()}
 
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
-        <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '20px' }}>
+        <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '20px', contain: 'layout paint', willChange: 'transform' }}>
           {/* Editorial hand-drawn food silhouettes — thin organic lines */}
           <div className="absolute inset-0 pointer-events-none select-none" style={{
             backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'>
