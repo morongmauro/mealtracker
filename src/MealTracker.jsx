@@ -324,7 +324,11 @@ export default function MealTracker() {
   const [transcribing, setTranscribing] = useState(false);
   const [pendingFavoriteEntry, setPendingFavoriteEntry] = useState(null);
   const [renamingFavoriteId, setRenamingFavoriteId] = useState(null);
+  const [cloudConsent, setCloudConsent] = useState(null); // null = no decidido, 'accepted' | 'declined'
   const initialLoadDone = useRef(false);
+  const cloudUserIdRef = useRef(null);
+  const cloudSyncedFromServer = useRef(false);
+  const cloudPushTimerRef = useRef(null);
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -523,6 +527,113 @@ export default function MealTracker() {
         initialLoadDone.current = true;
       }
     })();
+  }, []);
+
+  // ───────────────────────────────────────────────────────────────────────
+  // CLOUD SYNC con Supabase (vía /api/sync)
+  //
+  // Estrategia:
+  //  1. Cargar/generar un UUID anónimo en localStorage. Sirve como user_id.
+  //  2. Mostrar consentimiento la primera vez. Sin consent, no sale nada.
+  //  3. Si el server tiene datos para ese UUID, los aplicamos al state local
+  //     (caso: usuario perdió la caché y recupera todo).
+  //  4. Si el server no tiene nada, hacemos un primer push con los datos
+  //     locales (caso: migración invisible de cliente existente).
+  //  5. Cada cambio en colecciones críticas (favoritos, ingredientes,
+  //     historial, etc.) dispara un push debounced 3s.
+  //
+  // Si el endpoint falla (sin red, env vars ausentes, etc.) la app sigue
+  // funcionando normal con localStorage; el sync se reintenta en el próximo
+  // cambio.
+  // ───────────────────────────────────────────────────────────────────────
+
+  // Carga el consentimiento guardado al arrancar
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('cloudConsent');
+      if (saved === 'accepted' || saved === 'declined') setCloudConsent(saved);
+    } catch (e) {}
+  }, []);
+
+  // Una vez que la carga local terminó Y hay consentimiento, hace pull del server
+  useEffect(() => {
+    if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
+    let cancelled = false;
+
+    // Generar/cargar UUID anónimo
+    let uid = null;
+    try { uid = localStorage.getItem('cloudUserId'); } catch (e) {}
+    if (!uid) {
+      uid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+          });
+      try { localStorage.setItem('cloudUserId', uid); } catch (e) {}
+    }
+    cloudUserIdRef.current = uid;
+
+    (async () => {
+      try {
+        const r = await fetch(`/api/sync?user_id=${uid}`);
+        if (!r.ok) return;
+        const row = await r.json();
+        if (cancelled || !row || !row.data) {
+          // Server vacío → primer push con datos locales (migración invisible)
+          schedulePushToCloud(0);
+          return;
+        }
+        // Aplicar datos del server (gana lo del server porque viene de cualquier
+        // otro dispositivo o de un recover post-cache-clear)
+        const d = row.data;
+        cloudSyncedFromServer.current = true;
+        if (Array.isArray(d.favorites)) setFavorites(d.favorites);
+        if (Array.isArray(d.favoriteIngredients)) setFavoriteIngredients(d.favoriteIngredients);
+        if (d.history && typeof d.history === 'object') setHistory(d.history);
+        if (d.historyDetail && typeof d.historyDetail === 'object') setHistoryDetail(d.historyDetail);
+        if (d.frequentItems && typeof d.frequentItems === 'object') setFrequentItems(d.frequentItems);
+        if (d.wellbeing && typeof d.wellbeing === 'object') setWellbeing(d.wellbeing);
+        if (d.goals && typeof d.goals === 'object') setGoals(d.goals);
+        if (typeof d.name === 'string' && d.name) setName(d.name);
+      } catch (e) {}
+    })();
+
+    return () => { cancelled = true; };
+  }, [cloudConsent]);
+
+  // Helper: empuja el snapshot completo al server, con debounce
+  const schedulePushToCloud = useCallback((delayMs = 3000) => {
+    if (cloudConsent !== 'accepted' || !cloudUserIdRef.current) return;
+    if (cloudPushTimerRef.current) clearTimeout(cloudPushTimerRef.current);
+    cloudPushTimerRef.current = setTimeout(async () => {
+      try {
+        await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: cloudUserIdRef.current,
+            name,
+            data: { favorites, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, name },
+          }),
+        });
+      } catch (e) {}
+    }, delayMs);
+  }, [cloudConsent, name, favorites, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals]);
+
+  // Watch: cualquier cambio en colecciones críticas dispara un push debounced
+  useEffect(() => {
+    if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
+    schedulePushToCloud();
+  }, [favorites, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, name, cloudConsent, schedulePushToCloud]);
+
+  const acceptCloudConsent = useCallback(() => {
+    try { localStorage.setItem('cloudConsent', 'accepted'); } catch (e) {}
+    setCloudConsent('accepted');
+  }, []);
+  const declineCloudConsent = useCallback(() => {
+    try { localStorage.setItem('cloudConsent', 'declined'); } catch (e) {}
+    setCloudConsent('declined');
   }, []);
 
   // Weekly report auto-send: when client opens app, if 7+ days since last send, send report
@@ -1529,13 +1640,22 @@ SCHEMA:
     const historyBlock = historyText
       ? `\n═══ HISTORIAL RECIENTE DE LA CONVERSACIÓN (úsalo para mantener coherencia; si el cliente se refiere a algo dicho antes, recuérdalo) ═══\n${historyText}\n`
       : '';
+    // Detalle de las comidas de hoy (necesario para retro_advice y para mejor contexto en general).
+    // Sin esto el LLM solo ve los totales y no puede dar consejos basados en qué item específico
+    // está empujando los macros fuera de meta.
+    const todayMealsDetail = entries.length > 0
+      ? `\nDETALLE COMIDAS DE HOY (para consultas retrospectivas):\n${entries.map((e, i) => `  [#${i+1} ${e.meal || 'comida'} ${e.time || ''}] items: ${(e.items || []).map(it => `${it.name}${it.amount ? ' ' + it.amount : ''} (${it.kcal||0}kcal P${it.p||0} C${it.c||0} G${it.g||0})`).join(', ')}`).join('\n')}\n`
+      : '';
+    const macroDeltas = goals
+      ? `\nBRECHAS vs META: kcal ${totals.kcal - (goals.kcal||0)} (${totals.kcal > (goals.kcal||0) ? 'excedido' : 'faltante'}), P ${totals.p - (goals.p||0)}g, C ${totals.c - (goals.c||0)}g, G ${totals.g - (goals.g||0)}g.\n`
+      : '';
     const contextSnippet = `
 CONTEXTO DEL CLIENTE:
 - Nombre: ${name || 'desconocido'}
 - Comidas registradas hoy: ${entries.length}
 - Totales hoy: ${totals.kcal} kcal · P ${totals.p}g · C ${totals.c}g · G ${totals.g}g
 - Meta diaria: ${goals?.kcal || '?'} kcal · P ${goals?.p || '?'}g · C ${goals?.c || '?'}g · G ${goals?.g || '?'}g
-- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${appendHint}${voiceHint}${historyBlock}`;
+- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${appendHint}${voiceHint}${historyBlock}`;
 
     const sys = `Eres un asistente nutricional inteligente y cálido. Devuelves SOLO JSON válido, sin markdown.
 
@@ -1602,20 +1722,23 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 - "meal_suggestion": pregunta abierta sobre QUÉ COMER en una comida específica. DETECTAR: "qué puedo comer", "qué como", "ideas de cena", "qué me sugieres", "qué desayuno", "qué hago de almuerzo", "no sé qué cenar". Indica también el "meal" deseado (desayuno/almuerzo/snack/cena) si lo menciona. EL FRONTEND MANEJA la respuesta usando los ingredientes favoritos del cliente, así que tú solo clasifica.
 - "summary_day": pide ver progreso/totales del día. Ej: "cómo voy", "cuánto llevo hoy", "resumen", "qué me falta".
 - "summary_week": pide resumen semanal. Ej: "resumen semana", "cómo voy esta semana".
+- "retro_advice": CONSULTA RETROSPECTIVA sobre cómo ajustar lo YA registrado hoy para acercarse a la meta. NO registres nada nuevo. DETECTAR: "me pasé qué hago", "qué proporciones debí usar", "cómo evitar pasarme", "qué pude ajustar", "qué cambiar de esa cena/almuerzo/desayuno", "cómo corregir mi día", "esta comida me hizo pasar qué ajusto", "qué proporciones me recomiendas", "qué ajustes hago para llegar a la meta", "ayúdame a corregir", "cómo equilibro lo de hoy". El cliente ya registró su día, ve que se pasó/quedó corto, y quiere APRENDER qué pudo haber comido diferente.
+  IMPORTANTE: usa DETALLE COMIDAS DE HOY del contexto para identificar qué item específico está empujando los macros fuera de meta. Si menciona una comida específica ("de la cena"), enfócate en esa; si dice "todo el día", da sugerencias para varias comidas del día.
+  Devuelve "retro_advice_response" con la estructura del schema. NUNCA agregues items al registro real del cliente.
 - "water": registra agua. "1 vaso"=250ml, "1 termo"=500ml, "1 botella"=500ml, "1 litro"=1000ml.
-- "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day}. Mapping: "reiniciar día"→reset_day, "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion, "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day.
+- "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite}. Mapping: "reiniciar día"→reset_day, "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion, "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
 - "clarify": SOLO si hay ambigüedad REAL. Llenar "clarify_interpretation" (tu mejor lectura) y "clarify_question" (pregunta corta de confirmación).
 - "off_topic": saludos, charla, preguntas sobre el coach, "qué dieta hacer". Llena "message" con respuesta cálida y breve.
 - "name": cliente dice su nombre. Llena "name_detected".
 
 ═══ SCHEMA ═══
 {
-  "intent": "log_meal | append_to_last | nutrition_query | meal_suggestion | summary_day | summary_week | water | command | clarify | off_topic | name",
+  "intent": "log_meal | append_to_last | nutrition_query | meal_suggestion | summary_day | summary_week | retro_advice | water | command | clarify | off_topic | name",
   "meal": "desayuno | almuerzo | cena | snack | comida | null",
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "needs_quantity": false}],
   "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N}]}] | null,
   "append_to_entry_id": N | null,
-  "command": "reset_day | change_goals | calendar | favorites | export | proportion | null",
+  "command": "reset_day | change_goals | calendar | favorites | export | proportion | manage_favorites | plan_day | save_day_favorite | null",
   "name_detected": "..." | null,
   "water_ml": N | null,
   "preview": "string corto resumen items | null",
@@ -1623,7 +1746,21 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   "nutrition_response": {"food": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N} | null,
   "clarify_interpretation": "string | null",
   "clarify_question": "string | null",
-  "message": "string respuesta cálida y breve | null"
+  "message": "string respuesta cálida y breve | null",
+  "retro_advice_response": {
+    "scope": "specific_meal | whole_day",
+    "summary": "1-2 oraciones cálidas que explican qué hizo desviar las metas (ej: 'Te pasaste 180 kcal por las grasas — el aceite y el aguacate juntos sumaron mucho. La proteína te quedó corta.')",
+    "adjustments": [
+      {
+        "meal": "desayuno | almuerzo | cena | snack | comida",
+        "original_summary": "ej: '2 huevos, 1 aguacate entero, 30g aceite, 2 tostadas'",
+        "suggested_items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N}],
+        "change_note": "ej: 'Bajar aguacate a ½ y aceite a 10g te quita 200 kcal manteniendo proteína.'"
+      }
+    ],
+    "estimated_totals_after": {"kcal": N, "p": N, "c": N, "g": N},
+    "tip": "1 oración corta de aprendizaje, no obvia (ej: '1 cucharada de aceite tiene tantas calorías como una porción de arroz.')"
+  } | null
 }
 
 ═══ REGLAS ADICIONALES ═══
@@ -1788,6 +1925,13 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         maybeAppendGapSuggestion();
         return;
       }
+      // RETRO ADVICE — el cliente pide consejo sobre cómo ajustar lo que YA registró. Solo aprendizaje.
+      if (intent === 'retro_advice' && parsed.retro_advice_response) {
+        setMessages(m => [...m, { role: 'assistant', content: 'retro_advice', isRetroAdvice: true, data: parsed.retro_advice_response, ts: Date.now() }]);
+        setLoading(false); setLoadingPreview('');
+        return;
+      }
+
       if (intent === 'summary_week') {
         setActiveModal('weekly');
         setLoading(false); setLoadingPreview('');
@@ -1814,6 +1958,9 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         else if (parsed.command === 'plan_day') {
           setShowPlannerModal(true);
           generatePlan();
+        }
+        else if (parsed.command === 'save_day_favorite') {
+          saveDayAsFavorite();
         }
         else if (parsed.command === 'proportion') {
           if (parsed.items && parsed.items.length > 0) {
@@ -2185,6 +2332,41 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     setMessages(m => [...m, { role: 'assistant', content: `Guardado en favoritos como "${fav.name}". Lo puedes reusar desde Herramientas → Menús favoritos.`, ts: Date.now() }]);
   };
 
+  // Guardar el DÍA completo como favorito (todas las comidas de hoy en un solo paquete).
+  // Tres puntos de entrada: chat (intent command save_day_favorite), botón en Herramientas,
+  // y opción dentro del modal de guardar comida favorita.
+  const saveDayAsFavorite = useCallback((customName) => {
+    if (entries.length === 0) {
+      setMessages(m => [...m, { role: 'assistant', content: 'Aún no registras nada hoy. Registra al menos una comida y luego guardamos el día.', ts: Date.now() }]);
+      return;
+    }
+    const totals = entries.reduce((acc, e) => ({
+      kcal: acc.kcal + (e.kcal || 0),
+      p: acc.p + (e.p || 0),
+      c: acc.c + (e.c || 0),
+      g: acc.g + (e.g || 0),
+    }), { kcal: 0, p: 0, c: 0, g: 0 });
+    const dateLabel = new Date().toLocaleDateString('es', { month: 'short', day: 'numeric' });
+    const autoName = `Día ${dateLabel} · ${Math.round(totals.kcal)}kcal`;
+    const fav = {
+      id: Date.now(),
+      name: (customName && customName.trim()) || autoName,
+      autoName,
+      type: 'day',
+      days: entries.map(e => ({
+        meal: e.meal || 'comida',
+        items: e.items || [],
+        kcal: e.kcal || 0, p: e.p || 0, c: e.c || 0, g: e.g || 0,
+        time: e.time || ''
+      })),
+      kcal: totals.kcal, p: totals.p, c: totals.c, g: totals.g,
+    };
+    setFavorites(f => [...f, fav]);
+    setPendingFavoriteEntry(null);
+    haptic(15);
+    setMessages(m => [...m, { role: 'assistant', content: `Día guardado como "${fav.name}" en favoritos. Lo puedes reusar desde Herramientas → Menús favoritos.`, ts: Date.now() }]);
+  }, [entries]);
+
   // Signature to know if an entry is already in favorites (for the colored star)
   const favSignature = useCallback((e) => `${e.meal || ''}|${(e.items || []).map(i => (i.name || '').toLowerCase().trim()).sort().join(',')}`, []);
   const favoriteSignatures = useMemo(() => new Set(favorites.map(favSignature)), [favorites, favSignature]);
@@ -2247,6 +2429,25 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
   const useFavorite = (fav) => {
     haptic(12);
+    // DAY favorite: replica TODAS las comidas del día como entries separadas
+    if (fav.type === 'day' && Array.isArray(fav.days) && fav.days.length > 0) {
+      const now = Date.now();
+      const newEntries = fav.days.map((d, i) => ({
+        id: now + i,
+        meal: d.meal || 'comida',
+        items: d.items || [],
+        kcal: d.kcal || 0, p: d.p || 0, c: d.c || 0, g: d.g || 0,
+        time: d.time || new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
+        rawInput: `${fav.name} · ${d.meal || 'comida'}`
+      }));
+      setEntries(e => [...e, ...newEntries]);
+      newEntries.forEach(ne => {
+        setMessages(m => [...m, { role: 'assistant', content: 'logged', isLogged: true, entryId: ne.id, ts: Date.now() }]);
+      });
+      setActiveModal(null);
+      return;
+    }
+    // MEAL favorite (default): una sola comida
     const newEntry = {
       id: Date.now(),
       meal: predictMealType(),
@@ -2626,6 +2827,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       onClick={() => { haptic(8); setActiveModal('favorites'); }} />
                     <ActionChipMini icon={<Utensils size={19} strokeWidth={1.75} />} label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
                       onClick={() => { haptic(8); setShowIngredientsModal(true); }} />
+                    <ActionChipMini icon={<Calendar size={19} strokeWidth={1.75} />} label="Guardar día como favorito" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                      onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); }} />
                   </div>
                 </div>
 
@@ -2832,8 +3035,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {pendingFavoriteEntry && (
         <FavoriteNameModal
           entry={pendingFavoriteEntry}
+          todayEntriesCount={entries.length}
           onConfirm={(name) => confirmFavorite(name)}
-          onCancel={() => setPendingFavoriteEntry(null)} />
+          onCancel={() => setPendingFavoriteEntry(null)}
+          onSaveWholeDay={(name) => saveDayAsFavorite(name)} />
       )}
 
       {activeModal === 'export' && (
@@ -2903,6 +3108,38 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {showCapabilitiesModal && (
         <CapabilitiesModal onClose={() => setShowCapabilitiesModal(false)} />
       )}
+
+      {/* Cloud sync consent — solo una vez, cuando el cliente entró por primera vez al main */}
+      {view === 'main' && cloudConsent === null && (
+        <CloudConsentModal onAccept={acceptCloudConsent} onDecline={declineCloudConsent} />
+      )}
+    </div>
+  );
+}
+
+function CloudConsentModal({ onAccept, onDecline }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
+      <div className="w-full max-w-md p-6 rounded-3xl" style={{ background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI }}>
+        <div className="text-[11px] tracking-[0.22em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>Tus datos a salvo</div>
+        <div className="text-[18px] font-bold mb-3" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
+          Guardá tu progreso en la nube
+        </div>
+        <div className="text-[13px] mb-4 leading-relaxed" style={{ color: TEXT_MUTED }}>
+          A partir de hoy tus favoritos, ingredientes y registros se guardan también en la nube. Así no los perdés si cambiás de teléfono o se borra la caché del navegador.
+        </div>
+        <div className="text-[12px] mb-5 leading-relaxed" style={{ color: TEXT_LIGHT }}>
+          Tu coach puede ver tu progreso en tiempo real para acompañarte mejor. No compartimos tus datos con nadie más.
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onDecline} className="flex-1 py-3 rounded-full text-sm font-medium" style={{ background: SURFACE_2, color: TEXT }}>
+            Ahora no
+          </button>
+          <button onClick={onAccept} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ background: ACCENT, color: '#fff' }}>
+            Aceptar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -3274,6 +3511,96 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
           </div>
           <div className="mt-2 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
             Consulta informativa — no se registra.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (message.isRetroAdvice && message.data) {
+    const d = message.data;
+    const adjustments = Array.isArray(d.adjustments) ? d.adjustments : [];
+    const after = d.estimated_totals_after || {};
+    return (
+      <div className="flex justify-start fade-up">
+        <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
+          background: 'rgba(255,255,255,0.78)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={12} style={{ color: ACCENT }} />
+            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT }}>Análisis y ajuste sugerido</span>
+          </div>
+          {d.summary && (
+            <div className="text-[13px] mb-3 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
+          )}
+          <div className="space-y-3">
+            {adjustments.map((a, idx) => {
+              const items = Array.isArray(a.suggested_items) ? a.suggested_items : [];
+              const totalK = items.reduce((s, it) => s + (it.kcal || 0), 0);
+              const totalP = items.reduce((s, it) => s + (it.p || 0), 0);
+              const totalC = items.reduce((s, it) => s + (it.c || 0), 0);
+              const totalG = items.reduce((s, it) => s + (it.g || 0), 0);
+              const entryShaped = {
+                id: Date.now() + idx,
+                meal: a.meal || 'comida',
+                items: items.map(it => ({
+                  name: it.name, amount: it.amount,
+                  kcal: it.kcal || 0, p: it.p || 0, c: it.c || 0, g: it.g || 0
+                })),
+                kcal: totalK, p: totalP, c: totalC, g: totalG,
+                time: ''
+              };
+              return (
+                <div key={idx} className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER_SOFT}` }}>
+                  <div className="text-[11px] uppercase tracking-[0.12em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>{a.meal || 'comida'}</div>
+                  {a.original_summary && (
+                    <div className="text-[11px] mb-1.5" style={{ color: TEXT_LIGHT }}>Original: {a.original_summary}</div>
+                  )}
+                  <div className="text-[12px] font-semibold mb-1" style={{ color: TEXT }}>Sugerido:</div>
+                  <ul className="text-[12px] mb-2 space-y-0.5" style={{ color: TEXT }}>
+                    {items.map((it, j) => (
+                      <li key={j}>• {it.name}{it.amount ? ` — ${it.amount}` : ''}</li>
+                    ))}
+                  </ul>
+                  <div className="flex gap-3 text-[11px] num mb-2">
+                    <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(totalK)} kcal</span>
+                    <span style={{ color: C_PROTEIN }}>P {fmt1(totalP)}</span>
+                    <span style={{ color: C_CARBS }}>C {fmt1(totalC)}</span>
+                    <span style={{ color: C_FAT }}>G {fmt1(totalG)}</span>
+                  </div>
+                  {a.change_note && (
+                    <div className="text-[11px] italic mb-2" style={{ color: TEXT_MUTED }}>{a.change_note}</div>
+                  )}
+                  {items.length > 0 && onFavorite && (
+                    <button onClick={() => onFavorite(entryShaped)}
+                      className="text-[11px] font-semibold py-1.5 px-3 rounded-full"
+                      style={{ background: ACCENT, color: '#fff' }}>
+                      Guardar como favorito
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {(after.kcal || after.p || after.c || after.g) && (
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
+              <div className="text-[10px] uppercase tracking-[0.15em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Quedarías hoy en</div>
+              <div className="flex gap-3 text-[11px] num">
+                <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(after.kcal)} kcal</span>
+                <span style={{ color: C_PROTEIN }}>P {fmt1(after.p)}</span>
+                <span style={{ color: C_CARBS }}>C {fmt1(after.c)}</span>
+                <span style={{ color: C_FAT }}>G {fmt1(after.g)}</span>
+              </div>
+            </div>
+          )}
+          {d.tip && (
+            <div className="mt-3 text-[11px] italic leading-relaxed" style={{ color: TEXT_MUTED }}>💡 {d.tip}</div>
+          )}
+          <div className="mt-3 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
+            Solo aprendizaje — no se modifica tu registro de hoy.
           </div>
         </div>
       </div>
@@ -4071,10 +4398,18 @@ function FavoritesModal({ favorites, onUse, onDelete, onRename, onClose }) {
                     style={{ color: TEXT, borderColor: BORDER }}
                   />
                 ) : (
-                  <div className="text-sm font-medium truncate" style={{ color: TEXT }}>{f.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="text-sm font-medium truncate" style={{ color: TEXT }}>{f.name}</div>
+                    {f.type === 'day' && (
+                      <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                        style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
+                        día · {Array.isArray(f.days) ? f.days.length : 0} comidas
+                      </span>
+                    )}
+                  </div>
                 )}
                 <div className="text-[10px] num" style={{ color: TEXT_LIGHT }}>
-                  {f.kcal} kcal · P{f.p} C{f.c} G{f.g}
+                  {Math.round(f.kcal || 0)} kcal · P{Math.round(f.p || 0)} C{Math.round(f.c || 0)} G{Math.round(f.g || 0)}
                 </div>
               </div>
               {editingId !== f.id && (
@@ -4100,9 +4435,10 @@ function FavoritesModal({ favorites, onUse, onDelete, onRename, onClose }) {
   );
 }
 
-function FavoriteNameModal({ entry, onConfirm, onCancel }) {
+function FavoriteNameModal({ entry, todayEntriesCount = 0, onConfirm, onCancel, onSaveWholeDay }) {
   const autoName = (entry?.items || []).map(i => i.name).join(', ').slice(0, 60);
   const [value, setValue] = useState('');
+  const canOfferDay = typeof onSaveWholeDay === 'function' && todayEntriesCount >= 2;
   return (
     <ModalShell onClose={onCancel} maxWidth="max-w-sm">
       <ModalHeader accent={C_CARBS} label="Guardar favorito" title="Ponle un nombre" onClose={onCancel} />
@@ -4124,7 +4460,7 @@ function FavoriteNameModal({ entry, onConfirm, onCancel }) {
       <div className="text-[10px] mb-4" style={{ color: TEXT_LIGHT }}>
         Sin nombre quedaría: <em>{autoName}</em>
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 mb-3">
         <button onClick={onCancel}
           className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition active:scale-[0.98]"
           style={{ background: SURFACE_2, color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
@@ -4133,9 +4469,21 @@ function FavoriteNameModal({ entry, onConfirm, onCancel }) {
         <button onClick={() => onConfirm(value)}
           className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition active:scale-[0.98]"
           style={{ background: '#1F1F1F', color: '#fff' }}>
-          Guardar
+          Guardar esta comida
         </button>
       </div>
+      {canOfferDay && (
+        <div className="pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
+          <div className="text-[11px] mb-2" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+            ¿Prefieres guardar todo el día completo en vez de solo esta comida?
+          </div>
+          <button onClick={() => onSaveWholeDay(value)}
+            className="w-full py-2.5 rounded-xl text-[12px] font-semibold transition active:scale-[0.98]"
+            style={{ background: C_CARBS_PASTEL, color: C_CARBS, border: `1px solid ${C_CARBS}` }}>
+            Mejor guarda el día completo
+          </button>
+        </div>
+      )}
     </ModalShell>
   );
 }
