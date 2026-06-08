@@ -280,15 +280,22 @@ export default function MealTracker() {
   const inputDivRef = useRef(null);
   const actionsSheetRef = useRef(null);
 
-  // Closes the actions sheet INSTANTLY via direct DOM mutation, bypassing
-  // React's re-render cycle. The 6000-line component re-render takes 1-2s on
-  // mobile, which makes the close feel laggy. By hiding the sheet via inline
-  // style first, the user sees the close immediately; React catches up after.
+  // Closes the actions sheet INSTANTLY via direct DOM mutation + paint flush,
+  // before letting React run its expensive re-render. On mobile the parent
+  // component takes 1-2s to reconcile; without this, the user sees the menu
+  // "frozen" for those seconds. The double rAF guarantees a paint between
+  // the visual close and React's work.
   const closeActionsSheet = useCallback(() => {
     if (actionsSheetRef.current) {
       actionsSheetRef.current.style.display = 'none';
+      // Force layout/paint flush
+      void actionsSheetRef.current.offsetWidth;
     }
-    setActionsExpanded(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setActionsExpanded(false);
+      });
+    });
   }, []);
 
   const today = getLocalDate();
@@ -2517,13 +2524,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     <ActionChipMini icon={<BarChart3 size={19} strokeWidth={1.75} />} label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
                     <ActionChipMini icon={<LineChart size={19} strokeWidth={1.75} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
-                      onClick={() => { haptic(8); closeActionsSheet(); setTimeout(() => handleSend('ver resumen diario'), 0); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => handleSend('ver resumen diario'))); }} />
                     <ActionChipMini icon={<Sparkles size={19} strokeWidth={1.75} />} label="Check-in del día" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
                       onClick={() => { haptic(8); setShowWellbeingModal(true); }} />
                     <ActionChipMini icon={<Calendar size={19} strokeWidth={1.75} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
                       onClick={() => { haptic(8); setActiveModal('calendar'); }} />
                     <ActionChipMini icon={<PieChart size={19} strokeWidth={1.75} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); closeActionsSheet(); setTimeout(() => setInput('Ayúdame con proporciones, tengo: '), 0); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => setInput('Ayúdame con proporciones, tengo: '))); }} />
                   </div>
                 </div>
 
