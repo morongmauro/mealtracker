@@ -279,21 +279,49 @@ export default function MealTracker() {
   const voiceInputRef = useRef(false);
   const inputDivRef = useRef(null);
   const actionsSheetRef = useRef(null);
+  const actionsFabRef = useRef(null);
+  const inputBarRef = useRef(null);
 
   // Closes the actions sheet INSTANTLY via direct DOM mutation + paint flush,
   // before letting React run its expensive re-render. On mobile the parent
   // component takes 1-2s to reconcile; without this, the user sees the menu
-  // "frozen" for those seconds. The double rAF guarantees a paint between
-  // the visual close and React's work.
+  // "frozen" for those seconds, AND the input bar / FAB stay hidden during
+  // that gap. We toggle their display directly to keep the UI in sync.
   const closeActionsSheet = useCallback(() => {
     if (actionsSheetRef.current) {
       actionsSheetRef.current.style.display = 'none';
-      // Force layout/paint flush
-      void actionsSheetRef.current.offsetWidth;
     }
+    if (inputBarRef.current) {
+      inputBarRef.current.style.display = 'block';
+    }
+    if (actionsFabRef.current) {
+      actionsFabRef.current.style.display = 'flex';
+    }
+    // Force layout/paint flush
+    if (actionsSheetRef.current) void actionsSheetRef.current.offsetWidth;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setActionsExpanded(false);
+      });
+    });
+  }, []);
+
+  // Opens the actions sheet INSTANTLY via direct DOM mutation, symmetric to
+  // the close path so the open feels equally snappy.
+  const openActionsSheet = useCallback(() => {
+    if (actionsSheetRef.current) {
+      actionsSheetRef.current.style.display = 'flex';
+    }
+    if (inputBarRef.current) {
+      inputBarRef.current.style.display = 'none';
+    }
+    if (actionsFabRef.current) {
+      actionsFabRef.current.style.display = 'none';
+    }
+    if (actionsSheetRef.current) void actionsSheetRef.current.offsetWidth;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setActionsExpanded(true);
       });
     });
   }, []);
@@ -2447,25 +2475,25 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </div>
         </div>
 
-        {/* Action FAB — fixed pill-shaped button, always visible while chatting */}
-        {!actionsExpanded && (
-          <button
-            onClick={() => { haptic(10); setActionsExpanded(true); }}
-            className="fixed z-40 rounded-full transition active:scale-95 flex items-center justify-center gap-1.5"
-            style={{
-              bottom: '96px',
-              right: '20px',
-              height: '46px',
-              padding: '0 16px 0 14px',
-              background: '#1F1F1F',
-              color: '#fff',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.08) inset'
-            }}
-            title="Herramientas y acciones">
-            <Sparkles size={16} strokeWidth={2} style={{ color: ACCENT_PASTEL }} />
-            <span className="text-[13px] font-semibold tracking-wide">Herramientas</span>
-          </button>
-        )}
+        {/* Action FAB — always mounted; visibility toggled via CSS for instant open/close on mobile */}
+        <button
+          ref={actionsFabRef}
+          onClick={() => { haptic(10); openActionsSheet(); }}
+          className="fixed z-40 rounded-full transition active:scale-95 items-center justify-center gap-1.5"
+          style={{
+            display: actionsExpanded ? 'none' : 'flex',
+            bottom: '96px',
+            right: '20px',
+            height: '46px',
+            padding: '0 16px 0 14px',
+            background: '#1F1F1F',
+            color: '#fff',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.08) inset'
+          }}
+          title="Herramientas y acciones">
+          <Sparkles size={16} strokeWidth={2} style={{ color: ACCENT_PASTEL }} />
+          <span className="text-[13px] font-semibold tracking-wide">Herramientas</span>
+        </button>
 
         {/* Bottom sheet — actions (always mounted to keep close instant on mobile) */}
         {(() => {
@@ -2672,7 +2700,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </button>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 px-4 pb-5 pt-6 z-40" style={{
+      <div ref={inputBarRef} className="fixed bottom-0 left-0 right-0 px-4 pb-5 pt-6 z-40" style={{
         background: `linear-gradient(180deg, transparent, ${BG}E6 30%, ${BG} 100%)`,
         display: actionsExpanded ? 'none' : 'block'
       }}>
