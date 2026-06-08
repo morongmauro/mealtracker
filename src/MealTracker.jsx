@@ -72,6 +72,59 @@ const isAuthorized = (name) => {
   return AUTHORIZED_CLIENTS.some(client => normalizeName(client) === normalized);
 };
 
+// Static SVG background — computed ONCE at module load. Previously this
+// 60-line SVG string was URL-encoded on every parent render, which on
+// mobile is a real cost. Defining it here removes that work entirely.
+const FOOD_SILHOUETTES_BG_URL = `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'>
+              <g fill='none' stroke='%237A8450' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='0.28'>
+                <g transform='translate(28,30) rotate(12)'>
+                  <path d='M0,18 C0,7 8,0 16,0 C24,0 32,7 32,18 C32,32 24,42 16,42 C8,42 0,32 0,18 Z'/>
+                  <ellipse cx='16' cy='22' rx='8' ry='9'/>
+                </g>
+                <path d='M75,38 Q92,30 105,42' stroke-opacity='0.18'/>
+                <g transform='translate(108,22) rotate(-18)'>
+                  <path d='M2,6 C12,0 28,2 38,12 C42,16 44,22 40,26 C36,22 28,18 20,18 C12,18 6,22 0,22 C-2,18 -2,10 2,6 Z'/>
+                  <path d='M2,6 L0,2'/>
+                </g>
+                <g transform='translate(195,30) rotate(35)'>
+                  <path d='M16,12 L24,12 L14,50 L4,50 L0,16 L4,14 Z'/>
+                  <path d='M10,12 L7,2 M14,12 L15,0 M18,12 L22,3'/>
+                </g>
+                <path d='M40,90 Q90,75 140,95 T240,88' stroke-opacity='0.14'/>
+                <g transform='translate(22,105) rotate(-8)'>
+                  <path d='M0,16 C5,4 22,2 34,10 C40,14 40,22 34,26 C22,32 5,30 0,16 Z'/>
+                  <path d='M34,10 L44,2 L44,26 L34,26'/>
+                  <circle cx='26' cy='14' r='1.5'/>
+                </g>
+                <g transform='translate(105,108) rotate(8)'>
+                  <path d='M6,12 C2,18 0,30 6,38 C10,44 16,46 22,42 C28,46 34,44 38,38 C44,30 42,18 38,12 C32,6 24,8 22,12 C20,8 12,6 6,12 Z'/>
+                  <path d='M22,12 C22,6 26,2 30,4'/>
+                  <path d='M28,2 L30,0'/>
+                </g>
+                <g transform='translate(195,108) rotate(22)'>
+                  <circle cx='10' cy='10' r='8'/>
+                  <circle cx='24' cy='8' r='8'/>
+                  <circle cx='17' cy='20' r='8'/>
+                  <path d='M17,28 L17,42 M14,38 L20,38'/>
+                </g>
+                <path d='M50,180 C70,170 80,195 100,185' stroke-opacity='0.18'/>
+                <path d='M180,180 Q200,170 220,185' stroke-opacity='0.18'/>
+                <g transform='translate(28,195) rotate(-12)'>
+                  <path d='M0,0 L0,14 M4,0 L4,14 M8,0 L8,14 M12,0 L12,14 M0,14 L12,14 L8,42 L4,42 Z'/>
+                  <path d='M24,4 C18,8 18,18 24,22 L24,42 L30,42 L30,22 C36,18 36,8 30,4 C28,2 26,2 24,4 Z'/>
+                </g>
+                <g transform='translate(115,200) rotate(5)'>
+                  <ellipse cx='14' cy='20' rx='12' ry='18'/>
+                </g>
+                <g transform='translate(195,200) rotate(-25)'>
+                  <path d='M10,4 C2,6 -2,16 4,22 C10,28 22,28 28,22 L40,34 L34,40 L22,28 C28,24 30,14 24,8 C20,4 14,2 10,4 Z'/>
+                  <circle cx='14' cy='14' r='1' fill='%237A8450' fill-opacity='0.4' stroke='none'/>
+                </g>
+                <path d='M60,260 Q80,250 100,262' stroke-opacity='0.16'/>
+                <path d='M170,255 C185,250 200,265 215,258' stroke-opacity='0.16'/>
+              </g>
+            </svg>`)}")`;
+
 const haptic = (pattern = 10) => {
   if (typeof window !== 'undefined' && window.navigator?.vibrate) {
     window.navigator.vibrate(pattern);
@@ -2135,6 +2188,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
   // Signature to know if an entry is already in favorites (for the colored star)
   const favSignature = useCallback((e) => `${e.meal || ''}|${(e.items || []).map(i => (i.name || '').toLowerCase().trim()).sort().join(',')}`, []);
   const favoriteSignatures = useMemo(() => new Set(favorites.map(favSignature)), [favorites, favSignature]);
+
+  // Memoized chat messages list: only re-renders when one of the actual data
+  // inputs changes. Without this, every state change in the 6000-line parent
+  // (opening a sheet, toggling animations, etc.) re-iterates the message
+  // list, which on mobile causes the 1-2s lag perceived as "frozen UI".
   const renameFavorite = (id, newName) => {
     setFavorites(f => f.map(x => x.id === id ? { ...x, name: (newName && newName.trim()) || x.autoName || x.name } : x));
   };
@@ -2201,6 +2259,31 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     setMessages(m => [...m, { role: 'assistant', content: 'logged', isLogged: true, entryId: newEntry.id, ts: Date.now() }]);
     setActiveModal(null);
   };
+
+  // Memoize the rendered chat messages list so unrelated state changes
+  // (opening/closing sheets, modals, animations) don't trigger re-iteration
+  // of N messages. On mobile this is the difference between snappy and
+  // 1-2s frozen UI.
+  const renderedMessages = useMemo(() => messages.map((m, i) => (
+    <div key={i} className="mb-3">
+      <MessageBubble message={m} goals={goals} totals={totals}
+        entries={entries}
+        historyDetail={historyDetail}
+        onEdit={handleEditEntry}
+        onDelete={deleteEntry}
+        onFavorite={addToFavorites}
+        onAcceptFavSuggestion={handleAcceptFavSuggestion}
+        onDismissFavSuggestion={handleDismissFavSuggestion}
+        onAcceptAutoFav={acceptAutoFavorite}
+        onDismissAutoFav={dismissAutoFavorite}
+        favoriteIngredients={favoriteIngredients}
+        onOpenPerformance={handleOpenPerformance}
+        onSeparateAppended={separateAppendedItems}
+        favoriteSignatures={favoriteSignatures}
+        favSignature={favSignature}
+      />
+    </div>
+  )), [messages, goals, totals, entries, historyDetail, favoriteIngredients, favoriteSignatures, favSignature, handleEditEntry, deleteEntry, addToFavorites, handleAcceptFavSuggestion, handleDismissFavSuggestion, acceptAutoFavorite, dismissAutoFavorite, handleOpenPerformance, separateAppendedItems]);
 
   if (view === 'loading') {
     return (
@@ -2583,92 +2666,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '20px', contain: 'layout paint', willChange: 'transform' }}>
           {/* Editorial hand-drawn food silhouettes — thin organic lines */}
           <div className="absolute inset-0 pointer-events-none select-none" style={{
-            backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'>
-              <g fill='none' stroke='%237A8450' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' stroke-opacity='0.28'>
-                <!-- Aguacate (rotated 12deg) -->
-                <g transform='translate(28,30) rotate(12)'>
-                  <path d='M0,18 C0,7 8,0 16,0 C24,0 32,7 32,18 C32,32 24,42 16,42 C8,42 0,32 0,18 Z'/>
-                  <ellipse cx='16' cy='22' rx='8' ry='9'/>
-                </g>
-                <!-- Connector curve -->
-                <path d='M75,38 Q92,30 105,42' stroke-opacity='0.18'/>
-                <!-- Plátano (rotated -18deg) -->
-                <g transform='translate(108,22) rotate(-18)'>
-                  <path d='M2,6 C12,0 28,2 38,12 C42,16 44,22 40,26 C36,22 28,18 20,18 C12,18 6,22 0,22 C-2,18 -2,10 2,6 Z'/>
-                  <path d='M2,6 L0,2'/>
-                </g>
-                <!-- Zanahoria (rotated 35deg) -->
-                <g transform='translate(195,30) rotate(35)'>
-                  <path d='M16,12 L24,12 L14,50 L4,50 L0,16 L4,14 Z'/>
-                  <path d='M10,12 L7,2 M14,12 L15,0 M18,12 L22,3'/>
-                </g>
-                <!-- Big connector curve between rows -->
-                <path d='M40,90 Q90,75 140,95 T240,88' stroke-opacity='0.14'/>
-                <!-- Pescado (rotated -8deg) -->
-                <g transform='translate(22,105) rotate(-8)'>
-                  <path d='M0,16 C5,4 22,2 34,10 C40,14 40,22 34,26 C22,32 5,30 0,16 Z'/>
-                  <path d='M34,10 L44,2 L44,26 L34,26'/>
-                  <circle cx='26' cy='14' r='1.5'/>
-                </g>
-                <!-- Manzana (rotated 8deg) -->
-                <g transform='translate(105,108) rotate(8)'>
-                  <path d='M6,12 C2,18 0,30 6,38 C10,44 16,46 22,42 C28,46 34,44 38,38 C44,30 42,18 38,12 C32,6 24,8 22,12 C20,8 12,6 6,12 Z'/>
-                  <path d='M22,12 C22,6 26,2 30,4'/>
-                  <path d='M28,2 L30,0'/>
-                </g>
-                <!-- Brócoli (rotated 22deg) -->
-                <g transform='translate(195,108) rotate(22)'>
-                  <circle cx='10' cy='10' r='8'/>
-                  <circle cx='24' cy='8' r='8'/>
-                  <circle cx='17' cy='20' r='8'/>
-                  <path d='M17,28 L17,42 M14,38 L20,38'/>
-                </g>
-                <!-- Curved swirl between groups -->
-                <path d='M50,180 C70,170 80,195 100,185' stroke-opacity='0.18'/>
-                <path d='M180,180 Q200,170 220,185' stroke-opacity='0.18'/>
-                <!-- Tenedor + Cuchara (rotated -12deg) -->
-                <g transform='translate(28,195) rotate(-12)'>
-                  <path d='M0,0 L0,14 M4,0 L4,14 M8,0 L8,14 M12,0 L12,14 M0,14 L12,14 L8,42 L4,42 Z'/>
-                  <path d='M24,4 C18,8 18,18 24,22 L24,42 L30,42 L30,22 C36,18 36,8 30,4 C28,2 26,2 24,4 Z'/>
-                </g>
-                <!-- Huevo (rotated 5deg) -->
-                <g transform='translate(115,200) rotate(5)'>
-                  <ellipse cx='14' cy='20' rx='12' ry='18'/>
-                </g>
-                <!-- Pollo / muslo (rotated -25deg) -->
-                <g transform='translate(195,200) rotate(-25)'>
-                  <path d='M10,4 C2,6 -2,16 4,22 C10,28 22,28 28,22 L40,34 L34,40 L22,28 C28,24 30,14 24,8 C20,4 14,2 10,4 Z'/>
-                  <circle cx='14' cy='14' r='1' fill='%237A8450' fill-opacity='0.4' stroke='none'/>
-                </g>
-                <!-- Final loose squiggles for organic feel -->
-                <path d='M60,260 Q80,250 100,262' stroke-opacity='0.16'/>
-                <path d='M170,255 C185,250 200,265 215,258' stroke-opacity='0.16'/>
-              </g>
-            </svg>`)}")`,
+            backgroundImage: FOOD_SILHOUETTES_BG_URL,
             backgroundRepeat: 'repeat',
             backgroundSize: '280px 280px'
           }} />
           <div className="relative">
-            {messages.map((m, i) => (
-              <div key={i} className="mb-3">
-                <MessageBubble message={m} goals={goals} totals={totals}
-                  entries={entries}
-                  historyDetail={historyDetail}
-                  onEdit={handleEditEntry}
-                  onDelete={deleteEntry}
-                  onFavorite={addToFavorites}
-                  onAcceptFavSuggestion={handleAcceptFavSuggestion}
-                  onDismissFavSuggestion={handleDismissFavSuggestion}
-                  onAcceptAutoFav={acceptAutoFavorite}
-                  onDismissAutoFav={dismissAutoFavorite}
-                  favoriteIngredients={favoriteIngredients}
-                  onOpenPerformance={handleOpenPerformance}
-                  onSeparateAppended={separateAppendedItems}
-                  favoriteSignatures={favoriteSignatures}
-                  favSignature={favSignature}
-                />
-              </div>
-            ))}
+            {renderedMessages}
             {loading && (
               <div className="flex items-center gap-2 text-sm px-4 py-3">
                 <Loader2 size={14} className="animate-spin" style={{ color: ACCENT }} />
