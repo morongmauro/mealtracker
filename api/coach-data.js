@@ -24,26 +24,42 @@ function isUuid(s) {
   return typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
 
-// Compute a quick summary for the list view from a client's `data` blob
+// Compute a quick summary for the list view from a client's `data` blob.
+// Importante: el cliente puede aún no haber "cerrado" el día — el día actual
+// vive en data.today + data.today_entries + data.today_totals. Lo reconstruimos
+// dinámicamente para que el coach lo vea en TIEMPO REAL.
 function summarize(row) {
   const data = row.data || {};
   const goals = data.goals || null;
-  const history = data.history || {}; // { 'YYYY-MM-DD': { kcal, p, c, g, water } }
-  // Today key in LOCAL server time is not the client's local — best we can do.
+  const baseHistory = data.history || {}; // { 'YYYY-MM-DD': { kcal, p, c, g, water } }
+  const history = { ...baseHistory };
+
+  // Fusionar el día actual del cliente (si lo mandó)
+  if (data.today && data.today_totals) {
+    history[data.today] = {
+      kcal: data.today_totals.kcal || 0,
+      p: data.today_totals.p || 0,
+      c: data.today_totals.c || 0,
+      g: data.today_totals.g || 0,
+      water: data.today_water || 0,
+    };
+  }
+
   const dates = Object.keys(history).sort().reverse();
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = data.today || new Date().toISOString().slice(0, 10);
   const todayInHistory = history[todayStr] || null;
 
-  // Adherence últimos 7 días: cuántos días registró algo
+  // Adherence últimos 7 días (incluyendo hoy si tiene comidas registradas)
   const last7Days = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date();
+    const d = new Date(todayStr + 'T00:00:00');
     d.setDate(d.getDate() - i);
-    last7Days.push(d.toISOString().slice(0, 10));
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    last7Days.push(key);
   }
   const adherence7 = last7Days.filter(d => history[d]).length;
 
-  // Última fecha activa real (la más nueva en history)
+  // Última fecha activa: si tiene entries de hoy, hoy es la última activa
   const lastActive = dates[0] || null;
 
   // Status (verde / amarillo / rojo)
@@ -107,7 +123,9 @@ export default async function handler(req, res) {
     }
   }
 
-  // DETAIL — todos los datos de un cliente
+  // DETAIL — todos los datos de un cliente, con el día actual fusionado en
+  // history / historyDetail para que el coach vea EN TIEMPO REAL lo que el
+  // cliente registró hoy (sin esperar a que el día se "cierre").
   if (req.method === 'GET' && action === 'detail') {
     const userId = req.query.user_id;
     if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
@@ -120,7 +138,28 @@ export default async function handler(req, res) {
       if (!Array.isArray(rows) || rows.length === 0) {
         return res.status(404).json({ error: 'client not found' });
       }
-      return res.status(200).json({ client: rows[0] });
+      const row = rows[0];
+      const data = row.data || {};
+      // Fusionar día actual en history + historyDetail
+      if (data.today && data.today_totals) {
+        data.history = {
+          ...(data.history || {}),
+          [data.today]: {
+            kcal: data.today_totals.kcal || 0,
+            p: data.today_totals.p || 0,
+            c: data.today_totals.c || 0,
+            g: data.today_totals.g || 0,
+            water: data.today_water || 0,
+          },
+        };
+      }
+      if (data.today && Array.isArray(data.today_entries) && data.today_entries.length > 0) {
+        data.historyDetail = {
+          ...(data.historyDetail || {}),
+          [data.today]: data.today_entries,
+        };
+      }
+      return res.status(200).json({ client: { ...row, data } });
     } catch (e) {
       return res.status(500).json({ error: 'detail failed', detail: String(e) });
     }
