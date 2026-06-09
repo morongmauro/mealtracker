@@ -5,9 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0E0E0E" />
     <title>Meal Tracker — Mauro Morón</title>
+    <style>
+      /* CSS inline crítico — muestra inmediatamente un splash limpio mientras
+         Tailwind (CDN) y React se cargan. Sin esto, el usuario veía 2-3 segundos
+         de HTML sin estilos. El splash se oculta solo cuando React monta. */
+      html, body { margin: 0; padding: 0; background: #F5F2E8; font-family: -apple-system, system-ui, sans-serif; }
+      #splash {
+        position: fixed; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: #F5F2E8;
+        z-index: 9999;
+        transition: opacity 0.25s ease-out;
+      }
+      #splash .brand {
+        font-size: 22px; letter-spacing: 0.12em; font-weight: 600;
+        color: #1F1F1F; text-transform: uppercase;
+      }
+      #splash .sub {
+        margin-top: 6px;
+        font-size: 11px; letter-spacing: 0.05em;
+        color: #8A9558; font-weight: 600;
+      }
+      #splash .dot {
+        margin-top: 28px; width: 24px; height: 24px;
+        border: 2px solid #E2DECC; border-top-color: #8A9558;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      /* Oculta el splash una vez que React montó (hay hijos dentro de #root) */
+      body.app-ready #splash { opacity: 0; pointer-events: none; }
+    </style>
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body>
+    <div id="splash">
+      <div class="brand">Meal Tracker</div>
+      <div class="sub">Entrena con Método</div>
+      <div class="dot"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
