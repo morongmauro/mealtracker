@@ -1,0 +1,48 @@
+// /api/coach-auth.js
+// Login del dashboard de coach.
+// POST { password }  → si coincide con COACH_PASSWORD, devuelve { token, expiresAt }
+// Token = base64(payload) + "." + hmac(payload, COACH_PASSWORD)
+// Payload contiene { exp } (timestamp de expiración en ms).
+// Dura 7 días.
+
+import crypto from 'node:crypto';
+
+const COACH_PASSWORD = process.env.COACH_PASSWORD;
+const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function signToken(payload) {
+  const json = JSON.stringify(payload);
+  const b64 = Buffer.from(json).toString('base64url');
+  const sig = crypto.createHmac('sha256', COACH_PASSWORD).update(b64).digest('base64url');
+  return `${b64}.${sig}`;
+}
+
+export default async function handler(req, res) {
+  if (!COACH_PASSWORD) {
+    return res.status(500).json({ error: 'COACH_PASSWORD not configured' });
+  }
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'method not allowed' });
+  }
+  const { password } = req.body || {};
+  if (typeof password !== 'string' || password !== COACH_PASSWORD) {
+    return res.status(401).json({ error: 'invalid password' });
+  }
+  const expiresAt = Date.now() + TOKEN_TTL_MS;
+  const token = signToken({ exp: expiresAt, role: 'coach' });
+  return res.status(200).json({ token, expiresAt });
+}
+
+// Verificador reusable (lo importa /api/coach-data.js)
+export function verifyCoachToken(token) {
+  if (!COACH_PASSWORD || !token || typeof token !== 'string') return null;
+  const [b64, sig] = token.split('.');
+  if (!b64 || !sig) return null;
+  const expected = crypto.createHmac('sha256', COACH_PASSWORD).update(b64).digest('base64url');
+  if (sig !== expected) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
+    if (!payload.exp || Date.now() > payload.exp) return null;
+    return payload;
+  } catch (e) { return null; }
+}
