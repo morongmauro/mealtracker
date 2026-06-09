@@ -2635,8 +2635,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
       {/* Background blobs removed for cleaner look */}
 
-      {/* Header — full-width app bar (sticky, robust against iOS keyboard) */}
-      <div className="sticky top-0 w-full overflow-hidden" style={{
+      {/* Header — full-width app bar (FIXED, robust against iOS keyboard) */}
+      <div className="fixed top-0 left-0 right-0 w-full overflow-hidden" style={{
         background: '#1F1F1F',
         color: '#FFF',
         boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
@@ -2663,12 +2663,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </div>
       </div>
 
-      <div className="relative max-w-2xl mx-auto px-5 pt-3 pb-32" style={{ zIndex: 1 }}>
+      <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: cardCompact ? '90px' : '195px' }}>
 
 
-        {/* Goals card — sticky white glass; shrinks on scroll. Robust against iOS keyboard. */}
-        <div className="sticky z-30 -mx-5 px-5" style={{
+        {/* Goals card — FIXED white glass below header (was sticky, broke on iOS keyboard) */}
+        <div className="fixed left-0 right-0" style={{
           top: '40px',
+          paddingLeft: '20px', paddingRight: '20px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
           background: 'linear-gradient(180deg, #F9F7F1 0%, rgba(249,247,241,0.92) 80%, rgba(249,247,241,0.6) 100%)',
@@ -2676,8 +2677,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           WebkitBackdropFilter: 'blur(12px)',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)',
           transform: 'translate3d(0, 0, 0)',
+          zIndex: 30,
           willChange: 'transform'
         }}>
+        <div className="max-w-2xl mx-auto">
         <div className="rounded-3xl relative cursor-pointer" style={{
           padding: cardCompact ? '8px 12px' : '16px',
           background: 'rgba(255,255,255,0.78)',
@@ -2756,6 +2759,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </>
           )}
           </div>
+        </div>
         </div>
         </div>
 
@@ -2939,17 +2943,26 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, 0 8px 32px rgba(0,0,0,0.08)` : '0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
             transition: 'border 0.2s, box-shadow 0.2s'
           }}>
-            {/* contenteditable instead of <input> — iOS does NOT show the AutoFill
-                accessory bar (key/credit-card/location) on contenteditable elements. */}
+            {/* contenteditable instead of <input>. Atributos defensivos para minimizar
+                la barra de AutoFill de iOS (key/credit/location) que en iOS 17+ aparece
+                ocasionalmente en contenteditable. Y al enfocar, scrolleamos al fondo del
+                chat para que el contenido escrito quede visible sobre el teclado. */}
             <div
               ref={inputDivRef}
               contentEditable={!recording && !transcribing}
               suppressContentEditableWarning={true}
               role="textbox"
               aria-multiline="false"
+              aria-autocomplete="none"
               data-placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Dicta o escribe lo que comiste…'}
               onInput={(e) => setInput(e.currentTarget.textContent || '')}
-              onFocus={() => setActionsExpanded(false)}
+              onFocus={() => {
+                setActionsExpanded(false);
+                // Scroll al final del chat para que el último mensaje quede visible sobre el teclado.
+                setTimeout(() => {
+                  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+                }, 300);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -2957,11 +2970,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   handleSend();
                 }
               }}
+              autoComplete="off"
               autoCorrect="off"
               autoCapitalize="sentences"
               spellCheck="false"
               inputMode="text"
               enterKeyHint="send"
+              data-form-type="other"
+              data-1p-ignore="true"
+              data-lpignore="true"
               className="msg-input flex-1 bg-transparent px-3 py-3 outline-none"
               style={{ color: TEXT, fontSize: '16px', minHeight: '24px', maxHeight: '120px', overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
             />
@@ -3121,15 +3138,18 @@ function CloudConsentModal({ onAccept, onDecline }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
       <div className="w-full max-w-md p-6 rounded-3xl" style={{ background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI }}>
-        <div className="text-[11px] tracking-[0.22em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>Tus datos a salvo</div>
+        <div className="text-[11px] tracking-[0.22em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>Tu progreso a salvo</div>
         <div className="text-[18px] font-bold mb-3" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
           Guardá tu progreso en la nube
         </div>
-        <div className="text-[13px] mb-4 leading-relaxed" style={{ color: TEXT_MUTED }}>
-          A partir de hoy tus favoritos, ingredientes y registros se guardan también en la nube. Así no los perdés si cambiás de teléfono o se borra la caché del navegador.
+        <div className="text-[13px] mb-3 leading-relaxed" style={{ color: TEXT_MUTED }}>
+          A partir de hoy, tus favoritos, ingredientes y registros se guardan también en la nube. Así no los pierdes si cambias de teléfono o se borra la caché del navegador.
         </div>
-        <div className="text-[12px] mb-5 leading-relaxed" style={{ color: TEXT_LIGHT }}>
-          Tu coach puede ver tu progreso en tiempo real para acompañarte mejor. No compartimos tus datos con nadie más.
+        <div className="text-[13px] mb-3 leading-relaxed" style={{ color: TEXT_MUTED }}>
+          Vas a poder consultar tus tableros de desempeño desde cualquier dispositivo. Y tu coach podrá ver tu progreso en vivo para acompañarte mejor.
+        </div>
+        <div className="text-[11px] mb-5 leading-relaxed" style={{ color: TEXT_LIGHT }}>
+          Tus datos se guardan en servidores seguros y se usan únicamente para mostrarte tu progreso y para que tu coach te acompañe. No compartimos tu información con terceros. Al tocar Aceptar autorizas su tratamiento con esos fines. Puedes seguir usando la app sin aceptar, pero tus datos solo quedarán en este teléfono.
         </div>
         <div className="flex gap-2">
           <button onClick={onDecline} className="flex-1 py-3 rounded-full text-sm font-medium" style={{ background: SURFACE_2, color: TEXT }}>
