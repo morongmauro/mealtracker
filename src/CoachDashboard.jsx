@@ -393,7 +393,9 @@ function DetailView({ userId, apiFetch, onBack, onLogout }) {
   const historyDetail = data.historyDetail || {};
   const wellbeing = data.wellbeing || {};
   const favorites = data.favorites || [];
-  const today = todayLocal();
+  // Usar la fecha REPORTADA POR EL CLIENTE si está disponible, para evitar
+  // desfases por zona horaria entre coach y cliente.
+  const today = data.today || todayLocal();
   const todaySummary = history[today] || null;
   const todayEntries = historyDetail[today] || [];
 

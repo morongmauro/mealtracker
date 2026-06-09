@@ -602,30 +602,49 @@ export default function MealTracker() {
     return () => { cancelled = true; };
   }, [cloudConsent]);
 
-  // Helper: empuja el snapshot completo al server, con debounce
+  // Helper: empuja el snapshot completo al server, con debounce.
+  // CRÍTICO: incluye también `entries` (comidas de HOY, antes de cerrar el día)
+  // y `water` para que el coach lo vea EN TIEMPO REAL en su dashboard.
+  // El backend reconstruye el history[today] cuando llega esto, así no
+  // necesitamos esperar a que el cliente cambie de día.
   const schedulePushToCloud = useCallback((delayMs = 3000) => {
     if (cloudConsent !== 'accepted' || !cloudUserIdRef.current) return;
     if (cloudPushTimerRef.current) clearTimeout(cloudPushTimerRef.current);
     cloudPushTimerRef.current = setTimeout(async () => {
       try {
+        const todayTotals = entries.reduce((acc, e) => ({
+          kcal: acc.kcal + (e.kcal || 0),
+          p: acc.p + (e.p || 0),
+          c: acc.c + (e.c || 0),
+          g: acc.g + (e.g || 0),
+        }), { kcal: 0, p: 0, c: 0, g: 0 });
         await fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user_id: cloudUserIdRef.current,
             name,
-            data: { favorites, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, name },
+            data: {
+              favorites, favoriteIngredients, history, historyDetail,
+              frequentItems, wellbeing, goals, name,
+              // En vivo: comidas y agua de HOY
+              today,
+              today_entries: entries,
+              today_water: water,
+              today_totals: todayTotals,
+            },
           }),
         });
       } catch (e) {}
     }, delayMs);
-  }, [cloudConsent, name, favorites, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals]);
+  }, [cloudConsent, name, favorites, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, entries, water, today]);
 
-  // Watch: cualquier cambio en colecciones críticas dispara un push debounced
+  // Watch: cualquier cambio en colecciones críticas dispara un push debounced.
+  // Incluimos `entries` y `water` para que se sincronicen en vivo, NO solo al cambiar de día.
   useEffect(() => {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
     schedulePushToCloud();
-  }, [favorites, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, name, cloudConsent, schedulePushToCloud]);
+  }, [favorites, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, name, entries, water, cloudConsent, schedulePushToCloud]);
 
   const acceptCloudConsent = useCallback(() => {
     try { localStorage.setItem('cloudConsent', 'accepted'); } catch (e) {}
