@@ -49,6 +49,14 @@ const daysAgoStr = (dateStr) => {
 const statusColor = (s) => s === 'active' ? SUCCESS : s === 'recent' ? ACCENT : s === 'at_risk' ? WARN : DANGER;
 const statusLabel = (s) => s === 'active' ? 'Al día' : s === 'recent' ? 'Reciente' : s === 'at_risk' ? 'En riesgo' : 'Inactivo';
 
+// Convierte "2025-05-28" → "Jueves, 28 de mayo"
+const formatLongDate = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  const s = d.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
 // ─── Componente raíz ──────────────────────────────────────────────────────
 export default function CoachDashboard() {
   const [token, setToken] = useState(() => {
@@ -348,6 +356,7 @@ function DetailView({ userId, apiFetch, onBack, onLogout }) {
   const [error, setError] = useState('');
   const [tab, setTab] = useState('dia');
   const [editingGoals, setEditingGoals] = useState(false);
+  const [drilldownDate, setDrilldownDate] = useState(null); // 'YYYY-MM-DD' o null
 
   const load = useCallback(async () => {
     setError('');
@@ -443,13 +452,45 @@ function DetailView({ userId, apiFetch, onBack, onLogout }) {
       </div>
 
       {tab === 'dia' && <TabDia goals={goals} todaySummary={todaySummary} todayEntries={todayEntries} wellbeingToday={wellbeing[today]} />}
-      {tab === 'semana' && <TabSemana goals={goals} history={history} />}
-      {tab === 'mes' && <TabMes goals={goals} history={history} />}
+      {tab === 'semana' && <TabSemana goals={goals} history={history} onSelectDay={setDrilldownDate} />}
+      {tab === 'mes' && <TabMes goals={goals} history={history} onSelectDay={setDrilldownDate} />}
       {tab === 'tendencia' && <TabTendencia history={history} />}
       {tab === 'micros' && <TabMicros historyDetail={historyDetail} />}
       {tab === 'bienestar' && <TabBienestar wellbeing={wellbeing} />}
       {tab === 'historial' && <TabHistorial historyDetail={historyDetail} />}
       {tab === 'favoritos' && <TabFavoritos favorites={favorites} />}
+
+      {drilldownDate && (
+        <DayDetailModal
+          date={drilldownDate}
+          goals={goals}
+          summary={history[drilldownDate] || null}
+          entries={historyDetail[drilldownDate] || []}
+          wellbeing={wellbeing[drilldownDate]}
+          onClose={() => setDrilldownDate(null)} />
+      )}
+    </div>
+  );
+}
+
+function DayDetailModal({ date, goals, summary, entries, wellbeing, onClose }) {
+  // Cerrar con ESC
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-3 sm:p-6" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl p-4 sm:p-6" style={{ background: BG, border: `1px solid ${BORDER}` }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[11px] tracking-[0.2em] uppercase font-semibold" style={{ color: ACCENT }}>Detalle del día</div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 transition" aria-label="Cerrar">
+            <X size={16} style={{ color: TEXT_MUTED }} />
+          </button>
+        </div>
+        <DayDetail date={date} goals={goals} summary={summary} entries={entries} wellbeing={wellbeing} />
+      </div>
     </div>
   );
 }
@@ -631,66 +672,115 @@ function DuplicateCard({ client, apiFetch, onChange }) {
 
 // ─── TABS ─────────────────────────────────────────────────────────────────
 function TabDia({ goals, todaySummary, todayEntries, wellbeingToday }) {
-  const t = todaySummary || { kcal: 0, p: 0, c: 0, g: 0, water: 0 };
-  const pct = (v, g) => g ? Math.min(100, Math.round((v / g) * 100)) : 0;
+  const today = todayLocal();
   return (
-    <div className="space-y-3">
+    <DayDetail
+      date={today}
+      goals={goals}
+      summary={todaySummary}
+      entries={todayEntries}
+      wellbeing={wellbeingToday}
+      labelOverride="Hoy"
+    />
+  );
+}
+
+// Reporte detallado de un día — formato del coach, idéntico al PDF.
+// Usado por TabDia (hoy) y por el modal que se abre cuando clickeás un día
+// en TabSemana o TabMes.
+function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) {
+  const t = summary || { kcal: 0, p: 0, c: 0, g: 0, water: 0 };
+  return (
+    <div className="space-y-4">
+      {/* Meta diaria */}
       <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-        <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Hoy</div>
-        <div className="grid grid-cols-4 gap-3 mb-3">
-          <MacroProgress label="kcal" val={t.kcal} goal={goals.kcal} color={ACCENT} />
-          <MacroProgress label="P" val={t.p} goal={goals.p} color={C_PROTEIN} />
-          <MacroProgress label="C" val={t.c} goal={goals.c} color={C_CARBS} />
-          <MacroProgress label="G" val={t.g} goal={goals.g} color={C_FAT} />
-        </div>
-        <div className="flex items-center gap-2 text-[12px]" style={{ color: TEXT_MUTED }}>
-          <Droplet size={12} style={{ color: '#6B7A8F' }} />
-          <span>Agua: <span className="num font-semibold" style={{ color: TEXT }}>{t.water} ml</span></span>
+        <div className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Metas diarias</div>
+        <div className="grid grid-cols-4 gap-3">
+          <div>
+            <div className="text-[22px] font-bold num" style={{ color: ACCENT }}>{fmt0(goals.kcal)}</div>
+            <div className="text-[11px]" style={{ color: TEXT_LIGHT }}>Calorías</div>
+          </div>
+          <div>
+            <div className="text-[22px] font-bold num" style={{ color: C_PROTEIN }}>{fmt0(goals.p)}g</div>
+            <div className="text-[11px]" style={{ color: TEXT_LIGHT }}>Proteína</div>
+          </div>
+          <div>
+            <div className="text-[22px] font-bold num" style={{ color: C_CARBS }}>{fmt0(goals.c)}g</div>
+            <div className="text-[11px]" style={{ color: TEXT_LIGHT }}>Carbohidratos</div>
+          </div>
+          <div>
+            <div className="text-[22px] font-bold num" style={{ color: C_FAT }}>{fmt0(goals.g)}g</div>
+            <div className="text-[11px]" style={{ color: TEXT_LIGHT }}>Grasas</div>
+          </div>
         </div>
       </div>
 
-      {wellbeingToday && (
-        <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-          <div className="text-[11px] uppercase tracking-wider font-semibold mb-2" style={{ color: TEXT_MUTED }}>Bienestar de hoy</div>
-          <div className="flex gap-4 text-[13px]">
-            <span>Energía: <strong>{wellbeingToday.energy}/5</strong></span>
-            <span>Hambre: <strong>{wellbeingToday.hunger}/5</strong></span>
-            <span>Ánimo: <strong>{wellbeingToday.mood}/5</strong></span>
-          </div>
+      {/* Header del día + totales */}
+      <div className="px-1">
+        <div className="text-[18px] font-bold mb-1" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
+          {labelOverride || formatLongDate(date)}
         </div>
-      )}
-
-      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-        <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Comidas registradas hoy</div>
-        {todayEntries.length === 0 ? (
-          <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>Aún no registró nada hoy.</div>
-        ) : (
-          <div className="space-y-2">
-            {todayEntries.map((e, i) => (
-              <div key={i} className="p-3 rounded-xl" style={{ background: SURFACE_2 }}>
-                <div className="flex justify-between text-[11px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: ACCENT_DARK }}>
-                  <span>{e.meal || 'comida'}</span>
-                  <span style={{ color: TEXT_LIGHT }}>{e.time}</span>
-                </div>
-                <div className="space-y-0.5 text-[12px]" style={{ color: TEXT }}>
-                  {(e.items || []).map((it, j) => (
-                    <div key={j} className="flex justify-between">
-                      <span>{it.name}{it.amount ? ` · ${it.amount}` : ''}</span>
-                      <span className="num" style={{ color: TEXT_LIGHT }}>{fmt0(it.kcal)} kcal</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="text-[10px] num mt-2 pt-2 border-t flex gap-3" style={{ borderColor: BORDER_SOFT }}>
-                  <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{fmt0(e.kcal)} kcal</span>
-                  <span style={{ color: C_PROTEIN }}>P{fmt1(e.p)}</span>
-                  <span style={{ color: C_CARBS }}>C{fmt1(e.c)}</span>
-                  <span style={{ color: C_FAT }}>G{fmt1(e.g)}</span>
-                </div>
-              </div>
-            ))}
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] num">
+          <span><span className="text-[10px] uppercase tracking-wider mr-1" style={{ color: ACCENT }}>kcal</span> <strong style={{ color: TEXT }}>{fmt0(t.kcal)}</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.kcal)}</span></span>
+          <span><span className="text-[10px] uppercase tracking-wider mr-1" style={{ color: C_PROTEIN }}>P</span> <strong style={{ color: TEXT }}>{fmt1(t.p)}g</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.p)}g</span></span>
+          <span><span className="text-[10px] uppercase tracking-wider mr-1" style={{ color: C_CARBS }}>C</span> <strong style={{ color: TEXT }}>{fmt1(t.c)}g</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.c)}g</span></span>
+          <span><span className="text-[10px] uppercase tracking-wider mr-1" style={{ color: C_FAT }}>G</span> <strong style={{ color: TEXT }}>{fmt1(t.g)}g</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.g)}g</span></span>
+        </div>
+        {t.water > 0 && (
+          <div className="flex items-center gap-1.5 text-[12px] mt-1.5" style={{ color: TEXT_MUTED }}>
+            <Droplet size={11} style={{ color: '#6B7A8F' }} />
+            <span>Agua: <span className="num font-semibold" style={{ color: TEXT }}>{t.water} ml</span></span>
           </div>
         )}
       </div>
+
+      {/* Comidas registradas — formato reporte */}
+      {(!entries || entries.length === 0) ? (
+        <div className="p-4 rounded-2xl text-center text-[12px]" style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT_LIGHT }}>
+          Este día no tiene comidas registradas.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {entries.map((e, i) => (
+            <div key={i} className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+              <div className="flex justify-between items-baseline mb-2">
+                <div className="text-[11px] uppercase tracking-[0.2em] font-bold" style={{ color: TEXT }}>
+                  {(e.meal || 'comida').toUpperCase()}
+                </div>
+                <div className="text-[11px] num" style={{ color: TEXT_LIGHT }}>{e.time || ''}</div>
+              </div>
+              <div className="space-y-0.5">
+                {(e.items || []).map((it, j) => (
+                  <div key={j} className="flex justify-between text-[13px]">
+                    <span style={{ color: TEXT }}>
+                      {it.name}{it.amount ? <span style={{ color: TEXT_MUTED }}> · {it.amount}</span> : null}
+                    </span>
+                    <span className="num pl-3" style={{ color: TEXT_LIGHT, flexShrink: 0 }}>{fmt0(it.kcal)} kcal</span>
+                  </div>
+                ))}
+              </div>
+              <div className="text-[11px] num mt-2 pt-2 border-t" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
+                Total: <strong style={{ color: TEXT }}>{fmt0(e.kcal)} kcal</strong>
+                <span className="ml-2" style={{ color: C_PROTEIN }}>· P{fmt1(e.p)}g</span>
+                <span className="ml-1" style={{ color: C_CARBS }}>· C{fmt1(e.c)}g</span>
+                <span className="ml-1" style={{ color: C_FAT }}>· G{fmt1(e.g)}g</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Bienestar del día (si hay) */}
+      {wellbeing && (
+        <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+          <div className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-2" style={{ color: TEXT_MUTED }}>Bienestar</div>
+          <div className="flex flex-wrap gap-4 text-[13px]" style={{ color: TEXT }}>
+            <span>⚡ Energía: <strong>{wellbeing.energy}/5</strong></span>
+            <span>🍴 Hambre: <strong>{wellbeing.hunger}/5</strong></span>
+            <span>😊 Ánimo: <strong>{wellbeing.mood}/5</strong></span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -708,7 +798,7 @@ function MacroProgress({ label, val, goal, color }) {
   );
 }
 
-function TabSemana({ goals, history }) {
+function TabSemana({ goals, history, onSelectDay }) {
   const last7 = useMemo(() => {
     const out = [];
     for (let i = 6; i >= 0; i--) {
@@ -754,25 +844,36 @@ function TabSemana({ goals, history }) {
         <div className="flex items-end gap-2 h-32">
           {last7.map((x, i) => {
             const pct = x.data && goals.kcal ? Math.min(150, (x.data.kcal / goals.kcal) * 100) : 0;
+            const clickable = !!x.data && typeof onSelectDay === 'function';
             return (
-              <div key={i} className="flex-1 flex flex-col items-center justify-end">
+              <button key={i}
+                onClick={() => clickable && onSelectDay(x.key)}
+                disabled={!clickable}
+                className="flex-1 flex flex-col items-center justify-end p-0 rounded transition"
+                style={{ cursor: clickable ? 'pointer' : 'default', background: 'transparent', border: 'none' }}>
                 <div className="text-[9px] num mb-1" style={{ color: TEXT_LIGHT }}>
                   {x.data ? fmt0(x.data.kcal) : '—'}
                 </div>
-                <div className="w-full rounded-t-md" style={{
+                <div className="w-full rounded-t-md transition" style={{
                   height: `${Math.max(2, pct * 0.85)}%`,
-                  background: x.data ? (pct > 105 ? DANGER : pct > 90 ? SUCCESS : ACCENT) : SURFACE_2
+                  background: x.data ? (pct > 105 ? DANGER : pct > 90 ? SUCCESS : ACCENT) : SURFACE_2,
+                  opacity: clickable ? 1 : 0.6,
                 }} />
                 <div className="text-[10px] mt-1 capitalize" style={{ color: TEXT_LIGHT }}>{dayShort(x.date)}</div>
-              </div>
+              </button>
             );
           })}
         </div>
-        {goals.kcal > 0 && (
-          <div className="text-[10px] mt-2 italic" style={{ color: TEXT_LIGHT }}>
-            Línea de meta: {fmt0(goals.kcal)} kcal
+        <div className="flex items-center justify-between mt-2">
+          {goals.kcal > 0 && (
+            <div className="text-[10px] italic" style={{ color: TEXT_LIGHT }}>
+              Línea de meta: {fmt0(goals.kcal)} kcal
+            </div>
+          )}
+          <div className="text-[10px]" style={{ color: ACCENT_DARK }}>
+            Toca una barra para ver el detalle de ese día
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -788,7 +889,7 @@ function Stat({ label, val, goal, color, unit = '' }) {
   );
 }
 
-function TabMes({ goals, history }) {
+function TabMes({ goals, history, onSelectDay }) {
   // Generar últimos 35 días en una grilla 7xN
   const days = useMemo(() => {
     const out = [];
@@ -835,13 +936,27 @@ function TabMes({ goals, history }) {
       <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
         <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Heatmap (cada cuadro = un día)</div>
         <div className="grid grid-cols-7 gap-1.5">
-          {days.map((d, i) => (
-            <div key={i} title={`${d.key}${d.data ? `: ${fmt0(d.data.kcal)} kcal` : ' — sin registro'}`}
-              className="aspect-square rounded-md flex items-center justify-center text-[9px] num"
-              style={{ background: colorFor(d.data), color: d.data ? '#fff' : TEXT_LIGHT }}>
-              {d.date.getDate()}
-            </div>
-          ))}
+          {days.map((d, i) => {
+            const clickable = !!d.data && typeof onSelectDay === 'function';
+            return (
+              <button key={i}
+                onClick={() => clickable && onSelectDay(d.key)}
+                disabled={!clickable}
+                title={`${d.key}${d.data ? `: ${fmt0(d.data.kcal)} kcal` : ' — sin registro'}`}
+                className="aspect-square rounded-md flex items-center justify-center text-[9px] num p-0"
+                style={{
+                  background: colorFor(d.data),
+                  color: d.data ? '#fff' : TEXT_LIGHT,
+                  cursor: clickable ? 'pointer' : 'default',
+                  border: 'none'
+                }}>
+                {d.date.getDate()}
+              </button>
+            );
+          })}
+        </div>
+        <div className="text-[10px] mt-2 italic" style={{ color: ACCENT_DARK }}>
+          Toca un cuadro con color para ver el detalle de ese día
         </div>
         <div className="flex items-center gap-3 mt-3 text-[10px]" style={{ color: TEXT_MUTED }}>
           <Legend color={SURFACE_2} label="Sin registro" />
