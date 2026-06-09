@@ -338,6 +338,8 @@ export default function MealTracker() {
   const actionsSheetRef = useRef(null);
   const actionsFabRef = useRef(null);
   const inputBarRef = useRef(null);
+  const headerRef = useRef(null);
+  const goalsCardRef = useRef(null);
 
   // Closes the actions sheet INSTANTLY via direct DOM mutation + paint flush,
   // before letting React run its expensive re-render. On mobile the parent
@@ -1004,15 +1006,37 @@ export default function MealTracker() {
     return () => clearInterval(interval);
   }, [view, today, entries, water]);
 
-  // Keyboard detection (mobile)
+  // Keyboard detection (mobile) + iOS visualViewport tracking.
+  // Cuando se abre el teclado en iOS Safari, el "layout viewport" no cambia,
+  // pero el "visual viewport" se hace más chico y se desplaza. Los elementos
+  // `position: fixed` quedan anclados al layout viewport (fuera de la pantalla
+  // visible). Para que el header y la barra de macros se queden VISIBLES,
+  // les aplicamos transform: translateY(offsetTop) en cada movimiento del
+  // visual viewport. Y también pegamos el inputBar al borde inferior del
+  // visual viewport para que no quede oculto detrás del teclado.
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
-    const handleResize = () => {
-      const heightDiff = window.innerHeight - window.visualViewport.height;
+    const vv = window.visualViewport;
+    const updateFixed = () => {
+      const offsetTop = vv.offsetTop || 0;
+      const heightDiff = window.innerHeight - vv.height;
       setKeyboardOpen(heightDiff > 100);
+      const t = `translate3d(0, ${offsetTop}px, 0)`;
+      if (headerRef.current) headerRef.current.style.transform = t;
+      if (goalsCardRef.current) goalsCardRef.current.style.transform = t;
+      if (inputBarRef.current) {
+        // Mover el input bar arriba para que quede pegado al teclado
+        const fromBottom = window.innerHeight - (offsetTop + vv.height);
+        inputBarRef.current.style.transform = `translate3d(0, -${fromBottom}px, 0)`;
+      }
     };
-    window.visualViewport.addEventListener('resize', handleResize);
-    return () => window.visualViewport.removeEventListener('resize', handleResize);
+    vv.addEventListener('resize', updateFixed);
+    vv.addEventListener('scroll', updateFixed);
+    updateFixed();
+    return () => {
+      vv.removeEventListener('resize', updateFixed);
+      vv.removeEventListener('scroll', updateFixed);
+    };
   }, []);
 
   useEffect(() => {
@@ -2654,8 +2678,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
       {/* Background blobs removed for cleaner look */}
 
-      {/* Header — full-width app bar (FIXED, robust against iOS keyboard) */}
-      <div className="fixed top-0 left-0 right-0 w-full overflow-hidden" style={{
+      {/* Header — full-width app bar (FIXED + visualViewport tracking) */}
+      <div ref={headerRef} className="fixed top-0 left-0 right-0 w-full overflow-hidden" style={{
         background: '#1F1F1F',
         color: '#FFF',
         boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
@@ -2685,8 +2709,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: cardCompact ? '90px' : '195px' }}>
 
 
-        {/* Goals card — FIXED white glass below header (was sticky, broke on iOS keyboard) */}
-        <div className="fixed left-0 right-0" style={{
+        {/* Goals card — FIXED + visualViewport tracking */}
+        <div ref={goalsCardRef} className="fixed left-0 right-0" style={{
           top: '40px',
           paddingLeft: '20px', paddingRight: '20px',
           paddingTop: cardCompact ? '4px' : '8px',
@@ -2966,22 +2990,19 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 la barra de AutoFill de iOS (key/credit/location) que en iOS 17+ aparece
                 ocasionalmente en contenteditable. Y al enfocar, scrolleamos al fondo del
                 chat para que el contenido escrito quede visible sobre el teclado. */}
+            {/* NO uso role="textbox" ni aria-multiline — esos atributos hacen que iOS
+                Safari trate al elemento como "campo de formulario" y muestre la barra
+                de asistente (chevrons arriba/abajo + ícono teclado) flotando sobre
+                el input. Sin esos atributos, iOS lo trata como contenido editable
+                "neutro" y la barra desaparece en muchos casos. En modo PWA
+                (agregado a inicio) directamente no aparece nunca. */}
             <div
               ref={inputDivRef}
               contentEditable={!recording && !transcribing}
               suppressContentEditableWarning={true}
-              role="textbox"
-              aria-multiline="false"
-              aria-autocomplete="none"
               data-placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Dicta o escribe lo que comiste…'}
               onInput={(e) => setInput(e.currentTarget.textContent || '')}
-              onFocus={() => {
-                setActionsExpanded(false);
-                // Scroll al final del chat para que el último mensaje quede visible sobre el teclado.
-                setTimeout(() => {
-                  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-                }, 300);
-              }}
+              onFocus={() => setActionsExpanded(false)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -4156,17 +4177,38 @@ function Row({ label, val, diff, unit, color }) {
   );
 }
 
+// Contexto que ModalShell expone para que ModalHeader (y otros hijos) puedan
+// disparar el cierre INSTANTÁNEO sin esperar al re-render del padre.
+const ModalCloseContext = React.createContext(null);
+
 function ModalShell({ children, onClose, maxWidth = 'max-w-md' }) {
+  // Truco de UX en mobile: el `setState` del padre tarda 1-2s en re-renderizar
+  // el árbol de 6000 líneas. Para que el cierre se sienta instantáneo,
+  // primero ocultamos el modal con un state LOCAL (display:none, no remount),
+  // y solo después de pintar liberamos el setState del padre.
+  const [closing, setClosing] = React.useState(false);
+  const handleClose = React.useCallback(() => {
+    setClosing(true);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (typeof onClose === 'function') onClose();
+      });
+    });
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{
-      background: 'rgba(0,0,0,0.45)'
-    }} onClick={onClose}>
-      <div className={`w-full ${maxWidth} max-h-[85vh] overflow-y-auto p-6 rounded-3xl fade-up`} style={{
-        background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI
-      }} onClick={e => e.stopPropagation()}>
-        {children}
+    <ModalCloseContext.Provider value={handleClose}>
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{
+        background: 'rgba(0,0,0,0.45)',
+        display: closing ? 'none' : 'flex'
+      }} onClick={handleClose}>
+        <div className={`w-full ${maxWidth} max-h-[85vh] overflow-y-auto p-6 rounded-3xl fade-up`} style={{
+          background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI
+        }} onClick={e => e.stopPropagation()}>
+          {children}
+        </div>
       </div>
-    </div>
+    </ModalCloseContext.Provider>
   );
 }
 
