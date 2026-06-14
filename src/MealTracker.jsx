@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from '
 import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
-  SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, Send
+  SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat
 } from 'lucide-react';
 
 // Palette — premium warm neutrals + signature olive + restrained macro hues
@@ -148,147 +148,6 @@ if (typeof window !== 'undefined' && !window.storage) {
     list: async (prefix = '') => { try { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(PREFIX + prefix)) keys.push(k.slice(PREFIX.length)); } return { keys }; } catch (e) { return null; } },
   };
 }
-
-// Build an HTML block with weekly bar charts compatible with all email clients.
-// Uses HTML tables with bg-color cells (no SVG, no JS).
-// daysData = [{date:'YYYY-MM-DD', kcal, p, c, g, entries}, ...] (length 7)
-function buildWeeklyChartsHTML(daysData, goals) {
-  const macros = [
-    { key: 'kcal', label: 'Calorías', goal: goals.kcal, unit: '', color: '#8A9558' },
-    { key: 'p',    label: 'Proteína', goal: goals.p,    unit: 'g', color: '#D77A61' },
-    { key: 'c',    label: 'Carbohidratos', goal: goals.c, unit: 'g', color: '#D4B581' },
-    { key: 'g',    label: 'Grasas',   goal: goals.g,    unit: 'g', color: '#6B7A8F' },
-  ];
-  const dayShort = (date) => {
-    const [y, m, dd] = date.split('-').map(Number);
-    const d = new Date(y, m - 1, dd);
-    return d.toLocaleDateString('es', { weekday: 'short' }).slice(0, 1).toUpperCase();
-  };
-  return macros.map(macro => {
-    const recorded = daysData.filter(d => (d.entries || 0) > 0);
-    const avg = recorded.length > 0
-      ? Math.round(recorded.reduce((s, d) => s + (d[macro.key] || 0), 0) / recorded.length)
-      : 0;
-    const pct = macro.goal > 0 ? Math.round((avg / macro.goal) * 100) : 0;
-    const maxVal = Math.max(...daysData.map(d => d[macro.key] || 0), macro.goal * 1.1);
-    const maxScale = maxVal * 1.05;
-    const goalPctOfScale = (macro.goal / maxScale) * 100;
-    const pctStatusColor = pct >= 90 && pct <= 110 ? '#7A9579' : '#9A9A9A';
-    return `
-    <div style="background: #fff; padding: 14px; border-radius: 8px; margin-bottom: 10px;">
-      <table style="width:100%; border-collapse: collapse; margin-bottom: 10px;">
-        <tr>
-          <td style="vertical-align: top;">
-            <div style="font-size: 11px; color: ${macro.color}; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">${macro.label}</div>
-            <div style="font-size: 10px; color: #9A9A9A; margin-top: 2px;">Meta diaria ${macro.goal}${macro.unit}</div>
-          </td>
-          <td style="vertical-align: top; text-align: right;">
-            <div style="font-size: 16px; font-weight: 700; color: #1F1F1F;">${avg}${macro.unit}</div>
-            <div style="font-size: 10px; color: ${pctStatusColor};">${pct}% del promedio</div>
-          </td>
-        </tr>
-      </table>
-      <table style="width: 100%; border-collapse: collapse;">
-        ${daysData.map(d => {
-          const val = d[macro.key] || 0;
-          const dayPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
-          const isInGoal = val > 0 && val >= macro.goal * 0.9 && val <= macro.goal * 1.1;
-          const isOver = val > macro.goal * 1.1;
-          const fillColor = val === 0 ? '#D0CFC6' : (isInGoal ? '#7A9579' : (isOver ? '#B8732B' : macro.color));
-          return `
-          <tr>
-            <td style="width: 18px; font-size: 10px; color: #6B6B6B; font-weight: 700; text-align: center; padding: 2px 0;">${dayShort(d.date)}</td>
-            <td style="padding: 3px 6px 3px 4px;">
-              <div style="height: 12px; background: #F0EEE7; border-radius: 3px; position: relative; overflow: hidden;">
-                <div style="height: 100%; width: ${dayPct}%; background: ${fillColor}; border-radius: 3px;"></div>
-                <div style="position: absolute; left: ${goalPctOfScale}%; top: 0; bottom: 0; width: 0; border-left: 1px dashed #7A9579;"></div>
-              </div>
-            </td>
-            <td style="width: 80px; padding-left: 4px; font-size: 10px; color: ${val === 0 ? '#C5C5C5' : '#1F1F1F'}; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;">
-              ${val === 0 ? 'sin registro' : Math.round(val) + macro.unit}
-            </td>
-          </tr>`;
-        }).join('')}
-      </table>
-      <div style="font-size: 9px; color: #9A9A9A; margin-top: 6px; font-style: italic;">
-        Línea verde punteada = meta diaria. Barra verde = en meta ±10%. Barra naranja = sobre meta.
-      </div>
-    </div>`;
-  }).join('');
-}
-
-// Monthly version: aggregates the last 28 days into 4 weekly averages.
-// monthDays = array of {date, kcal, p, c, g, entries} (length ~28-30, oldest first).
-function buildMonthlyChartsHTML(monthDays, goals) {
-  const macros = [
-    { key: 'kcal', label: 'Calorías', goal: goals.kcal, unit: '', color: '#8A9558' },
-    { key: 'p',    label: 'Proteína', goal: goals.p,    unit: 'g', color: '#D77A61' },
-    { key: 'c',    label: 'Carbohidratos', goal: goals.c, unit: 'g', color: '#D4B581' },
-    { key: 'g',    label: 'Grasas',   goal: goals.g,    unit: 'g', color: '#6B7A8F' },
-  ];
-  // Take last 28 days, split into 4 weekly buckets (oldest -> newest)
-  const last28 = monthDays.slice(-28);
-  const weeks = [];
-  for (let w = 0; w < 4; w++) {
-    const chunk = last28.slice(w * 7, w * 7 + 7);
-    const rec = chunk.filter(d => (d.entries || 0) > 0);
-    weeks.push({ label: `Sem ${w + 1}`, rec });
-  }
-  const weekAvg = (week, key) => week.rec.length > 0
-    ? Math.round(week.rec.reduce((s, d) => s + (d[key] || 0), 0) / week.rec.length)
-    : 0;
-
-  return macros.map(macro => {
-    const allRec = last28.filter(d => (d.entries || 0) > 0);
-    const monthAvg = allRec.length > 0
-      ? Math.round(allRec.reduce((s, d) => s + (d[macro.key] || 0), 0) / allRec.length)
-      : 0;
-    const pct = macro.goal > 0 ? Math.round((monthAvg / macro.goal) * 100) : 0;
-    const vals = weeks.map(w => weekAvg(w, macro.key));
-    const maxVal = Math.max(...vals, macro.goal * 1.1);
-    const maxScale = maxVal * 1.05;
-    const goalPctOfScale = (macro.goal / maxScale) * 100;
-    const pctStatusColor = pct >= 90 && pct <= 110 ? '#7A9579' : '#9A9A9A';
-    return `
-    <div style="background: #fff; padding: 14px; border-radius: 8px; margin-bottom: 10px;">
-      <table style="width:100%; border-collapse: collapse; margin-bottom: 10px;">
-        <tr>
-          <td style="vertical-align: top;">
-            <div style="font-size: 11px; color: ${macro.color}; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">${macro.label}</div>
-            <div style="font-size: 10px; color: #9A9A9A; margin-top: 2px;">Promedio semanal · meta ${macro.goal}${macro.unit}/día</div>
-          </td>
-          <td style="vertical-align: top; text-align: right;">
-            <div style="font-size: 16px; font-weight: 700; color: #1F1F1F;">${monthAvg}${macro.unit}</div>
-            <div style="font-size: 10px; color: ${pctStatusColor};">${pct}% del promedio mensual</div>
-          </td>
-        </tr>
-      </table>
-      <table style="width: 100%; border-collapse: collapse;">
-        ${weeks.map((w, i) => {
-          const val = vals[i];
-          const dayPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
-          const isInGoal = val > 0 && val >= macro.goal * 0.9 && val <= macro.goal * 1.1;
-          const isOver = val > macro.goal * 1.1;
-          const fillColor = val === 0 ? '#D0CFC6' : (isInGoal ? '#7A9579' : (isOver ? '#B8732B' : macro.color));
-          return `
-          <tr>
-            <td style="width: 42px; font-size: 10px; color: #6B6B6B; font-weight: 700; text-align: left; padding: 2px 0;">${w.label}</td>
-            <td style="padding: 3px 6px 3px 4px;">
-              <div style="height: 12px; background: #F0EEE7; border-radius: 3px; position: relative; overflow: hidden;">
-                <div style="height: 100%; width: ${dayPct}%; background: ${fillColor}; border-radius: 3px;"></div>
-                <div style="position: absolute; left: ${goalPctOfScale}%; top: 0; bottom: 0; width: 0; border-left: 1px dashed #7A9579;"></div>
-              </div>
-            </td>
-            <td style="width: 80px; padding-left: 4px; font-size: 10px; color: ${val === 0 ? '#C5C5C5' : '#1F1F1F'}; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;">
-              ${val === 0 ? 'sin registro' : Math.round(val) + macro.unit}
-            </td>
-          </tr>`;
-        }).join('')}
-      </table>
-    </div>`;
-  }).join('');
-}
-
 
 export default function MealTracker() {
   const [view, setView] = useState('loading');
@@ -656,246 +515,6 @@ export default function MealTracker() {
     try { localStorage.setItem('cloudConsent', 'declined'); } catch (e) {}
     setCloudConsent('declined');
   }, []);
-
-  // Weekly report auto-send: when client opens app, if 7+ days since last send, send report
-  useEffect(() => {
-    if (view !== 'main' || !name) return;
-    const checkAndSend = async () => {
-      try {
-        const lastSentRes = await window.storage.get('weeklyReportLastSent').catch(() => null);
-        const lastSent = lastSentRes?.value ? JSON.parse(lastSentRes.value) : null;
-        const now = Date.now();
-        const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
-        if (lastSent && (now - lastSent) < ONE_WEEK) return; // Already sent this week
-
-        // Build summary from history of last 7 days
-        const last7Days = [];
-        const todayDate = new Date();
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date(todayDate);
-          d.setDate(d.getDate() - i);
-          last7Days.push(getLocalDate(d));
-        }
-        const daysData = last7Days.map(date => {
-          if (date === today) {
-            const t = entries.reduce((acc, e) => ({
-              kcal: acc.kcal + (e.kcal || 0), p: acc.p + (e.p || 0),
-              c: acc.c + (e.c || 0), g: acc.g + (e.g || 0),
-            }), { kcal: 0, p: 0, c: 0, g: 0 });
-            return { date, ...t, entries: entries.length };
-          }
-          const h = history[date];
-          const det = historyDetail[date] || [];
-          return h ? { date, ...h, entries: det.length } : { date, kcal: 0, p: 0, c: 0, g: 0, entries: 0 };
-        });
-        const daysRegistered = daysData.filter(d => d.entries > 0).length;
-        if (daysRegistered === 0) return; // No data, skip
-
-        // Last 30 days for monthly charts
-        const last30Data = [];
-        for (let i = 29; i >= 0; i--) {
-          const d = new Date(todayDate);
-          d.setDate(d.getDate() - i);
-          const key = getLocalDate(d);
-          if (key === today) {
-            const t = entries.reduce((acc, e) => ({
-              kcal: acc.kcal + (e.kcal || 0), p: acc.p + (e.p || 0),
-              c: acc.c + (e.c || 0), g: acc.g + (e.g || 0),
-            }), { kcal: 0, p: 0, c: 0, g: 0 });
-            last30Data.push({ date: key, ...t, entries: entries.length });
-          } else {
-            const h = history[key];
-            const det = historyDetail[key] || [];
-            last30Data.push(h ? { date: key, ...h, entries: det.length } : { date: key, kcal: 0, p: 0, c: 0, g: 0, entries: 0 });
-          }
-        }
-
-        const avgKcal = Math.round(daysData.reduce((s, d) => s + d.kcal, 0) / 7);
-        const avgP = Math.round(daysData.reduce((s, d) => s + d.p, 0) / 7);
-        const avgC = Math.round(daysData.reduce((s, d) => s + d.c, 0) / 7);
-        const avgG = Math.round(daysData.reduce((s, d) => s + d.g, 0) / 7);
-        const perfectDays = daysData.filter(d =>
-          d.entries > 0 &&
-          Math.abs(d.kcal - goals.kcal) <= goals.kcal * 0.1 &&
-          Math.abs(d.p - goals.p) <= goals.p * 0.1
-        ).length;
-
-        const fmtDay = (date) => {
-          const [y, m, dd] = date.split('-').map(Number);
-          return new Date(y, m - 1, dd).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
-        };
-
-        const summary = `
-<div style="font-family: -apple-system, sans-serif; max-width: 600px; color: #1A1A1A;">
-  <div style="background: #0E0E0E; color: #fff; padding: 24px; border-radius: 12px 12px 0 0;">
-    <div style="font-size: 24px; font-weight: 700; letter-spacing: 0.01em;">REPORTE SEMANAL</div>
-    <div style="height: 2px; width: 40px; background: #C8D0AE; margin: 8px 0;"></div>
-    <div style="font-size: 14px; opacity: 0.85;">Entrena con Método</div>
-  </div>
-  <div style="background: #F9F7F1; padding: 24px; border-radius: 0 0 12px 12px; border: 1px solid #E5E2D5;">
-    <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">${name}</div>
-    <div style="font-size: 12px; color: #6B6B6B; margin-bottom: 20px;">Últimos 7 días · enviado automáticamente</div>
-
-    <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;">
-      <tr>
-        <td style="padding: 12px; background: #fff; border-radius: 8px; text-align: center; width: 25%;">
-          <div style="font-size: 10px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.1em;">Promedio kcal</div>
-          <div style="font-size: 20px; font-weight: 700; color: #7A8450; margin-top: 4px;">${avgKcal}</div>
-          <div style="font-size: 10px; color: #9A9A9A;">meta ${goals.kcal}</div>
-        </td>
-        <td style="padding: 12px; background: #fff; border-radius: 8px; text-align: center; width: 25%;">
-          <div style="font-size: 10px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.1em;">Proteína</div>
-          <div style="font-size: 20px; font-weight: 700; color: #E07856; margin-top: 4px;">${avgP}g</div>
-          <div style="font-size: 10px; color: #9A9A9A;">meta ${goals.p}g</div>
-        </td>
-        <td style="padding: 12px; background: #fff; border-radius: 8px; text-align: center; width: 25%;">
-          <div style="font-size: 10px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.1em;">Carbos</div>
-          <div style="font-size: 20px; font-weight: 700; color: #C9A66B; margin-top: 4px;">${avgC}g</div>
-          <div style="font-size: 10px; color: #9A9A9A;">meta ${goals.c}g</div>
-        </td>
-        <td style="padding: 12px; background: #fff; border-radius: 8px; text-align: center; width: 25%;">
-          <div style="font-size: 10px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.1em;">Grasas</div>
-          <div style="font-size: 20px; font-weight: 700; color: #5A6478; margin-top: 4px;">${avgG}g</div>
-          <div style="font-size: 10px; color: #9A9A9A;">meta ${goals.g}g</div>
-        </td>
-      </tr>
-    </table>
-
-    <div style="background: #fff; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 12px;">Resumen de adherencia</div>
-      <div style="display: flex; gap: 16px;">
-        <div>
-          <div style="font-size: 24px; font-weight: 700; color: #1A1A1A;">${daysRegistered}/7</div>
-          <div style="font-size: 11px; color: #6B6B6B;">Días con registro</div>
-        </div>
-        <div style="border-left: 1px solid #E5E2D5; padding-left: 16px;">
-          <div style="font-size: 24px; font-weight: 700; color: #7A8450;">${perfectDays}</div>
-          <div style="font-size: 11px; color: #6B6B6B;">Días en rango ±10%</div>
-        </div>
-      </div>
-    </div>
-
-    <div style="margin-bottom: 16px;">
-      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño · semana (por día)</div>
-      ${buildWeeklyChartsHTML(daysData, goals)}
-    </div>
-
-    <div style="margin-bottom: 16px;">
-      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño · mes (promedio por semana)</div>
-      ${buildMonthlyChartsHTML(last30Data, goals)}
-    </div>
-
-    <div style="background: #fff; padding: 16px; border-radius: 8px;">
-      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 12px;">Detalle diario</div>
-      ${daysData.map(d => `
-        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F2F2F2; font-size: 13px;">
-          <span style="color: ${d.entries === 0 ? '#C5C5C5' : '#1A1A1A'}; text-transform: capitalize;">${fmtDay(d.date)}</span>
-          <span style="color: ${d.entries === 0 ? '#C5C5C5' : '#6B6B6B'}; font-variant-numeric: tabular-nums;">
-            ${d.entries === 0 ? 'Sin registro' : `${d.kcal} kcal · P ${d.p}g · C ${d.c}g · G ${d.g}g`}
-          </span>
-        </div>
-      `).join('')}
-    </div>
-
-    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E5E2D5; font-size: 11px; color: #9A9A9A; text-align: center;">
-      Reporte generado automáticamente por Meal Tracker<br>
-      Mauro Morón · ISSA Certified Fitness and Nutrition Coach
-    </div>
-  </div>
-</div>
-        `;
-
-        // Generate PDF using existing logic
-        let pdfBase64 = null;
-        try {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-          await new Promise((resolve, reject) => {
-            if (window.jspdf) { resolve(); return; }
-            script.onload = resolve;
-            script.onerror = reject;
-            document.body.appendChild(script);
-          });
-          const { jsPDF } = window.jspdf;
-          const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-          doc.setFillColor(14, 14, 14);
-          doc.rect(0, 0, 210, 30, 'F');
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(20);
-          doc.setFont('helvetica', 'bold');
-          doc.text('REPORTE SEMANAL', 15, 18);
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'normal');
-          doc.text('Entrena con Método', 15, 25);
-          doc.setTextColor(30, 30, 30);
-          let y = 45;
-          doc.setFontSize(14);
-          doc.setFont('helvetica', 'bold');
-          doc.text(name, 15, y);
-          y += 6;
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(120, 120, 120);
-          doc.text('Últimos 7 días · enviado automáticamente', 15, y);
-          y += 12;
-          doc.setFontSize(11);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(30, 30, 30);
-          doc.text('Promedios semanales', 15, y);
-          y += 6;
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'normal');
-          doc.text(`Calorías: ${avgKcal} / ${goals.kcal} kcal`, 15, y); y += 5;
-          doc.text(`Proteína: ${avgP}g / ${goals.p}g`, 15, y); y += 5;
-          doc.text(`Carbohidratos: ${avgC}g / ${goals.c}g`, 15, y); y += 5;
-          doc.text(`Grasas: ${avgG}g / ${goals.g}g`, 15, y); y += 10;
-          doc.setFont('helvetica', 'bold');
-          doc.text(`Adherencia: ${daysRegistered}/7 días con registro · ${perfectDays} días en rango ±10%`, 15, y);
-          y += 12;
-          doc.setFont('helvetica', 'bold');
-          doc.text('Detalle diario', 15, y);
-          y += 6;
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
-          daysData.forEach(d => {
-            const line = d.entries === 0
-              ? `${fmtDay(d.date)}: Sin registro`
-              : `${fmtDay(d.date)}: ${d.kcal} kcal · P ${d.p}g · C ${d.c}g · G ${d.g}g`;
-            doc.text(line, 15, y);
-            y += 5;
-          });
-          const pdfDataUri = doc.output('datauristring');
-          pdfBase64 = pdfDataUri.split(',')[1];
-        } catch (e) {
-          // PDF generation failed, send without attachment
-          pdfBase64 = null;
-        }
-
-        // Send to backend
-        const weekLabel = today;
-        const sendRes = await fetch('/api/send-report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientName: name, summary, pdfBase64, weekLabel }),
-        });
-        if (sendRes.ok) {
-          await window.storage.set('weeklyReportLastSent', JSON.stringify(now)).catch(() => {});
-          // Silent success - or show a subtle message
-          setMessages(m => [...m, {
-            role: 'system',
-            isInfo: true,
-            content: 'Reporte semanal enviado a tu coach.',
-            ts: Date.now(),
-          }]);
-        }
-      } catch (e) {
-        console.error('Weekly report error:', e);
-      }
-    };
-    // Run after a short delay so app finishes loading first
-    const timer = setTimeout(checkAndSend, 5000);
-    return () => clearTimeout(timer);
-  }, [view, name, today]);
 
   // Proactive favorites suggestion: if user has 3+ days with registrations and no favoriteIngredients, suggest once (dismissible)
   useEffect(() => {
@@ -1781,7 +1400,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "needs_quantity": false}],
   "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N}]}] | null,
   "append_to_entry_id": N | null,
-  "command": "reset_day | change_goals | calendar | favorites | export | proportion | manage_favorites | plan_day | save_day_favorite | null",
+  "command": "reset_day | change_goals | calendar | favorites | proportion | manage_favorites | plan_day | save_day_favorite | null",
   "name_detected": "..." | null,
   "water_ml": N | null,
   "preview": "string corto resumen items | null",
@@ -1987,7 +1606,6 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         else if (parsed.command === 'change_goals') setView('onboarding');
         else if (parsed.command === 'calendar') setActiveModal('calendar');
         else if (parsed.command === 'favorites') setActiveModal('favorites');
-        else if (parsed.command === 'export') setActiveModal('export');
         else if (parsed.command === 'manage_favorites') {
           const fromItems = (parsed.items || []).map(i => (i.name || '').trim().toLowerCase()).filter(Boolean);
           if (fromItems.length > 0) {
@@ -2469,7 +2087,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     }
   }, []);
 
-
   const useFavorite = (fav) => {
     haptic(12);
     // DAY favorite: replica TODAS las comidas del día como entries separadas
@@ -2708,7 +2325,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
       <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: cardCompact ? '90px' : '195px' }}>
 
-
         {/* Goals card — FIXED + visualViewport tracking */}
         <div ref={goalsCardRef} className="fixed left-0 right-0" style={{
           top: '40px',
@@ -2898,8 +2514,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <div>
                   <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
                   <div className="grid grid-cols-2 gap-2.5">
-                    <ActionChipMini icon={<FileText size={19} strokeWidth={1.75} />} label="Reporte al coach" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); setActiveModal('export'); }} />
                     <ActionChipMini icon={<Info size={19} strokeWidth={1.75} />} label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
                     <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
@@ -2973,7 +2587,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               ))}
             </div>
           )}
-          {input.trim() && !input.toLowerCase().match(/desayuno|almuerzo|cena|snack|reiniciar|cambiar|resumen|semanal|calendario|exportar|favoritos|proporciones|agua|cuántas|cuanto|cuánto/) && (
+          {input.trim() && !input.toLowerCase().match(/desayuno|almuerzo|cena|snack|reiniciar|cambiar|resumen|semanal|calendario|favoritos|proporciones|agua|cuántas|cuanto|cuánto/) && (
             <div className="text-[10px] text-center mb-2 px-3 py-1 rounded-full inline-block" style={{
               background: ACCENT_PASTEL + '60', color: ACCENT_DARK, fontWeight: 500
             }}>
@@ -3096,13 +2710,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           onConfirm={(name) => confirmFavorite(name)}
           onCancel={() => setPendingFavoriteEntry(null)}
           onSaveWholeDay={(name) => saveDayAsFavorite(name)} />
-      )}
-
-      {activeModal === 'export' && (
-        <ExportModal
-          name={name} goals={goals} history={history} historyDetail={historyDetail}
-          today={today} todayEntries={entries} todayWater={water}
-          onClose={() => setActiveModal(null)} />
       )}
 
       {activeModal === 'perfect' && (
@@ -3361,7 +2968,6 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
     </div>
   );
 }
-
 
 function ActionChipMini({ icon, label, color, pastel, onClick }) {
   return (
@@ -4230,13 +3836,18 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
 }
 
 function ModalHeader({ accent, label, title, onClose }) {
+  // Prefer the optimized close from ModalShell context (instant display:none
+  // before the parent re-renders the 6000-line tree). Falls back to onClose
+  // for modals not wrapped in ModalShell.
+  const contextClose = React.useContext(ModalCloseContext);
+  const handleClose = contextClose || onClose;
   return (
     <div className="flex items-start justify-between mb-5">
       <div>
         <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: accent }}>{label}</div>
         <div className="text-xl font-bold tracking-tight mt-0.5" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
       </div>
-      <button onClick={onClose} aria-label="Cerrar"
+      <button onClick={handleClose} aria-label="Cerrar"
         className="-m-2 p-3 rounded-full active:bg-black/10"
         style={{ touchAction: 'manipulation' }}>
         <X size={18} style={{ color: TEXT_MUTED }} />
@@ -4569,544 +4180,6 @@ function FavoriteNameModal({ entry, todayEntriesCount = 0, onConfirm, onCancel, 
   );
 }
 
-function ExportModal({ name, goals, history, historyDetail, today, todayEntries, todayWater, onClose }) {
-  const [days, setDays] = useState(7);
-  const [busy, setBusy] = useState(null); // 'download' | 'send' | null
-  const [sendStatus, setSendStatus] = useState(null); // 'success' | 'error' | null
-
-  const allHistory = { ...history };
-  const allHistoryDetail = { ...historyDetail };
-  if (todayEntries.length > 0) {
-    const totals = todayEntries.reduce((acc, e) => ({
-      kcal: acc.kcal + e.kcal, p: acc.p + e.p, c: acc.c + e.c, g: acc.g + e.g
-    }), { kcal: 0, p: 0, c: 0, g: 0 });
-    allHistory[today] = { ...totals, water: todayWater };
-    allHistoryDetail[today] = todayEntries;
-  }
-  const sortedDates = Object.keys(allHistory).sort().slice(-days);
-
-  const loadJsPDF = () => {
-    return new Promise((resolve, reject) => {
-      if (window.jspdf) return resolve(window.jspdf);
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-      script.onload = () => resolve(window.jspdf);
-      script.onerror = reject;
-      document.body.appendChild(script);
-    });
-  };
-
-  const generateReport = async (mode = 'download') => {
-    setBusy(mode);
-    if (mode === 'send') setSendStatus(null);
-    haptic(15);
-    try {
-      const { jsPDF } = await loadJsPDF();
-      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-      const pageW = 210;
-      const pageH = 297;
-      const margin = 15;
-      let y = margin;
-
-      const checkPage = (needed) => {
-        if (y + needed > pageH - margin) {
-          doc.addPage();
-          y = margin;
-        }
-      };
-
-      const hexToRgb = (hex) => {
-        const n = parseInt(hex.replace('#', ''), 16);
-        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-      };
-
-      // Header
-      doc.setFillColor(14, 14, 14);
-      doc.rect(0, 0, pageW, 38, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.text('MEAL TRACKER', margin, 18);
-      doc.setFontSize(9);
-      doc.setTextColor(...hexToRgb(ACCENT_PASTEL));
-      doc.text('ENTRENA CON MÉTODO', margin, 25);
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Mauro Morón · ISSA Certified Fitness and Nutrition Coach', margin, 31);
-      y = 50;
-
-      // Meta info
-      doc.setTextColor(100, 100, 100);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      const metaLine = `${name ? `Cliente: ${name}  ·  ` : ''}Periodo: ${days} días  ·  Generado: ${new Date().toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}`;
-      doc.text(metaLine, margin, y);
-      y += 10;
-
-      // Goals card
-      doc.setFillColor(245, 246, 238);
-      doc.roundedRect(margin, y, pageW - margin * 2, 22, 3, 3, 'F');
-      doc.setTextColor(...hexToRgb(ACCENT_DARK));
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'bold');
-      doc.text('METAS DIARIAS', margin + 5, y + 6);
-      const goalCols = [
-        { label: 'Calorías', val: `${goals.kcal}`, unit: 'kcal', color: ACCENT },
-        { label: 'Proteína', val: `${goals.p}g`, unit: '', color: C_PROTEIN },
-        { label: 'Carbohidratos', val: `${goals.c}g`, unit: '', color: C_CARBS },
-        { label: 'Grasas', val: `${goals.g}g`, unit: '', color: C_FAT },
-      ];
-      goalCols.forEach((g, i) => {
-        const colX = margin + 5 + i * 45;
-        doc.setTextColor(...hexToRgb(g.color));
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text(g.val, colX, y + 14);
-        doc.setTextColor(120, 120, 120);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text(g.label, colX, y + 19);
-      });
-      y += 30;
-
-      // Days
-      sortedDates.forEach(date => {
-        const t = allHistory[date];
-        const entriesD = allHistoryDetail[date] || [];
-        const isPerfect = t.kcal >= goals.kcal * 0.95 && t.kcal <= goals.kcal * 1.05 &&
-                          t.p >= goals.p * 0.95 && t.p <= goals.p * 1.05 &&
-                          t.c >= goals.c * 0.95 && t.c <= goals.c * 1.05 &&
-                          t.g >= goals.g * 0.95 && t.g <= goals.g * 1.05;
-        const dateFormatted = formatDate(date);
-        const estimatedHeight = 18 + entriesD.reduce((sum, e) => sum + 7 + (e.items.length * 4), 0);
-        checkPage(estimatedHeight);
-
-        // Day card
-        doc.setDrawColor(229, 226, 213);
-        doc.setLineWidth(0.2);
-        const cardStart = y;
-
-        // Day title
-        doc.setTextColor(26, 26, 26);
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text(dateFormatted.charAt(0).toUpperCase() + dateFormatted.slice(1), margin + 4, y + 6);
-
-        if (isPerfect) {
-          const badge = 'PRECISIÓN';
-          doc.setFillColor(...hexToRgb(SUCCESS));
-          const bw = doc.getTextWidth(badge) + 4;
-          doc.roundedRect(pageW - margin - 4 - bw, y + 1.5, bw, 5, 1.5, 1.5, 'F');
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(6);
-          doc.setFont('helvetica', 'bold');
-          doc.text(badge, pageW - margin - 4 - bw + 2, y + 5);
-        }
-        y += 10;
-
-        // Day totals row
-        doc.setFontSize(8);
-        const totalCols = [
-          { label: 'kcal', val: `${t.kcal}/${goals.kcal}`, color: ACCENT },
-          { label: 'P', val: `${t.p}g/${goals.p}g`, color: C_PROTEIN },
-          { label: 'C', val: `${t.c}g/${goals.c}g`, color: C_CARBS },
-          { label: 'G', val: `${t.g}g/${goals.g}g`, color: C_FAT },
-        ];
-        totalCols.forEach((c, i) => {
-          const colX = margin + 4 + i * 45;
-          doc.setTextColor(...hexToRgb(c.color));
-          doc.setFont('helvetica', 'bold');
-          doc.text(c.label, colX, y);
-          doc.setTextColor(60, 60, 60);
-          doc.setFont('helvetica', 'normal');
-          doc.text(c.val, colX + 8, y);
-        });
-        y += 5;
-
-        // Meals
-        if (entriesD.length === 0) {
-          doc.setTextColor(150, 150, 150);
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'italic');
-          doc.text('Sin registros este día', margin + 4, y + 4);
-          y += 8;
-        } else {
-          entriesD.forEach(e => {
-            checkPage(15 + e.items.length * 4);
-            doc.setDrawColor(239, 237, 227);
-            doc.line(margin + 4, y + 1, pageW - margin - 4, y + 1);
-            y += 4;
-            doc.setTextColor(...hexToRgb(ACCENT_DARK));
-            doc.setFontSize(7);
-            doc.setFont('helvetica', 'bold');
-            doc.text(e.meal.toUpperCase(), margin + 4, y + 2);
-            doc.setTextColor(150, 150, 150);
-            doc.setFont('helvetica', 'normal');
-            doc.text(e.time, pageW - margin - 12, y + 2);
-            y += 4;
-            e.items.forEach(it => {
-              doc.setTextColor(40, 40, 40);
-              doc.setFontSize(8);
-              doc.setFont('helvetica', 'normal');
-              const itemText = `${it.name}${it.amount ? ` · ${it.amount}` : ''}`;
-              doc.text(itemText, margin + 6, y + 2);
-              doc.setTextColor(150, 150, 150);
-              doc.text(`${it.kcal} kcal`, pageW - margin - 18, y + 2);
-              y += 3.5;
-            });
-            doc.setTextColor(100, 100, 100);
-            doc.setFontSize(7);
-            doc.text(`Total: ${e.kcal} kcal · P${e.p}g · C${e.c}g · G${e.g}g`, margin + 6, y + 2);
-            y += 5;
-          });
-        }
-        y += 6;
-      });
-
-      // ─── Charts page: weekly performance (last 7 days) ───
-      doc.addPage();
-      y = margin;
-      doc.setFillColor(14, 14, 14);
-      doc.rect(0, 0, pageW, 24, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text('DESEMPEÑO ÚLTIMOS 7 DÍAS', margin, 15);
-      doc.setFontSize(8);
-      doc.setTextColor(212, 218, 184);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Promedio diario vs meta · por macro', margin, 20);
-      y = 34;
-
-      // Build last 7 days from allHistory
-      const last7Pdf = [];
-      const baseDt = new Date();
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(baseDt);
-        d.setDate(d.getDate() - i);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const hh = allHistory[key];
-        last7Pdf.push(hh ? { date: key, ...hh } : { date: key, kcal: 0, p: 0, c: 0, g: 0 });
-      }
-      const dayShortPdf = (date) => {
-        const [yy, mm, ddd] = date.split('-').map(Number);
-        return new Date(yy, mm - 1, ddd).toLocaleDateString('es', { weekday: 'short' }).slice(0, 1).toUpperCase();
-      };
-
-      const macrosPdf = [
-        { key: 'kcal', label: 'Calorías',      goal: goals.kcal, unit: '',  color: ACCENT },
-        { key: 'p',    label: 'Proteína',      goal: goals.p,    unit: 'g', color: C_PROTEIN },
-        { key: 'c',    label: 'Carbohidratos', goal: goals.c,    unit: 'g', color: C_CARBS },
-        { key: 'g',    label: 'Grasas',        goal: goals.g,    unit: 'g', color: C_FAT },
-      ];
-
-      // Grid: 2 columns x 2 rows, each cell ~85mm wide
-      const cellW = (pageW - margin * 2 - 10) / 2;
-      const cellH = 65;
-      macrosPdf.forEach((m, idx) => {
-        const col = idx % 2;
-        const row = Math.floor(idx / 2);
-        const cellX = margin + col * (cellW + 10);
-        const cellY = y + row * (cellH + 8);
-
-        // Cell background
-        doc.setFillColor(247, 244, 237);
-        doc.roundedRect(cellX, cellY, cellW, cellH, 2, 2, 'F');
-
-        // Macro header
-        const [r, g, b] = hexToRgb(m.color);
-        doc.setTextColor(r, g, b);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text(m.label.toUpperCase(), cellX + 4, cellY + 7);
-
-        // Avg
-        const recordedM = last7Pdf.filter(d => (d.kcal || 0) > 0);
-        const avgM = recordedM.length > 0
-          ? Math.round(recordedM.reduce((s, d) => s + (d[m.key] || 0), 0) / recordedM.length)
-          : 0;
-        const pctM = m.goal > 0 ? Math.round((avgM / m.goal) * 100) : 0;
-        doc.setTextColor(31, 31, 31);
-        doc.setFontSize(13);
-        doc.setFont('helvetica', 'bold');
-        const avgText = `${avgM}${m.unit}`;
-        doc.text(avgText, cellX + cellW - 4, cellY + 8, { align: 'right' });
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(150, 150, 150);
-        doc.text(`${pctM}% · meta ${m.goal}${m.unit}`, cellX + cellW - 4, cellY + 12, { align: 'right' });
-
-        // Bars area
-        const barsX = cellX + 5;
-        const barsY = cellY + 18;
-        const barsW = cellW - 10;
-        const barsH = 38;
-
-        // Background area
-        doc.setFillColor(240, 238, 231);
-        doc.roundedRect(barsX, barsY, barsW, barsH, 1, 1, 'F');
-
-        // Max scale
-        const maxV = Math.max(...last7Pdf.map(d => d[m.key] || 0), m.goal * 1.1);
-        const maxScale = maxV * 1.05;
-
-        // Goal line (dashed)
-        const goalYpx = barsY + barsH - (m.goal / maxScale) * barsH;
-        const [gr, gg, gb] = hexToRgb(SUCCESS);
-        doc.setDrawColor(gr, gg, gb);
-        doc.setLineWidth(0.3);
-        const dashLen = 1.5;
-        for (let xx = barsX; xx < barsX + barsW; xx += dashLen * 2) {
-          doc.line(xx, goalYpx, Math.min(xx + dashLen, barsX + barsW), goalYpx);
-        }
-
-        // Bars
-        const gap = 1;
-        const slotW = (barsW - gap * 6) / 7;
-        last7Pdf.forEach((d, i) => {
-          const val = d[m.key] || 0;
-          const inGoal = val > 0 && val >= m.goal * 0.9 && val <= m.goal * 1.1;
-          const isOver = val > m.goal * 1.1;
-          const fillHex = val === 0 ? '#D0CFC6' : (inGoal ? SUCCESS : (isOver ? WARN : m.color));
-          const [fr, fg, fb] = hexToRgb(fillHex);
-          doc.setFillColor(fr, fg, fb);
-          const barH = val > 0 ? Math.min((val / maxScale) * barsH, barsH) : 0.5;
-          const bx = barsX + i * (slotW + gap);
-          const by = barsY + barsH - barH;
-          doc.roundedRect(bx, by, slotW, barH, 0.5, 0.5, 'F');
-          // Day label
-          doc.setTextColor(150, 150, 150);
-          doc.setFontSize(6);
-          doc.setFont('helvetica', 'bold');
-          doc.text(dayShortPdf(d.date), bx + slotW / 2, cellY + cellH - 1, { align: 'center' });
-        });
-      });
-
-      y = y + cellH * 2 + 8 + 6;
-
-      // Legend
-      doc.setTextColor(120, 120, 120);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'italic');
-      doc.text('Línea punteada = meta diaria. Verde = en meta ±10%. Color del macro = fuera de rango. Naranja = sobre meta. Gris = sin registro.', margin, y, { maxWidth: pageW - margin * 2 });
-
-      // Footer on last page
-      checkPage(20);
-      y += 5;
-      doc.setDrawColor(229, 226, 213);
-      doc.line(margin, y, pageW - margin, y);
-      y += 5;
-      doc.setTextColor(150, 150, 150);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Mauro Morón · ISSA Certified Fitness and Nutrition Coach', pageW / 2, y, { align: 'center' });
-      doc.text('Reporte generado por Meal Tracker', pageW / 2, y + 4, { align: 'center' });
-
-      if (mode === 'download') {
-        doc.save(`Reporte_${name ? name.replace(/\s+/g, '_') : 'Cliente'}_${today}.pdf`);
-        setTimeout(() => setBusy(null), 500);
-      } else {
-        // Send via Resend
-        const pdfBase64 = doc.output('datauristring').split(',')[1];
-        // Build last 7 days for the email chart (regardless of selected period)
-        const last7 = [];
-        const baseDate = new Date();
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date(baseDate);
-          d.setDate(d.getDate() - i);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          const h = allHistory[key];
-          const det = allHistoryDetail[key] || [];
-          last7.push(h ? { date: key, ...h, entries: det.length } : { date: key, kcal: 0, p: 0, c: 0, g: 0, entries: 0 });
-        }
-        const chartsHTML = buildWeeklyChartsHTML(last7, goals);
-        // Last 30 days for the monthly charts
-        const last30 = [];
-        for (let i = 29; i >= 0; i--) {
-          const d = new Date(baseDate);
-          d.setDate(d.getDate() - i);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          const h = allHistory[key];
-          const det = allHistoryDetail[key] || [];
-          last30.push(h ? { date: key, ...h, entries: det.length } : { date: key, kcal: 0, p: 0, c: 0, g: 0, entries: 0 });
-        }
-        const monthlyHTML = buildMonthlyChartsHTML(last30, goals);
-        const summary = `<div style="font-family: -apple-system, sans-serif; max-width: 600px; color: #1F1F1F;">
-  <div style="background: #1F1F1F; color: #fff; padding: 20px; border-radius: 12px 12px 0 0;">
-    <div style="font-size: 22px; font-weight: 700;">REPORTE AL COACH</div>
-    <div style="height: 2px; width: 40px; background: #D4DAB8; margin: 8px 0;"></div>
-    <div style="font-size: 13px; opacity: 0.85;">Entrena con Método · Envío manual</div>
-  </div>
-  <div style="background: #F7F4ED; padding: 20px; border-radius: 0 0 12px 12px; border: 1px solid #E2DECC;">
-    <div style="font-size: 16px; font-weight: 600;">${name || 'Cliente'}</div>
-    <div style="font-size: 12px; color: #6B6B6B; margin-bottom: 16px;">Últimos ${days} días en PDF · gráficos semanales y mensuales</div>
-
-    <div style="margin-bottom: 16px;">
-      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño · últimos 7 días</div>
-      ${chartsHTML}
-    </div>
-
-    <div style="margin-bottom: 16px;">
-      <div style="font-size: 11px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 10px;">Desempeño · último mes (promedio por semana)</div>
-      ${monthlyHTML}
-    </div>
-
-    <div style="font-size: 13px; color: #1F1F1F; line-height: 1.55; padding-top: 10px; border-top: 1px solid #E2DECC;">Adjunto encontrarás el detalle completo del periodo en PDF.</div>
-  </div>
-</div>`;
-        const res = await fetch('/api/send-report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientName: name || 'Cliente', summary, pdfBase64, weekLabel: today }),
-        });
-        if (!res.ok) throw new Error('send failed');
-        setSendStatus('success');
-        setBusy(null);
-      }
-    } catch (e) {
-      setBusy(null);
-      if (mode === 'send') {
-        setSendStatus('error');
-      } else {
-        alert('Hubo un error generando el PDF. Intenta de nuevo.');
-      }
-    }
-  };
-
-
-  return (
-    <ModalShell onClose={onClose} maxWidth="max-w-lg">
-      <ModalHeader accent={TEXT} label="Exportar" title="Reporte al coach" onClose={onClose} />
-
-      <div className="mb-5">
-        <div className="text-[12px] font-semibold mb-3 uppercase tracking-wider" style={{ color: TEXT_MUTED }}>Periodo</div>
-        <div className="flex gap-2">
-          {[7, 14].map(d => (
-            <button key={d} onClick={() => setDays(d)}
-              className="flex-1 py-3 rounded-2xl text-[14px] font-semibold transition active:scale-[0.98]"
-              style={days === d
-                ? { background: '#1F1F1F', color: '#fff' }
-                : { background: SURFACE_2, color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
-              Últimos {d} días
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="p-4 rounded-2xl mb-5" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
-        <div className="text-[13px] leading-relaxed" style={{ color: TEXT }}>
-          Genera un PDF con tu data del periodo. Puedes enviárselo al coach por WhatsApp o correo directamente desde tu celular.
-        </div>
-      </div>
-
-      <button onClick={() => generateReport('download')} disabled={busy !== null || sortedDates.length === 0}
-        className="w-full py-3.5 rounded-2xl text-[15px] font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98]"
-        style={{
-          background: '#1F1F1F',
-          color: '#fff',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.1) inset'
-        }}>
-        {busy === 'download' ? <><Loader2 size={15} className="animate-spin" /> Generando PDF…</> : <><FileText size={15} /> Descargar reporte PDF</>}
-      </button>
-
-      <button onClick={() => generateReport('send')} disabled={busy !== null || sortedDates.length === 0}
-        className="w-full mt-2.5 py-3.5 rounded-2xl text-[15px] font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98]"
-        style={{
-          background: SURFACE_2,
-          color: TEXT,
-          border: `1px solid ${BORDER}`
-        }}>
-        {busy === 'send' ? <><Loader2 size={15} className="animate-spin" /> Enviando…</> : <><Send size={15} /> Enviar al coach por email</>}
-      </button>
-
-      {sendStatus === 'success' && (
-        <div className="text-center text-[12px] mt-3" style={{ color: ACCENT_DARK }}>
-          Reporte enviado al correo del coach.
-        </div>
-      )}
-      {sendStatus === 'error' && (
-        <div className="text-center text-[12px] mt-3" style={{ color: WARN }}>
-          No se pudo enviar. Revisa la conexión o vuelve a intentar.
-        </div>
-      )}
-
-      {sortedDates.length === 0 && (
-        <div className="text-center text-[12px] mt-3" style={{ color: TEXT_LIGHT }}>
-          Aún no hay días con registro. En cuanto comas y lo cuentes, lo voy guardando acá.
-        </div>
-      )}
-    </ModalShell>
-  );
-}
-
-// Approximate USDA micronutrient density (per gram of food).
-// Conservative estimates for common items. The goal is directional, not clinical.
-const MICRO_DB = {
-  // fiber g, calcium mg, iron mg, vitD μg, omega3 g per 1g of food
-  'arroz':       { fiber: 0.004, calcium: 0.1,  iron: 0.002, vitD: 0,    omega3: 0 },
-  'pollo':       { fiber: 0,     calcium: 0.15, iron: 0.009, vitD: 0.001,omega3: 0.0001 },
-  'pechuga':     { fiber: 0,     calcium: 0.15, iron: 0.009, vitD: 0.001,omega3: 0.0001 },
-  'pescado':     { fiber: 0,     calcium: 0.2,  iron: 0.005, vitD: 0.04, omega3: 0.012 },
-  'salmon':      { fiber: 0,     calcium: 0.12, iron: 0.003, vitD: 0.11, omega3: 0.022 },
-  'atun':        { fiber: 0,     calcium: 0.1,  iron: 0.008, vitD: 0.02, omega3: 0.013 },
-  'huevo':       { fiber: 0,     calcium: 0.5,  iron: 0.018, vitD: 0.02, omega3: 0.001 },
-  'avena':       { fiber: 0.1,   calcium: 0.54, iron: 0.047, vitD: 0,    omega3: 0.0014 },
-  'banana':      { fiber: 0.026, calcium: 0.05, iron: 0.003, vitD: 0,    omega3: 0 },
-  'platano':     { fiber: 0.026, calcium: 0.05, iron: 0.003, vitD: 0,    omega3: 0 },
-  'manzana':     { fiber: 0.024, calcium: 0.06, iron: 0.001, vitD: 0,    omega3: 0 },
-  'palta':       { fiber: 0.067, calcium: 0.12, iron: 0.006, vitD: 0,    omega3: 0.0011 },
-  'aguacate':    { fiber: 0.067, calcium: 0.12, iron: 0.006, vitD: 0,    omega3: 0.0011 },
-  'arepa':       { fiber: 0.03,  calcium: 0.5,  iron: 0.01,  vitD: 0,    omega3: 0 },
-  'pan':         { fiber: 0.07,  calcium: 0.8,  iron: 0.025, vitD: 0,    omega3: 0 },
-  'yogur':       { fiber: 0,     calcium: 1.1,  iron: 0,     vitD: 0.001,omega3: 0 },
-  'leche':       { fiber: 0,     calcium: 1.2,  iron: 0,     vitD: 0.001,omega3: 0 },
-  'queso':       { fiber: 0,     calcium: 7,    iron: 0.001, vitD: 0.006,omega3: 0.001 },
-  'almendra':    { fiber: 0.13,  calcium: 2.7,  iron: 0.036, vitD: 0,    omega3: 0.0001 },
-  'mantequilla mani': { fiber: 0.06, calcium: 0.5, iron: 0.018, vitD: 0,omega3: 0.0001 },
-  'espinaca':    { fiber: 0.022, calcium: 1,    iron: 0.027, vitD: 0,    omega3: 0.0014 },
-  'brocoli':     { fiber: 0.026, calcium: 0.47, iron: 0.007, vitD: 0,    omega3: 0.001 },
-  'lenteja':     { fiber: 0.079, calcium: 0.19, iron: 0.033, vitD: 0,    omega3: 0.001 },
-  'frijol':      { fiber: 0.06,  calcium: 0.27, iron: 0.029, vitD: 0,    omega3: 0.001 },
-  'tomate':      { fiber: 0.012, calcium: 0.1,  iron: 0.003, vitD: 0,    omega3: 0 },
-  'aceite oliva':{ fiber: 0,     calcium: 0.01, iron: 0.001, vitD: 0,    omega3: 0.008 },
-};
-const DAILY_MICRO_GOALS = { fiber: 28, calcium: 1000, iron: 18, vitD: 15, omega3: 1.6 };
-
-function matchMicroKey(name) {
-  if (!name) return null;
-  const n = name.toLowerCase();
-  for (const key of Object.keys(MICRO_DB)) {
-    if (n.includes(key)) return key;
-  }
-  return null;
-}
-
-function estimateMicros(items) {
-  const result = { fiber: 0, calcium: 0, iron: 0, vitD: 0, omega3: 0 };
-  for (const it of items) {
-    const key = matchMicroKey(it.name);
-    if (!key) continue;
-    // Try to extract grams from amount string ("100g", "50 g", "1 unidad (~50g)")
-    let grams = 0;
-    const amt = (it.amount || '').toLowerCase();
-    const gMatch = amt.match(/(\d+(?:\.\d+)?)\s*g/);
-    if (gMatch) grams = parseFloat(gMatch[1]);
-    else if (it.kcal && it.kcal > 0) {
-      // Rough fallback: assume 1.5 kcal per gram (mixed foods average)
-      grams = it.kcal / 1.5;
-    }
-    if (grams <= 0) continue;
-    const db = MICRO_DB[key];
-    result.fiber += db.fiber * grams;
-    result.calcium += db.calcium * grams;
-    result.iron += db.iron * grams;
-    result.vitD += db.vitD * grams;
-    result.omega3 += db.omega3 * grams;
-  }
-  return result;
-}
-
 function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, onClose }) {
   const [tab, setTab] = useState('semana'); // semana | mes | tendencia
 
@@ -5422,18 +4495,29 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     const pct = goal > 0 ? value / goal : 0;
     const status = pct >= 0.9 ? '✓' : pct >= 0.6 ? '⚠ algo bajo' : '⚠ bajo';
     const statusColor = pct >= 0.9 ? SUCCESS : WARN;
+    const barPct = Math.max(0, Math.min(1, pct));
+    const barColor = pct >= 0.9 ? SUCCESS : pct >= 0.6 ? ACCENT : WARN;
     return (
-      <div className="flex justify-between items-baseline py-2" style={{ borderBottom: `1px solid ${BORDER_SOFT}` }}>
-        <div>
-          <div className="text-[12px] font-medium" style={{ color: TEXT }}>{label}</div>
-          {hint && <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>{hint}</div>}
-        </div>
-        <div className="text-right">
-          <div className="text-[12px] num" style={{ color: TEXT }}>
-            <strong>{value < 10 ? value.toFixed(1) : Math.round(value)}{unit}</strong>
-            <span style={{ color: TEXT_LIGHT, fontWeight: 400 }}>/día · meta {goal}{unit}</span>
+      <div className="py-2" style={{ borderBottom: `1px solid ${BORDER_SOFT}` }}>
+        <div className="flex justify-between items-baseline mb-1.5">
+          <div>
+            <div className="text-[12px] font-medium" style={{ color: TEXT }}>{label}</div>
+            {hint && <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>{hint}</div>}
           </div>
-          <div className="text-[10px]" style={{ color: statusColor }}>{status}</div>
+          <div className="text-right">
+            <div className="text-[12px] num" style={{ color: TEXT }}>
+              <strong>{value < 10 ? value.toFixed(1) : Math.round(value)}{unit}</strong>
+              <span style={{ color: TEXT_LIGHT, fontWeight: 400 }}>/día · meta {goal}{unit}</span>
+            </div>
+            <div className="text-[10px]" style={{ color: statusColor }}>{status}</div>
+          </div>
+        </div>
+        {/* Barra de progreso hacia la meta diaria */}
+        <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: BORDER_SOFT }}>
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${barPct * 100}%`, background: barColor }}
+          />
         </div>
       </div>
     );
@@ -5668,12 +4752,12 @@ function CapabilitiesModal({ onClose }) {
 
       <Section
         icon={<FileText size={14} strokeWidth={1.8} />}
-        title="Reportes para tu coach"
+        title="Tu coach te ve en vivo"
         accent={ACCENT_DARK}
         items={[
-          'Descarga un PDF con tu data de 7 o 14 días para que tu coach lo revise.',
-          'O envíalo directo por correo desde la misma pantalla.',
-          'Si haces el check-in del día (energía, hambre, ánimo), tu coach lo ve en el reporte.',
+          'Mauro tiene un panel donde ve tu data en tiempo real: macros del día, adherencia semanal y check-ins.',
+          'No necesitas mandar nada — basta con que registres. Mientras más completo, mejor criterio puede aportarte.',
+          'Si haces el check-in del día (energía, hambre, ánimo), tu coach también lo ve para entender el contexto.',
         ]} />
 
       <Section
@@ -6304,7 +5388,7 @@ function TutorialModal({ onClose }) {
     { icon: <PieChart size={28} strokeWidth={1.5} />, title: 'Cuadra tus macros', body: 'Si te faltan macros y tienes ingredientes, dime cuáles. La app calcula gramos exactos. Solo matemática, no recetas, no recomendación.', example: '"Tengo pollo, arroz integral, brócoli y aceite de oliva"' },
     { icon: <ChefHat size={28} strokeWidth={1.5} />, title: 'Arma tu día con lo que te gusta', body: 'Guarda los ingredientes que sueles comprar y comer. Pide "arma mi día" y te propongo una distribución en desayuno, almuerzo, snack y cena que llega a tu meta. No es recetario: son tus ingredientes cocidos con kcal y macros. Decides si lo registras, lo guardas como favorito o regeneras otra variante.', example: 'Tus ingredientes → "armame el día" → propuesta editable' },
     { icon: <Pencil size={28} strokeWidth={1.5} />, title: 'Edita o elimina', body: 'Toca el lápiz para ajustar cantidades. Los valores se recalculan automáticamente. Toca la papelera para eliminar.', example: 'En cualquier comida: favorito · editar · eliminar' },
-    { icon: <FileText size={28} strokeWidth={1.5} />, title: 'Reporte al coach', body: 'PDF con detalle completo de tu data. Diseñado para que tu coach revise el patrón y aporte criterio.', example: 'Calendario, resumen, exportable. Tu data, su criterio.' },
+    { icon: <FileText size={28} strokeWidth={1.5} />, title: 'Tu coach te ve en vivo', body: 'Mientras registras, Mauro ve tu data en tiempo real desde su panel: macros del día, adherencia semanal, check-ins. No tienes que enviar nada.', example: 'Tú registras · él ve · ajusta criterio en sesión.' },
     { icon: <CheckCircle2 size={28} strokeWidth={1.5} />, title: 'Importante', body: 'Esta herramienta calcula y registra. No recomienda qué comer ni sustituye el criterio de un coach nutricional.', example: 'La app mide. El coach decide.' },
     { icon: <Download size={28} strokeWidth={1.5} />, title: 'Guarda esta app', body: 'Agrega esta página a tus favoritos del navegador. Si la minimizas en lugar de cerrarla, mantienes la conversación abierta.', example: 'iPhone: Compartir → Añadir a inicio · Android: ⋮ → Añadir a pantalla' }
   ];

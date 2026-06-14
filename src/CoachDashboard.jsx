@@ -186,11 +186,165 @@ function Authenticated({ token, onLogout }) {
     return r;
   }, [token, onLogout]);
 
+  // Path puede ser /coach/<primary_id> con un ?siblings=<id1>,<id2> opcional
+  // cuando se entra desde una fila agrupada (mismo nombre, varios user_ids).
   const detailMatch = path.match(/^\/coach\/([0-9a-f-]+)$/i);
   if (detailMatch) {
-    return <DetailView userId={detailMatch[1]} apiFetch={apiFetch} onBack={() => navigate('/coach')} onLogout={onLogout} />;
+    let siblings = [];
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const raw = qs.get('siblings') || '';
+      siblings = raw.split(',').map(s => s.trim()).filter(s => /^[0-9a-f-]+$/i.test(s));
+    } catch (e) {}
+    return <DetailView userId={detailMatch[1]} siblings={siblings} apiFetch={apiFetch} onBack={() => navigate('/coach')} onLogout={onLogout} />;
   }
-  return <ListView apiFetch={apiFetch} onSelectClient={(id) => navigate(`/coach/${id}`)} onLogout={onLogout} />;
+  return <ListView apiFetch={apiFetch} onSelectClient={(primary, siblings) => {
+    const path = `/coach/${primary}`;
+    const url = siblings && siblings.length > 0 ? `${path}?siblings=${siblings.join(',')}` : path;
+    navigate(url);
+  }} onLogout={onLogout} />;
+}
+
+// ─── Agrupación de clientes por nombre normalizado ────────────────────────
+// Cada cliente tiene un UUID por dispositivo/navegador. Cuando el mismo
+// usuario abre la app en iPhone Safari + iPhone Chrome + PC, aparecen 3
+// filas con el mismo nombre. Esta función las colapsa en una sola fila
+// "merged" que el coach ve como una unidad. La data se fusiona en el
+// DetailView leyendo todos los user_ids en paralelo.
+function groupClientsByName(clients) {
+  if (!Array.isArray(clients)) return [];
+  const groups = new Map();
+  for (const c of clients) {
+    const key = normalize(c.name || '');
+    if (!key) {
+      // Cliente sin nombre — no agrupar (mantenerlo aparte)
+      groups.set(`__nameless__${c.user_id}`, [c]);
+      continue;
+    }
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(c);
+  }
+
+  const STATUS_PRIORITY = { active: 0, recent: 1, at_risk: 2, inactive: 3 };
+  const result = [];
+  for (const [, members] of groups) {
+    // Orden: más recientemente activo primero (lo usaremos como "primario")
+    members.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+    const primary = members[0];
+    const siblings = members.slice(1).map(m => m.user_id);
+    if (members.length === 1) {
+      result.push({ ...primary, user_ids: [primary.user_id], device_count: 1, siblings: [] });
+      continue;
+    }
+    // Mejor status
+    let bestStatus = members[0].status || 'inactive';
+    for (const m of members) {
+      if ((STATUS_PRIORITY[m.status] ?? 99) < (STATUS_PRIORITY[bestStatus] ?? 99)) bestStatus = m.status;
+    }
+    // last_active = el más reciente
+    const lastActive = members.reduce((acc, m) => (m.last_active || '') > (acc || '') ? m.last_active : acc, null);
+    // adherence_7d = máxima de los dispositivos (cota superior real)
+    const adherence7 = members.reduce((acc, m) => Math.max(acc, m.adherence_7d || 0), 0);
+    // today = suma de kcal/p/c/g/water entre dispositivos para hoy
+    const today = members.reduce((acc, m) => {
+      if (!m.today) return acc;
+      if (!acc) acc = { kcal: 0, p: 0, c: 0, g: 0, water: 0 };
+      acc.kcal += m.today.kcal || 0;
+      acc.p += m.today.p || 0;
+      acc.c += m.today.c || 0;
+      acc.g += m.today.g || 0;
+      acc.water += m.today.water || 0;
+      return acc;
+    }, null);
+    // El nombre: preferimos la versión más larga (más tildes/mayúsculas)
+    const bestName = members.reduce((acc, m) => ((m.name || '').length > (acc || '').length ? m.name : acc), '');
+    result.push({
+      user_id: primary.user_id,
+      name: bestName || primary.name,
+      updated_at: primary.updated_at,
+      last_active: lastActive,
+      status: bestStatus,
+      adherence_7d: adherence7,
+      today,
+      goals: primary.goals,
+      coach_notes: primary.coach_notes,
+      user_ids: members.map(m => m.user_id),
+      device_count: members.length,
+      siblings,
+    });
+  }
+  return result;
+}
+
+// ─── Fusión de filas de cliente (cuando un mismo nombre tiene N user_ids) ─
+// Cada respuesta de coach-data?action=detail devuelve un objeto cliente
+// con su `data` (history, historyDetail, wellbeing, favorites, goals, today).
+// Para una fila merged tomamos el MÁS RECIENTE para cada campo, evitando que
+// data vieja de otro dispositivo pise la actual.
+function mergeClientRows(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  if (rows.length === 1) return rows[0];
+
+  // Ordena por updated_at desc — el primero es el "primario" (más reciente)
+  const sorted = [...rows].sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+  const primary = sorted[0];
+
+  // Para cada fecha, nos quedamos con la entrada del row más reciente que
+  // tenga datos para esa fecha. Iteramos en orden DESC, así el primer hit
+  // por fecha gana.
+  const mergedHistory = {};
+  const mergedHistoryDetail = {};
+  const mergedWellbeing = {};
+  for (const r of sorted) {
+    const d = r.data || {};
+    const h = d.history || {};
+    const hd = d.historyDetail || {};
+    const wb = d.wellbeing || {};
+    for (const date of Object.keys(h)) {
+      if (!mergedHistory[date]) mergedHistory[date] = h[date];
+    }
+    for (const date of Object.keys(hd)) {
+      if (!mergedHistoryDetail[date]) mergedHistoryDetail[date] = hd[date];
+    }
+    for (const date of Object.keys(wb)) {
+      if (!mergedWellbeing[date]) mergedWellbeing[date] = wb[date];
+    }
+  }
+
+  // Favoritos e ingredientes favoritos: unión por nombre (case-insensitive)
+  const favMap = new Map();
+  const favIngSet = new Set();
+  for (const r of sorted) {
+    const d = r.data || {};
+    for (const f of (d.favorites || [])) {
+      const k = normalize(f?.name || f?.id || JSON.stringify(f));
+      if (k && !favMap.has(k)) favMap.set(k, f);
+    }
+    for (const ing of (d.favoriteIngredients || [])) {
+      const k = normalize(typeof ing === 'string' ? ing : ing?.name || '');
+      if (k) favIngSet.add(k);
+    }
+  }
+  const mergedFavorites = Array.from(favMap.values());
+  const mergedFavoriteIngredients = Array.from(favIngSet);
+
+  // Goals + name: del row más reciente
+  const primaryData = primary.data || {};
+
+  return {
+    ...primary,
+    data: {
+      ...primaryData,
+      history: mergedHistory,
+      historyDetail: mergedHistoryDetail,
+      wellbeing: mergedWellbeing,
+      favorites: mergedFavorites,
+      favoriteIngredients: mergedFavoriteIngredients,
+    },
+    // Para que el coach sepa que está viendo data fusionada
+    _merged_from: rows.length,
+    _merged_user_ids: rows.map(r => r.user_id),
+  };
 }
 
 // ─── LISTA DE CLIENTES ────────────────────────────────────────────────────
@@ -216,19 +370,24 @@ function ListView({ apiFetch, onSelectClient, onLogout }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Agrupamos por nombre normalizado antes de mostrar/filtrar. Las filas
+  // duplicadas se colapsan en una "fila merged" con su lista de user_ids.
+  const groupedClients = useMemo(() => groupClientsByName(clients), [clients]);
+
   const stats = useMemo(() => {
-    const cs = clients || [];
+    const cs = groupedClients;
     return {
       total: cs.length,
       activeToday: cs.filter(c => c.status === 'active').length,
       atRisk: cs.filter(c => c.status === 'at_risk' || c.status === 'inactive').length,
       avgAdherence: cs.length === 0 ? 0 : Math.round(cs.reduce((s, c) => s + c.adherence_7d, 0) / cs.length * 10) / 10,
+      duplicates: cs.filter(c => c.device_count > 1).length,
     };
-  }, [clients]);
+  }, [groupedClients]);
 
   const filtered = useMemo(() => {
     if (!clients) return [];
-    let arr = clients;
+    let arr = groupedClients;
     if (filter === 'active') arr = arr.filter(c => c.status === 'active');
     else if (filter === 'at_risk') arr = arr.filter(c => c.status === 'at_risk' || c.status === 'inactive');
     if (search.trim()) {
@@ -241,7 +400,7 @@ function ListView({ apiFetch, onSelectClient, onLogout }) {
     else if (sortBy === 'adherence') arr.sort((a, b) => b.adherence_7d - a.adherence_7d);
     else if (sortBy === 'worst_adherence') arr.sort((a, b) => a.adherence_7d - b.adherence_7d);
     return arr;
-  }, [clients, filter, search, sortBy]);
+  }, [clients, groupedClients, filter, search, sortBy]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
@@ -293,7 +452,13 @@ function ListView({ apiFetch, onSelectClient, onLogout }) {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(c => <ClientRow key={c.user_id} client={c} onClick={() => onSelectClient(c.user_id)} />)}
+          {filtered.map(c => (
+            <ClientRow
+              key={c.user_id}
+              client={c}
+              onClick={() => onSelectClient(c.user_id, c.siblings)}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -303,7 +468,7 @@ function ListView({ apiFetch, onSelectClient, onLogout }) {
 function ClientRow({ client, onClick }) {
   const c = client;
   const kcalPct = c.today && c.goals?.kcal ? Math.round((c.today.kcal / c.goals.kcal) * 100) : null;
-  const isDup = c.coach_notes?.duplicate_of;
+  const isMerged = c.device_count > 1;
 
   return (
     <button onClick={onClick}
@@ -316,9 +481,13 @@ function ClientRow({ client, onClick }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <div className="text-[14px] font-semibold truncate" style={{ color: TEXT }}>{c.name}</div>
-          {isDup && (
-            <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full"
-              style={{ background: '#F5E6E0', color: DANGER }}>duplicado</span>
+          {isMerged && (
+            <span
+              className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-1"
+              style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}
+              title={`Datos fusionados de ${c.device_count} dispositivos / sesiones del mismo nombre`}>
+              <Link2 size={9} strokeWidth={2.5} /> {c.device_count} sesiones
+            </span>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]" style={{ color: TEXT_LIGHT }}>
@@ -351,22 +520,36 @@ function ClientRow({ client, onClick }) {
 }
 
 // ─── DETALLE DE CLIENTE ───────────────────────────────────────────────────
-function DetailView({ userId, apiFetch, onBack, onLogout }) {
+function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
   const [client, setClient] = useState(null); // null = loading
+  const [mergedFrom, setMergedFrom] = useState(0); // cuántas sesiones se fusionaron
   const [error, setError] = useState('');
   const [tab, setTab] = useState('dia');
   const [editingGoals, setEditingGoals] = useState(false);
   const [drilldownDate, setDrilldownDate] = useState(null); // 'YYYY-MM-DD' o null
 
+  const allIds = useMemo(() => [userId, ...(siblings || [])], [userId, siblings]);
+
   const load = useCallback(async () => {
     setError('');
     try {
-      const r = await apiFetch(`/api/coach-data?action=detail&user_id=${encodeURIComponent(userId)}`);
-      const json = await r.json();
-      if (!r.ok) { setError(json.error || 'Error al cargar'); return; }
-      setClient(json.client);
+      const responses = await Promise.all(
+        allIds.map(id =>
+          apiFetch(`/api/coach-data?action=detail&user_id=${encodeURIComponent(id)}`)
+            .then(r => r.json().then(j => ({ ok: r.ok, json: j })))
+            .catch(e => ({ ok: false, json: { error: String(e) } }))
+        )
+      );
+      const successful = responses.filter(r => r.ok && r.json.client).map(r => r.json.client);
+      if (successful.length === 0) {
+        const firstErr = responses[0]?.json?.error || 'Error al cargar';
+        setError(firstErr);
+        return;
+      }
+      setMergedFrom(successful.length);
+      setClient(mergeClientRows(successful));
     } catch (e) { setError(String(e)); }
-  }, [apiFetch, userId]);
+  }, [apiFetch, allIds]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -408,6 +591,17 @@ function DetailView({ userId, apiFetch, onBack, onLogout }) {
         onBack={onBack}
       />
 
+      {mergedFrom > 1 && (
+        <div className="mb-4 p-3 rounded-2xl flex items-center gap-2 text-[12px]"
+          style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, border: `1px solid ${ACCENT}` }}>
+          <Link2 size={14} strokeWidth={2.2} />
+          <span>
+            Mostrando data fusionada de <strong>{mergedFrom} sesiones</strong> con el mismo nombre.
+            Si necesitas ver una sola sesión, ábrelas directamente por su user_id.
+          </span>
+        </div>
+      )}
+
       {/* Meta + duplicado */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
         <GoalsCard goals={goals} editing={editingGoals} setEditing={setEditingGoals}
@@ -429,12 +623,12 @@ function DetailView({ userId, apiFetch, onBack, onLogout }) {
         <DuplicateCard client={client} apiFetch={apiFetch} onChange={load} />
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — orden de prioridad: alineación hoy → calendario → gráficas → resto */}
       <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
         {[
           ['dia', 'Día'],
+          ['mes', 'Calendario'],
           ['semana', 'Semana'],
-          ['mes', 'Mes'],
           ['tendencia', 'Tendencia'],
           ['micros', 'Micros'],
           ['bienestar', 'Bienestar'],
