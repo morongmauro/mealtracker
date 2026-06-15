@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import {
-  ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
+  ArrowUp, ArrowLeft, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat
 } from 'lucide-react';
@@ -63,7 +63,7 @@ const AUTHORIZED_CLIENTS = [
   'Andres Yepes', 'Carlos Martinez', 'Carlos Pirela', 'David Forero',
   'Diana Tovar', 'Julio Dieguez', 'Laura Lorena Cardenas', 'Mar Alzate',
   'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez',
-  'Maria Alejandra Gonzales', 'Natalia Samper', 'Salvador Montoya',
+  'Maria Alejandra Gonzales', 'Natalia Samper',
 ];
 
 const normalizeName = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
@@ -2422,20 +2422,25 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </div>
         </div>
 
-        {/* Action FAB — always mounted; visibility toggled via CSS for instant open/close on mobile */}
+        {/* Action FAB — onPointerDown para abrir al primer touchstart (sin esperar el click sintético
+            de iOS Safari, que en este árbol grande agrega ~300ms perceptibles). Subido a bottom:120px
+            para no rozar la barra de entrada. */}
         <button
           ref={actionsFabRef}
-          onClick={() => { haptic(10); openActionsSheet(); }}
-          className="fixed z-40 rounded-full transition active:scale-95 items-center justify-center gap-1.5"
+          onPointerDown={(e) => { e.preventDefault(); openActionsSheet(); }}
+          onClick={(e) => e.preventDefault()}
+          className="fixed z-40 rounded-full active:scale-95 items-center justify-center gap-1.5"
           style={{
             display: actionsExpanded ? 'none' : 'flex',
-            bottom: '96px',
+            bottom: '120px',
             right: '20px',
             height: '46px',
             padding: '0 16px 0 14px',
             background: '#1F1F1F',
             color: '#fff',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.08) inset'
+            boxShadow: '0 6px 20px rgba(0,0,0,0.22), 0 2px 4px rgba(0,0,0,0.10)',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent'
           }}
           title="Herramientas y acciones">
           <Sparkles size={16} strokeWidth={2} style={{ color: ACCENT_PASTEL }} />
@@ -2473,9 +2478,22 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
                   <div className="text-[17px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
                 </div>
-                <button onClick={() => { haptic(6); closeActionsSheet(); }} aria-label="Cerrar"
-                  className="p-3 rounded-full active:scale-95" style={{ background: SURFACE_2, touchAction: 'manipulation' }}>
-                  <X size={18} style={{ color: TEXT_MUTED }} />
+                {/* Cierre: pildora "Volver al chat" usando onPointerDown para responder al primer
+                    touchstart (sin esperar el click sintético de iOS). Mismo handler DOM-mutante
+                    que el bottom sheet de Herramientas, que es el que sí se siente instantáneo. */}
+                <button
+                  onPointerDown={(e) => { e.preventDefault(); closeActionsSheet(); }}
+                  onClick={(e) => e.preventDefault()}
+                  aria-label="Volver al chat"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full active:scale-95"
+                  style={{
+                    background: SURFACE_2,
+                    border: `1px solid ${BORDER}`,
+                    touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent'
+                  }}>
+                  <ArrowLeft size={14} strokeWidth={2.2} style={{ color: TEXT }} />
+                  <span className="text-[12px] font-semibold" style={{ color: TEXT }}>Volver al chat</span>
                 </button>
               </div>
               <div className="space-y-4">
@@ -2514,6 +2532,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <div>
                   <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
                   <div className="grid grid-cols-2 gap-2.5">
+                    <ActionChipMini icon={<Sliders size={19} strokeWidth={1.75} />} label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                      onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => setView('onboarding'))); }} />
                     <ActionChipMini icon={<Info size={19} strokeWidth={1.75} />} label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
                     <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
