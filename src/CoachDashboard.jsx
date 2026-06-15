@@ -161,16 +161,22 @@ function LoginView({ onLogin }) {
 
 // ─── AUTENTICADO: ruta entre lista y detalle ─────────────────────────────
 function Authenticated({ token, onLogout }) {
-  // Path después de /coach. Ej: '/coach/abc-uuid' → 'abc-uuid'
+  // Mantenemos en el state SOLO el pathname (sin query). La query (?siblings=...)
+  // se lee directamente de window.location.search en el render. Antes guardaba
+  // path con query y la regex de detalle no matcheaba, así que el click no
+  // entraba al detalle si había siblings.
   const [path, setPath] = useState(() => (typeof window !== 'undefined' ? window.location.pathname : '/coach'));
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname);
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
-  const navigate = useCallback((p) => {
-    window.history.pushState({}, '', p);
-    setPath(p);
+  const navigate = useCallback((fullUrl) => {
+    // fullUrl puede traer ?siblings=...; lo respetamos en el history para que
+    // se pueda compartir el link, pero solo guardamos pathname en el state.
+    window.history.pushState({}, '', fullUrl);
+    const pathOnly = fullUrl.split('?')[0];
+    setPath(pathOnly);
   }, []);
 
   // Manejo común de respuesta de API
@@ -186,8 +192,7 @@ function Authenticated({ token, onLogout }) {
     return r;
   }, [token, onLogout]);
 
-  // Path puede ser /coach/<primary_id> con un ?siblings=<id1>,<id2> opcional
-  // cuando se entra desde una fila agrupada (mismo nombre, varios user_ids).
+  // Path es /coach/<primary_id>. Los siblings vienen aparte por window.location.search.
   const detailMatch = path.match(/^\/coach\/([0-9a-f-]+)$/i);
   if (detailMatch) {
     let siblings = [];
