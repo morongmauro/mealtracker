@@ -3788,13 +3788,18 @@ function Row({ label, val, diff, unit, color }) {
 const ModalCloseContext = React.createContext(null);
 
 function ModalShell({ children, onClose, maxWidth = 'max-w-md' }) {
-  // Truco de UX en mobile: el `setState` del padre tarda 1-2s en re-renderizar
-  // el árbol de 6000 líneas. Para que el cierre se sienta instantáneo,
-  // primero ocultamos el modal con un state LOCAL (display:none, no remount),
-  // y solo después de pintar liberamos el setState del padre.
-  const [closing, setClosing] = React.useState(false);
+  // Cierre instantáneo en mobile: mutamos el DOM directamente (display:none)
+  // SIN setState — igual que closeActionsSheet. Eso evita re-renderizar el
+  // árbol del modal (con su PerformanceModal de varios miles de DOM nodes).
+  // El setState del padre que desmonta el modal se programa al siguiente
+  // rAF, cuando ya no hay nada visible.
+  const outerRef = React.useRef(null);
   const handleClose = React.useCallback(() => {
-    setClosing(true);
+    if (outerRef.current) {
+      outerRef.current.style.display = 'none';
+      // Force layout flush para que el paint salga antes del setState del padre
+      void outerRef.current.offsetWidth;
+    }
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (typeof onClose === 'function') onClose();
@@ -3804,9 +3809,8 @@ function ModalShell({ children, onClose, maxWidth = 'max-w-md' }) {
 
   return (
     <ModalCloseContext.Provider value={handleClose}>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{
+      <div ref={outerRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{
         background: 'rgba(0,0,0,0.45)',
-        display: closing ? 'none' : 'flex'
       }} onClick={handleClose}>
         <div className={`w-full ${maxWidth} max-h-[85vh] overflow-y-auto p-6 rounded-3xl fade-up`} style={{
           background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI
@@ -4178,6 +4182,74 @@ function FavoriteNameModal({ entry, todayEntriesCount = 0, onConfirm, onCancel, 
       )}
     </ModalShell>
   );
+}
+
+
+// Approximate USDA micronutrient density (per gram of food).
+// Conservative estimates for common items. The goal is directional, not clinical.
+const MICRO_DB = {
+  // fiber g, calcium mg, iron mg, vitD μg, omega3 g per 1g of food
+  'arroz':       { fiber: 0.004, calcium: 0.1,  iron: 0.002, vitD: 0,    omega3: 0 },
+  'pollo':       { fiber: 0,     calcium: 0.15, iron: 0.009, vitD: 0.001,omega3: 0.0001 },
+  'pechuga':     { fiber: 0,     calcium: 0.15, iron: 0.009, vitD: 0.001,omega3: 0.0001 },
+  'pescado':     { fiber: 0,     calcium: 0.2,  iron: 0.005, vitD: 0.04, omega3: 0.012 },
+  'salmon':      { fiber: 0,     calcium: 0.12, iron: 0.003, vitD: 0.11, omega3: 0.022 },
+  'atun':        { fiber: 0,     calcium: 0.1,  iron: 0.008, vitD: 0.02, omega3: 0.013 },
+  'huevo':       { fiber: 0,     calcium: 0.5,  iron: 0.018, vitD: 0.02, omega3: 0.001 },
+  'avena':       { fiber: 0.1,   calcium: 0.54, iron: 0.047, vitD: 0,    omega3: 0.0014 },
+  'banana':      { fiber: 0.026, calcium: 0.05, iron: 0.003, vitD: 0,    omega3: 0 },
+  'platano':     { fiber: 0.026, calcium: 0.05, iron: 0.003, vitD: 0,    omega3: 0 },
+  'manzana':     { fiber: 0.024, calcium: 0.06, iron: 0.001, vitD: 0,    omega3: 0 },
+  'palta':       { fiber: 0.067, calcium: 0.12, iron: 0.006, vitD: 0,    omega3: 0.0011 },
+  'aguacate':    { fiber: 0.067, calcium: 0.12, iron: 0.006, vitD: 0,    omega3: 0.0011 },
+  'arepa':       { fiber: 0.03,  calcium: 0.5,  iron: 0.01,  vitD: 0,    omega3: 0 },
+  'pan':         { fiber: 0.07,  calcium: 0.8,  iron: 0.025, vitD: 0,    omega3: 0 },
+  'yogur':       { fiber: 0,     calcium: 1.1,  iron: 0,     vitD: 0.001,omega3: 0 },
+  'leche':       { fiber: 0,     calcium: 1.2,  iron: 0,     vitD: 0.001,omega3: 0 },
+  'queso':       { fiber: 0,     calcium: 7,    iron: 0.001, vitD: 0.006,omega3: 0.001 },
+  'almendra':    { fiber: 0.13,  calcium: 2.7,  iron: 0.036, vitD: 0,    omega3: 0.0001 },
+  'mantequilla mani': { fiber: 0.06, calcium: 0.5, iron: 0.018, vitD: 0,omega3: 0.0001 },
+  'espinaca':    { fiber: 0.022, calcium: 1,    iron: 0.027, vitD: 0,    omega3: 0.0014 },
+  'brocoli':     { fiber: 0.026, calcium: 0.47, iron: 0.007, vitD: 0,    omega3: 0.001 },
+  'lenteja':     { fiber: 0.079, calcium: 0.19, iron: 0.033, vitD: 0,    omega3: 0.001 },
+  'frijol':      { fiber: 0.06,  calcium: 0.27, iron: 0.029, vitD: 0,    omega3: 0.001 },
+  'tomate':      { fiber: 0.012, calcium: 0.1,  iron: 0.003, vitD: 0,    omega3: 0 },
+  'aceite oliva':{ fiber: 0,     calcium: 0.01, iron: 0.001, vitD: 0,    omega3: 0.008 },
+};
+const DAILY_MICRO_GOALS = { fiber: 28, calcium: 1000, iron: 18, vitD: 15, omega3: 1.6 };
+
+function matchMicroKey(name) {
+  if (!name) return null;
+  const n = name.toLowerCase();
+  for (const key of Object.keys(MICRO_DB)) {
+    if (n.includes(key)) return key;
+  }
+  return null;
+}
+
+function estimateMicros(items) {
+  const result = { fiber: 0, calcium: 0, iron: 0, vitD: 0, omega3: 0 };
+  for (const it of items) {
+    const key = matchMicroKey(it.name);
+    if (!key) continue;
+    // Try to extract grams from amount string ("100g", "50 g", "1 unidad (~50g)")
+    let grams = 0;
+    const amt = (it.amount || '').toLowerCase();
+    const gMatch = amt.match(/(\d+(?:\.\d+)?)\s*g/);
+    if (gMatch) grams = parseFloat(gMatch[1]);
+    else if (it.kcal && it.kcal > 0) {
+      // Rough fallback: assume 1.5 kcal per gram (mixed foods average)
+      grams = it.kcal / 1.5;
+    }
+    if (grams <= 0) continue;
+    const db = MICRO_DB[key];
+    result.fiber += db.fiber * grams;
+    result.calcium += db.calcium * grams;
+    result.iron += db.iron * grams;
+    result.vitD += db.vitD * grams;
+    result.omega3 += db.omega3 * grams;
+  }
+  return result;
 }
 
 function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, onClose }) {
