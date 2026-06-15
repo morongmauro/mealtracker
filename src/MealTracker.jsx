@@ -63,7 +63,7 @@ const AUTHORIZED_CLIENTS = [
   'Andres Yepes', 'Carlos Martinez', 'Carlos Pirela', 'David Forero',
   'Diana Tovar', 'Julio Dieguez', 'Laura Lorena Cardenas', 'Mar Alzate',
   'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez',
-  'Maria Alejandra Gonzales', 'Natalia Samper',
+  'Maria Alejandra Gonzales', 'Natalia Samper', 'Salvador Montoya',
 ];
 
 const normalizeName = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
