@@ -445,14 +445,61 @@ export default function MealTracker() {
           schedulePushToCloud(0);
           return;
         }
-        // Aplicar datos del server (gana lo del server porque viene de cualquier
-        // otro dispositivo o de un recover post-cache-clear)
+        // Aplicar datos del server fusionando con el estado local. La data del
+        // server NO debe pisar archivos recién creados localmente (por ejemplo,
+        // el día de ayer que acabamos de archivar en el efecto de carga). Para
+        // cada fecha de history/historyDetail, si la tenemos local y no en el
+        // server, ese día sobrevive. Además, si el server trae `today_entries`
+        // con fecha distinta a la actual del dispositivo, eso es data de un día
+        // anterior que nunca llegó a archivarse en history en el server — lo
+        // archivamos ahora antes de aplicar.
         const d = row.data;
         cloudSyncedFromServer.current = true;
         if (Array.isArray(d.favorites)) setFavorites(d.favorites);
         if (Array.isArray(d.favoriteIngredients)) setFavoriteIngredients(d.favoriteIngredients);
-        if (d.history && typeof d.history === 'object') setHistory(d.history);
-        if (d.historyDetail && typeof d.historyDetail === 'object') setHistoryDetail(d.historyDetail);
+
+        // Construir un archivo "rescatado" del today_entries server cuando ese
+        // today ya quedó en el pasado (rollover ocurrido entre dispositivos o
+        // sesiones).
+        const cloudToday = d.today;
+        const cloudEntries = Array.isArray(d.today_entries) ? d.today_entries : null;
+        const cloudTotals = d.today_totals;
+        const cloudWater = d.today_water || 0;
+        const todayLocal = getLocalDate();
+        const archiveFromCloud = (cloudToday && cloudToday !== todayLocal && cloudEntries && cloudEntries.length > 0);
+
+        if (d.history && typeof d.history === 'object') {
+          setHistory(local => {
+            const merged = { ...(d.history || {}) };
+            // Local wins para fechas que el server no tenga (recién archivadas)
+            for (const date of Object.keys(local || {})) {
+              if (!merged[date]) merged[date] = local[date];
+            }
+            // Rescate del today_entries server si quedó en el pasado
+            if (archiveFromCloud && !merged[cloudToday]) {
+              const tot = cloudTotals || cloudEntries.reduce((acc, e) => ({
+                kcal: acc.kcal + (e.kcal || 0),
+                p: acc.p + (e.p || 0),
+                c: acc.c + (e.c || 0),
+                g: acc.g + (e.g || 0),
+              }), { kcal: 0, p: 0, c: 0, g: 0 });
+              merged[cloudToday] = { ...tot, water: cloudWater };
+            }
+            return merged;
+          });
+        }
+        if (d.historyDetail && typeof d.historyDetail === 'object') {
+          setHistoryDetail(local => {
+            const merged = { ...(d.historyDetail || {}) };
+            for (const date of Object.keys(local || {})) {
+              if (!merged[date]) merged[date] = local[date];
+            }
+            if (archiveFromCloud && !merged[cloudToday]) {
+              merged[cloudToday] = cloudEntries;
+            }
+            return merged;
+          });
+        }
         if (d.frequentItems && typeof d.frequentItems === 'object') setFrequentItems(d.frequentItems);
         if (d.wellbeing && typeof d.wellbeing === 'object') setWellbeing(d.wellbeing);
         if (d.goals && typeof d.goals === 'object') setGoals(d.goals);
@@ -2250,6 +2297,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         body[data-modal-open="1"] .pulse-ring { animation-play-state: paused !important; }
         @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-up { animation: sheetUp 0.32s cubic-bezier(0.2, 0, 0, 1); }
+        /* Feedback visual fuerte al press de pildoras de cierre: invierte fondo a oscuro
+           instantáneamente cuando el usuario tiene el dedo apretado. Sin animación de
+           transición — debe ser literal-al-toque. */
+        .active-flip:active { background: #1F1F1F !important; }
+        .active-flip:active > * { color: #FFFFFF !important; }
+        .active-flip:active svg { color: #FFFFFF !important; }
+        /* FAB Herramientas: invierte a oliva al press para que se vea instantáneo */
+        .fab-press:active { background: ${ACCENT_DARK} !important; }
         @keyframes wave { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1.4); } }
         .msg-input:empty:before { content: attr(data-placeholder); color: ${TEXT_LIGHT}; pointer-events: none; }
         .msg-input { -webkit-user-modify: read-write-plaintext-only; }
@@ -2429,7 +2484,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           ref={actionsFabRef}
           onPointerDown={(e) => { e.preventDefault(); openActionsSheet(); }}
           onClick={(e) => e.preventDefault()}
-          className="fixed z-40 rounded-full active:scale-95 items-center justify-center gap-1.5"
+          className="fixed z-40 rounded-full active:scale-90 fab-press items-center justify-center gap-1.5"
           style={{
             display: actionsExpanded ? 'none' : 'flex',
             bottom: '120px',
@@ -2478,14 +2533,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
                   <div className="text-[17px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
                 </div>
-                {/* Cierre: pildora "Volver al chat" usando onPointerDown para responder al primer
-                    touchstart (sin esperar el click sintético de iOS). Mismo handler DOM-mutante
-                    que el bottom sheet de Herramientas, que es el que sí se siente instantáneo. */}
+                {/* Cierre: pildora "Volver al chat" usando onPointerDown (touchstart inmediato)
+                    y feedback visual MUY visible al press (scale-90 + invierte a fondo oscuro).
+                    Si por lo que sea el cierre real tiene latencia, el usuario VE de inmediato
+                    que el botón respondió y no piensa que se trabó. */}
                 <button
                   onPointerDown={(e) => { e.preventDefault(); closeActionsSheet(); }}
                   onClick={(e) => e.preventDefault()}
                   aria-label="Volver al chat"
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full active:scale-95"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full active:scale-90 active-flip"
                   style={{
                     background: SURFACE_2,
                     border: `1px solid ${BORDER}`,
@@ -3860,21 +3916,34 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
 }
 
 function ModalHeader({ accent, label, title, onClose }) {
-  // Prefer the optimized close from ModalShell context (instant display:none
-  // before the parent re-renders the 6000-line tree). Falls back to onClose
-  // for modals not wrapped in ModalShell.
+  // Usa el cierre optimizado del context de ModalShell (display:none directo
+  // antes de que el padre re-renderice el árbol de 6000 líneas). Cae al onClose
+  // si el modal no está envuelto en ModalShell.
   const contextClose = React.useContext(ModalCloseContext);
   const handleClose = contextClose || onClose;
+  // onPointerDown corre al primer touchstart sin esperar el click sintético
+  // de iOS Safari (~50-300ms). preventDefault en click bloquea el doble disparo.
+  // active:scale-90 + bg-pastel da feedback visible al instante por CSS, sin
+  // necesidad de React render: el usuario ve que el botón respondió.
   return (
     <div className="flex items-start justify-between mb-5">
       <div>
         <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: accent }}>{label}</div>
         <div className="text-xl font-bold tracking-tight mt-0.5" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
       </div>
-      <button onClick={handleClose} aria-label="Cerrar"
-        className="-m-2 p-3 rounded-full active:bg-black/10"
-        style={{ touchAction: 'manipulation' }}>
-        <X size={18} style={{ color: TEXT_MUTED }} />
+      <button
+        onPointerDown={(e) => { e.preventDefault(); handleClose(); }}
+        onClick={(e) => e.preventDefault()}
+        aria-label="Volver"
+        className="-m-1 px-3 py-2 rounded-full flex items-center gap-1.5 active:scale-90 active-flip"
+        style={{
+          background: SURFACE_2,
+          border: `1px solid ${BORDER}`,
+          touchAction: 'manipulation',
+          WebkitTapHighlightColor: 'transparent'
+        }}>
+        <ArrowLeft size={14} strokeWidth={2.2} style={{ color: TEXT }} />
+        <span className="text-[12px] font-semibold" style={{ color: TEXT }}>Volver</span>
       </button>
     </div>
   );
