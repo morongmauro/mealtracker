@@ -1358,13 +1358,30 @@ SCHEMA:
     const macroDeltas = goals
       ? `\nBRECHAS vs META: kcal ${totals.kcal - (goals.kcal||0)} (${totals.kcal > (goals.kcal||0) ? 'excedido' : 'faltante'}), P ${totals.p - (goals.p||0)}g, C ${totals.c - (goals.c||0)}g, G ${totals.g - (goals.g||0)}g.\n`
       : '';
+    // Bloque de favoritos del cliente — menús individuales y días completos.
+    // Se inyecta SIEMPRE en el chat general para que el modelo pueda razonar
+    // sobre ellos cuando el cliente pida ajustes ("ajusta mis favoritos para
+    // llegar a la meta", "qué cambio en mis menús"...). Sin esto, Claude no
+    // conoce las cantidades y termina preguntándole al cliente.
+    const favoritesBlock = favorites.length > 0
+      ? `\nMENÚS Y DÍAS FAVORITOS DEL CLIENTE (cantidades y macros ya guardados — NUNCA preguntes por ellos, ya los tienes acá):
+${favorites.slice(0, 25).map((f, i) => {
+  if (f.type === 'day' && Array.isArray(f.days) && f.days.length > 0) {
+    return `[Día Fav #${f.id}] "${f.name}" — Total: ${Math.round(f.kcal||0)} kcal · P${Math.round(f.p||0)}g C${Math.round(f.c||0)}g G${Math.round(f.g||0)}g
+${f.days.map(d => `  · ${d.meal || 'comida'}: ${(d.items||[]).map(it => `${it.name}${it.amount ? ' ' + it.amount : ''}`).join(', ')} (${Math.round(d.kcal||0)} kcal)`).join('\n')}`;
+  }
+  return `[Menú Fav #${f.id}] "${f.name}" — ${Math.round(f.kcal||0)} kcal · P${Math.round(f.p||0)}g C${Math.round(f.c||0)}g G${Math.round(f.g||0)}g
+  items: ${(f.items || []).map(it => `${it.name}${it.amount ? ' ' + it.amount : ''} (${Math.round(it.kcal||0)} kcal)`).join(', ')}`;
+}).join('\n')}
+`
+      : '';
     const contextSnippet = `
 CONTEXTO DEL CLIENTE:
 - Nombre: ${name || 'desconocido'}
 - Comidas registradas hoy: ${entries.length}
 - Totales hoy: ${totals.kcal} kcal · P ${totals.p}g · C ${totals.c}g · G ${totals.g}g
 - Meta diaria: ${goals?.kcal || '?'} kcal · P ${goals?.p || '?'}g · C ${goals?.c || '?'}g · G ${goals?.g || '?'}g
-- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${appendHint}${voiceHint}${historyBlock}`;
+- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock}${appendHint}${voiceHint}${historyBlock}`;
 
     const sys = `Eres un asistente nutricional inteligente y cálido. Devuelves SOLO JSON válido, sin markdown.
 
@@ -1434,6 +1451,10 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 - "retro_advice": CONSULTA RETROSPECTIVA sobre cómo ajustar lo YA registrado hoy para acercarse a la meta. NO registres nada nuevo. DETECTAR: "me pasé qué hago", "qué proporciones debí usar", "cómo evitar pasarme", "qué pude ajustar", "qué cambiar de esa cena/almuerzo/desayuno", "cómo corregir mi día", "esta comida me hizo pasar qué ajusto", "qué proporciones me recomiendas", "qué ajustes hago para llegar a la meta", "ayúdame a corregir", "cómo equilibro lo de hoy". El cliente ya registró su día, ve que se pasó/quedó corto, y quiere APRENDER qué pudo haber comido diferente.
   IMPORTANTE: usa DETALLE COMIDAS DE HOY del contexto para identificar qué item específico está empujando los macros fuera de meta. Si menciona una comida específica ("de la cena"), enfócate en esa; si dice "todo el día", da sugerencias para varias comidas del día.
   Devuelve "retro_advice_response" con la estructura del schema. NUNCA agregues items al registro real del cliente.
+- "adjust_favorites_to_goal": el cliente pide AJUSTAR sus MENÚS O DÍAS FAVORITOS guardados para que las cantidades cuadren con su meta diaria. DETECTAR: "ajusta mis menús favoritos", "ajusta esos 3 menús para llegar a la meta", "qué cambio en mis favoritos para cuadrar macros", "haz que mis menús sumen mi meta", "esos menús son lo que como todos los días, ajustalos", "organiza mis favoritos para llegar a mi meta", "qué proporciones nuevas pongo a mis menús guardados".
+  CRÍTICO: las CANTIDADES Y MACROS DE CADA FAVORITO YA ESTÁN EN EL CONTEXTO (bloque MENÚS Y DÍAS FAVORITOS DEL CLIENTE). PROHIBIDO pedirle al cliente que te cuente las cantidades — ya las tienes. PROHIBIDO devolver una pregunta. Usa esos datos directamente.
+  RAZONAMIENTO esperado: 1) Identifica cuáles favoritos referencia el cliente (si menciona nombres, esos; si dice "los 3" o "todos", usa todos los menús individuales; si dice "mi día favorito X", usa ese día); 2) Suma sus kcal/P/C/G; 3) Compara contra la meta diaria del contexto; 4) Propone cantidades NUEVAS por menú (subir o bajar gramos/unidades de items específicos) de forma proporcional y realista — NO triplicar el aceite, NO duplicar el azúcar; preferir subir proteína magra, arroz/avena para carbos, frutas o tubérculos para complejos.
+  Devuelve "adjust_favorites_response" con la estructura del schema. NUNCA registres nada — es solo propuesta visual.
 - "water": registra agua. "1 vaso"=250ml, "1 termo"=500ml, "1 botella"=500ml, "1 litro"=1000ml.
 - "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite}. Mapping: "reiniciar día"→reset_day, "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion, "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
 - "clarify": SOLO si hay ambigüedad REAL. Llenar "clarify_interpretation" (tu mejor lectura) y "clarify_question" (pregunta corta de confirmación).
@@ -1442,7 +1463,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 
 ═══ SCHEMA ═══
 {
-  "intent": "log_meal | append_to_last | nutrition_query | meal_suggestion | summary_day | summary_week | retro_advice | water | command | clarify | off_topic | name",
+  "intent": "log_meal | append_to_last | nutrition_query | meal_suggestion | summary_day | summary_week | retro_advice | adjust_favorites_to_goal | water | command | clarify | off_topic | name",
   "meal": "desayuno | almuerzo | cena | snack | comida | null",
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "needs_quantity": false}],
   "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N}]}] | null,
@@ -1469,6 +1490,24 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
     ],
     "estimated_totals_after": {"kcal": N, "p": N, "c": N, "g": N},
     "tip": "1 oración corta de aprendizaje, no obvia (ej: '1 cucharada de aceite tiene tantas calorías como una porción de arroz.')"
+  } | null,
+  "adjust_favorites_response": {
+    "summary": "1-2 oraciones cálidas: cuántos favoritos consideraste, suma actual vs meta, qué falta o sobra. Ej: 'Julio, sumando tus 3 menús (desayuno, carne braseada, ponquecitos) quedas en 1420 kcal y te faltan 880 para tu meta.'",
+    "current_totals": {"kcal": N, "p": N, "c": N, "g": N},
+    "goal": {"kcal": N, "p": N, "c": N, "g": N},
+    "adjustments": [
+      {
+        "favorite_id": N,
+        "favorite_name": "ej: 'Desayuno típico'",
+        "favorite_type": "menu | day",
+        "original_summary": "lista corta de items originales con cantidades. ej: '4 huevos, 2 tostadas, café'",
+        "suggested_items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N}],
+        "change_note": "1 oración explicando QUÉ cambió y POR QUÉ. ej: 'Subo a 6 huevos y 3 tostadas para sumar 180 kcal y 18g de proteína sin alterar el balance.'",
+        "kcal": N, "p": N, "c": N, "g": N
+      }
+    ],
+    "estimated_totals_after": {"kcal": N, "p": N, "c": N, "g": N},
+    "tip": "1 oración corta de criterio. Ej: 'Mantengo el sabor de tus menús — solo subo gramos de los alimentos que ya tenías, no agrego nada nuevo.'"
   } | null
 }
 
@@ -1637,6 +1676,14 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       // RETRO ADVICE — el cliente pide consejo sobre cómo ajustar lo que YA registró. Solo aprendizaje.
       if (intent === 'retro_advice' && parsed.retro_advice_response) {
         setMessages(m => [...m, { role: 'assistant', content: 'retro_advice', isRetroAdvice: true, data: parsed.retro_advice_response, ts: Date.now() }]);
+        setLoading(false); setLoadingPreview('');
+        return;
+      }
+      // ADJUST FAVORITES — el cliente pide reorganizar las cantidades de sus menús favoritos
+      // para llegar a la meta diaria. Es solo propuesta visual, no toca ni los favoritos
+      // guardados ni el registro real del día.
+      if (intent === 'adjust_favorites_to_goal' && parsed.adjust_favorites_response) {
+        setMessages(m => [...m, { role: 'assistant', content: 'adjust_favorites', isAdjustFavorites: true, data: parsed.adjust_favorites_response, ts: Date.now() }]);
         setLoading(false); setLoadingPreview('');
         return;
       }
@@ -3318,6 +3365,118 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
           )}
           <div className="mt-3 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
             Solo aprendizaje — no se modifica tu registro de hoy.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Ajuste sugerido para favoritos. Visualmente parecido al de retro_advice pero
+  // enfocado en los menús/días guardados — el cliente puede guardar la versión
+  // ajustada como un favorito nuevo (no pisa el original).
+  if (message.isAdjustFavorites && message.data) {
+    const d = message.data;
+    const adjustments = Array.isArray(d.adjustments) ? d.adjustments : [];
+    const after = d.estimated_totals_after || {};
+    const current = d.current_totals || {};
+    const goal = d.goal || {};
+    return (
+      <div className="flex justify-start fade-up">
+        <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
+          background: 'rgba(255,255,255,0.78)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Star size={12} style={{ color: C_CARBS }} />
+            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: C_CARBS }}>Ajuste de tus favoritos</span>
+          </div>
+          {d.summary && (
+            <div className="text-[13px] mb-3 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
+          )}
+          {(current.kcal || goal.kcal) && (
+            <div className="mb-3 p-2.5 rounded-lg" style={{ background: SURFACE_2, border: `1px solid ${BORDER_SOFT}` }}>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <div className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_LIGHT }}>Suma actual</div>
+                  <div className="num" style={{ color: TEXT }}>{fmt0(current.kcal)} kcal · P{fmt1(current.p)} C{fmt1(current.c)} G{fmt1(current.g)}</div>
+                </div>
+                <div>
+                  <div className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_LIGHT }}>Meta</div>
+                  <div className="num" style={{ color: TEXT }}>{fmt0(goal.kcal)} kcal · P{fmt1(goal.p)} C{fmt1(goal.c)} G{fmt1(goal.g)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="space-y-3">
+            {adjustments.map((a, idx) => {
+              const items = Array.isArray(a.suggested_items) ? a.suggested_items : [];
+              const totalK = a.kcal || items.reduce((s, it) => s + (it.kcal || 0), 0);
+              const totalP = a.p || items.reduce((s, it) => s + (it.p || 0), 0);
+              const totalC = a.c || items.reduce((s, it) => s + (it.c || 0), 0);
+              const totalG = a.g || items.reduce((s, it) => s + (it.g || 0), 0);
+              const entryShaped = {
+                id: Date.now() + idx,
+                meal: a.favorite_type === 'day' ? 'comida' : (a.favorite_name || 'comida'),
+                items: items.map(it => ({
+                  name: it.name, amount: it.amount,
+                  kcal: it.kcal || 0, p: it.p || 0, c: it.c || 0, g: it.g || 0
+                })),
+                kcal: totalK, p: totalP, c: totalC, g: totalG,
+                time: ''
+              };
+              return (
+                <div key={idx} className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER_SOFT}` }}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Star size={11} style={{ color: C_CARBS }} />
+                    <span className="text-[12px] font-semibold" style={{ color: TEXT }}>{a.favorite_name || 'Favorito'}</span>
+                  </div>
+                  {a.original_summary && (
+                    <div className="text-[11px] mb-1.5" style={{ color: TEXT_LIGHT }}>Original: {a.original_summary}</div>
+                  )}
+                  <div className="text-[12px] font-semibold mb-1" style={{ color: TEXT }}>Versión ajustada:</div>
+                  <ul className="text-[12px] mb-2 space-y-0.5" style={{ color: TEXT }}>
+                    {items.map((it, j) => (
+                      <li key={j}>• {it.name}{it.amount ? ` — ${it.amount}` : ''}</li>
+                    ))}
+                  </ul>
+                  <div className="flex gap-3 text-[11px] num mb-2">
+                    <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(totalK)} kcal</span>
+                    <span style={{ color: C_PROTEIN }}>P {fmt1(totalP)}</span>
+                    <span style={{ color: C_CARBS }}>C {fmt1(totalC)}</span>
+                    <span style={{ color: C_FAT }}>G {fmt1(totalG)}</span>
+                  </div>
+                  {a.change_note && (
+                    <div className="text-[11px] italic mb-2" style={{ color: TEXT_MUTED }}>{a.change_note}</div>
+                  )}
+                  {items.length > 0 && onFavorite && (
+                    <button onClick={() => onFavorite(entryShaped)}
+                      className="text-[11px] font-semibold py-1.5 px-3 rounded-full"
+                      style={{ background: C_CARBS, color: '#fff' }}>
+                      Guardar versión ajustada
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {(after.kcal || after.p || after.c || after.g) && (
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
+              <div className="text-[10px] uppercase tracking-[0.15em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Suma ajustada</div>
+              <div className="flex gap-3 text-[11px] num">
+                <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(after.kcal)} kcal</span>
+                <span style={{ color: C_PROTEIN }}>P {fmt1(after.p)}</span>
+                <span style={{ color: C_CARBS }}>C {fmt1(after.c)}</span>
+                <span style={{ color: C_FAT }}>G {fmt1(after.g)}</span>
+              </div>
+            </div>
+          )}
+          {d.tip && (
+            <div className="mt-3 text-[11px] italic leading-relaxed" style={{ color: TEXT_MUTED }}>💡 {d.tip}</div>
+          )}
+          <div className="mt-3 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
+            Propuesta visual — tus favoritos originales siguen guardados intactos.
           </div>
         </div>
       </div>
