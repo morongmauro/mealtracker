@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import {
-  ArrowUp, ArrowLeft, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
+  ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat
 } from 'lucide-react';
@@ -62,7 +62,7 @@ const AUTHORIZED_CLIENTS = [
   'Mauro Morón', 'Alejandro Aguirre', 'Amauri Barbosa', 'Andrea Angulo',
   'Andres Yepes', 'Carlos Martinez', 'Carlos Pirela', 'David Forero',
   'Diana Tovar', 'Julio Dieguez', 'Laura Lorena Cardenas', 'Mar Alzate',
-  'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez', 'Salvador Montoya',
+  'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez',
   'Maria Alejandra Gonzales', 'Natalia Samper',
 ];
 
@@ -2211,17 +2211,30 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
   if (view === 'onboarding') {
     return <Onboarding onComplete={async (g, n) => {
+      // Si ya tenía goals, es un "Cambiar meta", NO un onboarding inicial:
+      // preservamos el historial del chat y solo agregamos una nota de cambio.
+      // Si no había goals previas, es primer arranque: arrancamos el chat con
+      // el saludo normal.
+      const isUpdate = !!(goals && (goals.kcal || goals.p || goals.c || goals.g));
       setGoals(g);
       if (n) setName(n);
       await window.storage.set('goals', JSON.stringify(g));
       if (n) await window.storage.set('name', JSON.stringify(n));
       setView('main');
-      setMessages([{
-        role: 'assistant',
-        content: n ? `${n.split(' ')[0]}. Metas registradas. Empezamos.` : 'Metas registradas. Empezamos.',
-        isWelcomeHints: true,
-        ts: Date.now()
-      }]);
+      if (isUpdate) {
+        const firstName = n ? n.split(' ')[0] : (name ? name.split(' ')[0] : '');
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `${firstName ? firstName + '. ' : ''}Meta actualizada · ${g.kcal} kcal · P ${g.p}g · C ${g.c}g · G ${g.g}g.`,
+          ts: Date.now()
+        }]);
+      } else {
+        setMessages([{
+          role: 'assistant',
+          content: n ? `${n.split(' ')[0]}. Metas registradas. Empezamos.` : 'Metas registradas. Empezamos.',
+          ts: Date.now()
+        }]);
+      }
     }} existingGoals={goals} existingName={name} />;
   }
 
@@ -2297,12 +2310,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         body[data-modal-open="1"] .pulse-ring { animation-play-state: paused !important; }
         @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-up { animation: sheetUp 0.32s cubic-bezier(0.2, 0, 0, 1); }
-        /* Feedback visual fuerte al press de pildoras de cierre: invierte fondo a oscuro
-           instantáneamente cuando el usuario tiene el dedo apretado. Sin animación de
-           transición — debe ser literal-al-toque. */
-        .active-flip:active { background: #1F1F1F !important; }
-        .active-flip:active > * { color: #FFFFFF !important; }
-        .active-flip:active svg { color: #FFFFFF !important; }
+        /* X de cierre: halo gris instantáneo al press, sin transición. El usuario VE
+           que el botón respondió incluso si el cierre demora un instante en propagar. */
+        .active-x:active { background: rgba(0,0,0,0.18) !important; }
+        .active-x:active svg { color: #000000 !important; }
         /* FAB Herramientas: invierte a oliva al press para que se vea instantáneo */
         .fab-press:active { background: ${ACCENT_DARK} !important; }
         @keyframes wave { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1.4); } }
@@ -2533,23 +2544,20 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
                   <div className="text-[17px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
                 </div>
-                {/* Cierre: pildora "Volver al chat" usando onPointerDown (touchstart inmediato)
-                    y feedback visual MUY visible al press (scale-90 + invierte a fondo oscuro).
-                    Si por lo que sea el cierre real tiene latencia, el usuario VE de inmediato
-                    que el botón respondió y no piensa que se trabó. */}
+                {/* Cierre: X usando onPointerDown (touchstart inmediato) + feedback visual
+                    visible al press (scale-90 + halo gris). El cierre real está optimizado
+                    con DOM-mutation directo en closeActionsSheet. */}
                 <button
                   onPointerDown={(e) => { e.preventDefault(); closeActionsSheet(); }}
                   onClick={(e) => e.preventDefault()}
-                  aria-label="Volver al chat"
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full active:scale-90 active-flip"
+                  aria-label="Cerrar"
+                  className="p-3 rounded-full active:scale-90 active-x"
                   style={{
                     background: SURFACE_2,
-                    border: `1px solid ${BORDER}`,
                     touchAction: 'manipulation',
                     WebkitTapHighlightColor: 'transparent'
                   }}>
-                  <ArrowLeft size={14} strokeWidth={2.2} style={{ color: TEXT }} />
-                  <span className="text-[12px] font-semibold" style={{ color: TEXT }}>Volver al chat</span>
+                  <X size={18} style={{ color: TEXT_MUTED }} />
                 </button>
               </div>
               <div className="space-y-4">
@@ -3175,43 +3183,10 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     );
   }
 
-  if (message.isWelcomeHints) {
-    return (
-      <div className="flex justify-start fade-up">
-        <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
-        }}>
-          <div className="mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>{message.content}</div>
-          <div className="space-y-2 text-xs" style={{ color: TEXT_MUTED }}>
-            <div className="flex items-start gap-2">
-              <Mic size={11} style={{ color: C_PROTEIN, marginTop: 2, flexShrink: 0 }} />
-              <span>La forma más rápida: <strong style={{ color: TEXT }}>toca el micrófono</strong> y cuéntame qué comiste, hablando normal. También puedes escribir si prefieres.</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <Utensils size={11} style={{ color: ACCENT_DARK, marginTop: 2, flexShrink: 0 }} />
-              <span>En lenguaje natural: <em>"2 huevos, avena con plátano y café"</em>.</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <Info size={11} style={{ color: ACCENT, marginTop: 2, flexShrink: 0 }} />
-              <span>Consulta macros sin registrar: <em>"¿cuántas calorías tiene una manzana?"</em></span>
-            </div>
-            <div className="flex items-start gap-2">
-              <ChefHat size={11} style={{ color: ACCENT_DARK, marginTop: 2, flexShrink: 0 }} />
-              <span>Dime tus ingredientes habituales y te <strong style={{ color: TEXT }}>armo el día</strong>: <em>"armame el día con lo que me gusta"</em>.</span>
-            </div>
-          </div>
-          <button onClick={() => { haptic(8); window.dispatchEvent(new CustomEvent('openCapabilities')); }}
-            className="mt-3 w-full py-2.5 rounded-xl text-[12px] font-semibold transition active:scale-[0.98] flex items-center justify-center gap-1.5"
-            style={{ background: '#1F1F1F', color: '#fff' }}>
-            <Info size={12} /> ¿Qué puedo hacer aquí?
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // El card "isWelcomeHints" con la lista de hints + botón "¿Qué puedo hacer aquí?"
+  // se eliminó por pedido del usuario: ya no aporta y duplica lo que está en
+  // Herramientas. Los mensajes marcados como isWelcomeHints caen al render normal
+  // de assistant abajo y se ven como un saludo simple.
 
   if (message.isWater) {
     return (
@@ -3917,14 +3892,12 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
 
 function ModalHeader({ accent, label, title, onClose }) {
   // Usa el cierre optimizado del context de ModalShell (display:none directo
-  // antes de que el padre re-renderice el árbol de 6000 líneas). Cae al onClose
-  // si el modal no está envuelto en ModalShell.
-  const contextClose = React.useContext(ModalCloseContext);
-  const handleClose = contextClose || onClose;
+  // antes de que el padre re-renderice el árbol grande). Cae al onClose si el
+  // modal no está envuelto en ModalShell.
   // onPointerDown corre al primer touchstart sin esperar el click sintético
   // de iOS Safari (~50-300ms). preventDefault en click bloquea el doble disparo.
-  // active:scale-90 + bg-pastel da feedback visible al instante por CSS, sin
-  // necesidad de React render: el usuario ve que el botón respondió.
+  const contextClose = React.useContext(ModalCloseContext);
+  const handleClose = contextClose || onClose;
   return (
     <div className="flex items-start justify-between mb-5">
       <div>
@@ -3934,16 +3907,13 @@ function ModalHeader({ accent, label, title, onClose }) {
       <button
         onPointerDown={(e) => { e.preventDefault(); handleClose(); }}
         onClick={(e) => e.preventDefault()}
-        aria-label="Volver"
-        className="-m-1 px-3 py-2 rounded-full flex items-center gap-1.5 active:scale-90 active-flip"
+        aria-label="Cerrar"
+        className="-m-2 p-3 rounded-full active:scale-90 active-x"
         style={{
-          background: SURFACE_2,
-          border: `1px solid ${BORDER}`,
           touchAction: 'manipulation',
           WebkitTapHighlightColor: 'transparent'
         }}>
-        <ArrowLeft size={14} strokeWidth={2.2} style={{ color: TEXT }} />
-        <span className="text-[12px] font-semibold" style={{ color: TEXT }}>Volver</span>
+        <X size={18} style={{ color: TEXT_MUTED }} />
       </button>
     </div>
   );
