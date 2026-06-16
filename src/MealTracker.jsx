@@ -62,7 +62,7 @@ const AUTHORIZED_CLIENTS = [
   'Mauro Morón', 'Alejandro Aguirre', 'Amauri Barbosa', 'Andrea Angulo',
   'Andres Yepes', 'Carlos Martinez', 'Carlos Pirela', 'David Forero',
   'Diana Tovar', 'Julio Dieguez', 'Laura Lorena Cardenas', 'Mar Alzate',
-  'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez',
+  'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez', 'Salvador Montoya',
   'Maria Alejandra Gonzales', 'Natalia Samper',
 ];
 
