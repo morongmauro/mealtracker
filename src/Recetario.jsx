@@ -293,7 +293,10 @@ function MacroLegend({ totals }) {
   return (<div className="flex flex-col gap-2 flex-1">{row(C_PROTEIN, 'Proteína', totals.p)}{row(C_CARBS, 'Carbohidratos', totals.c)}{row(C_FAT, 'Grasas', totals.g)}</div>);
 }
 
-const cardStyle = { background: GLASS_BG, backdropFilter: 'blur(28px) saturate(180%)', WebkitBackdropFilter: 'blur(28px) saturate(180%)', border: GLASS_BORDER, boxShadow: GLASS_SHADOW };
+// Sin backdrop-filter: el blur en vivo sobre muchas cards congela el render al
+// abrir/cerrar y al entrar a una receta. Fondo semi-sólido + sombra = mismo look
+// premium, sin costo de GPU.
+const cardStyle = { background: 'rgba(255,255,255,0.9)', border: GLASS_BORDER, boxShadow: GLASS_SHADOW };
 const plainCard = { background: SURFACE, border: `1px solid ${BORDER}` };
 
 export default function Recetario({ goals, consumed, onClose, onRegister, onChangeGoal }) {
@@ -354,13 +357,17 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     setTimeout(() => { setRegistered(false); setOpenId(null); setManualK(null); }, 950);
   };
 
+  // Fondo de manchas orgánicas con GRADIENTES (sin filter:blur) — el look se
+  // mantiene y deja de congelar al re-renderizar.
   const blobs = (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      <div className="absolute" style={{ top: '-12%', left: '-18%', width: '72%', height: '52%', background: 'radial-gradient(circle, rgba(247,243,232,0.95), transparent 65%)', filter: 'blur(70px)' }} />
-      <div className="absolute" style={{ top: '2%', right: '-22%', width: '60%', height: '50%', background: `radial-gradient(circle, ${ACCENT_PASTEL}55, transparent 65%)`, filter: 'blur(85px)' }} />
-      <div className="absolute" style={{ top: '40%', left: '4%', width: '55%', height: '46%', background: `radial-gradient(circle, #F2CBBE40, transparent 70%)`, filter: 'blur(90px)' }} />
-      <div className="absolute" style={{ bottom: '4%', right: '-12%', width: '52%', height: '46%', background: `radial-gradient(circle, #CDD2DB38, transparent 70%)`, filter: 'blur(95px)' }} />
-    </div>
+    <>
+      <style>{`
+        .rec-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; background:${BORDER}; outline:none; }
+        .rec-range::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:24px; height:24px; border-radius:50%; background:#1F1F1F; border:3px solid #fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
+        .rec-range::-moz-range-thumb { width:24px; height:24px; border-radius:50%; background:#1F1F1F; border:3px solid #fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
+      `}</style>
+      <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: `radial-gradient(60% 45% at 88% 6%, ${ACCENT_PASTEL}66, transparent 70%), radial-gradient(55% 42% at 3% 42%, #F2CBBE44, transparent 70%), radial-gradient(50% 42% at 96% 96%, #CDD2DB40, transparent 72%)` }} />
+    </>
   );
 
   const sectionLabel = (t) => <div className="text-[11px] tracking-[0.16em] uppercase font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
@@ -442,7 +449,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             <div className="text-[11.5px] mb-2" style={{ color: TEXT_MUTED }}>
               Las porciones de arriba ya están calculadas según tu meta. Usa esto solo si quieres aumentar o reducir esa cantidad sugerida.
             </div>
-            <input type="range" min="0.5" max="2" step="0.05" value={manualK ?? detail.k} onChange={(e) => setManualK(parseFloat(e.target.value))} className="w-full" style={{ accentColor: TEXT }} />
+            <input type="range" min="0.5" max="2" step="0.05" value={manualK ?? detail.k} onChange={(e) => setManualK(parseFloat(e.target.value))} className="rec-range" />
             <div className="text-[11px] mt-1" style={{ color: TEXT_LIGHT }}>{(manualK ?? detail.k).toFixed(2)}× respecto a la receta base</div>
           </div>
         </div>

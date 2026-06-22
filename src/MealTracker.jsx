@@ -5891,20 +5891,17 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
     setStep(1);
   };
 
+  // Cada macro se ajusta de forma INDEPENDIENTE (sin auto-rebalance). El cliente
+  // mueve las bolitas y abajo se valida que la suma cierre en 100%.
   const updatePct = (which, newVal) => {
-    newVal = Math.max(5, Math.min(80, newVal));
-    const others = which === 'p' ? ['c', 'g'] : which === 'c' ? ['p', 'g'] : ['p', 'c'];
-    const currentOthers = { p: pPct, c: cPct, g: gPct };
-    const otherSum = currentOthers[others[0]] + currentOthers[others[1]];
-    const remaining = 100 - newVal;
-    let newOther0, newOther1;
-    if (otherSum === 0) { newOther0 = Math.round(remaining / 2); newOther1 = remaining - newOther0; }
-    else { newOther0 = Math.round(remaining * (currentOthers[others[0]] / otherSum)); newOther1 = remaining - newOther0; }
-    if (which === 'p') { setPPct(newVal); setCPct(others[0] === 'c' ? newOther0 : newOther1); setGPct(others[0] === 'g' ? newOther0 : newOther1); }
-    else if (which === 'c') { setCPct(newVal); setPPct(others[0] === 'p' ? newOther0 : newOther1); setGPct(others[0] === 'g' ? newOther0 : newOther1); }
-    else { setGPct(newVal); setPPct(others[0] === 'p' ? newOther0 : newOther1); setCPct(others[0] === 'c' ? newOther0 : newOther1); }
+    newVal = Math.max(0, Math.min(100, newVal));
+    if (which === 'p') setPPct(newVal);
+    else if (which === 'c') setCPct(newVal);
+    else setGPct(newVal);
   };
 
+  const macroSum = pPct + cPct + gPct;
+  const macroSumOk = macroSum === 100;
   const pGrams = Math.round((kcal * pPct / 100) / 4);
   const cGrams = Math.round((kcal * cPct / 100) / 4);
   const gGrams = Math.round((kcal * gPct / 100) / 9);
@@ -6002,7 +5999,7 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
 
               <div className="mb-2">
                 <div className="text-[12px] mb-1 font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED }}>Distribución de macros</div>
-                <div className="text-[12px] mb-5" style={{ color: TEXT_LIGHT }}>Los porcentajes se rebalancean automáticamente.</div>
+                <div className="text-[12px] mb-5" style={{ color: TEXT_LIGHT }}>Ajusta cada macro a tu gusto. Los tres deben sumar 100%.</div>
               </div>
 
               <div className="h-3 rounded-full overflow-hidden flex mb-6" style={{ background: BORDER_SOFT }}>
@@ -6015,8 +6012,20 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
               <SliderRow label="Carbohidratos" color={C_CARBS} pct={cPct} grams={cGrams} onChange={v => updatePct('c', v)} />
               <SliderRow label="Grasas" color={C_FAT} pct={gPct} grams={gGrams} onChange={v => updatePct('g', v)} />
 
-              <button onClick={submit} disabled={!kcal || kcal < 500}
-                className="w-full py-3.5 mt-6 rounded-2xl text-base font-semibold transition disabled:opacity-30 active:scale-[0.98] flex items-center justify-center gap-2"
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-xl mt-1 mb-1" style={{ background: macroSumOk ? ACCENT_LIGHT : '#FBEEE8', border: `1px solid ${macroSumOk ? ACCENT_PASTEL : '#F0D6C8'}` }}>
+                <span className="text-[12px] font-semibold" style={{ color: macroSumOk ? ACCENT_DARK : WARN }}>
+                  {macroSumOk ? '✓ Suma 100% — listo' : 'Suma debe ser 100%'}
+                </span>
+                <span className="text-[15px] font-bold num" style={{ color: macroSumOk ? ACCENT_DARK : WARN }}>{macroSum}%</span>
+              </div>
+              {!macroSumOk && (
+                <div className="text-[11px] mb-2" style={{ color: TEXT_MUTED }}>
+                  {macroSum > 100 ? `Baja ${macroSum - 100}% en algún macro para poder continuar.` : `Sube ${100 - macroSum}% en algún macro para poder continuar.`}
+                </div>
+              )}
+
+              <button onClick={submit} disabled={!kcal || kcal < 500 || !macroSumOk}
+                className="w-full py-3.5 mt-5 rounded-2xl text-base font-semibold transition disabled:opacity-30 active:scale-[0.98] flex items-center justify-center gap-2"
                 style={{
                   background: '#1F1F1F',
                   color: '#fff',
