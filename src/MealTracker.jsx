@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from '
 import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
-  SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat
+  SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen
 } from 'lucide-react';
+import Recetario from './Recetario.jsx';
 
 // Palette — premium warm neutrals + signature olive + restrained macro hues
 const ACCENT = '#8A9558';        // signature olive, slightly more alive for CTAs
@@ -169,6 +170,7 @@ export default function MealTracker() {
   const [recording, setRecording] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
+  const [showRecetario, setShowRecetario] = useState(false);
   const [cardCompact, setCardCompact] = useState(false);
   const [frequentItems, setFrequentItems] = useState({}); // { itemName: { count, lastSeen, kcal, p, c, g, amount } }
   const [wellbeing, setWellbeing] = useState({}); // { 'YYYY-MM-DD': { energy, hunger, mood } }
@@ -754,6 +756,16 @@ export default function MealTracker() {
     if (!initialLoadDone.current) return;
     window.storage.set('favorites', JSON.stringify(favorites)).catch(() => {});
   }, [favorites]);
+
+  // Persistir historial (incluye registros retroactivos a días pasados).
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
+    window.storage.set('history', JSON.stringify(history)).catch(() => {});
+  }, [history]);
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
+    window.storage.set('historyDetail', JSON.stringify(historyDetail)).catch(() => {});
+  }, [historyDetail]);
 
   useEffect(() => {
     if (view === 'main') {
@@ -1381,7 +1393,8 @@ CONTEXTO DEL CLIENTE:
 - Comidas registradas hoy: ${entries.length}
 - Totales hoy: ${totals.kcal} kcal · P ${totals.p}g · C ${totals.c}g · G ${totals.g}g
 - Meta diaria: ${goals?.kcal || '?'} kcal · P ${goals?.p || '?'}g · C ${goals?.c || '?'}g · G ${goals?.g || '?'}g
-- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock}${appendHint}${voiceHint}${historyBlock}`;
+- Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+- Fecha de hoy: ${today} (${new Date().toLocaleDateString('es', { weekday: 'long' })})${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock}${appendHint}${voiceHint}${historyBlock}`;
 
     const sys = `Eres un asistente nutricional inteligente y cálido. Devuelves SOLO JSON válido, sin markdown.
 
@@ -1443,6 +1456,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 
 ═══ INTENTS (elige UNO) ═══
 - "log_meal": registrar comida(s) nueva(s). Ej: "desayuno: 2 huevos y café", "almorcé pollo con arroz". Si el mensaje cubre VARIAS comidas del día, usa el campo "meals" (array) con un objeto por comida. Si es UNA sola comida, usa "items" + "meal".
+  FECHA DEL REGISTRO ("log_date"): por defecto null = HOY. Si el cliente dice que comió en un día PASADO, calcula la fecha exacta (YYYY-MM-DD) a partir de "Fecha de hoy" del contexto y ponla en "log_date". Reglas: "ayer" = hoy − 1 día; "antier"/"anteayer" = hoy − 2 días; "hace N días" = hoy − N; un día de la semana ("el lunes", "el sábado pasado") = la ocurrencia MÁS RECIENTE ya pasada de ese día; una fecha explícita ("el 15", "12 de junio") = esa fecha del mes/año vigente. NUNCA uses una fecha futura. Esto aplica también a "meals" (todo el bloque va a esa fecha). Si no hay ninguna referencia temporal a un día pasado, log_date=null. Ejemplos: "ayer cené pollo con arroz" → log_meal, meal=cena, log_date=(hoy−1). "el lunes desayuné avena" → log_meal, meal=desayuno, log_date=(lunes pasado).
 - "append_to_last": SUMAR alimentos a la ÚLTIMA comida registrada hoy (no crear meal nuevo). DETECTAR estos signos: "me faltó", "olvidé decirte", "también comí", "agregale", "sumá", "ah me acordé", "no te dije que también", "ese tercero suma a lo que ya registraste". SI hay última comida, los items van EN ELLA.
 - "nutrition_query": pregunta informativa SIN registrar. Ej: "¿cuántas kcal tiene una manzana?", "¿es alta en proteína el atún?".
 - "meal_suggestion": pregunta abierta sobre QUÉ COMER en una comida específica. DETECTAR: "qué puedo comer", "qué como", "ideas de cena", "qué me sugieres", "qué desayuno", "qué hago de almuerzo", "no sé qué cenar". Indica también el "meal" deseado (desayuno/almuerzo/snack/cena) si lo menciona. EL FRONTEND MANEJA la respuesta usando los ingredientes favoritos del cliente, así que tú solo clasifica.
@@ -1453,7 +1467,12 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   Devuelve "retro_advice_response" con la estructura del schema. NUNCA agregues items al registro real del cliente.
 - "adjust_favorites_to_goal": el cliente pide AJUSTAR sus MENÚS O DÍAS FAVORITOS guardados para que las cantidades cuadren con su meta diaria. DETECTAR: "ajusta mis menús favoritos", "ajusta esos 3 menús para llegar a la meta", "qué cambio en mis favoritos para cuadrar macros", "haz que mis menús sumen mi meta", "esos menús son lo que como todos los días, ajustalos", "organiza mis favoritos para llegar a mi meta", "qué proporciones nuevas pongo a mis menús guardados".
   CRÍTICO: las CANTIDADES Y MACROS DE CADA FAVORITO YA ESTÁN EN EL CONTEXTO (bloque MENÚS Y DÍAS FAVORITOS DEL CLIENTE). PROHIBIDO pedirle al cliente que te cuente las cantidades — ya las tienes. PROHIBIDO devolver una pregunta. Usa esos datos directamente.
-  RAZONAMIENTO esperado: 1) Identifica cuáles favoritos referencia el cliente (si menciona nombres, esos; si dice "los 3" o "todos", usa todos los menús individuales; si dice "mi día favorito X", usa ese día); 2) Suma sus kcal/P/C/G; 3) Compara contra la meta diaria del contexto; 4) Propone cantidades NUEVAS por menú (subir o bajar gramos/unidades de items específicos) de forma proporcional y realista — NO triplicar el aceite, NO duplicar el azúcar; preferir subir proteína magra, arroz/avena para carbos, frutas o tubérculos para complejos.
+  DEFINIR EL OBJETIVO (target) — paso obligatorio antes de ajustar:
+    · Si el cliente referencia VARIOS menús o un DÍA favorito completo → el target = META DIARIA COMPLETA del contexto.
+    · Si referencia UN SOLO menú de una comida (ej. solo "carne braseada", solo el desayuno) → es IMPOSIBLE que una comida sola sume la meta del día entero. El target = la PORCIÓN de la meta que corresponde a esa comida (desayuno≈25%, almuerzo≈35%, cena≈30%, snack≈10% de la meta diaria). DEBES explicárselo al cliente en "logic" (ver abajo).
+  OBLIGATORIO — DEBE CUADRAR: ajusta las cantidades hasta que "estimated_totals_after" caiga DENTRO DE ±4% del target en kcal Y en proteína. Prioridad: primero clava proteína y kcal, luego acomoda carbos/grasas. Si tu primer cálculo se pasa o queda corto (como el caso real donde la propuesta quedó por ENCIMA de la meta), RECALCULA subiendo/bajando gramos antes de responder. NO entregues una propuesta que siga fuera de meta — ese es el motivo de ser de esta acción.
+  REALISMO: sube/baja gramos de los alimentos que YA están en el menú, de forma proporcional — NO triplicar aceite, NO duplicar azúcar; preferir proteína magra para P, arroz/avena/tubérculos para C, y mantener las grasas controladas.
+  ARGUMENTA SIEMPRE (campo "logic", 1-2 oraciones, concisas): di QUÉ target usaste y POR QUÉ, y la condición real para cumplir la meta. Ejemplos: "Ajusté tus 3 menús para que JUNTOS sumen tu meta diaria; cumplirla depende de que el día sea exactamente esto y nada más." / "Como esto es solo tu almuerzo, lo ajusté al ~35% de tu meta (no al día completo); el resto lo completas con desayuno y cena." / "Como aún no has registrado nada hoy, partí de tu meta completa; si ya comiste algo, dímelo y ajusto sobre lo que te queda."
   Devuelve "adjust_favorites_response" con la estructura del schema. NUNCA registres nada — es solo propuesta visual.
 - "water": registra agua. "1 vaso"=250ml, "1 termo"=500ml, "1 botella"=500ml, "1 litro"=1000ml.
 - "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite}. Mapping: "reiniciar día"→reset_day, "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion, "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
@@ -1465,6 +1484,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 {
   "intent": "log_meal | append_to_last | nutrition_query | meal_suggestion | summary_day | summary_week | retro_advice | adjust_favorites_to_goal | water | command | clarify | off_topic | name",
   "meal": "desayuno | almuerzo | cena | snack | comida | null",
+  "log_date": "YYYY-MM-DD si el cliente registra un día PASADO, null = hoy",
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "needs_quantity": false}],
   "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N}]}] | null,
   "append_to_entry_id": N | null,
@@ -1493,8 +1513,10 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   } | null,
   "adjust_favorites_response": {
     "summary": "1-2 oraciones cálidas: cuántos favoritos consideraste, suma actual vs meta, qué falta o sobra. Ej: 'Julio, sumando tus 3 menús (desayuno, carne braseada, ponquecitos) quedas en 1420 kcal y te faltan 880 para tu meta.'",
+    "logic": "1-2 oraciones concisas argumentando QUÉ target usaste y POR QUÉ, y la condición real para cumplir la meta (ver instrucciones del intent).",
     "current_totals": {"kcal": N, "p": N, "c": N, "g": N},
     "goal": {"kcal": N, "p": N, "c": N, "g": N},
+    "target": {"kcal": N, "p": N, "c": N, "g": N},
     "adjustments": [
       {
         "favorite_id": N,
@@ -1594,6 +1616,17 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
     const result = await callClaude(text, sys);
     const clean = result.replace(/```json|```/g, '').trim();
     return JSON.parse(clean);
+  };
+
+  // Agrega comidas a un DÍA PASADO (historial), no al día de hoy. Actualiza
+  // tanto el detalle (historyDetail) como los totales (history) de esa fecha.
+  const addEntriesToDate = (dateStr, newEntries) => {
+    const r1 = (n) => Math.round(n * 10) / 10;
+    const prevDetail = Array.isArray(historyDetail[dateStr]) ? historyDetail[dateStr] : [];
+    const all = [...prevDetail, ...newEntries];
+    const t = all.reduce((a, e) => ({ kcal: a.kcal + (e.kcal || 0), p: a.p + (e.p || 0), c: a.c + (e.c || 0), g: a.g + (e.g || 0) }), { kcal: 0, p: 0, c: 0, g: 0 });
+    setHistoryDetail(hd => ({ ...hd, [dateStr]: all }));
+    setHistory(h => ({ ...h, [dateStr]: { kcal: Math.round(t.kcal), p: r1(t.p), c: r1(t.c), g: r1(t.g), water: h[dateStr]?.water || 0 } }));
   };
 
   const handleSend = async (textOverride) => {
@@ -1773,6 +1806,45 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       }
 
       const r1 = (n) => Math.round(n * 10) / 10;
+
+      // BACK-DATED LOGGING — el cliente registra un día PASADO ("ayer cené…",
+      // "el lunes desayuné…"). Va al historial de ESA fecha, no al día de hoy.
+      const logDate = (() => {
+        const d = parsed.log_date;
+        if (!d || typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+        return d < today ? d : null; // solo fechas pasadas; hoy/futuro = flujo normal
+      })();
+      if (intent === 'log_meal' && logDate) {
+        const srcMeals = (Array.isArray(parsed.meals) && parsed.meals.length > 0)
+          ? parsed.meals
+          : (parsed.items?.length > 0 ? [{ meal: parsed.meal || 'comida', items: parsed.items }] : null);
+        if (srcMeals) {
+          const baseId = Date.now();
+          const newEntries = srcMeals
+            .filter(mo => mo && Array.isArray(mo.items) && mo.items.length > 0)
+            .map((mo, idx) => {
+              const cleanItems = sanitizeItems(mo.items);
+              trackFrequency(cleanItems);
+              return {
+                id: baseId + idx, meal: mo.meal || 'comida', items: cleanItems,
+                kcal: Math.round(cleanItems.reduce((s, i) => s + (i.kcal || 0), 0)),
+                p: r1(cleanItems.reduce((s, i) => s + (i.p || 0), 0)),
+                c: r1(cleanItems.reduce((s, i) => s + (i.c || 0), 0)),
+                g: r1(cleanItems.reduce((s, i) => s + (i.g || 0), 0)),
+                time: '', rawInput: userMsg, hasMissingQuantity: false,
+              };
+            });
+          if (newEntries.length > 0) {
+            addEntriesToDate(logDate, newEntries);
+            haptic(15);
+            const tot = newEntries.reduce((a, e) => ({ kcal: a.kcal + e.kcal, p: a.p + e.p, c: a.c + e.c, g: a.g + e.g }), { kcal: 0, p: 0, c: 0, g: 0 });
+            const label = new Date(logDate + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+            setMessages(m => [...m, { role: 'assistant', content: `Listo, lo registré en **${label}**, no en hoy. Ese día sumó ${Math.round(tot.kcal)} kcal · P${r1(tot.p)} C${r1(tot.c)} G${r1(tot.g)}. Tu día de hoy queda intacto.`, ts: Date.now() }]);
+            setLoading(false); setLoadingPreview('');
+            return;
+          }
+        }
+      }
 
       // LOG MULTIPLE MEALS (whole day dictated with meal cues)
       if (intent === 'log_meal' && Array.isArray(parsed.meals) && parsed.meals.length > 0) {
@@ -2433,8 +2505,26 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div style={{ color: ACCENT_PASTEL, fontWeight: 600, fontSize: '10px', letterSpacing: '0.02em' }}>
             Entrena con Método
           </div>
+          <button
+            onClick={() => { haptic(8); setShowRecetario(true); }}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition"
+            style={{ background: 'rgba(212,218,184,0.18)', border: `1px solid ${ACCENT}66`, color: '#FFF' }}
+            title="Recetario">
+            <BookOpen size={14} style={{ color: ACCENT_PASTEL }} />
+            <span className="text-[12px] font-semibold">Recetario</span>
+          </button>
         </div>
       </div>
+
+      {showRecetario && goals && (
+        <Recetario
+          goals={goals}
+          consumed={totals}
+          onClose={() => setShowRecetario(false)}
+          onRegister={(entry) => setEntries(e => [...e, entry])}
+          onChangeGoal={() => { setShowRecetario(false); setView('onboarding'); }}
+        />
+      )}
 
       <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: cardCompact ? '90px' : '195px' }}>
 
@@ -3393,7 +3483,12 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: C_CARBS }}>Ajuste de tus favoritos</span>
           </div>
           {d.summary && (
-            <div className="text-[13px] mb-3 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
+            <div className="text-[13px] mb-2 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
+          )}
+          {d.logic && (
+            <div className="text-[12px] mb-3 p-2.5 rounded-lg leading-relaxed" style={{ background: ACCENT_LIGHT, color: ACCENT_DARK }}>
+              <span className="font-semibold">Cómo lo ajusté: </span>{d.logic}
+            </div>
           )}
           {(current.kcal || goal.kcal) && (
             <div className="mb-3 p-2.5 rounded-lg" style={{ background: SURFACE_2, border: `1px solid ${BORDER_SOFT}` }}>
@@ -3470,6 +3565,17 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
                 <span style={{ color: C_CARBS }}>C {fmt1(after.c)}</span>
                 <span style={{ color: C_FAT }}>G {fmt1(after.g)}</span>
               </div>
+              {(() => {
+                const tgt = d.target && d.target.kcal ? d.target : goal;
+                if (!tgt || !tgt.kcal) return null;
+                const dk = Math.round((after.kcal || 0) - tgt.kcal);
+                const onTarget = Math.abs(dk) <= tgt.kcal * 0.04;
+                return (
+                  <div className="text-[11px] mt-1.5 font-medium" style={{ color: onTarget ? SUCCESS : WARN }}>
+                    {onTarget ? '✓ Cuadra con el objetivo' : `${dk > 0 ? '+' : ''}${dk} kcal vs objetivo (${fmt0(tgt.kcal)})`}
+                  </div>
+                );
+              })()}
             </div>
           )}
           {d.tip && (
