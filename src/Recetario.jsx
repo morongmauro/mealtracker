@@ -207,6 +207,507 @@ const RECIPES = [
       'Coloca todos los ingredientes en un bol, espolvorea la albahaca seca y reparte el pesto por encima.',
     ],
   },
+  {
+    id: 'creamy-eggs', name: 'Huevos revueltos cremosos', slot: 'desayuno', time: '10 min', icon: '🍳',
+    allergens: ['Lácteos', 'Huevo', 'Gluten'], tags: ['Comida simple'],
+    totals: { kcal: 469, p: 28, c: 53, g: 17 },
+    main: [
+      { n: 'Huevo', q: 3, u: 'unidades' },
+      { n: 'Crema agria descremada', q: 40, u: 'g' },
+      { n: 'Pan integral', q: 2, u: 'rebanadas' },
+      { n: 'Fresas', q: 152, u: 'g' },
+    ],
+    season: ['Sal y pimienta al gusto', 'Aceite en spray · 1'],
+    steps: [
+      'Calienta una sartén a fuego medio-bajo. Bate los huevos con sal y pimienta. Engrasa con spray y vierte los huevos.',
+      'Cuando empiecen a cuajar, revuelve y agrega la crema poco a poco. Bate hasta integrar, sin sobrecocinar.',
+      'Tuesta el pan y córtalo a la mitad.',
+      'Sirve los huevos cremosos con el pan y las fresas.',
+    ],
+  },
+  {
+    id: 'eggs-tuna', name: 'Huevos con atún', slot: 'desayuno', time: '15 min', icon: '🥚',
+    allergens: ['Huevo', 'Pescado'], tags: ['Paleo'],
+    totals: { kcal: 455, p: 40, c: 45, g: 13 },
+    main: [
+      { n: 'Papa al horno', q: 213, u: 'g' },
+      { n: 'Clara de huevo cocida', q: 4, u: 'unidades' },
+      { n: 'Atún en agua (escurrido)', q: 100, u: 'g' },
+    ],
+    season: ['Mayonesa paleo · 3 cda', 'Sal y pimienta al gusto'],
+    steps: [
+      'Machaca la papa, agrega la mayonesa y el atún, y mezcla bien.',
+      'Cubre cada clara de huevo con la mezcla de papa y sazona con sal y pimienta.',
+    ],
+  },
+  {
+    id: 'egg-avocado-sandwich', name: 'Sándwich de huevo y aguacate', slot: 'desayuno', time: '10 min', icon: '🥑',
+    allergens: ['Huevo', 'Gluten'], tags: ['Comida simple'],
+    totals: { kcal: 485, p: 34, c: 37, g: 22 },
+    main: [
+      { n: 'Pan multigrano', q: 2, u: 'rebanadas' },
+      { n: 'Huevo', q: 3, u: 'unidades' },
+      { n: 'Clara de huevo', q: 61, u: 'g' },
+      { n: 'Aguacate', q: 50, u: 'g' },
+    ],
+    season: ['Sal y pimienta al gusto', 'Aceite en spray · 1'],
+    steps: [
+      'Revuelve los huevos en una sartén con spray a fuego medio; voltea a la mitad y cocina 2 min más.',
+      'Tuesta el pan y úntalo con el aguacate.',
+      'Coloca el huevo sobre el pan, sazona con sal y pimienta y sirve como sándwich.',
+    ],
+  },
+  {
+    id: 'boiled-eggs-apples', name: 'Huevos cocidos con manzana', slot: 'desayuno', time: '10 min', icon: '🍎',
+    allergens: ['Huevo'], tags: ['Paleo', 'Comida simple'],
+    totals: { kcal: 506, p: 26, c: 60, g: 20 },
+    main: [
+      { n: 'Huevo', q: 4, u: 'unidades' },
+      { n: 'Manzana', q: 2, u: 'unidades' },
+    ],
+    season: ['Sal y pimienta al gusto'],
+    steps: [
+      'Coloca los huevos en una olla y cúbrelos con agua. Hierve, baja a fuego medio-alto y cocina 7 min.',
+      'Retíralos, pélalos y sirve con la manzana picada. Sazona con sal y pimienta.',
+    ],
+  },
+  {
+    id: 'turkey-egg-bites', name: 'Muffins de huevo y pavo con frutas', slot: 'desayuno', time: '25 min', icon: '🧁',
+    allergens: ['Lácteos', 'Huevo', 'Carne'], tags: ['Paleo'],
+    totals: { kcal: 465, p: 27, c: 42, g: 23 },
+    main: [
+      { n: 'Huevo', q: 2, u: 'unidades' },
+      { n: 'Clara de huevo', q: 30, u: 'g' },
+      { n: 'Queso cheddar', q: 28, u: 'g' },
+      { n: 'Tocino de pavo', q: 23, u: 'g' },
+      { n: 'Arándanos', q: 55, u: 'g' },
+      { n: 'Fresas', q: 60, u: 'g' },
+      { n: 'Kiwi', q: 1, u: 'unidades' },
+      { n: 'Mandarina', q: 1, u: 'unidades' },
+    ],
+    season: ['Pimentón rojo · al gusto', 'Perejil fresco · al gusto', 'Ajo en polvo · al gusto', 'Sal y pimienta al gusto'],
+    steps: [
+      'Precalienta el horno a 175°C.',
+      'Bate los huevos con el queso rallado, el ajo en polvo, el perejil, el tocino de pavo picado y el pimentón en cubos.',
+      'Engrasa un molde para muffins, vierte la mezcla en cada cavidad, sazona y hornea 12 min.',
+      'Mientras, pica las fresas y el kiwi y mézclalos con la mandarina pelada y los arándanos.',
+      'Sirve los muffins de huevo con la ensalada de frutas.',
+    ],
+  },
+  {
+    id: 'parmesan-baked-eggs', name: 'Huevos al horno con parmesano', slot: 'desayuno', time: '15 min', icon: '🧀',
+    allergens: ['Lácteos', 'Huevo', 'Gluten'], tags: ['Alto en fibra', 'Comida simple'],
+    totals: { kcal: 505, p: 35, c: 48, g: 20 },
+    main: [
+      { n: 'Huevo', q: 2, u: 'unidades' },
+      { n: 'Espárragos', q: 6, u: 'unidades' },
+      { n: 'Pan sourdough', q: 80, u: 'g' },
+      { n: 'Espinaca', q: 45, u: 'g' },
+      { n: 'Queso parmesano', q: 30, u: 'g' },
+    ],
+    season: ['Sal y pimienta al gusto'],
+    steps: [
+      'Precalienta la freidora de aire a 180°C por 5 min.',
+      'En un recipiente apto, coloca la espinaca y los espárragos; pon los huevos encima.',
+      'Sazona con sal y pimienta y espolvorea el parmesano.',
+      'Cocina 10 min (o un poco más) hasta que el huevo esté bien cocido.',
+      'Sirve con el pan tostado.',
+    ],
+  },
+  {
+    id: 'spinach-feta-wrap', name: 'Wrap de huevo, espinaca y feta', slot: 'desayuno', time: '5 min', icon: '🥬',
+    allergens: ['Lácteos', 'Huevo', 'Gluten'], tags: ['Comida simple'],
+    totals: { kcal: 522, p: 36, c: 54, g: 19 },
+    main: [
+      { n: 'Clara de huevo', q: 122, u: 'g' },
+      { n: 'Huevo', q: 1, u: 'unidades' },
+      { n: 'Tortilla de harina', q: 1, u: 'unidad' },
+      { n: 'Queso feta light', q: 40, u: 'g' },
+      { n: 'Espinaca baby', q: 30, u: 'g' },
+      { n: 'Tomates secos', q: 18, u: 'g' },
+    ],
+    season: ['Sal y pimienta al gusto'],
+    steps: [
+      'Bate el huevo y las claras con sal y pimienta.',
+      'Calienta una sartén antiadherente; vierte la mezcla y, justo antes de cuajar, agrega la espinaca y cocina.',
+      'Coloca la tortilla y pon los huevos revueltos en un lado.',
+      'Pica los tomates secos, agrégalos y espolvorea el feta.',
+      'Enrolla con cuidado, corta a la mitad y disfruta.',
+    ],
+  },
+  {
+    id: 'egg-toast', name: 'Tostada de huevo y cottage', slot: 'desayuno', time: '10 min', icon: '🍞',
+    allergens: ['Lácteos', 'Huevo', 'Gluten'], tags: ['Comida simple'],
+    totals: { kcal: 491, p: 35, c: 46, g: 18 },
+    main: [
+      { n: 'Huevo', q: 3, u: 'unidades' },
+      { n: 'Pan sourdough', q: 80, u: 'g' },
+      { n: 'Queso cottage', q: 80, u: 'g' },
+      { n: 'Espinaca', q: 15, u: 'g' },
+    ],
+    season: ['Hojuelas de chile · 1 cdta', 'Aceite en spray · 1', 'Sal al gusto'],
+    steps: [
+      'Corta y tuesta el pan.',
+      'Corta la espinaca en tiras finas.',
+      'Bate los huevos con una pizca de sal.',
+      'Calienta una sartén con spray, vierte los huevos y revuelve hasta cuajar.',
+      'Unta el cottage sobre cada rebanada, agrega la espinaca y los huevos, y decora con hojuelas de chile. Sirve.',
+    ],
+  },
+  {
+    id: 'yogurt-parfait', name: 'Parfait de yogur griego', slot: 'snack', time: '5 min', icon: '🥣',
+    allergens: ['Lácteos', 'Gluten'], tags: ['Sin cocción'],
+    totals: { kcal: 485, p: 56, c: 38, g: 13 },
+    main: [
+      { n: 'Yogur griego natural', q: 490, u: 'g' },
+      { n: 'Arándanos', q: 36, u: 'g' },
+      { n: 'Granola', q: 25, u: 'g' },
+    ],
+    season: ['Semillas de cáñamo · 1 cda'],
+    steps: [
+      'Coloca la mitad de los arándanos en el fondo de un frasco.',
+      'Mezcla la granola con las semillas de cáñamo y arma capas alternando yogur griego y granola.',
+      'Termina con arándanos y granola por encima.',
+    ],
+  },
+  {
+    id: 'blueberry-smoothie', name: 'Smoothie cremoso de arándanos', slot: 'snack', time: '5 min', icon: '🥤',
+    allergens: ['Lácteos', 'Frutos secos'], tags: ['Sin cocción', 'Comida simple'],
+    totals: { kcal: 450, p: 32, c: 50, g: 16 },
+    main: [
+      { n: 'Yogur griego natural', q: 245, u: 'g' },
+      { n: 'Arándanos', q: 145, u: 'g' },
+      { n: 'Banano', q: 0.5, u: 'unidad' },
+      { n: 'Leche de almendras', q: 49, u: 'ml' },
+    ],
+    season: ['Mantequilla de almendra · 1½ cda', 'Hielo · 136 g'],
+    steps: [
+      'Coloca el yogur, los arándanos, el banano, la mantequilla de almendra y la leche de almendras en la licuadora. Licúa hasta que quede suave.',
+      'Agrega el hielo y licúa hasta triturarlo por completo.',
+    ],
+  },
+  {
+    id: 'lentil-soup', name: 'Sopa de lentejas y tomate', slot: 'cena', time: '20 min', icon: '🍵',
+    allergens: ['Huevo'], tags: ['Alto en fibra', 'Una olla'],
+    totals: { kcal: 470, p: 33, c: 52, g: 15 },
+    main: [
+      { n: 'Lentejas secas', q: 45, u: 'g' },
+      { n: 'Tomate triturado', q: 142, u: 'g' },
+      { n: 'Caldo de verduras', q: 663, u: 'ml' },
+      { n: 'Pasta de tomate', q: 66, u: 'g' },
+      { n: 'Proteína de clara de huevo', q: 26, u: 'g' },
+      { n: 'Zanahoria', q: 2, u: 'unidades' },
+      { n: 'Apio', q: 2, u: 'tallos' },
+    ],
+    season: ['Ajo · 1 cda', 'Cilantro · 2 cda', 'Hojuelas de chile · ½ cdta', 'Aceite de oliva · 1 cda', 'Sal y pimienta al gusto'],
+    steps: [
+      'Pica el ajo y el cilantro; corta la zanahoria y el apio y prepara el resto de ingredientes.',
+      'Activa el modo saltear y calienta el aceite. Agrega el ajo, el apio y la zanahoria y sofríe hasta que el ajo esté fragante.',
+      'Agrega las lentejas, el cilantro, el caldo, la pasta de tomate y el tomate triturado; sazona con hojuelas de chile, sal y pimienta.',
+      'Tapa y cocina a presión 10 min; libera la presión antes de abrir.',
+      'Pasa la mitad de la sopa a la licuadora, deja enfriar un poco y licúa.',
+      'Agrega la proteína y el resto de la sopa, y licúa hasta que quede suave. Si está muy espesa, añade un poco de agua.',
+      'Sirve la sopa en un bol.',
+    ],
+  },
+  {
+    id: 'steak-skewers', name: 'Pinchos de res, papa y champiñón', slot: 'cena', time: '15 min', icon: '🍢',
+    allergens: ['Carne'], tags: ['Comida simple'],
+    totals: { kcal: 477, p: 35, c: 48, g: 16 },
+    main: [
+      { n: 'Lomo de res', q: 120, u: 'g' },
+      { n: 'Papas baby', q: 10, u: 'unidades' },
+      { n: 'Champiñones', q: 10, u: 'unidades' },
+      { n: 'Rúcula', q: 20, u: 'g' },
+    ],
+    season: ['Sal, ajo en polvo y pimienta al gusto'],
+    steps: [
+      'Hierve las papas 5 min hasta que empiecen a ablandar; escúrrelas.',
+      'Córtalas a la mitad y corta la carne en trozos medianos.',
+      'Calienta una parrilla a fuego alto por 5 min.',
+      'Arma los pinchos con un trozo de carne, un champiñón y media papa. Sazona con sal, ajo en polvo y pimienta.',
+      'Asa a fuego medio 3–4 min por lado hasta cocer.',
+      'Sirve los pinchos sobre una cama de rúcula.',
+    ],
+  },
+  {
+    id: 'creamy-beef-mushroom', name: 'Carne molida con champiñones a la crema', slot: 'cena', time: '15 min', icon: '🍄',
+    allergens: ['Lácteos', 'Carne'], tags: ['Comida simple'],
+    totals: { kcal: 542, p: 46, c: 55, g: 17 },
+    main: [
+      { n: 'Carne molida magra', q: 156, u: 'g' },
+      { n: 'Champiñones', q: 280, u: 'g' },
+      { n: 'Papa', q: 150, u: 'g' },
+      { n: 'Cebolla', q: 40, u: 'g' },
+      { n: 'Crema agria descremada', q: 71, u: 'g' },
+    ],
+    season: ['Sal y pimienta al gusto'],
+    steps: [
+      'Pela y pica la papa en cubos pequeños.',
+      'Coloca la cebolla y la papa en una sartén antiadherente, tapa y cocina.',
+      'Agrega la carne molida, sazona con sal y pimienta y cocina con tapa hasta dorar.',
+      'Añade los champiñones en láminas y la crema agria; mezcla y cocina 5 min más.',
+      'Sirve en un plato y disfruta.',
+    ],
+  },
+  {
+    id: 'rice-chicken-salad', name: 'Ensalada de arroz con pollo y aguacate', slot: 'almuerzo', time: '15 min', icon: '🥗',
+    allergens: ['Carne'], tags: ['Alto en fibra', 'Sin cocción', 'Ensalada'],
+    totals: { kcal: 529, p: 42, c: 55, g: 16 },
+    main: [
+      { n: 'Pechuga de pollo', q: 120, u: 'g' },
+      { n: 'Arroz blanco cocido', q: 158, u: 'g' },
+      { n: 'Aguacate', q: 80, u: 'g' },
+      { n: 'Cebollín', q: 25, u: 'g' },
+    ],
+    season: ['Cilantro · ¼ taza', 'Ajo en polvo · 1 cdta', 'Sal y pimienta al gusto'],
+    steps: [
+      'Corta el pollo en trozos pequeños; pica el cebollín y el cilantro.',
+      'Corta el aguacate a la mitad; pica una mitad en cubos y reserva.',
+      'En un bol, machaca la otra mitad del aguacate con un tenedor. Agrega el arroz, sazona con sal, pimienta y ajo en polvo y mezcla bien.',
+      'Incorpora el cilantro, el cebollín y el pollo. Agrega con cuidado el aguacate en cubos y disfruta.',
+    ],
+  },
+  {
+    id: 'beef-broccoli', name: 'Res con brócoli a la olla', slot: 'cena', time: '25 min', icon: '🥦',
+    allergens: ['Gluten', 'Carne', 'Soya'], tags: ['Comida simple'],
+    totals: { kcal: 525, p: 31, c: 51, g: 22 },
+    main: [
+      { n: 'Carne de res', q: 76, u: 'g' },
+      { n: 'Arroz blanco cocido', q: 78, u: 'g' },
+      { n: 'Brócoli', q: 60, u: 'g' },
+      { n: 'Cebolla', q: 30, u: 'g' },
+    ],
+    season: ['Salsa de soya · 43 ml', 'Caldo de res · 80 ml', 'Azúcar morena · 1 cda', 'Aceite de sésamo · 2 cdta', 'Ajo · 1 diente', 'Maicena · 1 cda', 'Aceite de oliva · 2 cdta'],
+    steps: [
+      'Agrega el caldo de res, el ajo, la salsa de soya, el azúcar morena y el aceite de sésamo a la olla. Revuelve hasta disolver y agrega la carne.',
+      'Tapa y cocina a presión alta 10 min con la válvula sellada; al terminar, libera la presión.',
+      'Activa el modo saltear, agrega el brócoli y la maicena disuelta en un poco de agua; cocina hasta que espese.',
+      'Sirve sobre el arroz blanco.',
+    ],
+  },
+  {
+    id: 'grilled-chicken-sandwich', name: 'Sándwich de pollo a la parrilla', slot: 'almuerzo', time: '15 min', icon: '🍗',
+    allergens: ['Lácteos', 'Gluten', 'Carne', 'Frutos secos'], tags: ['Comida simple'],
+    totals: { kcal: 455, p: 51, c: 32, g: 16 },
+    main: [
+      { n: 'Pechuga de pollo', q: 80, u: 'g' },
+      { n: 'Pan sándwich integral', q: 1, u: 'unidad' },
+      { n: 'Queso suizo light', q: 65, u: 'g' },
+      { n: 'Tomate', q: 1, u: 'unidades' },
+    ],
+    season: ['Pesto · 2 cda'],
+    steps: [
+      'Tuesta el pan. Corta el tomate en rodajas finas y la pechuga a la mitad a lo largo.',
+      'Calienta el pollo en una sartén antiadherente; agrega el queso encima y deja que se derrita.',
+      'Unta pesto en ambas rebanadas; coloca el pollo con queso en una y cubre con el tomate. Cierra.',
+      'Corta a la mitad y disfruta.',
+    ],
+  },
+  {
+    id: 'chicken-panini', name: 'Panini de pollo', slot: 'almuerzo', time: '5 min', icon: '🥪',
+    allergens: ['Lácteos', 'Gluten', 'Carne'], tags: ['Comida simple'],
+    totals: { kcal: 511, p: 38, c: 54, g: 17 },
+    main: [
+      { n: 'Pechuga de pollo', q: 85, u: 'g' },
+      { n: 'Pan multigrano', q: 2, u: 'rebanadas' },
+      { n: 'Queso mozzarella', q: 21, u: 'g' },
+      { n: 'Tomates deshidratados', q: 30, u: 'g' },
+    ],
+    season: ['Pesto · 3 cdta'],
+    steps: [
+      'Tuesta el pan y, mientras, corta la pechuga en láminas.',
+      'Unta el pesto en cada rebanada y arma el sándwich con la mozzarella, los tomates deshidratados y el pollo.',
+    ],
+  },
+  {
+    id: 'avocado-tuna-sandwich', name: 'Sándwich de atún y aguacate', slot: 'almuerzo', time: '5 min', icon: '🐟',
+    allergens: ['Lácteos', 'Pescado', 'Gluten'], tags: ['Sin cocción', 'Comida simple'],
+    totals: { kcal: 539, p: 41, c: 60, g: 15 },
+    main: [
+      { n: 'Atún en agua (escurrido)', q: 111, u: 'g' },
+      { n: 'Pan sourdough', q: 100, u: 'g' },
+      { n: 'Aguacate', q: 70, u: 'g' },
+      { n: 'Repollo morado', q: 18, u: 'g' },
+    ],
+    season: ['Crema agria light · 15 g', 'Sal y ajo en polvo al gusto'],
+    steps: [
+      'Tuesta las rebanadas de pan.',
+      'Escurre el atún.',
+      'En un bol, mezcla el aguacate, la crema agria y el atún. Sazona con sal y ajo en polvo y machaca con un tenedor.',
+      'Coloca el repollo en una rebanada, agrega la mezcla de atún y cierra el sándwich.',
+      'Corta a la mitad y disfruta.',
+    ],
+  },
+  {
+    id: 'pumpkin-egg-pie', name: 'Pastel de calabaza y huevo', slot: 'snack', time: '35 min', icon: '🥧',
+    allergens: ['Huevo'], tags: ['Comida simple'],
+    totals: { kcal: 173, p: 10, c: 18, g: 7 },
+    main: [
+      { n: 'Puré de calabaza', q: 45, u: 'g' },
+      { n: 'Huevo', q: 2, u: 'unidades' },
+    ],
+    season: ['Miel · ¾ cda', 'Esencia de vainilla · al gusto'],
+    steps: [
+      'Precalienta la freidora de aire a 180°C por 5 min.',
+      'En un procesador, agrega todos los ingredientes y licúa hasta que quede suave.',
+      'Vierte la mezcla en un molde para freidora de aire y cocina 35 min, o hasta que cuaje (comprueba con un palillo).',
+      'Retira y deja enfriar un poco antes de servir.',
+      'Corta, comparte y disfruta.',
+    ],
+  },
+  {
+    id: 'apple-pie-smoothie', name: 'Smoothie proteico de manzana', slot: 'snack', time: '5 min', icon: '🥤',
+    allergens: ['Lácteos', 'Frutos secos'], tags: ['Alto en fibra', 'Sin cocción'],
+    totals: { kcal: 230, p: 16, c: 29, g: 7 },
+    main: [
+      { n: 'Compota de manzana', q: 65, u: 'g' },
+      { n: 'Yogur griego natural', q: 45, u: 'g' },
+      { n: 'Avena', q: 12, u: 'g' },
+      { n: 'Proteína whey', q: 30, u: 'g' },
+      { n: 'Leche de almendras', q: 368, u: 'ml' },
+    ],
+    season: ['Canela · ½ cdta'],
+    steps: [
+      'En la licuadora, agrega la compota de manzana, el yogur griego, la avena, la canela, la proteína y la leche de almendras. Licúa hasta que quede suave.',
+      'Sirve en un vaso y disfruta.',
+    ],
+  },
+  {
+    id: 'protein-balls', name: 'Bolitas proteicas de chocolate y maní', slot: 'snack', time: '5 min', icon: '🍫',
+    allergens: ['Lácteos', 'Maní'], tags: ['Sin cocción'],
+    totals: { kcal: 207, p: 14, c: 16, g: 11 },
+    main: [
+      { n: 'Proteína whey', q: 11, u: 'g' },
+      { n: 'Mantequilla de maní', q: 17, u: 'g' },
+      { n: 'Avena', q: 11, u: 'g' },
+    ],
+    season: ['Miel · al gusto', 'Chispas de chocolate negro · al gusto'],
+    steps: [
+      'Mezcla la avena, la mantequilla de maní, la proteína, la miel y las chispas de chocolate hasta integrar.',
+      'Forma bolitas y guárdalas en un recipiente tapado en la nevera o el congelador. Cada porción son dos bolitas.',
+    ],
+  },
+  {
+    id: 'chicken-avocado-toast', name: 'Tostada de arroz con pollo y aguacate', slot: 'snack', time: '5 min', icon: '🍘',
+    allergens: ['Lácteos', 'Carne'], tags: ['Sin cocción', 'Comida simple'],
+    totals: { kcal: 218, p: 17, c: 19, g: 8 },
+    main: [
+      { n: 'Pechuga de pollo cocida', q: 40, u: 'g' },
+      { n: 'Aguacate', q: 45, u: 'g' },
+      { n: 'Tortas de arroz', q: 2, u: 'unidades' },
+      { n: 'Yogur griego natural', q: 15, u: 'g' },
+    ],
+    season: ['Cebolla morada · 1 cda', 'Sal al gusto'],
+    steps: [
+      'Desmenuza el pollo.',
+      'En un bol, mezcla el aguacate, el yogur griego y sal; machaca con un tenedor.',
+      'Unta la mezcla de aguacate sobre cada torta de arroz.',
+      'Agrega el pollo desmenuzado y la cebolla morada. Disfruta.',
+    ],
+  },
+  {
+    id: 'strawberries-chocolate', name: 'Fresas con chocolate negro', slot: 'snack', time: '5 min', icon: '🍓',
+    allergens: [], tags: ['Alto en fibra', 'Sin cocción', 'Paleo'],
+    totals: { kcal: 204, p: 3, c: 28, g: 10 },
+    main: [
+      { n: 'Fresas', q: 240, u: 'g' },
+      { n: 'Chocolate negro 70-85%', q: 21, u: 'g' },
+    ],
+    season: [],
+    steps: [
+      'Parte el chocolate negro en trozos y sírvelo junto a las fresas frescas.',
+    ],
+  },
+  {
+    id: 'creamy-chicken-curry', name: 'Pollo al curry cremoso', slot: 'cena', time: '20 min', icon: '🍛',
+    allergens: ['Lácteos', 'Carne'], tags: ['Comida simple'],
+    totals: { kcal: 545, p: 41, c: 54, g: 19 },
+    main: [
+      { n: 'Pechuga de pollo', q: 160, u: 'g' },
+      { n: 'Arroz blanco cocido', q: 140, u: 'g' },
+      { n: 'Yogur natural', q: 81, u: 'g' },
+    ],
+    season: ['Pasta de tomate · 2 cda', 'Caldo de pollo · 60 ml', 'Curry en polvo · 1 cda', 'Ghee · 2 cdta', 'Cilantro · 1 cda', 'Sal al gusto'],
+    steps: [
+      'Calienta el ghee en una sartén a fuego bajo.',
+      'Agrega el curry, la pasta de tomate y una pizca de sal. Mezcla y cocina 2 min.',
+      'Incorpora el caldo de pollo y la pechuga. Tapa y cocina 10 min o hasta que el pollo esté cocido.',
+      'Vierte el yogur y mezcla bien.',
+      'Recalienta el arroz y sírvelo; encima el pollo al curry. Decora con cilantro.',
+    ],
+  },
+  {
+    id: 'burger-bowl', name: 'Bowl de hamburguesa', slot: 'almuerzo', time: '10 min', icon: '🍔',
+    allergens: ['Lácteos', 'Carne'], tags: ['Alto en fibra', 'Ensalada'],
+    totals: { kcal: 497, p: 41, c: 48, g: 16 },
+    main: [
+      { n: 'Carne molida magra', q: 120, u: 'g' },
+      { n: 'Papa', q: 150, u: 'g' },
+      { n: 'Tomate cherry', q: 149, u: 'g' },
+      { n: 'Lechuga', q: 72, u: 'g' },
+      { n: 'Queso cheddar light', q: 44, u: 'g' },
+    ],
+    season: ['Cebolla morada · 30 g', 'Sal, ajo en polvo y pimienta al gusto'],
+    steps: [
+      'Cocina la carne molida en una sartén a fuego medio-alto hasta dorar. Sazona con sal, ajo en polvo y pimienta.',
+      'Corta los tomates cherry en cuartos.',
+      'Arma el bowl: coloca la lechuga, añade la carne, el queso rallado, los tomates y la cebolla morada. Disfruta.',
+    ],
+  },
+  {
+    id: 'caprese-chicken-salad', name: 'Caprese de pollo a la parrilla', slot: 'almuerzo', time: '15 min', icon: '🥗',
+    allergens: ['Lácteos', 'Carne'], tags: ['Comida simple'],
+    totals: { kcal: 524, p: 51, c: 31, g: 20 },
+    main: [
+      { n: 'Pechuga de pollo', q: 90, u: 'g' },
+      { n: 'Mezcla de espinaca y kale', q: 170, u: 'g' },
+      { n: 'Tomate cherry', q: 298, u: 'g' },
+      { n: 'Perlas de mozzarella', q: 90, u: 'g' },
+    ],
+    season: ['Vinagre balsámico · 3 cda'],
+    steps: [
+      'Corta los tomates cherry a la mitad.',
+      'Arma el plato: coloca las hojas verdes como base; a un lado agrega los tomates y las perlas de mozzarella.',
+      'Corta la pechuga en trozos o tiras y colócala al otro lado del plato.',
+      'Rocía el vinagre balsámico sobre todo el plato. Disfruta.',
+    ],
+  },
+  {
+    id: 'mexican-chicken-bowl', name: 'Bowl mexicano de pollo', slot: 'almuerzo', time: '10 min', icon: '🌽',
+    allergens: ['Carne'], tags: ['Comida simple'],
+    totals: { kcal: 509, p: 42, c: 53, g: 22 },
+    main: [
+      { n: 'Pollo molido', q: 120, u: 'g' },
+      { n: 'Maíz dulce', q: 246, u: 'g' },
+      { n: 'Aguacate', q: 113, u: 'g' },
+      { n: 'Tomate', q: 113, u: 'g' },
+    ],
+    season: ['Cebolla morada · 53 g', 'Especias al gusto', 'Sal al gusto'],
+    steps: [
+      'Cocina el pollo en una sartén antiadherente, sazona con tus especias favoritas y tapa para que no se seque.',
+      'Prepara los ingredientes: escurre el maíz y pica el tomate en cubos.',
+      'En un bol, sirve el pollo, el aguacate y el maíz. Termina con la cebolla morada y el tomate.',
+    ],
+  },
+  {
+    id: 'beef-plantain-bowl', name: 'Bowl de res y plátano con salsa verde', slot: 'cena', time: '30 min', icon: '🍌',
+    allergens: ['Carne'], tags: ['Alto en fibra'],
+    totals: { kcal: 503, p: 37, c: 41, g: 23 },
+    main: [
+      { n: 'Carne molida magra', q: 156, u: 'g' },
+      { n: 'Plátano', q: 100, u: 'g' },
+      { n: 'Cebolla', q: 80, u: 'g' },
+      { n: 'Kale', q: 33, u: 'g' },
+    ],
+    season: ['Salsa verde · 2 cda', 'Chile en polvo · ½ cda', 'Aceite de coco · 1 cda', 'Sal al gusto'],
+    steps: [
+      'Precalienta el horno a 200°C y forra una bandeja. Pela y corta el plátano en rodajas; rocía con la mitad del aceite, sazona con sal y hornea 20 min, volteando una vez.',
+      'Mientras, cocina la carne y la cebolla picada en una sartén a fuego medio con el resto del aceite, desmenuzando, hasta dorar.',
+      'Sazona la carne con sal y chile en polvo, agrega el kale picado y cocina hasta marchitar (~2 min).',
+      'Sirve la carne con el plátano y corona con salsa verde.',
+    ],
+  },
 ];
 
 // Metadata para tags y filtros: costo (1=económico … 3=premium), dificultad
@@ -222,6 +723,34 @@ const META = {
   'chicken-lentil': { cost: 1, diff: 'Fácil', min: 10 },
   'chicken-burrito': { cost: 2, diff: 'Fácil', min: 10 },
   'chicken-pesto': { cost: 2, diff: 'Fácil', min: 10 },
+  'creamy-eggs': { cost: 1, diff: 'Fácil', min: 10 },
+  'eggs-tuna': { cost: 1, diff: 'Fácil', min: 15 },
+  'egg-avocado-sandwich': { cost: 1, diff: 'Fácil', min: 10 },
+  'boiled-eggs-apples': { cost: 1, diff: 'Fácil', min: 10 },
+  'turkey-egg-bites': { cost: 2, diff: 'Media', min: 25 },
+  'parmesan-baked-eggs': { cost: 2, diff: 'Fácil', min: 15 },
+  'spinach-feta-wrap': { cost: 2, diff: 'Fácil', min: 5 },
+  'egg-toast': { cost: 1, diff: 'Fácil', min: 10 },
+  'yogurt-parfait': { cost: 1, diff: 'Fácil', min: 5 },
+  'blueberry-smoothie': { cost: 1, diff: 'Fácil', min: 5 },
+  'lentil-soup': { cost: 1, diff: 'Media', min: 20 },
+  'steak-skewers': { cost: 3, diff: 'Media', min: 15 },
+  'creamy-beef-mushroom': { cost: 2, diff: 'Fácil', min: 15 },
+  'rice-chicken-salad': { cost: 2, diff: 'Fácil', min: 15 },
+  'beef-broccoli': { cost: 2, diff: 'Media', min: 25 },
+  'grilled-chicken-sandwich': { cost: 2, diff: 'Fácil', min: 15 },
+  'chicken-panini': { cost: 2, diff: 'Fácil', min: 5 },
+  'avocado-tuna-sandwich': { cost: 1, diff: 'Fácil', min: 5 },
+  'pumpkin-egg-pie': { cost: 1, diff: 'Fácil', min: 35 },
+  'apple-pie-smoothie': { cost: 1, diff: 'Fácil', min: 5 },
+  'protein-balls': { cost: 2, diff: 'Fácil', min: 5 },
+  'chicken-avocado-toast': { cost: 1, diff: 'Fácil', min: 5 },
+  'strawberries-chocolate': { cost: 2, diff: 'Fácil', min: 5 },
+  'creamy-chicken-curry': { cost: 2, diff: 'Fácil', min: 20 },
+  'burger-bowl': { cost: 2, diff: 'Fácil', min: 10 },
+  'caprese-chicken-salad': { cost: 2, diff: 'Fácil', min: 15 },
+  'mexican-chicken-bowl': { cost: 1, diff: 'Fácil', min: 10 },
+  'beef-plantain-bowl': { cost: 2, diff: 'Media', min: 30 },
 };
 const COST_LABELS = { 1: 'Económica', 2: 'Moderada', 3: 'Premium' };
 const SORT_NOTES = {
@@ -250,8 +779,8 @@ function scale(rec, targetP) {
   const totals = { kcal: rec.totals.kcal * k, p: rec.totals.p * k, c: rec.totals.c * k, g: rec.totals.g * k };
   const main = rec.main.map(i => {
     let q = i.q * k;
-    if (i.u === 'g') q = round5(q);
-    else if (i.u === 'unidades') q = Math.max(1, Math.round(q));
+    if (i.u === 'g' || i.u === 'ml') q = round5(q);
+    else if (i.u === 'unidades' || i.u === 'rebanadas') q = Math.max(1, Math.round(q));
     else q = Math.max(0.5, roundHalf(q));
     return { ...i, q };
   });
@@ -393,7 +922,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               {isHighProtein(open) && <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: '#F7E3DC', color: C_PROTEIN }}>Alta proteína</span>}
             </div>
           </div>
-          <div className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full w-fit" style={{ background: '#FBEEE8', color: '#B8732B' }}><AlertTriangle size={11} /> Contiene: {open.allergens.join(', ')}</div>
+          {open.allergens.length > 0 && (
+            <div className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full w-fit" style={{ background: '#FBEEE8', color: '#B8732B' }}><AlertTriangle size={11} /> Contiene: {open.allergens.join(', ')}</div>
+          )}
 
           {/* Tu porción */}
           <div className="rounded-3xl p-4" style={cardStyle}>
@@ -420,14 +951,16 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           </div>
 
           {/* Para realzar */}
-          <div className="rounded-3xl p-4" style={plainCard}>
-            {sectionLabel('Para realzar')}
-            {open.season.map((s, idx) => (
-              <div key={idx} className="flex items-start gap-2 py-1 text-[13.5px]" style={{ color: TEXT }}>
-                <span style={{ color: ACCENT, lineHeight: 1.2 }}>·</span><span>{s}</span>
-              </div>
-            ))}
-          </div>
+          {open.season.length > 0 && (
+            <div className="rounded-3xl p-4" style={plainCard}>
+              {sectionLabel('Para realzar')}
+              {open.season.map((s, idx) => (
+                <div key={idx} className="flex items-start gap-2 py-1 text-[13.5px]" style={{ color: TEXT }}>
+                  <span style={{ color: ACCENT, lineHeight: 1.2 }}>·</span><span>{s}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Preparación */}
           <div className="rounded-3xl p-4" style={plainCard}>
@@ -523,24 +1056,20 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
         {/* Filtro por comida — siempre los 4 momentos */}
         {!searching && mode === 'comida' && (
-          <>
-            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-              {['todas', ...SLOT_ORDER].map(s => (
-                <button key={s} onClick={() => { haptic(4); setFilterSlot(s); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: filterSlot === s ? '#1F1F1F' : SURFACE, color: filterSlot === s ? '#FFF' : TEXT_MUTED, border: `1px solid ${filterSlot === s ? '#1F1F1F' : BORDER}` }}>{s === 'todas' ? 'Todas' : SLOT_LABELS[s]}</button>
-              ))}
-            </div>
-            <div className="-mt-1.5 px-1 text-[11.5px]" style={{ color: TEXT_MUTED }}>
-              <b style={{ color: TEXT }}>Desayuno, almuerzo, cena y snack</b> son sugerencias del momento ideal para cada receta — válidas cuando te queden mejor. Lo importante es que sea balanceada y alineada a tu meta.
-            </div>
-          </>
+          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {['todas', ...SLOT_ORDER].map(s => (
+              <button key={s} onClick={() => { haptic(4); setFilterSlot(s); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: filterSlot === s ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: filterSlot === s ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: filterSlot === s ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{s === 'todas' ? 'Todas' : SLOT_LABELS[s]}</button>
+            ))}
+          </div>
         )}
 
         {/* Filtros rápidos / ordenar */}
         {!searching && (
           <>
+            {mode === 'comida' && <div style={{ height: 1, background: BORDER, opacity: 0.7 }} className="mx-1 my-0.5" />}
             <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
               {[{ k: 'reco', l: 'Recomendado' }, { k: 'rapidos', l: '⚡ Más rápidos' }, { k: 'economicos', l: '💰 Más económicos' }, { k: 'proteina', l: '💪 Alta proteína' }].map(o => (
-                <button key={o.k} onClick={() => { haptic(4); setSort(o.k); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: sort === o.k ? '#1F1F1F' : SURFACE, color: sort === o.k ? '#FFF' : TEXT_MUTED, border: `1px solid ${sort === o.k ? '#1F1F1F' : BORDER}` }}>{o.l}</button>
+                <button key={o.k} onClick={() => { haptic(4); setSort(o.k); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: sort === o.k ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: sort === o.k ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: sort === o.k ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{o.l}</button>
               ))}
             </div>
             <div className="-mt-1.5 px-1 text-[11.5px]" style={{ color: TEXT_MUTED }}>{SORT_NOTES[sort]}</div>
