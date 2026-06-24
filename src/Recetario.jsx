@@ -30,6 +30,17 @@ const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
 const SPLIT = { desayuno: 0.25, almuerzo: 0.35, cena: 0.30, snack: 0.10 };
 const SLOT_LABELS = { desayuno: 'Desayuno', almuerzo: 'Almuerzo', cena: 'Cena', snack: 'Snack' };
 const SLOT_ORDER = ['desayuno', 'almuerzo', 'cena', 'snack'];
+// Almuerzo y cena se muestran como un solo grupo (son intercambiables).
+const SLOT_FILTERS = [
+  { key: 'todas', label: 'Todas' },
+  { key: 'desayuno', label: 'Desayuno' },
+  { key: 'principal', label: 'Almuerzo / Cena' },
+  { key: 'snack', label: 'Snack' },
+];
+const slotMatches = (recipeSlot, filterKey) => filterKey === 'principal'
+  ? (recipeSlot === 'almuerzo' || recipeSlot === 'cena')
+  : recipeSlot === filterKey;
+const displaySlot = (slot) => (slot === 'almuerzo' || slot === 'cena') ? 'Almuerzo / Cena' : SLOT_LABELS[slot];
 
 // ─────────────────────────────────────────────────────────────────────────
 // RECETAS — cargadas desde los PDFs del cliente. Nombres de ingredientes en
@@ -855,7 +866,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       const q = norm(query);
       recs = RECIPES.filter(r => norm(r.name).includes(q) || r.main.some(i => norm(i.n).includes(q)) || r.season.some(s => norm(s).includes(q)));
     } else if (filterSlot !== 'todas' && mode === 'comida') {
-      recs = RECIPES.filter(r => r.slot === filterSlot);
+      recs = RECIPES.filter(r => slotMatches(r.slot, filterSlot));
     }
     const sorted = [...recs];
     if (sort === 'rapidos') sorted.sort((a, b) => META[a.id].min - META[b.id].min);
@@ -915,7 +926,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center rounded-2xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24 }}>{open.icon}</div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] tracking-[0.16em] uppercase font-bold px-2.5 py-1 rounded-full" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>{SLOT_LABELS[open.slot]}</span>
+              <span className="text-[10px] tracking-[0.16em] uppercase font-bold px-2.5 py-1 rounded-full" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>{displaySlot(open.slot)}</span>
               <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}><Clock size={11} /> {open.time}</span>
               <span className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}><CostTag cost={META[open.id].cost} /> {COST_LABELS[META[open.id].cost]}</span>
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}>{META[open.id].diff}</span>
@@ -935,7 +946,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             </div>
             <div className="text-[11.5px] mt-3 flex items-start gap-1.5" style={{ color: TEXT_MUTED }}>
               <Info size={13} style={{ color: ACCENT, marginTop: 1, flexShrink: 0 }} />
-              <span>{mode === 'dia' ? 'Ajustado a lo que te queda hoy.' : `Ajustado a tu ${SLOT_LABELS[open.slot].toLowerCase()} (~${Math.round((SPLIT[open.slot] || 0.3) * 100)}% de tu meta).`} Las porciones se recalculan solas si cambia tu meta.</span>
+              <span>{mode === 'dia' ? 'Ajustado a lo que te queda hoy.' : `Ajustado a tu ${displaySlot(open.slot).toLowerCase()} (~${Math.round((SPLIT[open.slot] || 0.3) * 100)}% de tu meta).`} Las porciones se recalculan solas si cambia tu meta.</span>
             </div>
           </div>
 
@@ -1057,8 +1068,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {/* Filtro por comida — siempre los 4 momentos */}
         {!searching && mode === 'comida' && (
           <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            {['todas', ...SLOT_ORDER].map(s => (
-              <button key={s} onClick={() => { haptic(4); setFilterSlot(s); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: filterSlot === s ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: filterSlot === s ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: filterSlot === s ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{s === 'todas' ? 'Todas' : SLOT_LABELS[s]}</button>
+            {SLOT_FILTERS.map(f => (
+              <button key={f.key} onClick={() => { haptic(4); setFilterSlot(f.key); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: filterSlot === f.key ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: filterSlot === f.key ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: filterSlot === f.key ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{f.label}</button>
             ))}
           </div>
         )}
@@ -1084,7 +1095,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{recipe.name}</div>
                 <div className="flex items-center gap-2 text-[10.5px] mt-1" style={{ color: TEXT_MUTED }}>
-                  <span className="px-2 py-0.5 rounded-full font-bold tracking-[0.12em] uppercase" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 9 }}>{SLOT_LABELS[recipe.slot]}</span>
+                  <span className="px-2 py-0.5 rounded-full font-bold tracking-[0.12em] uppercase" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 9 }}>{displaySlot(recipe.slot)}</span>
                   <span className="flex items-center gap-1"><Clock size={10} /> {recipe.time}</span>
                   <CostTag cost={META[recipe.id].cost} />
                   {isHighProtein(recipe) && <span className="font-semibold" style={{ color: C_PROTEIN, fontSize: 9.5 }}>· Alta proteína</span>}
@@ -1100,7 +1111,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           ))}
           {list.length === 0 && (
             <div className="text-center py-10 text-[13px]" style={{ color: TEXT_LIGHT }}>
-              {searching ? `Sin resultados para “${query}”.` : `Aún no hay recetas sugeridas para ${SLOT_LABELS[filterSlot]?.toLowerCase() || 'esta comida'}. Pronto agregamos más.`}
+              {searching ? `Sin resultados para “${query}”.` : `Aún no hay recetas sugeridas para ${(SLOT_FILTERS.find(f => f.key === filterSlot)?.label || 'esta comida').toLowerCase()}. Pronto agregamos más.`}
             </div>
           )}
         </div>
