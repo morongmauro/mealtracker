@@ -3156,19 +3156,21 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
 }
 
 function ActionChipMini({ icon, label, color, pastel, onClick }) {
+  // Mismo lenguaje que las cards del Recetario: ícono en tile con fondito de
+  // color + tarjeta glass con sombra premium, sin borde sólido.
   return (
     <button onClick={onClick}
-      className="flex items-center gap-3 px-3.5 py-3.5 rounded-2xl active:scale-[0.97]"
+      className="flex items-center gap-2.5 px-3 py-3 rounded-2xl active:scale-[0.97]"
       style={{
-        background: 'rgba(255,255,255,0.7)',
-        border: `1px solid rgba(0,0,0,0.05)`,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        transition: 'transform 0.08s ease-out, background 0.12s ease-out'
+        background: 'rgba(255,255,255,0.9)',
+        border: 'none',
+        boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 6px 20px rgba(60,70,50,0.10), 0 2px 6px rgba(60,70,50,0.05)',
+        transition: 'transform 0.08s ease-out'
       }}>
-      <div className="shrink-0" style={{ color: color || TEXT }}>
+      <div className="flex items-center justify-center rounded-xl shrink-0" style={{ width: 38, height: 38, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK }}>
         {icon}
       </div>
-      <div className="text-[12.5px] font-medium leading-tight text-left" style={{ color: TEXT }}>{label}</div>
+      <div className="text-[12.5px] font-semibold leading-tight text-left" style={{ color: TEXT }}>{label}</div>
     </button>
   );
 }
