@@ -2701,15 +2701,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <div>
                   <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
                   <div className="grid grid-cols-2 gap-2.5">
-                    <ActionChipMini icon={<ChefHat size={19} strokeWidth={1.75} />} label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="🍽️" label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPlannerModal(true); generatePlan(); }} />
-                    <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="🔁" label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
-                    <ActionChipMini icon={<Star size={19} strokeWidth={1.75} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                    <ActionChipMini icon="⭐" label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
                       onClick={() => { haptic(8); setActiveModal('favorites'); }} />
-                    <ActionChipMini icon={<Utensils size={19} strokeWidth={1.75} />} label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                    <ActionChipMini icon="🛒" label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
                       onClick={() => { haptic(8); setShowIngredientsModal(true); }} />
-                    <ActionChipMini icon={<Calendar size={19} strokeWidth={1.75} />} label="Guardar día como favorito" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="📌" label="Guardar día como favorito" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); }} />
                   </div>
                 </div>
@@ -2717,15 +2717,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <div>
                   <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
                   <div className="grid grid-cols-2 gap-2.5">
-                    <ActionChipMini icon={<BarChart3 size={19} strokeWidth={1.75} />} label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="📊" label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
-                    <ActionChipMini icon={<LineChart size={19} strokeWidth={1.75} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
+                    <ActionChipMini icon="📈" label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
                       onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => handleSend('ver resumen diario'))); }} />
-                    <ActionChipMini icon={<Sparkles size={19} strokeWidth={1.75} />} label="Check-in del día" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
+                    <ActionChipMini icon="🧘" label="Check-in del día" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
                       onClick={() => { haptic(8); setShowWellbeingModal(true); }} />
-                    <ActionChipMini icon={<Calendar size={19} strokeWidth={1.75} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
+                    <ActionChipMini icon="📅" label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
                       onClick={() => { haptic(8); setActiveModal('calendar'); }} />
-                    <ActionChipMini icon={<PieChart size={19} strokeWidth={1.75} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
+                    <ActionChipMini icon="⚖️" label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
                       onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => setInput('Ayúdame con proporciones, tengo: '))); }} />
                   </div>
                 </div>
@@ -2733,11 +2733,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <div>
                   <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
                   <div className="grid grid-cols-2 gap-2.5">
-                    <ActionChipMini icon={<Sliders size={19} strokeWidth={1.75} />} label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="🎯" label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => setView('onboarding'))); }} />
-                    <ActionChipMini icon={<Info size={19} strokeWidth={1.75} />} label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="❓" label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
-                    <ActionChipMini icon={<RotateCcw size={19} strokeWidth={1.75} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
+                    <ActionChipMini icon="🔄" label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
                       onClick={() => { haptic(8); setActiveModal('reset'); }} />
                   </div>
                 </div>
@@ -3084,6 +3084,15 @@ function FontStyles() {
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Bebas+Neue&display=swap');
       body, * { font-family: ${FONT_UI}; -webkit-font-smoothing: antialiased; }
       .display { font-family: ${FONT_DISPLAY}; letter-spacing: 0.01em; }
+      /* PERF: el blur en vivo (backdrop-filter) es lo que más cuesta en móvil y
+         repinta en cada scroll/transición. Lo desactivamos: la traslucidez se
+         mantiene por el alfa de cada fondo, pero sin el costo de GPU que causaba
+         los tirones al scrollear el chat, abrir recetas o cerrar hojas. */
+      *, *::before, *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+      /* Los blobs animados infinitamente añaden carga continua de GPU; los dejamos
+         estáticos (se ven igual) para liberar el hilo de composición. */
+      .main-blob-1, .main-blob-2, .main-blob-3, .main-blob-4, .main-blob-5,
+      .blob-1, .blob-2, .blob-3, .mesh-1, .mesh-2, .mesh-3, .mesh-4 { animation: none !important; }
     `}</style>
   );
 }
@@ -3167,7 +3176,7 @@ function ActionChipMini({ icon, label, color, pastel, onClick }) {
         boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 6px 20px rgba(60,70,50,0.10), 0 2px 6px rgba(60,70,50,0.05)',
         transition: 'transform 0.08s ease-out'
       }}>
-      <div className="flex items-center justify-center rounded-xl shrink-0" style={{ width: 38, height: 38, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK }}>
+      <div className="flex items-center justify-center rounded-xl shrink-0" style={{ width: 38, height: 38, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK, fontSize: typeof icon === 'string' ? 20 : undefined, lineHeight: 1 }}>
         {icon}
       </div>
       <div className="text-[12.5px] font-semibold leading-tight text-left" style={{ color: TEXT }}>{label}</div>
