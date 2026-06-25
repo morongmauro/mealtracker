@@ -912,10 +912,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
   const sectionLabel = (t) => <div className="text-[11px] tracking-[0.16em] uppercase font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
 
-  // ───────────────────────── DETALLE ─────────────────────────
-  if (open && detail) {
-    return (
-      <div className="fixed inset-0 z-[60] overflow-y-auto" style={{ background: BG, fontFamily: FONT_UI }}>
+  // ───────────────────────── DETALLE (overlay sobre la lista) ─────────────────────────
+  const detailOverlay = (open && detail) ? (
+      <div className="fixed inset-0 z-[70] overflow-y-auto" style={{ background: BG, fontFamily: FONT_UI }}>
         {blobs}
         <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF' }}>
           <button onClick={() => { haptic(6); setOpenId(null); setManualK(null); }} className="p-1.5 -ml-1.5 rounded-full active:scale-90"><ChevronLeft size={22} /></button>
@@ -1006,8 +1005,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           </div>
         </div>
       </div>
-    );
-  }
+  ) : null;
 
   // ───────────────────────── LISTA ─────────────────────────
   return (
@@ -1122,6 +1120,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           </div>
         )}
       </div>
+      {detailOverlay}
     </div>
   );
 }

@@ -999,6 +999,55 @@ function MacroProgress({ label, val, goal, color }) {
   );
 }
 
+// Gráfica de barras día-por-día vs meta (mismo lenguaje visual que el
+// "desempeño" del cliente): línea de meta, verde en rango, ámbar si se pasa.
+function MacroBars({ days, goal, color, statKey, unit = '', onSelectDay }) {
+  if (!goal || goal <= 0) return null;
+  const maxRecorded = Math.max(0, ...days.map(d => (d.data ? (d.data[statKey] || 0) : 0)));
+  const maxScale = Math.max(goal * 1.4, maxRecorded * 1.1, goal * 1.1);
+  const goalPct = (goal / maxScale) * 100;
+  const dayShort = (d) => d.toLocaleDateString('es', { weekday: 'short' }).slice(0, 3);
+  return (
+    <div>
+      <div className="relative w-full" style={{ height: '96px', background: SURFACE_2 + '80', borderRadius: '8px', padding: '8px 6px' }}>
+        <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 1 }}>
+          <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: SUCCESS, opacity: 0.6 }} />
+          <span className="px-1 text-[8px] font-semibold uppercase tracking-wider" style={{ color: SUCCESS, background: SURFACE_2 }}>meta {fmt0(goal)}{unit}</span>
+        </div>
+        <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
+          {days.map((d, i) => {
+            const val = d.data ? (d.data[statKey] || 0) : 0;
+            const pct = goal > 0 ? val / goal : 0;
+            const heightPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
+            const inGoal = val > 0 && pct >= 0.9 && pct <= 1.1;
+            const over = val > goal * 1.1;
+            const fill = val === 0 ? '#D0CFC6' : inGoal ? SUCCESS : over ? WARN : color;
+            const clickable = !!d.data && typeof onSelectDay === 'function';
+            return (
+              <button key={i} onClick={() => clickable && onSelectDay(d.key)} disabled={!clickable}
+                className="flex-1 h-full flex flex-col justify-end items-center"
+                style={{ minWidth: 0, background: 'transparent', border: 'none', padding: 0, cursor: clickable ? 'pointer' : 'default' }}
+                title={`${d.key}: ${fmt0(val)}${unit} (${Math.round(pct * 100)}% de la meta)`}>
+                {val > 0 && <div className="text-[9px] font-bold num mb-0.5" style={{ color: fill }}>{fmt0(val)}</div>}
+                <div className="w-full" style={{
+                  height: val > 0 ? `${heightPct}%` : '2px', background: fill, opacity: val === 0 ? 0.5 : 1,
+                  borderRadius: '3px 3px 1px 1px', minHeight: val > 0 ? '4px' : '2px',
+                  transition: 'height 0.4s cubic-bezier(0.2, 0, 0, 1)',
+                }} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="flex gap-[3px] w-full mt-1 px-2">
+        {days.map((d, i) => (
+          <div key={i} className="flex-1 text-center capitalize" style={{ fontSize: '9px', color: TEXT_LIGHT, minWidth: 0 }}>{dayShort(d.date)}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TabSemana({ goals, history, onSelectDay }) {
   const last7 = useMemo(() => {
     const out = [];
@@ -1040,41 +1089,24 @@ function TabSemana({ goals, history, onSelectDay }) {
         </div>
       </div>
 
-      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-        <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Calorías día por día</div>
-        <div className="flex items-end gap-2 h-32">
-          {last7.map((x, i) => {
-            const pct = x.data && goals.kcal ? Math.min(150, (x.data.kcal / goals.kcal) * 100) : 0;
-            const clickable = !!x.data && typeof onSelectDay === 'function';
-            return (
-              <button key={i}
-                onClick={() => clickable && onSelectDay(x.key)}
-                disabled={!clickable}
-                className="flex-1 flex flex-col items-center justify-end p-0 rounded transition"
-                style={{ cursor: clickable ? 'pointer' : 'default', background: 'transparent', border: 'none' }}>
-                <div className="text-[9px] num mb-1" style={{ color: TEXT_LIGHT }}>
-                  {x.data ? fmt0(x.data.kcal) : '—'}
-                </div>
-                <div className="w-full rounded-t-md transition" style={{
-                  height: `${Math.max(2, pct * 0.85)}%`,
-                  background: x.data ? (pct > 105 ? DANGER : pct > 90 ? SUCCESS : ACCENT) : SURFACE_2,
-                  opacity: clickable ? 1 : 0.6,
-                }} />
-                <div className="text-[10px] mt-1 capitalize" style={{ color: TEXT_LIGHT }}>{dayShort(x.date)}</div>
-              </button>
-            );
-          })}
+      <div className="p-4 rounded-2xl space-y-4" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>Día por día vs meta</div>
+          <div className="text-[10px]" style={{ color: ACCENT_DARK }}>Toca una barra para ver el día</div>
         </div>
-        <div className="flex items-center justify-between mt-2">
-          {goals.kcal > 0 && (
-            <div className="text-[10px] italic" style={{ color: TEXT_LIGHT }}>
-              Línea de meta: {fmt0(goals.kcal)} kcal
+        {[
+          { key: 'kcal', label: 'Calorías', color: ACCENT, unit: '' },
+          { key: 'p', label: 'Proteína', color: C_PROTEIN, unit: 'g' },
+          { key: 'c', label: 'Carbohidratos', color: C_CARBS, unit: 'g' },
+          { key: 'g', label: 'Grasas', color: C_FAT, unit: 'g' },
+        ].map(m => (
+          <div key={m.key}>
+            <div className="text-[11px] font-semibold mb-1.5" style={{ color: m.color }}>
+              {m.label} <span style={{ color: TEXT_LIGHT, fontWeight: 400 }}>· meta {fmt0(goals[m.key])}{m.unit}</span>
             </div>
-          )}
-          <div className="text-[10px]" style={{ color: ACCENT_DARK }}>
-            Toca una barra para ver el detalle de ese día
+            <MacroBars days={last7} goal={goals[m.key]} color={m.color} statKey={m.key} unit={m.unit} onSelectDay={onSelectDay} />
           </div>
-        </div>
+        ))}
       </div>
     </div>
   );

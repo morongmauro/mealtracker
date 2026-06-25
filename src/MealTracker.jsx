@@ -2599,7 +2599,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <CompactMacro val={totals.p} goal={goals.p} color={C_PROTEIN} label="P" unit="g" />
                 <CompactMacro val={totals.c} goal={goals.c} color={C_CARBS} label="C" unit="g" />
                 <CompactMacro val={totals.g} goal={goals.g} color={C_FAT} label="G" unit="g" />
-                <div className="flex items-center gap-1 pl-2" style={{ borderLeft: `1px solid ${BORDER_SOFT}` }}>
+                <div className="flex items-center gap-1 pl-2 flex-shrink-0 hidden min-[420px]:flex" style={{ borderLeft: `1px solid ${BORDER_SOFT}` }}>
                   <span className="text-[9px] font-semibold tracking-wider whitespace-nowrap" style={{ color: ACCENT_DARK }}>Ver desempeño</span>
                   <span style={{ color: ACCENT_DARK, fontSize: '12px' }}>→</span>
                 </div>
@@ -3127,67 +3127,32 @@ function CompactMacro({ val, goal, color, label, unit = '' }) {
 }
 
 function GlassRing({ val, goal, color, label, unit = 'g' }) {
+  // SVG con viewBox + texto DENTRO del SVG: el anillo escala con el ancho de su
+  // celda (grid-cols-4), así nunca se apiña ni se corta en teléfonos angostos.
   const size = 78;
   const stroke = 5;
   const center = size / 2;
   const radius = (size - stroke) / 2;
   const circ = 2 * Math.PI * radius;
-  const pct = Math.min(1, val / goal);
+  const pct = goal > 0 ? Math.min(1, val / goal) : 0;
   const dash = circ * pct;
-  const [popped, setPopped] = useState(false);
-  const prevVal = useRef(val);
-
-  useEffect(() => {
-    if (prevVal.current !== val) {
-      setPopped(true);
-      const t = setTimeout(() => setPopped(false), 360);
-      prevVal.current = val;
-      return () => clearTimeout(t);
-    }
-  }, [val]);
-
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative">
-        <svg width={size} height={size}>
-          {/* Track (background) */}
-          <circle cx={center} cy={center} r={radius}
-            fill="none"
-            stroke={color}
-            strokeOpacity="0.14"
-            strokeWidth={stroke} />
-          {/* Progress — clean stroke, no glow */}
-          <g transform={`rotate(-90 ${center} ${center})`}>
-            <circle cx={center} cy={center} r={radius}
-              fill="none"
-              stroke={color}
-              strokeWidth={stroke}
-              strokeLinecap="round"
-              strokeDasharray={`${dash} ${circ}`}
-              style={{
-                transition: 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)'
-              }} />
-          </g>
-        </svg>
-
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-[18px] font-bold num" style={{
-            color: TEXT, lineHeight: 1, letterSpacing: '-0.02em',
-            transform: popped ? 'scale(1.18)' : 'scale(1)',
-            transition: 'transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1)'
-          }}>
-            {Math.round(val)}
-          </div>
-          <div className="text-[9px] num mt-0.5 font-medium" style={{ color: TEXT_LIGHT }}>
-            /{goal}{unit}
-          </div>
-        </div>
-      </div>
-      <div className="text-[10px] uppercase tracking-wider mt-2 font-semibold" style={{ color: TEXT_MUTED, letterSpacing: '0.1em' }}>
+    <div className="flex flex-col items-center min-w-0 w-full">
+      <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: 'auto', maxWidth: size, display: 'block' }}>
+        <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.14" strokeWidth={stroke} />
+        <g transform={`rotate(-90 ${center} ${center})`}>
+          <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+            strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
+        </g>
+        <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 18, fill: TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
+        <text x={center} y={center + 12} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 9, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
+      </svg>
+      <div className="text-[10px] uppercase tracking-wider mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.1em' }}>
         {label}
       </div>
     </div>
   );
+
 }
 
 function ActionChipMini({ icon, label, color, pastel, onClick }) {
