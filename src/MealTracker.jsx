@@ -2704,11 +2704,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     <ActionChipMini icon="📊" label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
                     <ActionChipMini icon="📈" label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
-                      onClick={() => { haptic(8); closeActionsSheet(); startTransition(() => handleSend('ver resumen diario')); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); handleSend('ver resumen diario'); }} />
                     <ActionChipMini icon="📅" label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
                       onClick={() => { haptic(8); setActiveModal('calendar'); }} />
                     <ActionChipMini icon="⚖️" label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); closeActionsSheet(); startTransition(() => setInput('Ayúdame con proporciones, tengo: ')); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); setInput('Ayúdame con proporciones, tengo: '); }} />
                   </div>
                 </div>
 
@@ -2716,7 +2716,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[9.5px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
                   <div className="grid grid-cols-2 gap-2">
                     <ActionChipMini icon="🎯" label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); closeActionsSheet(); startTransition(() => setView('onboarding')); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); setView('onboarding'); }} />
                     <ActionChipMini icon="❓" label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
                     <ActionChipMini icon="🔄" label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}

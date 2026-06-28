@@ -1123,10 +1123,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               onPointerDown={onCardPointerDown}
               onPointerUp={(e) => onCardPointerUp(e, () => {
                 haptic(8);
-                // El detalle es un overlay sobre la lista — startTransition
-                // permite que React pinte el highlight del press antes de
-                // reconciliar el nuevo árbol.
-                startTransition(() => { setOpenId(recipe.id); setManualK(null); });
+                setOpenId(recipe.id);
+                setManualK(null);
               })}
               onClick={(e) => e.preventDefault()}
               className="w-full text-left rounded-2xl p-3 active:scale-[0.99] transition flex items-center gap-3"
