@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, Info, Clock, AlertTriangle, X } from 'lucide-react';
 
 // ── Paleta y tokens espejo de MealTracker ──
@@ -847,6 +847,16 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const [openId, setOpenId] = useState(null);
   const [manualK, setManualK] = useState(null);
   const [registered, setRegistered] = useState(false);
+  const rootRef = useRef(null);
+
+  // Cierra el overlay del Recetario INSTANTÁNEO: oculta el contenedor por
+  // mutación directa de DOM antes de que el padre desmonte el componente.
+  // Sin esto, el tap en "Volver" se siente congelado mientras React reconcilia
+  // el árbol gigante de MealTracker que está mounted debajo.
+  const fastClose = () => {
+    if (rootRef.current) rootRef.current.style.display = 'none';
+    setTimeout(() => { onClose?.(); }, 0);
+  };
 
   const g = goals || { kcal: 2000, p: 150, c: 200, g: 60 };
   const remaining = useMemo(() => ({
@@ -1009,11 +1019,11 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
   // ───────────────────────── LISTA ─────────────────────────
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto" style={{ background: BG, fontFamily: FONT_UI }}>
+    <div ref={rootRef} className="fixed inset-0 z-[60] overflow-y-auto" style={{ background: BG, fontFamily: FONT_UI }}>
       {blobs}
       <div className="sticky top-0 z-20 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF' }}>
         <div className="max-w-xl mx-auto flex items-center gap-2">
-          <button onClick={() => { haptic(6); onClose?.(); }} className="flex items-center gap-1 p-1.5 -ml-1.5 rounded-full active:scale-90">
+          <button onClick={() => { haptic(6); fastClose(); }} className="flex items-center gap-1 p-1.5 -ml-1.5 rounded-full active:scale-90">
             <ChevronLeft size={20} /><span className="text-[13px] font-semibold">MealTracker</span>
           </button>
           <span className="ml-auto font-semibold text-[15px]">Recetario</span>
@@ -1088,7 +1098,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {/* Cards */}
         <div className="space-y-2.5">
           {list.map(({ recipe, sc }) => (
-            <button key={recipe.id} onClick={() => { haptic(8); setOpenId(recipe.id); setManualK(null); }} className="w-full text-left rounded-2xl p-3 active:scale-[0.99] transition flex items-center gap-3" style={cardStyle}>
+            <button key={recipe.id} onClick={() => { haptic(8); setTimeout(() => { setOpenId(recipe.id); setManualK(null); }, 0); }} className="w-full text-left rounded-2xl p-3 active:scale-[0.99] transition flex items-center gap-3" style={cardStyle}>
               <div className="flex items-center justify-center rounded-xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24, flexShrink: 0 }}>{recipe.icon}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{recipe.name}</div>

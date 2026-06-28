@@ -2329,16 +2329,18 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
   }
 
   if (view === 'onboarding') {
-    return <Onboarding onComplete={async (g, n) => {
+    return <Onboarding onComplete={(g, n) => {
       // Si ya tenía goals, es un "Cambiar meta", NO un onboarding inicial:
       // preservamos el historial del chat y solo agregamos una nota de cambio.
       // Si no había goals previas, es primer arranque: arrancamos el chat con
       // el saludo normal.
       const isUpdate = !!(goals && (goals.kcal || goals.p || goals.c || goals.g));
+      // Cambio de vista PRIMERO — sin awaits previos. Antes el botón "Empezar"
+      // se sentía congelado porque esperaba a localStorage antes de cambiar de
+      // pantalla. Disparamos el setView en el mismo tick y dejamos las
+      // escrituras a disco como fire-and-forget.
       setGoals(g);
       if (n) setName(n);
-      await window.storage.set('goals', JSON.stringify(g));
-      if (n) await window.storage.set('name', JSON.stringify(n));
       setView('main');
       if (isUpdate) {
         const firstName = n ? n.split(' ')[0] : (name ? name.split(' ')[0] : '');
@@ -2354,6 +2356,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           ts: Date.now()
         }]);
       }
+      // Persistencia diferida — no bloquea el render del tracker.
+      window.storage.set('goals', JSON.stringify(g)).catch(() => {});
+      if (n) window.storage.set('name', JSON.stringify(n)).catch(() => {});
     }} existingGoals={goals} existingName={name} />;
   }
 
@@ -2665,21 +2670,23 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             }}
             onClick={() => { haptic(6); closeActionsSheet(); }}>
             <div
-              className={`w-full max-w-md rounded-t-3xl px-5 pt-3 ${visible ? 'sheet-up' : ''}`}
+              className={`w-full max-w-md rounded-t-3xl px-4 pt-2 ${visible ? 'sheet-up' : ''}`}
               style={{
                 background: '#F9F7F1',
                 boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
-                paddingBottom: '40px'
+                paddingBottom: '24px',
+                maxHeight: '78vh',
+                overflowY: 'auto'
               }}
               onClick={(e) => e.stopPropagation()}>
               {/* Grabber */}
-              <div className="flex justify-center mb-4">
+              <div className="flex justify-center mb-2">
                 <div className="h-1 w-10 rounded-full" style={{ background: BORDER }} />
               </div>
-              <div className="flex items-center justify-between mb-4 px-1">
+              <div className="flex items-center justify-between mb-3 px-1">
                 <div>
-                  <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
-                  <div className="text-[17px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
+                  <div className="text-[10px] tracking-[0.22em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
+                  <div className="text-[15px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
                 </div>
                 {/* Cierre: X usando onPointerDown (touchstart inmediato) + feedback visual
                     visible al press (scale-90 + halo gris). El cierre real está optimizado
@@ -2688,19 +2695,19 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   onPointerDown={(e) => { e.preventDefault(); closeActionsSheet(); }}
                   onClick={(e) => e.preventDefault()}
                   aria-label="Cerrar"
-                  className="p-3 rounded-full active:scale-90 active-x"
+                  className="p-2 rounded-full active:scale-90 active-x"
                   style={{
                     background: SURFACE_2,
                     touchAction: 'manipulation',
                     WebkitTapHighlightColor: 'transparent'
                   }}>
-                  <X size={18} style={{ color: TEXT_MUTED }} />
+                  <X size={16} style={{ color: TEXT_MUTED }} />
                 </button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-2.5">
                 <div>
-                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="text-[9.5px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
+                  <div className="grid grid-cols-2 gap-2">
                     <ActionChipMini icon="🍽️" label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPlannerModal(true); generatePlan(); }} />
                     <ActionChipMini icon="🔁" label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
@@ -2715,26 +2722,24 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 </div>
 
                 <div>
-                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="text-[9.5px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
+                  <div className="grid grid-cols-2 gap-2">
                     <ActionChipMini icon="📊" label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
                     <ActionChipMini icon="📈" label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
-                      onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => handleSend('ver resumen diario'))); }} />
-                    <ActionChipMini icon="🧘" label="Check-in del día" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); setShowWellbeingModal(true); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); setTimeout(() => handleSend('ver resumen diario'), 80); }} />
                     <ActionChipMini icon="📅" label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
                       onClick={() => { haptic(8); setActiveModal('calendar'); }} />
                     <ActionChipMini icon="⚖️" label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => setInput('Ayúdame con proporciones, tengo: '))); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); setTimeout(() => setInput('Ayúdame con proporciones, tengo: '), 80); }} />
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-2 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="text-[9.5px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
+                  <div className="grid grid-cols-2 gap-2">
                     <ActionChipMini icon="🎯" label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => setView('onboarding'))); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); setTimeout(() => setView('onboarding'), 80); }} />
                     <ActionChipMini icon="❓" label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
                     <ActionChipMini icon="🔄" label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
@@ -3165,21 +3170,21 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
 }
 
 function ActionChipMini({ icon, label, color, pastel, onClick }) {
-  // Mismo lenguaje que las cards del Recetario: ícono en tile con fondito de
-  // color + tarjeta glass con sombra premium, sin borde sólido.
+  // Chip compacto: tile más pequeño y padding reducido para que la hoja de
+  // Herramientas quepa en ~media pantalla sin tapar el título ni la X.
   return (
     <button onClick={onClick}
-      className="flex items-center gap-2.5 px-3 py-3 rounded-2xl active:scale-[0.97]"
+      className="flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-[0.97]"
       style={{
         background: 'rgba(255,255,255,0.9)',
         border: 'none',
-        boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 6px 20px rgba(60,70,50,0.10), 0 2px 6px rgba(60,70,50,0.05)',
+        boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 4px 14px rgba(60,70,50,0.10), 0 1px 4px rgba(60,70,50,0.05)',
         transition: 'transform 0.08s ease-out'
       }}>
-      <div className="flex items-center justify-center rounded-xl shrink-0" style={{ width: 38, height: 38, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK, fontSize: typeof icon === 'string' ? 20 : undefined, lineHeight: 1 }}>
+      <div className="flex items-center justify-center rounded-lg shrink-0" style={{ width: 30, height: 30, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK, fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1 }}>
         {icon}
       </div>
-      <div className="text-[12.5px] font-semibold leading-tight text-left" style={{ color: TEXT }}>{label}</div>
+      <div className="text-[11.5px] font-semibold leading-tight text-left" style={{ color: TEXT }}>{label}</div>
     </button>
   );
 }
