@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, startTransition } from 'react';
 import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, Info, Clock, AlertTriangle, X } from 'lucide-react';
 
 // ── Paleta y tokens espejo de MealTracker ──
@@ -855,7 +855,22 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   // el árbol gigante de MealTracker que está mounted debajo.
   const fastClose = () => {
     if (rootRef.current) rootRef.current.style.display = 'none';
-    setTimeout(() => { onClose?.(); }, 0);
+    // startTransition: el unmount del padre va en background, el paint del
+    // tracker ya ocurrió por la mutación de DOM de arriba.
+    startTransition(() => { onClose?.(); });
+  };
+
+  // Tracking de pointer-start para distinguir tap real de scroll cuando los
+  // botones viven dentro de un contenedor scrolleable (lista de recetas).
+  const tapStartRef = useRef(null);
+  const onCardPointerDown = (e) => { tapStartRef.current = { x: e.clientX, y: e.clientY }; };
+  const onCardPointerUp = (e, fn) => {
+    const s = tapStartRef.current;
+    tapStartRef.current = null;
+    if (!s) return;
+    if (Math.abs(e.clientX - s.x) > 8 || Math.abs(e.clientY - s.y) > 8) return;
+    e.preventDefault();
+    fn();
   };
 
   const g = goals || { kcal: 2000, p: 150, c: 200, g: 60 };
@@ -915,6 +930,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         .rec-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; background:${BORDER}; outline:none; }
         .rec-range::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:24px; height:24px; border-radius:50%; background:#1F1F1F; border:3px solid #fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
         .rec-range::-moz-range-thumb { width:24px; height:24px; border-radius:50%; background:#1F1F1F; border:3px solid #fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
+        button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
       `}</style>
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: `radial-gradient(60% 45% at 88% 6%, ${ACCENT_PASTEL}66, transparent 70%), radial-gradient(55% 42% at 3% 42%, #F2CBBE44, transparent 70%), radial-gradient(50% 42% at 96% 96%, #CDD2DB40, transparent 72%)` }} />
     </>
@@ -1023,7 +1039,11 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       {blobs}
       <div className="sticky top-0 z-20 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF' }}>
         <div className="max-w-xl mx-auto flex items-center gap-2">
-          <button onClick={() => { haptic(6); fastClose(); }} className="flex items-center gap-1 p-1.5 -ml-1.5 rounded-full active:scale-90">
+          <button
+            onPointerDown={(e) => { e.preventDefault(); haptic(6); fastClose(); }}
+            onClick={(e) => e.preventDefault()}
+            className="flex items-center gap-1 p-1.5 -ml-1.5 rounded-full active:scale-90"
+            style={{ touchAction: 'manipulation' }}>
             <ChevronLeft size={20} /><span className="text-[13px] font-semibold">MealTracker</span>
           </button>
           <span className="ml-auto font-semibold text-[15px]">Recetario</span>
@@ -1098,7 +1118,19 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {/* Cards */}
         <div className="space-y-2.5">
           {list.map(({ recipe, sc }) => (
-            <button key={recipe.id} onClick={() => { haptic(8); setTimeout(() => { setOpenId(recipe.id); setManualK(null); }, 0); }} className="w-full text-left rounded-2xl p-3 active:scale-[0.99] transition flex items-center gap-3" style={cardStyle}>
+            <button
+              key={recipe.id}
+              onPointerDown={onCardPointerDown}
+              onPointerUp={(e) => onCardPointerUp(e, () => {
+                haptic(8);
+                // El detalle es un overlay sobre la lista — startTransition
+                // permite que React pinte el highlight del press antes de
+                // reconciliar el nuevo árbol.
+                startTransition(() => { setOpenId(recipe.id); setManualK(null); });
+              })}
+              onClick={(e) => e.preventDefault()}
+              className="w-full text-left rounded-2xl p-3 active:scale-[0.99] transition flex items-center gap-3"
+              style={{ ...cardStyle, touchAction: 'manipulation' }}>
               <div className="flex items-center justify-center rounded-xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24, flexShrink: 0 }}>{recipe.icon}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{recipe.name}</div>

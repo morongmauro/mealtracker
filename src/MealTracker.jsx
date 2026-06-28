@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo, startTransition } from 'react';
 import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
@@ -208,42 +208,19 @@ export default function MealTracker() {
   // "frozen" for those seconds, AND the input bar / FAB stay hidden during
   // that gap. We toggle their display directly to keep the UI in sync.
   const closeActionsSheet = useCallback(() => {
-    if (actionsSheetRef.current) {
-      actionsSheetRef.current.style.display = 'none';
-    }
-    if (inputBarRef.current) {
-      inputBarRef.current.style.display = 'block';
-    }
-    if (actionsFabRef.current) {
-      actionsFabRef.current.style.display = 'flex';
-    }
-    // Force layout/paint flush
-    if (actionsSheetRef.current) void actionsSheetRef.current.offsetWidth;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setActionsExpanded(false);
-      });
-    });
+    if (actionsSheetRef.current) actionsSheetRef.current.style.display = 'none';
+    if (inputBarRef.current) inputBarRef.current.style.display = 'block';
+    if (actionsFabRef.current) actionsFabRef.current.style.display = 'flex';
+    // El sync de estado va en startTransition: React 18 lo marca como no
+    // urgente y cede al paint, así el tap se siente instantáneo.
+    startTransition(() => setActionsExpanded(false));
   }, []);
 
-  // Opens the actions sheet INSTANTLY via direct DOM mutation, symmetric to
-  // the close path so the open feels equally snappy.
   const openActionsSheet = useCallback(() => {
-    if (actionsSheetRef.current) {
-      actionsSheetRef.current.style.display = 'flex';
-    }
-    if (inputBarRef.current) {
-      inputBarRef.current.style.display = 'none';
-    }
-    if (actionsFabRef.current) {
-      actionsFabRef.current.style.display = 'none';
-    }
-    if (actionsSheetRef.current) void actionsSheetRef.current.offsetWidth;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setActionsExpanded(true);
-      });
-    });
+    if (actionsSheetRef.current) actionsSheetRef.current.style.display = 'flex';
+    if (inputBarRef.current) inputBarRef.current.style.display = 'none';
+    if (actionsFabRef.current) actionsFabRef.current.style.display = 'none';
+    startTransition(() => setActionsExpanded(true));
   }, []);
 
   const today = getLocalDate();
@@ -2727,11 +2704,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     <ActionChipMini icon="📊" label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
                     <ActionChipMini icon="📈" label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
-                      onClick={() => { haptic(8); closeActionsSheet(); setTimeout(() => handleSend('ver resumen diario'), 80); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); startTransition(() => handleSend('ver resumen diario')); }} />
                     <ActionChipMini icon="📅" label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
                       onClick={() => { haptic(8); setActiveModal('calendar'); }} />
                     <ActionChipMini icon="⚖️" label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); closeActionsSheet(); setTimeout(() => setInput('Ayúdame con proporciones, tengo: '), 80); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); startTransition(() => setInput('Ayúdame con proporciones, tengo: ')); }} />
                   </div>
                 </div>
 
@@ -2739,7 +2716,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[9.5px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
                   <div className="grid grid-cols-2 gap-2">
                     <ActionChipMini icon="🎯" label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); closeActionsSheet(); setTimeout(() => setView('onboarding'), 80); }} />
+                      onClick={() => { haptic(8); closeActionsSheet(); startTransition(() => setView('onboarding')); }} />
                     <ActionChipMini icon="❓" label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
                     <ActionChipMini icon="🔄" label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
@@ -3170,16 +3147,35 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
 }
 
 function ActionChipMini({ icon, label, color, pastel, onClick }) {
-  // Chip compacto: tile más pequeño y padding reducido para que la hoja de
-  // Herramientas quepa en ~media pantalla sin tapar el título ni la X.
+  // Chip compacto + tap instantáneo: usa onPointerDown para disparar al
+  // primer touchstart sin esperar el click sintético de iOS. Llevamos un
+  // ref del punto de inicio para descartar el tap si el dedo se movió
+  // (evita falsos positivos cuando la hoja se scrollea).
+  const startRef = useRef(null);
   return (
-    <button onClick={onClick}
+    <button
+      onPointerDown={(e) => {
+        startRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+      }}
+      onPointerUp={(e) => {
+        const s = startRef.current;
+        startRef.current = null;
+        if (!s) return;
+        const dx = Math.abs(e.clientX - s.x);
+        const dy = Math.abs(e.clientY - s.y);
+        if (dx > 8 || dy > 8) return; // fue scroll, no tap
+        e.preventDefault();
+        onClick?.();
+      }}
+      onClick={(e) => e.preventDefault()}
       className="flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-[0.97]"
       style={{
         background: 'rgba(255,255,255,0.9)',
         border: 'none',
         boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 4px 14px rgba(60,70,50,0.10), 0 1px 4px rgba(60,70,50,0.05)',
-        transition: 'transform 0.08s ease-out'
+        transition: 'transform 0.08s ease-out',
+        touchAction: 'manipulation',
+        WebkitTapHighlightColor: 'transparent'
       }}>
       <div className="flex items-center justify-center rounded-lg shrink-0" style={{ width: 30, height: 30, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK, fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1 }}>
         {icon}
@@ -5898,6 +5894,7 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
         .num { font-variant-numeric: tabular-nums; }
         input[type="range"] { -webkit-appearance: none; appearance: none; height: 4px; background: ${BORDER}; border-radius: 2px; outline: none; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: white; border: 2px solid currentColor; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+        button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
       `}</style>
       <div className="max-w-md w-full">
 
@@ -6005,13 +6002,21 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
                 </div>
               )}
 
-              <button onClick={submit} disabled={!kcal || kcal < 500 || !macroSumOk}
+              <button
+                onPointerDown={(e) => {
+                  if (!kcal || kcal < 500 || !macroSumOk) return;
+                  e.preventDefault();
+                  submit();
+                }}
+                onClick={(e) => e.preventDefault()}
+                disabled={!kcal || kcal < 500 || !macroSumOk}
                 className="w-full py-3.5 mt-5 rounded-2xl text-base font-semibold transition disabled:opacity-30 active:scale-[0.98] flex items-center justify-center gap-2"
                 style={{
                   background: '#1F1F1F',
                   color: '#fff',
                   boxShadow: '0 4px 14px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.1) inset',
-                  letterSpacing: '0.01em'
+                  letterSpacing: '0.01em',
+                  touchAction: 'manipulation'
                 }}>
                 Empezar <ArrowUp size={16} strokeWidth={2.5} style={{ transform: 'rotate(90deg)' }} />
               </button>
