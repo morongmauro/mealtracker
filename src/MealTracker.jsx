@@ -3,7 +3,7 @@ import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
-  ShoppingCart, Pin, Scale, Target, HelpCircle, RefreshCw
+  GraduationCap
 } from 'lucide-react';
 
 // Chunk aparte: el Recetario (~30KB de recetas + UI) solo se descarga la
@@ -22,6 +22,7 @@ import {
 //   'claude-haiku-4-5-20251001'  (rápido, económico, actual)
 //   'claude-sonnet-4-6'          (más capaz, ~3x costo)
 const CHAT_MODEL = 'claude-haiku-4-5-20251001';
+
 
 // Display helpers — kills 25.100000004 floats once and for all.
 // fmt1: at most 1 decimal, no trailing zeros. fmt0: rounded to integer.
@@ -167,6 +168,11 @@ export default function MealTracker() {
   const [pendingFavoriteEntry, setPendingFavoriteEntry] = useState(null);
   const [renamingFavoriteId, setRenamingFavoriteId] = useState(null);
   const [cloudConsent, setCloudConsent] = useState(null); // null = no decidido, 'accepted' | 'declined'
+  // Link al centro de recursos DEL CLIENTE (viene de /api/resources según su
+  // nombre; los links se administran en api/_clients.js). Vacío = sin botón.
+  const [learningUrl, setLearningUrl] = useState(() => {
+    try { return localStorage.getItem('learningUrl') || ''; } catch (e) { return ''; }
+  });
   const initialLoadDone = useRef(false);
   const cloudUserIdRef = useRef(null);
   const cloudSyncedFromServer = useRef(false);
@@ -408,8 +414,25 @@ export default function MealTracker() {
         // archivamos ahora antes de aplicar.
         const d = row.data;
         cloudSyncedFromServer.current = true;
-        if (Array.isArray(d.favorites)) setFavorites(d.favorites);
-        if (Array.isArray(d.favoriteIngredients)) setFavoriteIngredients(d.favoriteIngredients);
+        // FUSIONAR, nunca reemplazar. Antes el server PISABA el estado local
+        // (setFavorites(d.favorites) directo): si el server tenía una copia
+        // vieja o vacía —p. ej. el primer push se hizo con la app recién
+        // instalada—, cada apertura de la app borraba los favoritos e
+        // ingredientes que el cliente había guardado en su teléfono, y el
+        // siguiente push consolidaba la pérdida. Era la causa de "guardé mis
+        // ingredientes y hoy aparece vacío".
+        if (Array.isArray(d.favorites) && d.favorites.length > 0) {
+          setFavorites(local => {
+            const byId = new Map((local || []).map(f => [f.id, f]));
+            for (const f of d.favorites) {
+              if (f && f.id != null && !byId.has(f.id)) byId.set(f.id, f);
+            }
+            return Array.from(byId.values());
+          });
+        }
+        if (Array.isArray(d.favoriteIngredients) && d.favoriteIngredients.length > 0) {
+          setFavoriteIngredients(local => Array.from(new Set([...(local || []), ...d.favoriteIngredients])));
+        }
 
         // Construir un archivo "rescatado" del today_entries server cuando ese
         // today ya quedó en el pasado (rollover ocurrido entre dispositivos o
@@ -453,8 +476,20 @@ export default function MealTracker() {
             return merged;
           });
         }
-        if (d.frequentItems && typeof d.frequentItems === 'object') setFrequentItems(d.frequentItems);
-        if (d.wellbeing && typeof d.wellbeing === 'object') setWellbeing(d.wellbeing);
+        if (d.frequentItems && typeof d.frequentItems === 'object') {
+          // Fusión: gana la entrada con más registros (count más alto)
+          setFrequentItems(local => {
+            const merged = { ...d.frequentItems };
+            for (const [k, v] of Object.entries(local || {})) {
+              if (!merged[k] || (v.count || 0) > (merged[k].count || 0)) merged[k] = v;
+            }
+            return merged;
+          });
+        }
+        if (d.wellbeing && typeof d.wellbeing === 'object') {
+          // Fusión por fecha: lo local gana en conflicto (es lo más reciente)
+          setWellbeing(local => ({ ...d.wellbeing, ...(local || {}) }));
+        }
         if (d.goals && typeof d.goals === 'object') setGoals(d.goals);
         if (typeof d.name === 'string' && d.name) setName(d.name);
       } catch (e) {}
@@ -876,6 +911,26 @@ export default function MealTracker() {
     window.addEventListener('openCapabilities', handler);
     return () => window.removeEventListener('openCapabilities', handler);
   }, []);
+
+  // Centro de recursos del cliente: consulta el link según su nombre y lo
+  // cachea para que el botón aparezca al instante en próximas aperturas.
+  useEffect(() => {
+    if (!name || view !== 'main') return;
+    (async () => {
+      try {
+        const r = await fetch('/api/resources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+        if (!r.ok) return;
+        const data = await r.json();
+        const url = typeof data.url === 'string' ? data.url : '';
+        setLearningUrl(url);
+        try { localStorage.setItem('learningUrl', url); } catch (e) {}
+      } catch (e) { /* sin red: se usa el cache local */ }
+    })();
+  }, [name, view]);
 
   // Persist frequentItems & wellbeing when they change
   useEffect(() => {
@@ -2478,14 +2533,40 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div style={{ color: ACCENT_PASTEL, fontWeight: 600, fontSize: '10px', letterSpacing: '0.02em' }}>
             Entrena con Método
           </div>
+          {/* Botones del header en vidrio real: translúcidos sobre el grafito,
+              con blur suave. Elementos chicos y fijos = costo GPU despreciable. */}
           <button
             onClick={() => { haptic(8); setShowRecetario(true); }}
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition"
-            style={{ background: 'rgba(212,218,184,0.18)', border: `1px solid ${ACCENT}66`, color: '#FFF' }}
+            style={{
+              background: 'rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset',
+              color: '#FFF'
+            }}
             title="Recetario">
             <BookOpen size={14} style={{ color: ACCENT_PASTEL }} />
             <span className="text-[12px] font-semibold">Recetario</span>
           </button>
+          {learningUrl && (
+            <button
+              onClick={() => { haptic(8); window.open(learningUrl, '_blank', 'noopener'); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition"
+              style={{
+                background: 'rgba(255,255,255,0.12)',
+                border: '1px solid rgba(255,255,255,0.22)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset',
+                color: '#FFF'
+              }}
+              title="Material de aprendizaje">
+              <GraduationCap size={14} style={{ color: ACCENT_PASTEL }} />
+              <span className="text-[12px] font-semibold">Aprender</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -2553,7 +2634,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
           {!cardCompact && (
             <div className="text-center mb-3">
-              <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: TEXT_LIGHT }}>
+              <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: TEXT_LIGHT }}>
                 Hoy · <span className="capitalize" style={{ color: TEXT_MUTED }}>{formatDate(today)}</span>
                 {streak >= 2 && (
                   <>
@@ -2654,7 +2735,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
               <div className="flex items-center justify-between mb-3 px-1">
                 <div>
-                  <div className="text-[10px] tracking-[0.22em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
+                  <div className="text-[10px] tracking-[0.05em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
                   <div className="text-[15px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
                 </div>
                 {/* Cierre: X usando onPointerDown (touchstart inmediato) + feedback visual
@@ -2675,43 +2756,47 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
               <div className="space-y-2.5">
                 <div>
-                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
+                  <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon={<Utensils size={15} />} label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="🍽️" label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPlannerModal(true); generatePlan(); }} />
-                    <ActionChipMini icon={<RotateCcw size={15} />} label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="🔁" label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
-                    <ActionChipMini icon={<Star size={15} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                    <ActionChipMini icon="⭐" label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
                       onClick={() => { haptic(8); setActiveModal('favorites'); }} />
-                    <ActionChipMini icon={<ShoppingCart size={15} />} label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                    <ActionChipMini icon="🛒" label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
                       onClick={() => { haptic(8); setShowIngredientsModal(true); }} />
-                    <ActionChipMini icon={<Pin size={15} />} label="Guardar día como favorito" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="📌" label="Guardar día como favorito" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); }} />
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
+                  <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon={<BarChart3 size={15} />} label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="📊" label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
-                    <ActionChipMini icon={<LineChart size={15} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
+                    <ActionChipMini icon="📈" label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
                       onClick={() => { haptic(8); closeActionsSheet(); handleSend('ver resumen diario'); }} />
-                    <ActionChipMini icon={<Calendar size={15} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
+                    <ActionChipMini icon="📅" label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
                       onClick={() => { haptic(8); setActiveModal('calendar'); }} />
-                    <ActionChipMini icon={<Scale size={15} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
+                    <ActionChipMini icon="⚖️" label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
                       onClick={() => { haptic(8); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); }} />
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
+                  <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon={<Target size={15} />} label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon="🎯" label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); closeActionsSheet(); setView('onboarding'); }} />
-                    <ActionChipMini icon={<HelpCircle size={15} />} label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    {learningUrl && (
+                      <ActionChipMini icon="🎓" label="Material de aprendizaje" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                        onClick={() => { haptic(8); window.open(learningUrl, '_blank', 'noopener'); }} />
+                    )}
+                    <ActionChipMini icon="❓" label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
-                    <ActionChipMini icon={<RefreshCw size={15} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
+                    <ActionChipMini icon="🔄" label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
                       onClick={() => { haptic(8); setActiveModal('reset'); }} />
                   </div>
                 </div>
@@ -2906,7 +2991,7 @@ function CloudConsentModal({ onAccept, onDecline }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
       <div className="w-full max-w-md p-6 rounded-3xl" style={{ background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI }}>
-        <div className="text-[11px] tracking-[0.22em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>Tu progreso a salvo</div>
+        <div className="text-[11px] tracking-[0.05em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>Tu progreso a salvo</div>
         <div className="text-[18px] font-bold mb-3" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
           Guardá tu progreso en la nube
         </div>
@@ -3208,7 +3293,7 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
         <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 18, fill: TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
         <text x={center} y={center + 12} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
       </svg>
-      <div className="text-[10px] uppercase tracking-wider mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.1em' }}>
+      <div className="text-[10px] uppercase tracking-wider mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.03em' }}>
         {label}
       </div>
     </div>
@@ -3280,7 +3365,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Star size={14} style={{ color: ACCENT_DARK }} />
-            <span className="text-[10px] uppercase tracking-[0.15em] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
+            <span className="text-[10px] uppercase tracking-[0.04em] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
           </div>
           {alreadyAdded ? (
             <div className="text-[13px]" style={{ color: TEXT, lineHeight: 1.5 }}>
@@ -3319,7 +3404,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-2 mb-2">
             <ChefHat size={14} style={{ color: ACCENT_DARK }} />
-            <span className="text-[10px] uppercase tracking-[0.15em] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
+            <span className="text-[10px] uppercase tracking-[0.04em] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
           </div>
           <div className="text-[13px] mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>{message.content}</div>
           <div className="flex gap-2">
@@ -3396,7 +3481,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Info size={12} style={{ color: ACCENT }} />
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT }}>Consulta nutricional</span>
+            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT }}>Consulta nutricional</span>
           </div>
           <div className="text-base font-semibold mb-1" style={{ color: TEXT }}>{d.food}</div>
           <div className="text-xs num mb-2" style={{ color: TEXT_LIGHT }}>{d.amount}</div>
@@ -3426,7 +3511,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={12} style={{ color: ACCENT }} />
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT }}>Análisis y ajuste sugerido</span>
+            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT }}>Análisis y ajuste sugerido</span>
           </div>
           {d.summary && (
             <div className="text-[13px] mb-3 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
@@ -3450,7 +3535,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               };
               return (
                 <div key={idx} className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER_SOFT}` }}>
-                  <div className="text-[11px] uppercase tracking-[0.12em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>{a.meal || 'comida'}</div>
+                  <div className="text-[11px] uppercase tracking-[0.03em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>{a.meal || 'comida'}</div>
                   {a.original_summary && (
                     <div className="text-[11px] mb-1.5" style={{ color: TEXT_LIGHT }}>Original: {a.original_summary}</div>
                   )}
@@ -3482,7 +3567,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
           </div>
           {(after.kcal || after.p || after.c || after.g) && (
             <div className="mt-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
-              <div className="text-[10px] uppercase tracking-[0.15em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Quedarías hoy en</div>
+              <div className="text-[10px] uppercase tracking-[0.04em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Quedarías hoy en</div>
               <div className="flex gap-3 text-[11px] num">
                 <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(after.kcal)} kcal</span>
                 <span style={{ color: C_PROTEIN }}>P {fmt1(after.p)}</span>
@@ -3519,7 +3604,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Star size={12} style={{ color: C_CARBS }} />
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: C_CARBS }}>Ajuste de tus favoritos</span>
+            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: C_CARBS }}>Ajuste de tus favoritos</span>
           </div>
           {d.summary && (
             <div className="text-[13px] mb-2 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
@@ -3597,7 +3682,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
           </div>
           {(after.kcal || after.p || after.c || after.g) && (
             <div className="mt-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
-              <div className="text-[10px] uppercase tracking-[0.15em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Suma ajustada</div>
+              <div className="text-[10px] uppercase tracking-[0.04em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Suma ajustada</div>
               <div className="flex gap-3 text-[11px] num">
                 <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(after.kcal)} kcal</span>
                 <span style={{ color: C_PROTEIN }}>P {fmt1(after.p)}</span>
@@ -3652,7 +3737,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
                 <CheckCircle2 size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
               </div>
-              <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
+              <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
               <span className="text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
             </div>
             <div className="flex gap-1">
@@ -3736,7 +3821,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <ChefHat size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>{mealLabel} · opciones</span>
+            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>{mealLabel} · opciones</span>
           </div>
 
           {missingFavorites ? (
@@ -3802,7 +3887,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <PieChart size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>Lo que falta hoy</span>
+            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>Lo que falta hoy</span>
           </div>
 
           <div className="space-y-1 mb-3">
@@ -3873,7 +3958,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
                 <CheckCircle2 size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
               </div>
-              <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal} actualizado</span>
+              <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal} actualizado</span>
               <span className="text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
             </div>
             <div className="flex gap-1">
@@ -3976,7 +4061,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <Sparkles size={11} style={{ color: ACCENT }} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>Proporciones</span>
+            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>Proporciones</span>
           </div>
           <div className="space-y-2 mb-3">
             {d.proportions?.map((p, i) => (
@@ -4014,7 +4099,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <LineChart size={11} style={{ color: ACCENT_DARK }} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>Detalle del día</span>
+            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>Detalle del día</span>
           </div>
           {dayEntries.length === 0 ? (
             <div className="text-xs italic py-2" style={{ color: TEXT_LIGHT }}>Sin comidas registradas hoy.</div>
@@ -4023,7 +4108,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               {dayEntries.map((e, i) => (
                 <div key={i} className="pb-3" style={{ borderBottom: i < dayEntries.length - 1 ? `1px solid ${BORDER_SOFT}` : 'none' }}>
                   <div className="flex justify-between items-baseline mb-1.5">
-                    <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
+                    <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
                     <span className="text-[10px] num" style={{ color: TEXT_LIGHT }}>{e.time}</span>
                   </div>
                   <div className="space-y-0.5 mb-1.5">
@@ -4079,7 +4164,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <LineChart size={11} style={{ color: ACCENT_DARK }} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: ACCENT_DARK }}>Resumen del día</span>
+            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>Resumen del día</span>
           </div>
           <div className="space-y-2 text-xs">
             <Row label="Calorías" val={`${fmt0(totals.kcal)} / ${fmt0(goals.kcal)}`} diff={goals.kcal - totals.kcal} unit="kcal" color={ACCENT} />
@@ -4189,7 +4274,7 @@ function ModalHeader({ accent, label, title, onClose }) {
   return (
     <div className="flex items-start justify-between mb-5">
       <div>
-        <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: accent }}>{label}</div>
+        <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: accent }}>{label}</div>
         <div className="text-xl font-bold tracking-tight mt-0.5" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
       </div>
       <button
@@ -5095,7 +5180,7 @@ function CapabilitiesModal({ onClose }) {
         <div className="p-1.5 rounded-lg" style={{ background: (accent || ACCENT) + '20', color: accent || ACCENT_DARK }}>
           {icon}
         </div>
-        <div className="text-[13px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT }}>{title}</div>
+        <div className="text-[13px] font-bold uppercase tracking-[0.03em]" style={{ color: TEXT }}>{title}</div>
       </div>
       <ul className="space-y-1.5 text-[13px]" style={{ color: TEXT_MUTED, lineHeight: 1.55 }}>
         {items.map((it, i) => (
@@ -5295,7 +5380,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
           {proposal.meals.map((m, i) => (
             <div key={i} className="mb-4 p-3 rounded-2xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
               <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="text-[11px] uppercase tracking-[0.15em] font-bold" style={{ color: ACCENT_DARK }}>{m.meal}</div>
+                <div className="text-[11px] uppercase tracking-[0.04em] font-bold" style={{ color: ACCENT_DARK }}>{m.meal}</div>
                 {m.from_favorite && (
                   <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: C_CARBS_PASTEL, color: C_CARBS }}>
                     <Star size={9} strokeWidth={2.2} />
@@ -5324,7 +5409,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
 
           {proposal.total && (
             <div className="p-3 rounded-2xl mb-4" style={{ background: ACCENT_PASTEL + '40', border: `1px solid ${ACCENT_PASTEL}` }}>
-              <div className="text-[11px] uppercase tracking-[0.15em] font-bold mb-1" style={{ color: ACCENT_DARK }}>Total del día</div>
+              <div className="text-[11px] uppercase tracking-[0.04em] font-bold mb-1" style={{ color: ACCENT_DARK }}>Total del día</div>
               <div className="text-[14px] font-bold num" style={{ color: TEXT }}>
                 {proposal.total.kcal} kcal · P {proposal.total.p}g · C {proposal.total.c}g · G {proposal.total.g}g
               </div>
@@ -5440,7 +5525,7 @@ function PerfectDayModal({ name, totals, goals, onClose }) {
         <div className="inline-flex p-4 rounded-full mb-5 pulse-ring" style={{ background: ACCENT_PASTEL + '60' }}>
           <Trophy size={30} style={{ color: ACCENT_DARK }} />
         </div>
-        <div className="text-[10px] tracking-[0.3em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>
+        <div className="text-[10px] tracking-[0.05em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>
           Día con precisión
         </div>
         <div className="text-2xl font-bold mb-3 tracking-tight" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
@@ -5703,7 +5788,7 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
         {/* Top: subtle progress indicator */}
         <div className="max-w-md w-full mx-auto pt-2 fade-up-1">
           <div className="flex items-center gap-2 mb-2">
-            <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: TEXT_MUTED }}>Paso 1 de 3</div>
+            <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: TEXT_MUTED }}>Paso 1 de 3</div>
             <div className="flex-1 flex gap-1">
               <div className="flex-1 h-1 rounded-full" style={{ background: TEXT }} />
               <div className="flex-1 h-1 rounded-full" style={{ background: BORDER }} />
@@ -5796,7 +5881,7 @@ function TutorialModal({ onClose }) {
     <ModalShell onClose={onClose}>
       <div className="mb-5">
         <div className="flex items-center gap-2 mb-3">
-          <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: TEXT_MUTED }}>
+          <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: TEXT_MUTED }}>
             {step + 1} de {steps.length}
           </div>
           <div className="flex-1 flex gap-1">
@@ -5857,7 +5942,7 @@ function ExampleCard({ num, emoji, title, example, className, onClick }) {
         {emoji}
       </div>
       <div className="min-w-0 flex-1">
-        {num && <div className="text-[10px] tracking-[0.25em] font-semibold uppercase mb-1" style={{ color: ACCENT }}>{num}</div>}
+        {num && <div className="text-[10px] tracking-[0.05em] font-semibold uppercase mb-1" style={{ color: ACCENT }}>{num}</div>}
         <div className="text-[15px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
         <div className="text-[13px] mt-1" style={{ color: TEXT_MUTED, lineHeight: 1.4 }}>{example}</div>
       </div>
@@ -5931,7 +6016,7 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
 
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-2">
-            <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: TEXT_MUTED }}>Paso {step === 0 ? '2' : '3'} de 3</div>
+            <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: TEXT_MUTED }}>Paso {step === 0 ? '2' : '3'} de 3</div>
             <div className="flex-1 flex gap-1">
               <div className="flex-1 h-1 rounded-full" style={{ background: TEXT }} />
               <div className="flex-1 h-1 rounded-full" style={{ background: TEXT }} />

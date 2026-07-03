@@ -804,7 +804,7 @@ function MacroDonut({ totals, size = 92 }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <div className="font-bold num" style={{ fontSize: size * 0.2, color: TEXT, lineHeight: 1 }}>{r0(totals.kcal)}</div>
-        <div className="num font-semibold" style={{ fontSize: size * 0.085, color: TEXT_LIGHT, letterSpacing: '0.1em' }}>KCAL</div>
+        <div className="num font-semibold" style={{ fontSize: size * 0.085, color: TEXT_LIGHT, letterSpacing: '0.03em' }}>KCAL</div>
       </div>
     </div>
   );
@@ -920,7 +920,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: `radial-gradient(60% 45% at 88% 6%, ${ACCENT_PASTEL}66, transparent 70%), radial-gradient(55% 42% at 3% 42%, #F2CBBE44, transparent 70%), radial-gradient(50% 42% at 96% 96%, #CDD2DB40, transparent 72%)` }} />
   );
 
-  const sectionLabel = (t) => <div className="text-[11px] tracking-[0.16em] uppercase font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
+  const sectionLabel = (t) => <div className="text-[11px] tracking-[0.04em] uppercase font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
 
   // ───────────────────────── DETALLE (overlay sobre la lista) ─────────────────────────
   const detailOverlay = (open && detail) ? (
@@ -935,7 +935,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center rounded-2xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24 }}>{open.icon}</div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] tracking-[0.16em] uppercase font-bold px-2.5 py-1 rounded-full" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>{displaySlot(open.slot)}</span>
+              <span className="text-[10px] tracking-[0.04em] uppercase font-bold px-2.5 py-1 rounded-full" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>{displaySlot(open.slot)}</span>
               <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}><Clock size={11} /> {open.time}</span>
               <span className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}><CostTag cost={META[open.id].cost} /> {COST_LABELS[META[open.id].cost]}</span>
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}>{META[open.id].diff}</span>
@@ -996,7 +996,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           {/* Ajuste manual */}
           <div className="rounded-3xl p-4" style={plainCard}>
             <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-1.5 text-[11px] tracking-[0.16em] uppercase font-semibold" style={{ color: ACCENT }}><Sliders size={13} /> Ajuste fino</div>
+              <div className="flex items-center gap-1.5 text-[11px] tracking-[0.04em] uppercase font-semibold" style={{ color: ACCENT }}><Sliders size={13} /> Ajuste fino</div>
               {manualK != null && <button onClick={() => setManualK(null)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: TEXT_MUTED }}><RotateCcw size={11} /> Volver a tu meta</button>}
             </div>
             <div className="text-[11.5px] mb-2" style={{ color: TEXT_MUTED }}>
@@ -1046,7 +1046,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {/* Meta nutricional */}
         <div className="rounded-3xl p-4" style={cardStyle}>
           <div className="flex items-center justify-between mb-3">
-            <div className="text-[11px] tracking-[0.18em] uppercase font-semibold" style={{ color: ACCENT }}>Tu meta de hoy</div>
+            <div className="text-[11px] tracking-[0.04em] uppercase font-semibold" style={{ color: ACCENT }}>Tu meta de hoy</div>
             <button onClick={() => { haptic(8); onChangeGoal?.(); }} className="flex items-center gap-1 px-2.5 py-1 rounded-full active:scale-95" style={{ color: TEXT, background: '#FFF', border: `1px solid ${BORDER}` }}>
               <Sliders size={11} /><span className="text-[10px] font-semibold">Cambiar meta</span>
             </button>
@@ -1125,7 +1125,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{recipe.name}</div>
                 <div className="flex items-center gap-2 text-[10.5px] mt-1" style={{ color: TEXT_MUTED }}>
-                  <span className="px-2 py-0.5 rounded-full font-bold tracking-[0.12em] uppercase" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 10 }}>{displaySlot(recipe.slot)}</span>
+                  <span className="px-2 py-0.5 rounded-full font-bold tracking-[0.03em] uppercase" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 10 }}>{displaySlot(recipe.slot)}</span>
                   <span className="flex items-center gap-1"><Clock size={10} /> {recipe.time}</span>
                   <CostTag cost={META[recipe.id].cost} />
                   {isHighProtein(recipe) && <span className="font-semibold" style={{ color: C_PROTEIN, fontSize: 10 }}>· Alta proteína</span>}

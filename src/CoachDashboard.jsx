@@ -120,7 +120,7 @@ function LoginView({ onLogin }) {
     <div className="min-h-screen flex items-center justify-center px-4">
       <form onSubmit={submit} className="w-full max-w-sm p-8 rounded-3xl"
         style={{ background: SURFACE, border: `1px solid ${BORDER}`, boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
-        <div className="text-[11px] tracking-[0.22em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>Coach</div>
+        <div className="text-[11px] tracking-[0.05em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>Coach</div>
         <div className="text-[22px] font-bold mb-2" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
           Panel privado
         </div>
@@ -677,7 +677,7 @@ function DayDetailModal({ date, goals, summary, entries, wellbeing, onClose }) {
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-3 sm:p-6" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
       <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl p-4 sm:p-6" style={{ background: BG, border: `1px solid ${BORDER}` }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <div className="text-[11px] tracking-[0.2em] uppercase font-semibold" style={{ color: ACCENT }}>Detalle del día</div>
+          <div className="text-[11px] tracking-[0.04em] uppercase font-semibold" style={{ color: ACCENT }}>Detalle del día</div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 transition" aria-label="Cerrar">
             <X size={16} style={{ color: TEXT_MUTED }} />
           </button>
@@ -699,7 +699,7 @@ function Header({ title, subtitle, onBack, onLogout }) {
           </button>
         )}
         <div className="min-w-0">
-          <div className="text-[11px] tracking-[0.22em] uppercase font-semibold" style={{ color: ACCENT }}>Coach</div>
+          <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: ACCENT }}>Coach</div>
           <div className="text-[20px] font-bold truncate" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
           {subtitle && <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>{subtitle}</div>}
         </div>
@@ -887,7 +887,7 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) 
     <div className="space-y-4">
       {/* Meta diaria */}
       <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-        <div className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Metas diarias</div>
+        <div className="text-[10px] uppercase tracking-[0.04em] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Metas diarias</div>
         <div className="grid grid-cols-4 gap-3">
           <div>
             <div className="text-[22px] font-bold num" style={{ color: ACCENT }}>{fmt0(goals.kcal)}</div>
@@ -937,7 +937,7 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) 
           {entries.map((e, i) => (
             <div key={i} className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
               <div className="flex justify-between items-baseline mb-2">
-                <div className="text-[11px] uppercase tracking-[0.2em] font-bold" style={{ color: TEXT }}>
+                <div className="text-[11px] uppercase tracking-[0.04em] font-bold" style={{ color: TEXT }}>
                   {(e.meal || 'comida').toUpperCase()}
                 </div>
                 <div className="text-[11px] num" style={{ color: TEXT_LIGHT }}>{e.time || ''}</div>
@@ -966,7 +966,7 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) 
       {/* Bienestar del día (si hay) */}
       {wellbeing && (
         <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-          <div className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-2" style={{ color: TEXT_MUTED }}>Bienestar</div>
+          <div className="text-[10px] uppercase tracking-[0.04em] font-semibold mb-2" style={{ color: TEXT_MUTED }}>Bienestar</div>
           <div className="flex flex-wrap gap-4 text-[13px]" style={{ color: TEXT }}>
             <span>⚡ Energía: <strong>{wellbeing.energy}/5</strong></span>
             <span>🍴 Hambre: <strong>{wellbeing.hunger}/5</strong></span>

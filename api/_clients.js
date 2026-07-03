@@ -30,3 +30,23 @@ export const AUTHORIZED_CLIENTS = [
   'Natalia Samper',
   'Alejandro Machado',
 ];
+
+// ─────────────────────────────────────────────────────────────────────────
+// CENTRO DE RECURSOS POR CLIENTE ("Material de aprendizaje")
+//
+// Pega el link del centro de recursos de cada cliente (Notion, Drive, web…).
+// El botón "Aprender" del header y el chip de Herramientas llevan a SU link.
+// Se edita igual que la lista de arriba: lápiz en GitHub → commit.
+//
+// Formato: 'Nombre Apellido': 'https://…',  (el nombre debe coincidir con
+// el de la lista de arriba; mayúsculas y tildes no importan al buscar).
+// Si un cliente no tiene link aquí, se usa DEFAULT_RESOURCES_URL; si esa
+// también está vacía, el botón no aparece para ese cliente.
+// ─────────────────────────────────────────────────────────────────────────
+
+export const DEFAULT_RESOURCES_URL = '';
+
+export const CLIENT_RESOURCES = {
+  // Ejemplo:
+  // 'Mauro Morón': 'https://notion.so/centro-de-recursos-mauro',
+};
