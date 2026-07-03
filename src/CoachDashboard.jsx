@@ -4,25 +4,17 @@ import {
   Calendar, Droplet, Edit2, Check, X, Link2, Link2Off, ChevronRight
 } from 'lucide-react';
 
-// ─── Paleta (sincronizada con MealTracker) ────────────────────────────────
-const ACCENT = '#8A9558';
-const ACCENT_DARK = '#5F6B3B';
-const ACCENT_PASTEL = '#E8EBD7';
-const TEXT = '#1F1F1F';
-const TEXT_MUTED = '#6B6B6B';
-const TEXT_LIGHT = '#9B9B9B';
-const BG = '#F5F2E8';
-const SURFACE = '#FFFFFF';
-const SURFACE_2 = '#F1EEDF';
-const BORDER = '#E2DECC';
-const BORDER_SOFT = '#EDEADC';
-const C_PROTEIN = '#D77A61';
-const C_CARBS = '#D4B581';
-const C_FAT = '#6B7A8F';
-const SUCCESS = '#7A8450';
-const WARN = '#D49C61';
-const DANGER = '#C75A4A';
-const FONT_UI = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
+// Paleta compartida con la app del cliente — ver src/theme.js.
+// El dashboard usaba su propia copia con valores derivados (otro crema de
+// fondo, otro ACCENT_DARK, otro SUCCESS); ahora coach y cliente ven la
+// misma identidad.
+import {
+  ACCENT, ACCENT_DARK, ACCENT_LIGHT as ACCENT_PASTEL,
+  TEXT, TEXT_MUTED, TEXT_LIGHT,
+  BG, SURFACE, SURFACE_2, BORDER, BORDER_SOFT,
+  C_PROTEIN, C_CARBS, C_FAT,
+  SUCCESS, WARN, DANGER, FONT_UI,
+} from './theme.js';
 
 const TOKEN_KEY = 'coachToken';
 const TOKEN_EXP_KEY = 'coachTokenExp';
@@ -488,7 +480,7 @@ function ClientRow({ client, onClick }) {
           <div className="text-[14px] font-semibold truncate" style={{ color: TEXT }}>{c.name}</div>
           {isMerged && (
             <span
-              className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-1"
+              className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-1"
               style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}
               title={`Datos fusionados de ${c.device_count} dispositivos / sesiones del mismo nombre`}>
               <Link2 size={9} strokeWidth={2.5} /> {c.device_count} sesiones
@@ -512,7 +504,7 @@ function ClientRow({ client, onClick }) {
                 background: kcalPct > 110 ? DANGER : kcalPct > 95 ? SUCCESS : kcalPct > 70 ? ACCENT : WARN
               }} />
             </div>
-            <div className="text-[9px] uppercase tracking-wider mt-0.5" style={{ color: TEXT_LIGHT }}>kcal hoy</div>
+            <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: TEXT_LIGHT }}>kcal hoy</div>
           </>
         ) : (
           <div className="text-[11px]" style={{ color: TEXT_LIGHT }}>Sin registro hoy</div>
@@ -1012,7 +1004,7 @@ function MacroBars({ days, goal, color, statKey, unit = '', onSelectDay }) {
       <div className="relative w-full" style={{ height: '96px', background: SURFACE_2 + '80', borderRadius: '8px', padding: '8px 6px' }}>
         <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 1 }}>
           <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: SUCCESS, opacity: 0.6 }} />
-          <span className="px-1 text-[8px] font-semibold uppercase tracking-wider" style={{ color: SUCCESS, background: SURFACE_2 }}>meta {fmt0(goal)}{unit}</span>
+          <span className="px-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: SUCCESS, background: SURFACE_2 }}>meta {fmt0(goal)}{unit}</span>
         </div>
         <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
           {days.map((d, i) => {
@@ -1028,7 +1020,7 @@ function MacroBars({ days, goal, color, statKey, unit = '', onSelectDay }) {
                 className="flex-1 h-full flex flex-col justify-end items-center"
                 style={{ minWidth: 0, background: 'transparent', border: 'none', padding: 0, cursor: clickable ? 'pointer' : 'default' }}
                 title={`${d.key}: ${fmt0(val)}${unit} (${Math.round(pct * 100)}% de la meta)`}>
-                {val > 0 && <div className="text-[9px] font-bold num mb-0.5" style={{ color: fill }}>{fmt0(val)}</div>}
+                {val > 0 && <div className="text-[10px] font-bold num mb-0.5" style={{ color: fill }}>{fmt0(val)}</div>}
                 <div className="w-full" style={{
                   height: val > 0 ? `${heightPct}%` : '2px', background: fill, opacity: val === 0 ? 0.5 : 1,
                   borderRadius: '3px 3px 1px 1px', minHeight: val > 0 ? '4px' : '2px',
@@ -1176,7 +1168,7 @@ function TabMes({ goals, history, onSelectDay }) {
                 onClick={() => clickable && onSelectDay(d.key)}
                 disabled={!clickable}
                 title={`${d.key}${d.data ? `: ${fmt0(d.data.kcal)} kcal` : ' — sin registro'}`}
-                className="aspect-square rounded-md flex items-center justify-center text-[9px] num p-0"
+                className="aspect-square rounded-md flex items-center justify-center text-[10px] num p-0"
                 style={{
                   background: colorFor(d.data),
                   color: d.data ? '#fff' : TEXT_LIGHT,
@@ -1422,7 +1414,7 @@ function TabFavoritos({ favorites }) {
               <div className="flex items-center gap-2">
                 <div className="text-[13px] font-semibold truncate" style={{ color: TEXT }}>{f.name}</div>
                 {f.type === 'day' && (
-                  <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                  <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
                     style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
                     día · {Array.isArray(f.days) ? f.days.length : 0} comidas
                   </span>

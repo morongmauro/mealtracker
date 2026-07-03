@@ -6,6 +6,8 @@
 // GET  /api/sync?user_id=xxx  → devuelve la fila { name, data, updated_at } o null
 // POST /api/sync              → upsert con { user_id, name, data }
 
+import { guard } from './_guard.js';
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
@@ -17,6 +19,11 @@ export default async function handler(req, res) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return res.status(500).json({ error: 'Supabase env vars not configured' });
   }
+
+  // GET permite requests sin Origin/Referer (navegadores con privacidad
+  // endurecida); el POST — que puede SOBRESCRIBIR datos — no.
+  const isGet = req.method === 'GET';
+  if (!guard(req, res, { key: 'sync', limit: isGet ? 60 : 30, allowNoOrigin: isGet })) return;
 
   const headers = {
     'apikey': SUPABASE_SERVICE_KEY,

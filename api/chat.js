@@ -2,6 +2,13 @@
 // Proxy serverless que protege la API key de Anthropic.
 // La key vive solo en variables de entorno de Vercel, nunca en el navegador.
 
+import { guard } from './_guard.js';
+
+// Solo los modelos que la app usa realmente. Sin esto, cualquiera que
+// descubriera el endpoint podía usar nuestra key con el modelo más caro.
+const ALLOWED_MODEL_PREFIXES = ['claude-haiku-', 'claude-sonnet-'];
+const MAX_TOKENS_CAP = 4000;
+
 export default async function handler(req, res) {
   // Solo aceptamos POST
   if (req.method !== 'POST') {
@@ -13,8 +20,14 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'API key not configured' });
   }
 
+  if (!guard(req, res, { key: 'chat', limit: 20 })) return;
+
   try {
     const { model, max_tokens, system, messages } = req.body;
+
+    if (typeof model === 'string' && !ALLOWED_MODEL_PREFIXES.some(p => model.startsWith(p))) {
+      return res.status(400).json({ error: 'Model not allowed' });
+    }
 
     // Validación básica
     if (!model || !messages) {
@@ -44,7 +57,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: model || 'claude-haiku-4-5-20251001',
-        max_tokens: max_tokens || 4000,
+        max_tokens: Math.min(Number(max_tokens) || 4000, MAX_TOKENS_CAP),
         system: system || '',
         messages: cleanedMessages,
       }),

@@ -9,11 +9,16 @@
 //
 // Devuelve: { text: "transcripción..." }
 
+import { guard } from './_guard.js';
+
 export const config = {
   api: {
     bodyParser: false, // necesitamos el cuerpo raw para reenviar el multipart
   },
 };
+
+// Whisper acepta hasta 25MB; un dictado de comida jamás pasa de unos pocos MB.
+const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -24,10 +29,19 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
   }
 
+  if (!guard(req, res, { key: 'transcribe', limit: 10 })) return;
+
   try {
     // Acumulamos el body raw del multipart
     const chunks = [];
-    for await (const chunk of req) chunks.push(chunk);
+    let total = 0;
+    for await (const chunk of req) {
+      total += chunk.length;
+      if (total > MAX_AUDIO_BYTES) {
+        return res.status(413).json({ error: 'Audio too large' });
+      }
+      chunks.push(chunk);
+    }
     const body = Buffer.concat(chunks);
 
     const contentType = req.headers['content-type'] || '';

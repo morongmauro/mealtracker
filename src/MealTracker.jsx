@@ -1,35 +1,22 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, memo, startTransition } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo, startTransition, lazy, Suspense } from 'react';
 import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
-  SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen
+  SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
+  ShoppingCart, Pin, Scale, Target, HelpCircle, RefreshCw
 } from 'lucide-react';
-import Recetario from './Recetario.jsx';
 
-// Palette — premium warm neutrals + signature olive + restrained macro hues
-const ACCENT = '#8A9558';        // signature olive, slightly more alive for CTAs
-const ACCENT_DARK = '#4A5238';   // deeper for text on light
-const ACCENT_PASTEL = '#D4DAB8';
-const ACCENT_LIGHT = '#F1F3E5';
+// Chunk aparte: el Recetario (~30KB de recetas + UI) solo se descarga la
+// primera vez que el cliente lo abre, no en el arranque de la app.
+const Recetario = lazy(() => import('./Recetario.jsx'));
 
-const C_PROTEIN = '#D77A61';     // coral terracotta — refined, not fluo
-const C_PROTEIN_PASTEL = '#F2CBBE';
-const C_CARBS = '#D4B581';       // honey mustard
-const C_CARBS_PASTEL = '#EDDCBC';
-const C_FAT = '#6B7A8F';         // smoke blue
-const C_FAT_PASTEL = '#CDD2DB';
-const C_WATER = '#5BA3C7';
-
-const BG = '#FBF9F3';            // lighter warm cream
-const SURFACE = '#FFFFFF';
-const SURFACE_2 = '#EFEBE0';
-const BORDER = '#E2DECC';
-const BORDER_SOFT = '#EEEBE0';
-const TEXT = '#1F1F1F';          // graphite, never pure black
-const TEXT_MUTED = '#6B6B6B';
-const TEXT_LIGHT = '#9A9A9A';
-const SUCCESS = '#7A9579';
-const WARN = '#B8732B';
+// Paleta y tipografía: única fuente de verdad en src/theme.js.
+import {
+  ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
+  C_PROTEIN, C_PROTEIN_PASTEL, C_CARBS, C_CARBS_PASTEL, C_FAT, C_FAT_PASTEL, C_WATER,
+  BG, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
+  SUCCESS, WARN, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
+} from './theme.js';
 
 // LLM model — single source of truth. To switch to Sonnet, change this one line:
 //   'claude-haiku-4-5-20251001'  (rápido, económico, actual)
@@ -49,28 +36,23 @@ const fmt0 = (n) => {
   return String(Math.round(v));
 };
 
-// Glass tokens — Apple-style
-const GLASS_BG = 'rgba(255, 255, 255, 0.45)';
-const GLASS_BG_STRONG = 'rgba(255, 255, 255, 0.65)';
-const GLASS_BORDER = 'rgba(255, 255, 255, 0.85)';
-const GLASS_BORDER_INNER = 'rgba(255, 255, 255, 0.6)';
-const GLASS_SHADOW = '0 1px 0 rgba(255,255,255,0.7) inset, 0 -1px 0 rgba(255,255,255,0.2) inset, 0 8px 32px rgba(60, 70, 50, 0.08), 0 2px 8px rgba(60, 70, 50, 0.04)';
-
-const FONT_UI = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
-const FONT_DISPLAY = "'Bebas Neue', 'Inter', sans-serif";
-
-const AUTHORIZED_CLIENTS = [
-  'Mauro Morón', 'Alejandro Aguirre', 'Amauri Barbosa', 'Andrea Angulo',
-  'Andres Yepes', 'Carlos Martinez', 'Carlos Pirela', 'David Forero',
-  'Diana Tovar', 'Julio Dieguez', 'Laura Lorena Cardenas', 'Mar Alzate',
-  'Mateo Bermudez', 'Sergio Cuellar', 'Amalia Rodriguez', 'Salvador Montoya',
-  'Maria Alejandra Gonzales', 'Natalia Samper', 'Alejandro Machado',
-];
-
-const normalizeName = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-const isAuthorized = (name) => {
-  const normalized = normalizeName(name);
-  return AUTHORIZED_CLIENTS.some(client => normalizeName(client) === normalized);
+// La lista de clientes autorizados vive en el SERVIDOR (/api/authorize).
+// Antes estaba acá y viajaba con los nombres reales dentro del JS público.
+// Si el endpoint no responde (sin red, deploy a medias), dejamos pasar:
+// la validación es una puerta de cortesía, no un control de seguridad.
+const isAuthorized = async (name) => {
+  try {
+    const r = await fetch('/api/authorize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!r.ok) return true;
+    const data = await r.json();
+    return data.authorized === true;
+  } catch (e) {
+    return true;
+  }
 };
 
 // Static SVG background — computed ONCE at module load. Previously this
@@ -159,7 +141,6 @@ export default function MealTracker() {
   const [history, setHistory] = useState({});
   const [historyDetail, setHistoryDetail] = useState({});
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState('');
   const [name, setName] = useState('');
@@ -195,7 +176,10 @@ export default function MealTracker() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const voiceInputRef = useRef(false);
-  const inputDivRef = useRef(null);
+  // API imperativa de la barra de entrada (componente aislado InputBar).
+  // Teclear ya NO re-renderiza este componente gigante: el texto vive en
+  // InputBar y el padre solo lo lee/escribe a través de este ref.
+  const inputApiRef = useRef(null);
   const actionsSheetRef = useRef(null);
   const actionsFabRef = useRef(null);
   const inputBarRef = useRef(null);
@@ -216,6 +200,13 @@ export default function MealTracker() {
     startTransition(() => setActionsExpanded(false));
   }, []);
 
+  // Identidades estables para props de componentes memoizados (ver InputBar).
+  const latestHandlersRef = useRef({});
+  const stableSend = useCallback((t) => latestHandlersRef.current.handleSend?.(t), []);
+  const stableStartVoice = useCallback(() => latestHandlersRef.current.startVoice?.(), []);
+  const stableStopVoice = useCallback(() => latestHandlersRef.current.stopVoice?.(), []);
+  const stableFocusInput = useCallback(() => setActionsExpanded(false), []);
+
   const openActionsSheet = useCallback(() => {
     if (actionsSheetRef.current) actionsSheetRef.current.style.display = 'flex';
     if (inputBarRef.current) inputBarRef.current.style.display = 'none';
@@ -224,23 +215,6 @@ export default function MealTracker() {
   }, []);
 
   const today = getLocalDate();
-
-  useEffect(() => {
-    const anyOpen = showWellbeingModal || showIngredientsModal || showPlannerModal
-      || showPerformanceModal || showCapabilitiesModal || activeModal
-      || editingEntry !== null || pendingFavoriteEntry || actionsExpanded;
-    if (anyOpen) {
-      document.body.setAttribute('data-modal-open', '1');
-      return;
-    }
-    // Delay un-pausing the heavy infinite animations so they don't fight
-    // the closing repaint on mobile (causes a perceived 1-2s delay).
-    const t = setTimeout(() => document.body.removeAttribute('data-modal-open'), 400);
-    return () => {
-      clearTimeout(t);
-      document.body.removeAttribute('data-modal-open');
-    };
-  }, [showWellbeingModal, showIngredientsModal, showPlannerModal, showPerformanceModal, showCapabilitiesModal, activeModal, editingEntry, pendingFavoriteEntry, actionsExpanded]);
 
   useEffect(() => {
     (async () => {
@@ -847,10 +821,10 @@ export default function MealTracker() {
     throw lastError;
   };
 
-  const isFirstMealOfDay = entries.length === 0;
-
+  // Siempre por hora del día. Antes la PRIMERA comida del día se etiquetaba
+  // "desayuno" sin importar la hora: si el cliente empezaba a registrar a las
+  // 9pm, su cena quedaba como desayuno.
   const predictMealType = () => {
-    if (isFirstMealOfDay) return 'desayuno';
     const hour = new Date().getHours();
     if (hour < 11) return 'desayuno';
     if (hour < 16) return 'almuerzo';
@@ -883,37 +857,14 @@ export default function MealTracker() {
     .sort((a, b) => (b.count - a.count) || ((b.lastSeen || 0) - (a.lastSeen || 0)))
     .slice(0, 6), [frequentItems]);
 
-  // Keep the contenteditable input in sync when `input` is changed programmatically
-  // (action chips, voice transcription, clear-after-send). We only write when the
-  // values differ so we don't reset the caret while the user is typing.
-  useEffect(() => {
-    const el = inputDivRef.current;
-    if (!el) return;
-    const current = el.textContent || '';
-    if (!input) {
-      // Clear fully (browsers leave a <br> that would break the :empty placeholder)
-      if (el.innerHTML !== '') el.innerHTML = '';
-      return;
-    }
-    if (current !== input) {
-      el.textContent = input;
-      // Move caret to the end if the element is focused
-      if (document.activeElement === el) {
-        const range = document.createRange();
-        const sel = window.getSelection();
-        range.selectNodeContents(el);
-        range.collapse(false);
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
-    }
-  }, [input]);
-
-  // Scroll listener: shrink card when scrolled down
+  // Scroll listener: shrink card when scrolled down. Con HISTÉRESIS: se
+  // compacta al pasar 90px y se expande recién al volver bajo 25px. Antes el
+  // umbral único (60px) hacía que la tarjeta rebotara al scrollear cerca del
+  // límite, porque el cambio de padding movía el scroll y re-cruzaba el umbral.
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY || document.documentElement.scrollTop || 0;
-      setCardCompact(y > 60);
+      setCardCompact(prev => prev ? y > 25 : y > 90);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
@@ -1606,12 +1557,93 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
     setHistory(h => ({ ...h, [dateStr]: { kcal: Math.round(t.kcal), p: r1(t.p), c: r1(t.c), g: r1(t.g), water: h[dateStr]?.water || 0 } }));
   };
 
+  // ── Deshacer: ventana de 6s tras cada registro para revertirlo de un tap ──
+  const [undoInfo, setUndoInfo] = useState(null); // { ids: number[] }
+  const undoTimerRef = useRef(null);
+  const armUndo = useCallback((ids) => {
+    if (!ids || ids.length === 0) return;
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoInfo({ ids });
+    undoTimerRef.current = setTimeout(() => setUndoInfo(null), 6000);
+  }, []);
+  const performUndo = useCallback(() => {
+    haptic(10);
+    setUndoInfo(current => {
+      if (current) {
+        const ids = new Set(current.ids);
+        setEntries(es => es.filter(e => !ids.has(e.id)));
+        setMessages(m => m.filter(msg => !(msg.entryId && ids.has(msg.entryId))));
+      }
+      return null;
+    });
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+  }, []);
+
+  // ── Registro instantáneo de repetidos ────────────────────────────────────
+  // Si TODO el mensaje son alimentos que el cliente ya registró antes
+  // (frequentItems, con macros cacheados y sin cantidades nuevas), se
+  // registra al momento sin pasar por el LLM: respuesta en milisegundos y
+  // cero costo de API. Cualquier duda → flujo normal con LLM.
+  const tryInstantLog = (text) => {
+    if (text.length > 90) return false;
+    if (/\d/.test(text)) return false; // trae cantidades: que el LLM las calcule
+    if (/\b(resumen|semanal?|semana|agua|reiniciar?|cambiar?|calendario|favoritos?|proporciones?|ayuda|meta|cuant\w*|cu[aá]nt\w*|c[oó]mo voy|qu[eé] (puedo|llevo|com[ií])|dime|hola|gracias|deshacer)\b/i.test(text)) return false;
+    const stripArticle = (s) => s.replace(/^(un|una|unos|unas|el|la|los|las|mi|de)\s+/i, '').trim();
+    const normKey = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    // Índice por nombre sin acentos → datos cacheados
+    const index = {};
+    for (const [k, v] of Object.entries(frequentItems)) index[normKey(k)] = v;
+    const segments = text.split(/\s*(?:,|;|\by\b|\be\b)\s*/i).map(s => stripArticle(s.trim())).filter(Boolean);
+    if (segments.length === 0) return false;
+    const matched = [];
+    for (const seg of segments) {
+      const hit = index[normKey(seg)];
+      // Solo items vistos 2+ veces y con macros reales cacheados
+      if (!hit || (hit.count || 0) < 2 || !(hit.kcal > 0)) return false;
+      matched.push({
+        name: hit.displayName || seg,
+        amount: hit.amount || '',
+        kcal: hit.kcal || 0, p: hit.p || 0, c: hit.c || 0, g: hit.g || 0,
+        needs_quantity: false,
+      });
+    }
+    const r1 = (n) => Math.round(n * 10) / 10;
+    const newEntry = {
+      id: Date.now(),
+      meal: predictMealType(),
+      items: matched,
+      kcal: Math.round(matched.reduce((s, i) => s + i.kcal, 0)),
+      p: r1(matched.reduce((s, i) => s + i.p, 0)),
+      c: r1(matched.reduce((s, i) => s + i.c, 0)),
+      g: r1(matched.reduce((s, i) => s + i.g, 0)),
+      time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
+      rawInput: text,
+      hasMissingQuantity: false,
+    };
+    haptic(12);
+    trackFrequency(matched);
+    setEntries(e => [...e, newEntry]);
+    setMessages(m => [...m, {
+      role: 'assistant', content: 'logged', isLogged: true,
+      entryId: newEntry.id, quantityWarning: null, ts: Date.now()
+    }]);
+    armUndo([newEntry.id]);
+    return true;
+  };
+
   const handleSend = async (textOverride) => {
-    const userMsg = (textOverride || input).trim();
+    const userMsg = (textOverride || inputApiRef.current?.getText() || '').trim();
     if (!userMsg || loading) return;
-    if (!textOverride) setInput('');
+    if (!textOverride) inputApiRef.current?.clear();
     haptic(8);
     setMessages(m => [...m, { role: 'user', content: userMsg, ts: Date.now() }]);
+
+    // Camino rápido: alimento repetido conocido → registro inmediato sin LLM.
+    if (tryInstantLog(userMsg)) {
+      voiceInputRef.current = false;
+      return;
+    }
+
     setLoading(true);
     setLoadingPreview('Interpretando…');
 
@@ -1853,6 +1885,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           }));
           if (parsed.quantity_warning) newMsgs[0].quantityWarning = parsed.quantity_warning;
           setMessages(m => [...m, ...newMsgs]);
+          armUndo(newEntries.map(ne => ne.id));
           setLoading(false); setLoadingPreview('');
           return;
         }
@@ -1880,6 +1913,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           role: 'assistant', content: 'logged', isLogged: true,
           entryId: newEntry.id, quantityWarning: parsed.quantity_warning, ts: Date.now()
         }]);
+        armUndo([newEntry.id]);
         setLoading(false); setLoadingPreview('');
         return;
       }
@@ -2025,7 +2059,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         else interimTranscript += event.results[i][0].transcript;
       }
       const txt = (finalTranscript + interimTranscript).trim();
-      setInput(txt);
+      inputApiRef.current?.setText(txt);
       if (txt) voiceInputRef.current = true;
     };
     recognitionRef.current = recognition;
@@ -2087,7 +2121,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       const isHallucination = txt.length > 0 && HALLUCINATIONS.some(rx => rx.test(txt));
       if (isHallucination) txt = '';
       if (txt) {
-        setInput(prev => (prev && prev.trim() ? prev.trim() + ' ' + txt : txt));
+        inputApiRef.current?.appendText(txt);
         voiceInputRef.current = true;
       } else {
         // Silencio o sólo alucinación → aviso suave, sin texto fantasma
@@ -2106,6 +2140,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     setEntries(e => e.filter(x => x.id !== id));
     setEditingEntry(null);
   }, []);
+
+  // Registro desde el Recetario: agrega la entrada Y deja la burbuja de
+  // confirmación en el chat, como todos los demás flujos de registro. Antes
+  // la comida aparecía en los totales pero el chat quedaba sin rastro y
+  // parecía que el botón no había funcionado.
+  const registerRecipeEntry = useCallback((entry) => {
+    setEntries(e => [...e, entry]);
+    setMessages(m => [...m, { role: 'assistant', content: 'logged', isLogged: true, entryId: entry.id, ts: Date.now() }]);
+    armUndo([entry.id]);
+  }, [armUndo]);
 
   // Stable handlers passed to MessageBubble (so React.memo can skip re-renders on modal toggles)
   const handleEditEntry = useCallback((id) => { haptic(8); setEditingEntry(id); }, []);
@@ -2341,41 +2385,28 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
   const predictedMeal = predictMealType();
 
+  // Callbacks estables para el InputBar memoizado. handleSend/startVoice/
+  // stopVoice se recrean en cada render (cierran sobre todo el estado); el
+  // patrón ref les da una identidad fija sin closures viejas, para que
+  // InputBar NUNCA se re-renderice por un cambio ajeno a sus props.
+  latestHandlersRef.current = { handleSend, startVoice, stopVoice };
+
   return (
-    <div className="min-h-screen relative" style={{ background: '#F9F7F1', color: TEXT, fontFamily: FONT_UI }}>
-      {/* Organic cream blobs — only on main screen */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-        {/* Warm cream blob — top-left */}
-        <div className="main-blob-1 absolute" style={{
-          top: '-12%', left: '-18%', width: '72%', height: '58%',
-          background: 'radial-gradient(circle, rgba(247,243,232,0.95), transparent 65%)',
-          filter: 'blur(70px)'
-        }} />
-        {/* Soft olive — top-right */}
-        <div className="main-blob-2 absolute" style={{
-          top: '4%', right: '-22%', width: '60%', height: '55%',
-          background: `radial-gradient(circle, ${ACCENT_PASTEL}55, transparent 65%)`,
-          filter: 'blur(85px)'
-        }} />
-        {/* Cream warm — bottom-left */}
-        <div className="main-blob-3 absolute" style={{
-          bottom: '-12%', left: '15%', width: '70%', height: '58%',
-          background: 'radial-gradient(circle, rgba(250,246,236,0.95), transparent 60%)',
-          filter: 'blur(75px)'
-        }} />
-        {/* Subtle peach — middle */}
-        <div className="main-blob-4 absolute" style={{
-          top: '38%', left: '5%', width: '55%', height: '48%',
-          background: `radial-gradient(circle, ${C_PROTEIN_PASTEL}40, transparent 70%)`,
-          filter: 'blur(90px)'
-        }} />
-        {/* Smoke blue accent — bottom-right */}
-        <div className="main-blob-5 absolute" style={{
-          bottom: '5%', right: '-12%', width: '52%', height: '48%',
-          background: `radial-gradient(circle, ${C_FAT_PASTEL}38, transparent 70%)`,
-          filter: 'blur(95px)'
-        }} />
-      </div>
+    <div className="min-h-screen relative" style={{ background: BG, color: TEXT, fontFamily: FONT_UI }}>
+      {/* Manchas orgánicas de fondo — SOLO gradientes radiales, sin filter:blur.
+          Los radial-gradient ya son suaves por sí mismos; el blur de 70-95px
+          sobre divs gigantes era el mayor costo de GPU en móvil y una de las
+          causas de los congelamientos al abrir/cerrar overlays. Mismo look. */}
+      <div className="fixed inset-0 pointer-events-none" style={{
+        zIndex: 0,
+        background: [
+          `radial-gradient(55% 42% at 8% 0%, rgba(247,243,232,0.9), transparent 70%)`,
+          `radial-gradient(48% 40% at 96% 12%, ${ACCENT_PASTEL}4D, transparent 70%)`,
+          `radial-gradient(45% 38% at 22% 58%, ${C_PROTEIN_PASTEL}33, transparent 72%)`,
+          `radial-gradient(50% 42% at 96% 94%, ${C_FAT_PASTEL}30, transparent 72%)`,
+          `radial-gradient(55% 45% at 40% 102%, rgba(250,246,236,0.85), transparent 65%)`,
+        ].join(', ')
+      }} />
       <FontStyles />
 
       <style>{`
@@ -2386,29 +2417,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulseRing { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
         @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-        @keyframes float1 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(30px, -20px) scale(1.05); } }
-        @keyframes float2 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-25px, 30px) scale(1.08); } }
-        @keyframes float3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(20px, 25px) scale(1.04); } }
-        @keyframes mainBlob1 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(50px, -30px) scale(1.1); } }
-        @keyframes mainBlob2 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-40px, 40px) scale(1.08); } }
-        @keyframes mainBlob3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(30px, 20px) scale(1.12); } }
-        @keyframes mainBlob4 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-25px, -35px) scale(1.06); } }
-        @keyframes mainBlob5 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(35px, -25px) scale(1.09); } }
-        .main-blob-1 { animation: mainBlob1 22s ease-in-out infinite; }
-        .main-blob-2 { animation: mainBlob2 26s ease-in-out infinite; }
-        .main-blob-3 { animation: mainBlob3 20s ease-in-out infinite; }
-        .main-blob-4 { animation: mainBlob4 24s ease-in-out infinite; }
-        .main-blob-5 { animation: mainBlob5 28s ease-in-out infinite; }
-        body[data-modal-open="1"] .main-blob-1,
-        body[data-modal-open="1"] .main-blob-2,
-        body[data-modal-open="1"] .main-blob-3,
-        body[data-modal-open="1"] .main-blob-4,
-        body[data-modal-open="1"] .main-blob-5,
-        body[data-modal-open="1"] .blob-1,
-        body[data-modal-open="1"] .blob-2,
-        body[data-modal-open="1"] .blob-3,
-        body[data-modal-open="1"] .shimmer-text,
-        body[data-modal-open="1"] .pulse-ring { animation-play-state: paused !important; }
         @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .sheet-up { animation: sheetUp 0.32s cubic-bezier(0.2, 0, 0, 1); }
         /* X de cierre: halo gris instantáneo al press, sin transición. El usuario VE
@@ -2428,23 +2436,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           -webkit-background-clip: text; background-clip: text;
           -webkit-text-fill-color: transparent; color: transparent;
           animation: shimmer 2s linear infinite;
-        }
-        .blob-1 { animation: float1 18s ease-in-out infinite; }
-        .blob-2 { animation: float2 22s ease-in-out infinite; }
-        .blob-3 { animation: float3 25s ease-in-out infinite; }
-        .glass-card {
-          background: ${GLASS_BG};
-          backdrop-filter: blur(28px) saturate(180%);
-          -webkit-backdrop-filter: blur(28px) saturate(180%);
-          border: 1px solid ${GLASS_BORDER};
-          box-shadow: ${GLASS_SHADOW};
-        }
-        .glass-card-strong {
-          background: ${GLASS_BG_STRONG};
-          backdrop-filter: blur(32px) saturate(200%);
-          -webkit-backdrop-filter: blur(32px) saturate(200%);
-          border: 1px solid ${GLASS_BORDER};
-          box-shadow: ${GLASS_SHADOW};
         }
         input, textarea, select {
           font-size: 16px !important;
@@ -2499,13 +2490,19 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       </div>
 
       {showRecetario && goals && (
-        <Recetario
-          goals={goals}
-          consumed={totals}
-          onClose={() => setShowRecetario(false)}
-          onRegister={(entry) => setEntries(e => [...e, entry])}
-          onChangeGoal={() => { setShowRecetario(false); setView('onboarding'); }}
-        />
+        <Suspense fallback={
+          <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: BG }}>
+            <Loader2 className="animate-spin" style={{ color: ACCENT }} size={26} />
+          </div>
+        }>
+          <Recetario
+            goals={goals}
+            consumed={totals}
+            onClose={() => setShowRecetario(false)}
+            onRegister={registerRecipeEntry}
+            onChangeGoal={() => { setShowRecetario(false); setView('onboarding'); }}
+          />
+        </Suspense>
       )}
 
       <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: cardCompact ? '90px' : '195px' }}>
@@ -2516,9 +2513,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           paddingLeft: '20px', paddingRight: '20px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
-          background: 'linear-gradient(180deg, #F9F7F1 0%, rgba(249,247,241,0.92) 80%, rgba(249,247,241,0.6) 100%)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
+          background: `linear-gradient(180deg, ${BG} 0%, rgba(249,247,241,0.92) 80%, rgba(249,247,241,0.6) 100%)`,
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)',
           transform: 'translate3d(0, 0, 0)',
           zIndex: 30,
@@ -2527,9 +2522,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <div className="max-w-2xl mx-auto">
         <div className="rounded-3xl relative cursor-pointer" style={{
           padding: cardCompact ? '8px 12px' : '16px',
-          background: 'rgba(255,255,255,0.78)',
-          backdropFilter: 'blur(32px) saturate(200%)',
-          WebkitBackdropFilter: 'blur(32px) saturate(200%)',
+          background: 'rgba(255,255,255,0.95)',
           border: '1px solid rgba(255,255,255,0.7)',
           boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 8px 28px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
           overflow: 'hidden',
@@ -2537,11 +2530,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         }}
           onClick={() => { haptic(8); setShowPerformanceModal(true); }}
           title="Ver desempeño">
-          {/* Subtle organic blob inside the card */}
+          {/* Subtle organic blob inside the card — gradiente puro, sin blur */}
           <div className="absolute pointer-events-none" style={{
             top: '-30%', right: '-20%', width: '60%', height: '120%',
-            background: `radial-gradient(circle, ${ACCENT_PASTEL}30, transparent 65%)`,
-            filter: 'blur(40px)'
+            background: `radial-gradient(circle, ${ACCENT_PASTEL}30, transparent 65%)`
           }} />
           <div className="relative">
           {!cardCompact && (
@@ -2555,7 +2547,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               }}
               title="Cambiar meta nutricional">
               <Sliders size={10} />
-              <span className="text-[9px] font-semibold">Cambiar meta</span>
+              <span className="text-[10px] font-semibold">Cambiar meta</span>
             </button>
           )}
 
@@ -2582,7 +2574,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <CompactMacro val={totals.c} goal={goals.c} color={C_CARBS} label="C" unit="g" />
                 <CompactMacro val={totals.g} goal={goals.g} color={C_FAT} label="G" unit="g" />
                 <div className="flex items-center gap-1 pl-2 flex-shrink-0 hidden min-[420px]:flex" style={{ borderLeft: `1px solid ${BORDER_SOFT}` }}>
-                  <span className="text-[9px] font-semibold tracking-wider whitespace-nowrap" style={{ color: ACCENT_DARK }}>Ver desempeño</span>
+                  <span className="text-[10px] font-semibold tracking-wider whitespace-nowrap" style={{ color: ACCENT_DARK }}>Ver desempeño</span>
                   <span style={{ color: ACCENT_DARK, fontSize: '12px' }}>→</span>
                 </div>
               </div>
@@ -2649,7 +2641,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             <div
               className={`w-full max-w-md rounded-t-3xl px-4 pt-2 ${visible ? 'sheet-up' : ''}`}
               style={{
-                background: '#F9F7F1',
+                background: BG,
                 boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
                 paddingBottom: '24px',
                 maxHeight: '78vh',
@@ -2683,43 +2675,43 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
               <div className="space-y-2.5">
                 <div>
-                  <div className="text-[9.5px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
+                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon="🍽️" label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<Utensils size={15} />} label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPlannerModal(true); generatePlan(); }} />
-                    <ActionChipMini icon="🔁" label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<RotateCcw size={15} />} label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
-                    <ActionChipMini icon="⭐" label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                    <ActionChipMini icon={<Star size={15} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
                       onClick={() => { haptic(8); setActiveModal('favorites'); }} />
-                    <ActionChipMini icon="🛒" label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                    <ActionChipMini icon={<ShoppingCart size={15} />} label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
                       onClick={() => { haptic(8); setShowIngredientsModal(true); }} />
-                    <ActionChipMini icon="📌" label="Guardar día como favorito" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<Pin size={15} />} label="Guardar día como favorito" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); }} />
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-[9.5px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
+                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon="📊" label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<BarChart3 size={15} />} label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
-                    <ActionChipMini icon="📈" label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
+                    <ActionChipMini icon={<LineChart size={15} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
                       onClick={() => { haptic(8); closeActionsSheet(); handleSend('ver resumen diario'); }} />
-                    <ActionChipMini icon="📅" label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
+                    <ActionChipMini icon={<Calendar size={15} />} label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
                       onClick={() => { haptic(8); setActiveModal('calendar'); }} />
-                    <ActionChipMini icon="⚖️" label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); closeActionsSheet(); setInput('Ayúdame con proporciones, tengo: '); }} />
+                    <ActionChipMini icon={<Scale size={15} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
+                      onClick={() => { haptic(8); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); }} />
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-[9.5px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
+                  <div className="text-[10px] tracking-[0.2em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon="🎯" label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<Target size={15} />} label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); closeActionsSheet(); setView('onboarding'); }} />
-                    <ActionChipMini icon="❓" label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<HelpCircle size={15} />} label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
-                    <ActionChipMini icon="🔄" label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
+                    <ActionChipMini icon={<RefreshCw size={15} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
                       onClick={() => { haptic(8); setActiveModal('reset'); }} />
                   </div>
                 </div>
@@ -2770,107 +2762,33 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </button>
       )}
 
-      <div ref={inputBarRef} className="fixed bottom-0 left-0 right-0 px-4 pb-5 pt-6 z-40" style={{
-        background: `linear-gradient(180deg, transparent, ${BG}E6 30%, ${BG} 100%)`,
-        display: actionsExpanded ? 'none' : 'block'
-      }}>
-        <div className="max-w-2xl mx-auto">
-          {/* Voice waveform when recording */}
-          {recording && (
-            <div className="flex items-center justify-center gap-1 mb-2 h-6">
-              {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
-                <div key={i} style={{
-                  width: '3px',
-                  height: '100%',
-                  background: C_PROTEIN,
-                  borderRadius: '2px',
-                  animation: `wave 0.9s ease-in-out ${i * 0.08}s infinite`,
-                  transformOrigin: 'center'
-                }} />
-              ))}
-            </div>
-          )}
-          {input.trim() && !input.toLowerCase().match(/desayuno|almuerzo|cena|snack|reiniciar|cambiar|resumen|semanal|calendario|favoritos|proporciones|agua|cuántas|cuanto|cuánto/) && (
-            <div className="text-[10px] text-center mb-2 px-3 py-1 rounded-full inline-block" style={{
-              background: ACCENT_PASTEL + '60', color: ACCENT_DARK, fontWeight: 500
-            }}>
-              → se registrará como {predictedMeal}
-            </div>
-          )}
-          <div className="flex items-center gap-2 p-2 rounded-2xl" style={{
-            background: SURFACE,
-            border: `1px solid ${recording ? C_PROTEIN : BORDER}`,
-            boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, 0 8px 32px rgba(0,0,0,0.08)` : '0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
-            transition: 'border 0.2s, box-shadow 0.2s'
-          }}>
-            {/* contenteditable instead of <input>. Atributos defensivos para minimizar
-                la barra de AutoFill de iOS (key/credit/location) que en iOS 17+ aparece
-                ocasionalmente en contenteditable. Y al enfocar, scrolleamos al fondo del
-                chat para que el contenido escrito quede visible sobre el teclado. */}
-            {/* NO uso role="textbox" ni aria-multiline — esos atributos hacen que iOS
-                Safari trate al elemento como "campo de formulario" y muestre la barra
-                de asistente (chevrons arriba/abajo + ícono teclado) flotando sobre
-                el input. Sin esos atributos, iOS lo trata como contenido editable
-                "neutro" y la barra desaparece en muchos casos. En modo PWA
-                (agregado a inicio) directamente no aparece nunca. */}
-            <div
-              ref={inputDivRef}
-              contentEditable={!recording && !transcribing}
-              suppressContentEditableWarning={true}
-              data-placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Dicta o escribe lo que comiste…'}
-              onInput={(e) => setInput(e.currentTarget.textContent || '')}
-              onFocus={() => setActionsExpanded(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  e.currentTarget.blur();
-                  handleSend();
-                }
-              }}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="sentences"
-              spellCheck="false"
-              inputMode="text"
-              enterKeyHint="send"
-              data-form-type="other"
-              data-1p-ignore="true"
-              data-lpignore="true"
-              className="msg-input flex-1 bg-transparent px-3 py-3 outline-none"
-              style={{ color: TEXT, fontSize: '16px', minHeight: '24px', maxHeight: '120px', overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-            />
-            {/* Voice is the PRIMARY action (grafito, prominent). Send only appears when there's text. */}
-            <button
-              type="button"
-              onClick={recording ? stopVoice : startVoice}
-              disabled={transcribing}
-              className="rounded-xl transition active:scale-[0.95] disabled:opacity-60 shrink-0 flex items-center justify-center"
-              style={{
-                width: '46px', height: '46px',
-                background: recording ? C_PROTEIN : '#1F1F1F',
-                color: '#fff',
-                boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}30` : '0 2px 8px rgba(0,0,0,0.18)',
-                transition: 'background 0.2s, box-shadow 0.2s'
-              }}
-              title={recording ? 'Detener dictado' : transcribing ? 'Transcribiendo…' : 'Dictar por voz'}>
-              {transcribing
-                ? <Loader2 size={20} strokeWidth={2} className="animate-spin" />
-                : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} />}
-            </button>
-            {input.trim() && !recording && (
-              <button
-                type="button"
-                onClick={() => handleSend()}
-                disabled={loading}
-                className="rounded-xl transition disabled:opacity-30 active:scale-[0.95] shrink-0 flex items-center justify-center fade-up"
-                style={{ width: '46px', height: '46px', background: ACCENT, color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                title="Enviar">
-                <ArrowUp size={18} strokeWidth={2.5} />
-              </button>
-            )}
-          </div>
+      <InputBar
+        barRef={inputBarRef}
+        apiRef={inputApiRef}
+        hidden={actionsExpanded}
+        recording={recording}
+        transcribing={transcribing}
+        loading={loading}
+        predictedMeal={predictedMeal}
+        onSend={stableSend}
+        onStartVoice={stableStartVoice}
+        onStopVoice={stableStopVoice}
+        onFocusInput={stableFocusInput}
+      />
+
+      {/* Deshacer — visible 6s después de registrar. Un tap revierte la(s)
+          entrada(s) recién creadas y sus burbujas del chat. */}
+      {undoInfo && (
+        <div className="fixed left-1/2 z-50 fade-up" style={{ transform: 'translateX(-50%)', bottom: keyboardOpen ? '160px' : '178px' }}>
+          <button
+            onClick={performUndo}
+            className="flex items-center gap-2 pl-3.5 pr-4 py-2.5 rounded-full active:scale-95"
+            style={{ background: '#1F1F1F', color: '#fff', boxShadow: SHADOW_RAISED }}>
+            <RotateCcw size={14} strokeWidth={2.2} />
+            <span className="text-[13px] font-semibold">Deshacer registro</span>
+          </button>
         </div>
-      </div>
+      )}
 
       {activeModal === 'reset' && (
         <ConfirmModal
@@ -3060,21 +2978,173 @@ function composeDayOpening(name, yesterday, goals, opts = {}) {
   return `${hi} ${timePhrase} ${dayNote}`;
 }
 
+// ─── Barra de entrada AISLADA ────────────────────────────────────────────
+// El texto que el cliente escribe vive AQUÍ, no en el componente padre.
+// Antes, cada tecla disparaba setInput en el padre y re-renderizaba las
+// 6.000 líneas de MealTracker — ese era el lag al teclear. Ahora teclear
+// solo re-renderiza este componente chico. El padre lee/escribe el texto
+// vía `apiRef` (getText/setText/appendText/clear).
+const InputBar = memo(function InputBar({
+  barRef, apiRef, hidden, recording, transcribing, loading, predictedMeal,
+  onSend, onStartVoice, onStopVoice, onFocusInput,
+}) {
+  const [text, setText] = useState('');
+  const divRef = useRef(null);
+
+  const writeDom = useCallback((value) => {
+    const el = divRef.current;
+    if (!el) return;
+    if (!value) {
+      // Clear fully (browsers leave a <br> that would break the :empty placeholder)
+      if (el.innerHTML !== '') el.innerHTML = '';
+    } else if ((el.textContent || '') !== value) {
+      el.textContent = value;
+      // Move caret to the end if the element is focused
+      if (document.activeElement === el) {
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    apiRef.current = {
+      getText: () => divRef.current?.textContent || '',
+      setText: (value) => { writeDom(value); setText(value || ''); },
+      appendText: (value) => {
+        const prev = (divRef.current?.textContent || '').trim();
+        const next = prev ? `${prev} ${value}` : value;
+        writeDom(next); setText(next);
+      },
+      clear: () => { writeDom(''); setText(''); },
+    };
+    return () => { apiRef.current = null; };
+  }, [apiRef, writeDom]);
+
+  const send = () => {
+    const value = (divRef.current?.textContent || '').trim();
+    if (!value) return;
+    writeDom(''); setText('');
+    onSend(value);
+  };
+
+  return (
+    <div ref={barRef} className="fixed bottom-0 left-0 right-0 px-4 pt-6 z-40" style={{
+      background: `linear-gradient(180deg, transparent, ${BG}E6 30%, ${BG} 100%)`,
+      paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+      display: hidden ? 'none' : 'block'
+    }}>
+      <div className="max-w-2xl mx-auto">
+        {/* Voice waveform when recording */}
+        {recording && (
+          <div className="flex items-center justify-center gap-1 mb-2 h-6">
+            {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
+              <div key={i} style={{
+                width: '3px',
+                height: '100%',
+                background: C_PROTEIN,
+                borderRadius: '2px',
+                animation: `wave 0.9s ease-in-out ${i * 0.08}s infinite`,
+                transformOrigin: 'center'
+              }} />
+            ))}
+          </div>
+        )}
+        {text.trim() && !text.toLowerCase().match(/desayuno|almuerzo|cena|snack|reiniciar|cambiar|resumen|semanal|calendario|favoritos|proporciones|agua|cuántas|cuanto|cuánto/) && (
+          <div className="text-[10px] text-center mb-2 px-3 py-1 rounded-full inline-block" style={{
+            background: ACCENT_PASTEL + '60', color: ACCENT_DARK, fontWeight: 500
+          }}>
+            → se registrará como {predictedMeal}
+          </div>
+        )}
+        <div className="flex items-center gap-2 p-2 rounded-2xl" style={{
+          background: SURFACE,
+          border: `1px solid ${recording ? C_PROTEIN : BORDER}`,
+          boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, 0 8px 32px rgba(0,0,0,0.08)` : '0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
+          transition: 'border 0.2s, box-shadow 0.2s'
+        }}>
+          {/* contenteditable instead of <input>. Atributos defensivos para minimizar
+              la barra de AutoFill de iOS (key/credit/location) que en iOS 17+ aparece
+              ocasionalmente en contenteditable. */}
+          {/* NO uso role="textbox" ni aria-multiline — esos atributos hacen que iOS
+              Safari trate al elemento como "campo de formulario" y muestre la barra
+              de asistente (chevrons arriba/abajo + ícono teclado) flotando sobre
+              el input. Sin esos atributos, iOS lo trata como contenido editable
+              "neutro" y la barra desaparece en muchos casos. En modo PWA
+              (agregado a inicio) directamente no aparece nunca. */}
+          <div
+            ref={divRef}
+            contentEditable={!recording && !transcribing}
+            suppressContentEditableWarning={true}
+            data-placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Dicta o escribe lo que comiste…'}
+            onInput={(e) => setText(e.currentTarget.textContent || '')}
+            onFocus={onFocusInput}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                e.currentTarget.blur();
+                send();
+              }
+            }}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="sentences"
+            spellCheck="false"
+            inputMode="text"
+            enterKeyHint="send"
+            data-form-type="other"
+            data-1p-ignore="true"
+            data-lpignore="true"
+            className="msg-input flex-1 bg-transparent px-3 py-3 outline-none"
+            style={{ color: TEXT, fontSize: '16px', minHeight: '24px', maxHeight: '120px', overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+          />
+          {/* Voice is the PRIMARY action (grafito, prominent). Send only appears when there's text. */}
+          <button
+            type="button"
+            onClick={recording ? onStopVoice : onStartVoice}
+            disabled={transcribing}
+            className="rounded-xl transition active:scale-[0.95] disabled:opacity-60 shrink-0 flex items-center justify-center"
+            style={{
+              width: '46px', height: '46px',
+              background: recording ? C_PROTEIN : '#1F1F1F',
+              color: '#fff',
+              boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}30` : '0 2px 8px rgba(0,0,0,0.18)',
+              transition: 'background 0.2s, box-shadow 0.2s'
+            }}
+            title={recording ? 'Detener dictado' : transcribing ? 'Transcribiendo…' : 'Dictar por voz'}>
+            {transcribing
+              ? <Loader2 size={20} strokeWidth={2} className="animate-spin" />
+              : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} />}
+          </button>
+          {text.trim() && !recording && (
+            <button
+              type="button"
+              onClick={send}
+              disabled={loading}
+              className="rounded-xl transition disabled:opacity-30 active:scale-[0.95] shrink-0 flex items-center justify-center fade-up"
+              style={{ width: '46px', height: '46px', background: '#1F1F1F', color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.18)' }}
+              title="Enviar">
+              <ArrowUp size={18} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 function FontStyles() {
+  // Las fuentes (Inter + Bebas Neue) ahora se importan self-hosted en
+  // src/main.jsx vía @fontsource — sin @import a Google Fonts que bloqueaba
+  // el primer pintado.
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Bebas+Neue&display=swap');
       body, * { font-family: ${FONT_UI}; -webkit-font-smoothing: antialiased; }
       .display { font-family: ${FONT_DISPLAY}; letter-spacing: 0.01em; }
-      /* PERF: el blur en vivo (backdrop-filter) es lo que más cuesta en móvil y
-         repinta en cada scroll/transición. Lo desactivamos: la traslucidez se
-         mantiene por el alfa de cada fondo, pero sin el costo de GPU que causaba
-         los tirones al scrollear el chat, abrir recetas o cerrar hojas. */
-      *, *::before, *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-      /* Los blobs animados infinitamente añaden carga continua de GPU; los dejamos
-         estáticos (se ven igual) para liberar el hilo de composición. */
-      .main-blob-1, .main-blob-2, .main-blob-3, .main-blob-4, .main-blob-5,
-      .blob-1, .blob-2, .blob-3, .mesh-1, .mesh-2, .mesh-3, .mesh-4 { animation: none !important; }
     `}</style>
   );
 }
@@ -3136,7 +3206,7 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
             strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
         </g>
         <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 18, fill: TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
-        <text x={center} y={center + 12} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 9, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
+        <text x={center} y={center + 12} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
       </svg>
       <div className="text-[10px] uppercase tracking-wider mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.1em' }}>
         {label}
@@ -3229,7 +3299,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
                 </button>
                 <button onClick={() => onDismissAutoFav(message.suggestedKey)}
                   className="flex-1 py-2 rounded-xl text-[12px] font-semibold active:scale-95"
-                  style={{ background: 'rgba(255,255,255,0.7)', color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
+                  style={{ background: 'rgba(255,255,255,0.92)', color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
                   No, gracias
                 </button>
               </div>
@@ -3260,7 +3330,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </button>
             <button onClick={onDismissFavSuggestion}
               className="flex-1 py-2 rounded-xl text-[12px] font-semibold transition active:scale-95"
-              style={{ background: 'rgba(255,255,255,0.7)', color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
+              style={{ background: 'rgba(255,255,255,0.92)', color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
               Más tarde
             </button>
           </div>
@@ -3306,9 +3376,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="px-4 py-2.5 rounded-2xl rounded-bl-md text-sm flex items-center gap-2" style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.92)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <Droplet size={14} style={{ color: C_WATER }} />
@@ -3323,9 +3391,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[85%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.92)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-2">
@@ -3355,9 +3421,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: 'rgba(255,255,255,0.78)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.95)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-2">
@@ -3450,9 +3514,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: 'rgba(255,255,255,0.78)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.95)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-2">
@@ -3471,11 +3533,11 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="mb-3 p-2.5 rounded-lg" style={{ background: SURFACE_2, border: `1px solid ${BORDER_SOFT}` }}>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
-                  <div className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_LIGHT }}>Suma actual</div>
+                  <div className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_LIGHT }}>Suma actual</div>
                   <div className="num" style={{ color: TEXT }}>{fmt0(current.kcal)} kcal · P{fmt1(current.p)} C{fmt1(current.c)} G{fmt1(current.g)}</div>
                 </div>
                 <div>
-                  <div className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_LIGHT }}>Meta</div>
+                  <div className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_LIGHT }}>Meta</div>
                   <div className="num" style={{ color: TEXT }}>{fmt0(goal.kcal)} kcal · P{fmt1(goal.p)} C{fmt1(goal.c)} G{fmt1(goal.g)}</div>
                 </div>
               </div>
@@ -3582,9 +3644,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.92)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center justify-between mb-3">
@@ -3669,9 +3729,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.92)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-3">
@@ -3737,9 +3795,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.92)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-3">
@@ -3809,9 +3865,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.92)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center justify-between mb-2">
@@ -3899,7 +3953,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <button
               onClick={() => onSeparateAppended(e.id, added)}
               className="mt-3 w-full py-2 rounded-xl text-[11px] font-semibold transition active:scale-[0.98] flex items-center justify-center gap-1.5"
-              style={{ background: 'rgba(255,255,255,0.7)', color: TEXT_MUTED, border: `1px dashed ${BORDER}` }}
+              style={{ background: 'rgba(255,255,255,0.92)', color: TEXT_MUTED, border: `1px dashed ${BORDER}` }}
               title="Si esto era una comida nueva y no un agregado, sepárala">
               <span style={{ fontSize: '12px' }}>↗</span>
               Separar como comida nueva
@@ -3915,9 +3969,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.92)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-3">
@@ -3955,9 +4007,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.92)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-3">
@@ -4022,9 +4072,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          background: 'rgba(255,255,255,0.92)',
           boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
         }}>
           <div className="flex items-center gap-2 mb-3">
@@ -4047,9 +4095,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
   return (
     <div className="flex justify-start fade-up">
       <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md text-[15px] whitespace-pre-wrap" style={{
-        background: 'rgba(255,255,255,0.72)',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        background: 'rgba(255,255,255,0.92)',
         color: TEXT, lineHeight: 1.5,
         boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
       }}>
@@ -4317,7 +4363,7 @@ function CalendarModal({ history, historyDetail, goals, today, todayEntries, tod
                 {selectedEntries.map((e, i) => (
                   <div key={i} className="text-xs p-3 rounded-xl" style={{ background: SURFACE_2 }}>
                     <div className="flex justify-between mb-1.5">
-                      <span className="uppercase text-[9px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>{e.meal}</span>
+                      <span className="uppercase text-[10px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>{e.meal}</span>
                       <span className="num text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
                     </div>
                     <div className="space-y-0.5">
@@ -4353,9 +4399,9 @@ function Stat({ label, val, goal, color, unit = '' }) {
   const fmt = unit ? fmt1 : fmt0;
   return (
     <div className="text-center p-2 rounded-xl" style={{ background: SURFACE_2 }}>
-      <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
+      <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
       <div className="text-sm font-medium num mt-0.5" style={{ color }}>{fmt(val)}{unit}</div>
-      <div className="text-[9px] num" style={{ color: TEXT_LIGHT }}>de {fmt0(goal)}{unit}</div>
+      <div className="text-[10px] num" style={{ color: TEXT_LIGHT }}>de {fmt0(goal)}{unit}</div>
     </div>
   );
 }
@@ -4398,7 +4444,7 @@ function FavoritesModal({ favorites, onUse, onDelete, onRename, onClose }) {
                   <div className="flex items-center gap-1.5">
                     <div className="text-sm font-medium truncate" style={{ color: TEXT }}>{f.name}</div>
                     {f.type === 'day' && (
-                      <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                      <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
                         día · {Array.isArray(f.days) ? f.days.length : 0} comidas
                       </span>
@@ -4718,7 +4764,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Goal line — horizontal dashed at goal level */}
           <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 1 }}>
             <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: SUCCESS, opacity: 0.6 }} />
-            <span className="px-1.5 text-[8px] font-semibold uppercase tracking-wider" style={{ color: SUCCESS, background: SURFACE_2 + 'F0' }}>meta {goal}{unit}</span>
+            <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: SUCCESS, background: SURFACE_2 + 'F0' }}>meta {goal}{unit}</span>
           </div>
           {/* Bars */}
           <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
@@ -4733,7 +4779,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               return (
                 <div key={i} className="flex-1 h-full flex flex-col justify-end items-center" style={{ minWidth: 0 }}>
                   {showBarValues && val > 0 && (
-                    <div className="text-[9px] font-bold mb-0.5 num" style={{ color: fillColor }}>
+                    <div className="text-[10px] font-bold mb-0.5 num" style={{ color: fillColor }}>
                       {Math.round(val)}
                     </div>
                   )}
@@ -4856,7 +4902,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
             );
           })()}
         </svg>
-        <div className="flex justify-between text-[8px] mt-1" style={{ color: TEXT_LIGHT }}>
+        <div className="flex justify-between text-[10px] mt-1" style={{ color: TEXT_LIGHT }}>
           <span>hace 12 sem</span>
           <span>esta semana</span>
         </div>
@@ -5251,7 +5297,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="text-[11px] uppercase tracking-[0.15em] font-bold" style={{ color: ACCENT_DARK }}>{m.meal}</div>
                 {m.from_favorite && (
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold" style={{ background: C_CARBS_PASTEL, color: C_CARBS }}>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: C_CARBS_PASTEL, color: C_CARBS }}>
                     <Star size={9} strokeWidth={2.2} />
                     De tus favoritos
                   </div>
@@ -5383,7 +5429,7 @@ function PerfectDayModal({ name, totals, goals, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 fade-up" style={{
-      background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(14px)'
+      background: 'rgba(0,0,0,0.5)'
     }} onClick={onClose}>
       <div className="w-full max-w-sm p-8 rounded-3xl text-center" style={{
         background: SURFACE,
@@ -5414,7 +5460,7 @@ function PerfectDayModal({ name, totals, goals, onClose }) {
                 { l: 'G', v: `${totals.g}g`, c: C_FAT },
               ].map((s, i) => (
                 <div key={i} className="p-2 rounded-xl" style={{ background: SURFACE_2 }}>
-                  <div className="text-[9px] uppercase font-semibold" style={{ color: TEXT_LIGHT }}>{s.l}</div>
+                  <div className="text-[10px] uppercase font-semibold" style={{ color: TEXT_LIGHT }}>{s.l}</div>
                   <div className="text-sm font-semibold num" style={{ color: s.c }}>{s.v}</div>
                 </div>
               ))}
@@ -5490,13 +5536,18 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
 
   const save = () => {
     if (items.length === 0) { onDelete(); return; }
+    const sum = (k) => items.reduce((s, i) => s + (i[k] || 0), 0);
+    // Las entradas registradas desde el Recetario traen macros solo a nivel
+    // de entrada (los items vienen en 0). Si ningún item tiene macros,
+    // conservamos los totales originales en vez de recalcular a 0 — antes
+    // guardar la edición de una receta borraba todas sus calorías y macros.
+    const itemsHaveMacros = items.some(i => (i.kcal || 0) > 0 || (i.p || 0) > 0 || (i.c || 0) > 0 || (i.g || 0) > 0);
     const updated = {
       ...entry, meal, items,
       hasMissingQuantity: items.some(i => i.needs_quantity),
-      kcal: items.reduce((s, i) => s + (i.kcal || 0), 0),
-      p: items.reduce((s, i) => s + (i.p || 0), 0),
-      c: items.reduce((s, i) => s + (i.c || 0), 0),
-      g: items.reduce((s, i) => s + (i.g || 0), 0),
+      ...(itemsHaveMacros
+        ? { kcal: sum('kcal'), p: sum('p'), c: sum('c'), g: sum('g') }
+        : { kcal: entry.kcal || 0, p: entry.p || 0, c: entry.c || 0, g: entry.g || 0 }),
     };
     onSave(updated);
   };
@@ -5593,7 +5644,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
 function ReadOnlyStat({ label, val, color }) {
   return (
     <div className="text-center p-2 rounded-lg" style={{ background: '#fff' }}>
-      <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
+      <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
       <div className="text-xs font-semibold num mt-0.5" style={{ color }}>{val}</div>
     </div>
   );
@@ -5605,53 +5656,29 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
       <FontStyles />
       <style>{`
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes meshFloat1 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(80px, -60px) scale(1.15); } }
-        @keyframes meshFloat2 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-70px, 80px) scale(1.12); } }
-        @keyframes meshFloat3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(60px, 50px) scale(1.18); } }
-        @keyframes meshFloat4 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-50px, -40px) scale(1.1); } }
-        @keyframes ringFill { 
-          0% { stroke-dashoffset: 1880; } 
-          50% { stroke-dashoffset: 380; } 
-          100% { stroke-dashoffset: 1880; } 
+        @keyframes ringFill {
+          0% { stroke-dashoffset: 1880; }
+          50% { stroke-dashoffset: 380; }
+          100% { stroke-dashoffset: 1880; }
         }
         .ring-fill { animation: ringFill 8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
         .fade-up-1 { animation: fadeUp 0.6s ease-out 0.0s both; }
         .fade-up-2 { animation: fadeUp 0.6s ease-out 0.15s both; }
         .fade-up-3 { animation: fadeUp 0.6s ease-out 0.3s both; }
         .fade-up-4 { animation: fadeUp 0.6s ease-out 0.45s both; }
-        .mesh-1 { animation: meshFloat1 14s ease-in-out infinite; }
-        .mesh-2 { animation: meshFloat2 17s ease-in-out infinite; }
-        .mesh-3 { animation: meshFloat3 13s ease-in-out infinite; }
-        .mesh-4 { animation: meshFloat4 19s ease-in-out infinite; }
       `}</style>
 
-      {/* Animated aurora background — gray/white tones, real visible motion */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-        {/* Aurora layer 1 — large soft white blob, top */}
-        <div className="mesh-1 absolute" style={{
-          top: '-25%', left: '-20%', width: '90%', height: '70%',
-          background: 'radial-gradient(circle, rgba(255,255,255,0.95), rgba(255,255,255,0) 60%)',
-          filter: 'blur(70px)',
-          mixBlendMode: 'screen'
-        }} />
-        {/* Aurora layer 2 — cool gray, right side */}
-        <div className="mesh-2 absolute" style={{
-          top: '10%', right: '-30%', width: '85%', height: '75%',
-          background: 'radial-gradient(circle, rgba(180,190,200,0.55), rgba(180,190,200,0) 65%)',
-          filter: 'blur(80px)'
-        }} />
-        {/* Aurora layer 3 — warm white, bottom */}
-        <div className="mesh-3 absolute" style={{
-          bottom: '-25%', left: '10%', width: '80%', height: '70%',
-          background: 'radial-gradient(circle, rgba(245,243,238,0.9), rgba(245,243,238,0) 60%)',
-          filter: 'blur(75px)'
-        }} />
-        {/* Aurora layer 4 — subtle dark for depth */}
-        <div className="mesh-4 absolute" style={{
-          top: '40%', left: '20%', width: '60%', height: '50%',
-          background: 'radial-gradient(circle, rgba(120,130,140,0.18), rgba(120,130,140,0) 70%)',
-          filter: 'blur(90px)'
-        }} />
+      {/* Fondo aurora — gradientes radiales puros, sin filter:blur ni animación
+          infinita (era carga continua de GPU en la pantalla de bienvenida). */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{
+        zIndex: 0,
+        background: [
+          'radial-gradient(60% 50% at 18% 2%, rgba(255,255,255,0.9), transparent 65%)',
+          'radial-gradient(55% 52% at 96% 30%, rgba(180,190,200,0.4), transparent 68%)',
+          'radial-gradient(52% 48% at 40% 100%, rgba(245,243,238,0.85), transparent 62%)',
+          'radial-gradient(42% 36% at 45% 58%, rgba(120,130,140,0.12), transparent 70%)',
+        ].join(', ')
+      }}>
 
         {/* Editorial avocado image — sits to the right, doesn't cover text */}
         <img src="/avocado.png" alt=""
@@ -5724,9 +5751,7 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
         <button onClick={onTutorial}
           className="w-full py-3.5 mb-3 rounded-2xl text-[14px] font-semibold transition active:scale-[0.98] flex items-center justify-center gap-2"
           style={{
-            background: 'rgba(255,255,255,0.7)',
-            backdropFilter: 'blur(20px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+            background: 'rgba(255,255,255,0.92)',
             border: `1px solid ${BORDER}`,
             color: TEXT,
             boxShadow: '0 1px 0 rgba(255,255,255,0.6) inset, 0 2px 8px rgba(0,0,0,0.04)'
@@ -5850,19 +5875,25 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
   const [cPct, setCPct] = useState(existingGoals ? Math.round((existingGoals.c * 4 / existingGoals.kcal) * 100) : 40);
   const [gPct, setGPct] = useState(existingGoals ? Math.round((existingGoals.g * 9 / existingGoals.kcal) * 100) : 30);
 
-  const validateName = (n) => {
+  const [checkingName, setCheckingName] = useState(false);
+
+  const validateNameFormat = (n) => {
     const trimmed = n.trim();
     if (trimmed.length < 3) return 'Escribe nombre completo';
     const parts = trimmed.split(/\s+/);
     if (parts.length < 2) return 'Necesito nombre y apellido';
     if (!/^[a-záéíóúñü\s]+$/i.test(trimmed)) return 'Solo letras (sin números ni símbolos)';
-    if (!isAuthorized(trimmed)) return 'Este nombre no está autorizado. Contacta a Mauro para acceso.';
     return '';
   };
 
-  const continueFromName = () => {
-    const err = validateName(name);
+  const continueFromName = async () => {
+    if (checkingName) return;
+    const err = validateNameFormat(name);
     if (err) { setNameError(err); return; }
+    setCheckingName(true);
+    const ok = await isAuthorized(name.trim());
+    setCheckingName(false);
+    if (!ok) { setNameError('Este nombre no está autorizado. Contacta a Mauro para acceso.'); return; }
     const formatted = name.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
     setName(formatted);
     setStep(1);
@@ -5910,9 +5941,7 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
         </div>
 
         <div className="p-6 rounded-3xl relative overflow-hidden" style={{
-          background: 'rgba(255,255,255,0.7)',
-          backdropFilter: 'blur(28px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+          background: 'rgba(255,255,255,0.92)',
           border: '1px solid rgba(255,255,255,0.7)',
           boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 32px rgba(0,0,0,0.06)'
         }}>
@@ -5939,15 +5968,17 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
                 style={{ borderColor: nameError ? WARN : BORDER, color: TEXT, fontSize: '16px' }} autoFocus
                 onKeyDown={e => e.key === 'Enter' && continueFromName()} />
               {nameError && <div className="text-[11px] mb-3" style={{ color: '#FF9B6B' }}>{nameError}</div>}
-              <button onClick={continueFromName}
-                className="w-full py-3.5 mt-4 rounded-2xl text-base font-semibold transition active:scale-[0.98] flex items-center justify-center gap-2"
+              <button onClick={continueFromName} disabled={checkingName}
+                className="w-full py-3.5 mt-4 rounded-2xl text-base font-semibold transition active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70"
                 style={{
                   background: '#1F1F1F',
                   color: '#fff',
                   boxShadow: '0 4px 14px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.1) inset',
                   letterSpacing: '0.01em'
                 }}>
-                Continuar <ArrowUp size={16} strokeWidth={2.5} style={{ transform: 'rotate(90deg)' }} />
+                {checkingName
+                  ? <><Loader2 size={16} className="animate-spin" /> Verificando…</>
+                  : <>Continuar <ArrowUp size={16} strokeWidth={2.5} style={{ transform: 'rotate(90deg)' }} /></>}
               </button>
             </div>
           )}

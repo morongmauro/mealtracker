@@ -1,25 +1,13 @@
 import React, { useState, useMemo, useRef, startTransition } from 'react';
 import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, Info, Clock, AlertTriangle, X } from 'lucide-react';
 
-// ── Paleta y tokens espejo de MealTracker ──
-const ACCENT = '#8A9558';
-const ACCENT_DARK = '#4A5238';
-const ACCENT_PASTEL = '#D4DAB8';
-const ACCENT_LIGHT = '#F1F3E5';
-const C_PROTEIN = '#D77A61';
-const C_CARBS = '#D4B581';
-const C_FAT = '#6B7A8F';
-const BG = '#F9F7F1';
-const SURFACE = '#FFFFFF';
-const SURFACE_2 = '#EFEBE0';
-const BORDER = '#E2DECC';
-const TEXT = '#1F1F1F';
-const TEXT_MUTED = '#6B6B6B';
-const TEXT_LIGHT = '#9A9A9A';
-const FONT_UI = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
-const GLASS_BG = 'rgba(255,255,255,0.72)';
-const GLASS_BORDER = '1px solid rgba(255,255,255,0.85)';
-const GLASS_SHADOW = '0 1px 0 rgba(255,255,255,0.7) inset, 0 10px 30px rgba(60,70,50,0.10), 0 2px 8px rgba(60,70,50,0.05)';
+// Paleta, sombras y tipografía compartidas — ver src/theme.js.
+import {
+  ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
+  C_PROTEIN, C_CARBS, C_FAT,
+  BG, SURFACE, SURFACE_2, BORDER, TEXT, TEXT_MUTED, TEXT_LIGHT,
+  FONT_UI, SHADOW_CARD,
+} from './theme.js';
 
 const haptic = (p = 10) => { if (typeof window !== 'undefined' && window.navigator?.vibrate) window.navigator.vibrate(p); };
 const r0 = (n) => Math.round(Number(n) || 0);
@@ -836,7 +824,7 @@ function MacroLegend({ totals }) {
 // Sin backdrop-filter: el blur en vivo sobre muchas cards congela el render al
 // abrir/cerrar y al entrar a una receta. Fondo semi-sólido + sombra = mismo look
 // premium, sin costo de GPU.
-const cardStyle = { background: 'rgba(255,255,255,0.9)', border: GLASS_BORDER, boxShadow: GLASS_SHADOW };
+const cardStyle = { background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.85)', boxShadow: SHADOW_CARD };
 const plainCard = { background: SURFACE, border: `1px solid ${BORDER}` };
 
 export default function Recetario({ goals, consumed, onClose, onRegister, onChangeGoal }) {
@@ -924,23 +912,19 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
   // Fondo de manchas orgánicas con GRADIENTES (sin filter:blur) — el look se
   // mantiene y deja de congelar al re-renderizar.
+  // OJO: sin <style> aquí. Antes este fragmento incluía un <style> y se
+  // renderizaba DOS veces (lista + overlay de detalle); cada montaje del
+  // detalle insertaba un tag de estilo nuevo y forzaba un recálculo de
+  // estilos de TODO el documento — parte del delay al abrir una receta.
   const blobs = (
-    <>
-      <style>{`
-        .rec-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; background:${BORDER}; outline:none; }
-        .rec-range::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:24px; height:24px; border-radius:50%; background:#1F1F1F; border:3px solid #fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
-        .rec-range::-moz-range-thumb { width:24px; height:24px; border-radius:50%; background:#1F1F1F; border:3px solid #fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
-        button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-      `}</style>
-      <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: `radial-gradient(60% 45% at 88% 6%, ${ACCENT_PASTEL}66, transparent 70%), radial-gradient(55% 42% at 3% 42%, #F2CBBE44, transparent 70%), radial-gradient(50% 42% at 96% 96%, #CDD2DB40, transparent 72%)` }} />
-    </>
+    <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: `radial-gradient(60% 45% at 88% 6%, ${ACCENT_PASTEL}66, transparent 70%), radial-gradient(55% 42% at 3% 42%, #F2CBBE44, transparent 70%), radial-gradient(50% 42% at 96% 96%, #CDD2DB40, transparent 72%)` }} />
   );
 
   const sectionLabel = (t) => <div className="text-[11px] tracking-[0.16em] uppercase font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
 
   // ───────────────────────── DETALLE (overlay sobre la lista) ─────────────────────────
   const detailOverlay = (open && detail) ? (
-      <div className="fixed inset-0 z-[70] overflow-y-auto" style={{ background: BG, fontFamily: FONT_UI }}>
+      <div className="fixed inset-0 z-[70] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
         {blobs}
         <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF' }}>
           <button onClick={() => { haptic(6); setOpenId(null); setManualK(null); }} className="p-1.5 -ml-1.5 rounded-full active:scale-90"><ChevronLeft size={22} /></button>
@@ -1035,7 +1019,15 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
   // ───────────────────────── LISTA ─────────────────────────
   return (
-    <div ref={rootRef} className="fixed inset-0 z-[60] overflow-y-auto" style={{ background: BG, fontFamily: FONT_UI }}>
+    <div ref={rootRef} className="fixed inset-0 z-[60] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
+      <style>{`
+        .rec-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; background:${BORDER}; outline:none; }
+        .rec-range::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:24px; height:24px; border-radius:50%; background:#1F1F1F; border:3px solid #fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
+        .rec-range::-moz-range-thumb { width:24px; height:24px; border-radius:50%; background:#1F1F1F; border:3px solid #fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
+        button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        @keyframes recSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .rec-slide-in { animation: recSlideIn 0.24s cubic-bezier(0.2, 0, 0, 1); }
+      `}</style>
       {blobs}
       <div className="sticky top-0 z-20 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF' }}>
         <div className="max-w-xl mx-auto flex items-center gap-2">
@@ -1063,7 +1055,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             {[{ v: g.kcal, l: 'Calorías', c: TEXT, u: '' }, { v: g.p, l: 'Proteína', c: C_PROTEIN, u: 'g' }, { v: g.c, l: 'Carbos', c: C_CARBS, u: 'g' }, { v: g.g, l: 'Grasas', c: C_FAT, u: 'g' }].map((m, i) => (
               <div key={i}>
                 <div className="font-bold num" style={{ fontSize: 19, color: m.c, lineHeight: 1 }}>{m.v}<span style={{ fontSize: 11 }}>{m.u}</span></div>
-                <div className="text-[9.5px] uppercase tracking-wider font-semibold mt-1" style={{ color: TEXT_MUTED }}>{m.l}</div>
+                <div className="text-[10px] uppercase tracking-wider font-semibold mt-1" style={{ color: TEXT_MUTED }}>{m.l}</div>
               </div>
             ))}
           </div>
@@ -1133,10 +1125,10 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{recipe.name}</div>
                 <div className="flex items-center gap-2 text-[10.5px] mt-1" style={{ color: TEXT_MUTED }}>
-                  <span className="px-2 py-0.5 rounded-full font-bold tracking-[0.12em] uppercase" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 9 }}>{displaySlot(recipe.slot)}</span>
+                  <span className="px-2 py-0.5 rounded-full font-bold tracking-[0.12em] uppercase" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 10 }}>{displaySlot(recipe.slot)}</span>
                   <span className="flex items-center gap-1"><Clock size={10} /> {recipe.time}</span>
                   <CostTag cost={META[recipe.id].cost} />
-                  {isHighProtein(recipe) && <span className="font-semibold" style={{ color: C_PROTEIN, fontSize: 9.5 }}>· Alta proteína</span>}
+                  {isHighProtein(recipe) && <span className="font-semibold" style={{ color: C_PROTEIN, fontSize: 10 }}>· Alta proteína</span>}
                 </div>
                 <div className="flex items-center gap-2.5 mt-1.5 text-[11px] font-semibold num">
                   <span style={{ color: TEXT_MUTED }}>{r0(sc.totals.kcal)} kcal</span>
