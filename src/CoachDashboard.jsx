@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   LogOut, Search, ArrowLeft, Save, Users, Activity, AlertTriangle, TrendingUp,
-  Calendar, Droplet, Edit2, Check, X, Link2, Link2Off, ChevronRight
+  Calendar, Droplet, Edit2, Check, X, Link2, Link2Off, ChevronRight,
+  Trophy, Target, ClipboardList
 } from 'lucide-react';
 
 // Paleta compartida con la app del cliente — ver src/theme.js.
@@ -253,6 +254,16 @@ function groupClientsByName(clients) {
       acc.water += m.today.water || 0;
       return acc;
     }, null);
+    // day_scores: unión de fechas entre dispositivos; si dos registraron el
+    // mismo día nos quedamos con el mejor score (cota superior razonable)
+    const dayScores = {};
+    for (const m of members) {
+      for (const [date, sc] of Object.entries(m.day_scores || {})) {
+        if (!(date in dayScores) || (sc != null && (dayScores[date] == null || sc > dayScores[date]))) {
+          dayScores[date] = sc;
+        }
+      }
+    }
     // El nombre: preferimos la versión más larga (más tildes/mayúsculas)
     const bestName = members.reduce((acc, m) => ((m.name || '').length > (acc || '').length ? m.name : acc), '');
     result.push({
@@ -263,6 +274,7 @@ function groupClientsByName(clients) {
       status: bestStatus,
       adherence_7d: adherence7,
       today,
+      day_scores: dayScores,
       goals: primary.goals,
       coach_notes: primary.coach_notes,
       user_ids: members.map(m => m.user_id),
@@ -411,6 +423,11 @@ function ListView({ apiFetch, onSelectClient, onLogout }) {
         <KpiCard icon={<TrendingUp size={16} />} label="Adherencia 7d" value={`${stats.avgAdherence}/7`} color={ACCENT_DARK} />
       </div>
 
+      {/* Top 5 del mes — registro, cercanía a meta y global, con balance semanal */}
+      {groupedClients.length > 0 && (
+        <LeaderboardCard clients={groupedClients} onSelectClient={onSelectClient} />
+      )}
+
       {/* Filtros y búsqueda */}
       <div className="p-4 rounded-2xl mb-4" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
         <div className="relative mb-3">
@@ -516,6 +533,143 @@ function ClientRow({ client, onClick }) {
   );
 }
 
+// ─── TOP 5 DEL MES ────────────────────────────────────────────────────────
+// Rankings mensuales de adherencia sobre el mes calendario en curso:
+//   · Registro — % de días del mes (hasta hoy) con al menos una comida
+//   · Meta     — promedio de cercanía a la meta de kcal + macros en los días
+//                registrados (100 = clavó la meta; cada % de desvío descuenta)
+//   · Global   — promedio de ambos
+// Además del total del mes, muestra el balance semana a semana (S1 = días
+// 1–7, S2 = 8–14, …) para ver cómo va evolucionando dentro del mes.
+// Se alimenta de day_scores, que el backend calcula por cliente.
+
+function computeMonthlyRanking(clients) {
+  const todayStr = todayLocal();
+  const [y, m, dToday] = todayStr.split('-').map(Number);
+  const prefix = `${y}-${String(m).padStart(2, '0')}-`;
+  const daysInMonth = new Date(y, m, 0).getDate();
+
+  // Semanas del mes que ya empezaron
+  const weekDefs = [];
+  for (let start = 1; start <= daysInMonth && start <= dToday; start += 7) {
+    weekDefs.push({ start, end: Math.min(start + 6, daysInMonth) });
+  }
+
+  const rows = clients.map(c => {
+    const scores = c.day_scores || {};
+    let loggedTotal = 0, scoreSumTotal = 0, scoreNTotal = 0;
+    const weeks = weekDefs.map(w => {
+      const lastDay = Math.min(w.end, dToday);
+      const elapsed = lastDay - w.start + 1;
+      let logged = 0, scoreSum = 0, scoreN = 0;
+      for (let d = w.start; d <= lastDay; d++) {
+        const key = prefix + String(d).padStart(2, '0');
+        if (key in scores) {
+          logged++;
+          if (scores[key] != null) { scoreSum += scores[key]; scoreN++; }
+        }
+      }
+      loggedTotal += logged; scoreSumTotal += scoreSum; scoreNTotal += scoreN;
+      const reg = Math.round((logged / elapsed) * 100);
+      const goal = scoreN > 0 ? Math.round(scoreSum / scoreN) : null;
+      return { reg, goal, combined: goal == null ? null : Math.round((reg + goal) / 2), logged, elapsed };
+    });
+    const reg = Math.round((loggedTotal / dToday) * 100);
+    const goal = scoreNTotal > 0 ? Math.round(scoreSumTotal / scoreNTotal) : null;
+    const combined = goal == null ? null : Math.round((reg + goal) / 2);
+    return { client: c, reg, goal, combined, weeks, loggedTotal };
+  });
+
+  const monthLabel = new Date(y, m - 1, 1).toLocaleDateString('es', { month: 'long', year: 'numeric' });
+  return { rows, monthLabel };
+}
+
+const LB_METRICS = {
+  reg: { label: 'Registro', desc: 'Quiénes más días registran', icon: ClipboardList },
+  goal: { label: 'Meta', desc: 'Quiénes más se acercan a su meta de calorías y macros', icon: Target },
+  combined: { label: 'Global', desc: 'Promedio de registro + cercanía a meta', icon: Trophy },
+};
+
+function LeaderboardCard({ clients, onSelectClient }) {
+  const [metric, setMetric] = useState('combined');
+  const { rows, monthLabel } = useMemo(() => computeMonthlyRanking(clients), [clients]);
+
+  const top5 = useMemo(() => {
+    const valueOf = (r) => metric === 'reg' ? r.reg : metric === 'goal' ? r.goal : r.combined;
+    return rows
+      .filter(r => r.loggedTotal > 0 && valueOf(r) != null)
+      .sort((a, b) => (valueOf(b) - valueOf(a)) || (b.loggedTotal - a.loggedTotal) || normalize(a.client.name).localeCompare(normalize(b.client.name)))
+      .slice(0, 5)
+      .map(r => ({ ...r, value: valueOf(r) }));
+  }, [rows, metric]);
+
+  const weekValue = (w) => metric === 'reg' ? w.reg : metric === 'goal' ? w.goal : w.combined;
+
+  return (
+    <div className="p-4 rounded-2xl mb-6" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-1.5" style={{ color: ACCENT_DARK }}>
+          <Trophy size={14} />
+          <span className="text-[11px] uppercase tracking-wider font-semibold">Top 5 del mes · {monthLabel}</span>
+        </div>
+        <div className="flex gap-1.5">
+          {Object.entries(LB_METRICS).map(([k, m]) => (
+            <SegmentedChip key={k} active={metric === k} onClick={() => setMetric(k)}>{m.label}</SegmentedChip>
+          ))}
+        </div>
+      </div>
+      <div className="text-[11px] mb-3" style={{ color: TEXT_LIGHT }}>
+        {LB_METRICS[metric].desc} · las barras muestran el balance semana a semana
+      </div>
+
+      {top5.length === 0 ? (
+        <div className="text-center py-6 text-[12px]" style={{ color: TEXT_LIGHT }}>
+          Aún no hay datos suficientes este mes{metric !== 'reg' ? ' (requiere clientes con meta configurada)' : ''}.
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {top5.map((r, i) => (
+            <button key={r.client.user_id}
+              onClick={() => onSelectClient(r.client.user_id, r.client.siblings)}
+              className="w-full text-left flex items-center gap-3 p-2.5 rounded-xl transition hover:scale-[1.003] active:scale-[0.99]"
+              style={{ background: i === 0 ? ACCENT_PASTEL : SURFACE_2 }}>
+              {/* Puesto */}
+              <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold num"
+                style={{ background: i === 0 ? ACCENT : SURFACE, color: i === 0 ? '#fff' : TEXT_MUTED, border: i === 0 ? 'none' : `1px solid ${BORDER}` }}>
+                {i + 1}
+              </div>
+              {/* Nombre + días */}
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold truncate" style={{ color: TEXT }}>{r.client.name}</div>
+                <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>{r.loggedTotal} día{r.loggedTotal === 1 ? '' : 's'} registrado{r.loggedTotal === 1 ? '' : 's'} este mes</div>
+              </div>
+              {/* Balance semana a semana */}
+              <div className="hidden sm:flex items-end gap-1.5 mr-2">
+                {r.weeks.map((w, wi) => {
+                  const v = weekValue(w);
+                  return (
+                    <div key={wi} className="flex flex-col items-center" style={{ width: 26 }}
+                      title={`Semana ${wi + 1}: ${v == null ? 'sin datos' : v + '%'} · ${w.logged}/${w.elapsed} días`}>
+                      <div className="w-full rounded-full overflow-hidden" style={{ height: 4, background: 'rgba(0,0,0,0.08)' }}>
+                        <div style={{ width: `${v == null ? 0 : Math.min(100, v)}%`, height: '100%', background: v == null ? 'transparent' : ACCENT, borderRadius: 999 }} />
+                      </div>
+                      <span style={{ fontSize: 8, color: TEXT_LIGHT, marginTop: 2 }}>S{wi + 1}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Valor del mes */}
+              <div className="text-[16px] font-bold num flex-shrink-0" style={{ color: i === 0 ? ACCENT_DARK : TEXT, minWidth: 46, textAlign: 'right' }}>
+                {r.value}%
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── DETALLE DE CLIENTE ───────────────────────────────────────────────────
 function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
   const [client, setClient] = useState(null); // null = loading
@@ -604,15 +758,24 @@ function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
         <GoalsCard goals={goals} editing={editingGoals} setEditing={setEditingGoals}
           onSave={async (newGoals) => {
             try {
-              const r = await apiFetch(`/api/coach-data?action=goals&user_id=${encodeURIComponent(userId)}`, {
-                method: 'PATCH',
-                body: JSON.stringify(newGoals),
-              });
-              if (r.ok) {
+              // Actualizar TODAS las sesiones/dispositivos del cliente, no solo
+              // la primaria — si su teléfono usa otro user_id, también debe
+              // recibir la meta nueva (y el aviso en su chat).
+              const results = await Promise.all(allIds.map(id =>
+                apiFetch(`/api/coach-data?action=goals&user_id=${encodeURIComponent(id)}`, {
+                  method: 'PATCH',
+                  body: JSON.stringify(newGoals),
+                }).catch(() => null)
+              ));
+              const okCount = results.filter(r => r && r.ok).length;
+              if (okCount > 0) {
                 await load();
                 setEditingGoals(false);
+                if (okCount < allIds.length) {
+                  alert(`Meta guardada en ${okCount} de ${allIds.length} sesiones. Reintenta para las restantes.`);
+                }
               } else {
-                const j = await r.json();
+                const j = results[0] ? await results[0].json() : { error: 'sin conexión' };
                 alert('No pude guardar: ' + (j.error || ''));
               }
             } catch (e) { alert('Error: ' + e); }
@@ -778,7 +941,8 @@ function GoalsCard({ goals, editing, setEditing, onSave }) {
       </div>
       {editing && (
         <div className="text-[11px] mt-3" style={{ color: TEXT_LIGHT }}>
-          Al guardar, la nueva meta aparece en la app del cliente la próxima vez que la abra.
+          Al guardar, la app del cliente aplica la nueva meta en ~1 minuto (o al volver a la app), le avisa en el chat
+          y ajusta anillos y recetario. No se borra nada de su historial.
         </div>
       )}
     </div>

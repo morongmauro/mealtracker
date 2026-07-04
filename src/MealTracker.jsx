@@ -177,6 +177,13 @@ export default function MealTracker() {
   const cloudUserIdRef = useRef(null);
   const cloudSyncedFromServer = useRef(false);
   const cloudPushTimerRef = useRef(null);
+  // Versión de la meta que este dispositivo ya conoce/aplicó: { at, by }.
+  // Sirve para detectar cambios hechos por el coach (aviso en el chat) y para
+  // que un push con metas viejas no pise una meta más nueva en el server.
+  const goalsMetaRef = useRef(null);
+  // Identidad estable para usar desde efectos sin re-suscribirlos (se
+  // reasigna en cada render, mismo patrón que latestHandlersRef).
+  const applyServerGoalsRef = useRef(() => {});
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -225,7 +232,7 @@ export default function MealTracker() {
   useEffect(() => {
     (async () => {
       try {
-        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes] = await Promise.all([
+        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes] = await Promise.all([
           window.storage.get('goals').catch(() => null),
           window.storage.get('name').catch(() => null),
           window.storage.get('lastDay').catch(() => null),
@@ -237,7 +244,12 @@ export default function MealTracker() {
           window.storage.get('frequentItems').catch(() => null),
           window.storage.get('wellbeing').catch(() => null),
           window.storage.get('favoriteIngredients').catch(() => null),
+          window.storage.get('goalsUpdated').catch(() => null),
         ]);
+
+        if (goalsUpdRes?.value) {
+          try { goalsMetaRef.current = JSON.parse(goalsUpdRes.value); } catch (e) {}
+        }
 
         let storedHistory = histRes?.value ? JSON.parse(histRes.value) : {};
         let storedHistoryDetail = histDetailRes?.value ? JSON.parse(histDetailRes.value) : {};
@@ -375,9 +387,19 @@ export default function MealTracker() {
     } catch (e) {}
   }, []);
 
-  // Una vez que la carga local terminó Y hay consentimiento, hace pull del server
+  // Una vez que la carga local terminó Y hay consentimiento, hace pull del server.
+  // Depende también de `view` porque cuando el consentimiento ya estaba guardado,
+  // cloudConsent se acepta ANTES de que la carga local async termine: con solo
+  // [cloudConsent] este efecto corría una vez con initialLoadDone=false y no se
+  // re-ejecutaba nunca — sin pull inicial y sin cloudUserIdRef (el sondeo de
+  // metas y el push dependían de él). view cambia de 'loading' a 'main'/'welcome'
+  // justo cuando la carga termina, así que re-dispara el intento en el momento
+  // correcto. cloudPullStartedRef evita repetir el pull en cambios de view.
+  const cloudPullStartedRef = useRef(false);
   useEffect(() => {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
+    if (cloudPullStartedRef.current) return;
+    cloudPullStartedRef.current = true;
     let cancelled = false;
 
     // Generar/cargar UUID anónimo
@@ -490,13 +512,71 @@ export default function MealTracker() {
           // Fusión por fecha: lo local gana en conflicto (es lo más reciente)
           setWellbeing(local => ({ ...d.wellbeing, ...(local || {}) }));
         }
-        if (d.goals && typeof d.goals === 'object') setGoals(d.goals);
+        applyServerGoalsRef.current(d.goals, d.goals_updated);
         if (typeof d.name === 'string' && d.name) setName(d.name);
       } catch (e) {}
     })();
 
     return () => { cancelled = true; };
-  }, [cloudConsent]);
+  }, [cloudConsent, view]);
+
+  // Aplica metas que llegan del server (pull inicial o sondeo periódico).
+  // Van versionadas con goals_updated { at, by }: solo se aplican si son más
+  // nuevas que las que este dispositivo ya conoce. Si el cambio lo hizo el
+  // coach, se avisa en el chat — el cliente se entera apenas entra (o mientras
+  // usa la app), sin refresh. Solo cambia la meta: historial, chat, favoritos
+  // y todo lo demás quedan intactos; anillos y recetario se ajustan solos
+  // porque leen `goals` del estado.
+  applyServerGoalsRef.current = (serverGoals, serverMeta) => {
+    if (!serverGoals || typeof serverGoals !== 'object') return;
+    const knownAt = goalsMetaRef.current?.at || '';
+    const serverAt = serverMeta?.at || '';
+    if (serverMeta && serverAt) {
+      if (serverAt <= knownAt) return; // ya la tenemos (o tenemos una más nueva)
+      goalsMetaRef.current = serverMeta;
+      window.storage.set('goalsUpdated', JSON.stringify(serverMeta)).catch(() => {});
+      setGoals(serverGoals);
+      window.storage.set('goals', JSON.stringify(serverGoals)).catch(() => {});
+      if (serverMeta.by === 'coach') {
+        const firstName = name ? name.split(' ')[0] : '';
+        setMessages(m => [...m, {
+          role: 'assistant',
+          content: `${firstName ? firstName + ', ' : ''}tu coach actualizó tu meta nutricional diaria: ${serverGoals.kcal} kcal · P ${serverGoals.p}g · C ${serverGoals.c}g · G ${serverGoals.g}g. Los anillos y el recetario ya quedaron ajustados a la nueva meta — tu historial y todos tus datos siguen intactos.`,
+          ts: Date.now(),
+        }]);
+        haptic([20, 40, 20]);
+      }
+    } else if (!knownAt) {
+      // Metas sin versión (datos de antes de este cambio): comportamiento
+      // anterior — el server manda y se aplican directo, sin aviso.
+      setGoals(serverGoals);
+    }
+  };
+
+  // Sondeo de metas: mientras la app está abierta chequea cada 60s (y al
+  // volver a primer plano) si el coach cambió la meta. Payload mínimo
+  // (goals_only=1), así el cliente NO tiene que recargar para enterarse.
+  useEffect(() => {
+    if (view !== 'main' || cloudConsent !== 'accepted') return;
+    let stopped = false;
+    const check = async () => {
+      // El pull inicial fija cloudUserIdRef; si aún no corrió, caemos al
+      // localStorage directamente para no depender de ese orden.
+      let uid = cloudUserIdRef.current;
+      if (!uid) { try { uid = localStorage.getItem('cloudUserId'); } catch (e) {} }
+      if (!uid || stopped) return;
+      try {
+        const r = await fetch(`/api/sync?user_id=${uid}&goals_only=1`);
+        if (!r.ok) return;
+        const row = await r.json();
+        if (!stopped && row) applyServerGoalsRef.current(row.goals, row.goals_updated);
+      } catch (e) {}
+    };
+    const interval = setInterval(check, 60000);
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { stopped = true; clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
+  }, [view, cloudConsent]);
 
   // Helper: empuja el snapshot completo al server, con debounce.
   // CRÍTICO: incluye también `entries` (comidas de HOY, antes de cerrar el día)
@@ -523,6 +603,10 @@ export default function MealTracker() {
             data: {
               favorites, favoriteIngredients, history, historyDetail,
               frequentItems, wellbeing, goals, name,
+              // Versión de la meta que este dispositivo conoce; el server la
+              // compara y NO deja que un push viejo pise una meta más nueva
+              // (p.ej. recién cambiada por el coach).
+              goals_updated: goalsMetaRef.current || undefined,
               // En vivo: comidas y agua de HOY
               today,
               today_entries: entries,
@@ -2432,6 +2516,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           ts: Date.now()
         }]);
       }
+      // Versionar la meta como puesta por el cliente: así el server y los
+      // otros dispositivos saben cuál es la más nueva (y el sondeo del coach
+      // no la revierte).
+      const meta = { at: new Date().toISOString(), by: 'client' };
+      goalsMetaRef.current = meta;
+      window.storage.set('goalsUpdated', JSON.stringify(meta)).catch(() => {});
       // Persistencia diferida — no bloquea el render del tracker.
       window.storage.set('goals', JSON.stringify(g)).catch(() => {});
       if (n) window.storage.set('name', JSON.stringify(n)).catch(() => {});
