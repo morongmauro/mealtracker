@@ -3,8 +3,11 @@
 // con la tabla user_data en Supabase. Usa la service_role key del servidor
 // para escribir sin exponer credenciales al navegador.
 //
-// GET  /api/sync?user_id=xxx  → devuelve la fila { name, data, updated_at } o null
-// POST /api/sync              → upsert con { user_id, name, data }
+// GET  /api/sync?user_id=xxx              → la fila { name, data, updated_at } o null
+// GET  /api/sync?user_id=xxx&goals_only=1 → solo { goals, goals_updated } (payload
+//                                           mínimo; la app lo sondea para detectar
+//                                           cambios de meta hechos por el coach)
+// POST /api/sync                          → upsert con { user_id, name, data }
 
 import { guard } from './_guard.js';
 
@@ -36,6 +39,23 @@ export default async function handler(req, res) {
     if (!isUuid(userId)) {
       return res.status(400).json({ error: 'invalid user_id' });
     }
+    // Sondeo liviano de metas: devuelve solo goals + goals_updated para que la
+    // app pueda chequear cada minuto sin bajar todo el historial.
+    if (req.query.goals_only) {
+      try {
+        const r = await fetch(
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=goals:data->goals,goals_updated:data->goals_updated`,
+          { headers }
+        );
+        const rows = await r.json();
+        if (!Array.isArray(rows)) {
+          return res.status(500).json({ error: 'supabase response invalid', detail: rows });
+        }
+        return res.status(200).json(rows[0] || null);
+      } catch (e) {
+        return res.status(500).json({ error: 'fetch failed', detail: String(e) });
+      }
+    }
     try {
       const r = await fetch(
         `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=name,data,updated_at`,
@@ -60,10 +80,30 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'data must be an object' });
     }
     try {
+      // Anti-pisado de metas: si en el server hay una meta MÁS NUEVA que la
+      // que trae este push (p.ej. el coach la cambió y este dispositivo aún
+      // no la aplicó), conservamos la del server. Sin esto, el push debounced
+      // del cliente revertía la meta del coach a los segundos de guardada.
+      const dataToWrite = { ...data };
+      try {
+        const r0 = await fetch(
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated`,
+          { headers }
+        );
+        const rows0 = await r0.json();
+        const existing = Array.isArray(rows0) ? rows0[0] : null;
+        const existingAt = existing?.goals_updated?.at || '';
+        const incomingAt = dataToWrite.goals_updated?.at || '';
+        if (existing && existingAt && existingAt > incomingAt) {
+          dataToWrite.goals = existing.goals;
+          dataToWrite.goals_updated = existing.goals_updated;
+        }
+      } catch (e) { /* si falla el chequeo, seguimos con el push normal */ }
+
       const body = JSON.stringify([{
         user_id,
         name: typeof name === 'string' ? name : null,
-        data,
+        data: dataToWrite,
         updated_at: new Date().toISOString(),
       }]);
       const r = await fetch(

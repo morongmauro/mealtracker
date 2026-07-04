@@ -24,6 +24,23 @@ function isUuid(s) {
   return typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
 
+// Qué tan cerca quedó un día de la meta (0–100). Promedia la cercanía de
+// kcal/P/C/G: cada desviación del 100% de la meta descuenta proporcionalmente
+// (p.ej. quedar al 90% o al 110% de la meta = 90 puntos en ese macro).
+// Devuelve null si el cliente no tiene metas configuradas.
+function dayGoalScore(totals, goals) {
+  if (!goals || !totals) return null;
+  let sum = 0, n = 0;
+  for (const key of ['kcal', 'p', 'c', 'g']) {
+    const goal = Number(goals[key]);
+    if (!goal || goal <= 0) continue;
+    const val = Number(totals[key]) || 0;
+    sum += Math.max(0, 1 - Math.abs(val - goal) / goal);
+    n++;
+  }
+  return n === 0 ? null : Math.round((sum / n) * 100);
+}
+
 // Compute a quick summary for the list view from a client's `data` blob.
 // Importante: el cliente puede aún no haber "cerrado" el día — el día actual
 // vive en data.today + data.today_entries + data.today_totals. Lo reconstruimos
@@ -73,6 +90,22 @@ function summarize(row) {
     else status = 'inactive';
   }
 
+  // day_scores: últimos 45 días con registro → { 'YYYY-MM-DD': score|null }.
+  // La presencia de la fecha significa "día registrado"; el score es la
+  // cercanía a la meta ese día (null si no había metas). Lo usa el dashboard
+  // para armar los rankings mensuales con balance semana a semana.
+  const dayScores = {};
+  {
+    const cutoff = new Date(todayStr + 'T00:00:00');
+    cutoff.setDate(cutoff.getDate() - 45);
+    const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+    for (const date of Object.keys(history)) {
+      if (date >= cutoffKey && date <= todayStr) {
+        dayScores[date] = dayGoalScore(history[date], goals);
+      }
+    }
+  }
+
   return {
     user_id: row.user_id,
     name: row.name || '(sin nombre)',
@@ -80,6 +113,7 @@ function summarize(row) {
     last_active: lastActive,
     status,
     adherence_7d: adherence7,
+    day_scores: dayScores,
     today: todayInHistory ? {
       kcal: todayInHistory.kcal || 0,
       p: todayInHistory.p || 0,
@@ -184,7 +218,11 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'client not found' });
       }
       const currentData = rows[0].data || {};
-      const newData = { ...currentData, goals: { kcal, p, c, g } };
+      // goals_updated versiona la meta: la app del cliente la sondea para
+      // aplicarla en vivo (con aviso en el chat), y /api/sync la usa para que
+      // un push del cliente con metas viejas no pise esta meta nueva.
+      const goalsUpdated = { at: new Date().toISOString(), by: 'coach' };
+      const newData = { ...currentData, goals: { kcal, p, c, g }, goals_updated: goalsUpdated };
 
       // Write back
       const r2 = await fetch(
