@@ -31,12 +31,16 @@ export const AUTHORIZED_CLIENTS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
-// CENTRO DE RECURSOS POR CLIENTE ("Material de aprendizaje")
+// CENTRO DE RECURSOS ("Aprendizaje")
 //
-// Pega el link del centro de recursos de cada cliente (Notion, Drive, web…).
-// El botón "Aprender" del header y el chip de Herramientas llevan a SU link.
-// Se edita igual que la lista de arriba: lápiz en GitHub → commit.
+// DEFAULT_RESOURCES_URL: pega aquí la URL de tu centro de recursos
+// (la app desplegada de centrorecursosentrenametodo en Vercel, p. ej.
+// 'https://centrorecursosentrenametodo.vercel.app'). Con eso, TODOS los
+// clientes ven el botón "Aprendizaje" y entran directo a SU sesión del
+// centro con su avance (la app agrega su identidad al link: mt_name +
+// mt_user, y el centro abre sesión solo, sin segundo login).
 //
+// CLIENT_RESOURCES permite sobreescribir el link para un cliente puntual.
 // Formato: 'Nombre Apellido': 'https://…',  (el nombre debe coincidir con
 // el de la lista de arriba; mayúsculas y tildes no importan al buscar).
 // Si un cliente no tiene link aquí, se usa DEFAULT_RESOURCES_URL; si esa
