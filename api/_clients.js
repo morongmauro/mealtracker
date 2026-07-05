@@ -47,7 +47,7 @@ export const AUTHORIZED_CLIENTS = [
 // también está vacía, el botón no aparece para ese cliente.
 // ─────────────────────────────────────────────────────────────────────────
 
-export const DEFAULT_RESOURCES_URL = '';
+export const DEFAULT_RESOURCES_URL = 'https://centrorecursosentrenametodo.vercel.app';
 
 export const CLIENT_RESOURCES = {
   // Ejemplo:
