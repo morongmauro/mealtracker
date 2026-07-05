@@ -808,14 +808,29 @@ export default function MealTracker() {
     const updateFixed = () => {
       const offsetTop = vv.offsetTop || 0;
       const heightDiff = window.innerHeight - vv.height;
-      setKeyboardOpen(heightDiff > 100);
+      const kbOpen = heightDiff > 100;
+      setKeyboardOpen(kbOpen);
       const t = `translate3d(0, ${offsetTop}px, 0)`;
       if (headerRef.current) headerRef.current.style.transform = t;
       if (goalsCardRef.current) goalsCardRef.current.style.transform = t;
       if (inputBarRef.current) {
-        // Mover el input bar arriba para que quede pegado al teclado
+        // Mover el input bar arriba para que quede sobre el teclado
         const fromBottom = window.innerHeight - (offsetTop + vv.height);
         inputBarRef.current.style.transform = `translate3d(0, -${fromBottom}px, 0)`;
+        // COLCHÓN anti-superposición: iOS dibuja su pastilla de AutoFill
+        // (llave/tarjeta/ubicación) y el botón de teclado flotando PEGADOS
+        // al borde del área visible. Si la barra queda al ras del teclado,
+        // esos íconos del sistema la tapan. Con el teclado abierto dejamos
+        // ~52px de fondo sólido bajo el campo: los íconos flotan sobre ese
+        // espacio vacío y el texto queda siempre visible y clickeable.
+        inputBarRef.current.style.paddingBottom = kbOpen
+          ? '52px'
+          : 'calc(20px + env(safe-area-inset-bottom, 0px))';
+      }
+      // Mientras se escribe, el botón flotante "Herramientas" solo estorba:
+      // se oculta con el teclado abierto y reaparece al cerrarlo.
+      if (actionsFabRef.current) {
+        actionsFabRef.current.style.visibility = kbOpen ? 'hidden' : '';
       }
     };
     vv.addEventListener('resize', updateFixed);
