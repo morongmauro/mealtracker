@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   LogOut, Search, ArrowLeft, Save, Users, Activity, AlertTriangle, TrendingUp,
   Calendar, Droplet, Edit2, Check, X, Link2, Link2Off, ChevronRight,
-  Trophy, Target, ClipboardList
+  Trophy
 } from 'lucide-react';
 
 // Paleta compartida con la app del cliente — ver src/theme.js.
@@ -585,9 +585,9 @@ function computeMonthlyRanking(clients) {
 }
 
 const LB_METRICS = {
-  reg: { label: 'Registro', desc: 'Quiénes más días registran', icon: ClipboardList },
-  goal: { label: 'Meta', desc: 'Quiénes más se acercan a su meta de calorías y macros', icon: Target },
-  combined: { label: 'Global', desc: 'Promedio de registro + cercanía a meta', icon: Trophy },
+  reg: { label: 'Registro', desc: 'Quiénes más días registran' },
+  goal: { label: 'Meta', desc: 'Quiénes más se acercan a su meta de calorías y macros' },
+  combined: { label: 'Global', desc: 'Promedio de registro + cercanía a meta' },
 };
 
 function LeaderboardCard({ clients, onSelectClient }) {

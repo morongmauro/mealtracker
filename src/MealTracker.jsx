@@ -3,7 +3,7 @@ import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
-  GraduationCap
+  GraduationCap, Megaphone
 } from 'lucide-react';
 
 // Chunk aparte: el Recetario (~30KB de recetas + UI) solo se descarga la
@@ -41,18 +41,20 @@ const fmt0 = (n) => {
 // Antes estaba acá y viajaba con los nombres reales dentro del JS público.
 // Si el endpoint no responde (sin red, deploy a medias), dejamos pasar:
 // la validación es una puerta de cortesía, no un control de seguridad.
-const isAuthorized = async (name) => {
+// Devuelve { ok, status }. status viene del CRM: 'activo' | 'pausa' |
+// 'finalizado' | 'not_found' | 'list' (autorizado por la lista de respaldo).
+const checkAccess = async (name) => {
   try {
     const r = await fetch('/api/authorize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     });
-    if (!r.ok) return true;
+    if (!r.ok) return { ok: true, status: 'offline' };
     const data = await r.json();
-    return data.authorized === true;
+    return { ok: data.authorized === true, status: data.status || (data.authorized ? 'activo' : 'not_found') };
   } catch (e) {
-    return true;
+    return { ok: true, status: 'offline' };
   }
 };
 
@@ -115,6 +117,19 @@ const haptic = (pattern = 10) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+// ANUNCIO DE ACTUALIZACIÓN DE LA APP (lo edita el coach, como _clients.js)
+//
+// Para avisar a los clientes que la app mejoró: cambia el `id` por uno NUEVO
+// (por ejemplo la fecha) y escribe el mensaje en `text`. Commit → deploy →
+// cada cliente ve el anuncio UNA sola vez en su chat al abrir la app.
+// Deja text: '' para no mostrar nada.
+// ─────────────────────────────────────────────────────────────────────────
+const APP_UPDATE_ANNOUNCEMENT = {
+  id: '2026-07-04-metas-en-vivo',
+  text: 'Hicimos una actualización para mejorar tu experiencia: ahora, cuando tu coach ajusta tu meta nutricional, la app la aplica sola y te avisa aquí mismo en el chat — sin que tengas que recargar nada.',
+};
+
 // Returns YYYY-MM-DD in user's LOCAL timezone (not UTC)
 const getLocalDate = (d = new Date()) => {
   const y = d.getFullYear();
@@ -168,6 +183,9 @@ export default function MealTracker() {
   const [pendingFavoriteEntry, setPendingFavoriteEntry] = useState(null);
   const [renamingFavoriteId, setRenamingFavoriteId] = useState(null);
   const [cloudConsent, setCloudConsent] = useState(null); // null = no decidido, 'accepted' | 'declined'
+  // Acceso suspendido desde el CRM ('pausa' | 'finalizado' | null). No borra
+  // nada: solo bloquea la pantalla hasta que el coach reactive el plan.
+  const [accessBlocked, setAccessBlocked] = useState(null);
   // Link al centro de recursos DEL CLIENTE (viene de /api/resources según su
   // nombre; los links se administran en api/_clients.js). Vacío = sin botón.
   const [learningUrl, setLearningUrl] = useState(() => {
@@ -419,9 +437,14 @@ export default function MealTracker() {
     (async () => {
       try {
         const r = await fetch(`/api/sync?user_id=${uid}`);
-        if (!r.ok) return;
+        if (!r.ok) { cloudPullStartedRef.current = false; return; }
         const row = await r.json();
-        if (cancelled || !row || !row.data) {
+        // Cancelado (cambio de vista con el fetch en vuelo): NO empujar el
+        // estado local — el server puede tener data aún sin fusionar y el
+        // push la pisaría (teléfono nuevo = pisarla con vacío). Se libera el
+        // guard para que el próximo cambio de vista reintente el pull.
+        if (cancelled) { cloudPullStartedRef.current = false; return; }
+        if (!row || !row.data) {
           // Server vacío → primer push con datos locales (migración invisible)
           schedulePushToCloud(0);
           return;
@@ -514,7 +537,11 @@ export default function MealTracker() {
         }
         applyServerGoalsRef.current(d.goals, d.goals_updated);
         if (typeof d.name === 'string' && d.name) setName(d.name);
-      } catch (e) {}
+      } catch (e) {
+        // Falló el pull (red): liberar el guard para poder reintentar — el
+        // pull es una fusión idempotente, repetirlo es seguro.
+        cloudPullStartedRef.current = false;
+      }
     })();
 
     return () => { cancelled = true; };
@@ -541,6 +568,8 @@ export default function MealTracker() {
         const firstName = name ? name.split(' ')[0] : '';
         setMessages(m => [...m, {
           role: 'assistant',
+          isAnnouncement: true,
+          tag: 'Aviso de tu coach',
           content: `${firstName ? firstName + ', ' : ''}tu coach actualizó tu meta nutricional diaria: ${serverGoals.kcal} kcal · P ${serverGoals.p}g · C ${serverGoals.c}g · G ${serverGoals.g}g. Los anillos y el recetario ya quedaron ajustados a la nueva meta — tu historial y todos tus datos siguen intactos.`,
           ts: Date.now(),
         }]);
@@ -1015,6 +1044,96 @@ export default function MealTracker() {
       } catch (e) { /* sin red: se usa el cache local */ }
     })();
   }, [name, view]);
+
+  // Verificación de acceso al abrir la app — el CRM manda: si el coach puso
+  // el plan en 'pausa' o 'finalizado', se bloquea la pantalla SIN borrar
+  // nada (historial, chat y datos quedan intactos esperando la
+  // reactivación). Si no hay red, se deja pasar: es una puerta de cortesía.
+  useEffect(() => {
+    if (view !== 'main' || !name) return;
+    let cancelled = false;
+    (async () => {
+      const a = await checkAccess(name);
+      if (cancelled) return;
+      // Solo los estados EXPLÍCITOS del CRM bloquean a un usuario que ya
+      // está dentro. 'not_found' (nombre que no aparece en CRM ni lista,
+      // p.ej. por un desfase de ortografía o una migración a medias) NUNCA
+      // debe dejar por fuera a un cliente con su app funcionando — la
+      // puerta de entrada para nombres desconocidos es el onboarding.
+      setAccessBlocked(!a.ok && ['pausa', 'finalizado'].includes(a.status) ? a.status : null);
+    })();
+    return () => { cancelled = true; };
+  }, [view, name]);
+
+  // Abre el centro de recursos (Aprendizaje) pasando la identidad del cliente
+  // en la URL (mt_user = UUID del tracker, mt_name = nombre). Así el centro,
+  // si es una webapp propia, reconoce al usuario automáticamente — misma
+  // persona en ambos lados, sin segundo login — y conserva su avance de
+  // lectura. Si el link es Notion/Drive, los parámetros simplemente se
+  // ignoran y no molestan.
+  const openLearning = useCallback(() => {
+    if (!learningUrl) return;
+    haptic(8);
+    let uid = cloudUserIdRef.current;
+    if (!uid) { try { uid = localStorage.getItem('cloudUserId'); } catch (e) {} }
+    let url = learningUrl;
+    try {
+      const u = new URL(learningUrl);
+      if (uid) u.searchParams.set('mt_user', uid);
+      if (name) u.searchParams.set('mt_name', name);
+      url = u.toString();
+    } catch (e) { /* URL inválida: se abre tal cual */ }
+    window.open(url, '_blank', 'noopener');
+  }, [learningUrl, name]);
+
+  // Anuncio de actualización de la app: se muestra UNA vez por id (ver
+  // APP_UPDATE_ANNOUNCEMENT arriba). Con un pequeño delay para no pisar el
+  // saludo del día.
+  useEffect(() => {
+    if (view !== 'main') return;
+    const { id, text } = APP_UPDATE_ANNOUNCEMENT || {};
+    if (!id || !text) return;
+    let acked = null;
+    try { acked = localStorage.getItem('updateAnnouncementAck'); } catch (e) {}
+    if (acked === id) return;
+    const t = setTimeout(() => {
+      try { localStorage.setItem('updateAnnouncementAck', id); } catch (e) {}
+      setMessages(m => [...m, {
+        role: 'assistant', isAnnouncement: true, tag: 'La app mejoró',
+        content: text, ts: Date.now(),
+      }]);
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [view]);
+
+  // Recordatorio de Aprendizaje — SIN ser invasivo: máximo 2 por semana
+  // (uno al inicio: lunes-miércoles; uno en la segunda mitad: jueves-domingo),
+  // solo si el cliente tiene centro de recursos configurado. Si no abre la
+  // app el lunes, el de "inicio de semana" igual le sale el martes/miércoles.
+  useEffect(() => {
+    if (view !== 'main' || !learningUrl) return;
+    const t = setTimeout(() => {
+      const now = new Date();
+      const dow = (now.getDay() + 6) % 7; // 0 = lunes … 6 = domingo
+      // Lunes de ESTA semana como identificador de la semana
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - dow);
+      const weekId = getLocalDate(monday);
+      const half = dow < 3 ? 'A' : 'B'; // A = lun-mié, B = jue-dom
+      const key = `learnNudge:${weekId}:${half}`;
+      try { if (localStorage.getItem(key)) return; } catch (e) {}
+      try { localStorage.setItem(key, '1'); } catch (e) {}
+      const firstName = name ? name.split(' ')[0] + ', ' : '';
+      const text = half === 'A'
+        ? `${firstName}arrancando la semana: cuando tengas 5 minutos, pásate por Aprendizaje — ahí está tu guía y el material del programa. Un tema por semana hace diferencia.`
+        : `${firstName}mitad de semana — buen momento para repasar un tema corto en Aprendizaje. 5 minutos suman.`;
+      setMessages(m => [...m, {
+        role: 'assistant', isAnnouncement: true, tag: 'Aprendizaje',
+        content: text, showLearnButton: true, ts: Date.now(),
+      }]);
+    }, 9000);
+    return () => clearTimeout(t);
+  }, [view, learningUrl, name]);
 
   // Persist frequentItems & wellbeing when they change
   useEffect(() => {
@@ -2468,14 +2587,43 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         onSeparateAppended={separateAppendedItems}
         favoriteSignatures={favoriteSignatures}
         favSignature={favSignature}
+        onOpenLearning={openLearning}
       />
     </div>
-  )), [messages, goals, totals, entries, historyDetail, favoriteIngredients, favoriteSignatures, favSignature, handleEditEntry, deleteEntry, addToFavorites, handleAcceptFavSuggestion, handleDismissFavSuggestion, acceptAutoFavorite, dismissAutoFavorite, handleOpenPerformance, separateAppendedItems]);
+  )), [messages, goals, totals, entries, historyDetail, favoriteIngredients, favoriteSignatures, favSignature, handleEditEntry, deleteEntry, addToFavorites, handleAcceptFavSuggestion, handleDismissFavSuggestion, acceptAutoFavorite, dismissAutoFavorite, handleOpenPerformance, separateAppendedItems, openLearning]);
 
   if (view === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: BG, fontFamily: FONT_UI }}>
         <Loader2 className="animate-spin" style={{ color: ACCENT }} size={28} />
+      </div>
+    );
+  }
+
+  // Plan en pausa/finalizado (lo controla el coach desde el CRM). Los datos
+  // del cliente NO se tocan: al reactivarlo, entra con todo su avance.
+  if (accessBlocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: BG, fontFamily: FONT_UI }}>
+        <FontStyles />
+        <div className="max-w-sm w-full p-7 rounded-3xl text-center" style={{
+          background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(255,255,255,0.7)',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 32px rgba(0,0,0,0.06)'
+        }}>
+          <div className="display mb-2" style={{ fontFamily: FONT_DISPLAY, fontSize: 30, textTransform: 'uppercase', color: TEXT, lineHeight: 1 }}>
+            {accessBlocked === 'finalizado' ? 'Plan finalizado' : 'Plan en pausa'}
+          </div>
+          <div className="h-[2px] w-12 mx-auto mt-1 mb-4 rounded-full" style={{ background: ACCENT }} />
+          <div className="text-[14px] mb-6" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+            {name ? name.split(' ')[0] + ', tu' : 'Tu'} plan está {accessBlocked === 'finalizado' ? 'finalizado' : 'en pausa'} por ahora.
+            Todo tu historial y tu avance quedan guardados tal cual — escríbele a Mauro para reactivarlo y sigues donde ibas.
+          </div>
+          <button onClick={async () => { const a = await checkAccess(name); if (a.ok) setAccessBlocked(null); }}
+            className="w-full py-3 rounded-2xl text-[14px] font-semibold active:scale-[0.98] transition"
+            style={{ background: TEXT, color: '#fff' }}>
+            Ya me reactivaron — reintentar
+          </button>
+        </div>
       </div>
     );
   }
@@ -2525,7 +2673,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       // Persistencia diferida — no bloquea el render del tracker.
       window.storage.set('goals', JSON.stringify(g)).catch(() => {});
       if (n) window.storage.set('name', JSON.stringify(n)).catch(() => {});
-    }} existingGoals={goals} existingName={name} />;
+    }}
+    // Si ya hay metas, es un "Cambiar meta": se puede salir sin guardar nada.
+    onCancel={goals && (goals.kcal || goals.p || goals.c || goals.g) ? () => setView('main') : undefined}
+    existingGoals={goals} existingName={name} />;
   }
 
   const predictedMeal = predictMealType();
@@ -2642,7 +2793,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           </button>
           {learningUrl && (
             <button
-              onClick={() => { haptic(8); window.open(learningUrl, '_blank', 'noopener'); }}
+              onClick={openLearning}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition"
               style={{
                 background: 'rgba(255,255,255,0.12)',
@@ -2652,9 +2803,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset',
                 color: '#FFF'
               }}
-              title="Material de aprendizaje">
+              title="Centro de recursos — tu material de aprendizaje">
               <GraduationCap size={14} style={{ color: ACCENT_PASTEL }} />
-              <span className="text-[12px] font-semibold">Aprender</span>
+              <span className="text-[12px] font-semibold">Aprendizaje</span>
             </button>
           )}
         </div>
@@ -2881,8 +3032,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     <ActionChipMini icon="🎯" label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); closeActionsSheet(); setView('onboarding'); }} />
                     {learningUrl && (
-                      <ActionChipMini icon="🎓" label="Material de aprendizaje" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                        onClick={() => { haptic(8); window.open(learningUrl, '_blank', 'noopener'); }} />
+                      <ActionChipMini icon="🎓" label="Aprendizaje" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                        onClick={openLearning} />
                     )}
                     <ActionChipMini icon="❓" label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
@@ -3444,7 +3595,7 @@ function DaySeparator({ date }) {
   );
 }
 
-const MessageBubble = memo(function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature }) {
+const MessageBubble = memo(function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature, onOpenLearning }) {
   if (message.isAutoFavoriteSuggestion && message.suggestedKey) {
     const alreadyAdded = favoriteIngredients.includes(message.suggestedKey);
     return (
@@ -3524,6 +3675,38 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <CheckCircle2 size={12} strokeWidth={2.2} />
           {message.content}
+        </div>
+      </div>
+    );
+  }
+
+  // Anuncio oficial (aviso del coach, actualización de la app, recordatorio
+  // de Aprendizaje). Color propio — azul humo — para que destaque del chat
+  // blanco sin confundirse con las confirmaciones oliva.
+  if (message.isAnnouncement) {
+    return (
+      <div className="flex justify-start fade-up">
+        <div className="max-w-[92%] px-4 py-3.5 rounded-2xl rounded-bl-md text-[14px]" style={{
+          background: `linear-gradient(135deg, ${C_FAT_PASTEL}66, ${C_FAT_PASTEL}33), rgba(255,255,255,0.92)`,
+          border: `1px solid ${C_FAT_PASTEL}`,
+          borderLeft: `3px solid ${C_FAT}`,
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.10), 0 4px 16px rgba(107,122,143,0.14)',
+          lineHeight: 1.45,
+        }}>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Megaphone size={13} strokeWidth={2.2} style={{ color: C_FAT }} />
+            <span className="text-[10px] uppercase tracking-[0.06em] font-bold" style={{ color: C_FAT }}>
+              {message.tag || 'Aviso'}
+            </span>
+          </div>
+          <div style={{ color: TEXT, fontWeight: 500 }}>{message.content}</div>
+          {message.showLearnButton && typeof onOpenLearning === 'function' && (
+            <button onClick={onOpenLearning}
+              className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
+              style={{ background: C_FAT, color: '#fff' }}>
+              <GraduationCap size={13} /> Abrir Aprendizaje
+            </button>
+          )}
         </div>
       </div>
     );
@@ -6041,7 +6224,7 @@ function ExampleCard({ num, emoji, title, example, className, onClick }) {
   );
 }
 
-function Onboarding({ onComplete, existingGoals, existingName }) {
+function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
   const [step, setStep] = useState(existingName ? 1 : 0);
   const [name, setName] = useState(existingName || '');
   const [nameError, setNameError] = useState('');
@@ -6066,9 +6249,16 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
     const err = validateNameFormat(name);
     if (err) { setNameError(err); return; }
     setCheckingName(true);
-    const ok = await isAuthorized(name.trim());
+    const access = await checkAccess(name.trim());
     setCheckingName(false);
-    if (!ok) { setNameError('Este nombre no está autorizado. Contacta a Mauro para acceso.'); return; }
+    if (!access.ok) {
+      setNameError(access.status === 'pausa'
+        ? 'Tu plan está en pausa. Escríbele a Mauro para reactivarlo.'
+        : access.status === 'finalizado'
+          ? 'Tu plan finalizó. Escríbele a Mauro si quieres retomarlo.'
+          : 'Este nombre no está autorizado. Contacta a Mauro para acceso.');
+      return;
+    }
     const formatted = name.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
     setName(formatted);
     setStep(1);
@@ -6120,6 +6310,17 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
           border: '1px solid rgba(255,255,255,0.7)',
           boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 32px rgba(0,0,0,0.06)'
         }}>
+          {/* Salir sin guardar — solo cuando es un "Cambiar meta" (ya hay metas);
+              en el onboarding inicial no hay a dónde volver. */}
+          {onCancel && (
+            <button onClick={onCancel}
+              className="absolute top-4 right-4 z-10 p-2 rounded-full active:scale-90 transition"
+              style={{ background: SURFACE_2, color: TEXT_MUTED }}
+              title="Salir sin cambiar la meta"
+              aria-label="Salir sin cambiar la meta">
+              <X size={16} strokeWidth={2.4} />
+            </button>
+          )}
           <div className="relative">
           {step === 0 && (
             <div>
@@ -6224,8 +6425,15 @@ function Onboarding({ onComplete, existingGoals, existingName }) {
                   letterSpacing: '0.01em',
                   touchAction: 'manipulation'
                 }}>
-                Empezar <ArrowUp size={16} strokeWidth={2.5} style={{ transform: 'rotate(90deg)' }} />
+                {onCancel ? 'Guardar nueva meta' : 'Empezar'} <ArrowUp size={16} strokeWidth={2.5} style={{ transform: 'rotate(90deg)' }} />
               </button>
+              {onCancel && (
+                <button onClick={onCancel}
+                  className="w-full py-3 mt-2 rounded-2xl text-[14px] font-medium transition active:scale-[0.98]"
+                  style={{ background: 'transparent', color: TEXT_MUTED }}>
+                  Salir sin cambios
+                </button>
+              )}
             </div>
           )}
           </div>
