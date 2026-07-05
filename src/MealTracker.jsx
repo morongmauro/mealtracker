@@ -126,9 +126,30 @@ const haptic = (pattern = 10) => {
 // Deja text: '' para no mostrar nada.
 // ─────────────────────────────────────────────────────────────────────────
 const APP_UPDATE_ANNOUNCEMENT = {
-  id: '2026-07-04-metas-en-vivo',
-  text: 'Hicimos una actualización para mejorar tu experiencia: ahora, cuando tu coach ajusta tu meta nutricional, la app la aplica sola y te avisa aquí mismo en el chat — sin que tengas que recargar nada.',
+  id: '2026-07-05-recetas-inteligentes',
+  text: 'Tu app cuenta con recetas inteligentes: el Recetario se ajusta a TU meta y a lo que te falta del día. Revísalo cuando necesites ideas creativas y saludables — lo encuentras arriba, junto a Aprendizaje.',
 };
+
+// ─── GANCHOS DE APRENDIZAJE (los edita el coach, como _clients.js) ───────
+// UN anuncio informativo por semana (para no saturar). En vez de "lee esto
+// que te falta", capta la atención con un dato útil y cierra apuntando a la
+// guía. Rotan solos en orden, una por semana; con esta lista hay para ~3
+// meses sin repetir. Agrega, quita o edita libremente — cada string es un
+// anuncio completo.
+const LEARNING_HOOKS = [
+  '¿Sabías que la proteína no es solo para el gimnasio? Construye y repara tejidos, piel, hormonas y defensas. En la Guía de alimentación ves cuánta necesitas tú y de dónde sacarla.',
+  'Los carbohidratos no engordan por sí solos: son la gasolina de tu entreno y de tu cerebro. Lo que manda es el total del día — en la Guía de alimentación está explicado fácil.',
+  'La grasa no es el enemigo: sin ella no produces hormonas ni absorbes varias vitaminas. La clave está en la cantidad y la fuente — profundiza en la Guía de alimentación.',
+  '¿Sabías que dormir poco aumenta el hambre del día siguiente? El apetito también se gestiona. Dale 5 minutos al material de Aprendizaje.',
+  'El músculo no crece entrenando: crece recuperando. La comida y el descanso hacen la mitad del trabajo — en Aprendizaje está el porqué.',
+  'Un "día perfecto" no existe; existe la semana consistente. Repasa cómo gestionar tus días reales en la Guía de alimentación.',
+  '¿Sabías que la fibra alimenta a las bacterias buenas de tu intestino? Frutas, verduras y granos enteros hacen más que "llenar". Más en la Guía de alimentación.',
+  'El agua también cuenta en tus resultados: hasta una deshidratación leve baja tu rendimiento y se confunde con hambre. Regístrala en la app y revisa el tema en Aprendizaje.',
+  'Comer más despacio le da tiempo a tu cerebro de registrar saciedad (~20 minutos). Un truco simple que suma — en la Guía de alimentación hay más como este.',
+  'La báscula miente de un día a otro: agua, sal y hormonas la mueven hasta 2 kg sin que cambie tu grasa. Aprende a leer la tendencia en Aprendizaje.',
+  '¿Sabías que la vitamina D se comporta más como una hormona? Sol, pescado graso y huevo son tus fuentes. Dale una mirada al material de Aprendizaje.',
+  'Ningún alimento engorda o adelgaza por sí solo: manda el balance de la semana. Por eso registrar lo cambia todo — repásalo en la Guía de alimentación.',
+];
 
 // Returns YYYY-MM-DD in user's LOCAL timezone (not UTC)
 const getLocalDate = (d = new Date()) => {
@@ -1106,10 +1127,9 @@ export default function MealTracker() {
     return () => clearTimeout(t);
   }, [view]);
 
-  // Recordatorio de Aprendizaje — SIN ser invasivo: máximo 2 por semana
-  // (uno al inicio: lunes-miércoles; uno en la segunda mitad: jueves-domingo),
-  // solo si el cliente tiene centro de recursos configurado. Si no abre la
-  // app el lunes, el de "inicio de semana" igual le sale el martes/miércoles.
+  // Anuncio informativo de Aprendizaje — UNO por semana para no saturar,
+  // solo si el cliente tiene centro de recursos configurado. Sale en la
+  // primera apertura de la semana, sea el día que sea.
   useEffect(() => {
     if (view !== 'main' || !learningUrl) return;
     const t = setTimeout(() => {
@@ -1119,14 +1139,17 @@ export default function MealTracker() {
       const monday = new Date(now);
       monday.setDate(now.getDate() - dow);
       const weekId = getLocalDate(monday);
-      const half = dow < 3 ? 'A' : 'B'; // A = lun-mié, B = jue-dom
-      const key = `learnNudge:${weekId}:${half}`;
+      const key = `learnNudge:${weekId}`;
       try { if (localStorage.getItem(key)) return; } catch (e) {}
       try { localStorage.setItem(key, '1'); } catch (e) {}
-      const firstName = name ? name.split(' ')[0] + ', ' : '';
-      const text = half === 'A'
-        ? `${firstName}arrancando la semana: cuando tengas 5 minutos, pásate por Aprendizaje — ahí está tu guía y el material del programa. Un tema por semana hace diferencia.`
-        : `${firstName}mitad de semana — buen momento para repasar un tema corto en Aprendizaje. 5 minutos suman.`;
+      // Gancho educativo rotativo: uno por semana, en orden — todos los
+      // clientes ven el mismo tema esa semana.
+      const weekNum = Math.floor(monday.getTime() / (7 * 86400000));
+      const hook = LEARNING_HOOKS[((weekNum % LEARNING_HOOKS.length) + LEARNING_HOOKS.length) % LEARNING_HOOKS.length];
+      const firstName = name ? name.split(' ')[0] : '';
+      // Minúscula en la primera LETRA (saltando ¿ o ¡) al anteponer el nombre
+      const hookLower = hook.replace(/^([¿¡]?)(\p{L})/u, (m, signo, letra) => signo + letra.toLowerCase());
+      const text = firstName ? `${firstName}, ${hookLower}` : hook;
       setMessages(m => [...m, {
         role: 'assistant', isAnnouncement: true, tag: 'Aprendizaje',
         content: text, showLearnButton: true, ts: Date.now(),
