@@ -64,11 +64,17 @@ if (typeof window !== 'undefined') {
   setInterval(checkVersion, 5 * 60 * 1000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      // Al volver a la app: aplica una actualización pendiente o re-verifica.
+      // Al VOLVER a la app: aplica lo pendiente y, clave, re-verifica y
+      // aplica EN ESE MISMO instante si hay build nuevo. En el teléfono la
+      // pestaña no se recarga sola al reabrirla (solo "despierta"), y el
+      // orden anterior (aplicar → verificar) obligaba a DOS ciclos de
+      // salir/volver para recibir una actualización. Ahora basta UNO: el
+      // regreso es el momento seguro por excelencia — el cliente aún no
+      // ha empezado a interactuar.
       applyIfReady();
-      checkVersion();
+      checkVersion().then(applyIfReady);
     } else {
-      // Al salir de la app es el momento más seguro para recargar.
+      // Al salir de la app es el otro momento seguro para recargar.
       applyIfReady();
     }
   });

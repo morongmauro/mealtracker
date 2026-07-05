@@ -1048,9 +1048,13 @@ export default function MealTracker() {
 
   // Centro de recursos del cliente: consulta el link según su nombre y lo
   // cachea para que el botón aparezca al instante en próximas aperturas.
+  // Además de al abrir, se re-consulta al volver a primer plano y cada 5
+  // minutos: así, si el coach configura o cambia el link, el botón
+  // "Aprendizaje" aparece SOLO incluso en una pestaña que lleva rato
+  // abierta — nunca hay que pedirle refresh al cliente.
   useEffect(() => {
     if (!name || view !== 'main') return;
-    (async () => {
+    const fetchResources = async () => {
       try {
         const r = await fetch('/api/resources', {
           method: 'POST',
@@ -1063,7 +1067,12 @@ export default function MealTracker() {
         setLearningUrl(url);
         try { localStorage.setItem('learningUrl', url); } catch (e) {}
       } catch (e) { /* sin red: se usa el cache local */ }
-    })();
+    };
+    fetchResources();
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchResources(); };
+    const interval = setInterval(fetchResources, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
   }, [name, view]);
 
   // Verificación de acceso al abrir la app — el CRM manda: si el coach puso
