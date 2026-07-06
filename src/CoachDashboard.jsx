@@ -1,21 +1,20 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  LogOut, Search, ArrowLeft, Save, Users, Activity, AlertTriangle, TrendingUp,
-  Calendar, Droplet, Edit2, Check, X, Link2, Link2Off, ChevronRight,
-  Trophy
+  LogOut, Search, ArrowLeft, Save,
+  Droplet, Edit2, X, Link2, Link2Off, ChevronRight,
 } from 'lucide-react';
 
-// Paleta compartida con la app del cliente — ver src/theme.js.
-// El dashboard usaba su propia copia con valores derivados (otro crema de
-// fondo, otro ACCENT_DARK, otro SUCCESS); ahora coach y cliente ven la
-// misma identidad.
+// Paleta del CRM (crm_entrenaconmetodo) — ver src/coachTheme.js.
+// El dashboard del coach se ve como el CRM (slate + esmeralda, Inter,
+// emojis en las stat cards); la app del cliente sigue con src/theme.js.
 import {
-  ACCENT, ACCENT_DARK, ACCENT_LIGHT as ACCENT_PASTEL,
+  ACCENT, ACCENT_DARK, ACCENT_PASTEL,
   TEXT, TEXT_MUTED, TEXT_LIGHT,
   BG, SURFACE, SURFACE_2, BORDER, BORDER_SOFT,
-  C_PROTEIN, C_CARBS, C_FAT,
-  SUCCESS, WARN, DANGER, FONT_UI,
-} from './theme.js';
+  C_PROTEIN, C_CARBS, C_FAT, C_WATER, INFO,
+  SUCCESS, WARN, DANGER, DANGER_DARK, DANGER_BG,
+  FONT_UI, SHADOW_CARD, SHADOW_BTN, GRADIENT_BRAND,
+} from './coachTheme.js';
 
 const TOKEN_KEY = 'coachToken';
 const TOKEN_EXP_KEY = 'coachTokenExp';
@@ -39,7 +38,7 @@ const daysAgoStr = (dateStr) => {
   if (days < 30) return `hace ${Math.floor(days / 7)} sem`;
   return `hace ${Math.floor(days / 30)} mes`;
 };
-const statusColor = (s) => s === 'active' ? SUCCESS : s === 'recent' ? ACCENT : s === 'at_risk' ? WARN : DANGER;
+const statusColor = (s) => s === 'active' ? SUCCESS : s === 'recent' ? INFO : s === 'at_risk' ? WARN : DANGER;
 const statusLabel = (s) => s === 'active' ? 'Al día' : s === 'recent' ? 'Reciente' : s === 'at_risk' ? 'En riesgo' : 'Inactivo';
 
 // Convierte "2025-05-28" → "Jueves, 28 de mayo"
@@ -138,13 +137,17 @@ function LoginView({ onLogin }) {
           style={{ color: TEXT, borderColor: BORDER }}
         />
         {error && (
-          <div className="text-[12px] mb-3 px-3 py-2 rounded-lg" style={{ background: '#FCE9E5', color: DANGER }}>
+          <div className="text-[12px] mb-3 px-3 py-2 rounded-lg" style={{ background: DANGER_BG, color: DANGER_DARK }}>
             {error}
           </div>
         )}
         <button type="submit" disabled={loading || !password}
-          className="w-full py-3 rounded-full text-sm font-semibold transition active:scale-[0.98]"
-          style={{ background: loading || !password ? SURFACE_2 : ACCENT, color: loading || !password ? TEXT_LIGHT : '#fff' }}>
+          className="w-full py-3 rounded-[10px] text-sm font-semibold transition active:scale-[0.98]"
+          style={{
+            background: loading || !password ? SURFACE_2 : ACCENT,
+            color: loading || !password ? TEXT_LIGHT : '#fff',
+            boxShadow: loading || !password ? 'none' : SHADOW_BTN,
+          }}>
           {loading ? 'Verificando…' : 'Entrar'}
         </button>
       </form>
@@ -417,10 +420,10 @@ function ListView({ apiFetch, onSelectClient, onLogout }) {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <KpiCard icon={<Users size={16} />} label="Total clientes" value={stats.total} color={ACCENT} />
-        <KpiCard icon={<Activity size={16} />} label="Activos hoy" value={stats.activeToday} color={SUCCESS} />
-        <KpiCard icon={<AlertTriangle size={16} />} label="En riesgo" value={stats.atRisk} color={WARN} />
-        <KpiCard icon={<TrendingUp size={16} />} label="Adherencia 7d" value={`${stats.avgAdherence}/7`} color={ACCENT_DARK} />
+        <KpiCard icon="👥" label="Total clientes" value={stats.total} />
+        <KpiCard icon="⚡" label="Activos hoy" value={stats.activeToday} />
+        <KpiCard icon="⚠️" label="En riesgo" value={stats.atRisk} />
+        <KpiCard icon="📈" label="Adherencia 7d" value={`${stats.avgAdherence}/7`} />
       </div>
 
       {/* Top 5 del mes — registro, cercanía a meta y global, con balance semanal */}
@@ -429,7 +432,7 @@ function ListView({ apiFetch, onSelectClient, onLogout }) {
       )}
 
       {/* Filtros y búsqueda */}
-      <div className="p-4 rounded-2xl mb-4" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+      <div className="p-4 rounded-2xl mb-4" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
         <div className="relative mb-3">
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: TEXT_LIGHT }} />
           <input
@@ -457,7 +460,7 @@ function ListView({ apiFetch, onSelectClient, onLogout }) {
       </div>
 
       {/* Lista */}
-      {error && <div className="mb-3 px-3 py-2 rounded-lg" style={{ background: '#FCE9E5', color: DANGER }}>{error}</div>}
+      {error && <div className="mb-3 px-3 py-2 rounded-lg" style={{ background: DANGER_BG, color: DANGER_DARK }}>{error}</div>}
       {clients === null ? (
         <div className="text-center py-12" style={{ color: TEXT_LIGHT }}>Cargando…</div>
       ) : filtered.length === 0 ? (
@@ -487,7 +490,7 @@ function ClientRow({ client, onClick }) {
   return (
     <button onClick={onClick}
       className="w-full text-left p-4 rounded-2xl flex items-center gap-4 transition hover:scale-[1.005] active:scale-[0.99]"
-      style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+      style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       {/* Status dot */}
       <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: statusColor(c.status) }} />
 
@@ -518,7 +521,7 @@ function ClientRow({ client, onClick }) {
             <div className="w-20 h-1.5 rounded-full overflow-hidden mt-1" style={{ background: SURFACE_2 }}>
               <div style={{
                 width: `${Math.min(100, kcalPct)}%`, height: '100%',
-                background: kcalPct > 110 ? DANGER : kcalPct > 95 ? SUCCESS : kcalPct > 70 ? ACCENT : WARN
+                background: kcalPct > 110 ? DANGER : kcalPct > 95 ? SUCCESS : kcalPct > 70 ? INFO : WARN
               }} />
             </div>
             <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: TEXT_LIGHT }}>kcal hoy</div>
@@ -606,10 +609,10 @@ function LeaderboardCard({ clients, onSelectClient }) {
   const weekValue = (w) => metric === 'reg' ? w.reg : metric === 'goal' ? w.goal : w.combined;
 
   return (
-    <div className="p-4 rounded-2xl mb-6" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+    <div className="p-4 rounded-2xl mb-6" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-1.5" style={{ color: ACCENT_DARK }}>
-          <Trophy size={14} />
+          <span className="text-[13px] leading-none">🏆</span>
           <span className="text-[11px] uppercase tracking-wider font-semibold">Top 5 del mes · {monthLabel}</span>
         </div>
         <div className="flex gap-1.5">
@@ -716,7 +719,7 @@ function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <Header title="Cliente" onLogout={onLogout} onBack={onBack} />
-        <div className="px-3 py-2 rounded-lg" style={{ background: '#FCE9E5', color: DANGER }}>{error || 'Cliente no encontrado.'}</div>
+        <div className="px-3 py-2 rounded-lg" style={{ background: DANGER_BG, color: DANGER_DARK }}>{error || 'Cliente no encontrado.'}</div>
       </div>
     );
   }
@@ -838,7 +841,7 @@ function DayDetailModal({ date, goals, summary, entries, wellbeing, onClose }) {
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-3 sm:p-6" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl p-4 sm:p-6" style={{ background: BG, border: `1px solid ${BORDER}` }} onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl p-4 sm:p-6" style={{ background: BG, border: `1px solid ${BORDER}`, boxShadow: '0 20px 50px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div className="text-[11px] tracking-[0.04em] uppercase font-semibold" style={{ color: ACCENT }}>Detalle del día</div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 transition" aria-label="Cerrar">
@@ -861,6 +864,11 @@ function Header({ title, subtitle, onBack, onLogout }) {
             <ArrowLeft size={18} style={{ color: TEXT }} />
           </button>
         )}
+        {/* Badge de marca del CRM: cuadrado degradado esmeralda con "EM" */}
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold text-[13px]"
+          style={{ background: GRADIENT_BRAND, boxShadow: SHADOW_BTN }}>
+          EM
+        </div>
         <div className="min-w-0">
           <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: ACCENT }}>Coach</div>
           <div className="text-[20px] font-bold truncate" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
@@ -876,14 +884,16 @@ function Header({ title, subtitle, onBack, onLogout }) {
   );
 }
 
-function KpiCard({ icon, label, value, color }) {
+// Stat card estilo CRM: label gris arriba a la izquierda, emoji a la
+// derecha, número grande en pizarra debajo.
+function KpiCard({ icon, label, value }) {
   return (
-    <div className="p-3 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
-      <div className="flex items-center gap-1.5 mb-1" style={{ color: color || ACCENT }}>
-        {icon}
-        <span className="text-[10px] uppercase tracking-wider font-semibold">{label}</span>
+    <div className="p-3 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>{label}</span>
+        <span className="text-[15px] leading-none">{icon}</span>
       </div>
-      <div className="text-[20px] font-bold num" style={{ color: TEXT }}>{value}</div>
+      <div className="text-[22px] font-bold num" style={{ color: TEXT }}>{value}</div>
     </div>
   );
 }
@@ -912,7 +922,7 @@ function GoalsCard({ goals, editing, setEditing, onSave }) {
   }, [goals]);
 
   return (
-    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="flex items-center justify-between mb-3">
         <div className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>Meta diaria</div>
         {!editing ? (
@@ -981,13 +991,13 @@ function DuplicateCard({ client, apiFetch, onChange }) {
   };
 
   return (
-    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="flex items-center justify-between mb-2">
         <div className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>Marcar como duplicado</div>
         {current && !editing && (
           <button onClick={async () => { setTargetId(''); await save(); }}
             className="text-[11px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1"
-            style={{ background: '#FCE9E5', color: DANGER }}>
+            style={{ background: DANGER_BG, color: DANGER_DARK }}>
             <Link2Off size={11} /> Desligar
           </button>
         )}
@@ -1012,12 +1022,12 @@ function DuplicateCard({ client, apiFetch, onChange }) {
             className="w-full text-[12px] px-3 py-2 rounded-xl border outline-none mb-2"
             style={{ background: SURFACE_2, borderColor: BORDER, color: TEXT }} />
           <div className="flex gap-2">
-            <button onClick={() => { setEditing(false); setTargetId(current || ''); }} className="flex-1 py-2 rounded-full text-[12px] font-medium"
-              style={{ background: SURFACE_2, color: TEXT_MUTED }}>
+            <button onClick={() => { setEditing(false); setTargetId(current || ''); }} className="flex-1 py-2 rounded-[10px] text-[12px] font-medium"
+              style={{ background: BORDER, color: '#334155' }}>
               Cancelar
             </button>
-            <button onClick={save} className="flex-1 py-2 rounded-full text-[12px] font-semibold"
-              style={{ background: ACCENT, color: '#fff' }}>
+            <button onClick={save} className="flex-1 py-2 rounded-[10px] text-[12px] font-semibold"
+              style={{ background: ACCENT, color: '#fff', boxShadow: SHADOW_BTN }}>
               Guardar
             </button>
           </div>
@@ -1050,7 +1060,7 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) 
   return (
     <div className="space-y-4">
       {/* Meta diaria */}
-      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
         <div className="text-[10px] uppercase tracking-[0.04em] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Metas diarias</div>
         <div className="grid grid-cols-4 gap-3">
           <div>
@@ -1085,7 +1095,7 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) 
         </div>
         {t.water > 0 && (
           <div className="flex items-center gap-1.5 text-[12px] mt-1.5" style={{ color: TEXT_MUTED }}>
-            <Droplet size={11} style={{ color: '#6B7A8F' }} />
+            <Droplet size={11} style={{ color: C_WATER }} />
             <span>Agua: <span className="num font-semibold" style={{ color: TEXT }}>{t.water} ml</span></span>
           </div>
         )}
@@ -1093,13 +1103,13 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) 
 
       {/* Comidas registradas — formato reporte */}
       {(!entries || entries.length === 0) ? (
-        <div className="p-4 rounded-2xl text-center text-[12px]" style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT_LIGHT }}>
+        <div className="p-4 rounded-2xl text-center text-[12px]" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD, color: TEXT_LIGHT }}>
           Este día no tiene comidas registradas.
         </div>
       ) : (
         <div className="space-y-3">
           {entries.map((e, i) => (
-            <div key={i} className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+            <div key={i} className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
               <div className="flex justify-between items-baseline mb-2">
                 <div className="text-[11px] uppercase tracking-[0.04em] font-bold" style={{ color: TEXT }}>
                   {(e.meal || 'comida').toUpperCase()}
@@ -1129,7 +1139,7 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) 
 
       {/* Bienestar del día (si hay) */}
       {wellbeing && (
-        <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+        <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
           <div className="text-[10px] uppercase tracking-[0.04em] font-semibold mb-2" style={{ color: TEXT_MUTED }}>Bienestar</div>
           <div className="flex flex-wrap gap-4 text-[13px]" style={{ color: TEXT }}>
             <span>⚡ Energía: <strong>{wellbeing.energy}/5</strong></span>
@@ -1177,7 +1187,7 @@ function MacroBars({ days, goal, color, statKey, unit = '', onSelectDay }) {
             const heightPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
             const inGoal = val > 0 && pct >= 0.9 && pct <= 1.1;
             const over = val > goal * 1.1;
-            const fill = val === 0 ? '#D0CFC6' : inGoal ? SUCCESS : over ? WARN : color;
+            const fill = val === 0 ? '#cbd5e1' : inGoal ? SUCCESS : over ? WARN : color;
             const clickable = !!d.data && typeof onSelectDay === 'function';
             return (
               <button key={i} onClick={() => clickable && onSelectDay(d.key)} disabled={!clickable}
@@ -1232,7 +1242,7 @@ function TabSemana({ goals, history, onSelectDay }) {
 
   return (
     <div className="space-y-3">
-      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
         <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Esta semana (últimos 7 días)</div>
         <div className="grid grid-cols-4 gap-3 mb-3">
           <Stat label="kcal prom" val={totalsAvg.kcal} goal={goals.kcal} color={ACCENT} />
@@ -1245,7 +1255,7 @@ function TabSemana({ goals, history, onSelectDay }) {
         </div>
       </div>
 
-      <div className="p-4 rounded-2xl space-y-4" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+      <div className="p-4 rounded-2xl space-y-4" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
         <div className="flex items-center justify-between">
           <div className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>Día por día vs meta</div>
           <div className="text-[10px]" style={{ color: ACCENT_DARK }}>Toca una barra para ver el día</div>
@@ -1293,11 +1303,11 @@ function TabMes({ goals, history, onSelectDay }) {
 
   const colorFor = (data) => {
     if (!data) return SURFACE_2;
-    if (!goals.kcal) return ACCENT;
+    if (!goals.kcal) return INFO;
     const pct = (data.kcal / goals.kcal) * 100;
     if (pct > 110) return DANGER;
     if (pct > 90) return SUCCESS;
-    if (pct > 60) return ACCENT;
+    if (pct > 60) return INFO;
     return WARN;
   };
 
@@ -1311,7 +1321,7 @@ function TabMes({ goals, history, onSelectDay }) {
 
   return (
     <div className="space-y-3">
-      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
         <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Últimos 35 días</div>
         <div className="grid grid-cols-4 gap-3 mb-4">
           <Stat label="kcal prom" val={avg.kcal} goal={goals.kcal} color={ACCENT} />
@@ -1322,7 +1332,7 @@ function TabMes({ goals, history, onSelectDay }) {
         <div className="text-[12px]" style={{ color: TEXT_MUTED }}>Adherencia: <strong style={{ color: TEXT }}>{valid.length}/35 días</strong></div>
       </div>
 
-      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
         <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Heatmap (cada cuadro = un día)</div>
         <div className="grid grid-cols-7 gap-1.5">
           {days.map((d, i) => {
@@ -1350,7 +1360,7 @@ function TabMes({ goals, history, onSelectDay }) {
         <div className="flex items-center gap-3 mt-3 text-[10px]" style={{ color: TEXT_MUTED }}>
           <Legend color={SURFACE_2} label="Sin registro" />
           <Legend color={WARN} label="Bajo meta" />
-          <Legend color={ACCENT} label="Cerca" />
+          <Legend color={INFO} label="Cerca" />
           <Legend color={SUCCESS} label="En meta" />
           <Legend color={DANGER} label="Excedido" />
         </div>
@@ -1388,7 +1398,7 @@ function TabTendencia({ history }) {
 
   return (
     <div className="space-y-3">
-      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+      <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
         <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Tendencia · 4 semanas</div>
         <div className="space-y-3">
           {weeks.map((w, i) => (
@@ -1449,7 +1459,7 @@ function TabMicros({ historyDetail }) {
   const GOAL = { fiber: 28, calcium: 1000, iron: 15, vitD: 15, omega3: 1.6 };
 
   return (
-    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Micros — promedio últimos 7 días (aprox)</div>
       <div className="space-y-2.5">
         <MicroRow label="Fibra" value={microAvg.fiber} goal={GOAL.fiber} unit="g" />
@@ -1474,7 +1484,7 @@ function MicroRow({ label, value, goal, unit }) {
         <span className="num" style={{ color: TEXT_LIGHT }}>{fmt1(value)} {unit} / {goal} {unit} · <strong>{pct}%</strong></span>
       </div>
       <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: SURFACE_2 }}>
-        <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct >= 80 ? SUCCESS : pct >= 50 ? ACCENT : WARN }} />
+        <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct >= 80 ? SUCCESS : pct >= 50 ? INFO : WARN }} />
       </div>
     </div>
   );
@@ -1487,13 +1497,13 @@ function TabBienestar({ wellbeing }) {
   }, [wellbeing]);
 
   if (days.length === 0) {
-    return <div className="p-4 rounded-2xl text-center text-[12px]" style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT_LIGHT }}>
+    return <div className="p-4 rounded-2xl text-center text-[12px]" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD, color: TEXT_LIGHT }}>
       Aún sin check-ins de bienestar.
     </div>;
   }
 
   return (
-    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Bienestar · últimos 14 check-ins</div>
       <div className="space-y-1.5">
         {days.map((d, i) => (
@@ -1524,7 +1534,7 @@ function TabHistorial({ historyDetail }) {
   const filtered = filter === 'all' ? allEntries : allEntries.filter(e => (e.meal || '').toLowerCase() === filter);
 
   return (
-    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="flex flex-wrap items-center justify-between mb-3 gap-2">
         <div className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>Historial completo · {allEntries.length} entradas</div>
         <div className="flex gap-1.5">
@@ -1564,12 +1574,12 @@ function TabHistorial({ historyDetail }) {
 
 function TabFavoritos({ favorites }) {
   if (!favorites || favorites.length === 0) {
-    return <div className="p-4 rounded-2xl text-center text-[12px]" style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT_LIGHT }}>
+    return <div className="p-4 rounded-2xl text-center text-[12px]" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD, color: TEXT_LIGHT }}>
       Sin favoritos guardados.
     </div>;
   }
   return (
-    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+    <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Favoritos · {favorites.length}</div>
       <div className="space-y-2">
         {favorites.map(f => (
