@@ -969,7 +969,41 @@ export default function MealTracker() {
     return lines.join('\n');
   };
 
-  const callClaude = async (prompt, systemPrompt, retries = 2) => {
+  // Lee la respuesta SSE (streaming) de /api/chat acumulando los pedazos de
+  // texto a medida que llegan. onDelta recibe el texto acumulado en cada
+  // avance — sirve para mostrar progreso en vivo sin esperar el final.
+  const readClaudeStream = async (response, onDelta) => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let text = '';
+    let done = false;
+    while (!done) {
+      const { value, done: rDone } = await reader.read();
+      done = rDone;
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      // Los eventos SSE vienen separados por líneas; puede llegar media línea
+      // en un chunk, así que guardamos el resto en buffer hasta completarla.
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        let ev;
+        try { ev = JSON.parse(line.slice(5).trim()); } catch (e) { continue; }
+        if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
+          text += ev.delta.text || '';
+          if (onDelta) { try { onDelta(text); } catch (e) {} }
+        } else if (ev.type === 'error') {
+          throw new Error(`stream:${ev.error?.message || 'error'}`);
+        }
+      }
+    }
+    if (!text) throw new Error('stream:empty');
+    return text;
+  };
+
+  const callClaude = async (prompt, systemPrompt, opts = {}) => {
+    const { retries = 2, onDelta = null } = opts;
     let lastError = null;
     // Send the system prompt as a cacheable block. If it's identical across calls
     // (and reused within ~5 min), Anthropic charges ~10% for it (prompt caching).
@@ -984,6 +1018,7 @@ export default function MealTracker() {
             max_tokens: 4000,
             system: systemBlocks,
             messages: [{ role: "user", content: prompt }],
+            ...(onDelta ? { stream: true } : {}),
           })
         });
         if (!response.ok) {
@@ -992,6 +1027,11 @@ export default function MealTracker() {
           }
           throw new Error(`http:${response.status}`);
         }
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('text/event-stream')) {
+          return await readClaudeStream(response, onDelta);
+        }
+        // Respuesta clásica (sin streaming, o servidor aún sin la versión nueva).
         const data = await response.json();
         return data.content.map(c => c.text || '').join('');
       } catch (e) {
@@ -1783,10 +1823,29 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
     // prompt stays identical across calls and the cache hits.
     const userMessage = `${contextSnippet}\n\n═══ MENSAJE ACTUAL DEL CLIENTE ═══\n${text}`;
 
+    // Progreso en vivo: mientras Claude va generando el JSON, extraemos los
+    // nombres de alimentos que ya aparecieron y los mostramos en el indicador
+    // ("Calculando: huevos, arepa…"). Es solo visual — el JSON se interpreta
+    // completo al final, igual que siempre.
+    let lastShown = '';
+    const onDelta = (partial) => {
+      const names = [];
+      const rx = /"name"\s*:\s*"([^"]+)"/g;
+      let m;
+      while ((m = rx.exec(partial)) && names.length < 6) {
+        if (!names.includes(m[1])) names.push(m[1]);
+      }
+      const label = names.length > 0 ? `Calculando: ${names.join(', ')}…` : '';
+      if (label && label !== lastShown) {
+        lastShown = label;
+        setLoadingPreview(label);
+      }
+    };
+
     let lastErr = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const result = await callClaude(userMessage, sys);
+        const result = await callClaude(userMessage, sys, { onDelta });
         const clean = result.replace(/```json|```/g, '').trim();
         const jsonMatch = clean.match(/\{[\s\S]*\}/);
         return JSON.parse(jsonMatch ? jsonMatch[0] : clean);
@@ -2317,7 +2376,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         audioChunksRef.current = [];
         const candidateMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/mpeg'];
         const mimeType = candidateMimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
-        const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        // 32 kbps es de sobra para voz dictada (calidad podcast) y hace el
+        // archivo mucho más liviano: el audio sube más rápido con datos
+        // móviles y la transcripción arranca antes. Si el navegador no
+        // soporta la opción, la ignora y graba con su bitrate normal.
+        const recOpts = { audioBitsPerSecond: 32000 };
+        const recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType, ...recOpts })
+          : new MediaRecorder(stream, recOpts);
         recorder.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
         };
@@ -2388,6 +2454,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     haptic(10);
   };
 
+  // Modelo de transcripción principal y respaldo. gpt-4o-mini-transcribe es
+  // más rápido, cuesta la mitad y transcribe español igual o mejor que
+  // whisper-1. Si OpenAI lo rechazara por cualquier motivo, se reintenta
+  // automáticamente con whisper-1 (el comportamiento anterior).
+  const TRANSCRIBE_MODELS = ['gpt-4o-mini-transcribe', 'whisper-1'];
+
   const transcribeAudio = async (audioBlob, mimeType) => {
     setTranscribing(true);
     try {
@@ -2395,20 +2467,27 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 : mimeType.includes('mpeg') ? 'mp3'
                 : mimeType.includes('wav') ? 'wav'
                 : 'webm';
-      const formData = new FormData();
-      formData.append('file', audioBlob, `recording.${ext}`);
-      formData.append('model', 'whisper-1');
-      formData.append('language', 'es');
-      formData.append('response_format', 'json');
-      // Glosario de palabras frecuentes que Whisper tiende a oír mal en español latam.
-      // Esto le da contexto y reduce errores como "quesito" en lugar de "ponquecito".
-      formData.append('prompt', 'Transcripción de una persona dictando lo que comió. Vocabulario frecuente: desayuno, almuerzo, cena, snack, ponqué, ponquecito, arepa, patacón, fainá, tequeño, palta, aguacate, plátano, banana, palta, choclo, poroto, yogur griego, mantequilla de maní, café con leche, huevo, claras de huevo, avena, arroz, pollo, pechuga, atún, salmón, lentejas, quinoa, brócoli, espinaca, almendras, nueces, mantequilla, aceite de oliva.');
+      const buildForm = (model) => {
+        const formData = new FormData();
+        formData.append('file', audioBlob, `recording.${ext}`);
+        formData.append('model', model);
+        formData.append('language', 'es');
+        formData.append('response_format', 'json');
+        // Glosario de palabras frecuentes que el transcriptor tiende a oír mal en español latam.
+        // Esto le da contexto y reduce errores como "quesito" en lugar de "ponquecito".
+        formData.append('prompt', 'Transcripción de una persona dictando lo que comió. Vocabulario frecuente: desayuno, almuerzo, cena, snack, ponqué, ponquecito, arepa, patacón, fainá, tequeño, palta, aguacate, plátano, banana, palta, choclo, poroto, yogur griego, mantequilla de maní, café con leche, huevo, claras de huevo, avena, arroz, pollo, pechuga, atún, salmón, lentejas, quinoa, brócoli, espinaca, almendras, nueces, mantequilla, aceite de oliva.');
+        return formData;
+      };
 
-      const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
-      if (!res.ok) {
+      let res = null;
+      let lastErrMsg = 'Transcribe failed';
+      for (const model of TRANSCRIBE_MODELS) {
+        res = await fetch('/api/transcribe', { method: 'POST', body: buildForm(model) });
+        if (res.ok) break;
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Transcribe failed');
+        lastErrMsg = errData.error || lastErrMsg;
       }
+      if (!res || !res.ok) throw new Error(lastErrMsg);
       const data = await res.json();
       let txt = (data.text || '').trim();
       // Whisper alucina frases típicas de subtítulos cuando el audio está en
