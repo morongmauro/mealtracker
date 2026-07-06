@@ -6,10 +6,23 @@
 // Dura 7 días.
 
 import crypto from 'node:crypto';
-import { guard } from './_guard.js';
+import { guard, checkOrigin } from './_guard.js';
 
 const COACH_PASSWORD = process.env.COACH_PASSWORD;
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// CORS: el CRM (otro dominio) hace login de coach contra este endpoint para
+// leer los datos por la API en vez de la anon key. Solo se refleja el Origin
+// cuando checkOrigin lo permite (host propio + ALLOWED_ORIGINS en Vercel).
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (!origin || !checkOrigin(req)) return;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+}
 
 function signToken(payload) {
   const json = JSON.stringify(payload);
@@ -31,6 +44,10 @@ function timingSafeEqualStr(a, b) {
 }
 
 export default async function handler(req, res) {
+  applyCors(req, res);
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
   if (!COACH_PASSWORD) {
     return res.status(500).json({ error: 'COACH_PASSWORD not configured' });
   }

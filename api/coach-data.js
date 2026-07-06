@@ -8,9 +8,22 @@
 // PATCH /api/coach-data?action=mark_duplicate&user_id=...&duplicate_of=... → marca duplicado
 
 import { verifyCoachToken } from './coach-auth.js';
+import { checkOrigin } from './_guard.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+// CORS: permite que el CRM (dominio en ALLOWED_ORIGINS) consuma esta API
+// con su token de coach. La autenticación real sigue siendo el Bearer token.
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (!origin || !checkOrigin(req)) return;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+}
 
 function supaHeaders() {
   return {
@@ -127,6 +140,10 @@ function summarize(row) {
 }
 
 export default async function handler(req, res) {
+  applyCors(req, res);
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return res.status(500).json({ error: 'Supabase env vars not configured' });
   }
