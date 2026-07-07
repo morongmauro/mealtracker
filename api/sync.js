@@ -87,7 +87,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -97,6 +97,30 @@ export default async function handler(req, res) {
         if (existing && existingAt && existingAt > incomingAt) {
           dataToWrite.goals = existing.goals;
           dataToWrite.goals_updated = existing.goals_updated;
+        }
+
+        // Anti-pisado de FAVORITOS: el push trae el snapshot completo del
+        // dispositivo, y un dispositivo con una copia vieja (caché borrada,
+        // versión antigua de la app, segundo teléfono) podía SOBRESCRIBIR la
+        // lista del server y perder menús guardados — era la causa de "guardé
+        // mis favoritos y se me borraron algunos". Ahora el server FUSIONA:
+        // unión por id de lo existente + lo entrante (lo entrante gana en
+        // conflicto, p.ej. renombres), y solo desaparece lo que tenga lápida
+        // en favoritesDeleted (borrado explícito del cliente). No hay límite
+        // de cantidad ni borrado por antigüedad: un favorito solo se va si el
+        // cliente lo borra.
+        if (existing) {
+          const existingFavs = Array.isArray(existing.favorites) ? existing.favorites : [];
+          const incomingFavs = Array.isArray(dataToWrite.favorites) ? dataToWrite.favorites : [];
+          const tombstones = new Set([
+            ...(Array.isArray(existing.favorites_deleted) ? existing.favorites_deleted : []),
+            ...(Array.isArray(dataToWrite.favoritesDeleted) ? dataToWrite.favoritesDeleted : []),
+          ]);
+          const byId = new Map();
+          for (const f of existingFavs) { if (f && f.id != null) byId.set(f.id, f); }
+          for (const f of incomingFavs) { if (f && f.id != null) byId.set(f.id, f); }
+          dataToWrite.favorites = Array.from(byId.values()).filter(f => !tombstones.has(f.id));
+          dataToWrite.favoritesDeleted = Array.from(tombstones).slice(-300);
         }
       } catch (e) { /* si falla el chequeo, seguimos con el push normal */ }
 
