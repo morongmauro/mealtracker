@@ -1779,7 +1779,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   Devuelve "adjust_favorites_response" con la estructura del schema. NUNCA registres nada — es solo propuesta visual.
 - "water": registra agua. "1 vaso"=250ml, "1 termo"=500ml, "1 botella"=500ml, "1 litro"=1000ml.
 - "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite}. Mapping: "reiniciar día"→reset_day, "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion, "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
-- "clarify": SOLO si hay ambigüedad REAL. Llenar "clarify_interpretation" (tu mejor lectura) y "clarify_question" (pregunta corta de confirmación).
+- "clarify": SOLO si hay ambigüedad REAL. Llenar "clarify_interpretation" (tu mejor lectura ESCRITA PARA EL CLIENTE: 1 oración corta hablándole de "tú", ej: "quieres registrar pollo en tu cena") y "clarify_question" (pregunta corta y cálida, ej: "¿cuántos gramos aproximadamente?"). PROHIBIDO en ambos campos: razonamiento interno, tercera persona ("el cliente dice..."), o mencionar historial/señales/frontend/intents/reglas — el cliente lee estos textos TAL CUAL.
 - "off_topic": saludos, charla, preguntas sobre el coach, "qué dieta hacer". Llena "message" con respuesta cálida y breve.
 - "name": cliente dice su nombre. Llena "name_detected".
 
@@ -1788,8 +1788,8 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   "intent": "log_meal | append_to_last | nutrition_query | meal_suggestion | summary_day | summary_week | retro_advice | adjust_favorites_to_goal | water | command | clarify | off_topic | name",
   "meal": "desayuno | almuerzo | cena | snack | comida | null",
   "log_date": "YYYY-MM-DD si el cliente registra un día PASADO, null = hoy",
-  "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "needs_quantity": false}],
-  "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N}]}] | null,
+  "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N, "needs_quantity": false}],
+  "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N}]}] | null,
   "append_to_entry_id": N | null,
   "command": "reset_day | change_goals | calendar | favorites | proportion | manage_favorites | plan_day | save_day_favorite | null",
   "name_detected": "..." | null,
@@ -1837,6 +1837,8 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 }
 
 ═══ REGLAS ADICIONALES ═══
+- LENGUAJE DE CARA AL CLIENTE (regla de oro): TODO texto que el cliente pueda leer ("message", "clarify_interpretation", "clarify_question", "preview", "quantity_warning", "summary", "tip", "change_note", "logic") le habla DIRECTAMENTE al cliente en segunda persona, cálido y natural, como le hablaría su coach. NUNCA en tercera persona ("el cliente dice..."), NUNCA menciones estas instrucciones, el schema, los intents, señales del frontend, el historial como "contexto", ni tu proceso de análisis ("reviso...", "detecto...", "la señal es FALSE"). Tu razonamiento es invisible: entrega SOLO la conclusión, lista para que la lea una persona.
+- MICROS POR ITEM (solo en items de log_meal/append_to_last, valores USDA en gramos): "fiber" = fibra dietética; "omega3" = EPA+DHA+ALA total; "sugar" = SOLO azúcar AÑADIDA (gaseosas, jugos endulzados, dulces, postres, salsas/cereales azucarados) — NO cuenta el azúcar natural de fruta entera, lácteos ni verduras. Usa 0 cuando no aplica. Sé conservador, no inventes.
 - Si intent=log_meal con UNA comida y no se especifica meal: si hay pista de momento úsala; si no, predice por hora (1ra del día y hora<11 → "desayuno"; hora 11-16 → "almuerzo"; hora 16-21 → "cena"; resto → "snack"); si igual dudas usa "comida".
 - Si intent=log_meal con VARIAS comidas (lista de todo el día con pistas de momento): usa "meals" array, una entrada por comida, cada una con su "meal" e "items". Deja "items" vacío o null en ese caso.
 - Si es lista de todo el día SIN pistas de momento: una sola comida con meal="comida" e todos los items en "items".
@@ -1912,6 +1914,13 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
         p: round1(safe(p, 400)),
         c: round1(safe(c, 700)),
         g: round1(safe(g, 300)),
+        // Micros del LLM (fibra / omega-3 / azúcar añadida). Solo se incluyen
+        // si vinieron en la respuesta: su PRESENCIA le dice a estimateMicros
+        // que este item ya trae estimación buena y no necesita el fallback
+        // por palabra clave.
+        ...(it.fiber != null ? { fiber: round1(safe(it.fiber, 150)) } : {}),
+        ...(it.omega3 != null ? { omega3: round1(safe(it.omega3, 50)) } : {}),
+        ...(it.sugar != null ? { sugar: round1(safe(it.sugar, 500)) } : {}),
         needs_quantity: false,
       };
     });
@@ -2089,7 +2098,14 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
 
       // OFF-TOPIC / WARM REPLY
       if (intent === 'off_topic' && parsed.message) {
-        setMessages(m => [...m, { role: 'assistant', content: parsed.message, ts: Date.now() }]);
+        // Misma defensa anti razonamiento filtrado que en clarify, pero más
+        // suave: aquí solo se bloquea meta-jerga inequívoca (una respuesta
+        // legítima sí puede decir "tu historial", así que ese no se filtra).
+        const leaked = /\b(frontend|backend|intent|schema|json|el cliente dice|la se[ñn]al|estas instrucciones)\b/i.test(parsed.message);
+        const safeMsg = leaked
+          ? 'No te entendí del todo — ¿me lo repites de otra forma?'
+          : parsed.message;
+        setMessages(m => [...m, { role: 'assistant', content: safeMsg, ts: Date.now() }]);
         setLoading(false); setLoadingPreview('');
         return;
       }
@@ -2171,8 +2187,21 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
 
       // CLARIFY — only when truly ambiguous
       if (intent === 'clarify' && (parsed.clarify_interpretation || parsed.clarify_question)) {
-        const interp = parsed.clarify_interpretation ? `Entendí: ${parsed.clarify_interpretation}. ` : '';
-        const q = parsed.clarify_question || '¿Es así?';
+        // Defensa anti "lenguaje de bot": estos campos se muestran TAL CUAL
+        // al cliente, y el modelo a veces vuelca ahí su razonamiento interno
+        // ("El cliente dice solo 'Pollo'. Reviso historial... la señal del
+        // frontend es FALSE"). Si un campo huele a razonamiento (meta-jerga,
+        // tercera persona, o parrafada), NO se muestra: se cae a la pregunta
+        // sola, o a un fallback cálido genérico.
+        const looksInternal = (s) => !s
+          || s.length > 160
+          || /\b(frontend|backend|intent|schema|json|se[ñn]al|false|true|el cliente|la clienta|historial|contexto|instrucci|reviso|detect[oé]|clasific|append)\b/i.test(s);
+        const interp = looksInternal(parsed.clarify_interpretation)
+          ? ''
+          : `Quiero asegurarme de entenderte: ${parsed.clarify_interpretation}. `;
+        const q = looksInternal(parsed.clarify_question)
+          ? 'No te entendí del todo — ¿me lo repites con un poco más de detalle? Por ejemplo, qué comiste y la cantidad aproximada.'
+          : parsed.clarify_question;
         setMessages(m => [...m, { role: 'assistant', content: `${interp}${q}`, ts: Date.now() }]);
         setLoading(false); setLoadingPreview('');
         return;
@@ -5052,38 +5081,67 @@ function FavoriteNameModal({ entry, todayEntriesCount = 0, onConfirm, onCancel, 
 }
 
 
-// Approximate USDA micronutrient density (per gram of food).
-// Conservative estimates for common items. The goal is directional, not clinical.
+// Fallback de micros por palabra clave (densidad USDA aproximada por gramo).
+// Solo se usa para registros VIEJOS que no traen fiber/omega3/sugar estimados
+// por el LLM en cada item — los registros nuevos llegan con esos campos y son
+// mucho más precisos. Se muestran solo Fibra, Omega-3 y Azúcar añadida:
+// calcio/hierro/vitD se quitaron a propósito (son territorio de laboratorio,
+// las metas dependen de sexo/edad, y con estimación parcial solo generaban
+// alarmas falsas de "bajo" permanente).
 const MICRO_DB = {
-  // fiber g, calcium mg, iron mg, vitD μg, omega3 g per 1g of food
-  'arroz':       { fiber: 0.004, calcium: 0.1,  iron: 0.002, vitD: 0,    omega3: 0 },
-  'pollo':       { fiber: 0,     calcium: 0.15, iron: 0.009, vitD: 0.001,omega3: 0.0001 },
-  'pechuga':     { fiber: 0,     calcium: 0.15, iron: 0.009, vitD: 0.001,omega3: 0.0001 },
-  'pescado':     { fiber: 0,     calcium: 0.2,  iron: 0.005, vitD: 0.04, omega3: 0.012 },
-  'salmon':      { fiber: 0,     calcium: 0.12, iron: 0.003, vitD: 0.11, omega3: 0.022 },
-  'atun':        { fiber: 0,     calcium: 0.1,  iron: 0.008, vitD: 0.02, omega3: 0.013 },
-  'huevo':       { fiber: 0,     calcium: 0.5,  iron: 0.018, vitD: 0.02, omega3: 0.001 },
-  'avena':       { fiber: 0.1,   calcium: 0.54, iron: 0.047, vitD: 0,    omega3: 0.0014 },
-  'banana':      { fiber: 0.026, calcium: 0.05, iron: 0.003, vitD: 0,    omega3: 0 },
-  'platano':     { fiber: 0.026, calcium: 0.05, iron: 0.003, vitD: 0,    omega3: 0 },
-  'manzana':     { fiber: 0.024, calcium: 0.06, iron: 0.001, vitD: 0,    omega3: 0 },
-  'palta':       { fiber: 0.067, calcium: 0.12, iron: 0.006, vitD: 0,    omega3: 0.0011 },
-  'aguacate':    { fiber: 0.067, calcium: 0.12, iron: 0.006, vitD: 0,    omega3: 0.0011 },
-  'arepa':       { fiber: 0.03,  calcium: 0.5,  iron: 0.01,  vitD: 0,    omega3: 0 },
-  'pan':         { fiber: 0.07,  calcium: 0.8,  iron: 0.025, vitD: 0,    omega3: 0 },
-  'yogur':       { fiber: 0,     calcium: 1.1,  iron: 0,     vitD: 0.001,omega3: 0 },
-  'leche':       { fiber: 0,     calcium: 1.2,  iron: 0,     vitD: 0.001,omega3: 0 },
-  'queso':       { fiber: 0,     calcium: 7,    iron: 0.001, vitD: 0.006,omega3: 0.001 },
-  'almendra':    { fiber: 0.13,  calcium: 2.7,  iron: 0.036, vitD: 0,    omega3: 0.0001 },
-  'mantequilla mani': { fiber: 0.06, calcium: 0.5, iron: 0.018, vitD: 0,omega3: 0.0001 },
-  'espinaca':    { fiber: 0.022, calcium: 1,    iron: 0.027, vitD: 0,    omega3: 0.0014 },
-  'brocoli':     { fiber: 0.026, calcium: 0.47, iron: 0.007, vitD: 0,    omega3: 0.001 },
-  'lenteja':     { fiber: 0.079, calcium: 0.19, iron: 0.033, vitD: 0,    omega3: 0.001 },
-  'frijol':      { fiber: 0.06,  calcium: 0.27, iron: 0.029, vitD: 0,    omega3: 0.001 },
-  'tomate':      { fiber: 0.012, calcium: 0.1,  iron: 0.003, vitD: 0,    omega3: 0 },
-  'aceite oliva':{ fiber: 0,     calcium: 0.01, iron: 0.001, vitD: 0,    omega3: 0.008 },
+  // fiber g, omega3 g, azúcar AÑADIDA g por 1g de alimento
+  'arroz':       { fiber: 0.004, omega3: 0,      sugar: 0 },
+  'pollo':       { fiber: 0,     omega3: 0.0001, sugar: 0 },
+  'pechuga':     { fiber: 0,     omega3: 0.0001, sugar: 0 },
+  'pescado':     { fiber: 0,     omega3: 0.012,  sugar: 0 },
+  'salmon':      { fiber: 0,     omega3: 0.022,  sugar: 0 },
+  'atun':        { fiber: 0,     omega3: 0.013,  sugar: 0 },
+  'sardina':     { fiber: 0,     omega3: 0.015,  sugar: 0 },
+  'huevo':       { fiber: 0,     omega3: 0.001,  sugar: 0 },
+  'avena':       { fiber: 0.1,   omega3: 0.0014, sugar: 0 },
+  'banana':      { fiber: 0.026, omega3: 0,      sugar: 0 },
+  'platano':     { fiber: 0.026, omega3: 0,      sugar: 0 },
+  'manzana':     { fiber: 0.024, omega3: 0,      sugar: 0 },
+  'palta':       { fiber: 0.067, omega3: 0.0011, sugar: 0 },
+  'aguacate':    { fiber: 0.067, omega3: 0.0011, sugar: 0 },
+  'arepa':       { fiber: 0.03,  omega3: 0,      sugar: 0 },
+  'pan':         { fiber: 0.07,  omega3: 0,      sugar: 0 },
+  'yogur':       { fiber: 0,     omega3: 0,      sugar: 0 },
+  'leche':       { fiber: 0,     omega3: 0,      sugar: 0 },
+  'queso':       { fiber: 0,     omega3: 0.001,  sugar: 0 },
+  'almendra':    { fiber: 0.13,  omega3: 0.0001, sugar: 0 },
+  'mantequilla mani': { fiber: 0.06, omega3: 0.0001, sugar: 0 },
+  'espinaca':    { fiber: 0.022, omega3: 0.0014, sugar: 0 },
+  'brocoli':     { fiber: 0.026, omega3: 0.001,  sugar: 0 },
+  'lenteja':     { fiber: 0.079, omega3: 0.001,  sugar: 0 },
+  'frijol':      { fiber: 0.06,  omega3: 0.001,  sugar: 0 },
+  'tomate':      { fiber: 0.012, omega3: 0,      sugar: 0 },
+  'aceite oliva':{ fiber: 0,     omega3: 0.008,  sugar: 0 },
+  'nuez':        { fiber: 0.067, omega3: 0.09,   sugar: 0 },
+  'nueces':      { fiber: 0.067, omega3: 0.09,   sugar: 0 },
+  'chia':        { fiber: 0.34,  omega3: 0.178,  sugar: 0 },
+  'linaza':      { fiber: 0.27,  omega3: 0.228,  sugar: 0 },
+  // Fuentes de azúcar añadida (para que el fallback también la detecte)
+  'gaseosa':     { fiber: 0,     omega3: 0,      sugar: 0.106 },
+  'refresco':    { fiber: 0,     omega3: 0,      sugar: 0.106 },
+  'coca':        { fiber: 0,     omega3: 0,      sugar: 0.106 },
+  'jugo':        { fiber: 0.002, omega3: 0,      sugar: 0.09 },
+  'chocolate':   { fiber: 0.07,  omega3: 0,      sugar: 0.47 },
+  'galleta':     { fiber: 0.02,  omega3: 0,      sugar: 0.30 },
+  'helado':      { fiber: 0,     omega3: 0,      sugar: 0.21 },
+  'postre':      { fiber: 0.01,  omega3: 0,      sugar: 0.30 },
+  'torta':       { fiber: 0.01,  omega3: 0,      sugar: 0.35 },
+  'pastel':      { fiber: 0.01,  omega3: 0,      sugar: 0.35 },
+  'dulce':       { fiber: 0,     omega3: 0,      sugar: 0.55 },
+  'miel':        { fiber: 0,     omega3: 0,      sugar: 0.82 },
+  'panela':      { fiber: 0,     omega3: 0,      sugar: 0.95 },
+  'azucar':      { fiber: 0,     omega3: 0,      sugar: 1.0 },
+  'mermelada':   { fiber: 0.01,  omega3: 0,      sugar: 0.49 },
+  'arequipe':    { fiber: 0,     omega3: 0,      sugar: 0.50 },
 };
-const DAILY_MICRO_GOALS = { fiber: 28, calcium: 1000, iron: 18, vitD: 15, omega3: 1.6 };
+// Fibra y omega-3 son METAS (más es mejor); azúcar añadida es TECHO de
+// referencia (~AHA hombres 36g; OMS <10% kcal). Menos es mejor.
+const DAILY_MICRO_GOALS = { fiber: 28, omega3: 1.6, sugar: 36 };
 
 function matchMicroKey(name) {
   if (!name) return null;
@@ -5095,8 +5153,17 @@ function matchMicroKey(name) {
 }
 
 function estimateMicros(items) {
-  const result = { fiber: 0, calcium: 0, iron: 0, vitD: 0, omega3: 0 };
+  const result = { fiber: 0, omega3: 0, sugar: 0 };
   for (const it of items) {
+    // Vía preferida: el LLM ya estimó los micros de este item al registrarlo
+    // (los campos solo existen cuando vinieron en su respuesta).
+    if (it.fiber != null || it.omega3 != null || it.sugar != null) {
+      result.fiber += Number(it.fiber) > 0 ? Number(it.fiber) : 0;
+      result.omega3 += Number(it.omega3) > 0 ? Number(it.omega3) : 0;
+      result.sugar += Number(it.sugar) > 0 ? Number(it.sugar) : 0;
+      continue;
+    }
+    // Fallback para registros viejos: tabla por palabra clave
     const key = matchMicroKey(it.name);
     if (!key) continue;
     // Try to extract grams from amount string ("100g", "50 g", "1 unidad (~50g)")
@@ -5111,10 +5178,8 @@ function estimateMicros(items) {
     if (grams <= 0) continue;
     const db = MICRO_DB[key];
     result.fiber += db.fiber * grams;
-    result.calcium += db.calcium * grams;
-    result.iron += db.iron * grams;
-    result.vitD += db.vitD * grams;
     result.omega3 += db.omega3 * grams;
+    result.sugar += db.sugar * grams;
   }
   return result;
 }
@@ -5239,7 +5304,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     : 0;
 
   // Micros (last 7 days, average per day with data)
-  const microSum = { fiber: 0, calcium: 0, iron: 0, vitD: 0, omega3: 0 };
+  const microSum = { fiber: 0, omega3: 0, sugar: 0 };
   let microDays = 0;
   for (const d of week) {
     const det = combinedDetail[d.date];
@@ -5247,18 +5312,14 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     const allItems = det.flatMap(e => e.items || []);
     const m = estimateMicros(allItems);
     microSum.fiber += m.fiber;
-    microSum.calcium += m.calcium;
-    microSum.iron += m.iron;
-    microSum.vitD += m.vitD;
     microSum.omega3 += m.omega3;
+    microSum.sugar += m.sugar;
     microDays++;
   }
   const microAvg = microDays > 0 ? {
     fiber: microSum.fiber / microDays,
-    calcium: microSum.calcium / microDays,
-    iron: microSum.iron / microDays,
-    vitD: microSum.vitD / microDays,
     omega3: microSum.omega3 / microDays,
+    sugar: microSum.sugar / microDays,
   } : null;
 
   const dayShort = (date) => {
@@ -5379,12 +5440,16 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     );
   };
 
+  // Barras semanales — mismo lenguaje visual que las gráficas de Semana/Mes
+  // (antes era la única gráfica de línea del panel).
   const TrendBlock = ({ label, color, goal, unit, statKey }) => {
     const recorded = weeks.filter(w => w.registered > 0);
     if (recorded.length === 0) return null;
     const avg = Math.round(recorded.reduce((s, w) => s + w[statKey], 0) / recorded.length);
     const pct = Math.round((avg / goal) * 100);
-    const maxScale = goal * 1.3;
+    const maxRecorded = Math.max(0, ...weeks.map(w => w[statKey] || 0));
+    const maxScale = Math.max(goal * 1.4, maxRecorded * 1.1, goal * 1.1);
+    const goalPct = (goal / maxScale) * 100;
     return (
       <div className="mb-5">
         <div className="flex justify-between items-baseline mb-2">
@@ -5397,31 +5462,40 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
             <span className="text-[10px] num ml-1" style={{ color: TEXT_LIGHT }}>· {pct}% promedio</span>
           </div>
         </div>
-        <svg width="100%" height="60" viewBox={`0 0 ${weeks.length * 30} 60`} preserveAspectRatio="none" style={{ display: 'block' }}>
-          {/* Goal line */}
-          <line x1="0" y1="20" x2={weeks.length * 30} y2="20" stroke={SUCCESS} strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5" />
-          {/* Trend line */}
-          {(() => {
-            const points = weeks.map((w, i) => {
-              const x = i * 30 + 15;
-              const v = w[statKey] || 0;
-              const y = 60 - Math.min((v / maxScale) * 60, 60);
-              return { x, y, v, registered: w.registered };
-            });
-            const path = points
-              .filter(p => p.registered > 0)
-              .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
-              .join(' ');
-            return (
-              <>
-                {path && <path d={path} stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
-                {points.map((p, i) => p.registered > 0 && (
-                  <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={color} />
-                ))}
-              </>
-            );
-          })()}
-        </svg>
+        <div className="relative w-full" style={{ height: '90px', background: SURFACE_2 + '60', borderRadius: '8px', padding: '8px 6px' }}>
+          {/* Goal line — horizontal dashed at goal level */}
+          <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 1 }}>
+            <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: SUCCESS, opacity: 0.6 }} />
+            <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: SUCCESS, background: SURFACE_2 + 'F0' }}>meta {goal}{unit}</span>
+          </div>
+          {/* Bars — one per week */}
+          <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
+            {weeks.map((w, i) => {
+              const val = w.registered > 0 ? (w[statKey] || 0) : 0;
+              const ratio = goal > 0 ? val / goal : 0;
+              const heightPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
+              const inGoal = val > 0 && ratio >= 0.9 && ratio <= 1.1;
+              const over = val > goal * 1.1;
+              const fillColor = val === 0 ? '#D0CFC6' : (inGoal ? SUCCESS : over ? WARN : color);
+              return (
+                <div key={i} className="flex-1 h-full flex flex-col justify-end items-center" style={{ minWidth: 0 }}>
+                  <div
+                    className="w-full"
+                    style={{
+                      height: val > 0 ? `${heightPct}%` : '2px',
+                      background: fillColor,
+                      opacity: val === 0 ? 0.45 : 1,
+                      borderRadius: '3px 3px 1px 1px',
+                      minHeight: val > 0 ? '4px' : '2px',
+                      transition: 'height 0.4s cubic-bezier(0.2, 0, 0, 1)',
+                    }}
+                    title={`Semana desde ${w.startDate}: ${Math.round(val)}${unit} promedio (${Math.round(ratio * 100)}% de la meta)`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
         <div className="flex justify-between text-[10px] mt-1" style={{ color: TEXT_LIGHT }}>
           <span>hace 12 sem</span>
           <span>esta semana</span>
@@ -5430,12 +5504,21 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     );
   };
 
-  const MicroRow = ({ label, value, goal, unit, hint }) => {
+  // Tono sin alarmas: esto es información educativa, no un diagnóstico. Un
+  // valor por debajo de la referencia NO es "deficiencia" — casi siempre solo
+  // significa que esa semana se registraron pocas fuentes. Por eso: nada de
+  // "⚠ bajo"; cuando falta, se sugiere QUÉ comida sumar. La única señal en
+  // WARN es pasarse del techo de azúcar añadida (dirección inversa: menos es
+  // mejor), y aun ahí el texto es neutro.
+  const MicroRow = ({ label, value, goal, unit, hint, suggestion, direction = 'more' }) => {
     const pct = goal > 0 ? value / goal : 0;
-    const status = pct >= 0.9 ? '✓' : pct >= 0.6 ? '⚠ algo bajo' : '⚠ bajo';
-    const statusColor = pct >= 0.9 ? SUCCESS : WARN;
     const barPct = Math.max(0, Math.min(1, pct));
-    const barColor = pct >= 0.9 ? SUCCESS : pct >= 0.6 ? ACCENT : WARN;
+    const covered = direction === 'more' ? pct >= 0.9 : pct <= 1;
+    const status = direction === 'more'
+      ? (covered ? '✓ bien cubierto' : 'puedes sumar fuentes')
+      : (covered ? '✓ dentro de la referencia' : 'por encima de la referencia');
+    const statusColor = covered ? SUCCESS : (direction === 'less' ? WARN : TEXT_MUTED);
+    const barColor = covered ? SUCCESS : (direction === 'less' ? WARN : ACCENT);
     return (
       <div className="py-2" style={{ borderBottom: `1px solid ${BORDER_SOFT}` }}>
         <div className="flex justify-between items-baseline mb-1.5">
@@ -5446,18 +5529,23 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           <div className="text-right">
             <div className="text-[12px] num" style={{ color: TEXT }}>
               <strong>{value < 10 ? value.toFixed(1) : Math.round(value)}{unit}</strong>
-              <span style={{ color: TEXT_LIGHT, fontWeight: 400 }}>/día · meta {goal}{unit}</span>
+              <span style={{ color: TEXT_LIGHT, fontWeight: 400 }}>/día · {direction === 'less' ? 'máx' : 'meta'} {goal}{unit}</span>
             </div>
             <div className="text-[10px]" style={{ color: statusColor }}>{status}</div>
           </div>
         </div>
-        {/* Barra de progreso hacia la meta diaria */}
+        {/* Barra de progreso hacia la referencia diaria */}
         <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: BORDER_SOFT }}>
           <div
             className="h-full rounded-full transition-all"
             style={{ width: `${barPct * 100}%`, background: barColor }}
           />
         </div>
+        {direction === 'more' && !covered && suggestion && (
+          <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>
+            Puedes sumar: {suggestion}
+          </div>
+        )}
       </div>
     );
   };
@@ -5495,30 +5583,35 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {recordedLast7 > 0 && (
             <div className="mb-5">
               <div className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: ACCENT_DARK }}>Tu comportamiento esta semana</div>
+              {/* Tarjetas al estilo de marca: blanco + sombra de tarjeta de la
+                  app (antes: beige plano con borde, se veía de otra app). Los
+                  números grandes van TODOS en grafito — el color semántico
+                  queda solo en los deltas pequeños; antes el terracota del
+                  macro proteína se leía como alerta roja. */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
+                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' }}>
                   <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Adherencia</div>
-                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: ACCENT }}>{recordedLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/7 días</span></div>
+                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{recordedLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/7 días</span></div>
                   <div className="text-[10px] mt-0.5 num" style={{ color: adherenceDelta > 0 ? SUCCESS : adherenceDelta < 0 ? WARN : TEXT_LIGHT }}>
                     {adherenceDelta > 0 ? `+${adherenceDelta} vs semana anterior` : adherenceDelta < 0 ? `${adherenceDelta} vs semana anterior` : 'igual que la semana anterior'}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
+                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' }}>
                   <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Inicio del día</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{fmtHour(avgFirstHour)}</div>
                   <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>hora del primer registro en promedio</div>
                 </div>
 
-                <div className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
+                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' }}>
                   <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Proteína · tendencia</div>
-                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: C_PROTEIN }}>{protLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>g/día</span></div>
+                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{protLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>g/día</span></div>
                   <div className="text-[10px] mt-0.5 num" style={{ color: protDelta > 0 ? SUCCESS : protDelta < 0 ? WARN : TEXT_LIGHT }}>
                     {protDelta > 0 ? `+${protDelta}g vs semana anterior` : protDelta < 0 ? `${protDelta}g vs semana anterior` : 'igual que la semana anterior'}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
+                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' }}>
                   <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Detalle del registro</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{avgItemsPerDay}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}> items/día</span></div>
                   <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>promedio de alimentos registrados por día</div>
@@ -5529,20 +5622,20 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
           {/* Wellbeing */}
           {wbAvg && (
-            <div className="mb-5 p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
+            <div className="mb-5 p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' }}>
               <div className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: ACCENT_DARK }}>Bienestar promedio</div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
                   <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Energía</div>
-                  <div className="text-[16px] font-bold num" style={{ color: ACCENT }}>{wbAvg.energy}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
+                  <div className="text-[16px] font-bold num" style={{ color: TEXT }}>{wbAvg.energy}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
                 </div>
                 <div>
                   <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Hambre</div>
-                  <div className="text-[16px] font-bold num" style={{ color: C_PROTEIN }}>{wbAvg.hunger}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
+                  <div className="text-[16px] font-bold num" style={{ color: TEXT }}>{wbAvg.hunger}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
                 </div>
                 <div>
                   <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Ánimo</div>
-                  <div className="text-[16px] font-bold num" style={{ color: C_FAT }}>{wbAvg.mood}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
+                  <div className="text-[16px] font-bold num" style={{ color: TEXT }}>{wbAvg.mood}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
                 </div>
               </div>
               <div className="text-[10px] mt-2" style={{ color: TEXT_LIGHT }}>{wbAvg.count} de 7 check-ins</div>
@@ -5552,16 +5645,17 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Micronutrients */}
           {microAvg && (
             <div className="mb-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: ACCENT_DARK }}>Micronutrientes (promedio diario)</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: ACCENT_DARK }}>Calidad de tu semana (promedio diario)</div>
               <div>
-                <MicroRow label="Fibra" value={microAvg.fiber} goal={DAILY_MICRO_GOALS.fiber} unit="g" hint="digestión, saciedad" />
-                <MicroRow label="Calcio" value={microAvg.calcium} goal={DAILY_MICRO_GOALS.calcium} unit="mg" hint="hueso, contracción muscular" />
-                <MicroRow label="Hierro" value={microAvg.iron} goal={DAILY_MICRO_GOALS.iron} unit="mg" hint="oxigenación, energía" />
-                <MicroRow label="Vitamina D" value={microAvg.vitD} goal={DAILY_MICRO_GOALS.vitD} unit="μg" hint="hueso, inmunidad" />
-                <MicroRow label="Omega-3" value={microAvg.omega3} goal={DAILY_MICRO_GOALS.omega3} unit="g" hint="cardiovascular, antiinflamatorio" />
+                <MicroRow label="Fibra" value={microAvg.fiber} goal={DAILY_MICRO_GOALS.fiber} unit="g" hint="digestión, saciedad"
+                  suggestion="avena, legumbres, verduras, fruta entera" />
+                <MicroRow label="Omega-3" value={microAvg.omega3} goal={DAILY_MICRO_GOALS.omega3} unit="g" hint="cardiovascular, antiinflamatorio"
+                  suggestion="pescado graso 2×/semana, nueces, chía" />
+                <MicroRow label="Azúcar añadida" value={microAvg.sugar} goal={DAILY_MICRO_GOALS.sugar} unit="g" hint="gaseosas, dulces, postres"
+                  direction="less" />
               </div>
               <div className="text-[10px] mt-3 italic" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
-                Estimaciones aproximadas basadas en USDA. Información educativa, no constituye diagnóstico ni recomendación de suplementación. Para deficiencias específicas, consulta con un profesional de la salud.
+                Estimación aproximada a partir de lo que registras (base USDA) — no captura todo lo que comes, así que un valor por debajo de la referencia no significa deficiencia. Información educativa; para una evaluación real, consulta con un profesional de la salud.
               </div>
             </div>
           )}
