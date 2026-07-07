@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Genera /version.json en cada build. El cliente lo consulta periódicamente
-// para auto-actualizarse sin pedirle refresh al usuario (ver src/main.jsx).
+// Sello único por build. Se publica en /version.json Y se incrusta en el
+// bundle (__BUILD_VERSION__): la app compara su propio sello contra el del
+// servidor para auto-actualizarse sin pedirle refresh al usuario (main.jsx).
+const buildVersion = `${Date.now()}`;
+
 function buildVersionPlugin() {
-  const version = `${Date.now()}`;
   return {
     name: 'build-version-json',
     apply: 'build',
@@ -12,7 +14,7 @@ function buildVersionPlugin() {
       this.emitFile({
         type: 'asset',
         fileName: 'version.json',
-        source: JSON.stringify({ version, builtAt: new Date().toISOString() }),
+        source: JSON.stringify({ version: buildVersion, builtAt: new Date().toISOString() }),
       });
     },
   };
@@ -20,4 +22,7 @@ function buildVersionPlugin() {
 
 export default defineConfig({
   plugins: [react(), buildVersionPlugin()],
+  define: {
+    __BUILD_VERSION__: JSON.stringify(buildVersion),
+  },
 });
