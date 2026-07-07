@@ -175,6 +175,11 @@ export default function MealTracker() {
   const [entries, setEntries] = useState([]);
   const [water, setWater] = useState(0);
   const [favorites, setFavorites] = useState([]);
+  // Lápidas de favoritos: ids que el cliente BORRÓ a propósito. Se persisten
+  // y se sincronizan con el server para que (a) una copia vieja nunca pueda
+  // "resucitar" un favorito borrado, y (b) la fusión servidor↔dispositivos
+  // nunca pierda un favorito que no fue borrado explícitamente.
+  const [favoritesDeleted, setFavoritesDeleted] = useState([]);
   const [history, setHistory] = useState({});
   const [historyDetail, setHistoryDetail] = useState({});
   const [messages, setMessages] = useState([]);
@@ -213,6 +218,8 @@ export default function MealTracker() {
     try { return localStorage.getItem('learningUrl') || ''; } catch (e) { return ''; }
   });
   const initialLoadDone = useRef(false);
+  // Copia viva de favoritesDeleted para closures async (pull del server).
+  const favoritesDeletedRef = useRef([]);
   const cloudUserIdRef = useRef(null);
   const cloudSyncedFromServer = useRef(false);
   const cloudPushTimerRef = useRef(null);
@@ -271,7 +278,7 @@ export default function MealTracker() {
   useEffect(() => {
     (async () => {
       try {
-        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes] = await Promise.all([
+        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes] = await Promise.all([
           window.storage.get('goals').catch(() => null),
           window.storage.get('name').catch(() => null),
           window.storage.get('lastDay').catch(() => null),
@@ -284,7 +291,15 @@ export default function MealTracker() {
           window.storage.get('wellbeing').catch(() => null),
           window.storage.get('favoriteIngredients').catch(() => null),
           window.storage.get('goalsUpdated').catch(() => null),
+          window.storage.get('favoritesDeleted').catch(() => null),
         ]);
+
+        if (favDelRes?.value) {
+          try {
+            const dels = JSON.parse(favDelRes.value);
+            if (Array.isArray(dels)) { favoritesDeletedRef.current = dels; setFavoritesDeleted(dels); }
+          } catch (e) {}
+        }
 
         if (goalsUpdRes?.value) {
           try { goalsMetaRef.current = JSON.parse(goalsUpdRes.value); } catch (e) {}
@@ -487,11 +502,21 @@ export default function MealTracker() {
         // ingredientes que el cliente había guardado en su teléfono, y el
         // siguiente push consolidaba la pérdida. Era la causa de "guardé mis
         // ingredientes y hoy aparece vacío".
-        if (Array.isArray(d.favorites) && d.favorites.length > 0) {
+        // Lápidas: unión de las locales + las del server. Un id con lápida es
+        // un borrado EXPLÍCITO del cliente (en este u otro dispositivo) y se
+        // respeta en ambas direcciones; todo lo demás sobrevive a la fusión.
+        const serverFavDeleted = Array.isArray(d.favoritesDeleted) ? d.favoritesDeleted : [];
+        if (serverFavDeleted.length > 0) {
+          const mergedDels = Array.from(new Set([...favoritesDeletedRef.current, ...serverFavDeleted])).slice(-300);
+          favoritesDeletedRef.current = mergedDels;
+          setFavoritesDeleted(mergedDels);
+        }
+        if ((Array.isArray(d.favorites) && d.favorites.length > 0) || serverFavDeleted.length > 0) {
+          const dead = new Set([...favoritesDeletedRef.current, ...serverFavDeleted]);
           setFavorites(local => {
-            const byId = new Map((local || []).map(f => [f.id, f]));
-            for (const f of d.favorites) {
-              if (f && f.id != null && !byId.has(f.id)) byId.set(f.id, f);
+            const byId = new Map((local || []).filter(f => !dead.has(f.id)).map(f => [f.id, f]));
+            for (const f of (Array.isArray(d.favorites) ? d.favorites : [])) {
+              if (f && f.id != null && !byId.has(f.id) && !dead.has(f.id)) byId.set(f.id, f);
             }
             return Array.from(byId.values());
           });
@@ -651,7 +676,7 @@ export default function MealTracker() {
             user_id: cloudUserIdRef.current,
             name,
             data: {
-              favorites, favoriteIngredients, history, historyDetail,
+              favorites, favoritesDeleted, favoriteIngredients, history, historyDetail,
               frequentItems, wellbeing, goals, name,
               // Versión de la meta que este dispositivo conoce; el server la
               // compara y NO deja que un push viejo pise una meta más nueva
@@ -667,14 +692,14 @@ export default function MealTracker() {
         });
       } catch (e) {}
     }, delayMs);
-  }, [cloudConsent, name, favorites, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, entries, water, today]);
+  }, [cloudConsent, name, favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, entries, water, today]);
 
   // Watch: cualquier cambio en colecciones críticas dispara un push debounced.
   // Incluimos `entries` y `water` para que se sincronicen en vivo, NO solo al cambiar de día.
   useEffect(() => {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
     schedulePushToCloud();
-  }, [favorites, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, name, entries, water, cloudConsent, schedulePushToCloud]);
+  }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, name, entries, water, cloudConsent, schedulePushToCloud]);
 
   const acceptCloudConsent = useCallback(() => {
     try { localStorage.setItem('cloudConsent', 'accepted'); } catch (e) {}
@@ -891,6 +916,11 @@ export default function MealTracker() {
     if (!initialLoadDone.current) return;
     window.storage.set('favorites', JSON.stringify(favorites)).catch(() => {});
   }, [favorites]);
+  useEffect(() => {
+    favoritesDeletedRef.current = favoritesDeleted;
+    if (!initialLoadDone.current) return;
+    window.storage.set('favoritesDeleted', JSON.stringify(favoritesDeleted)).catch(() => {});
+  }, [favoritesDeleted]);
 
   // Persistir historial (incluye registros retroactivos a días pasados).
   useEffect(() => {
@@ -3272,7 +3302,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           favorites={favorites}
           onUse={useFavorite}
           onRename={renameFavorite}
-          onDelete={(id) => { haptic(10); setFavorites(f => f.filter(x => x.id !== id)); }}
+          onDelete={(id) => {
+            haptic(10);
+            setFavorites(f => f.filter(x => x.id !== id));
+            // Lápida: registra el borrado explícito para que el favorito no
+            // "resucite" desde el server ni desde otro dispositivo.
+            setFavoritesDeleted(t => t.includes(id) ? t : [...t, id].slice(-300));
+          }}
           onClose={() => setActiveModal(null)} />
       )}
 
