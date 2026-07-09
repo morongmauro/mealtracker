@@ -126,8 +126,8 @@ const haptic = (pattern = 10) => {
 // Deja text: '' para no mostrar nada.
 // ─────────────────────────────────────────────────────────────────────────
 const APP_UPDATE_ANNOUNCEMENT = {
-  id: '2026-07-05-recetas-inteligentes',
-  text: 'Tu app cuenta con recetas inteligentes: el Recetario se ajusta a TU meta y a lo que te falta del día. Revísalo cuando necesites ideas creativas y saludables — lo encuentras arriba, junto a Aprendizaje.',
+  id: '2026-07-09-registro-dias-anteriores',
+  text: 'Actualización: ahora es posible registrar comidas de días atrás — incluso varios días en un mismo mensaje. Solo especifica qué día y qué comida ("ayer cené pollo con arroz", "el lunes desayuné avena y el martes almorcé pasta") y cada comida se guarda en su día.',
 };
 
 // ─── GANCHOS DE APRENDIZAJE (los edita el coach, como _clients.js) ───────
@@ -1690,6 +1690,16 @@ ${f.days.map(d => `  · ${d.meal || 'comida'}: ${(d.items||[]).map(it => `${it.n
 }).join('\n')}
 `
       : '';
+    // Tabla de los últimos 14 días con su fecha exacta ya resuelta. El LLM es
+    // poco confiable haciendo aritmética de calendario ("el lunes pasado" =
+    // ¿qué YYYY-MM-DD?): cuando la calculaba mal, la comida quedaba registrada
+    // en el día equivocado. Con la tabla solo tiene que COPIAR la fecha.
+    const dateTable = Array.from({ length: 14 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const rel = i === 0 ? 'HOY' : i === 1 ? 'ayer' : i === 2 ? 'antier/anteayer' : `hace ${i} días`;
+      return `  · ${rel} — ${d.toLocaleDateString('es', { weekday: 'long' })} = ${getLocalDate(d)}`;
+    }).join('\n');
     const contextSnippet = `
 CONTEXTO DEL CLIENTE:
 - Nombre: ${name || 'desconocido'}
@@ -1697,7 +1707,9 @@ CONTEXTO DEL CLIENTE:
 - Totales hoy: ${totals.kcal} kcal · P ${totals.p}g · C ${totals.c}g · G ${totals.g}g
 - Meta diaria: ${goals?.kcal || '?'} kcal · P ${goals?.p || '?'}g · C ${goals?.c || '?'}g · G ${goals?.g || '?'}g
 - Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
-- Fecha de hoy: ${today} (${new Date().toLocaleDateString('es', { weekday: 'long' })})${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock}${appendHint}${voiceHint}${historyBlock}`;
+- Fecha de hoy: ${today} (${new Date().toLocaleDateString('es', { weekday: 'long' })})
+- TABLA DE FECHAS (para "log_date" COPIA la fecha exacta de esta tabla, NO la calcules tú):
+${dateTable}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock}${appendHint}${voiceHint}${historyBlock}`;
 
     const sys = `Eres un asistente nutricional inteligente y cálido. Devuelves SOLO JSON válido, sin markdown.
 
@@ -1759,7 +1771,9 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 
 ═══ INTENTS (elige UNO) ═══
 - "log_meal": registrar comida(s) nueva(s). Ej: "desayuno: 2 huevos y café", "almorcé pollo con arroz". Si el mensaje cubre VARIAS comidas del día, usa el campo "meals" (array) con un objeto por comida. Si es UNA sola comida, usa "items" + "meal".
-  FECHA DEL REGISTRO ("log_date"): por defecto null = HOY. Si el cliente dice que comió en un día PASADO, calcula la fecha exacta (YYYY-MM-DD) a partir de "Fecha de hoy" del contexto y ponla en "log_date". Reglas: "ayer" = hoy − 1 día; "antier"/"anteayer" = hoy − 2 días; "hace N días" = hoy − N; un día de la semana ("el lunes", "el sábado pasado") = la ocurrencia MÁS RECIENTE ya pasada de ese día; una fecha explícita ("el 15", "12 de junio") = esa fecha del mes/año vigente. NUNCA uses una fecha futura. Esto aplica también a "meals" (todo el bloque va a esa fecha). Si no hay ninguna referencia temporal a un día pasado, log_date=null. Ejemplos: "ayer cené pollo con arroz" → log_meal, meal=cena, log_date=(hoy−1). "el lunes desayuné avena" → log_meal, meal=desayuno, log_date=(lunes pasado).
+  FECHA DEL REGISTRO ("log_date"): por defecto null = HOY. Si el cliente dice que comió en un día PASADO ("ayer", "antier", "hace N días", "el lunes", "el sábado pasado", "el 15", "12 de junio"), busca ese día en la TABLA DE FECHAS del contexto y COPIA la fecha exacta (YYYY-MM-DD) en "log_date" — PROHIBIDO calcular la fecha por tu cuenta, usa la tabla. Un día de la semana = la ocurrencia MÁS RECIENTE ya pasada de ese día. NUNCA uses una fecha futura. Si no hay ninguna referencia temporal a un día pasado, log_date=null.
+  VARIOS DÍAS EN UN MISMO MENSAJE: si el cliente dicta comidas de MÁS DE UN día ("el viernes comí X y el sábado Y", "te voy a contar lo de ayer y lo de hoy"), usa el campo "meals" y pon en CADA objeto de "meals" su propio "log_date" (la fecha de ESE día según la tabla; null si esa comida es de hoy). PROHIBIDO amontonar comidas de días distintos bajo una misma fecha — cada comida va exactamente al día que el cliente dijo. Solo si TODO el mensaje es de UN único día pasado puedes usar el "log_date" raíz para todo el bloque.
+  Ejemplos: "ayer cené pollo con arroz" → log_meal, meal=cena, log_date=(fecha de "ayer" en la tabla). "el lunes desayuné avena y el martes almorcé pasta" → log_meal, meals=[{meal:"desayuno", log_date:(lunes en la tabla), items:[avena]}, {meal:"almuerzo", log_date:(martes en la tabla), items:[pasta]}]. "el domingo desayuné huevos y almorcé asado" → log_meal, meals=[{meal:"desayuno", log_date:(domingo), items:[huevos]}, {meal:"almuerzo", log_date:(domingo), items:[asado]}].
 - "append_to_last": SUMAR alimentos a la ÚLTIMA comida registrada hoy (no crear meal nuevo). DETECTAR estos signos: "me faltó", "olvidé decirte", "también comí", "agregale", "sumá", "ah me acordé", "no te dije que también", "ese tercero suma a lo que ya registraste". SI hay última comida, los items van EN ELLA.
 - "nutrition_query": pregunta informativa SIN registrar. Ej: "¿cuántas kcal tiene una manzana?", "¿es alta en proteína el atún?".
 - "meal_suggestion": pregunta abierta sobre QUÉ COMER en una comida específica. DETECTAR: "qué puedo comer", "qué como", "ideas de cena", "qué me sugieres", "qué desayuno", "qué hago de almuerzo", "no sé qué cenar". Indica también el "meal" deseado (desayuno/almuerzo/snack/cena) si lo menciona. EL FRONTEND MANEJA la respuesta usando los ingredientes favoritos del cliente, así que tú solo clasifica.
@@ -1789,7 +1803,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   "meal": "desayuno | almuerzo | cena | snack | comida | null",
   "log_date": "YYYY-MM-DD si el cliente registra un día PASADO, null = hoy",
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N, "needs_quantity": false}],
-  "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N}]}] | null,
+  "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "log_date": "YYYY-MM-DD si ESA comida es de un día pasado, null = hoy", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N}]}] | null,
   "append_to_entry_id": N | null,
   "command": "reset_day | change_goals | calendar | favorites | proportion | manage_favorites | plan_day | save_day_favorite | null",
   "name_detected": "..." | null,
@@ -2239,42 +2253,75 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
 
       const r1 = (n) => Math.round(n * 10) / 10;
 
-      // BACK-DATED LOGGING — el cliente registra un día PASADO ("ayer cené…",
-      // "el lunes desayuné…"). Va al historial de ESA fecha, no al día de hoy.
-      const logDate = (() => {
-        const d = parsed.log_date;
+      // BACK-DATED LOGGING — el cliente registra uno o VARIOS días pasados
+      // ("ayer cené…", "el lunes desayuné… y el martes almorcé…"). Cada comida
+      // va al historial de SU fecha: se lee meals[i].log_date (por comida) con
+      // parsed.log_date como respaldo global. Antes existía UN solo log_date
+      // para todo el mensaje: al dictar varios días, todo caía amontonado en
+      // una sola fecha del historial.
+      const normPastDate = (d) => {
         if (!d || typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
         return d < today ? d : null; // solo fechas pasadas; hoy/futuro = flujo normal
-      })();
-      if (intent === 'log_meal' && logDate) {
+      };
+      const globalLogDate = normPastDate(parsed.log_date);
+      if (intent === 'log_meal') {
         const srcMeals = (Array.isArray(parsed.meals) && parsed.meals.length > 0)
           ? parsed.meals
-          : (parsed.items?.length > 0 ? [{ meal: parsed.meal || 'comida', items: parsed.items }] : null);
-        if (srcMeals) {
+          : (parsed.items?.length > 0 ? [{ meal: parsed.meal || 'comida', items: parsed.items, log_date: parsed.log_date }] : []);
+        const dated = srcMeals
+          .filter(mo => mo && Array.isArray(mo.items) && mo.items.length > 0)
+          .map(mo => ({ ...mo, _date: normPastDate(mo.log_date) || globalLogDate }));
+        if (dated.some(mo => mo._date)) {
           const baseId = Date.now();
-          const newEntries = srcMeals
-            .filter(mo => mo && Array.isArray(mo.items) && mo.items.length > 0)
-            .map((mo, idx) => {
-              const cleanItems = sanitizeItems(mo.items);
-              trackFrequency(cleanItems);
-              return {
-                id: baseId + idx, meal: mo.meal || 'comida', items: cleanItems,
-                kcal: Math.round(cleanItems.reduce((s, i) => s + (i.kcal || 0), 0)),
-                p: r1(cleanItems.reduce((s, i) => s + (i.p || 0), 0)),
-                c: r1(cleanItems.reduce((s, i) => s + (i.c || 0), 0)),
-                g: r1(cleanItems.reduce((s, i) => s + (i.g || 0), 0)),
-                time: '', rawInput: userMsg, hasMissingQuantity: false,
-              };
-            });
-          if (newEntries.length > 0) {
-            addEntriesToDate(logDate, newEntries);
-            haptic(15);
-            const tot = newEntries.reduce((a, e) => ({ kcal: a.kcal + e.kcal, p: a.p + e.p, c: a.c + e.c, g: a.g + e.g }), { kcal: 0, p: 0, c: 0, g: 0 });
-            const label = new Date(logDate + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
-            setMessages(m => [...m, { role: 'assistant', content: `Listo, lo registré en **${label}**, no en hoy. Ese día sumó ${Math.round(tot.kcal)} kcal · P${r1(tot.p)} C${r1(tot.c)} G${r1(tot.g)}. Tu día de hoy queda intacto.`, ts: Date.now() }]);
-            setLoading(false); setLoadingPreview('');
-            return;
+          const mkEntry = (mo, idx, isToday) => {
+            const cleanItems = sanitizeItems(mo.items);
+            trackFrequency(cleanItems);
+            return {
+              id: baseId + idx, meal: mo.meal || 'comida', items: cleanItems,
+              kcal: Math.round(cleanItems.reduce((s, i) => s + (i.kcal || 0), 0)),
+              p: r1(cleanItems.reduce((s, i) => s + (i.p || 0), 0)),
+              c: r1(cleanItems.reduce((s, i) => s + (i.c || 0), 0)),
+              g: r1(cleanItems.reduce((s, i) => s + (i.g || 0), 0)),
+              time: isToday ? new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '',
+              rawInput: userMsg, hasMissingQuantity: false,
+            };
+          };
+          const byDate = {};
+          const todayEntries = [];
+          dated.forEach((mo, idx) => {
+            if (mo._date) (byDate[mo._date] = byDate[mo._date] || []).push(mkEntry(mo, idx, false));
+            else todayEntries.push(mkEntry(mo, idx, true));
+          });
+          const dateKeys = Object.keys(byDate).sort();
+          dateKeys.forEach(d => addEntriesToDate(d, byDate[d]));
+          haptic(15);
+          // Comidas de HOY que venían mezcladas en el mismo mensaje: van al
+          // día actual por el flujo normal (tarjetas + deshacer).
+          if (todayEntries.length > 0) {
+            setEntries(e => [...e, ...todayEntries]);
+            setMessages(m => [...m, ...todayEntries.map(ne => ({
+              role: 'assistant', content: 'logged', isLogged: true,
+              entryId: ne.id, quantityWarning: null, ts: Date.now() + Math.random()
+            }))]);
+            armUndo(todayEntries.map(ne => ne.id));
           }
+          const dayLabel = (d) => new Date(d + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+          const totOf = (arr) => arr.reduce((a, e) => ({ kcal: a.kcal + e.kcal, p: a.p + e.p, c: a.c + e.c, g: a.g + e.g }), { kcal: 0, p: 0, c: 0, g: 0 });
+          let confirmMsg;
+          if (dateKeys.length === 1 && todayEntries.length === 0) {
+            const tot = totOf(byDate[dateKeys[0]]);
+            confirmMsg = `Listo, lo registré en ${dayLabel(dateKeys[0])}, no en hoy. Ese día sumó ${Math.round(tot.kcal)} kcal · P${r1(tot.p)} C${r1(tot.c)} G${r1(tot.g)}. Tu día de hoy queda intacto.`;
+          } else {
+            const lines = dateKeys.map(d => {
+              const tot = totOf(byDate[d]);
+              return `· ${dayLabel(d)}: ${byDate[d].length} ${byDate[d].length === 1 ? 'comida' : 'comidas'} — ${Math.round(tot.kcal)} kcal · P${r1(tot.p)} C${r1(tot.c)} G${r1(tot.g)}`;
+            });
+            const todayNote = todayEntries.length > 0 ? ' Lo de hoy quedó en tu día actual.' : ' Tu día de hoy queda intacto.';
+            confirmMsg = `Listo, registré cada comida en su día:\n${lines.join('\n')}${todayNote}`;
+          }
+          setMessages(m => [...m, { role: 'assistant', content: confirmMsg, ts: Date.now() }]);
+          setLoading(false); setLoadingPreview('');
+          return;
         }
       }
 
