@@ -3,7 +3,7 @@ import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
-  GraduationCap, Megaphone
+  GraduationCap, Megaphone, Mountain
 } from 'lucide-react';
 
 // Chunk aparte: el Recetario (~30KB de recetas + UI) solo se descarga la
@@ -3040,6 +3040,22 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               <span className="text-[12px] font-semibold">Aprendizaje</span>
             </button>
           )}
+          {/* Ranking del reto (/ranking). Solo ícono: el header móvil ya va
+              justo con Recetario + Aprendizaje. */}
+          <button
+            onClick={() => { haptic(8); window.location.href = '/ranking'; }}
+            className="flex items-center px-2.5 py-1.5 rounded-full active:scale-95 transition"
+            style={{
+              background: 'rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset',
+              color: '#FFF'
+            }}
+            title="Camino a la Cima — ranking del reto">
+            <Mountain size={14} style={{ color: ACCENT_PASTEL }} />
+          </button>
         </div>
       </div>
 

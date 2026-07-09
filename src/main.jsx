@@ -14,17 +14,23 @@ import MealTracker from './MealTracker.jsx';
 // El dashboard del coach se carga en un chunk aparte: los clientes no
 // descargan su código, y el coach solo lo baja al entrar a /coach.
 const CoachDashboard = lazy(() => import('./CoachDashboard.jsx'));
+// Ranking público del mes ("camino a la cima") — página liviana sin login
+// que los clientes abren directo por link. También en chunk aparte.
+const Ranking = lazy(() => import('./Ranking.jsx'));
 
-// Ruteo simple: si la URL arranca con /coach, renderiza el dashboard.
-// Cualquier otra ruta renderiza la app del cliente.
+// Ruteo simple: /coach → dashboard, /ranking → tablero público,
+// cualquier otra ruta renderiza la app del cliente.
 const path = (typeof window !== 'undefined' && window.location.pathname) || '/';
 const isCoach = path === '/coach' || path.startsWith('/coach/');
+const isRanking = path === '/ranking' || path.startsWith('/ranking/');
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     {isCoach
       ? <Suspense fallback={null}><CoachDashboard /></Suspense>
-      : <MealTracker />}
+      : isRanking
+        ? <Suspense fallback={null}><Ranking /></Suspense>
+        : <MealTracker />}
   </React.StrictMode>
 );
 
