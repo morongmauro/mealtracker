@@ -11,7 +11,7 @@
 // Se alimenta de /api/ranking (solo nombre de pila + inicial y porcentajes)
 // y se refresca solo cada 60 segundos.
 // ─────────────────────────────────────────────────────────────────────────
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
   C_PROTEIN, C_CARBS, C_FAT, C_WATER,
@@ -123,21 +123,33 @@ export default function Ranking() {
   const [mounted, setMounted] = useState(false); // dispara la animación de subida
   const [period, setPeriod] = useState('total');
 
+  const lastPayloadRef = useRef('');
   useEffect(() => {
     let alive = true;
     const load = async () => {
+      // Pestaña en segundo plano: no gastar red/batería; al volver se refresca.
+      if (document.visibilityState === 'hidden') return;
       try {
         const r = await fetch('/api/ranking');
         if (!r.ok) throw new Error('bad status');
-        const j = await r.json();
-        if (alive) { setData(j); setError(false); }
+        const text = await r.text();
+        if (!alive) return;
+        setError(false);
+        // El CDN cachea 60 s, así que la mayoría de sondeos traen el mismo
+        // payload: si no cambió, conservamos la referencia anterior y React
+        // no re-renderiza nada (los useMemo quedan estables).
+        if (text === lastPayloadRef.current) return;
+        lastPayloadRef.current = text;
+        setData(JSON.parse(text));
       } catch (e) {
         if (alive) setError(true);
       }
     };
     load();
     const iv = setInterval(load, 60000); // en vivo: refresco silencioso cada minuto
-    return () => { alive = false; clearInterval(iv); };
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { alive = false; clearInterval(iv); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
   // Un frame después de tener datos, mover los escaladores de la base a su
@@ -220,7 +232,8 @@ export default function Ranking() {
             <>
               <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#C75A4A', animation: 'rkPulse 1.6s ease-in-out infinite' }} />
               <span className="text-[12px] uppercase tracking-[0.14em] font-semibold" style={{ color: TEXT_MUTED }}>
-                En vivo · Reto {info ? `${shortDate(info.start)} – ${shortDate(info.end)}` : '9 jul – 9 ago'}
+                {/* Las fechas SOLO vienen del API (única fuente de verdad) */}
+                En vivo{info ? ` · Reto ${shortDate(info.start)} – ${shortDate(info.end)}` : ''}
               </span>
             </>
           )}

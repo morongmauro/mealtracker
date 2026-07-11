@@ -126,8 +126,8 @@ const haptic = (pattern = 10) => {
 // Deja text: '' para no mostrar nada.
 // ─────────────────────────────────────────────────────────────────────────
 const APP_UPDATE_ANNOUNCEMENT = {
-  id: '2026-07-09-registro-dias-anteriores',
-  text: 'Actualización: ahora es posible registrar comidas de días atrás — incluso varios días en un mismo mensaje. Solo especifica qué día y qué comida ("ayer cené pollo con arroz", "el lunes desayuné avena y el martes almorcé pasta") y cada comida se guarda en su día.',
+  id: '2026-07-10-recetas-reto-registro',
+  text: 'Tu app se actualizó con tres novedades: 🍽 Nuevas recetas de desayunos, almuerzos, cenas y snacks en el Recetario inteligente — como siempre, ajustadas a TU meta del día. ⛰ Arranca el reto Camino a la Cima: toca la montañita de arriba y mira el ranking en vivo. 📅 Y ahora puedes registrar comidas de días atrás — di qué día y qué comida ("ayer cené pollo con arroz") y se guarda en ese día.',
 };
 
 // ─── GANCHOS DE APRENDIZAJE (los edita el coach, como _clients.js) ───────
@@ -149,6 +149,22 @@ const LEARNING_HOOKS = [
   'La báscula miente de un día a otro: agua, sal y hormonas la mueven hasta 2 kg sin que cambie tu grasa. Aprende a leer la tendencia en Aprendizaje.',
   '¿Sabías que la vitamina D se comporta más como una hormona? Sol, pescado graso y huevo son tus fuentes. Dale una mirada al material de Aprendizaje.',
   'Ningún alimento engorda o adelgaza por sí solo: manda el balance de la semana. Por eso registrar lo cambia todo — repásalo en la Guía de alimentación.',
+];
+
+// ─── CALENDARIO DE REFUERZO DEL RETO (lo edita el coach) ─────────────────
+// Durante el reto (hasta el 9 de agosto) los anuncios de Aprendizaje suben
+// a DOS por semana: lunes y jueves al mediodía, arrancando con el domingo
+// 12 de julio. Cada momento muestra el siguiente gancho de LEARNING_HOOKS
+// en orden, UNA sola vez por cliente, en la primera apertura de la app
+// después de esa hora. Si el cliente estuvo días sin abrir, solo ve el más
+// reciente (no se le acumulan). Pasada la última fecha, vuelve solo el
+// ritmo normal de 1 por semana.
+const LEARNING_BOOST_SCHEDULE = [
+  '2026-07-12T12:00:00', // domingo de arranque
+  '2026-07-13T12:00:00', '2026-07-16T12:00:00', // lunes y jueves
+  '2026-07-20T12:00:00', '2026-07-23T12:00:00',
+  '2026-07-27T12:00:00', '2026-07-30T12:00:00',
+  '2026-08-03T12:00:00', '2026-08-06T12:00:00',
 ];
 
 // Returns YYYY-MM-DD in user's LOCAL timezone (not UTC)
@@ -819,6 +835,23 @@ export default function MealTracker() {
     return () => clearInterval(interval);
   }, [view, today, entries, water]);
 
+  // Altura REAL del header. El header crece cuando el título o "Entrena con
+  // Método" se parten en varias líneas (pantallas angostas, fuente grande del
+  // sistema): con un top fijo de 40px la tarjeta de anillos quedaba METIDA
+  // debajo del header. Se mide con ResizeObserver y la tarjeta y el padding
+  // del contenido se calculan a partir de esta medida.
+  const [headerH, setHeaderH] = useState(40);
+  useEffect(() => {
+    if (view !== 'main' || !headerRef.current) return;
+    const el = headerRef.current;
+    const measure = () => setHeaderH(el.offsetHeight || 40);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view]);
+
   // Keyboard detection (mobile) + iOS visualViewport tracking.
   // Cuando se abre el teclado en iOS Safari, el "layout viewport" no cambia,
   // pero el "visual viewport" se hace más chico y se desplaza. Los elementos
@@ -1221,15 +1254,54 @@ export default function MealTracker() {
     return () => clearTimeout(t);
   }, [view]);
 
-  // Anuncio informativo de Aprendizaje — UNO por semana para no saturar,
-  // solo si el cliente tiene centro de recursos configurado. Sale en la
-  // primera apertura de la semana, sea el día que sea.
+  // Anuncio informativo de Aprendizaje — solo si el cliente tiene centro de
+  // recursos configurado. Dos modos:
+  //  · RETO (hasta la última fecha de LEARNING_BOOST_SCHEDULE): dos por
+  //    semana según el calendario, en la primera apertura después de cada
+  //    momento. Solo se muestra el más reciente pendiente — quien estuvo
+  //    fuera una semana no recibe tres seguidos.
+  //  · NORMAL (después del reto): uno por semana, en la primera apertura de
+  //    la semana, como siempre.
   useEffect(() => {
     if (view !== 'main' || !learningUrl) return;
     const t = setTimeout(() => {
       const now = new Date();
+      const firstName = name ? name.split(' ')[0] : '';
+      const emit = (hook) => {
+        // Minúscula en la primera LETRA (saltando ¿ o ¡) al anteponer el nombre
+        const hookLower = hook.replace(/^([¿¡]?)(\p{L})/u, (m, signo, letra) => signo + letra.toLowerCase());
+        const text = firstName ? `${firstName}, ${hookLower}` : hook;
+        setMessages(m => [...m, {
+          role: 'assistant', isAnnouncement: true, tag: 'Aprendizaje',
+          content: text, showLearnButton: true, ts: Date.now(),
+        }]);
+      };
+
+      const boostEnd = new Date(LEARNING_BOOST_SCHEDULE[LEARNING_BOOST_SCHEDULE.length - 1]);
+      boostEnd.setDate(boostEnd.getDate() + 3); // gracia: el del jueves 6 ago se puede ver hasta el 9
+      if (now <= boostEnd) {
+        // MODO RETO — calendario fijo
+        const due = LEARNING_BOOST_SCHEDULE.filter(s => new Date(s) <= now);
+        if (due.length === 0) return; // aún no llega el primer momento
+        const latest = due[due.length - 1];
+        const key = `learnNudge:boost:${latest}`;
+        try { if (localStorage.getItem(key)) return; } catch (e) {}
+        try { localStorage.setItem(key, '1'); } catch (e) {}
+        // Marca también la semana normal en curso: sin esto, al terminar el
+        // reto el modo semanal veía la última semana como "sin anuncio" y
+        // soltaba un tercero en la misma semana.
+        try {
+          const dow = (now.getDay() + 6) % 7;
+          const monday = new Date(now);
+          monday.setDate(now.getDate() - dow);
+          localStorage.setItem(`learnNudge:${getLocalDate(monday)}`, '1');
+        } catch (e) {}
+        emit(LEARNING_HOOKS[(due.length - 1) % LEARNING_HOOKS.length]);
+        return;
+      }
+
+      // MODO NORMAL — uno por semana (primera apertura de la semana)
       const dow = (now.getDay() + 6) % 7; // 0 = lunes … 6 = domingo
-      // Lunes de ESTA semana como identificador de la semana
       const monday = new Date(now);
       monday.setDate(now.getDate() - dow);
       const weekId = getLocalDate(monday);
@@ -1239,15 +1311,7 @@ export default function MealTracker() {
       // Gancho educativo rotativo: uno por semana, en orden — todos los
       // clientes ven el mismo tema esa semana.
       const weekNum = Math.floor(monday.getTime() / (7 * 86400000));
-      const hook = LEARNING_HOOKS[((weekNum % LEARNING_HOOKS.length) + LEARNING_HOOKS.length) % LEARNING_HOOKS.length];
-      const firstName = name ? name.split(' ')[0] : '';
-      // Minúscula en la primera LETRA (saltando ¿ o ¡) al anteponer el nombre
-      const hookLower = hook.replace(/^([¿¡]?)(\p{L})/u, (m, signo, letra) => signo + letra.toLowerCase());
-      const text = firstName ? `${firstName}, ${hookLower}` : hook;
-      setMessages(m => [...m, {
-        role: 'assistant', isAnnouncement: true, tag: 'Aprendizaje',
-        content: text, showLearnButton: true, ts: Date.now(),
-      }]);
+      emit(LEARNING_HOOKS[((weekNum % LEARNING_HOOKS.length) + LEARNING_HOOKS.length) % LEARNING_HOOKS.length]);
     }, 9000);
     return () => clearTimeout(t);
   }, [view, learningUrl, name]);
@@ -1775,6 +1839,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   VARIOS DÍAS EN UN MISMO MENSAJE: si el cliente dicta comidas de MÁS DE UN día ("el viernes comí X y el sábado Y", "te voy a contar lo de ayer y lo de hoy"), usa el campo "meals" y pon en CADA objeto de "meals" su propio "log_date" (la fecha de ESE día según la tabla; null si esa comida es de hoy). PROHIBIDO amontonar comidas de días distintos bajo una misma fecha — cada comida va exactamente al día que el cliente dijo. Solo si TODO el mensaje es de UN único día pasado puedes usar el "log_date" raíz para todo el bloque.
   Ejemplos: "ayer cené pollo con arroz" → log_meal, meal=cena, log_date=(fecha de "ayer" en la tabla). "el lunes desayuné avena y el martes almorcé pasta" → log_meal, meals=[{meal:"desayuno", log_date:(lunes en la tabla), items:[avena]}, {meal:"almuerzo", log_date:(martes en la tabla), items:[pasta]}]. "el domingo desayuné huevos y almorcé asado" → log_meal, meals=[{meal:"desayuno", log_date:(domingo), items:[huevos]}, {meal:"almuerzo", log_date:(domingo), items:[asado]}].
 - "append_to_last": SUMAR alimentos a la ÚLTIMA comida registrada hoy (no crear meal nuevo). DETECTAR estos signos: "me faltó", "olvidé decirte", "también comí", "agregale", "sumá", "ah me acordé", "no te dije que también", "ese tercero suma a lo que ya registraste". SI hay última comida, los items van EN ELLA.
+- "save_favorite_only": guardar una comida como RECETA/FAVORITO SIN que cuente en el día. DETECTAR: "no lo registres", "eso último no lo registres", "es solo para guardar la receta", "solo guárdalo en favoritos/como receta", "no lo cuentes", "no lo sumes", "quítalo del día pero guárdalo". Dos casos: (1) el mensaje DESCRIBE alimentos ("guárdame esta receta sin registrarla: 6 empanadas...") → llena "items" (+"meal") igual que en log_meal pero con ESTE intent; (2) se refiere a algo YA registrado ("eso último no lo registres, era solo la receta") → deja "items" vacío y el frontend lo aplica a la última comida registrada. PROHIBIDO clasificar como log_meal cuando el cliente pide explícitamente NO registrar.
 - "nutrition_query": pregunta informativa SIN registrar. Ej: "¿cuántas kcal tiene una manzana?", "¿es alta en proteína el atún?".
 - "meal_suggestion": pregunta abierta sobre QUÉ COMER en una comida específica. DETECTAR: "qué puedo comer", "qué como", "ideas de cena", "qué me sugieres", "qué desayuno", "qué hago de almuerzo", "no sé qué cenar". Indica también el "meal" deseado (desayuno/almuerzo/snack/cena) si lo menciona. EL FRONTEND MANEJA la respuesta usando los ingredientes favoritos del cliente, así que tú solo clasifica.
 - "summary_day": pide ver progreso/totales del día. Ej: "cómo voy", "cuánto llevo hoy", "resumen", "qué me falta".
@@ -1799,7 +1864,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 
 ═══ SCHEMA ═══
 {
-  "intent": "log_meal | append_to_last | nutrition_query | meal_suggestion | summary_day | summary_week | retro_advice | adjust_favorites_to_goal | water | command | clarify | off_topic | name",
+  "intent": "log_meal | append_to_last | save_favorite_only | nutrition_query | meal_suggestion | summary_day | summary_week | retro_advice | adjust_favorites_to_goal | water | command | clarify | off_topic | name",
   "meal": "desayuno | almuerzo | cena | snack | comida | null",
   "log_date": "YYYY-MM-DD si el cliente registra un día PASADO, null = hoy",
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N, "needs_quantity": false}],
@@ -2253,6 +2318,59 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
 
       const r1 = (n) => Math.round(n * 10) / 10;
 
+      // SOLO FAVORITO — guardar como receta SIN contar en el día. Dos casos:
+      // (a) el mensaje describe la comida → se guarda directo como favorito;
+      // (b) se refiere a lo último registrado ("eso no lo registres") → se
+      //     SACA del contador del día y se guarda como favorito.
+      // En ambos queda una tarjeta en el chat que muestra la acción y aclara
+      // que NO suma al día.
+      if (intent === 'save_favorite_only') {
+        haptic(12);
+        let favSource = null;
+        let removedFromDay = false;
+        if (parsed.items?.length > 0) {
+          const cleanItems = sanitizeItems(parsed.items);
+          trackFrequency(cleanItems);
+          favSource = {
+            meal: parsed.meal || 'comida', items: cleanItems,
+            kcal: Math.round(cleanItems.reduce((s, i) => s + (i.kcal || 0), 0)),
+            p: r1(cleanItems.reduce((s, i) => s + (i.p || 0), 0)),
+            c: r1(cleanItems.reduce((s, i) => s + (i.c || 0), 0)),
+            g: r1(cleanItems.reduce((s, i) => s + (i.g || 0), 0)),
+          };
+        } else if (lastEntry) {
+          favSource = lastEntry;
+          // Fuera del contador del día + fuera la tarjeta de "registrado"
+          setEntries(es => es.filter(e => e.id !== lastEntry.id));
+          setMessages(m => m.filter(msg => !(msg.entryId === lastEntry.id && (msg.isLogged || msg.isAppended))));
+          removedFromDay = true;
+        }
+        if (!favSource) {
+          setMessages(m => [...m, { role: 'assistant', content: 'No encontré qué guardar. Descríbeme la receta ("guárdame como receta: ...") o registra la comida primero y luego me dices que no la cuente.', ts: Date.now() }]);
+          setLoading(false); setLoadingPreview('');
+          return;
+        }
+        const autoName = favSource.items.map(i => i.name).join(', ').slice(0, 60);
+        const fav = {
+          id: Date.now(),
+          name: autoName, autoName,
+          items: favSource.items,
+          kcal: favSource.kcal, p: favSource.p, c: favSource.c, g: favSource.g,
+          meal: favSource.meal,
+        };
+        setFavorites(f => [...f, fav]);
+        setMessages(m => [...m, {
+          role: 'assistant', isFavoriteOnly: true,
+          data: {
+            name: fav.name, meal: fav.meal, items: fav.items,
+            kcal: fav.kcal, p: fav.p, c: fav.c, g: fav.g, removedFromDay,
+          },
+          ts: Date.now(),
+        }]);
+        setLoading(false); setLoadingPreview('');
+        return;
+      }
+
       // BACK-DATED LOGGING — el cliente registra uno o VARIOS días pasados
       // ("ayer cené…", "el lunes desayuné… y el martes almorcé…"). Cada comida
       // va al historial de SU fecha: se lee meals[i].log_date (por comida) con
@@ -2268,9 +2386,15 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         const srcMeals = (Array.isArray(parsed.meals) && parsed.meals.length > 0)
           ? parsed.meals
           : (parsed.items?.length > 0 ? [{ meal: parsed.meal || 'comida', items: parsed.items, log_date: parsed.log_date }] : []);
+        // El log_date raíz solo aplica como respaldo cuando NINGUNA comida
+        // trae fecha propia. Si al menos una la trae, el LLM está fechando
+        // por comida y log_date=null significa HOY — sin esta regla, en
+        // "ayer almorcé X y hoy desayuné Y" el desayuno de hoy caía en ayer
+        // cada vez que el modelo llenaba también la fecha raíz.
+        const anyOwnDate = srcMeals.some(mo => mo && normPastDate(mo.log_date));
         const dated = srcMeals
           .filter(mo => mo && Array.isArray(mo.items) && mo.items.length > 0)
-          .map(mo => ({ ...mo, _date: normPastDate(mo.log_date) || globalLogDate }));
+          .map(mo => ({ ...mo, _date: normPastDate(mo.log_date) || (anyOwnDate ? null : globalLogDate) }));
         if (dated.some(mo => mo._date)) {
           const baseId = Date.now();
           const mkEntry = (mo, idx, isToday) => {
@@ -2299,10 +2423,12 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           // día actual por el flujo normal (tarjetas + deshacer).
           if (todayEntries.length > 0) {
             setEntries(e => [...e, ...todayEntries]);
-            setMessages(m => [...m, ...todayEntries.map(ne => ({
+            const todayMsgs = todayEntries.map(ne => ({
               role: 'assistant', content: 'logged', isLogged: true,
               entryId: ne.id, quantityWarning: null, ts: Date.now() + Math.random()
-            }))]);
+            }));
+            if (parsed.quantity_warning) todayMsgs[0].quantityWarning = parsed.quantity_warning;
+            setMessages(m => [...m, ...todayMsgs]);
             armUndo(todayEntries.map(ne => ne.id));
           }
           const dayLabel = (d) => new Date(d + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -2318,6 +2444,11 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
             });
             const todayNote = todayEntries.length > 0 ? ' Lo de hoy quedó en tu día actual.' : ' Tu día de hoy queda intacto.';
             confirmMsg = `Listo, registré cada comida en su día:\n${lines.join('\n')}${todayNote}`;
+          }
+          // Las advertencias de estimación ("asumí 150 g") también aplican a
+          // lo registrado en días pasados — el cliente debe poder corregir.
+          if (parsed.quantity_warning && todayEntries.length === 0) {
+            confirmMsg += ` Nota: ${parsed.quantity_warning}.`;
           }
           setMessages(m => [...m, { role: 'assistant', content: confirmMsg, ts: Date.now() }]);
           setLoading(false); setLoadingPreview('');
@@ -3075,11 +3206,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </Suspense>
       )}
 
-      <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: cardCompact ? '90px' : '195px' }}>
+      <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: `${headerH + (cardCompact ? 56 : 161)}px` }}>
 
-        {/* Goals card — FIXED + visualViewport tracking */}
+        {/* Goals card — FIXED + visualViewport tracking. top = altura real
+            del header + separación, para que NUNCA quede debajo de él. */}
         <div ref={goalsCardRef} className="fixed left-0 right-0" style={{
-          top: '40px',
+          top: `${headerH + 6}px`,
           paddingLeft: '20px', paddingRight: '20px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
@@ -3966,6 +4098,43 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     );
   }
 
+  // Guardado SOLO como favorito (no cuenta en el día): tarjeta que deja
+  // constancia visible de la acción sin sumar al contador.
+  if (message.isFavoriteOnly && message.data) {
+    const d = message.data;
+    return (
+      <div className="flex justify-start fade-up">
+        <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
+          background: 'rgba(255,255,255,0.92)',
+          border: `1px solid ${C_CARBS_PASTEL}`,
+          borderLeft: `3px solid ${C_CARBS}`,
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.06)',
+        }}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Star size={13} strokeWidth={2.2} style={{ color: C_CARBS, fill: C_CARBS }} />
+            <span className="text-[10px] uppercase tracking-[0.06em] font-bold" style={{ color: C_CARBS }}>
+              Guardado en favoritos · no cuenta en tu día
+            </span>
+          </div>
+          <div className="text-[14px] font-semibold mb-1" style={{ color: TEXT }}>{d.name}</div>
+          <div className="text-[12px] mb-2" style={{ color: TEXT_MUTED }}>
+            {(d.items || []).map(it => `${it.name}${it.amount ? ' · ' + it.amount : ''}`).join(' · ')}
+          </div>
+          <div className="flex gap-3 text-xs num mb-2">
+            <span style={{ color: ACCENT, fontWeight: 600 }}>{Math.round(d.kcal || 0)} kcal</span>
+            <span style={{ color: C_PROTEIN }}>P {Math.round(d.p || 0)}g</span>
+            <span style={{ color: C_CARBS }}>C {Math.round(d.c || 0)}g</span>
+            <span style={{ color: C_FAT }}>G {Math.round(d.g || 0)}g</span>
+          </div>
+          <div className="text-[11px]" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
+            {d.removedFromDay ? 'La saqué de tu contador del día — tus totales ya no la incluyen. ' : ''}
+            Quedó como receta en Herramientas → Menús favoritos (ahí puedes renombrarla).
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (message.role === 'user') {
     return (
       <div className="flex justify-end fade-up">
@@ -4745,6 +4914,31 @@ function ModalShell({ children, onClose, maxWidth = 'max-w-md' }) {
   // El setState del padre que desmonta el modal se programa al siguiente
   // rAF, cuando ya no hay nada visible.
   const outerRef = React.useRef(null);
+
+  // COLCHÓN ANTI-TECLADO (iOS): con el teclado abierto, iOS dibuja su pastilla
+  // de AutoFill (contacto/llave/tarjeta) flotando al ras del teclado y TAPABA
+  // los botones inferiores de los modales — el cliente no podía tocar
+  // "guarda el día completo" al nombrar un favorito. Seguimos el visual
+  // viewport (igual que la barra de escribir) y levantamos la hoja del modal
+  // para que quede completa sobre el teclado, con ~56px extra para que los
+  // íconos del sistema floten sobre espacio vacío y no sobre los botones.
+  const [kbLift, setKbLift] = React.useState(0);
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const update = () => {
+      const hiddenBottom = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
+      const kbOpen = (window.innerHeight - vv.height) > 100;
+      setKbLift(kbOpen ? hiddenBottom + 56 : 0);
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
   const handleClose = React.useCallback(() => {
     if (outerRef.current) {
       outerRef.current.style.display = 'none';
@@ -4762,9 +4956,11 @@ function ModalShell({ children, onClose, maxWidth = 'max-w-md' }) {
     <ModalCloseContext.Provider value={handleClose}>
       <div ref={outerRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{
         background: 'rgba(0,0,0,0.45)',
+        paddingBottom: kbLift ? `${kbLift}px` : undefined,
       }} onClick={handleClose}>
-        <div className={`w-full ${maxWidth} max-h-[85vh] overflow-y-auto p-6 rounded-3xl fade-up`} style={{
-          background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI
+        <div className={`w-full ${maxWidth} overflow-y-auto p-6 rounded-3xl fade-up`} style={{
+          background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI,
+          maxHeight: kbLift ? `calc(100vh - ${kbLift + 24}px)` : '85vh',
         }} onClick={e => e.stopPropagation()}>
           {children}
         </div>

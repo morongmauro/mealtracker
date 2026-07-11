@@ -707,6 +707,259 @@ const RECIPES = [
       'Sirve la carne con el plátano y corona con salsa verde.',
     ],
   },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // BLOQUE 2 — extraídas de nuevos PDFs (jul 2026). Recetas con >1 porción
+  // fueron normalizadas a 1 porción (el Recetario escala por proteína). En
+  // las que rinden un lote (pan, pie, bolitas), dejamos nota en steps para
+  // hornear/preparar la receta completa.
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    id: 'caprese-chicken-pasta', name: 'Bowl caprese de pollo y pasta', slot: 'almuerzo', time: '15 min', icon: '🍝',
+    allergens: ['Gluten', 'Frutos secos'], tags: ['Ensalada', 'Comida simple'],
+    totals: { kcal: 536, p: 36, c: 52, g: 19 },
+    main: [
+      { n: 'Espagueti o pasta cocida', q: 150, u: 'g' },
+      { n: 'Pechuga de pollo (cruda)', q: 120, u: 'g' },
+      { n: 'Tomates cherry', q: 112, u: 'g' },
+      { n: 'Pesto de albahaca', q: 2, u: 'cda' },
+    ],
+    season: ['Albahaca fresca · 2 cda', 'Sal al gusto'],
+    steps: [
+      'Corta la pechuga de pollo en trozos pequeños y sazónala con sal.',
+      'Calienta una sartén antiadherente a fuego medio con un toque de aceite en spray. Cocina el pollo unos minutos hasta que pierda el color rosado.',
+      'Corta los tomates cherry a la mitad.',
+      'En un bowl, mezcla la pasta con el pesto; agrega los tomates, el pollo y la albahaca. ¡Y a disfrutar!',
+    ],
+  },
+  // (La receta "Egg Breakfast Toast" del PDF ya existía como 'egg-toast' — no se duplica.)
+  {
+    id: 'breakfast-pita', name: 'Pita rellena de desayuno', slot: 'desayuno', time: '15 min', icon: '🫓',
+    allergens: ['Huevo', 'Gluten'], tags: ['Alta en proteína', 'Comida simple'],
+    totals: { kcal: 477, p: 36, c: 44, g: 18 },
+    main: [
+      { n: 'Pan pita integral grande', q: 1, u: 'unidad' },
+      { n: 'Huevo', q: 2, u: 'unidades' },
+      { n: 'Claras de huevo', q: 122, u: 'g' },
+      { n: 'Hummus', q: 3, u: 'cda' },
+      { n: 'Espinaca', q: 15, u: 'g' },
+    ],
+    season: ['Sal y pimienta al gusto'],
+    steps: [
+      'Pica la espinaca.',
+      'En un bol, mezcla los huevos, las claras, sal y pimienta, y bate con un tenedor.',
+      'Calienta una sartén antiadherente a fuego bajo. Vierte la mezcla y cocina como huevos revueltos; cuando empiecen a cuajar, agrega la espinaca y revuelve con la espátula.',
+      'Corta la pita a la mitad, unta hummus por dentro de cada mitad y rellénala con el revuelto. Sirve y disfruta.',
+    ],
+  },
+  {
+    id: 'carrot-protein-bites', name: 'Bocaditos de zanahoria y proteína', slot: 'snack', time: '15 min', icon: '🥕',
+    allergens: ['Lácteos', 'Frutos secos'], tags: ['Sin cocción', 'Dulce'],
+    totals: { kcal: 243, p: 16, c: 26, g: 10 },
+    main: [
+      { n: 'Zanahoria rallada', q: 32, u: 'g' },
+      { n: 'Queso cottage bajo en grasa', q: 56, u: 'g' },
+      { n: 'Proteína whey de vainilla', q: 0.5, u: 'scoop' },
+      { n: 'Harina de almendra', q: 14, u: 'g' },
+      { n: 'Harina de avena', q: 1, u: 'cda' },
+      { n: 'Pasas', q: 12, u: 'g' },
+    ],
+    season: ['Canela en polvo · ¼ cdta', 'Leche baja en grasa · 1 cdta'],
+    steps: [
+      'Prepara los ingredientes: ralla la zanahoria, pica las pasas y licúa el queso cottage con la leche hasta que quede cremoso.',
+      'En un bol, mezcla la harina de almendra, la harina de avena, la canela y la proteína de vainilla.',
+      'Agrega el cottage licuado, la zanahoria y las pasas. Revuelve hasta lograr una mezcla cremosa y espesa.',
+      'Con las manos secas, forma bolitas del tamaño de un bocado.',
+      'Ponlas en un plato y disfruta. (Tip: duplica las cantidades y guarda en la nevera para dos snacks.)',
+    ],
+  },
+  // (La receta "Pumpkin Egg Pie" del PDF ya existía como 'pumpkin-egg-pie' — no se duplica.)
+  {
+    id: 'salmon-lettuce-rolls', name: 'Rollitos de salmón y lechuga', slot: 'snack', time: '5 min', icon: '🌯',
+    allergens: ['Lácteos', 'Pescado'], tags: ['Sin cocción', 'Comida simple'],
+    totals: { kcal: 202, p: 14, c: 9, g: 13 },
+    main: [
+      { n: 'Salmón ahumado', q: 60, u: 'g' },
+      { n: 'Hojas grandes de lechuga', q: 2, u: 'unidades' },
+      { n: 'Queso crema', q: 2, u: 'cda' },
+      { n: 'Papel de arroz', q: 1, u: 'unidad' },
+    ],
+    season: ['Eneldo fresco · unas ramitas'],
+    steps: [
+      'Corta la hoja de papel de arroz por la mitad y reserva.',
+      'Extiende las hojas de lechuga sobre una superficie limpia y unta el queso crema por encima.',
+      'Coloca las láminas de salmón ahumado sobre la lechuga y espolvorea con eneldo fresco.',
+      'Enrolla cada hoja de lechuga bien apretada.',
+      'Humedece ligeramente cada mitad de papel de arroz con agua, coloca un rollito en el centro y envuélvelo con firmeza.',
+      'Sirve en un plato y disfruta.',
+    ],
+  },
+  {
+    id: 'creamy-potato-soup', name: 'Crema de papa con yogur griego', slot: 'cena', time: '20 min', icon: '🍲',
+    allergens: ['Lácteos'], tags: ['Comida simple'],
+    totals: { kcal: 492, p: 25, c: 59, g: 18 },
+    main: [
+      { n: 'Papas blancas', q: 300, u: 'g' },
+      { n: 'Cebolla', q: 30, u: 'g' },
+      { n: 'Ajo', q: 3, u: 'dientes' },
+      { n: 'Caldo de pollo', q: 720, u: 'ml' },
+      { n: 'Yogur griego natural bajo en grasa', q: 61, u: 'g' },
+      { n: 'Queso suizo bajo en grasa', q: 30, u: 'g' },
+    ],
+    season: ['Aceite de oliva · 1 cda', 'Sal y pimienta al gusto'],
+    steps: [
+      'Pela y corta las papas en cubos, pica la cebolla y machaca el ajo.',
+      'Calienta el aceite de oliva en una olla a fuego medio. Sofríe la cebolla y el ajo hasta que estén suaves y aromáticos.',
+      'Agrega las papas y vierte el caldo de pollo. Lleva a hervor y baja a fuego lento hasta que las papas estén muy blandas.',
+      'Apaga el fuego y licúa la sopa con licuadora de inmersión hasta obtener una textura cremosa.',
+      'Incorpora el yogur griego y el queso suizo; revuelve hasta que el queso se derrita y quede integrado. Ajusta sal y pimienta.',
+      'Sirve caliente y disfruta.',
+    ],
+  },
+  {
+    id: 'pumpkin-protein-bread', name: 'Pan de auyama y proteína', slot: 'snack', time: '40 min', icon: '🍞',
+    allergens: ['Lácteos', 'Huevo', 'Frutos secos'], tags: ['Dulce', 'Alta en proteína'],
+    totals: { kcal: 223, p: 16, c: 25, g: 7 },
+    main: [
+      { n: 'Harina de avena', q: 25, u: 'g' },
+      { n: 'Puré de auyama (calabaza)', q: 40, u: 'g' },
+      { n: 'Yogur griego natural sin grasa', q: 31, u: 'g' },
+      { n: 'Huevo', q: 0.33, u: 'unidades' },
+      { n: 'Proteína whey de vainilla', q: 8, u: 'g' },
+      { n: 'Semillas de auyama peladas', q: 6, u: 'g' },
+    ],
+    season: ['Polvo para hornear · pizca', 'Especias para pie de auyama · pizca'],
+    steps: [
+      'Cantidades por porción; el pan completo rinde 6 porciones (multiplica ×6: 152 g harina de avena, 240 g puré de auyama, 184 g yogur griego, 2 huevos, 49 g proteína whey, 1 cdta polvo para hornear, 1 cdta especias, 35 g semillas de auyama).',
+      'Precalienta el horno a 200 °C.',
+      'Mezcla los ingredientes húmedos: puré de auyama, yogur griego y huevos.',
+      'En otro bol, mezcla los ingredientes secos: polvo para hornear, especias, proteína de vainilla y harina de avena. Agrega la mezcla húmeda y combina bien.',
+      'Forra un molde con papel manteca y vierte la mezcla. Decora con las semillas de auyama por encima.',
+      'Hornea 40 min a 160 °C hasta que un palillo salga casi limpio. Deja enfriar antes de cortar en 6 porciones.',
+    ],
+  },
+  {
+    id: 'peach-blueberry-smoothie', name: 'Smoothie de durazno y arándanos', slot: 'desayuno', time: '5 min', icon: '🥤',
+    allergens: ['Lácteos'], tags: ['Sin cocción', 'Smoothie'],
+    totals: { kcal: 249, p: 20, c: 28, g: 8 },
+    main: [
+      { n: 'Yogur griego natural sin grasa', q: 150, u: 'g' },
+      { n: 'Durazno', q: 0.5, u: 'unidad' },
+      { n: 'Arándanos', q: 36, u: 'g' },
+      { n: 'Semillas de chía', q: 22, u: 'g' },
+    ],
+    season: [],
+    steps: [
+      'Corta el durazno a la mitad, retira el hueso y pícalo.',
+      'Agrega el durazno picado a la licuadora junto con los arándanos, el yogur griego y las semillas de chía. Licúa hasta que quede cremoso.',
+      'Sirve en un vaso y disfruta.',
+    ],
+  },
+  {
+    id: 'vanilla-chai-smoothie', name: 'Smoothie de chai y vainilla', slot: 'snack', time: '5 min', icon: '🧋',
+    allergens: ['Lácteos', 'Frutos secos'], tags: ['Sin cocción', 'Smoothie'],
+    totals: { kcal: 238, p: 19, c: 23, g: 9 },
+    main: [
+      { n: 'Yogur griego natural bajo en grasa', q: 164, u: 'g' },
+      { n: 'Leche de almendras de vainilla', q: 120, u: 'ml' },
+      { n: 'Dátiles medjool', q: 20, u: 'g' },
+      { n: 'Mantequilla de almendras con sal', q: 1.5, u: 'cdta' },
+      { n: 'Bolsitas de té chai', q: 2, u: 'unidades' },
+    ],
+    season: [],
+    steps: [
+      'Prepara el té: hierve una taza de agua y viértela en una taza con las dos bolsitas de chai. Deja infusionar. Al mismo tiempo, remoja los dátiles en ¼ de taza de agua caliente para ablandarlos.',
+      'En la licuadora, agrega el yogur griego, los dátiles escurridos, el té chai (frío o tibio) y la leche de almendras de vainilla. Añade la mantequilla de almendras. Licúa hasta que quede suave.',
+      'Sirve en un vaso y disfruta.',
+    ],
+  },
+  // (La receta "Chocolate PB Protein Balls" del PDF ya existía como 'protein-balls' — no se duplica.)
+  {
+    id: 'avocado-cocoa-mousse', name: 'Mousse de aguacate y cacao', slot: 'snack', time: '5 min', icon: '🥑',
+    allergens: ['Lácteos'], tags: ['Sin cocción', 'Dulce'],
+    totals: { kcal: 228, p: 15, c: 16, g: 14 },
+    main: [
+      { n: 'Yogur griego natural bajo en grasa', q: 123, u: 'g' },
+      { n: 'Aguacate', q: 75, u: 'g' },
+      { n: 'Cacao en polvo sin azúcar', q: 1.5, u: 'cda' },
+    ],
+    season: ['Endulzante sin calorías al gusto (opcional)'],
+    steps: [
+      'Licúa todos los ingredientes hasta que quede una mezcla cremosa y homogénea.',
+      'Sirve y disfruta. Si te gusta más dulce, añade endulzante sin calorías al gusto.',
+    ],
+  },
+  {
+    id: 'strawberry-shake', name: 'Malteada de fresa', slot: 'snack', time: '5 min', icon: '🍓',
+    allergens: ['Lácteos', 'Frutos secos'], tags: ['Sin cocción', 'Smoothie', 'Alta en proteína'],
+    totals: { kcal: 221, p: 26, c: 18, g: 6 },
+    main: [
+      { n: 'Yogur griego 0% grasa', q: 227, u: 'g' },
+      { n: 'Fresas', q: 114, u: 'g' },
+      { n: 'Leche de almendras de vainilla sin azúcar', q: 99, u: 'ml' },
+      { n: 'Almendras crudas', q: 5, u: 'unidades' },
+    ],
+    season: [],
+    steps: [
+      'Licúa todos los ingredientes con hielo hasta que quede cremoso. Sirve y disfruta.',
+    ],
+  },
+  {
+    id: 'chocolate-whey-pudding', name: 'Pudín de chocolate whey con fresas', slot: 'snack', time: '5 min', icon: '🍮',
+    allergens: ['Lácteos', 'Frutos secos'], tags: ['Sin cocción', 'Dulce', 'Alta en proteína'],
+    totals: { kcal: 223, p: 27, c: 21, g: 5 },
+    main: [
+      { n: 'Fresas', q: 152, u: 'g' },
+      { n: 'Proteína whey de chocolate', q: 1, u: 'scoop' },
+      { n: 'Mantequilla de almendras', q: 1, u: 'cdta' },
+      { n: 'Cacao en polvo sin azúcar', q: 1, u: 'cda' },
+    ],
+    season: [],
+    steps: [
+      'En un bol, mezcla la mantequilla de almendras, la proteína whey y el cacao en polvo con una cucharada de agua.',
+      'Revuelve hasta integrar; agrega agua poco a poco hasta que tome consistencia de pudín.',
+      'Corta las fresas en rebanadas y sírvelas por encima. Disfruta.',
+    ],
+  },
+  {
+    id: 'banana-pancakes', name: 'Panqueques de banana y proteína', slot: 'desayuno', time: '15 min', icon: '🥞',
+    allergens: ['Huevo', 'Frutos secos'], tags: ['Comida simple', 'Alta en proteína'],
+    totals: { kcal: 530, p: 38, c: 55, g: 20 },
+    main: [
+      { n: 'Proteína whey de vainilla', q: 1, u: 'scoop' },
+      { n: 'Banana', q: 1.5, u: 'unidades' },
+      { n: 'Claras de huevo', q: 3, u: 'unidades' },
+      { n: 'Harina de almendra', q: 2.5, u: 'cda' },
+      { n: 'Aceite de coco', q: 2, u: 'cdta' },
+    ],
+    season: ['Canela o especias para pie de auyama al gusto'],
+    steps: [
+      'Licúa todos los ingredientes menos el aceite de coco.',
+      'Calienta una sartén antiadherente a fuego bajo con 1 cdta de aceite de coco. Vierte la mitad de la mezcla y cocina 2–3 min por lado, hasta dorar.',
+      'Repite con el resto del aceite y la mezcla para el segundo panqueque.',
+      'Sirve y espolvorea con canela o especias para pie de auyama. Disfruta.',
+    ],
+  },
+  {
+    id: 'balanced-protein-pancakes', name: 'Panqueques balanceados con mantequilla de almendra', slot: 'desayuno', time: '15 min', icon: '🥞',
+    allergens: ['Gluten', 'Frutos secos'], tags: ['Comida simple', 'Alta en proteína'],
+    totals: { kcal: 540, p: 30, c: 65, g: 20 },
+    main: [
+      { n: 'Harina de trigo común', q: 50, u: 'g' },
+      { n: 'Proteína de arveja en polvo', q: 0.75, u: 'scoop' },
+      { n: 'Mantequilla de almendras con sal', q: 2, u: 'cda' },
+      { n: 'Miel de maple', q: 1, u: 'cda' },
+      { n: 'Arándanos', q: 3, u: 'cda' },
+      { n: 'Agua', q: 118, u: 'ml' },
+    ],
+    season: ['Polvo para hornear · ½ cda', 'Sal · ½ cdta', 'Endulzante sin calorías · 1 sobre'],
+    steps: [
+      'Mezcla los ingredientes secos (harina, proteína, polvo para hornear, sal, endulzante) en un bol. Agrega el agua y bate hasta integrar; la mezcla puede quedar un poco grumosa, no importa.',
+      'Vierte ¼ de taza de la mezcla en una sartén antiadherente con spray de cocina a fuego medio-alto.',
+      'Cocina 1–2 min o hasta que aparezcan burbujas en la superficie. Voltea y cocina 1–2 min por el otro lado.',
+      'Sírvelos calientes y corona con la mantequilla de almendras, la miel de maple y los arándanos.',
+    ],
+  },
 ];
 
 // Metadata para tags y filtros: costo (1=económico … 3=premium), dificultad
@@ -750,6 +1003,20 @@ const META = {
   'caprese-chicken-salad': { cost: 2, diff: 'Fácil', min: 15 },
   'mexican-chicken-bowl': { cost: 1, diff: 'Fácil', min: 10 },
   'beef-plantain-bowl': { cost: 2, diff: 'Media', min: 30 },
+  // Bloque 2 (jul 2026)
+  'caprese-chicken-pasta': { cost: 2, diff: 'Fácil', min: 15 },
+  'breakfast-pita': { cost: 1, diff: 'Fácil', min: 15 },
+  'carrot-protein-bites': { cost: 2, diff: 'Fácil', min: 15 },
+  'salmon-lettuce-rolls': { cost: 3, diff: 'Fácil', min: 5 },
+  'creamy-potato-soup': { cost: 1, diff: 'Media', min: 20 },
+  'pumpkin-protein-bread': { cost: 2, diff: 'Media', min: 40 },
+  'peach-blueberry-smoothie': { cost: 2, diff: 'Fácil', min: 5 },
+  'vanilla-chai-smoothie': { cost: 2, diff: 'Fácil', min: 5 },
+  'avocado-cocoa-mousse': { cost: 2, diff: 'Fácil', min: 5 },
+  'strawberry-shake': { cost: 2, diff: 'Fácil', min: 5 },
+  'chocolate-whey-pudding': { cost: 2, diff: 'Fácil', min: 5 },
+  'banana-pancakes': { cost: 2, diff: 'Fácil', min: 15 },
+  'balanced-protein-pancakes': { cost: 1, diff: 'Fácil', min: 15 },
 };
 const COST_LABELS = { 1: 'Económica', 2: 'Moderada', 3: 'Premium' };
 const SORT_NOTES = {
