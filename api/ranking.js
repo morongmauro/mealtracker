@@ -42,26 +42,32 @@ function dayGoalScore(totals, goals) {
   return n === 0 ? null : Math.round((sum / n) * 100);
 }
 
-// days de una fila: { 'YYYY-MM-DD': score|null } SOLO dentro del reto
+// days de una fila: { 'YYYY-MM-DD': score|null } SOLO dentro del reto.
+// La fila viene del select con alias (goals/history/today/today_totals
+// extraídos del JSONB), no con el blob `data` completo.
 function rowChallengeDays(row, todayStr) {
-  const data = row.data || {};
-  const goals = data.goals || null;
-  const history = { ...(data.history || {}) };
+  const goals = row.goals || null;
+  const history = { ...(row.history || {}) };
   // El día en curso del cliente aún no está "cerrado" en history — se fusiona
   // para que el tablero refleje EN TIEMPO REAL lo que registró hoy.
-  if (data.today && data.today_totals) {
-    history[data.today] = {
-      kcal: data.today_totals.kcal || 0,
-      p: data.today_totals.p || 0,
-      c: data.today_totals.c || 0,
-      g: data.today_totals.g || 0,
+  if (row.today && row.today_totals) {
+    history[row.today] = {
+      kcal: row.today_totals.kcal || 0,
+      p: row.today_totals.p || 0,
+      c: row.today_totals.c || 0,
+      g: row.today_totals.g || 0,
     };
   }
   const out = {};
   for (const date of Object.keys(history)) {
-    if (date >= CHALLENGE_START && date <= CHALLENGE_END && date <= todayStr) {
-      out[date] = dayGoalScore(history[date], goals);
-    }
+    if (date < CHALLENGE_START || date > CHALLENGE_END || date > todayStr) continue;
+    const t = history[date] || {};
+    // Un día en cero (solo abrió la app, registró agua, o el día se archivó
+    // vacío) NO cuenta como "día registrado": sin este filtro, abrir la app
+    // bastaba para sumar adherencia e incluso rankear en la pestaña "Hoy".
+    const total = (Number(t.kcal) || 0) + (Number(t.p) || 0) + (Number(t.c) || 0) + (Number(t.g) || 0);
+    if (total <= 0) continue;
+    out[date] = dayGoalScore(t, goals);
   }
   return out;
 }
@@ -95,13 +101,17 @@ function groupByName(rows) {
   return result;
 }
 
-// "Diana Morales" → "Diana M." (privacidad: la página es pública)
-function publicName(fullName) {
+// "Diana Morales" → "Diana M." (privacidad: la página es pública).
+// `letters` = cuántas letras del apellido usar, para distinguir a dos
+// clientes que colisionen ("Diana Morales" vs "Diana Martínez" →
+// "Diana Mo." / "Diana Ma."). React además usa este nombre como key.
+function publicName(fullName, letters = 1) {
   const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '';
   const first = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
   if (parts.length === 1) return first;
-  return `${first} ${parts[1].charAt(0).toUpperCase()}.`;
+  const sur = parts[1].charAt(0).toUpperCase() + parts[1].slice(1, letters);
+  return `${first} ${sur}.`;
 }
 
 export default async function handler(req, res) {
@@ -118,8 +128,12 @@ export default async function handler(req, res) {
     // 'en-CA' da el formato YYYY-MM-DD directamente
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TIMEZONE });
 
+    // Select con alias JSON (mismo patrón que api/sync.js): trae SOLO lo que
+    // el ranking necesita. El blob `data` completo incluye historyDetail
+    // (cada item de cada comida desde el registro), que crece sin límite —
+    // bajarlo entero por cliente en cada consulta era un desperdicio enorme.
     const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_data?select=name,data`,
+      `${SUPABASE_URL}/rest/v1/user_data?select=name,goals:data->goals,history:data->history,today:data->today,today_totals:data->today_totals`,
       { headers: { 'apikey': SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}` } }
     );
     const rows = await r.json();
@@ -127,10 +141,22 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'supabase response invalid' });
     }
     for (const row of rows) row._days = rowChallengeDays(row, todayStr);
-    const clients = groupByName(rows)
-      .filter(c => Object.keys(c.days).length > 0) // al menos un día registrado en el reto
-      .map(c => ({ name: publicName(c.name), days: c.days }))
-      .filter(c => c.name);
+    const grouped = groupByName(rows)
+      .filter(c => Object.keys(c.days).length > 0); // al menos un día registrado en el reto
+    // Nombre público único por cliente: si "Diana Morales" y "Diana Martínez"
+    // colisionan como "Diana M.", la segunda pasa a "Diana Ma." (y así). Sin
+    // esto el tablero muestra dos escaladores indistinguibles y React recibe
+    // keys duplicadas.
+    const clients = [];
+    for (const c of grouped) {
+      let letters = 1;
+      let name = publicName(c.name, letters);
+      while (name && clients.some(x => x.name === name) && letters < 8) {
+        letters++;
+        name = publicName(c.name, letters);
+      }
+      if (name) clients.push({ name, days: c.days });
+    }
 
     // CDN cache: la página puede sondear cada minuto sin castigar a Supabase.
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
