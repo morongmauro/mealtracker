@@ -228,6 +228,11 @@ export default function MealTracker() {
   // Acceso suspendido desde el CRM ('pausa' | 'finalizado' | null). No borra
   // nada: solo bloquea la pantalla hasta que el coach reactive el plan.
   const [accessBlocked, setAccessBlocked] = useState(null);
+  // Recordatorio de pago (viene del CRM vía /api/payment-status). null = sin
+  // recordatorio; objeto { dia_corte, monto, moneda } = la fecha de corte del
+  // mes ya pasó y el coach aún no marcó el pago. Se muestra como banner (fuera
+  // del chat) y desaparece solo cuando el coach marca el pago en el CRM.
+  const [paymentDue, setPaymentDue] = useState(null);
   // Link al centro de recursos DEL CLIENTE (viene de /api/resources según su
   // nombre; los links se administran en api/_clients.js). Vacío = sin botón.
   const [learningUrl, setLearningUrl] = useState(() => {
@@ -1211,6 +1216,29 @@ export default function MealTracker() {
       setAccessBlocked(!a.ok && ['pausa', 'finalizado'].includes(a.status) ? a.status : null);
     })();
     return () => { cancelled = true; };
+  }, [view, name]);
+
+  // Recordatorio de pago: consulta al CRM (vía /api/payment-status) si la fecha
+  // de corte del mes ya pasó y el pago aún no está marcado. Se revisa al abrir
+  // la app y cada vez que vuelve a primer plano, de modo que en cuanto el coach
+  // marca el pago en el CRM, el banner desaparece la próxima vez que el cliente
+  // ve la app. No toca el chat ni bloquea nada.
+  useEffect(() => {
+    if (view !== 'main' || !name) return;
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const r = await fetch(`/api/payment-status?name=${encodeURIComponent(name)}`);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (cancelled) return;
+        setPaymentDue(d && d.due ? { dia_corte: d.dia_corte, monto: d.monto, moneda: d.moneda } : null);
+      } catch (e) { /* sin red: no mostramos recordatorio */ }
+    };
+    check();
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible); };
   }, [view, name]);
 
   // Abre el centro de recursos (Aprendizaje) pasando la identidad del cliente
@@ -3426,6 +3454,42 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           </div>
           );
         })()}
+
+        {/* Recordatorio de pago — banner FUERA del chat (no ensucia la
+            conversación). Aparece cuando la fecha de corte del mes ya pasó y el
+            coach aún no marcó el pago en el CRM, y desaparece solo en cuanto lo
+            marca. Tono ámbar suave: avisa sin alarmar. */}
+        {paymentDue && (
+          <div className="relative mb-4 fade-up" style={{
+            display: 'flex', alignItems: 'flex-start', gap: '12px',
+            padding: '14px 16px',
+            borderRadius: '18px',
+            background: 'linear-gradient(180deg, #FDF6E3 0%, #FBEFCF 100%)',
+            border: '1px solid #EBD9A6',
+            boxShadow: '0 6px 20px rgba(180,140,20,0.10), 0 1px 0 rgba(255,255,255,0.7) inset',
+          }}>
+            <div style={{
+              flexShrink: 0, width: '34px', height: '34px', borderRadius: '11px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(180,140,20,0.12)', fontSize: '18px',
+            }}>💳</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: '13px', color: '#8A6D16', letterSpacing: '0.01em' }}>
+                Recordatorio de pago
+              </div>
+              <div style={{ fontSize: '13px', color: '#6B5A22', lineHeight: 1.45, marginTop: '2px' }}>
+                Tu fecha de corte fue el día {paymentDue.dia_corte}. Recuerda efectuar el pago mensual del programa
+                {paymentDue.monto ? (
+                  <> (<strong style={{ color: '#8A6D16' }}>{
+                    (() => { try {
+                      return new Intl.NumberFormat('es-CO', { style: 'currency', currency: paymentDue.moneda || 'COP', maximumFractionDigits: 0 }).format(paymentDue.monto);
+                    } catch (e) { return `${paymentDue.monto} ${paymentDue.moneda || ''}`.trim(); } })()
+                  }</strong>)</>
+                ) : null}.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '20px', contain: 'layout paint', willChange: 'transform' }}>
