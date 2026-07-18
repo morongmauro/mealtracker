@@ -1873,7 +1873,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 
 ═══ INTENTS (elige UNO) ═══
 - "log_meal": registrar comida(s) nueva(s). Ej: "desayuno: 2 huevos y café", "almorcé pollo con arroz". Si el mensaje cubre VARIAS comidas del día, usa el campo "meals" (array) con un objeto por comida. Si es UNA sola comida, usa "items" + "meal".
-  FECHA DEL REGISTRO ("log_date"): por defecto null = HOY. Si el cliente dice que comió en un día PASADO ("ayer", "antier", "hace N días", "el lunes", "el sábado pasado", "el 15", "12 de junio"), busca ese día en la TABLA DE FECHAS del contexto y COPIA la fecha exacta (YYYY-MM-DD) en "log_date" — PROHIBIDO calcular la fecha por tu cuenta, usa la tabla. Un día de la semana = la ocurrencia MÁS RECIENTE ya pasada de ese día. NUNCA uses una fecha futura. Si no hay ninguna referencia temporal a un día pasado, log_date=null.
+  FECHA DEL REGISTRO ("log_date"): por defecto null = HOY. Si el cliente dice que comió en un día PASADO ("ayer", "antier", "hace N días", "el lunes", "el sábado pasado", "el 15", "12 de junio"), busca ese día en la TABLA DE FECHAS del contexto y COPIA la fecha exacta (YYYY-MM-DD) en "log_date" — PROHIBIDO calcular la fecha por tu cuenta, usa la tabla. Un día de la semana = la ocurrencia MÁS RECIENTE ya pasada de ese día. NUNCA uses una fecha futura. Si no hay ninguna referencia temporal a un día pasado, log_date=null. OJO: log_date es SOLO para comida NUEVA (aún no registrada). Si la comida YA quedó registrada hoy y el cliente solo pide cambiarle el día ("eso que te pasé era de ayer") → NO uses log_meal: usa command="move_entry" (ver comandos), o quedará duplicada.
   VARIOS DÍAS EN UN MISMO MENSAJE: si el cliente dicta comidas de MÁS DE UN día ("el viernes comí X y el sábado Y", "te voy a contar lo de ayer y lo de hoy"), usa el campo "meals" y pon en CADA objeto de "meals" su propio "log_date" (la fecha de ESE día según la tabla; null si esa comida es de hoy). PROHIBIDO amontonar comidas de días distintos bajo una misma fecha — cada comida va exactamente al día que el cliente dijo. Solo si TODO el mensaje es de UN único día pasado puedes usar el "log_date" raíz para todo el bloque.
   Ejemplos: "ayer cené pollo con arroz" → log_meal, meal=cena, log_date=(fecha de "ayer" en la tabla). "el lunes desayuné avena y el martes almorcé pasta" → log_meal, meals=[{meal:"desayuno", log_date:(lunes en la tabla), items:[avena]}, {meal:"almuerzo", log_date:(martes en la tabla), items:[pasta]}]. "el domingo desayuné huevos y almorcé asado" → log_meal, meals=[{meal:"desayuno", log_date:(domingo), items:[huevos]}, {meal:"almuerzo", log_date:(domingo), items:[asado]}].
 - "append_to_last": SUMAR alimentos a la ÚLTIMA comida registrada hoy (no crear meal nuevo). DETECTAR estos signos: "me faltó", "olvidé decirte", "también comí", "agregale", "sumá", "ah me acordé", "no te dije que también", "ese tercero suma a lo que ya registraste". SI hay última comida, los items van EN ELLA.
@@ -1895,7 +1895,8 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   ARGUMENTA SIEMPRE (campo "logic", 1-2 oraciones, concisas): di QUÉ target usaste y POR QUÉ, y la condición real para cumplir la meta. Ejemplos: "Ajusté tus 3 menús para que JUNTOS sumen tu meta diaria; cumplirla depende de que el día sea exactamente esto y nada más." / "Como esto es solo tu almuerzo, lo ajusté al ~35% de tu meta (no al día completo); el resto lo completas con desayuno y cena." / "Como aún no has registrado nada hoy, partí de tu meta completa; si ya comiste algo, dímelo y ajusto sobre lo que te queda."
   Devuelve "adjust_favorites_response" con la estructura del schema. NUNCA registres nada — es solo propuesta visual.
 - "water": registra agua. "1 vaso"=250ml, "1 termo"=500ml, "1 botella"=500ml, "1 litro"=1000ml.
-- "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite}. Mapping: "reiniciar día"→reset_day, "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion, "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
+- "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite, move_entry}. Mapping: "reiniciar día"→reset_day, "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion, "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
+  MOVER UNA COMIDA YA REGISTRADA A OTRO DÍA → move_entry (CRÍTICO): si el cliente pide cambiar la fecha de algo que YA quedó registrado hoy ("eso que te pasé regístralo para ayer, no para hoy", "esa cena era de ayer", "lo que registraste pásalo al miércoles", "me equivoqué, eso fue antier") → command="move_entry" + meal=(tipo de comida referida: cena/almuerzo/etc., o null si no lo dice) + log_date=(fecha DESTINO copiada de la TABLA DE FECHAS). Se reconoce porque en el contexto de conversación YA aparece esa comida registrada ("(registré cena: …)"). PROHIBIDO responder con log_meal en ese caso: re-registrarla crearía un DUPLICADO (la comida quedaría contada en los dos días). log_meal con log_date es SOLO para comida que aún NO está registrada.
 - "clarify": SOLO si hay ambigüedad REAL. Llenar "clarify_interpretation" (tu mejor lectura ESCRITA PARA EL CLIENTE: 1 oración corta hablándole de "tú", ej: "quieres registrar pollo en tu cena") y "clarify_question" (pregunta corta y cálida, ej: "¿cuántos gramos aproximadamente?"). PROHIBIDO en ambos campos: razonamiento interno, tercera persona ("el cliente dice..."), o mencionar historial/señales/frontend/intents/reglas — el cliente lee estos textos TAL CUAL.
 - "off_topic": saludos, charla, preguntas sobre el coach, "qué dieta hacer". Llena "message" con respuesta cálida y breve.
 - "name": cliente dice su nombre. Llena "name_detected".
@@ -1908,7 +1909,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N, "needs_quantity": false}],
   "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "log_date": "YYYY-MM-DD si ESA comida es de un día pasado, null = hoy", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N}]}] | null,
   "append_to_entry_id": N | null,
-  "command": "reset_day | change_goals | calendar | favorites | proportion | manage_favorites | plan_day | save_day_favorite | null",
+  "command": "reset_day | change_goals | calendar | favorites | proportion | manage_favorites | plan_day | save_day_favorite | move_entry | null",
   "name_detected": "..." | null,
   "water_ml": N | null,
   "preview": "string corto resumen items | null",
@@ -2282,6 +2283,28 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
             setMessages(m => [...m, { role: 'assistant', content: `Guardé estos ingredientes: ${fromItems.join(', ')}. Cuando quieras te armo el día con esto.`, ts: Date.now() }]);
           } else {
             setShowIngredientsModal(true);
+          }
+        }
+        else if (parsed.command === 'move_entry') {
+          // Mover una comida YA registrada hoy a un día pasado. Sin esto,
+          // "eso que te pasé era de ayer" se re-registraba con log_date y la
+          // comida quedaba DOBLE: contada en hoy y en ayer.
+          const isPast = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d < today;
+          const targetDate = isPast(parsed.log_date) ? parsed.log_date : null;
+          const wanted = (parsed.meal || '').toLowerCase();
+          const candidates = wanted ? entries.filter(en => (en.meal || '').toLowerCase() === wanted) : entries;
+          const target = candidates[candidates.length - 1]; // la más reciente de ese tipo
+          if (!targetDate) {
+            setMessages(m => [...m, { role: 'assistant', content: '¿Para qué día muevo esa comida? Dime por ejemplo "para ayer" o la fecha exacta.', ts: Date.now() }]);
+          } else if (!target) {
+            setMessages(m => [...m, { role: 'assistant', content: `No encuentro ${wanted ? `esa ${wanted}` : 'esa comida'} registrada en tu día de hoy, así que no moví nada. Si quedó en otro día por error, dímelo y lo revisamos con tu coach.`, ts: Date.now() }]);
+          } else {
+            setEntries(es => es.filter(en => en.id !== target.id));
+            setMessages(m => m.filter(msg => msg.entryId !== target.id));
+            addEntriesToDate(targetDate, [{ ...target, time: '' }]);
+            const dayLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+            setMessages(m => [...m, { role: 'assistant', content: `Hecho: moví tu ${target.meal || 'comida'} (${Math.round(target.kcal)} kcal · P${Math.round(target.p)} C${Math.round(target.c)} G${Math.round(target.g)}) de hoy a ${dayLabel}. Salió de los totales de hoy y quedó contada solo en ese día — nada doble.`, ts: Date.now() }]);
+            haptic(15);
           }
         }
         else if (parsed.command === 'plan_day') {
