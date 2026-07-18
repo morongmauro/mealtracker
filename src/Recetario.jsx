@@ -1314,9 +1314,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         <div className="rounded-3xl p-4" style={cardStyle}>
           <div className="flex items-center justify-between mb-3">
             <div className="text-[11px] tracking-[0.04em] uppercase font-semibold" style={{ color: ACCENT }}>Tu meta de hoy</div>
-            <button onClick={() => { haptic(8); onChangeGoal?.(); }} className="flex items-center gap-1 px-2.5 py-1 rounded-full active:scale-95" style={{ color: TEXT, background: '#FFF', border: `1px solid ${BORDER}` }}>
-              <Sliders size={11} /><span className="text-[10px] font-semibold">Cambiar meta</span>
-            </button>
+            {/* La meta la administra el coach desde el CRM — sin botón de cambio */}
           </div>
           <div className="grid grid-cols-4 gap-2 text-center">
             {[{ v: g.kcal, l: 'Calorías', c: TEXT, u: '' }, { v: g.p, l: 'Proteína', c: C_PROTEIN, u: 'g' }, { v: g.c, l: 'Carbos', c: C_CARBS, u: 'g' }, { v: g.g, l: 'Grasas', c: C_FAT, u: 'g' }].map((m, i) => (

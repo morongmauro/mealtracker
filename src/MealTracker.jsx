@@ -2256,7 +2256,10 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       // UI COMMAND
       if (intent === 'command') {
         if (parsed.command === 'reset_day') setActiveModal('reset');
-        else if (parsed.command === 'change_goals') setView('onboarding');
+        else if (parsed.command === 'change_goals') {
+          // La meta la administra el coach desde el CRM; acá solo se explica.
+          setMessages(m => [...m, { role: 'assistant', content: 'Tu meta nutricional la administra tu coach y se ajusta según tu plan. Si sientes que necesita un cambio, coméntaselo directamente y él la actualizará — te llegará el aviso aquí en el chat. 💪', ts: Date.now() }]);
+        }
         else if (parsed.command === 'calendar') setActiveModal('calendar');
         else if (parsed.command === 'favorites') setActiveModal('favorites');
         else if (parsed.command === 'manage_favorites') {
@@ -3229,7 +3232,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             consumed={totals}
             onClose={() => setShowRecetario(false)}
             onRegister={registerRecipeEntry}
-            onChangeGoal={() => { setShowRecetario(false); setView('onboarding'); }}
           />
         </Suspense>
       )}
@@ -3266,21 +3268,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             background: `radial-gradient(circle, ${ACCENT_PASTEL}30, transparent 65%)`
           }} />
           <div className="relative">
-          {!cardCompact && (
-            <button
-              onClick={(e) => { e.stopPropagation(); haptic(8); setView('onboarding'); }}
-              className="absolute top-0 right-0 flex items-center gap-1 px-2.5 py-1 rounded-full transition active:scale-95"
-              style={{
-                color: TEXT_MUTED,
-                background: 'rgba(255,255,255,0.85)',
-                border: `1px solid rgba(0,0,0,0.06)`
-              }}
-              title="Cambiar meta nutricional">
-              <Sliders size={10} />
-              <span className="text-[10px] font-semibold">Cambiar meta</span>
-            </button>
-          )}
-
+          {/* La meta nutricional la administra el COACH desde el CRM: el
+              cliente ya no tiene botón de "Cambiar meta". Cuando el coach la
+              actualiza, llega el anuncio al chat automáticamente. */}
           {!cardCompact && (
             <div className="text-center mb-3">
               <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: TEXT_LIGHT }}>
@@ -3437,8 +3427,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <div>
                   <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon="🎯" label="Cambiar meta" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); closeActionsSheet(); setView('onboarding'); }} />
                     {learningUrl && (
                       <ActionChipMini icon="🎓" label="Aprendizaje" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                         onClick={openLearning} />
