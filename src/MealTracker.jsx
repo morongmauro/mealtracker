@@ -58,6 +58,16 @@ const checkAccess = async (name) => {
   }
 };
 
+// Separa un texto de ingredientes en alimentos individuales. Los clientes
+// suelen escribir la lista completa de una ("pollo, arroz y carne") en vez de
+// añadir de a uno: se corta por comas, punto y coma, saltos de línea y " y ".
+// Lo usan el modal de Mis ingredientes y la ruta del chat (manage_favorites),
+// así "ayuda con proporciones" y "arma mi día" reciben alimentos separados.
+const splitIngredients = (text) => String(text || '')
+  .split(/[,;\n]+|\sy\s/i)
+  .map(s => s.trim().toLowerCase())
+  .filter(Boolean);
+
 // Static SVG background — computed ONCE at module load. Previously this
 // 60-line SVG string was URL-encoded on every parent render, which on
 // mobile is a real cost. Defining it here removes that work entirely.
@@ -2263,7 +2273,9 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         else if (parsed.command === 'calendar') setActiveModal('calendar');
         else if (parsed.command === 'favorites') setActiveModal('favorites');
         else if (parsed.command === 'manage_favorites') {
-          const fromItems = (parsed.items || []).map(i => (i.name || '').trim().toLowerCase()).filter(Boolean);
+          // flatMap + splitIngredients: si el modelo devuelve un item con la
+          // lista pegada ("pollo, arroz y carne"), igual entra separado.
+          const fromItems = (parsed.items || []).flatMap(i => splitIngredients(i.name));
           if (fromItems.length > 0) {
             const merged = Array.from(new Set([...favoriteIngredients, ...fromItems]));
             setFavoriteIngredients(merged);
@@ -6129,10 +6141,16 @@ function IngredientsModal({ ingredients, onSave, onClose }) {
   const [input, setInput] = useState('');
 
   const addIng = () => {
-    const v = input.trim();
-    if (!v) return;
-    if (list.includes(v.toLowerCase())) { setInput(''); return; }
-    setList([...list, v.toLowerCase()]);
+    // Los clientes suelen escribir la lista completa en el campo ("pollo,
+    // arroz y carne") y darle Añadir: se separa por comas, punto y coma,
+    // saltos de línea o " y ", y cada alimento entra como chip propio.
+    const parts = splitIngredients(input);
+    if (!parts.length) return;
+    setList(prev => {
+      const merged = [...prev];
+      for (const p of parts) if (!merged.includes(p)) merged.push(p);
+      return merged;
+    });
     setInput('');
     haptic(6);
   };
