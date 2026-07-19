@@ -3501,7 +3501,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 Recordatorio de pago
               </div>
               <div style={{ fontSize: '13px', color: '#6B5A22', lineHeight: 1.45, marginTop: '2px' }}>
-                Tu fecha de corte fue el día {paymentDue.dia_corte}. Recuerda efectuar el pago mensual del programa
+                Tu fecha de corte fue el {paymentDue.dia_corte} de {new Date().toLocaleDateString('es', { month: 'long' })}. Recuerda efectuar el pago mensual del programa
                 {paymentDue.monto ? (
                   <> (<strong style={{ color: '#8A6D16' }}>{
                     (() => { try {
