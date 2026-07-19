@@ -3,7 +3,7 @@ import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
-  GraduationCap, Megaphone, Mountain
+  GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale
 } from 'lucide-react';
 
 // Chunk aparte: el Recetario (~30KB de recetas + UI) solo se descarga la
@@ -80,6 +80,15 @@ const swallowGhostClick = () => {
   const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
   document.addEventListener('click', swallow, { capture: true, once: true });
   setTimeout(() => document.removeEventListener('click', swallow, { capture: true }), 600);
+};
+
+// Qué es cada macro, en una línea. Se muestra al TOCAR un anillo de la
+// tarjeta de metas: educación en contexto sin ocupar espacio permanente.
+const MACRO_INFO = {
+  kcal: { t: 'Calorías:', d: 'tu presupuesto total de energía del día — la suma de todo lo que comes.' },
+  p:    { t: 'Proteína:', d: 'construye y protege tu músculo. Es la meta que más conviene completar cada día.' },
+  c:    { t: 'Carbos:', d: 'tu combustible para entrenar y rendir. Suben o bajan según la fase de tu plan.' },
+  g:    { t: 'Grasas:', d: 'hormonas y absorción de vitaminas. Ni villanas ni libres: en su justa medida.' },
 };
 
 // Static SVG background — computed ONCE at module load. Previously this
@@ -245,6 +254,13 @@ export default function MealTracker() {
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [showCapabilitiesModal, setShowCapabilitiesModal] = useState(false);
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
+  // Anillo tocado → línea explicando ese macro (null = sin explicación abierta)
+  const [macroTip, setMacroTip] = useState(null);
+  useEffect(() => {
+    if (!macroTip) return;
+    const t = setTimeout(() => setMacroTip(null), 8000); // se esconde sola
+    return () => clearTimeout(t);
+  }, [macroTip]);
   const [transcribing, setTranscribing] = useState(false);
   const [pendingFavoriteEntry, setPendingFavoriteEntry] = useState(null);
   const [renamingFavoriteId, setRenamingFavoriteId] = useState(null);
@@ -436,8 +452,12 @@ export default function MealTracker() {
           try { setFavoriteIngredients(JSON.parse(favIngRes.value)); } catch (e) {}
         }
 
-        if (goalsRes?.value) {
-          setGoals(JSON.parse(goalsRes.value));
+        // La puerta de entrada es el NOMBRE, no las metas: el cliente ya no
+        // define su meta (la carga el coach y puede tardar), así que un
+        // cliente con nombre pero sin meta entra igual a la app — antes
+        // rebotaba a la bienvenida en cada apertura.
+        if (goalsRes?.value || storedName) {
+          if (goalsRes?.value) setGoals(JSON.parse(goalsRes.value));
           setView('main');
           if (storedMsgs.length === 0 && (!lastDay || lastDay === today)) {
             setMessages([{
@@ -1427,6 +1447,16 @@ export default function MealTracker() {
     window.storage.set('favoriteIngredients', JSON.stringify(favoriteIngredients)).catch(() => {});
   }, [favoriteIngredients]);
 
+  // Aviso estándar cuando una función necesita la meta y el coach aún no la
+  // ha cargado (cliente nuevo): el cliente puede seguir registrando comida.
+  const avisarMetaPendiente = () => {
+    setMessages(m => [...m, {
+      role: 'assistant',
+      content: 'Para eso necesito tu meta nutricional, y tu coach aún la está preparando — te avisaré aquí en cuanto la cargue. Mientras tanto puedo registrar todo lo que comas y llevar tus totales.',
+      ts: Date.now(),
+    }]);
+  };
+
   // Generate a daily meal plan from favorite ingredients
   // Compute deficit % for each macro. Returns the macro with the biggest gap, or null.
   const computeBiggestGap = () => {
@@ -1517,6 +1547,7 @@ SCHEMA:
 
   // Suggest 2-3 meal combos based on the client's favorite ingredients
   const handleMealSuggestion = async (mealType) => {
+    if (!goals) { avisarMetaPendiente(); return; }
     const remaining = {
       kcal: Math.max(0, goals.kcal - totals.kcal),
       p: Math.max(0, goals.p - totals.p),
@@ -1582,6 +1613,7 @@ SCHEMA:
   };
 
   const generatePlan = async () => {
+    if (!goals) { setShowPlannerModal(false); avisarMetaPendiente(); return; }
     // Allow planning if has either ingredients or saved meal menus
     if (favoriteIngredients.length === 0 && favorites.length === 0) {
       setShowIngredientsModal(true);
@@ -1864,7 +1896,7 @@ CONTEXTO DEL CLIENTE:
 - Nombre: ${name || 'desconocido'}
 - Comidas registradas hoy: ${entries.length}
 - Totales hoy: ${totals.kcal} kcal · P ${totals.p}g · C ${totals.c}g · G ${totals.g}g
-- Meta diaria: ${goals?.kcal || '?'} kcal · P ${goals?.p || '?'}g · C ${goals?.c || '?'}g · G ${goals?.g || '?'}g
+- Meta diaria: ${goals ? `${goals.kcal} kcal · P ${goals.p}g · C ${goals.c}g · G ${goals.g}g` : 'AÚN SIN ASIGNAR — la define su coach Mauro y le llegará con un aviso aquí; si el cliente pregunta por su meta, explícale eso con calma'}
 - Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
 - Fecha de hoy: ${today} (${new Date().toLocaleDateString('es', { weekday: 'long' })})
 - TABLA DE FECHAS (para "log_date" COPIA la fecha exacta de esta tabla, NO la calcules tú):
@@ -2102,6 +2134,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   };
 
   const calculateProportions = async (text) => {
+    if (!goals) { avisarMetaPendiente(); return; }
     const remaining = {
       kcal: Math.max(0, goals.kcal - totals.kcal),
       p: Math.max(0, goals.p - totals.p),
@@ -3128,36 +3161,23 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       // preservamos el historial del chat y solo agregamos una nota de cambio.
       // Si no había goals previas, es primer arranque: arrancamos el chat con
       // el saludo normal.
-      const isUpdate = !!(goals && (goals.kcal || goals.p || goals.c || goals.g));
       // Cambio de vista PRIMERO — sin awaits previos. Antes el botón "Empezar"
       // se sentía congelado porque esperaba a localStorage antes de cambiar de
       // pantalla. Disparamos el setView en el mismo tick y dejamos las
       // escrituras a disco como fire-and-forget.
-      setGoals(g);
+      // g llega null: el cliente YA NO define su meta — la carga el coach
+      // desde el CRM (llegará por el sondeo con su anuncio). Si este nombre
+      // ya tenía cuenta, la adopción por nombre traerá su meta y todo lo
+      // demás en el pull inicial.
       if (n) setName(n);
       setView('main');
-      if (isUpdate) {
-        const firstName = n ? n.split(' ')[0] : (name ? name.split(' ')[0] : '');
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `${firstName ? firstName + '. ' : ''}Meta actualizada · ${g.kcal} kcal · P ${g.p}g · C ${g.c}g · G ${g.g}g.`,
-          ts: Date.now()
-        }]);
-      } else {
-        setMessages([{
-          role: 'assistant',
-          content: n ? `${n.split(' ')[0]}. Metas registradas. Empezamos.` : 'Metas registradas. Empezamos.',
-          ts: Date.now()
-        }]);
-      }
-      // Versionar la meta como puesta por el cliente: así el server y los
-      // otros dispositivos saben cuál es la más nueva (y el sondeo del coach
-      // no la revierte).
-      const meta = { at: new Date().toISOString(), by: 'client' };
-      goalsMetaRef.current = meta;
-      window.storage.set('goalsUpdated', JSON.stringify(meta)).catch(() => {});
-      // Persistencia diferida — no bloquea el render del tracker.
-      window.storage.set('goals', JSON.stringify(g)).catch(() => {});
+      setMessages([{
+        role: 'assistant',
+        content: n
+          ? `${n.split(' ')[0]}, bienvenido. Tu coach te asignará tu meta nutricional y te avisaré aquí cuando llegue. Mientras tanto ya puedes contarme qué comes y lo voy registrando.`
+          : 'Bienvenido. Tu coach te asignará tu meta nutricional y te avisaré aquí cuando llegue. Mientras tanto ya puedes contarme qué comes y lo voy registrando.',
+        ts: Date.now()
+      }]);
       if (n) window.storage.set('name', JSON.stringify(n)).catch(() => {});
     }}
     // Si ya hay metas, es un "Cambiar meta": se puede salir sin guardar nada.
@@ -3270,7 +3290,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           {/* Botones del header en vidrio real: translúcidos sobre el grafito,
               con blur suave. Elementos chicos y fijos = costo GPU despreciable. */}
           <button
-            onClick={() => { haptic(8); setShowRecetario(true); }}
+            onClick={() => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowRecetario(true); }}
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition"
             style={{
               background: 'rgba(255,255,255,0.12)',
@@ -3359,7 +3379,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           overflow: 'hidden',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)'
         }}
-          onClick={() => { haptic(8); setShowPerformanceModal(true); }}
+          onClick={() => { if (!goals) return; haptic(8); setShowPerformanceModal(true); }}
           title="Ver desempeño">
           {/* Subtle organic blob inside the card — gradiente puro, sin blur */}
           <div className="absolute pointer-events-none" style={{
@@ -3385,7 +3405,17 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </div>
           )}
 
-          {cardCompact ? (
+          {!goals ? (
+            // Cliente nuevo SIN meta: la define el coach desde el CRM. La app
+            // funciona igual (registra comida y lleva totales); los anillos
+            // aparecen solos cuando la meta llegue con su anuncio.
+            <div className="text-center py-2">
+              <div className="text-[13px] font-semibold" style={{ color: TEXT }}>🎯 Tu coach está preparando tu meta nutricional</div>
+              <div className="text-[11px] mt-1" style={{ color: TEXT_MUTED }}>
+                Te avisaré aquí cuando llegue. Mientras tanto cuéntame qué comes y voy llevando tus totales{totals.kcal > 0 ? ` — hoy: ${Math.round(totals.kcal)} kcal · P${Math.round(totals.p)} C${Math.round(totals.c)} G${Math.round(totals.g)}` : ''}.
+              </div>
+            </div>
+          ) : cardCompact ? (
             <>
               <div className="flex items-center justify-between gap-2">
                 <CompactMacro val={totals.kcal} goal={goals.kcal} color={ACCENT} label="kcal" />
@@ -3400,12 +3430,25 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </>
           ) : (
             <>
+              {/* Tocar un ANILLO explica ese macro (línea bajo los anillos);
+                  tocar el resto de la tarjeta sigue abriendo Desempeño. */}
               <div className="grid grid-cols-4 gap-1">
-                <GlassRing val={totals.kcal} goal={goals.kcal} color={ACCENT} label="Calorías" unit="" />
-                <GlassRing val={totals.p} goal={goals.p} color={C_PROTEIN} label="Proteína" unit="g" />
-                <GlassRing val={totals.c} goal={goals.c} color={C_CARBS} label="Carbos" unit="g" />
-                <GlassRing val={totals.g} goal={goals.g} color={C_FAT} label="Grasas" unit="g" />
+                {[
+                  { k: 'kcal', ring: <GlassRing val={totals.kcal} goal={goals.kcal} color={ACCENT} label="Calorías" unit="" /> },
+                  { k: 'p', ring: <GlassRing val={totals.p} goal={goals.p} color={C_PROTEIN} label="Proteína" unit="g" /> },
+                  { k: 'c', ring: <GlassRing val={totals.c} goal={goals.c} color={C_CARBS} label="Carbos" unit="g" /> },
+                  { k: 'g', ring: <GlassRing val={totals.g} goal={goals.g} color={C_FAT} label="Grasas" unit="g" /> },
+                ].map(({ k, ring }) => (
+                  <div key={k} onClick={(e) => { e.stopPropagation(); haptic(6); setMacroTip(t => t === k ? null : k); }}>
+                    {ring}
+                  </div>
+                ))}
               </div>
+              {macroTip && MACRO_INFO[macroTip] && (
+                <div className="text-[11px] text-center mt-2 px-2 fade-up" style={{ color: TEXT_MUTED, lineHeight: 1.4 }}>
+                  <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#9C7C3C' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
+                </div>
+              )}
               <div className="text-center mt-3">
                 <span className="text-[10px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>
                   Ver desempeño <span aria-hidden="true">→</span>
@@ -3455,7 +3498,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           className="fixed z-40 rounded-full active:scale-90 fab-press items-center justify-center gap-1.5"
           style={{
             display: actionsExpanded ? 'none' : 'flex',
-            bottom: '120px',
+            // Separado de la barra de texto: pegado (120px) los taps durante
+            // el scroll caían en la barra y el botón "no respondía". El
+            // safe-area suma el alto del home-indicator en la app instalada.
+            bottom: 'calc(150px + env(safe-area-inset-bottom, 0px))',
             right: '20px',
             height: '46px',
             padding: '0 16px 0 14px',
@@ -3519,19 +3565,24 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <X size={16} style={{ color: TEXT_MUTED }} />
                 </button>
               </div>
+              {/* Iconos de LÍNEA (lucide, como el onboarding del centro de
+                  recursos) en insignias circulares, cada uno con su tono de
+                  la paleta de la app — se acabaron los emojis repetidos en
+                  el mismo pastel. Menos chips: "Aprendizaje" vive en el
+                  header y "¿Qué puedo hacer?" en el chat. */}
               <div className="space-y-2.5">
                 <div>
                   <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon="🍽️" label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<ChefHat size={15} strokeWidth={2.2} />} label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPlannerModal(true); generatePlan(); }} />
-                    <ActionChipMini icon="🔁" label="Repetir comida de ayer" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<Repeat size={15} strokeWidth={2.2} />} label="Repetir comida de ayer" pastel={C_FAT_PASTEL} color={C_FAT}
                       onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
-                    <ActionChipMini icon="⭐" label="Menús favoritos" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                    <ActionChipMini icon={<Star size={15} strokeWidth={2.2} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color="#9C7C3C"
                       onClick={() => { haptic(8); setActiveModal('favorites'); }} />
-                    <ActionChipMini icon="🛒" label="Mis ingredientes" pastel={C_CARBS_PASTEL} color={C_CARBS}
+                    <ActionChipMini icon={<ShoppingBasket size={15} strokeWidth={2.2} />} label="Mis ingredientes" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
                       onClick={() => { haptic(8); setShowIngredientsModal(true); }} />
-                    <ActionChipMini icon="📌" label="Guardar día como favorito" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<Pin size={15} strokeWidth={2.2} />} label="Guardar día como favorito" pastel="#D6E8F1" color="#3F81A6"
                       onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); }} />
                   </div>
                 </div>
@@ -3539,27 +3590,21 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <div>
                   <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon="📊" label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
-                    <ActionChipMini icon="📈" label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
+                    <ActionChipMini icon={<FileText size={15} strokeWidth={2.2} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
                       onClick={() => { haptic(8); closeActionsSheet(); handleSend('ver resumen diario'); }} />
-                    <ActionChipMini icon="📅" label="Calendario" pastel={ACCENT_PASTEL} color={ACCENT}
+                    <ActionChipMini icon={<Calendar size={15} strokeWidth={2.2} />} label="Calendario" pastel="#D6E8F1" color="#3F81A6"
                       onClick={() => { haptic(8); setActiveModal('calendar'); }} />
-                    <ActionChipMini icon="⚖️" label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
+                    <ActionChipMini icon={<Scale size={15} strokeWidth={2.2} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
                       onClick={() => { haptic(8); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); }} />
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Coach y configuración</div>
+                  <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Ajustes</div>
                   <div className="grid grid-cols-2 gap-2">
-                    {learningUrl && (
-                      <ActionChipMini icon="🎓" label="Aprendizaje" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                        onClick={openLearning} />
-                    )}
-                    <ActionChipMini icon="❓" label="¿Qué puedo hacer?" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); setShowCapabilitiesModal(true); }} />
-                    <ActionChipMini icon="🔄" label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
+                    <ActionChipMini icon={<RotateCcw size={15} strokeWidth={2.2} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
                       onClick={() => { haptic(8); setActiveModal('reset'); }} />
                   </div>
                 </div>
@@ -3596,7 +3641,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           onClick={() => { haptic(6); window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }); }}
           className="fixed z-40 rounded-full transition active:scale-95 flex items-center justify-center"
           style={{
-            bottom: keyboardOpen ? '156px' : '170px',
+            bottom: keyboardOpen ? '156px' : 'calc(200px + env(safe-area-inset-bottom, 0px))',
             left: '50%',
             transform: 'translateX(-50%)',
             width: '40px',
@@ -3732,7 +3777,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           onClose={() => { setShowPlannerModal(false); setPlannerProposal(null); }} />
       )}
 
-      {showPerformanceModal && (
+      {showPerformanceModal && goals && (
         <PerformanceModal
           history={history}
           historyDetail={historyDetail}
@@ -3802,6 +3847,12 @@ function composeDayOpening(name, yesterday, goals, opts = {}) {
   }
 
   const timePhrase = hour < 11 ? 'Arrancamos el día.' : hour < 16 ? 'Seguimos con el día.' : 'Cerramos bien el día.';
+
+  // Cliente aún SIN meta (la define el coach): saludo sin comparar contra
+  // metas que no existen.
+  if (!goals || !goals.kcal) {
+    return `${hi} ${timePhrase} Tu coach aún está preparando tu meta nutricional — te avisaré aquí cuando llegue. Mientras tanto cuéntame qué comes y lo registro.`;
+  }
 
   const tolerance = 0.05;
   const inRange = (val, goal) => val >= goal * (1 - tolerance) && val <= goal * (1 + tolerance);
@@ -4101,7 +4152,10 @@ function ActionChipMini({ icon, label, color, pastel, onClick }) {
         touchAction: 'manipulation',
         WebkitTapHighlightColor: 'transparent'
       }}>
-      <div className="flex items-center justify-center rounded-lg shrink-0" style={{ width: 30, height: 30, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK, fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1 }}>
+      {/* Insignia CIRCULAR con icono de línea y tono propio, como los del
+          onboarding del centro de recursos — reemplaza el cuadradito con
+          emoji, que se veía monótono repitiendo el mismo pastel. */}
+      <div className="flex items-center justify-center rounded-full shrink-0" style={{ width: 30, height: 30, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK, fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1 }}>
         {icon}
       </div>
       <div className="text-[11.5px] font-semibold leading-tight text-left" style={{ color: TEXT }}>{label}</div>
@@ -5098,7 +5152,9 @@ function ModalShell({ children, onClose, maxWidth = 'max-w-md' }) {
     <ModalCloseContext.Provider value={handleClose}>
       <div ref={outerRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{
         background: 'rgba(0,0,0,0.45)',
-        paddingBottom: kbLift ? `${kbLift}px` : undefined,
+        // Sin teclado: las hojas inferiores respetan el home-indicator en la
+        // app instalada (env=0 en navegador normal). Con teclado manda kbLift.
+        paddingBottom: kbLift ? `${kbLift}px` : 'calc(16px + env(safe-area-inset-bottom, 0px))',
       }} onClick={handleClose}>
         <div className={`w-full ${maxWidth} overflow-y-auto p-6 rounded-3xl fade-up`} style={{
           background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI,
@@ -6936,7 +6992,10 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
     }
     const formatted = name.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
     setName(formatted);
-    setStep(1);
+    // La META ya NO la pone el cliente: la define el coach desde el CRM y le
+    // llega con anuncio. El onboarding termina aquí, con solo el nombre —
+    // goals=null hasta que el coach la cargue (la app lo muestra con calma).
+    onComplete(null, formatted);
   };
 
   // Cada macro se ajusta de forma INDEPENDIENTE (sin auto-rebalance). El cliente
