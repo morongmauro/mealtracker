@@ -68,6 +68,20 @@ const splitIngredients = (text) => String(text || '')
   .map(s => s.trim().toLowerCase())
   .filter(Boolean);
 
+// Traga el "click fantasma" de iOS. Al cerrar un overlay con onPointerDown
+// (cierre instantáneo), Safari dispara ~50-300ms después su click sintético
+// en las MISMAS coordenadas — y como el overlay ya no está, aterrizaba en lo
+// que quedara debajo. Caso real: la X del modal de Desempeño caía justo
+// sobre la tarjeta de anillos (que abre Desempeño al tocarla) y el modal se
+// REABRÍA solo. Bloquea en fase captura el primer click de los próximos
+// 600ms tras un cierre por pointerdown.
+const swallowGhostClick = () => {
+  if (typeof document === 'undefined') return;
+  const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+  document.addEventListener('click', swallow, { capture: true, once: true });
+  setTimeout(() => document.removeEventListener('click', swallow, { capture: true }), 600);
+};
+
 // Static SVG background — computed ONCE at module load. Previously this
 // 60-line SVG string was URL-encoded on every parent render, which on
 // mobile is a real cost. Defining it here removes that work entirely.
@@ -627,6 +641,15 @@ export default function MealTracker() {
             return merged;
           });
         }
+        // CHAT: en un dispositivo NUEVO (localmente solo está el saludo del
+        // día) se adopta la conversación guardada en la nube — el cliente
+        // reencuentra su chat tal cual. En un dispositivo con chat propio en
+        // marcha NO se toca nada (regla: solo si hay menos de 4 burbujas).
+        if (Array.isArray(d.messages) && d.messages.length > 0) {
+          setMessages(local => (Array.isArray(local) && local.length < 4)
+            ? d.messages.slice(-150)
+            : local);
+        }
         if (d.frequentItems && typeof d.frequentItems === 'object') {
           // Fusión: gana la entrada con más registros (count más alto)
           setFrequentItems(local => {
@@ -742,6 +765,11 @@ export default function MealTracker() {
               // compara y NO deja que un push viejo pise una meta más nueva
               // (p.ej. recién cambiada por el coach).
               goals_updated: goalsMetaRef.current || undefined,
+              // CHAT: las últimas ~150 burbujas también viajan a la nube. Sin
+              // esto, un teléfono nuevo o la app instalada (Agregar a inicio)
+              // recuperaba los DATOS pero el chat aparecía casi vacío — y la
+              // conversación es parte de la memoria del asistente.
+              messages: messages.slice(-150),
               // En vivo: comidas y agua de HOY
               today,
               today_entries: entries,
@@ -752,14 +780,14 @@ export default function MealTracker() {
         });
       } catch (e) {}
     }, delayMs);
-  }, [cloudConsent, name, favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, entries, water, today]);
+  }, [cloudConsent, name, favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, entries, water, today, messages]);
 
   // Watch: cualquier cambio en colecciones críticas dispara un push debounced.
   // Incluimos `entries` y `water` para que se sincronicen en vivo, NO solo al cambiar de día.
   useEffect(() => {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
     schedulePushToCloud();
-  }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, name, entries, water, cloudConsent, schedulePushToCloud]);
+  }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, name, entries, water, messages, cloudConsent, schedulePushToCloud]);
 
   const acceptCloudConsent = useCallback(() => {
     try { localStorage.setItem('cloudConsent', 'accepted'); } catch (e) {}
@@ -3479,7 +3507,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     visible al press (scale-90 + halo gris). El cierre real está optimizado
                     con DOM-mutation directo en closeActionsSheet. */}
                 <button
-                  onPointerDown={(e) => { e.preventDefault(); closeActionsSheet(); }}
+                  onPointerDown={(e) => { e.preventDefault(); swallowGhostClick(); closeActionsSheet(); }}
                   onClick={(e) => e.preventDefault()}
                   aria-label="Cerrar"
                   className="p-2 rounded-full active:scale-90 active-x"
@@ -5115,7 +5143,7 @@ function ModalHeader({ accent, label, title, onClose }) {
         <div className="text-xl font-bold tracking-tight mt-0.5" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
       </div>
       <button
-        onPointerDown={(e) => { e.preventDefault(); handleClose(); }}
+        onPointerDown={(e) => { e.preventDefault(); swallowGhostClick(); handleClose(); }}
         onClick={(e) => e.preventDefault()}
         aria-label="Cerrar"
         className="-m-2 p-3 rounded-full active:scale-90 active-x"
@@ -5560,6 +5588,17 @@ function estimateMicros(items) {
 function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, onClose }) {
   const [tab, setTab] = useState('semana'); // semana | mes | tendencia
 
+  // Estilo "reporte del coach": este panel usa la MISMA paleta del dashboard
+  // del coach / CRM (slate + esmeralda + serie azul/ámbar/violeta de las
+  // gráficas, ver coachTheme.js) para que el cliente vea el mismo lenguaje
+  // visual de los reportes de su coach. Se SOMBREAN los tokens del tema
+  // oliva/crema del cliente solo dentro de este modal — el resto de la app
+  // no cambia.
+  const SURFACE_2 = '#f1f5f9', TEXT = '#0f172a', TEXT_MUTED = '#64748b',
+        TEXT_LIGHT = '#94a3b8', SUCCESS = '#10b981', WARN = '#f59e0b',
+        ACCENT = '#10b981', ACCENT_DARK = '#065f46',
+        C_PROTEIN = '#3b82f6', C_CARBS = '#f59e0b', C_FAT = '#8b5cf6';
+
   // Combined history including today
   const combinedHistory = { ...history };
   const combinedDetail = { ...historyDetail };
@@ -5728,7 +5767,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               const heightPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
               const inGoal = val > 0 && pct >= 0.9 && pct <= 1.1;
               const over = val > goal * 1.1;
-              const fillColor = val === 0 ? '#D0CFC6' : (inGoal ? SUCCESS : over ? WARN : color);
+              const fillColor = val === 0 ? '#cbd5e1' : (inGoal ? SUCCESS : over ? WARN : color);
               const isToday = d.date === today;
               return (
                 <div key={i} className="flex-1 h-full flex flex-col justify-end items-center" style={{ minWidth: 0 }}>
@@ -5777,7 +5816,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     const s = stats(data, statKey);
     const recorded = data.filter(d => d.data && d.data.kcal > 0).length;
     return (
-      <div className="mb-5">
+      <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 12px 10px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="flex justify-between items-end mb-2">
           <div>
             <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color }}>{label}</div>
@@ -5824,7 +5863,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     const maxScale = Math.max(goal * 1.4, maxRecorded * 1.1, goal * 1.1);
     const goalPct = (goal / maxScale) * 100;
     return (
-      <div className="mb-5">
+      <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 12px 10px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="flex justify-between items-baseline mb-2">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color }}>{label}</span>
@@ -5849,7 +5888,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               const heightPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
               const inGoal = val > 0 && ratio >= 0.9 && ratio <= 1.1;
               const over = val > goal * 1.1;
-              const fillColor = val === 0 ? '#D0CFC6' : (inGoal ? SUCCESS : over ? WARN : color);
+              const fillColor = val === 0 ? '#cbd5e1' : (inGoal ? SUCCESS : over ? WARN : color);
               return (
                 <div key={i} className="flex-1 h-full flex flex-col justify-end items-center" style={{ minWidth: 0 }}>
                   <div
@@ -5937,7 +5976,8 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           <button key={t.key} onClick={() => { haptic(6); setTab(t.key); }}
             className="flex-1 py-2 rounded-lg text-[12px] font-semibold transition active:scale-[0.98]"
             style={{
-              background: tab === t.key ? '#1F1F1F' : 'transparent',
+              // Chip activo pizarra, como los tabs del CRM/dashboard del coach
+              background: tab === t.key ? '#0f172a' : 'transparent',
               color: tab === t.key ? '#fff' : TEXT_MUTED,
             }}>
             {t.label}
@@ -6067,7 +6107,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           <span>Con registro</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-sm" style={{ background: '#D0CFC6', opacity: 0.6 }} />
+          <div className="w-2 h-2 rounded-sm" style={{ background: '#cbd5e1', opacity: 0.6 }} />
           <span>Sin registro</span>
         </div>
       </div>
