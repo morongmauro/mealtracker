@@ -1193,7 +1193,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const detailOverlay = (open && detail) ? (
       <div className="fixed inset-0 z-[70] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
         {blobs}
-        <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF' }}>
+        <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))' }}>
           <button onClick={() => { haptic(6); setOpenId(null); setManualK(null); }} className="p-1.5 -ml-1.5 rounded-full active:scale-90"><ChevronLeft size={22} /></button>
           <span className="font-semibold text-[15px] truncate">{open.name}</span>
         </div>
@@ -1296,7 +1296,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         .rec-slide-in { animation: recSlideIn 0.24s cubic-bezier(0.2, 0, 0, 1); }
       `}</style>
       {blobs}
-      <div className="sticky top-0 z-20 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF' }}>
+      {/* safe-area-inset-top: en la app instalada el header no se mete bajo el notch */}
+      <div className="sticky top-0 z-20 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))' }}>
         <div className="max-w-xl mx-auto flex items-center gap-2">
           <button
             onPointerDown={(e) => { e.preventDefault(); haptic(6); fastClose(); }}

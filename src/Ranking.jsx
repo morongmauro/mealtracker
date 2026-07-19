@@ -211,8 +211,8 @@ export default function Ranking() {
         .rk-climber { transition: left 2.2s cubic-bezier(0.33, 1, 0.4, 1), top 2.2s cubic-bezier(0.33, 1, 0.4, 1); }
       `}</style>
 
-      {/* Encabezado */}
-      <div className="relative px-5 pt-6 pb-3 text-center">
+      {/* Encabezado — safe-area: en la app instalada no se mete bajo el notch */}
+      <div className="relative px-5 pt-6 pb-3 text-center" style={{ paddingTop: 'calc(24px + env(safe-area-inset-top, 0px))' }}>
         {/* Volver a la app (útil sobre todo en la PWA, donde no hay barra del navegador) */}
         <button onClick={() => { window.location.href = '/'; }}
           className="absolute left-4 top-5 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition"
