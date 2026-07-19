@@ -35,6 +35,39 @@ export default async function handler(req, res) {
   };
 
   if (req.method === 'GET') {
+    // IDENTIDAD POR NOMBRE — clave para "Agregar a inicio" (iOS le da a la
+    // app instalada un almacén SEPARADO de Safari) y para teléfonos nuevos:
+    // sin esto, la app generaba un user_id nuevo y el cliente veía todo
+    // vacío ("se me borró todo"). Devuelve el user_id EXISTENTE del cliente
+    // con ese nombre (normalizado como en authorize: sin tildes/mayúsculas),
+    // ignorando cuentas marcadas como duplicadas y prefiriendo la más
+    // recientemente actualizada. { user_id } o { user_id: null }.
+    if (req.query.identity_for) {
+      const normalizeName = (str) => String(str || '')
+        .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/\s+/g, ' ').trim();
+      const buscado = normalizeName(req.query.identity_for);
+      if (!buscado) return res.status(200).json({ user_id: null });
+      try {
+        const r = await fetch(
+          `${SUPABASE_URL}/rest/v1/user_data?select=user_id,name,updated_at,coach_notes`,
+          { headers }
+        );
+        const rows = await r.json();
+        if (!Array.isArray(rows)) return res.status(200).json({ user_id: null });
+        const match = rows
+          .filter(x => normalizeName(x.name) === buscado)
+          .filter(x => !(x.coach_notes && x.coach_notes.duplicate_of))
+          .sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')))[0];
+        return res.status(200).json({ user_id: match ? match.user_id : null });
+      } catch (e) {
+        // 500 y no {user_id:null}: el frontend distingue "no existe cuenta"
+        // (crear una nueva está bien) de "no pude verificar" (NO crear una
+        // nueva — se reintenta luego; evita partir la identidad en dos).
+        return res.status(500).json({ error: 'lookup failed' });
+      }
+    }
+
     const userId = req.query.user_id;
     if (!isUuid(userId)) {
       return res.status(400).json({ error: 'invalid user_id' });
