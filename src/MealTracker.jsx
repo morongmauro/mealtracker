@@ -3271,7 +3271,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </Suspense>
       )}
 
-      <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: `${headerH + (cardCompact ? 56 : 161)}px` }}>
+      <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: `${headerH + (cardCompact ? 56 : 161) + (paymentDue ? 62 : 0)}px` }}>
 
         {/* Goals card — FIXED + visualViewport tracking. top = altura real
             del header + separación, para que NUNCA quede debajo de él. */}
@@ -3351,6 +3351,33 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           )}
           </div>
         </div>
+        {/* Recordatorio de pago — vive en la zona FIJA bajo la tarjeta de
+            anillos para que SIEMPRE se vea. (Antes estaba arriba de todo el
+            historial del chat y el auto-scroll al último mensaje lo dejaba
+            fuera de pantalla: se renderizaba pero nadie lo veía.) Fuera de
+            la conversación, y desaparece solo al marcar el pago en el CRM. */}
+        {paymentDue && (
+          <div className="fade-up" style={{
+            marginTop: '6px',
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '8px 12px',
+            borderRadius: '14px',
+            background: 'linear-gradient(180deg, #FDF6E3 0%, #FBEFCF 100%)',
+            border: '1px solid #EBD9A6',
+            boxShadow: '0 4px 14px rgba(180,140,20,0.14)',
+          }}>
+            <span style={{ fontSize: '16px', flexShrink: 0 }}>💳</span>
+            <div style={{ fontSize: '12px', color: '#6B5A22', lineHeight: 1.35, minWidth: 0 }}>
+              <strong style={{ color: '#8A6D16' }}>Recordatorio de pago:</strong> tu fecha de corte fue el {paymentDue.dia_corte} de {new Date().toLocaleDateString('es', { month: 'long' })}. Recuerda efectuar el pago mensual del programa{paymentDue.monto ? (
+                <> (<strong style={{ color: '#8A6D16' }}>{
+                  (() => { try {
+                    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: paymentDue.moneda || 'COP', maximumFractionDigits: 0 }).format(paymentDue.monto);
+                  } catch (e) { return `${paymentDue.monto} ${paymentDue.moneda || ''}`.trim(); } })()
+                }</strong>)</>
+              ) : null}.
+            </div>
+          </div>
+        )}
         </div>
         </div>
 
@@ -3477,42 +3504,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           </div>
           );
         })()}
-
-        {/* Recordatorio de pago — banner FUERA del chat (no ensucia la
-            conversación). Aparece cuando la fecha de corte del mes ya pasó y el
-            coach aún no marcó el pago en el CRM, y desaparece solo en cuanto lo
-            marca. Tono ámbar suave: avisa sin alarmar. */}
-        {paymentDue && (
-          <div className="relative mb-4 fade-up" style={{
-            display: 'flex', alignItems: 'flex-start', gap: '12px',
-            padding: '14px 16px',
-            borderRadius: '18px',
-            background: 'linear-gradient(180deg, #FDF6E3 0%, #FBEFCF 100%)',
-            border: '1px solid #EBD9A6',
-            boxShadow: '0 6px 20px rgba(180,140,20,0.10), 0 1px 0 rgba(255,255,255,0.7) inset',
-          }}>
-            <div style={{
-              flexShrink: 0, width: '34px', height: '34px', borderRadius: '11px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(180,140,20,0.12)', fontSize: '18px',
-            }}>💳</div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: '13px', color: '#8A6D16', letterSpacing: '0.01em' }}>
-                Recordatorio de pago
-              </div>
-              <div style={{ fontSize: '13px', color: '#6B5A22', lineHeight: 1.45, marginTop: '2px' }}>
-                Tu fecha de corte fue el {paymentDue.dia_corte} de {new Date().toLocaleDateString('es', { month: 'long' })}. Recuerda efectuar el pago mensual del programa
-                {paymentDue.monto ? (
-                  <> (<strong style={{ color: '#8A6D16' }}>{
-                    (() => { try {
-                      return new Intl.NumberFormat('es-CO', { style: 'currency', currency: paymentDue.moneda || 'COP', maximumFractionDigits: 0 }).format(paymentDue.monto);
-                    } catch (e) { return `${paymentDue.monto} ${paymentDue.moneda || ''}`.trim(); } })()
-                  }</strong>)</>
-                ) : null}.
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '20px', contain: 'layout paint', willChange: 'transform' }}>
