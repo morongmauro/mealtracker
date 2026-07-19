@@ -487,21 +487,50 @@ export default function MealTracker() {
     cloudPullStartedRef.current = true;
     let cancelled = false;
 
-    // Generar/cargar UUID anónimo
-    let uid = null;
-    try { uid = localStorage.getItem('cloudUserId'); } catch (e) {}
-    if (!uid) {
-      uid = (typeof crypto !== 'undefined' && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-            const r = Math.random() * 16 | 0;
-            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-          });
-      try { localStorage.setItem('cloudUserId', uid); } catch (e) {}
-    }
-    cloudUserIdRef.current = uid;
-
     (async () => {
+      // Cargar el UUID local; si NO existe, ANTES de inventar uno nuevo se
+      // pregunta al server si ya hay una cuenta con este NOMBRE. Es la clave
+      // de "Agregar a inicio" en iPhone (el almacén es SEPARADO de Safari) y
+      // de los teléfonos nuevos: sin esto se generaba un uid virgen y el
+      // cliente veía chat/favoritos/historial vacíos ("se me borró todo").
+      let uid = null;
+      try { uid = localStorage.getItem('cloudUserId'); } catch (e) {}
+      if (!uid) {
+        if (!name) {
+          // Aún no hay nombre (onboarding a medias): no crear identidad
+          // todavía. Se libera el guard y se reintenta cuando lo haya.
+          cloudPullStartedRef.current = false;
+          return;
+        }
+        try {
+          const ri = await fetch(`/api/sync?identity_for=${encodeURIComponent(name)}`);
+          if (ri.ok) {
+            const di = await ri.json();
+            if (di && di.user_id) uid = di.user_id; // cuenta existente: adoptarla
+            // di.user_id === null → el server confirmó que NO hay cuenta con
+            // este nombre: crear una nueva abajo es seguro.
+          } else {
+            // No se pudo VERIFICAR (server caído): no inventar una identidad
+            // nueva a ciegas — partiría la cuenta en dos. Reintento luego.
+            cloudPullStartedRef.current = false;
+            return;
+          }
+        } catch (e) {
+          cloudPullStartedRef.current = false;
+          return;
+        }
+      }
+      if (!uid) {
+        uid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+              const r = Math.random() * 16 | 0;
+              return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+      }
+      try { localStorage.setItem('cloudUserId', uid); } catch (e) {}
+      cloudUserIdRef.current = uid;
+
       try {
         const r = await fetch(`/api/sync?user_id=${uid}`);
         if (!r.ok) { cloudPullStartedRef.current = false; return; }
@@ -622,7 +651,7 @@ export default function MealTracker() {
     })();
 
     return () => { cancelled = true; };
-  }, [cloudConsent, view]);
+  }, [cloudConsent, view, name]);
 
   // Aplica metas que llegan del server (pull inicial o sondeo periódico).
   // Van versionadas con goals_updated { at, by }: solo se aplican si son más
@@ -3178,12 +3207,19 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
       {/* Background blobs removed for cleaner look */}
 
-      {/* Header — full-width app bar (FIXED + visualViewport tracking) */}
+      {/* Header — full-width app bar (FIXED + visualViewport tracking).
+          safe-area-inset-top: en la app instalada en el iPhone (Agregar a
+          inicio) el contenido corre por DEBAJO del notch/cámara; este padding
+          empuja la fila de la marca fuera de esa zona y el grafito del header
+          rellena el hueco (se ve nativo). El ResizeObserver de headerH mide
+          el alto CON este padding, así que la tarjeta de anillos y el
+          contenido se acomodan solos. En navegador normal env() = 0. */}
       <div ref={headerRef} className="fixed top-0 left-0 right-0 w-full overflow-hidden" style={{
         background: '#1F1F1F',
         color: '#FFF',
         boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
         zIndex: 50,
+        paddingTop: 'env(safe-area-inset-top, 0px)',
         transform: 'translate3d(0, 0, 0)',
         willChange: 'transform'
       }}>
@@ -3425,7 +3461,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               style={{
                 background: BG,
                 boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
-                paddingBottom: '24px',
+                paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
                 maxHeight: '78vh',
                 overflowY: 'auto'
               }}
@@ -6609,7 +6645,7 @@ function ReadOnlyStat({ label, val, color }) {
 
 function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
   return (
-    <div className="min-h-screen p-5 flex flex-col relative overflow-hidden" style={{ background: BG, color: TEXT, fontFamily: FONT_UI }}>
+    <div className="min-h-screen p-5 flex flex-col relative overflow-hidden" style={{ background: BG, color: TEXT, fontFamily: FONT_UI, paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }}>
       <FontStyles />
       <style>{`
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
