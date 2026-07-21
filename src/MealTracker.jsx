@@ -1962,10 +1962,12 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 
 ═══ INTENTS (elige UNO) ═══
 - "log_meal": registrar comida(s) nueva(s). Ej: "desayuno: 2 huevos y café", "almorcé pollo con arroz". Si el mensaje cubre VARIAS comidas del día, usa el campo "meals" (array) con un objeto por comida. Si es UNA sola comida, usa "items" + "meal".
+  PROHIBIDO log_meal cuando el cliente PREGUNTA (futuro/condicional) cuánto DEBERÍA comer: "¿cuántas cucharadas de yogur griego tengo que comer para llegar a la meta de proteína?", "¿cuánto pollo necesito para completar el día?", "¿qué me falta comer para cerrar mis macros?" → eso es command="proportion" (la app calcula la cantidad exacta con lo que le falta hoy). log_meal es SOLO comida YA comida.
   FECHA DEL REGISTRO ("log_date"): por defecto null = HOY. Si el cliente dice que comió en un día PASADO ("ayer", "antier", "hace N días", "el lunes", "el sábado pasado", "el 15", "12 de junio"), busca ese día en la TABLA DE FECHAS del contexto y COPIA la fecha exacta (YYYY-MM-DD) en "log_date" — PROHIBIDO calcular la fecha por tu cuenta, usa la tabla. Un día de la semana = la ocurrencia MÁS RECIENTE ya pasada de ese día. NUNCA uses una fecha futura. Si no hay ninguna referencia temporal a un día pasado, log_date=null. OJO: log_date es SOLO para comida NUEVA (aún no registrada). Si la comida YA quedó registrada hoy y el cliente solo pide cambiarle el día ("eso que te pasé era de ayer") → NO uses log_meal: usa command="move_entry" (ver comandos), o quedará duplicada.
   VARIOS DÍAS EN UN MISMO MENSAJE: si el cliente dicta comidas de MÁS DE UN día ("el viernes comí X y el sábado Y", "te voy a contar lo de ayer y lo de hoy"), usa el campo "meals" y pon en CADA objeto de "meals" su propio "log_date" (la fecha de ESE día según la tabla; null si esa comida es de hoy). PROHIBIDO amontonar comidas de días distintos bajo una misma fecha — cada comida va exactamente al día que el cliente dijo. Solo si TODO el mensaje es de UN único día pasado puedes usar el "log_date" raíz para todo el bloque.
   Ejemplos: "ayer cené pollo con arroz" → log_meal, meal=cena, log_date=(fecha de "ayer" en la tabla). "el lunes desayuné avena y el martes almorcé pasta" → log_meal, meals=[{meal:"desayuno", log_date:(lunes en la tabla), items:[avena]}, {meal:"almuerzo", log_date:(martes en la tabla), items:[pasta]}]. "el domingo desayuné huevos y almorcé asado" → log_meal, meals=[{meal:"desayuno", log_date:(domingo), items:[huevos]}, {meal:"almuerzo", log_date:(domingo), items:[asado]}].
 - "append_to_last": SUMAR alimentos a la ÚLTIMA comida registrada hoy (no crear meal nuevo). DETECTAR estos signos: "me faltó", "olvidé decirte", "también comí", "agregale", "sumá", "ah me acordé", "no te dije que también", "ese tercero suma a lo que ya registraste". SI hay última comida, los items van EN ELLA.
+  OJO — CORRECCIÓN ≠ append: si el cliente CORRIGE algo ya registrado hoy → command="edit_entry". PROHIBIDO append_to_last o log_meal en correcciones: duplicaría la comida. Una corrección puede ser CUALQUIER combinación de: cambiar cantidad ("eran 300g, no 150"), cambiar número de unidades ("eran 2 huevos, no 3"), SUSTITUIR un alimento ("no era pollo, era atún"), QUITAR un item ("la cena no llevaba pan") o AGREGAR items que faltaban dentro de la corrección ("no eran 3 huevos: eran 2 huevos Y una banana mediana"). Cómo llenarlo: (1) "edit_entry_index" = el número [#N] de esa comida en DETALLE COMIDAS DE HOY (si no dice cuál, la más reciente que coincida; llena también "meal" si lo menciona); (2) "items" = CÓMO QUEDÓ ESA COMIDA AL FINAL, completa: los items que el cliente NO mencionó se copian TAL CUAL del DETALLE (nombre, cantidad y macros), los corregidos van con sus macros recalculados, los quitados NO van, y los agregados van como items nuevos con macros estimados. La app reemplaza la comida entera con esta lista final. Ej: DETALLE dice [#2 desayuno] "3 huevos (240kcal P18) + café (5kcal)"; cliente: "me equivoqué, eran 2 huevos y una banana mediana" → items=[2 huevos (160kcal P12...), banana mediana (~105kcal...), café (5kcal, copiado igual)]. Si quiere BORRAR la comida completa → command="delete_entry". Si la corrección es de un día PASADO (no está en el DETALLE de hoy) → clarify explicando que las correcciones por chat son del día actual y su coach puede ajustar días anteriores.
 - "save_favorite_only": guardar una comida como RECETA/FAVORITO SIN que cuente en el día. DETECTAR: "no lo registres", "eso último no lo registres", "es solo para guardar la receta", "solo guárdalo en favoritos/como receta", "no lo cuentes", "no lo sumes", "quítalo del día pero guárdalo". Dos casos: (1) el mensaje DESCRIBE alimentos ("guárdame esta receta sin registrarla: 6 empanadas...") → llena "items" (+"meal") igual que en log_meal pero con ESTE intent; (2) se refiere a algo YA registrado ("eso último no lo registres, era solo la receta") → deja "items" vacío y el frontend lo aplica a la última comida registrada. PROHIBIDO clasificar como log_meal cuando el cliente pide explícitamente NO registrar.
 - "nutrition_query": pregunta informativa SIN registrar. Ej: "¿cuántas kcal tiene una manzana?", "¿es alta en proteína el atún?".
 - "meal_suggestion": pregunta abierta sobre QUÉ COMER en una comida específica. DETECTAR: "qué puedo comer", "qué como", "ideas de cena", "qué me sugieres", "qué desayuno", "qué hago de almuerzo", "no sé qué cenar". Indica también el "meal" deseado (desayuno/almuerzo/snack/cena) si lo menciona. EL FRONTEND MANEJA la respuesta usando los ingredientes favoritos del cliente, así que tú solo clasifica.
@@ -1984,7 +1986,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   ARGUMENTA SIEMPRE (campo "logic", 1-2 oraciones, concisas): di QUÉ target usaste y POR QUÉ, y la condición real para cumplir la meta. Ejemplos: "Ajusté tus 3 menús para que JUNTOS sumen tu meta diaria; cumplirla depende de que el día sea exactamente esto y nada más." / "Como esto es solo tu almuerzo, lo ajusté al ~35% de tu meta (no al día completo); el resto lo completas con desayuno y cena." / "Como aún no has registrado nada hoy, partí de tu meta completa; si ya comiste algo, dímelo y ajusto sobre lo que te queda."
   Devuelve "adjust_favorites_response" con la estructura del schema. NUNCA registres nada — es solo propuesta visual.
 - "water": registra agua. "1 vaso"=250ml, "1 termo"=500ml, "1 botella"=500ml, "1 litro"=1000ml.
-- "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite, move_entry}. Mapping: "reiniciar día"→reset_day, "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion, "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
+- "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite, move_entry, delete_entry}. Mapping: "reiniciar día"→reset_day, "bórrame la cena / elimina eso último que registré / quita ese snack, estaba mal / eso no lo comí, bórralo"→delete_entry (+meal si dice cuál comida), "eran 300g no 150 / corrígele la cantidad / me equivoqué en el arroz de la cena"→edit_entry (ver regla en append_to_last), "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion (TAMBIÉN toda pregunta de cuánto comer de un alimento para alcanzar/completar/cerrar una meta o lo que resta del día: "¿cuántas cucharadas de yogur griego tengo que comer para llegar a la meta de proteínas que resta hoy?", "¿cuánto arroz me falta para completar carbos?", "¿con cuánto atún cierro mi proteína?" → proportion), "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "¿qué ingredientes tengo guardados? / muéstrame mis ingredientes / no me acuerdo qué ingredientes te di / ver mi lista de ingredientes"→manage_favorites SIN items (la app abre su lista para que la vea y edite), "¿qué menús favoritos tengo? / muéstrame mis menús guardados"→favorites, "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
   MOVER UNA COMIDA YA REGISTRADA A OTRO DÍA → move_entry (CRÍTICO): si el cliente pide cambiar la fecha de algo que YA quedó registrado hoy ("eso que te pasé regístralo para ayer, no para hoy", "esa cena era de ayer", "lo que registraste pásalo al miércoles", "me equivoqué, eso fue antier") → command="move_entry" + meal=(tipo de comida referida: cena/almuerzo/etc., o null si no lo dice) + log_date=(fecha DESTINO copiada de la TABLA DE FECHAS). Se reconoce porque en el contexto de conversación YA aparece esa comida registrada ("(registré cena: …)"). PROHIBIDO responder con log_meal en ese caso: re-registrarla crearía un DUPLICADO (la comida quedaría contada en los dos días). log_meal con log_date es SOLO para comida que aún NO está registrada.
 - "clarify": SOLO si hay ambigüedad REAL. Llenar "clarify_interpretation" (tu mejor lectura ESCRITA PARA EL CLIENTE: 1 oración corta hablándole de "tú", ej: "quieres registrar pollo en tu cena") y "clarify_question" (pregunta corta y cálida, ej: "¿cuántos gramos aproximadamente?"). PROHIBIDO en ambos campos: razonamiento interno, tercera persona ("el cliente dice..."), o mencionar historial/señales/frontend/intents/reglas — el cliente lee estos textos TAL CUAL.
 - "off_topic": saludos, charla, preguntas sobre el coach, "qué dieta hacer". Llena "message" con respuesta cálida y breve.
@@ -1998,7 +2000,8 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N, "needs_quantity": false}],
   "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "log_date": "YYYY-MM-DD si ESA comida es de un día pasado, null = hoy", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N}]}] | null,
   "append_to_entry_id": N | null,
-  "command": "reset_day | change_goals | calendar | favorites | proportion | manage_favorites | plan_day | save_day_favorite | move_entry | null",
+  "command": "reset_day | change_goals | calendar | favorites | proportion | manage_favorites | plan_day | save_day_favorite | move_entry | delete_entry | edit_entry | null",
+  "edit_entry_index": "N (número [#N] del DETALLE COMIDAS DE HOY, solo para edit_entry) | null",
   "name_detected": "..." | null,
   "water_ml": N | null,
   "preview": "string corto resumen items | null",
@@ -2373,6 +2376,50 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
             setMessages(m => [...m, { role: 'assistant', content: `Guardé estos ingredientes: ${fromItems.join(', ')}. Cuando quieras te armo el día con esto.`, ts: Date.now() }]);
           } else {
             setShowIngredientsModal(true);
+          }
+        }
+        else if (parsed.command === 'edit_entry') {
+          // Corregir CANTIDADES de una comida ya registrada, POR CHAT y en
+          // el sitio ("eran 300g, no 150"). El modelo reconstruye la lista
+          // completa de items corregida (tiene el DETALLE con macros en su
+          // contexto) y aquí se REEMPLAZA la comida — nunca se duplica.
+          const idxEd = Number(parsed.edit_entry_index);
+          let targetEd = (Number.isFinite(idxEd) && idxEd >= 1 && idxEd <= entries.length) ? entries[idxEd - 1] : null;
+          if (!targetEd) {
+            const wantedEd = (parsed.meal || '').toLowerCase();
+            const candEd = wantedEd ? entries.filter(en => (en.meal || '').toLowerCase() === wantedEd) : entries;
+            targetEd = candEd[candEd.length - 1];
+          }
+          const newItems = Array.isArray(parsed.items) ? sanitizeItems(parsed.items) : [];
+          if (!targetEd || newItems.length === 0) {
+            setMessages(m => [...m, { role: 'assistant', content: 'Dime cuál comida corrijo y con qué cantidad queda (ej: "la cena: eran 300g de arroz, no 150") y la ajusto al instante.', ts: Date.now() }]);
+          } else {
+            const rr = (n) => Math.round(n * 10) / 10;
+            const nk = Math.round(newItems.reduce((s, i) => s + (i.kcal || 0), 0));
+            const np = rr(newItems.reduce((s, i) => s + (i.p || 0), 0));
+            const nc = rr(newItems.reduce((s, i) => s + (i.c || 0), 0));
+            const ng = rr(newItems.reduce((s, i) => s + (i.g || 0), 0));
+            const antes = Math.round(targetEd.kcal);
+            setEntries(es => es.map(en => en.id === targetEd.id ? { ...en, items: newItems, kcal: nk, p: np, c: nc, g: ng } : en));
+            setMessages(m => [...m, { role: 'assistant', content: `Corregido: tu ${targetEd.meal || 'comida'} quedó en ${nk} kcal · P${Math.round(np)} C${Math.round(nc)} G${Math.round(ng)} (antes ${antes} kcal). Totales del día ya ajustados.`, ts: Date.now() }]);
+            haptic(15);
+          }
+        }
+        else if (parsed.command === 'delete_entry') {
+          // Borrar una comida de HOY por chat ("bórrame la cena", "elimina
+          // eso último, estaba mal"). Antes solo existía el basurero de la
+          // tarjeta o reiniciar el día entero — pedirlo por chat caía al
+          // fallback genérico.
+          const wantedDel = (parsed.meal || '').toLowerCase();
+          const candDel = wantedDel ? entries.filter(en => (en.meal || '').toLowerCase() === wantedDel) : entries;
+          const targetDel = candDel[candDel.length - 1]; // la más reciente de ese tipo
+          if (!targetDel) {
+            setMessages(m => [...m, { role: 'assistant', content: `No encuentro ${wantedDel ? `esa ${wantedDel}` : 'esa comida'} en tu día de hoy, así que no borré nada. Si es de un día anterior, dime cuál y lo vemos.`, ts: Date.now() }]);
+          } else {
+            setEntries(es => es.filter(en => en.id !== targetDel.id));
+            setMessages(m => m.filter(msg => msg.entryId !== targetDel.id));
+            setMessages(m => [...m, { role: 'assistant', content: `Listo, borré tu ${targetDel.meal || 'comida'} (${Math.round(targetDel.kcal)} kcal · P${Math.round(targetDel.p)} C${Math.round(targetDel.c)} G${Math.round(targetDel.g)}) del día de hoy. Los totales ya quedaron ajustados.`, ts: Date.now() }]);
+            haptic(15);
           }
         }
         else if (parsed.command === 'move_entry') {
@@ -3371,16 +3418,18 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           willChange: 'transform'
         }}>
         <div className="max-w-2xl mx-auto">
-        <div className="rounded-3xl relative cursor-pointer" style={{
+        {/* La tarjeta ya NO abre Desempeño al tocar cualquier parte: los
+            anillos/círculos explican su macro y "Ver desempeño" (su propia
+            etiqueta) es lo ÚNICO que abre el panel — cada tap hace lo que
+            dice. */}
+        <div className="rounded-3xl relative" style={{
           padding: cardCompact ? '8px 12px' : '16px',
           background: 'rgba(255,255,255,0.95)',
           border: '1px solid rgba(255,255,255,0.7)',
           boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 8px 28px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
           overflow: 'hidden',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)'
-        }}
-          onClick={() => { if (!goals) return; haptic(8); setShowPerformanceModal(true); }}
-          title="Ver desempeño">
+        }}>
           {/* Subtle organic blob inside the card — gradiente puro, sin blur */}
           <div className="absolute pointer-events-none" style={{
             top: '-30%', right: '-20%', width: '60%', height: '120%',
@@ -3418,15 +3467,25 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           ) : cardCompact ? (
             <>
               <div className="flex items-center justify-between gap-2">
-                <CompactMacro val={totals.kcal} goal={goals.kcal} color={ACCENT} label="kcal" />
-                <CompactMacro val={totals.p} goal={goals.p} color={C_PROTEIN} label="P" unit="g" />
-                <CompactMacro val={totals.c} goal={goals.c} color={C_CARBS} label="C" unit="g" />
-                <CompactMacro val={totals.g} goal={goals.g} color={C_FAT} label="G" unit="g" />
-                <div className="flex items-center gap-1 pl-2 flex-shrink-0 hidden min-[420px]:flex" style={{ borderLeft: `1px solid ${BORDER_SOFT}` }}>
+                {[
+                  { k: 'kcal', el: <CompactMacro val={totals.kcal} goal={goals.kcal} color={ACCENT} label="kcal" /> },
+                  { k: 'p', el: <CompactMacro val={totals.p} goal={goals.p} color={C_PROTEIN} label="P" unit="g" /> },
+                  { k: 'c', el: <CompactMacro val={totals.c} goal={goals.c} color={C_CARBS} label="C" unit="g" /> },
+                  { k: 'g', el: <CompactMacro val={totals.g} goal={goals.g} color={C_FAT} label="G" unit="g" /> },
+                ].map(({ k, el }) => (
+                  <div key={k} onClick={() => { haptic(6); setMacroTip(t => t === k ? null : k); }}>{el}</div>
+                ))}
+                <div className="flex items-center gap-1 pl-2 flex-shrink-0 hidden min-[420px]:flex cursor-pointer" style={{ borderLeft: `1px solid ${BORDER_SOFT}` }}
+                  onClick={() => { haptic(8); setShowPerformanceModal(true); }} title="Ver desempeño">
                   <span className="text-[10px] font-semibold tracking-wider whitespace-nowrap" style={{ color: ACCENT_DARK }}>Ver desempeño</span>
                   <span style={{ color: ACCENT_DARK, fontSize: '12px' }}>→</span>
                 </div>
               </div>
+              {macroTip && MACRO_INFO[macroTip] && (
+                <div className="text-[10.5px] text-center mt-1.5 px-1 fade-up" style={{ color: TEXT_MUTED, lineHeight: 1.35 }}>
+                  <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#9C7C3C' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -3449,8 +3508,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#9C7C3C' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
                 </div>
               )}
-              <div className="text-center mt-3">
-                <span className="text-[10px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>
+              <div className="text-center mt-3 cursor-pointer" onClick={() => { haptic(8); setShowPerformanceModal(true); }} title="Ver desempeño">
+                <span className="text-[10px] font-semibold tracking-wider py-1 px-3 rounded-full" style={{ color: ACCENT_DARK, background: ACCENT_LIGHT }}>
                   Ver desempeño <span aria-hidden="true">→</span>
                 </span>
               </div>
