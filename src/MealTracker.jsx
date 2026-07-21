@@ -312,6 +312,11 @@ export default function MealTracker() {
   const inputBarRef = useRef(null);
   const headerRef = useRef(null);
   const goalsCardRef = useRef(null);
+  // El SCROLLER del chat: la página NO scrollea (body congelado); solo este
+  // contenedor. Es la arquitectura de los chats nativos — con el body quieto,
+  // el teclado de iOS ya no tiene un layout viewport que desplazar y el
+  // header/tarjeta/barra dejan de vibrar al scrollear escribiendo.
+  const chatScrollRef = useRef(null);
 
   // Closes the actions sheet INSTANTLY via direct DOM mutation + paint flush,
   // before letting React run its expensive re-render. On mobile the parent
@@ -971,9 +976,20 @@ export default function MealTracker() {
       const t = `translate3d(0, ${offsetTop}px, 0)`;
       if (headerRef.current) headerRef.current.style.transform = t;
       if (goalsCardRef.current) goalsCardRef.current.style.transform = t;
+      const fromBottom = window.innerHeight - (offsetTop + vv.height);
+      // El SCROLLER se encoge por encima del teclado: así el final de la
+      // conversación queda visible sobre la barra, y scrollear con el
+      // teclado abierto es scroll nativo del contenedor (cero persecución).
+      if (chatScrollRef.current) {
+        chatScrollRef.current.style.bottom = fromBottom > 0 ? `${fromBottom}px` : '';
+        if (kbOpen && !keyboardOpenRef.current_prev) {
+          const sc = chatScrollRef.current;
+          requestAnimationFrame(() => sc.scrollTo({ top: sc.scrollHeight, behavior: 'auto' }));
+        }
+      }
+      keyboardOpenRef.current_prev = kbOpen;
       if (inputBarRef.current) {
         // Mover el input bar arriba para que quede sobre el teclado
-        const fromBottom = window.innerHeight - (offsetTop + vv.height);
         inputBarRef.current.style.transform = `translate3d(0, -${fromBottom}px, 0)`;
         // COLCHÓN anti-superposición: iOS dibuja su pastilla de AutoFill
         // (llave/tarjeta/ubicación) y el botón de teclado flotando PEGADOS
@@ -1042,9 +1058,10 @@ export default function MealTracker() {
   }, []);
 
   useEffect(() => {
-    // Scroll to bottom using window (the body scrolls, not the chat div)
+    // Scroll al fondo del SCROLLER del chat (la página ya no scrollea)
     requestAnimationFrame(() => {
-      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+      const sc = chatScrollRef.current;
+      if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' });
     });
   }, [messages, loading]);
 
@@ -1053,26 +1070,40 @@ export default function MealTracker() {
     if (view === 'main' && messages.length > 0) {
       // Use a small delay so layout settles first
       const t = setTimeout(() => {
-        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
+        const sc = chatScrollRef.current;
+        if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'auto' });
       }, 80);
       return () => clearTimeout(t);
     }
   }, [view]);
 
+  // Con el scroller interno, el body NO debe scrollear nunca en la vista
+  // principal (Safari le encantaría hacer rubber-band igual).
+  useEffect(() => {
+    if (view !== 'main') return;
+    const prevHtml = document.documentElement.style.overflow;
+    const prevBody = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.documentElement.style.overflow = prevHtml;
+      document.body.style.overflow = prevBody;
+    };
+  }, [view]);
+
   // Track if user is scrolled away from bottom (to show "go to latest" button)
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   useEffect(() => {
+    const sc = chatScrollRef.current;
+    if (!sc) return;
     const onScroll = () => {
-      const docH = document.documentElement.scrollHeight;
-      const winH = window.innerHeight;
-      const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-      const distFromBottom = docH - winH - scrollY;
+      const distFromBottom = sc.scrollHeight - sc.clientHeight - sc.scrollTop;
       setShowJumpToLatest(distFromBottom > 220);
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
+    sc.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [messages.length]);
+    return () => sc.removeEventListener('scroll', onScroll);
+  }, [messages.length, view]);
 
   useEffect(() => {
     if (view === 'main') {
@@ -1290,13 +1321,15 @@ export default function MealTracker() {
   // umbral único (60px) hacía que la tarjeta rebotara al scrollear cerca del
   // límite, porque el cambio de padding movía el scroll y re-cruzaba el umbral.
   useEffect(() => {
+    const sc = chatScrollRef.current;
+    if (!sc) return;
     const onScroll = () => {
-      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      const y = sc.scrollTop || 0;
       setCardCompact(prev => prev ? y > 25 : y > 90);
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    sc.addEventListener('scroll', onScroll, { passive: true });
+    return () => sc.removeEventListener('scroll', onScroll);
+  }, [view]);
 
   // Listen for "open capabilities" custom event dispatched from welcome card
   useEffect(() => {
@@ -3483,7 +3516,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </Suspense>
       )}
 
-      <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: `${headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0)}px` }}>
+      {/* SCROLLER interno del chat (la página no scrollea). inset-0 + max-w
+          centrado; el padding-top empuja el contenido bajo el header/tarjeta
+          fijos. Los hijos con position:fixed (tarjeta de anillos) siguen
+          anclados al viewport porque este contenedor no tiene transform. */}
+      <div ref={chatScrollRef} className="fixed inset-0 max-w-2xl mx-auto px-5 pb-32 overflow-y-auto" style={{
+        zIndex: 1,
+        paddingTop: `${headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0)}px`,
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehavior: 'contain',
+      }}>
 
         {/* Goals card — FIXED + visualViewport tracking. top = altura real
             del header + separación, para que NUNCA quede debajo de él. */}
@@ -3773,7 +3815,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {/* Jump-to-latest floating arrow — appears when scrolled away from bottom */}
       {showJumpToLatest && (
         <button
-          onClick={() => { haptic(6); window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }); }}
+          onClick={() => { haptic(6); const sc = chatScrollRef.current; if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' }); }}
           className="fixed z-40 rounded-full transition active:scale-95 flex items-center justify-center"
           style={{
             bottom: keyboardOpen ? '156px' : 'calc(200px + env(safe-area-inset-bottom, 0px))',
