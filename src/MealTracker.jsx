@@ -3,7 +3,7 @@ import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
-  GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale
+  GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale, CalendarCheck
 } from 'lucide-react';
 
 // Chunk aparte: el Recetario (~30KB de recetas + UI) solo se descarga la
@@ -159,8 +159,8 @@ const haptic = (pattern = 10) => {
 // Deja text: '' para no mostrar nada.
 // ─────────────────────────────────────────────────────────────────────────
 const APP_UPDATE_ANNOUNCEMENT = {
-  id: '2026-07-10-recetas-reto-registro',
-  text: 'Tu app se actualizó con tres novedades: 🍽 Nuevas recetas de desayunos, almuerzos, cenas y snacks en el Recetario inteligente — como siempre, ajustadas a TU meta del día. ⛰ Arranca el reto Camino a la Cima: toca la montañita de arriba y mira el ranking en vivo. 📅 Y ahora puedes registrar comidas de días atrás — di qué día y qué comida ("ayer cené pollo con arroz") y se guarda en ese día.',
+  id: '2026-07-21-mi-semana',
+  text: '📊 Nueva sección: Mi Semana. Toca el botón de arriba (el calendario con el ✓) y mira cómo te fue la semana pasada: tus entrenos cumplidos, tus días de registro y qué tan alineado quedaste con tu meta — todo resumido en tu nivel de la semana. Las gráficas de desempeño de siempre ahora viven ahí mismo, en las pestañas de al lado.',
 };
 
 // ─── GANCHOS DE APRENDIZAJE (los edita el coach, como _clients.js) ───────
@@ -273,6 +273,10 @@ export default function MealTracker() {
   // mes ya pasó y el coach aún no marcó el pago. Se muestra como banner (fuera
   // del chat) y desaparece solo cuando el coach marca el pago en el CRM.
   const [paymentDue, setPaymentDue] = useState(null);
+  // Adherencia de ENTRENAMIENTO de la semana pasada (viene del CRM vía
+  // /api/adherence: seguimientos.dias_planeados/asistidos). null = aún sin
+  // respuesta o sin datos; la parte de alimentación se calcula local.
+  const [trainingWeek, setTrainingWeek] = useState(null);
   // Link al centro de recursos DEL CLIENTE (viene de /api/resources según su
   // nombre; los links se administran en api/_clients.js). Vacío = sin botón.
   const [learningUrl, setLearningUrl] = useState(() => {
@@ -1327,6 +1331,30 @@ export default function MealTracker() {
     document.addEventListener('visibilitychange', onVisible);
     return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible); };
   }, [view, name]);
+
+  // Adherencia de entreno de la semana pasada, para el tablero "Mi Semana" y
+  // el chip de nivel en la tarjeta del día. Una consulta por apertura basta:
+  // el seguimiento lo carga el coach una vez por semana, no cambia en vivo.
+  useEffect(() => {
+    if (view !== 'main' || !name) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/adherence?name=${encodeURIComponent(name)}`);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!cancelled && d && d.ok) setTrainingWeek(d.entreno || null);
+      } catch (e) { /* sin red: el tablero muestra solo alimentación */ }
+    })();
+    return () => { cancelled = true; };
+  }, [view, name]);
+
+  // Nivel de la semana pasada para el chip de la tarjeta del día — el gancho
+  // diario hacia "Mi Semana" sin ocupar navegación.
+  const nivelSemanaPasada = useMemo(() => {
+    if (view !== 'main' || !goals) return null;
+    try { return computeWeekReview(history || {}, goals, trainingWeek, today).nivel; } catch (e) { return null; }
+  }, [view, history, goals, trainingWeek, today]);
 
   // Abre el centro de recursos (Aprendizaje) pasando la identidad del cliente
   // en la URL (mt_user = UUID del tracker, mt_name = nombre). Así el centro,
@@ -3331,59 +3359,40 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           }}>
             Meal Tracker
           </div>
-          <div style={{ color: ACCENT_PASTEL, fontWeight: 600, fontSize: '10px', letterSpacing: '0.02em' }}>
+          <div className="hidden min-[440px]:block" style={{ color: ACCENT_PASTEL, fontWeight: 600, fontSize: '10px', letterSpacing: '0.02em' }}>
             Entrena con Método
           </div>
           {/* Botones del header en vidrio real: translúcidos sobre el grafito,
-              con blur suave. Elementos chicos y fijos = costo GPU despreciable. */}
-          <button
-            onClick={() => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowRecetario(true); }}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition"
-            style={{
-              background: 'rgba(255,255,255,0.12)',
-              border: '1px solid rgba(255,255,255,0.22)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset',
-              color: '#FFF'
-            }}
-            title="Recetario">
-            <BookOpen size={14} style={{ color: ACCENT_PASTEL }} />
-            <span className="text-[12px] font-semibold">Recetario</span>
-          </button>
-          {learningUrl && (
-            <button
-              onClick={openLearning}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition"
-              style={{
-                background: 'rgba(255,255,255,0.12)',
-                border: '1px solid rgba(255,255,255,0.22)',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset',
-                color: '#FFF'
-              }}
-              title="Centro de recursos — tu material de aprendizaje">
-              <GraduationCap size={14} style={{ color: ACCENT_PASTEL }} />
-              <span className="text-[12px] font-semibold">Aprendizaje</span>
-            </button>
-          )}
-          {/* Ranking del reto (/ranking). Solo ícono: el header móvil ya va
-              justo con Recetario + Aprendizaje. */}
-          <button
-            onClick={() => { haptic(8); window.location.href = '/ranking'; }}
-            className="flex items-center px-2.5 py-1.5 rounded-full active:scale-95 transition"
-            style={{
-              background: 'rgba(255,255,255,0.12)',
-              border: '1px solid rgba(255,255,255,0.22)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset',
-              color: '#FFF'
-            }}
-            title="Camino a la Cima — ranking del reto">
-            <Mountain size={14} style={{ color: ACCENT_PASTEL }} />
-          </button>
+              con blur suave. Ícono ARRIBA + etiqueta de 9px debajo: un ícono
+              solo no siempre se entiende (la montañita lo sufría), y en
+              columna la etiqueta casi no cuesta ancho — así caben CUATRO
+              destinos con nombre en el header móvil. */}
+          <div className="ml-auto flex items-stretch gap-1.5">
+            {[
+              { key: 'recetario', label: 'Recetario', icon: BookOpen, title: 'Recetario',
+                onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowRecetario(true); } },
+              ...(learningUrl ? [{ key: 'aprendizaje', label: 'Aprendizaje', icon: GraduationCap, title: 'Centro de recursos — tu material de aprendizaje',
+                onClick: openLearning }] : []),
+              { key: 'misemana', label: 'Mi semana', icon: CalendarCheck, title: 'Mi Semana — tu adherencia y desempeño',
+                onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); } },
+              { key: 'reto', label: 'Reto', icon: Mountain, title: 'Camino a la Cima — ranking del reto',
+                onClick: () => { haptic(8); window.location.href = '/ranking'; } },
+            ].map(b => (
+              <button key={b.key} onClick={b.onClick} title={b.title}
+                className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl active:scale-95 transition"
+                style={{
+                  background: 'rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.22)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset',
+                  color: '#FFF'
+                }}>
+                <b.icon size={15} style={{ color: ACCENT_PASTEL }} />
+                <span className="text-[9px] font-semibold leading-none whitespace-nowrap">{b.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -3476,8 +3485,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div key={k} onClick={() => { haptic(6); setMacroTip(t => t === k ? null : k); }}>{el}</div>
                 ))}
                 <div className="flex items-center gap-1 pl-2 flex-shrink-0 hidden min-[420px]:flex cursor-pointer" style={{ borderLeft: `1px solid ${BORDER_SOFT}` }}
-                  onClick={() => { haptic(8); setShowPerformanceModal(true); }} title="Ver desempeño">
-                  <span className="text-[10px] font-semibold tracking-wider whitespace-nowrap" style={{ color: ACCENT_DARK }}>Ver desempeño</span>
+                  onClick={() => { haptic(8); setShowPerformanceModal(true); }} title="Mi Semana">
+                  <span className="text-[10px] font-semibold tracking-wider whitespace-nowrap" style={{ color: ACCENT_DARK }}>Mi semana</span>
                   <span style={{ color: ACCENT_DARK, fontSize: '12px' }}>→</span>
                 </div>
               </div>
@@ -3490,7 +3499,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           ) : (
             <>
               {/* Tocar un ANILLO explica ese macro (línea bajo los anillos);
-                  tocar el resto de la tarjeta sigue abriendo Desempeño. */}
+                  el botón "Mi semana" de abajo es lo único que abre el panel. */}
               <div className="grid grid-cols-4 gap-1">
                 {[
                   { k: 'kcal', ring: <GlassRing val={totals.kcal} goal={goals.kcal} color={ACCENT} label="Calorías" unit="" /> },
@@ -3508,9 +3517,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#9C7C3C' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
                 </div>
               )}
-              <div className="text-center mt-3 cursor-pointer" onClick={() => { haptic(8); setShowPerformanceModal(true); }} title="Ver desempeño">
+              <div className="text-center mt-3 cursor-pointer" onClick={() => { haptic(8); setShowPerformanceModal(true); }} title="Mi Semana">
                 <span className="text-[10px] font-semibold tracking-wider py-1 px-3 rounded-full" style={{ color: ACCENT_DARK, background: ACCENT_LIGHT }}>
-                  Ver desempeño <span aria-hidden="true">→</span>
+                  {nivelSemanaPasada
+                    ? <>Semana pasada: {nivelSemanaPasada.label} {nivelSemanaPasada.emoji} · Mi semana <span aria-hidden="true">→</span></>
+                    : <>Mi semana <span aria-hidden="true">→</span></>}
                 </span>
               </div>
             </>
@@ -3649,7 +3660,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <div>
                   <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mi desempeño" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
+                    <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mi Semana" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
                       onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
                     <ActionChipMini icon={<FileText size={15} strokeWidth={2.2} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
                       onClick={() => { haptic(8); closeActionsSheet(); handleSend('ver resumen diario'); }} />
@@ -3845,6 +3856,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           today={today}
           name={name}
           wellbeing={wellbeing}
+          training={trainingWeek}
           onClose={() => setShowPerformanceModal(false)} />
       )}
 
@@ -5700,8 +5712,113 @@ function estimateMicros(items) {
   return result;
 }
 
-function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, onClose }) {
-  const [tab, setTab] = useState('semana'); // semana | mes | tendencia
+// ─── MI SEMANA: adherencia de la semana pasada (lunes a domingo) ─────────
+// Combina el entreno (seguimiento del coach en el CRM, vía /api/adherence)
+// con la alimentación calculada localmente (history + goals). Dos reglas de
+// psicología del cliente, deliberadas:
+//   1. NUNCA convertir "sin registro" en 0% — no anotar no es fallar, y
+//      confundirlos es lo que hace que la gente deje de abrir la app.
+//   2. La alineación con la meta solo se muestra con 3+ días registrados;
+//      con menos, el empujón correcto es "registra más", no un % engañoso.
+
+const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+// Fechas (YYYY-MM-DD locales) del lunes al domingo de la semana PASADA.
+function prevWeekDates(todayKey) {
+  const [y, m, d] = todayKey.split('-').map(Number);
+  const t = new Date(y, m - 1, d);
+  const dow = (t.getDay() + 6) % 7; // 0 = lunes
+  const monday = new Date(t);
+  monday.setDate(t.getDate() - dow - 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const dd = new Date(monday);
+    dd.setDate(monday.getDate() + i);
+    return getLocalDate(dd);
+  });
+}
+
+// Cercanía del día a la meta, 0–100 — MISMA fórmula que el coach usa en
+// /api/coach-data.js (dayGoalScore): el cliente y el coach ven el mismo número.
+function dayGoalScoreCliente(totals, goals) {
+  if (!goals || !totals) return null;
+  let sum = 0, n = 0;
+  for (const key of ['kcal', 'p', 'c', 'g']) {
+    const goal = Number(goals[key]);
+    if (!goal || goal <= 0) continue;
+    const val = Number(totals[key]) || 0;
+    sum += Math.max(0, 1 - Math.abs(val - goal) / goal);
+    n++;
+  }
+  return n === 0 ? null : Math.round((sum / n) * 100);
+}
+
+// Niveles con nombre en vez de nota de examen. El último tramo es neutro a
+// propósito: gris, sin "mal/bajo" y sin rojo — una semana floja no se castiga,
+// se reinicia.
+const NIVELES_SEMANA = [
+  { min: 90, label: 'Imparable', emoji: '🔥', color: '#10b981' },
+  { min: 70, label: 'En ritmo', emoji: '💪', color: '#3b82f6' },
+  { min: 50, label: 'Construyendo', emoji: '🌱', color: '#f59e0b' },
+  { min: 0, label: 'Semana de reinicio', emoji: '🌤', color: '#64748b' },
+];
+const nivelSemana = (pct) => (pct == null ? null : NIVELES_SEMANA.find(n => pct >= n.min));
+
+// Resumen de la semana pasada. `training` es la respuesta de /api/adherence
+// ({cerrado, planeados, asistidos, dias} | {cerrado:false, plan} | null).
+function computeWeekReview(history, goals, training, todayKey) {
+  const dates = prevWeekDates(todayKey);
+  const logged = dates.filter(d => history[d] && history[d].kcal > 0);
+  const registro = logged.length;
+  const scores = logged.map(d => dayGoalScoreCliente(history[d], goals)).filter(s => s != null);
+  const alineacion = registro >= 3 && scores.length > 0
+    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+    : null;
+
+  const entrenoPct = training && training.cerrado && training.planeados > 0
+    ? Math.min(100, Math.round((training.asistidos / training.planeados) * 100))
+    : null;
+
+  // Nivel global = promedio de los pilares que SÍ tienen datos. Sin ningún
+  // dato no hay nivel (la UI dice "sin registro", jamás un 0%).
+  const parts = [];
+  if (entrenoPct != null) parts.push(entrenoPct);
+  if (registro > 0) parts.push(Math.round((registro / 7) * 100));
+  if (alineacion != null) parts.push(alineacion);
+  const overall = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+
+  return {
+    dates, registro, alineacion, entrenoPct,
+    entreno: training || null,
+    overall,
+    nivel: nivelSemana(overall),
+  };
+}
+
+// El mensaje del coach: UNO solo, en positivo, y siempre apuntando a la
+// acción de ESTA semana. Nunca sermonea la semana que ya pasó.
+function mensajeSemana(r) {
+  const e = r.entreno;
+  const tieneEntreno = e && e.cerrado && e.planeados > 0;
+  if (r.registro === 0 && !tieneEntreno) {
+    return 'La semana pasada quedó sin registro — pasa, y no borra nada de lo construido. Esta semana el objetivo es simple: anota tu primer día y ya estás de vuelta.';
+  }
+  const pedazos = [];
+  if (tieneEntreno) {
+    if (e.asistidos >= e.planeados) pedazos.push(`cumpliste tus ${e.planeados} entrenos`);
+    else if (e.asistidos > 0) pedazos.push(`${e.asistidos} de ${e.planeados} entrenos`);
+  }
+  if (r.registro > 0) pedazos.push(`${r.registro} ${r.registro === 1 ? 'día' : 'días'} de registro`);
+  const resumen = pedazos.join(' y ');
+  const ov = r.overall ?? 0;
+  if (ov >= 90) return `Semana redonda: ${resumen}. Esto ya no es motivación, es hábito — y los hábitos son los que transforman. 🔥`;
+  if (ov >= 70) return `${resumen.charAt(0).toUpperCase() + resumen.slice(1)}. Así se construye: no con semanas perfectas, con semanas constantes. 💪`;
+  if (ov >= 50) return `${resumen.charAt(0).toUpperCase() + resumen.slice(1)}. La base está — esta semana súmale un día más y la curva cambia. 🌱`;
+  if (tieneEntreno && e.asistidos === 0) return 'La semana pasada no salieron los entrenos — a todos nos pasa. Esta semana la meta es una sola: el primer entreno. Del resto nos encargamos después.';
+  return `${resumen ? resumen.charAt(0).toUpperCase() + resumen.slice(1) + '. ' : ''}Semana de reinicio: cero drama y un solo foco — arrancar. Tu primer registro o tu primer entreno de esta semana lo cambia todo.`;
+}
+
+function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, training, onClose }) {
+  const [tab, setTab] = useState('resumen'); // resumen | semana | mes | tendencia
 
   // Estilo "reporte del coach": este panel usa la MISMA paleta del dashboard
   // del coach / CRM (slate + esmeralda + serie azul/ámbar/violeta de las
@@ -6079,11 +6196,14 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-xl">
-      <ModalHeader accent={ACCENT_DARK} label="Mi desempeño" title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
+      <ModalHeader accent={ACCENT_DARK} label="Mi Semana" title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
 
-      {/* Tabs */}
+      {/* Tabs — "Resumen" es la portada: la adherencia de la semana CERRADA
+          (entreno + alimentación en la misma ventana de tiempo). Las gráficas
+          de siempre viven detrás, en las otras pestañas. */}
       <div className="flex gap-1 p-1 rounded-xl mb-5" style={{ background: SURFACE_2 }}>
         {[
+          { key: 'resumen', label: 'Resumen' },
           { key: 'semana', label: 'Semana' },
           { key: 'mes', label: 'Mes' },
           { key: 'tendencia', label: 'Tendencia' },
@@ -6099,6 +6219,173 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           </button>
         ))}
       </div>
+
+      {tab === 'resumen' && (() => {
+        const r = computeWeekReview(combinedHistory, goals, training, today);
+        const e = r.entreno;
+        const entrenoCerrado = !!(e && e.cerrado && e.planeados > 0);
+        const cardShadow = { background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' };
+
+        // Rango legible "14–20 de julio" (o "28 jul – 3 de agosto" si cruza mes)
+        const fdate = (k, opts) => { const [y, m, dd] = k.split('-').map(Number); return new Date(y, m - 1, dd).toLocaleDateString('es', opts); };
+        const rango = r.dates[0].slice(0, 7) === r.dates[6].slice(0, 7)
+          ? `${Number(r.dates[0].slice(8))}–${fdate(r.dates[6], { day: 'numeric', month: 'long' })}`
+          : `${fdate(r.dates[0], { day: 'numeric', month: 'short' })} – ${fdate(r.dates[6], { day: 'numeric', month: 'long' })}`;
+
+        // Semana EN CURSO (en vivo): la alimentación sí es tiempo real — se
+        // aprovecha aquí. El entreno en vivo aún no existe (llegará con la
+        // integración de la app de entrenamiento); mientras tanto se dice
+        // explícitamente cuándo se suma, para que el desfase no confunda.
+        const [cy, cm, cd] = today.split('-').map(Number);
+        const hoyDate = new Date(cy, cm - 1, cd);
+        const dowHoy = (hoyDate.getDay() + 6) % 7; // 0 = lunes
+        const semanaCurso = Array.from({ length: dowHoy + 1 }, (_, i) => {
+          const dd = new Date(hoyDate); dd.setDate(hoyDate.getDate() - dowHoy + i); return getLocalDate(dd);
+        });
+        const registroCurso = semanaCurso.filter(d => combinedHistory[d] && combinedHistory[d].kcal > 0).length;
+
+        const Ring = ({ pct, color, center, sub, size = 86 }) => {
+          const rr = (size - 12) / 2;
+          const circ = 2 * Math.PI * rr;
+          const p = pct == null ? 0 : Math.max(0, Math.min(1, pct / 100));
+          return (
+            <div className="relative mx-auto" style={{ width: size, height: size }}>
+              <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx={size / 2} cy={size / 2} r={rr} fill="none" stroke={SURFACE_2} strokeWidth="9" />
+                <circle cx={size / 2} cy={size / 2} r={rr} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
+                  strokeDasharray={`${circ * p} ${circ}`} style={{ transition: 'stroke-dasharray 0.6s cubic-bezier(0.2,0,0,1)' }} />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="text-[17px] font-bold num leading-none" style={{ color: TEXT }}>{center}</div>
+                {sub && <div className="text-[9px] mt-0.5" style={{ color: TEXT_LIGHT }}>{sub}</div>}
+              </div>
+            </div>
+          );
+        };
+
+        // Fila L-M-X-J-V-S-D: círculo lleno = día cumplido. La visual más
+        // intuitiva para "3 de 4" — y dispara el instinto de completar la fila.
+        const Dots = ({ on, color }) => (
+          <div className="flex justify-center gap-1 mt-2.5">
+            {DIAS_SEMANA.map((l, i) => (
+              <div key={l} className="flex items-center justify-center rounded-full text-[8px] font-bold"
+                style={{
+                  width: 17, height: 17,
+                  background: on[i] ? color : SURFACE_2,
+                  color: on[i] ? '#fff' : TEXT_LIGHT,
+                }}>{l}</div>
+            ))}
+          </div>
+        );
+
+        return (
+          <div>
+            {/* Nivel de la semana — nombre antes que número: el % existe pero
+                chiquito. Nada de rojos ni "bajo": el peor caso es neutro. */}
+            <div className="p-4 rounded-2xl mb-2.5 text-center" style={cardShadow}>
+              <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>
+                Semana pasada · {rango}
+              </div>
+              {r.nivel ? (
+                <>
+                  <div className="text-[30px] leading-none mt-2.5">{r.nivel.emoji}</div>
+                  <div className="text-[21px] font-bold mt-1.5" style={{ color: r.nivel.color }}>{r.nivel.label}</div>
+                  <div className="text-[11px] num mt-1" style={{ color: TEXT_LIGHT }}>{r.overall}% de adherencia</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-[15px] font-semibold mt-2.5" style={{ color: TEXT }}>Semana sin registro</div>
+                  <div className="text-[11px] mt-1" style={{ color: TEXT_MUTED }}>No pasa nada — la de ahora es la que cuenta.</div>
+                </>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+              {/* Entrenamiento (del seguimiento semanal de tu coach en el CRM) */}
+              <div className="p-3 rounded-xl" style={cardShadow}>
+                <div className="text-[10px] uppercase tracking-wider font-semibold mb-2 text-center" style={{ color: TEXT_LIGHT }}>Entrenamiento</div>
+                {entrenoCerrado ? (
+                  <>
+                    <Ring pct={r.entrenoPct} color={e.asistidos > 0 ? SUCCESS : TEXT_LIGHT}
+                      center={`${e.asistidos}/${e.planeados}`} sub="entrenos" />
+                    {Array.isArray(e.dias) && e.dias.length > 0
+                      ? <Dots on={DIAS_SEMANA.map(l => e.dias.includes(l))} color={SUCCESS} />
+                      : <div className="text-[10px] text-center mt-2 num" style={{ color: TEXT_MUTED }}>{r.entrenoPct}% de tu plan</div>}
+                  </>
+                ) : (
+                  <div className="text-center py-3">
+                    <div className="text-[12px] font-medium" style={{ color: TEXT_MUTED }}>Tu coach aún no cierra la semana</div>
+                    {e && e.plan ? (
+                      <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>Tu plan: {e.plan} días por semana</div>
+                    ) : (
+                      <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>Aparecerá aquí cuando la registre</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Alimentación (registro local de la app, misma semana) */}
+              <div className="p-3 rounded-xl" style={cardShadow}>
+                <div className="text-[10px] uppercase tracking-wider font-semibold mb-2 text-center" style={{ color: TEXT_LIGHT }}>Alimentación</div>
+                {r.registro > 0 ? (
+                  <>
+                    <Ring pct={Math.round((r.registro / 7) * 100)} color={C_PROTEIN}
+                      center={`${r.registro}/7`} sub="días" />
+                    <Dots on={r.dates.map(d => !!(combinedHistory[d] && combinedHistory[d].kcal > 0))} color={C_PROTEIN} />
+                  </>
+                ) : (
+                  <div className="text-center py-3">
+                    <div className="text-[12px] font-medium" style={{ color: TEXT_MUTED }}>Sin registro esa semana</div>
+                    <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>Cada día anotado suma aquí</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Alineación con la meta — SOLO con 3+ días registrados: con
+                menos días el % engaña, y el empujón correcto es registrar. */}
+            {r.alineacion != null ? (
+              <div className="p-3 rounded-xl mb-2.5" style={cardShadow}>
+                <div className="flex justify-between items-baseline mb-1.5">
+                  <div className="text-[11px] font-medium" style={{ color: TEXT }}>Alineación con tu meta</div>
+                  <div className="text-[13px] font-bold num" style={{ color: TEXT }}>{r.alineacion}%</div>
+                </div>
+                <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: SURFACE_2 }}>
+                  <div className="h-full rounded-full" style={{ width: `${r.alineacion}%`, background: r.alineacion >= 70 ? SUCCESS : C_CARBS }} />
+                </div>
+                <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>Qué tan cerca de tu meta quedaron los días que registraste</div>
+              </div>
+            ) : r.registro > 0 ? (
+              <div className="p-3 rounded-xl mb-2.5 text-[10px]" style={{ ...cardShadow, color: TEXT_LIGHT }}>
+                Con 3 o más días registrados en la semana, aquí aparece qué tan alineado quedaste con tu meta.
+              </div>
+            ) : null}
+
+            {/* El mensaje del coach: uno solo, en positivo, mirando a ESTA semana */}
+            <div className="p-3.5 rounded-xl mb-2.5 flex items-start gap-2.5" style={cardShadow}>
+              <div className="text-[16px] leading-none mt-0.5">💬</div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: ACCENT_DARK }}>De tu coach</div>
+                <div className="text-[12px]" style={{ color: TEXT, lineHeight: 1.55 }}>{mensajeSemana(r)}</div>
+              </div>
+            </div>
+
+            {/* La semana EN CURSO, en vivo — la alimentación es tiempo real y
+                se aprovecha; del entreno se dice claro cuándo entra. */}
+            <div className="p-3 rounded-xl mb-2" style={cardShadow}>
+              <div className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: TEXT_LIGHT }}>
+                Esta semana · en vivo
+              </div>
+              <div className="text-[12px]" style={{ color: TEXT }}>
+                Llevas <strong className="num">{registroCurso}</strong> de {semanaCurso.length} {semanaCurso.length === 1 ? 'día' : 'días'} con registro{registroCurso >= semanaCurso.length && registroCurso > 0 ? ' — semana perfecta hasta hoy 👏' : ''}.
+              </div>
+              <div className="text-[10px] mt-1" style={{ color: TEXT_LIGHT }}>
+                El entrenamiento se suma cuando tu coach cierre la semana.
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {tab === 'semana' && (
         <div>
