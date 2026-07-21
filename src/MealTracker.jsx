@@ -3342,28 +3342,28 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <div className="absolute inset-0 pointer-events-none opacity-40" style={{
           background: `radial-gradient(circle at 90% 30%, ${ACCENT}40, transparent 55%)`
         }} />
-        <div className="relative max-w-2xl mx-auto px-4 py-2 flex items-center gap-3">
-          {/* Marca en bloque: nombre arriba y "Entrena con Método®" debajo en
-              peso normal — la firma de la marca siempre visible, sin pelear
-              espacio horizontal con los botones. */}
+        <div className="relative max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+          {/* Marca en bloque: nombre arriba y "Entrena con Método" debajo en
+              peso normal (sin ®: a este tamaño el símbolo se veía sucio). */}
           <div className="flex-shrink-0">
             <div className="display font-normal" style={{
               color: '#FFF',
-              fontSize: '17px',
+              fontSize: '18px',
               lineHeight: 1,
               letterSpacing: '0.03em',
               textTransform: 'uppercase'
             }}>
               Meal Tracker
             </div>
-            <div style={{ color: ACCENT_PASTEL, fontWeight: 400, fontSize: '9px', letterSpacing: '0.05em', marginTop: '2px', whiteSpace: 'nowrap' }}>
-              Entrena con Método<span style={{ fontSize: '6.5px', verticalAlign: 'super', marginLeft: '1px' }}>®</span>
+            <div style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 400, fontSize: '9.5px', letterSpacing: '0.08em', marginTop: '3px', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
+              Entrena con Método
             </div>
           </div>
-          {/* Botones del header: ícono ARRIBA + etiqueta debajo. Vidrio más
-              presente que antes (18% de blanco + borde al 30% + ícono blanco):
-              con 12% se hundían en el grafito y pasaban desapercibidos. */}
-          <div className="ml-auto flex items-stretch gap-1.5">
+          {/* Botones del header: superficie oscura sutil (no vidrio lechoso),
+              radio generoso y el LIMA del ícono de la app como único acento —
+              el lenguaje "premium dark" de las apps caras. El header ahora
+              respira más (py-3). */}
+          <div className="ml-auto flex items-stretch gap-2">
             {[
               { key: 'recetario', label: 'Recetario', icon: BookOpen, title: 'Recetario',
                 onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowRecetario(true); } },
@@ -3375,17 +3375,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 onClick: () => { haptic(8); window.location.href = '/ranking'; } },
             ].map(b => (
               <button key={b.key} onClick={b.onClick} title={b.title}
-                className="flex flex-col items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl active:scale-95 transition"
+                className="flex flex-col items-center justify-center gap-1 px-3 py-2 active:scale-95 transition"
                 style={{
-                  background: 'rgba(255,255,255,0.18)',
-                  border: '1px solid rgba(255,255,255,0.30)',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)',
-                  boxShadow: '0 1px 0 rgba(255,255,255,0.22) inset, 0 2px 8px rgba(0,0,0,0.18)',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  borderRadius: '16px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.25)',
                   color: '#FFF'
                 }}>
-                <b.icon size={17} strokeWidth={2.1} style={{ color: '#FFF' }} />
-                <span className="text-[9.5px] font-semibold leading-none whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.92)' }}>{b.label}</span>
+                <b.icon size={18} strokeWidth={2} style={{ color: '#D3F26B' }} />
+                <span className="text-[9.5px] font-medium leading-none whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '0.01em' }}>{b.label}</span>
               </button>
             ))}
           </div>
@@ -5806,7 +5805,10 @@ function mensajeSemana(r) {
 }
 
 function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, training, onClose }) {
-  const [tab, setTab] = useState('resumen'); // resumen | semana | mes | tendencia
+  const [tab, setTab] = useState('panorama'); // panorama | alimentacion
+  // Dentro de Alimentación: ventana de tiempo. "Tendencia" se quitó — a 12
+  // semanas casi nadie la entendía y el mes ya cuenta esa historia.
+  const [alimTab, setAlimTab] = useState('semana'); // semana | mes
 
   // Estilo "reporte del coach": este panel usa la MISMA paleta del dashboard
   // del coach / CRM (slate + esmeralda + serie azul/ámbar/violeta de las
@@ -6191,10 +6193,8 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           de siempre viven detrás, en las otras pestañas. */}
       <div className="flex gap-1 p-1 rounded-xl mb-5" style={{ background: SURFACE_2 }}>
         {[
-          { key: 'resumen', label: 'Resumen' },
-          { key: 'semana', label: 'Semana' },
-          { key: 'mes', label: 'Mes' },
-          { key: 'tendencia', label: 'Tendencia' },
+          { key: 'panorama', label: 'Panorama' },
+          { key: 'alimentacion', label: 'Alimentación' },
         ].map(t => (
           <button key={t.key} onClick={() => { haptic(6); setTab(t.key); }}
             className="flex-1 py-2 rounded-lg text-[12px] font-semibold transition active:scale-[0.98]"
@@ -6208,7 +6208,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
         ))}
       </div>
 
-      {tab === 'resumen' && (() => {
+      {tab === 'panorama' && (() => {
         const r = computeWeekReview(combinedHistory, goals, training, today);
         const e = r.entreno;
         const entrenoCerrado = !!(e && e.cerrado && e.planeados > 0);
@@ -6231,6 +6231,31 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           const dd = new Date(hoyDate); dd.setDate(hoyDate.getDate() - dowHoy + i); return getLocalDate(dd);
         });
         const registroCurso = semanaCurso.filter(d => combinedHistory[d] && combinedHistory[d].kcal > 0).length;
+        // Alineación a meta de la semana EN CURSO — misma regla que la
+        // pasada: solo con 3+ días registrados (con menos, el % engaña).
+        const scoresCurso = semanaCurso
+          .filter(d => combinedHistory[d] && combinedHistory[d].kcal > 0)
+          .map(d => dayGoalScoreCliente(combinedHistory[d], goals))
+          .filter(s => s != null);
+        const alineacionCurso = registroCurso >= 3 && scoresCurso.length > 0
+          ? Math.round(scoresCurso.reduce((a, b) => a + b, 0) / scoresCurso.length)
+          : null;
+
+        // Mini indicador "Meta nutricional" — vive DENTRO de cada columna de
+        // alimentación para que registro y alineación se lean juntos.
+        const MetaMini = ({ pct }) => pct != null ? (
+          <div className="mt-2.5 px-1 text-left">
+            <div className="flex justify-between items-baseline mb-1">
+              <span className="text-[9px]" style={{ color: TEXT_MUTED }}>Meta nutricional</span>
+              <strong className="text-[10.5px] num" style={{ color: TEXT }}>{pct}%</strong>
+            </div>
+            <div className="relative h-1 rounded-full overflow-hidden" style={{ background: SURFACE_2 }}>
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 70 ? SUCCESS : C_CARBS }} />
+            </div>
+          </div>
+        ) : (
+          <div className="text-[8.5px] mt-2.5" style={{ color: TEXT_LIGHT }}>Meta: visible con 3+ días de registro</div>
+        );
 
         const Ring = ({ pct, color, center, sub, size = 86 }) => {
           const rr = (size - 12) / 2;
@@ -6337,6 +6362,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                       <Ring pct={Math.round((r.registro / 7) * 100)} color={C_PROTEIN}
                         center={`${r.registro}/7`} sub="días" size={80} />
                       <Dots on={r.dates.map(d => !!(combinedHistory[d] && combinedHistory[d].kcal > 0))} color={C_PROTEIN} />
+                      <MetaMini pct={r.alineacion} />
                     </>
                   ) : (
                     <>
@@ -6352,29 +6378,13 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                   </div>
                   <Ring pct={Math.round((registroCurso / semanaCurso.length) * 100)} color={SUCCESS}
                     center={`${registroCurso}/${semanaCurso.length}`} sub="hasta hoy" size={80} />
-                  <div className="text-[9.5px] mt-2" style={{ color: TEXT_LIGHT }}>En vivo — cada registro suma al instante</div>
+                  <MetaMini pct={alineacionCurso} />
                 </div>
+              </div>
+              <div className="text-[9px] mt-2.5 text-center" style={{ color: TEXT_LIGHT }}>
+                Meta nutricional = qué tan cerca de tu meta quedaron los días que registraste. Esta semana va en vivo.
               </div>
             </div>
-
-            {/* Alineación con la meta — SOLO con 3+ días registrados: con
-                menos días el % engaña, y el empujón correcto es registrar. */}
-            {r.alineacion != null ? (
-              <div className="p-3 rounded-xl mb-2.5" style={cardShadow}>
-                <div className="flex justify-between items-baseline mb-1.5">
-                  <div className="text-[11px] font-medium" style={{ color: TEXT }}>Alineación con tu meta</div>
-                  <div className="text-[13px] font-bold num" style={{ color: TEXT }}>{r.alineacion}%</div>
-                </div>
-                <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: SURFACE_2 }}>
-                  <div className="h-full rounded-full" style={{ width: `${r.alineacion}%`, background: r.alineacion >= 70 ? SUCCESS : C_CARBS }} />
-                </div>
-                <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>Qué tan cerca de tu meta quedaron los días que registraste</div>
-              </div>
-            ) : r.registro > 0 ? (
-              <div className="p-3 rounded-xl mb-2.5 text-[10px]" style={{ ...cardShadow, color: TEXT_LIGHT }}>
-                Con 3 o más días registrados en la semana, aquí aparece qué tan alineado quedaste con tu meta.
-              </div>
-            ) : null}
 
             {/* El mensaje del coach: uno solo, en positivo, mirando a ESTA semana */}
             <div className="p-3.5 rounded-xl mb-2.5 flex items-start gap-2.5" style={cardShadow}>
@@ -6389,8 +6399,24 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
         );
       })()}
 
-      {tab === 'semana' && (
+      {tab === 'alimentacion' && (
         <div>
+          {/* Sub-pestañas de ventana de tiempo, chiquitas y discretas */}
+          <div className="flex gap-1.5 mb-4">
+            {[{ key: 'semana', label: 'Semana' }, { key: 'mes', label: 'Mes' }].map(t => (
+              <button key={t.key} onClick={() => { haptic(6); setAlimTab(t.key); }}
+                className="px-3.5 py-1.5 rounded-full text-[11px] font-semibold transition active:scale-[0.97]"
+                style={{
+                  background: alimTab === t.key ? '#0f172a' : SURFACE_2,
+                  color: alimTab === t.key ? '#fff' : TEXT_MUTED,
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {alimTab === 'semana' && (
+          <div>
           <StatBlock label="Calorías" color={ACCENT} goal={goals.kcal} unit="" data={week} statKey="kcal" />
           <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={week} statKey="p" />
           <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={week} statKey="c" />
@@ -6476,27 +6502,17 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {tab === 'mes' && (
-        <div>
-          <StatBlock label="Calorías" color={ACCENT} goal={goals.kcal} unit="" data={month} statKey="kcal" />
-          <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={month} statKey="p" />
-          <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={month} statKey="c" />
-          <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={month} statKey="g" />
-        </div>
-      )}
-
-      {tab === 'tendencia' && (
-        <div>
-          <div className="text-[12px] mb-4" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
-            Promedio semanal de los últimos 3 meses. Cada punto es una semana.
           </div>
-          <TrendBlock label="Calorías" color={ACCENT} goal={goals.kcal} unit="" statKey="kcal" />
-          <TrendBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" statKey="p" />
-          <TrendBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" statKey="c" />
-          <TrendBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" statKey="g" />
+          )}
+
+          {alimTab === 'mes' && (
+          <div>
+            <StatBlock label="Calorías" color={ACCENT} goal={goals.kcal} unit="" data={month} statKey="kcal" />
+            <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={month} statKey="p" />
+            <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={month} statKey="c" />
+            <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={month} statKey="g" />
+          </div>
+          )}
         </div>
       )}
 
