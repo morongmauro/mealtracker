@@ -3,7 +3,7 @@ import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
-  GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale, CalendarCheck
+  GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale, CalendarCheck, LayoutGrid
 } from 'lucide-react';
 import { canonicalizeItem } from './foods.js';
 
@@ -3364,28 +3364,35 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <div className="absolute inset-0 pointer-events-none opacity-40" style={{
           background: `radial-gradient(circle at 90% 30%, ${ACCENT}40, transparent 55%)`
         }} />
-        <div className="relative max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="relative max-w-2xl mx-auto px-3 py-3 flex items-center gap-2">
           {/* Marca en bloque: nombre arriba y "Entrena con Método" debajo en
-              peso normal (sin ®: a este tamaño el símbolo se veía sucio). */}
-          <div className="flex-shrink-0">
-            <div className="display font-normal" style={{
+              peso normal (sin ®: a este tamaño el símbolo se veía sucio).
+              min-w-0 + truncate: la marca CEDE espacio antes que cortar los
+              botones — en el iPhone 15 Pro Max el Reto quedaba fuera. */}
+          <div className="min-w-0 flex-shrink" style={{ minWidth: '86px' }}>
+            <div className="display font-normal truncate" style={{
               color: '#FFF',
-              fontSize: '18px',
+              fontSize: '16px',
               lineHeight: 1,
               letterSpacing: '0.03em',
               textTransform: 'uppercase'
             }}>
               Meal Tracker
             </div>
-            <div style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 400, fontSize: '9.5px', letterSpacing: '0.08em', marginTop: '3px', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
+            <div className="truncate" style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 400, fontSize: '8.5px', letterSpacing: '0.07em', marginTop: '3px', textTransform: 'uppercase' }}>
               Entrena con Método
             </div>
           </div>
-          {/* Botones del header: superficie oscura sutil (no vidrio lechoso),
-              radio generoso y el LIMA del ícono de la app como único acento —
-              el lenguaje "premium dark" de las apps caras. El header ahora
-              respira más (py-3). */}
-          <div className="ml-auto flex items-stretch gap-2">
+          {/* Botones del header en GRID de columnas iguales: se reparten el
+              ancho disponible y se encogen juntos — nunca se corta ninguno,
+              en ningún teléfono. Superficie oscura sutil, radio generoso y
+              el lima del ícono de la app como único acento. */}
+          <div className="ml-auto grid gap-1.5 flex-shrink-0" style={{
+            gridTemplateColumns: `repeat(${learningUrl ? 4 : 3}, minmax(0, 1fr))`,
+            maxWidth: learningUrl ? '288px' : '218px',
+            width: '100%',
+            flexShrink: 1,
+          }}>
             {[
               { key: 'recetario', label: 'Recetario', icon: BookOpen, title: 'Recetario',
                 onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowRecetario(true); } },
@@ -3397,7 +3404,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 onClick: () => { haptic(8); window.location.href = '/ranking'; } },
             ].map(b => (
               <button key={b.key} onClick={b.onClick} title={b.title}
-                className="flex flex-col items-center justify-center gap-1 px-3 py-2 active:scale-95 transition"
+                className="flex flex-col items-center justify-center gap-1 px-1 py-2 min-w-0 active:scale-95 transition"
                 style={{
                   background: 'rgba(255,255,255,0.06)',
                   border: '1px solid rgba(255,255,255,0.10)',
@@ -3406,7 +3413,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   color: '#FFF'
                 }}>
                 <b.icon size={18} strokeWidth={2} style={{ color: '#D3F26B' }} />
-                <span className="text-[9.5px] font-medium leading-none whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '0.01em' }}>{b.label}</span>
+                <span className="text-[9px] font-medium leading-none truncate max-w-full" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '0.01em' }}>{b.label}</span>
               </button>
             ))}
           </div>
@@ -3590,7 +3597,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             WebkitTapHighlightColor: 'transparent'
           }}
           title="Herramientas y acciones">
-          <Sparkles size={16} strokeWidth={2} style={{ color: ACCENT_PASTEL }} />
+          {/* LayoutGrid (cuadrícula de opciones) en lima: la estrellita
+              parecía botón de IA y la tuerca sonaba a configuración. */}
+          <LayoutGrid size={16} strokeWidth={2} style={{ color: '#D3F26B' }} />
           <span className="text-[13px] font-semibold tracking-wide">Herramientas</span>
         </button>
 
@@ -4102,7 +4111,7 @@ const InputBar = memo(function InputBar({
             title={recording ? 'Detener dictado' : transcribing ? 'Transcribiendo…' : 'Dictar por voz'}>
             {transcribing
               ? <Loader2 size={20} strokeWidth={2} className="animate-spin" />
-              : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} />}
+              : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: recording ? '#fff' : '#D3F26B' }} />}
           </button>
           {text.trim() && !recording && (
             <button

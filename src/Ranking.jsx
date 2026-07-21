@@ -214,9 +214,11 @@ export default function Ranking() {
       {/* Encabezado — safe-area: en la app instalada no se mete bajo el notch */}
       <div className="relative px-5 pt-6 pb-3 text-center" style={{ paddingTop: 'calc(24px + env(safe-area-inset-top, 0px))' }}>
         {/* Volver a la app (útil sobre todo en la PWA, donde no hay barra del navegador) */}
+        {/* safe-area: sin esto el botón quedaba DEBAJO del notch/Dynamic
+            Island en iPhone y los taps nunca llegaban — "no hace nada". */}
         <button onClick={() => { window.location.href = '/'; }}
-          className="absolute left-4 top-5 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition"
-          style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT_MUTED }}
+          className="absolute left-4 w-10 h-10 rounded-full flex items-center justify-center active:scale-95 transition"
+          style={{ top: 'calc(18px + env(safe-area-inset-top, 0px))', zIndex: 10, background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT_MUTED, fontSize: 18 }}
           title="Volver a la app" aria-label="Volver a la app">
           ←
         </button>
