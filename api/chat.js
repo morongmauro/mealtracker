@@ -62,6 +62,11 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: model || 'claude-haiku-4-5-20251001',
         max_tokens: Math.min(Number(max_tokens) || 4000, MAX_TOKENS_CAP),
+        // temperature 0 SIEMPRE, fijada en el server: el trabajo principal de
+        // este endpoint es estimar macros, y con la temperature por defecto
+        // (1.0) el mismo "arepa mediana" daba números distintos cada día —
+        // el reporte de inconsistencia de los clientes. Determinismo primero.
+        temperature: 0,
         system: system || '',
         messages: cleanedMessages,
         ...(stream ? { stream: true } : {}),

@@ -5,6 +5,7 @@ import {
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
   GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale, CalendarCheck
 } from 'lucide-react';
+import { canonicalizeItem } from './foods.js';
 
 // Chunk aparte: el Recetario (~30KB de recetas + UI) solo se descarga la
 // primera vez que el cliente lo abre, no en el arranque de la app.
@@ -1931,7 +1932,7 @@ ${dateTable}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock
 3. PROCESA SIEMPRE TODOS LOS ALIMENTOS DEL MENSAJE, incluso si el mensaje es MUY LARGO (>200 palabras) o contiene recetas detalladas con muchos ingredientes (10+). Está PROHIBIDO ignorar parte de una lista. Si el cliente menciona 12 alimentos, registras los 12. Nunca tomes solo una parte y dejes el resto. Mensajes largos con muchos detalles son CASOS NORMALES, no excepciones — procésalos completos.
 4. CLARIFY ES EL ÚLTIMO RECURSO. Usa intent="clarify" SOLO cuando es literalmente imposible interpretar (palabra inventada sin sentido, o cantidad absurda como "200 huevos"). En CUALQUIER otro caso, REGISTRA con tu mejor estimación y deja nota en quantity_warning. Si el cliente responde algo corto como "una porción", "sí", "el grande", REVISA EL HISTORIAL para saber de qué alimento habla y regístralo — NO preguntes "¿de qué?".
 5. EJEMPLO de mensaje que SIEMPRE debe registrarse (NUNCA pedir más detalle): "Te voy a decir cuál es mi desayuno típico que es lo que yo desayuno todos los días son cuatro huevos revueltos con dos tostadas de pan integral les junto un poco de manteca a las tostadas Un café negro Creatina en polvo con dos cucharadas de cacao puro no alcalino". CORRECTA RESPUESTA: intent=log_meal, meal=desayuno, items=[4 huevos revueltos ~200g, 2 tostadas pan integral ~50g, manteca ~10g, café negro 240ml, creatina 5g, cacao puro 2 cdas ~10g]. NUNCA respuesta tipo "cuéntame más detalle".
-6. Para cantidades sin gramos: ESTIMA con USDA estándar (1 huevo ≈ 50g, banana mediana ≈ 120g, arepa media ≈ 80g, taza de arroz cocido ≈ 160g, cucharada aceite ≈ 14g, 1 tostada pan integral ≈ 25g, 1 porción ≈ porción estándar del alimento). NUNCA rechaces por "valores no cuadran".
+6. Para cantidades sin gramos: ESTIMA con USDA estándar (1 huevo ≈ 50g, banana mediana ≈ 120g, arepa media ≈ 80g, taza de arroz cocido ≈ 160g, cucharada aceite ≈ 14g, 1 tostada pan integral ≈ 25g, 1 porción ≈ porción estándar del alimento). NUNCA rechaces por "valores no cuadran". El campo "amount" SIEMPRE incluye los gramos: si el cliente dio unidades, escribe la unidad Y los gramos estimados ("2 huevos (100g)", "1 arepa mediana (75g)", "1 taza (160g)"). Usa nombres SIMPLES y ESTÁNDAR en "name" (ej: "arroz blanco cocido", "pechuga de pollo", "huevo"), con los detalles en "amount" — así el mismo alimento se llama igual siempre.
 7. COHERENCIA: si el cliente se refiere a algo que dijo antes ("esos ponquecitos", "lo que te dije", "la receta de antes"), búscalo en el HISTORIAL RECIENTE y sé consistente. NUNCA digas que no recuerdas.
 8. IDIOMA: español neutro latinoamericano estándar. Trato de "tú" siempre, nunca "vos" ni "usted".
    PROHIBIDO ABSOLUTO:
@@ -2121,7 +2122,12 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 
   // Auto-correct items instead of rejecting. Returns sanitized items, never rejects valid inputs.
   const sanitizeItems = (items) => {
-    return items.map(it => {
+    return items.map(raw => {
+      // Capa determinística: si el alimento está en la tabla canónica
+      // (src/foods.js) y su cantidad es determinable, los macros se
+      // recalculan desde la tabla — el mismo número para todos los
+      // clientes, todos los días. Si no, se respeta la estimación de la IA.
+      const it = canonicalizeItem(raw);
       const p = Math.max(0, it.p || 0);
       const c = Math.max(0, it.c || 0);
       const g = Math.max(0, it.g || 0);
@@ -2411,7 +2417,23 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
             const candEd = wantedEd ? entries.filter(en => (en.meal || '').toLowerCase() === wantedEd) : entries;
             targetEd = candEd[candEd.length - 1];
           }
-          const newItems = Array.isArray(parsed.items) ? sanitizeItems(parsed.items) : [];
+          let newItems = Array.isArray(parsed.items) ? sanitizeItems(parsed.items) : [];
+          // CINTURÓN DE SEGURIDAD: los items que el cliente NO tocó conservan
+          // sus macros ORIGINALES por código, no por promesa del modelo. Sin
+          // esto, el modelo re-estimaba TODA la comida al corregir una sola
+          // cosa y los totales bailaban (pollo 180→137, el ghee desaparecía…).
+          // Match por nombre+cantidad normalizados: si coinciden con un item
+          // original, se copian sus números tal cual.
+          if (targetEd && Array.isArray(targetEd.items)) {
+            const normEq = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+            newItems = newItems.map(ni => {
+              const orig = targetEd.items.find(oi => normEq(oi.name) === normEq(ni.name) && normEq(oi.amount) === normEq(ni.amount));
+              return orig ? { ...ni, kcal: orig.kcal, p: orig.p, c: orig.c, g: orig.g,
+                ...(orig.fiber != null ? { fiber: orig.fiber } : {}),
+                ...(orig.omega3 != null ? { omega3: orig.omega3 } : {}),
+                ...(orig.sugar != null ? { sugar: orig.sugar } : {}) } : ni;
+            });
+          }
           if (!targetEd || newItems.length === 0) {
             setMessages(m => [...m, { role: 'assistant', content: 'Dime cuál comida corrijo y con qué cantidad queda (ej: "la cena: eran 300g de arroz, no 150") y la ajusto al instante.', ts: Date.now() }]);
           } else {
