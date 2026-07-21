@@ -1349,13 +1349,6 @@ export default function MealTracker() {
     return () => { cancelled = true; };
   }, [view, name]);
 
-  // Nivel de la semana pasada para el chip de la tarjeta del día — el gancho
-  // diario hacia "Mi Semana" sin ocupar navegación.
-  const nivelSemanaPasada = useMemo(() => {
-    if (view !== 'main' || !goals) return null;
-    try { return computeWeekReview(history || {}, goals, trainingWeek, today).nivel; } catch (e) { return null; }
-  }, [view, history, goals, trainingWeek, today]);
-
   // Abre el centro de recursos (Aprendizaje) pasando la identidad del cliente
   // en la URL (mt_user = UUID del tracker, mt_name = nombre). Así el centro,
   // si es una webapp propia, reconoce al usuario automáticamente — misma
@@ -3349,24 +3342,27 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <div className="absolute inset-0 pointer-events-none opacity-40" style={{
           background: `radial-gradient(circle at 90% 30%, ${ACCENT}40, transparent 55%)`
         }} />
-        <div className="relative max-w-2xl mx-auto px-5 py-2 flex items-center gap-3">
-          <div className="display font-normal" style={{
-            color: '#FFF',
-            fontSize: '18px',
-            lineHeight: 1,
-            letterSpacing: '0.03em',
-            textTransform: 'uppercase'
-          }}>
-            Meal Tracker
+        <div className="relative max-w-2xl mx-auto px-4 py-2 flex items-center gap-3">
+          {/* Marca en bloque: nombre arriba y "Entrena con Método®" debajo en
+              peso normal — la firma de la marca siempre visible, sin pelear
+              espacio horizontal con los botones. */}
+          <div className="flex-shrink-0">
+            <div className="display font-normal" style={{
+              color: '#FFF',
+              fontSize: '17px',
+              lineHeight: 1,
+              letterSpacing: '0.03em',
+              textTransform: 'uppercase'
+            }}>
+              Meal Tracker
+            </div>
+            <div style={{ color: ACCENT_PASTEL, fontWeight: 400, fontSize: '9px', letterSpacing: '0.05em', marginTop: '2px', whiteSpace: 'nowrap' }}>
+              Entrena con Método<span style={{ fontSize: '6.5px', verticalAlign: 'super', marginLeft: '1px' }}>®</span>
+            </div>
           </div>
-          <div className="hidden min-[440px]:block" style={{ color: ACCENT_PASTEL, fontWeight: 600, fontSize: '10px', letterSpacing: '0.02em' }}>
-            Entrena con Método
-          </div>
-          {/* Botones del header en vidrio real: translúcidos sobre el grafito,
-              con blur suave. Ícono ARRIBA + etiqueta de 9px debajo: un ícono
-              solo no siempre se entiende (la montañita lo sufría), y en
-              columna la etiqueta casi no cuesta ancho — así caben CUATRO
-              destinos con nombre en el header móvil. */}
+          {/* Botones del header: ícono ARRIBA + etiqueta debajo. Vidrio más
+              presente que antes (18% de blanco + borde al 30% + ícono blanco):
+              con 12% se hundían en el grafito y pasaban desapercibidos. */}
           <div className="ml-auto flex items-stretch gap-1.5">
             {[
               { key: 'recetario', label: 'Recetario', icon: BookOpen, title: 'Recetario',
@@ -3379,17 +3375,17 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 onClick: () => { haptic(8); window.location.href = '/ranking'; } },
             ].map(b => (
               <button key={b.key} onClick={b.onClick} title={b.title}
-                className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-xl active:scale-95 transition"
+                className="flex flex-col items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl active:scale-95 transition"
                 style={{
-                  background: 'rgba(255,255,255,0.12)',
-                  border: '1px solid rgba(255,255,255,0.22)',
+                  background: 'rgba(255,255,255,0.18)',
+                  border: '1px solid rgba(255,255,255,0.30)',
                   backdropFilter: 'blur(10px)',
                   WebkitBackdropFilter: 'blur(10px)',
-                  boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset',
+                  boxShadow: '0 1px 0 rgba(255,255,255,0.22) inset, 0 2px 8px rgba(0,0,0,0.18)',
                   color: '#FFF'
                 }}>
-                <b.icon size={15} style={{ color: ACCENT_PASTEL }} />
-                <span className="text-[9px] font-semibold leading-none whitespace-nowrap">{b.label}</span>
+                <b.icon size={17} strokeWidth={2.1} style={{ color: '#FFF' }} />
+                <span className="text-[9.5px] font-semibold leading-none whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.92)' }}>{b.label}</span>
               </button>
             ))}
           </div>
@@ -3411,7 +3407,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </Suspense>
       )}
 
-      <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: `${headerH + (cardCompact ? 56 : 161) + (paymentDue ? 62 : 0)}px` }}>
+      <div className="relative max-w-2xl mx-auto px-5 pb-32" style={{ zIndex: 1, paddingTop: `${headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0)}px` }}>
 
         {/* Goals card — FIXED + visualViewport tracking. top = altura real
             del header + separación, para que NUNCA quede debajo de él. */}
@@ -3484,11 +3480,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 ].map(({ k, el }) => (
                   <div key={k} onClick={() => { haptic(6); setMacroTip(t => t === k ? null : k); }}>{el}</div>
                 ))}
-                <div className="flex items-center gap-1 pl-2 flex-shrink-0 hidden min-[420px]:flex cursor-pointer" style={{ borderLeft: `1px solid ${BORDER_SOFT}` }}
-                  onClick={() => { haptic(8); setShowPerformanceModal(true); }} title="Mi Semana">
-                  <span className="text-[10px] font-semibold tracking-wider whitespace-nowrap" style={{ color: ACCENT_DARK }}>Mi semana</span>
-                  <span style={{ color: ACCENT_DARK, fontSize: '12px' }}>→</span>
-                </div>
               </div>
               {macroTip && MACRO_INFO[macroTip] && (
                 <div className="text-[10.5px] text-center mt-1.5 px-1 fade-up" style={{ color: TEXT_MUTED, lineHeight: 1.35 }}>
@@ -3517,13 +3508,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#9C7C3C' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
                 </div>
               )}
-              <div className="text-center mt-3 cursor-pointer" onClick={() => { haptic(8); setShowPerformanceModal(true); }} title="Mi Semana">
-                <span className="text-[10px] font-semibold tracking-wider py-1 px-3 rounded-full" style={{ color: ACCENT_DARK, background: ACCENT_LIGHT }}>
-                  {nivelSemanaPasada
-                    ? <>Semana pasada: {nivelSemanaPasada.label} {nivelSemanaPasada.emoji} · Mi semana <span aria-hidden="true">→</span></>
-                    : <>Mi semana <span aria-hidden="true">→</span></>}
-                </span>
-              </div>
+              {/* El acceso a "Mi Semana" vive SOLO en el header — tenerlo
+                  también aquí era redundante. El espacio se lo llevan los
+                  anillos, que ahora son más grandes. */}
             </>
           )}
           </div>
@@ -4166,8 +4153,8 @@ function CompactMacro({ val, goal, color, label, unit = '' }) {
 function GlassRing({ val, goal, color, label, unit = 'g' }) {
   // SVG con viewBox + texto DENTRO del SVG: el anillo escala con el ancho de su
   // celda (grid-cols-4), así nunca se apiña ni se corta en teléfonos angostos.
-  const size = 78;
-  const stroke = 5;
+  const size = 88;
+  const stroke = 5.5;
   const center = size / 2;
   const radius = (size - stroke) / 2;
   const circ = 2 * Math.PI * radius;
@@ -4181,8 +4168,8 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
           <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
             strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
         </g>
-        <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 18, fill: TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
-        <text x={center} y={center + 12} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
+        <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 20, fill: TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
+        <text x={center} y={center + 13} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10.5, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
       </svg>
       <div className="text-[10px] uppercase tracking-wider mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.03em' }}>
         {label}
@@ -4214,22 +4201,23 @@ function ActionChipMini({ icon, label, color, pastel, onClick }) {
         onClick?.();
       }}
       onClick={(e) => e.preventDefault()}
-      className="flex items-center gap-2 px-2.5 py-2 rounded-xl active:scale-[0.97]"
+      className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl active:scale-[0.97]"
       style={{
-        background: 'rgba(255,255,255,0.9)',
-        border: 'none',
-        boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 4px 14px rgba(60,70,50,0.10), 0 1px 4px rgba(60,70,50,0.05)',
+        background: '#FFFFFF',
+        border: '1px solid rgba(60,70,50,0.07)',
+        boxShadow: '0 2px 10px rgba(60,70,50,0.07), 0 1px 2px rgba(60,70,50,0.04)',
         transition: 'transform 0.08s ease-out',
         touchAction: 'manipulation',
         WebkitTapHighlightColor: 'transparent'
       }}>
-      {/* Insignia CIRCULAR con icono de línea y tono propio, como los del
-          onboarding del centro de recursos — reemplaza el cuadradito con
-          emoji, que se veía monótono repitiendo el mismo pastel. */}
-      <div className="flex items-center justify-center rounded-full shrink-0" style={{ width: 30, height: 30, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK, fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1 }}>
+      {/* Insignia en "squircle" (cuadrado redondeado) con icono de línea:
+          blanco pleno + borde hairline + sombra suave y tipografía medium —
+          la receta de tarjeta premium; el pastel queda SOLO dentro de la
+          insignia, no gritando en todo el chip. */}
+      <div className="flex items-center justify-center rounded-[10px] shrink-0" style={{ width: 32, height: 32, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK, fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1 }}>
         {icon}
       </div>
-      <div className="text-[11.5px] font-semibold leading-tight text-left" style={{ color: TEXT }}>{label}</div>
+      <div className="text-[12px] font-medium leading-tight text-left" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{label}</div>
     </button>
   );
 }
@@ -6265,8 +6253,8 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
         // Fila L-M-X-J-V-S-D: círculo lleno = día cumplido. La visual más
         // intuitiva para "3 de 4" — y dispara el instinto de completar la fila.
-        const Dots = ({ on, color }) => (
-          <div className="flex justify-center gap-1 mt-2.5">
+        const Dots = ({ on, color, align = 'center' }) => (
+          <div className={`flex ${align === 'left' ? 'justify-start' : 'justify-center'} gap-1 mt-2.5`}>
             {DIAS_SEMANA.map((l, i) => (
               <div key={l} className="flex items-center justify-center rounded-full text-[8px] font-bold"
                 style={{
@@ -6300,45 +6288,72 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 mb-2.5">
-              {/* Entrenamiento (del seguimiento semanal de tu coach en el CRM) */}
-              <div className="p-3 rounded-xl" style={cardShadow}>
-                <div className="text-[10px] uppercase tracking-wider font-semibold mb-2 text-center" style={{ color: TEXT_LIGHT }}>Entrenamiento</div>
-                {entrenoCerrado ? (
-                  <>
+            {/* Entrenamiento — MISMO protagonismo que alimentación siempre:
+                cuando el seguimiento aún no está cargado, el anillo muestra
+                el plan en tono neutro y el estado es "en revisión" — nunca
+                un hueco ni un "el coach va atrasado". */}
+            <div className="p-3.5 rounded-xl mb-2.5" style={cardShadow}>
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0">
+                  {entrenoCerrado ? (
                     <Ring pct={r.entrenoPct} color={e.asistidos > 0 ? SUCCESS : TEXT_LIGHT}
-                      center={`${e.asistidos}/${e.planeados}`} sub="entrenos" />
-                    {Array.isArray(e.dias) && e.dias.length > 0
-                      ? <Dots on={DIAS_SEMANA.map(l => e.dias.includes(l))} color={SUCCESS} />
-                      : <div className="text-[10px] text-center mt-2 num" style={{ color: TEXT_MUTED }}>{r.entrenoPct}% de tu plan</div>}
-                  </>
-                ) : (
-                  <div className="text-center py-3">
-                    <div className="text-[12px] font-medium" style={{ color: TEXT_MUTED }}>Tu coach aún no cierra la semana</div>
-                    {e && e.plan ? (
-                      <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>Tu plan: {e.plan} días por semana</div>
-                    ) : (
-                      <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>Aparecerá aquí cuando la registre</div>
-                    )}
-                  </div>
-                )}
+                      center={`${e.asistidos}/${e.planeados}`} sub="entrenos" size={92} />
+                  ) : (
+                    <Ring pct={0} color={TEXT_LIGHT}
+                      center={e && e.plan ? `${e.plan}d` : '—'} sub={e && e.plan ? 'tu plan' : 'por definir'} size={92} />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Entrenamiento · semana pasada</div>
+                  {entrenoCerrado ? (
+                    <>
+                      <div className="text-[13.5px] font-semibold mt-1 num" style={{ color: TEXT }}>{r.entrenoPct}% de tu plan cumplido</div>
+                      {Array.isArray(e.dias) && e.dias.length > 0 && (
+                        <Dots on={DIAS_SEMANA.map(l => e.dias.includes(l))} color={SUCCESS} align="left" />
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-[13.5px] font-semibold mt-1" style={{ color: TEXT }}>En revisión con tu coach</div>
+                      <div className="text-[10px] mt-1" style={{ color: TEXT_LIGHT, lineHeight: 1.45 }}>
+                        Tus entrenos entran aquí con el seguimiento semanal. La semana en curso también va por ese camino.
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
+            </div>
 
-              {/* Alimentación (registro local de la app, misma semana) */}
-              <div className="p-3 rounded-xl" style={cardShadow}>
-                <div className="text-[10px] uppercase tracking-wider font-semibold mb-2 text-center" style={{ color: TEXT_LIGHT }}>Alimentación</div>
-                {r.registro > 0 ? (
-                  <>
-                    <Ring pct={Math.round((r.registro / 7) * 100)} color={C_PROTEIN}
-                      center={`${r.registro}/7`} sub="días" />
-                    <Dots on={r.dates.map(d => !!(combinedHistory[d] && combinedHistory[d].kcal > 0))} color={C_PROTEIN} />
-                  </>
-                ) : (
-                  <div className="text-center py-3">
-                    <div className="text-[12px] font-medium" style={{ color: TEXT_MUTED }}>Sin registro esa semana</div>
-                    <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>Cada día anotado suma aquí</div>
+            {/* Alimentación — dos ventanas con IGUAL relevancia: la semana
+                pasada (cerrada, comparable con entreno) y la semana en curso
+                (en vivo, porque el registro de comida sí es tiempo real). */}
+            <div className="p-3.5 rounded-xl mb-2.5" style={cardShadow}>
+              <div className="text-[10px] uppercase tracking-wider font-semibold mb-2.5" style={{ color: TEXT_LIGHT }}>Alimentación · días con registro</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center">
+                  <div className="text-[10px] font-semibold mb-2" style={{ color: TEXT_MUTED }}>Semana pasada</div>
+                  {r.registro > 0 ? (
+                    <>
+                      <Ring pct={Math.round((r.registro / 7) * 100)} color={C_PROTEIN}
+                        center={`${r.registro}/7`} sub="días" size={80} />
+                      <Dots on={r.dates.map(d => !!(combinedHistory[d] && combinedHistory[d].kcal > 0))} color={C_PROTEIN} />
+                    </>
+                  ) : (
+                    <>
+                      <Ring pct={0} color={TEXT_LIGHT} center="—" sub="sin registro" size={80} />
+                      <div className="text-[9.5px] mt-2" style={{ color: TEXT_LIGHT }}>Cada día anotado suma aquí</div>
+                    </>
+                  )}
+                </div>
+                <div className="text-center">
+                  <div className="text-[10px] font-semibold mb-2 flex items-center justify-center gap-1.5" style={{ color: TEXT_MUTED }}>
+                    Esta semana
+                    <span className="inline-block rounded-full" style={{ width: 6, height: 6, background: SUCCESS, boxShadow: `0 0 0 2.5px ${SUCCESS}30` }} />
                   </div>
-                )}
+                  <Ring pct={Math.round((registroCurso / semanaCurso.length) * 100)} color={SUCCESS}
+                    center={`${registroCurso}/${semanaCurso.length}`} sub="hasta hoy" size={80} />
+                  <div className="text-[9.5px] mt-2" style={{ color: TEXT_LIGHT }}>En vivo — cada registro suma al instante</div>
+                </div>
               </div>
             </div>
 
@@ -6370,19 +6385,6 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               </div>
             </div>
 
-            {/* La semana EN CURSO, en vivo — la alimentación es tiempo real y
-                se aprovecha; del entreno se dice claro cuándo entra. */}
-            <div className="p-3 rounded-xl mb-2" style={cardShadow}>
-              <div className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: TEXT_LIGHT }}>
-                Esta semana · en vivo
-              </div>
-              <div className="text-[12px]" style={{ color: TEXT }}>
-                Llevas <strong className="num">{registroCurso}</strong> de {semanaCurso.length} {semanaCurso.length === 1 ? 'día' : 'días'} con registro{registroCurso >= semanaCurso.length && registroCurso > 0 ? ' — semana perfecta hasta hoy 👏' : ''}.
-              </div>
-              <div className="text-[10px] mt-1" style={{ color: TEXT_LIGHT }}>
-                El entrenamiento se suma cuando tu coach cierre la semana.
-              </div>
-            </div>
           </div>
         );
       })()}
