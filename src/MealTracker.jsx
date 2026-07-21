@@ -242,6 +242,8 @@ export default function MealTracker() {
   const [editingEntry, setEditingEntry] = useState(null);
   const [recording, setRecording] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  // Espejo en ref para listeners de touch (no re-suscriben por render)
+  const keyboardOpenRef = useRef(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
   const [showRecetario, setShowRecetario] = useState(false);
   const [cardCompact, setCardCompact] = useState(false);
@@ -964,6 +966,7 @@ export default function MealTracker() {
       const offsetTop = vv.offsetTop || 0;
       const heightDiff = window.innerHeight - vv.height;
       const kbOpen = heightDiff > 100;
+      keyboardOpenRef.current = kbOpen;
       setKeyboardOpen(kbOpen);
       const t = `translate3d(0, ${offsetTop}px, 0)`;
       if (headerRef.current) headerRef.current.style.transform = t;
@@ -988,12 +991,53 @@ export default function MealTracker() {
         actionsFabRef.current.style.visibility = kbOpen ? 'hidden' : '';
       }
     };
-    vv.addEventListener('resize', updateFixed);
-    vv.addEventListener('scroll', updateFixed);
+    // rAF-throttle: los eventos del visual viewport llegan en ráfaga durante
+    // el scroll y aplicar transforms en cada uno producía la vibración —
+    // como máximo un reposicionamiento por frame de pintura.
+    let raf = 0;
+    const requestUpdate = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => { raf = 0; updateFixed(); });
+    };
+    vv.addEventListener('resize', requestUpdate);
+    vv.addEventListener('scroll', requestUpdate);
     updateFixed();
     return () => {
-      vv.removeEventListener('resize', updateFixed);
-      vv.removeEventListener('scroll', updateFixed);
+      if (raf) cancelAnimationFrame(raf);
+      vv.removeEventListener('resize', requestUpdate);
+      vv.removeEventListener('scroll', requestUpdate);
+    };
+  }, []);
+
+  // SCROLL PARA CERRAR EL TECLADO — el patrón de WhatsApp/Telegram/iMessage.
+  // El estado "teclado abierto + usuario scrolleando" es imposible de pintar
+  // estable en iOS (los eventos del visual viewport llegan tarde y la barra
+  // persigue al teclado a los tirones). En vez de perseguirlo: si el cliente
+  // arrastra la conversación con el teclado abierto, el teclado se cierra y
+  // el layout vuelve a su estado estable. touchmove solo lo disparan dedos
+  // reales, así que los auto-scrolls programáticos (llegada de mensajes) no
+  // cierran el teclado por accidente.
+  useEffect(() => {
+    let startY = null;
+    const onTouchStart = (e) => { startY = e.touches && e.touches[0] ? e.touches[0].clientY : null; };
+    const onTouchMove = (e) => {
+      if (startY == null || !keyboardOpenRef.current) return;
+      const t = e.touches && e.touches[0];
+      if (!t) return;
+      // Arrastres DENTRO de la barra de escribir (seleccionar texto, mover el
+      // cursor) no cierran el teclado.
+      if (inputBarRef.current && e.target && inputBarRef.current.contains(e.target)) return;
+      if (Math.abs(t.clientY - startY) > 24) {
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === 'function') ae.blur();
+        startY = null;
+      }
+    };
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
     };
   }, []);
 
@@ -3369,7 +3413,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               peso normal (sin ®: a este tamaño el símbolo se veía sucio).
               min-w-0 + truncate: la marca CEDE espacio antes que cortar los
               botones — en el iPhone 15 Pro Max el Reto quedaba fuera. */}
-          <div className="min-w-0 flex-shrink" style={{ minWidth: '86px' }}>
+          <div className="min-w-0 flex-shrink" style={{ minWidth: '100px' }}>
             <div className="display font-normal truncate" style={{
               color: '#FFF',
               fontSize: '16px',
@@ -3379,7 +3423,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             }}>
               Meal Tracker
             </div>
-            <div className="truncate" style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 400, fontSize: '8.5px', letterSpacing: '0.07em', marginTop: '3px', textTransform: 'uppercase' }}>
+            {/* Chiquito de verdad (7.5px, tracking corto): así "ENTRENA CON
+                MÉTODO" entra COMPLETO bajo el nombre, sin cortarse nunca. */}
+            <div style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 400, fontSize: '7.5px', letterSpacing: '0.03em', marginTop: '3px', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
               Entrena con Método
             </div>
           </div>
@@ -3412,7 +3458,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   boxShadow: '0 2px 10px rgba(0,0,0,0.25)',
                   color: '#FFF'
                 }}>
-                <b.icon size={18} strokeWidth={2} style={{ color: '#D3F26B' }} />
+                {/* Crema monocromo, como la M del logo — el lima vivo en los
+                    íconos se veía "Android barato"; el premium es sobrio. */}
+                <b.icon size={18} strokeWidth={2} style={{ color: '#F9F7F1' }} />
                 <span className="text-[9px] font-medium leading-none truncate max-w-full" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '0.01em' }}>{b.label}</span>
               </button>
             ))}
@@ -3597,9 +3645,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             WebkitTapHighlightColor: 'transparent'
           }}
           title="Herramientas y acciones">
-          {/* LayoutGrid (cuadrícula de opciones) en lima: la estrellita
+          {/* LayoutGrid (cuadrícula de opciones) en crema: la estrellita
               parecía botón de IA y la tuerca sonaba a configuración. */}
-          <LayoutGrid size={16} strokeWidth={2} style={{ color: '#D3F26B' }} />
+          <LayoutGrid size={16} strokeWidth={2} style={{ color: '#F9F7F1' }} />
           <span className="text-[13px] font-semibold tracking-wide">Herramientas</span>
         </button>
 
@@ -4111,7 +4159,7 @@ const InputBar = memo(function InputBar({
             title={recording ? 'Detener dictado' : transcribing ? 'Transcribiendo…' : 'Dictar por voz'}>
             {transcribing
               ? <Loader2 size={20} strokeWidth={2} className="animate-spin" />
-              : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: recording ? '#fff' : '#D3F26B' }} />}
+              : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: '#F9F7F1' }} />}
           </button>
           {text.trim() && !recording && (
             <button
