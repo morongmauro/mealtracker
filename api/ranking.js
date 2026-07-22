@@ -45,6 +45,16 @@ function dayGoalScore(totals, goals) {
 // days de una fila: { 'YYYY-MM-DD': score|null } SOLO dentro del reto.
 // La fila viene del select con alias (goals/history/today/today_totals
 // extraídos del JSONB), no con el blob `data` completo.
+// Meta vigente en una fecha (misma lógica que coach-data.js): cada día del
+// reto se evalúa contra la meta que regía ese día.
+function goalsForDateRow(row, date) {
+  const hist = Array.isArray(row.goals_history) ? row.goals_history : null;
+  if (!hist || hist.length === 0) return row.goals || null;
+  let g = null;
+  for (const h of hist) { if (h.since <= date) g = h; else break; }
+  return g || hist[0] || row.goals || null;
+}
+
 function rowChallengeDays(row, todayStr) {
   const goals = row.goals || null;
   const history = { ...(row.history || {}) };
@@ -67,7 +77,7 @@ function rowChallengeDays(row, todayStr) {
     // bastaba para sumar adherencia e incluso rankear en la pestaña "Hoy".
     const total = (Number(t.kcal) || 0) + (Number(t.p) || 0) + (Number(t.c) || 0) + (Number(t.g) || 0);
     if (total <= 0) continue;
-    out[date] = dayGoalScore(t, goals);
+    out[date] = dayGoalScore(t, goalsForDateRow(row, date));
   }
   return out;
 }
@@ -133,7 +143,7 @@ export default async function handler(req, res) {
     // (cada item de cada comida desde el registro), que crece sin límite —
     // bajarlo entero por cliente en cada consulta era un desperdicio enorme.
     const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_data?select=name,goals:data->goals,history:data->history,today:data->today,today_totals:data->today_totals`,
+      `${SUPABASE_URL}/rest/v1/user_data?select=name,goals:data->goals,goals_history:data->goals_history,history:data->history,today:data->today,today_totals:data->today_totals`,
       { headers: { 'apikey': SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}` } }
     );
     const rows = await r.json();

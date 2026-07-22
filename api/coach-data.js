@@ -54,6 +54,20 @@ function dayGoalScore(totals, goals) {
   return n === 0 ? null : Math.round((sum / n) * 100);
 }
 
+// Meta VIGENTE en una fecha dada. goals_history = [{since:'YYYY-MM-DD',
+// kcal,p,c,g}, ...] ordenado ascendente (lo escribe PATCH action=goals).
+// Sin historial se usa la meta actual (comportamiento previo); fechas
+// anteriores a la primera entrada usan la primera (era la que regía).
+function goalsForDate(data, date) {
+  const hist = Array.isArray(data.goals_history) ? data.goals_history : null;
+  if (!hist || hist.length === 0) return data.goals || null;
+  let g = null;
+  for (const h of hist) {
+    if (h.since <= date) g = h; else break;
+  }
+  return g || hist[0] || data.goals || null;
+}
+
 // Compute a quick summary for the list view from a client's `data` blob.
 // Importante: el cliente puede aún no haber "cerrado" el día — el día actual
 // vive en data.today + data.today_entries + data.today_totals. Lo reconstruimos
@@ -114,7 +128,9 @@ function summarize(row) {
     const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
     for (const date of Object.keys(history)) {
       if (date >= cutoffKey && date <= todayStr) {
-        dayScores[date] = dayGoalScore(history[date], goals);
+        // Cada día se evalúa contra la meta que regía ESE día — cambiar la
+        // meta hoy no reescribe el cumplimiento pasado.
+        dayScores[date] = dayGoalScore(history[date], goalsForDate(data, date));
       }
     }
   }
@@ -239,7 +255,24 @@ export default async function handler(req, res) {
       // aplicarla en vivo (con aviso en el chat), y /api/sync la usa para que
       // un push del cliente con metas viejas no pise esta meta nueva.
       const goalsUpdated = { at: new Date().toISOString(), by: 'coach' };
-      const newData = { ...currentData, goals: { kcal, p, c, g }, goals_updated: goalsUpdated };
+
+      // TRAZABILIDAD DE METAS: cada cambio queda en goals_history con su
+      // fecha de vigencia. Así el histórico del cliente SIEMPRE se evalúa
+      // contra la meta que regía ESE día — cambiar la meta hoy no
+      // distorsiona el cumplimiento de semanas pasadas. La primera vez se
+      // ancla la meta previa como vigente "desde siempre" para que el
+      // histórico viejo conserve su referencia.
+      const hoyBogota = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+      let hist = Array.isArray(currentData.goals_history) ? currentData.goals_history.slice() : [];
+      if (hist.length === 0 && currentData.goals) {
+        hist.push({ since: '2000-01-01', ...currentData.goals });
+      }
+      // Ajustes repetidos el mismo día no acumulan ruido: se reemplaza la entrada de hoy
+      hist = hist.filter(h => h.since !== hoyBogota);
+      hist.push({ since: hoyBogota, kcal, p, c, g });
+      hist.sort((a, b) => (a.since < b.since ? -1 : 1));
+
+      const newData = { ...currentData, goals: { kcal, p, c, g }, goals_updated: goalsUpdated, goals_history: hist };
 
       // Write back
       const r2 = await fetch(

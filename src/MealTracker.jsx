@@ -151,6 +151,14 @@ const haptic = (pattern = 10) => {
   }
 };
 
+// Llave VAPID pública (base64url) → Uint8Array, formato que exige pushManager
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map((ch) => ch.charCodeAt(0)));
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // ANUNCIO DE ACTUALIZACIÓN DE LA APP (lo edita el coach, como _clients.js)
 //
@@ -222,6 +230,10 @@ if (typeof window !== 'undefined' && !window.storage) {
 export default function MealTracker() {
   const [view, setView] = useState('loading');
   const [goals, setGoals] = useState(null);
+  // Historial de metas [{since:'YYYY-MM-DD', kcal,p,c,g}] — lo escribe el
+  // coach vía coach-data. Permite evaluar cada día del pasado contra la meta
+  // que regía ESE día (trazabilidad: cambiar la meta hoy no reescribe ayer).
+  const [goalsHistory, setGoalsHistory] = useState(null);
   const [entries, setEntries] = useState([]);
   const [water, setWater] = useState(0);
   const [favorites, setFavorites] = useState([]);
@@ -276,6 +288,9 @@ export default function MealTracker() {
   // mes ya pasó y el coach aún no marcó el pago. Se muestra como banner (fuera
   // del chat) y desaparece solo cuando el coach marca el pago en el CRM.
   const [paymentDue, setPaymentDue] = useState(null);
+  // Invitación a activar recordatorios push (visible solo si el permiso del
+  // navegador está en 'default' y no la descartó hace poco)
+  const [pushPrompt, setPushPrompt] = useState(false);
   // Adherencia de ENTRENAMIENTO de la semana pasada (viene del CRM vía
   // /api/adherence: seguimientos.dias_planeados/asistidos). null = aún sin
   // respuesta o sin datos; la parte de alimentación se calcula local.
@@ -697,6 +712,7 @@ export default function MealTracker() {
           setWellbeing(local => ({ ...d.wellbeing, ...(local || {}) }));
         }
         applyServerGoalsRef.current(d.goals, d.goals_updated);
+        if (Array.isArray(d.goals_history) && d.goals_history.length > 0) setGoalsHistory(d.goals_history);
         if (typeof d.name === 'string' && d.name) setName(d.name);
       } catch (e) {
         // Falló el pull (red): liberar el guard para poder reintentar — el
@@ -725,6 +741,13 @@ export default function MealTracker() {
       window.storage.set('goalsUpdated', JSON.stringify(serverMeta)).catch(() => {});
       setGoals(serverGoals);
       window.storage.set('goals', JSON.stringify(serverGoals)).catch(() => {});
+      // Trazabilidad local: el cambio en vivo también entra al historial de
+      // metas de este dispositivo (el server ya lo guardó por su lado).
+      setGoalsHistory(prev => {
+        const today = getLocalDate();
+        const base = Array.isArray(prev) ? prev.filter(h => h.since !== today) : [];
+        return [...base, { since: today, ...serverGoals }].sort((a, b) => (a.since < b.since ? -1 : 1));
+      });
       if (serverMeta.by === 'coach') {
         const firstName = name ? name.split(' ')[0] : '';
         setMessages(m => [...m, {
@@ -1409,6 +1432,72 @@ export default function MealTracker() {
     document.addEventListener('visibilitychange', onVisible);
     return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible); };
   }, [view, name]);
+
+  // ─── Recordatorios push ────────────────────────────────────────────────
+  // Suscribe este dispositivo al push (idempotente) y registra en el server
+  // la zona horaria del teléfono — así los recordatorios llegan a las 8am /
+  // 12m / 8pm HORA LOCAL de cada cliente, esté en el país que esté.
+  const ensurePushSubscription = useCallback(async () => {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        const r = await fetch('/api/push-subscribe');
+        const { publicKey } = await r.json();
+        if (!publicKey) return false;
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+      }
+      let uid = cloudUserIdRef.current;
+      if (!uid) { try { uid = localStorage.getItem('cloudUserId'); } catch (e) {} }
+      const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'America/Bogota';
+      await fetch('/api/push-subscribe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid, name, tz, sub: sub.toJSON() }),
+      });
+      return true;
+    } catch (e) { return false; }
+  }, [name]);
+
+  useEffect(() => {
+    if (view !== 'main' || !name) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') return;
+    if (Notification.permission === 'granted') { ensurePushSubscription(); return; }
+    if (Notification.permission === 'default') {
+      // No insistir: si la descartó, se re-ofrece a la semana
+      try {
+        const dismissed = Number(localStorage.getItem('pushPromptDismissedAt') || 0);
+        if (Date.now() - dismissed > 7 * 86400000) setPushPrompt(true);
+      } catch (e) { setPushPrompt(true); }
+    }
+  }, [view, name, ensurePushSubscription]);
+
+  // El permiso DEBE pedirse desde un toque del usuario (regla de iOS/Safari)
+  const activarPush = useCallback(async () => {
+    haptic(8);
+    setPushPrompt(false);
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        const ok = await ensurePushSubscription();
+        setMessages(m => [...m, {
+          role: 'assistant', isAnnouncement: true, tag: 'Recordatorios',
+          content: ok
+            ? '🔔 Listo — te acompaño con recordatorios durante el día para que ningún registro se te pase. Los puedes apagar cuando quieras desde los ajustes del teléfono.'
+            : 'El permiso quedó activo; la suscripción se completará la próxima vez que abras la app.',
+          ts: Date.now(),
+        }]);
+      } else {
+        try { localStorage.setItem('pushPromptDismissedAt', String(Date.now())); } catch (e) {}
+      }
+    } catch (e) {}
+  }, [ensurePushSubscription]);
+
+  const posponerPush = useCallback(() => {
+    haptic(6);
+    setPushPrompt(false);
+    try { localStorage.setItem('pushPromptDismissedAt', String(Date.now())); } catch (e) {}
+  }, []);
 
   // Adherencia de entreno de la semana pasada, para el tablero "Mi Semana" y
   // el chip de nivel en la tarjeta del día. Una consulta por apertura basta:
@@ -3522,7 +3611,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           anclados al viewport porque este contenedor no tiene transform. */}
       <div ref={chatScrollRef} className="fixed inset-0 max-w-2xl mx-auto px-5 pb-32 overflow-y-auto" style={{
         zIndex: 1,
-        paddingTop: `${headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0)}px`,
+        paddingTop: `${headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0) + (pushPrompt && !paymentDue ? 58 : 0)}px`,
         WebkitOverflowScrolling: 'touch',
         overscrollBehavior: 'contain',
       }}>
@@ -3658,6 +3747,34 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 }</strong>)</>
               ) : null}.
             </div>
+          </div>
+        )}
+        {/* Invitación a activar recordatorios push — vive en la misma zona
+            fija del banner de pago (si hay recordatorio de pago, ese manda
+            y esta espera su turno). El permiso se pide SOLO al tocar
+            "Activar" (regla de iOS: gesto del usuario). */}
+        {pushPrompt && !paymentDue && (
+          <div className="fade-up" style={{
+            marginTop: '6px',
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '8px 12px',
+            borderRadius: '14px',
+            background: 'rgba(255,255,255,0.95)',
+            border: '1px solid rgba(255,255,255,0.7)',
+            boxShadow: '0 4px 14px rgba(60,70,50,0.12)',
+          }}>
+            <span style={{ fontSize: '16px', flexShrink: 0 }}>🔔</span>
+            <div className="flex-1 min-w-0" style={{ fontSize: '12px', color: TEXT_MUTED, lineHeight: 1.3 }}>
+              <strong style={{ color: TEXT }}>Recordatorios del día</strong> — te avisamos para que ningún registro se te pase.
+            </div>
+            <button onClick={activarPush} className="flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold active:scale-95 transition"
+              style={{ background: '#1F1F1F', color: '#FFF' }}>
+              Activar
+            </button>
+            <button onClick={posponerPush} className="flex-shrink-0 px-2 py-1.5 text-[11px] font-medium active:scale-95 transition"
+              style={{ color: TEXT_LIGHT }}>
+              Luego
+            </button>
           </div>
         )}
         </div>
@@ -3964,6 +4081,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           name={name}
           wellbeing={wellbeing}
           training={trainingWeek}
+          goalsHistory={goalsHistory}
           onClose={() => setShowPerformanceModal(false)} />
       )}
 
@@ -5845,6 +5963,18 @@ function prevWeekDates(todayKey) {
   });
 }
 
+// Meta VIGENTE en una fecha dada (misma lógica que el server): cada día del
+// histórico se evalúa contra la meta que regía ESE día. Sin historial se usa
+// la meta actual; fechas anteriores a la primera entrada usan la primera.
+function goalsVigentes(goalsHistory, currentGoals, date) {
+  if (!Array.isArray(goalsHistory) || goalsHistory.length === 0) return currentGoals || null;
+  let g = null;
+  for (const h of goalsHistory) {
+    if (h.since <= date) g = h; else break;
+  }
+  return g || goalsHistory[0] || currentGoals || null;
+}
+
 // Cercanía del día a la meta, 0–100 — MISMA fórmula que el coach usa en
 // /api/coach-data.js (dayGoalScore): el cliente y el coach ven el mismo número.
 function dayGoalScoreCliente(totals, goals) {
@@ -5873,11 +6003,12 @@ const nivelSemana = (pct) => (pct == null ? null : NIVELES_SEMANA.find(n => pct 
 
 // Resumen de la semana pasada. `training` es la respuesta de /api/adherence
 // ({cerrado, planeados, asistidos, dias} | {cerrado:false, plan} | null).
-function computeWeekReview(history, goals, training, todayKey) {
+// `goalsHistory` (opcional) hace que cada día se compare con SU meta vigente.
+function computeWeekReview(history, goals, training, todayKey, goalsHistory) {
   const dates = prevWeekDates(todayKey);
   const logged = dates.filter(d => history[d] && history[d].kcal > 0);
   const registro = logged.length;
-  const scores = logged.map(d => dayGoalScoreCliente(history[d], goals)).filter(s => s != null);
+  const scores = logged.map(d => dayGoalScoreCliente(history[d], goalsVigentes(goalsHistory, goals, d))).filter(s => s != null);
   const alineacion = registro >= 3 && scores.length > 0
     ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
     : null;
@@ -5925,7 +6056,7 @@ function mensajeSemana(r) {
   return `${resumen ? resumen.charAt(0).toUpperCase() + resumen.slice(1) + '. ' : ''}Semana de reinicio: cero drama y un solo foco — arrancar. Tu primer registro o tu primer entreno de esta semana lo cambia todo.`;
 }
 
-function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, training, onClose }) {
+function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, training, goalsHistory, onClose }) {
   const [tab, setTab] = useState('panorama'); // panorama | alimentacion
   // Dentro de Alimentación: ventana de tiempo. "Tendencia" se quitó — a 12
   // semanas casi nadie la entendía y el mes ya cuenta esa historia.
@@ -5995,12 +6126,17 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     const recorded = days.filter(d => d.data && d.data.kcal > 0);
     if (recorded.length === 0) return { avg: 0, pct: 0, inGoal: 0 };
     const avg = recorded.reduce((s, d) => s + (d.data[key] || 0), 0) / recorded.length;
-    const goal = goals[key] || 1;
+    // Trazabilidad: el "% de la meta" y los días "en meta" se evalúan contra
+    // la meta VIGENTE en cada fecha (goals_history) — cambiar la meta hoy no
+    // reescribe el cumplimiento de días pasados.
+    const goalOf = (date) => (goalsVigentes(goalsHistory, goals, date) || goals)[key] || 1;
     const inGoal = recorded.filter(d => {
       const v = d.data[key] || 0;
+      const goal = goalOf(d.date);
       return v >= goal * 0.9 && v <= goal * 1.1;
     }).length;
-    return { avg: Math.round(avg), pct: Math.round((avg / goal) * 100), inGoal };
+    const pct = Math.round((recorded.reduce((s, d) => s + ((d.data[key] || 0) / goalOf(d.date)), 0) / recorded.length) * 100);
+    return { avg: Math.round(avg), pct, inGoal };
   };
 
   // Wellbeing averages (week)
@@ -6330,7 +6466,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
       </div>
 
       {tab === 'panorama' && (() => {
-        const r = computeWeekReview(combinedHistory, goals, training, today);
+        const r = computeWeekReview(combinedHistory, goals, training, today, goalsHistory);
         const e = r.entreno;
         const entrenoCerrado = !!(e && e.cerrado && e.planeados > 0);
         const cardShadow = { background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' };

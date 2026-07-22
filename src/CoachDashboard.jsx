@@ -726,6 +726,7 @@ function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
 
   const data = client.data || {};
   const goals = data.goals || { kcal: 0, p: 0, c: 0, g: 0 };
+  const goalsHistory = Array.isArray(data.goals_history) ? data.goals_history : null;
   const history = data.history || {};
   const historyDetail = data.historyDetail || {};
   const wellbeing = data.wellbeing || {};
@@ -811,8 +812,8 @@ function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
       </div>
 
       {tab === 'dia' && <TabDia goals={goals} todaySummary={todaySummary} todayEntries={todayEntries} wellbeingToday={wellbeing[today]} />}
-      {tab === 'semana' && <TabSemana goals={goals} history={history} onSelectDay={setDrilldownDate} />}
-      {tab === 'mes' && <TabMes goals={goals} history={history} onSelectDay={setDrilldownDate} />}
+      {tab === 'semana' && <TabSemana goals={goals} goalsHistory={goalsHistory} history={history} onSelectDay={setDrilldownDate} />}
+      {tab === 'mes' && <TabMes goals={goals} goalsHistory={goalsHistory} history={history} onSelectDay={setDrilldownDate} />}
       {tab === 'tendencia' && <TabTendencia history={history} />}
       {tab === 'micros' && <TabMicros historyDetail={historyDetail} />}
       {tab === 'bienestar' && <TabBienestar wellbeing={wellbeing} />}
@@ -823,6 +824,7 @@ function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
         <DayDetailModal
           date={drilldownDate}
           goals={goals}
+          goalsHistory={goalsHistory}
           summary={history[drilldownDate] || null}
           entries={historyDetail[drilldownDate] || []}
           wellbeing={wellbeing[drilldownDate]}
@@ -832,7 +834,21 @@ function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
   );
 }
 
-function DayDetailModal({ date, goals, summary, entries, wellbeing, onClose }) {
+// Meta VIGENTE en una fecha (trazabilidad): cada día del histórico se evalúa
+// contra la meta que regía ESE día (data.goals_history, escrito por
+// coach-data action=goals). Sin historial → meta actual, como antes.
+function goalsEnFecha(goalsHistory, currentGoals, date) {
+  if (!Array.isArray(goalsHistory) || goalsHistory.length === 0) return currentGoals || null;
+  let g = null;
+  for (const h of goalsHistory) {
+    if (h.since <= date) g = h; else break;
+  }
+  return g || goalsHistory[0] || currentGoals || null;
+}
+
+function DayDetailModal({ date, goals: goalsProp, goalsHistory, summary, entries, wellbeing, onClose }) {
+  // La meta contra la que se muestra este día es la VIGENTE en esa fecha
+  const goals = goalsEnFecha(goalsHistory, goalsProp, date) || goalsProp;
   // Cerrar con ESC
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -1167,7 +1183,7 @@ function MacroProgress({ label, val, goal, color }) {
 
 // Gráfica de barras día-por-día vs meta (mismo lenguaje visual que el
 // "desempeño" del cliente): línea de meta, verde en rango, ámbar si se pasa.
-function MacroBars({ days, goal, color, statKey, unit = '', onSelectDay }) {
+function MacroBars({ days, goal, color, statKey, unit = '', onSelectDay, goalFor }) {
   if (!goal || goal <= 0) return null;
   const maxRecorded = Math.max(0, ...days.map(d => (d.data ? (d.data[statKey] || 0) : 0)));
   const maxScale = Math.max(goal * 1.4, maxRecorded * 1.1, goal * 1.1);
@@ -1183,10 +1199,13 @@ function MacroBars({ days, goal, color, statKey, unit = '', onSelectDay }) {
         <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
           {days.map((d, i) => {
             const val = d.data ? (d.data[statKey] || 0) : 0;
-            const pct = goal > 0 ? val / goal : 0;
+            // Trazabilidad: el semáforo de cada barra se evalúa contra la
+            // meta vigente ESE día (goalFor); la línea punteada dibuja la actual.
+            const goalDia = goalFor ? (goalFor(d.key) || goal) : goal;
+            const pct = goalDia > 0 ? val / goalDia : 0;
             const heightPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
             const inGoal = val > 0 && pct >= 0.9 && pct <= 1.1;
-            const over = val > goal * 1.1;
+            const over = val > goalDia * 1.1;
             const fill = val === 0 ? '#cbd5e1' : inGoal ? SUCCESS : over ? WARN : color;
             const clickable = !!d.data && typeof onSelectDay === 'function';
             return (
@@ -1214,7 +1233,7 @@ function MacroBars({ days, goal, color, statKey, unit = '', onSelectDay }) {
   );
 }
 
-function TabSemana({ goals, history, onSelectDay }) {
+function TabSemana({ goals, goalsHistory, history, onSelectDay }) {
   const last7 = useMemo(() => {
     const out = [];
     for (let i = 6; i >= 0; i--) {
@@ -1270,7 +1289,8 @@ function TabSemana({ goals, history, onSelectDay }) {
             <div className="text-[13px] font-semibold mb-1.5" style={{ color: m.color }}>
               {m.label} <span style={{ color: TEXT_LIGHT, fontWeight: 400 }}>· meta {fmt0(goals[m.key])}{m.unit}</span>
             </div>
-            <MacroBars days={last7} goal={goals[m.key]} color={m.color} statKey={m.key} unit={m.unit} onSelectDay={onSelectDay} />
+            <MacroBars days={last7} goal={goals[m.key]} color={m.color} statKey={m.key} unit={m.unit} onSelectDay={onSelectDay}
+              goalFor={(date) => (goalsEnFecha(goalsHistory, goals, date) || goals)[m.key]} />
           </div>
         ))}
       </div>
@@ -1288,7 +1308,7 @@ function Stat({ label, val, goal, color, unit = '' }) {
   );
 }
 
-function TabMes({ goals, history, onSelectDay }) {
+function TabMes({ goals, goalsHistory, history, onSelectDay }) {
   // Generar últimos 35 días en una grilla 7xN
   const days = useMemo(() => {
     const out = [];
@@ -1301,10 +1321,12 @@ function TabMes({ goals, history, onSelectDay }) {
     return out;
   }, [history]);
 
-  const colorFor = (data) => {
+  const colorFor = (data, dateKey) => {
     if (!data) return SURFACE_2;
-    if (!goals.kcal) return INFO;
-    const pct = (data.kcal / goals.kcal) * 100;
+    // Semáforo del heatmap contra la meta vigente en CADA fecha
+    const g = goalsEnFecha(goalsHistory, goals, dateKey) || goals;
+    if (!g.kcal) return INFO;
+    const pct = (data.kcal / g.kcal) * 100;
     if (pct > 110) return DANGER;
     if (pct > 90) return SUCCESS;
     if (pct > 60) return INFO;
@@ -1344,7 +1366,7 @@ function TabMes({ goals, history, onSelectDay }) {
                 title={`${d.key}${d.data ? `: ${fmt0(d.data.kcal)} kcal` : ' — sin registro'}`}
                 className="aspect-square rounded-md flex items-center justify-center text-[12px] num p-0"
                 style={{
-                  background: colorFor(d.data),
+                  background: colorFor(d.data, d.key),
                   color: d.data ? '#fff' : TEXT_LIGHT,
                   cursor: clickable ? 'pointer' : 'default',
                   border: 'none'

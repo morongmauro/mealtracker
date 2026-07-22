@@ -103,3 +103,11 @@ if (typeof window !== 'undefined') {
     }
   });
 }
+
+// ─── Service worker de notificaciones push ───────────────────────────────
+// SOLO push (sin caché): no interfiere con el auto-update de version.json.
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
