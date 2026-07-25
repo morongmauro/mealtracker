@@ -34,10 +34,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
 
-// Oculta el splash una vez React renderizó.
+// Oculta el splash una vez React renderizó. Mínimo de exhibición: la
+// animación del logo (anillo + destello) dura ~1s; si la app carga más
+// rápido se retiene el splash apenas lo justo para que se complete, y si
+// la carga es lenta NO se agrega espera (el mínimo ya corrió en paralelo).
 if (typeof window !== 'undefined') {
+  const SPLASH_MIN_MS = 1050;
   requestAnimationFrame(() => {
-    setTimeout(() => document.body.classList.add('app-ready'), 80);
+    const holdLeft = Math.max(80, SPLASH_MIN_MS - performance.now());
+    setTimeout(() => document.body.classList.add('app-ready'), holdLeft);
   });
 }
 

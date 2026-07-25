@@ -120,7 +120,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -154,6 +154,32 @@ export default async function handler(req, res) {
           for (const f of incomingFavs) { if (f && f.id != null) byId.set(f.id, f); }
           dataToWrite.favorites = Array.from(byId.values()).filter(f => !tombstones.has(f.id));
           dataToWrite.favoritesDeleted = Array.from(tombstones).slice(-300);
+
+          // Lápidas de HISTORIAL borrado ('YYYY-MM-DD' día completo,
+          // 'YYYY-MM-DD#id' comida puntual): unión server + entrante y se
+          // aplican al historial que se va a escribir, para que un push de
+          // otro dispositivo con copia vieja no resucite días borrados.
+          const histTombs = new Set([
+            ...(Array.isArray(existing.history_deleted) ? existing.history_deleted : []),
+            ...(Array.isArray(dataToWrite.historyDeleted) ? dataToWrite.historyDeleted : []),
+          ]);
+          if (histTombs.size > 0) {
+            dataToWrite.historyDeleted = Array.from(histTombs).slice(-400);
+            const deadDays = new Set(Array.from(histTombs).filter(t => !String(t).includes('#')));
+            if (dataToWrite.history && typeof dataToWrite.history === 'object') {
+              for (const day of deadDays) delete dataToWrite.history[day];
+            }
+            if (dataToWrite.historyDetail && typeof dataToWrite.historyDetail === 'object') {
+              for (const day of Object.keys(dataToWrite.historyDetail)) {
+                if (deadDays.has(day)) { delete dataToWrite.historyDetail[day]; continue; }
+                const arr = dataToWrite.historyDetail[day];
+                if (Array.isArray(arr)) {
+                  const filtered = arr.filter(e => !histTombs.has(`${day}#${e && e.id}`));
+                  if (filtered.length !== arr.length) dataToWrite.historyDetail[day] = filtered;
+                }
+              }
+            }
+          }
         }
       } catch (e) { /* si falla el chequeo, seguimos con el push normal */ }
 

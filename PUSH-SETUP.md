@@ -23,13 +23,19 @@ Settings → Environment Variables → agregar y re-deployar:
 | `VAPID_PRIVATE_KEY` | `32mc1f9OpIFcptwIkdlNGA8N3vT5_XuKlEjpT43JEMU` |
 | `CRON_SECRET` | inventa una contraseña larga (ej. 40 caracteres aleatorios) |
 
-## 3. Secret en GitHub (repo mealtracker)
-Settings → Secrets and variables → Actions → New repository secret:
-- Nombre: `PUSH_CRON_SECRET`
-- Valor: el MISMO que pusiste en `CRON_SECRET` de Vercel.
+## 3. Secrets en GitHub (repo mealtracker)
+Settings → Secrets and variables → Actions → New repository secret (DOS):
+- `PUSH_CRON_SECRET` → el MISMO valor que pusiste en `CRON_SECRET` de Vercel.
+- `PUSH_APP_URL` → la URL de producción de la app, ej `https://tu-mealtracker.vercel.app`
+  (sin barra final).
 
 El workflow `.github/workflows/push-cron.yml` (incluido) dispara el envío
-cada hora; con el secret configurado queda andando solo.
+cada hora; con los dos secrets configurados queda andando solo.
+
+> ⚠️ Sin este workflow (o un cron equivalente) NADIE dispara `/api/push-cron`
+> y no sale ningún push, aunque los clientes estén suscritos. Si los push
+> "no llegan", lo primero es revisar Actions → push-reminders → que esté
+> corriendo cada hora y en verde.
 
 ## 4. Los clientes
 Al abrir la app verán el banner "🔔 Recordatorios del día — Activar".

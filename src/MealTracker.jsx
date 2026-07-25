@@ -16,7 +16,7 @@ import {
   ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
   C_PROTEIN, C_PROTEIN_PASTEL, C_CARBS, C_CARBS_PASTEL, C_FAT, C_FAT_PASTEL, C_WATER,
   BG, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
-  SUCCESS, WARN, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
+  SUCCESS, WARN, DANGER, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
 } from './theme.js';
 
 // LLM model — single source of truth. To switch to Sonnet, change this one line:
@@ -303,6 +303,12 @@ export default function MealTracker() {
   const initialLoadDone = useRef(false);
   // Copia viva de favoritesDeleted para closures async (pull del server).
   const favoritesDeletedRef = useRef([]);
+  // Lápidas de historial borrado: 'YYYY-MM-DD' = día completo,
+  // 'YYYY-MM-DD#<entryId>' = una comida puntual de ese día. Igual que
+  // favoritesDeleted: sin esto, el pull de la nube resucitaría lo borrado
+  // (la fusión toma el snapshot del server como base).
+  const [historyDeleted, setHistoryDeleted] = useState([]);
+  const historyDeletedRef = useRef([]);
   const cloudUserIdRef = useRef(null);
   const cloudSyncedFromServer = useRef(false);
   const cloudPushTimerRef = useRef(null);
@@ -366,7 +372,7 @@ export default function MealTracker() {
   useEffect(() => {
     (async () => {
       try {
-        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes] = await Promise.all([
+        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes, histDelRes] = await Promise.all([
           window.storage.get('goals').catch(() => null),
           window.storage.get('name').catch(() => null),
           window.storage.get('lastDay').catch(() => null),
@@ -380,12 +386,20 @@ export default function MealTracker() {
           window.storage.get('favoriteIngredients').catch(() => null),
           window.storage.get('goalsUpdated').catch(() => null),
           window.storage.get('favoritesDeleted').catch(() => null),
+          window.storage.get('historyDeleted').catch(() => null),
         ]);
 
         if (favDelRes?.value) {
           try {
             const dels = JSON.parse(favDelRes.value);
             if (Array.isArray(dels)) { favoritesDeletedRef.current = dels; setFavoritesDeleted(dels); }
+          } catch (e) {}
+        }
+
+        if (histDelRes?.value) {
+          try {
+            const dels = JSON.parse(histDelRes.value);
+            if (Array.isArray(dels)) { historyDeletedRef.current = dels; setHistoryDeleted(dels); }
           } catch (e) {}
         }
 
@@ -656,6 +670,17 @@ export default function MealTracker() {
         const todayLocal = getLocalDate();
         const archiveFromCloud = (cloudToday && cloudToday !== todayLocal && cloudEntries && cloudEntries.length > 0);
 
+        // Lápidas de historial: unión local + server, y se aplican a la
+        // fusión para que un día/comida borrado no reviva desde la nube.
+        const serverHistDeleted = Array.isArray(d.historyDeleted) ? d.historyDeleted : [];
+        if (serverHistDeleted.length > 0) {
+          const mergedHDels = Array.from(new Set([...historyDeletedRef.current, ...serverHistDeleted])).slice(-400);
+          historyDeletedRef.current = mergedHDels;
+          setHistoryDeleted(mergedHDels);
+        }
+        const histDead = new Set([...historyDeletedRef.current, ...serverHistDeleted]);
+        const histDeadDays = new Set(Array.from(histDead).filter(t => !t.includes('#')));
+
         if (d.history && typeof d.history === 'object') {
           setHistory(local => {
             const merged = { ...(d.history || {}) };
@@ -673,6 +698,7 @@ export default function MealTracker() {
               }), { kcal: 0, p: 0, c: 0, g: 0 });
               merged[cloudToday] = { ...tot, water: cloudWater };
             }
+            for (const day of histDeadDays) delete merged[day];
             return merged;
           });
         }
@@ -684,6 +710,14 @@ export default function MealTracker() {
             }
             if (archiveFromCloud && !merged[cloudToday]) {
               merged[cloudToday] = cloudEntries;
+            }
+            for (const day of Object.keys(merged)) {
+              if (histDeadDays.has(day)) { delete merged[day]; continue; }
+              const arr = merged[day];
+              if (Array.isArray(arr) && histDead.size) {
+                const filtered = arr.filter(e => !histDead.has(`${day}#${e?.id}`));
+                if (filtered.length !== arr.length) merged[day] = filtered;
+              }
             }
             return merged;
           });
@@ -814,7 +848,7 @@ export default function MealTracker() {
             user_id: cloudUserIdRef.current,
             name,
             data: {
-              favorites, favoritesDeleted, favoriteIngredients, history, historyDetail,
+              favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted,
               frequentItems, wellbeing, goals, name,
               // Versión de la meta que este dispositivo conoce; el server la
               // compara y NO deja que un push viejo pise una meta más nueva
@@ -835,14 +869,14 @@ export default function MealTracker() {
         });
       } catch (e) {}
     }, delayMs);
-  }, [cloudConsent, name, favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, entries, water, today, messages]);
+  }, [cloudConsent, name, favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, frequentItems, wellbeing, goals, entries, water, today, messages]);
 
   // Watch: cualquier cambio en colecciones críticas dispara un push debounced.
   // Incluimos `entries` y `water` para que se sincronicen en vivo, NO solo al cambiar de día.
   useEffect(() => {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
     schedulePushToCloud();
-  }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, frequentItems, wellbeing, goals, name, entries, water, messages, cloudConsent, schedulePushToCloud]);
+  }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, frequentItems, wellbeing, goals, name, entries, water, messages, cloudConsent, schedulePushToCloud]);
 
   const acceptCloudConsent = useCallback(() => {
     try { localStorage.setItem('cloudConsent', 'accepted'); } catch (e) {}
@@ -972,6 +1006,24 @@ export default function MealTracker() {
     if (view !== 'main' || !headerRef.current) return;
     const el = headerRef.current;
     const measure = () => setHeaderH(el.offsetHeight || 40);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view]);
+
+  // Altura REAL de la zona fija de anuncios (tarjeta de anillos + banner de
+  // pago + banner de push). Antes el padding del chat usaba constantes
+  // (62px pago, 58px push) que se quedaban cortas cuando el texto se partía
+  // en varias líneas o había más de un banner: la zona fija (z-30) pintaba
+  // ENCIMA de los primeros mensajes del chat (z-1) y se veía "superpuesto".
+  // Midiendo la altura real, el chat siempre arranca justo debajo.
+  const [zoneH, setZoneH] = useState(null);
+  useEffect(() => {
+    if (view !== 'main' || !goalsCardRef.current) return;
+    const el = goalsCardRef.current;
+    const measure = () => setZoneH(el.offsetHeight || null);
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(measure);
@@ -1159,6 +1211,11 @@ export default function MealTracker() {
     if (!initialLoadDone.current) return;
     window.storage.set('historyDetail', JSON.stringify(historyDetail)).catch(() => {});
   }, [historyDetail]);
+  useEffect(() => {
+    historyDeletedRef.current = historyDeleted;
+    if (!initialLoadDone.current) return;
+    window.storage.set('historyDeleted', JSON.stringify(historyDeleted)).catch(() => {});
+  }, [historyDeleted]);
 
   useEffect(() => {
     if (view === 'main') {
@@ -1484,7 +1541,7 @@ export default function MealTracker() {
           role: 'assistant', isAnnouncement: true, tag: 'Recordatorios',
           content: ok
             ? '🔔 Listo — te acompaño con recordatorios durante el día para que ningún registro se te pase. Los puedes apagar cuando quieras desde los ajustes del teléfono.'
-            : 'El permiso quedó activo; la suscripción se completará la próxima vez que abras la app.',
+            : 'El permiso quedó activo, pero no pude completar la suscripción en este momento. Lo reintento automáticamente la próxima vez que abras la app; si en unos días sigues sin recibir recordatorios, avísale a tu coach.',
           ts: Date.now(),
         }]);
       } else {
@@ -1580,33 +1637,37 @@ export default function MealTracker() {
         }]);
       };
 
+      // REGLA ESTRICTA: los anuncios de Aprendizaje salen SOLO lunes y
+      // jueves, EL MISMO DÍA. Sin "recuperación": antes, quien no abría el
+      // lunes recibía el anuncio pendiente el martes o miércoles, y el del
+      // jueves salía viernes o sábado — a cada cliente le caían en días
+      // distintos y se sentía como anuncio diario.
+      const todayKey = getLocalDate(now);
       const boostEnd = new Date(LEARNING_BOOST_SCHEDULE[LEARNING_BOOST_SCHEDULE.length - 1]);
-      boostEnd.setDate(boostEnd.getDate() + 3); // gracia: el del jueves 6 ago se puede ver hasta el 9
       if (now <= boostEnd) {
-        // MODO RETO — calendario fijo
-        const due = LEARNING_BOOST_SCHEDULE.filter(s => new Date(s) <= now);
-        if (due.length === 0) return; // aún no llega el primer momento
-        const latest = due[due.length - 1];
-        const key = `learnNudge:boost:${latest}`;
+        // MODO RETO — solo si HOY es exactamente un momento del calendario
+        const momento = LEARNING_BOOST_SCHEDULE.find(s => s.slice(0, 10) === todayKey && new Date(s) <= now);
+        if (!momento) return;
+        const key = `learnNudge:boost:${momento}`;
         try { if (localStorage.getItem(key)) return; } catch (e) {}
         try { localStorage.setItem(key, '1'); } catch (e) {}
         // Marca también la semana normal en curso: sin esto, al terminar el
         // reto el modo semanal veía la última semana como "sin anuncio" y
         // soltaba un tercero en la misma semana.
         try {
-          const dow = (now.getDay() + 6) % 7;
-          const monday = new Date(now);
-          monday.setDate(now.getDate() - dow);
-          localStorage.setItem(`learnNudge:${getLocalDate(monday)}`, '1');
+          const dowB = (now.getDay() + 6) % 7;
+          const mondayB = new Date(now);
+          mondayB.setDate(now.getDate() - dowB);
+          localStorage.setItem(`learnNudge:${getLocalDate(mondayB)}`, '1');
         } catch (e) {}
-        emit(LEARNING_HOOKS[(due.length - 1) % LEARNING_HOOKS.length]);
+        emit(LEARNING_HOOKS[LEARNING_BOOST_SCHEDULE.indexOf(momento) % LEARNING_HOOKS.length]);
         return;
       }
 
-      // MODO NORMAL — uno por semana (primera apertura de la semana)
+      // MODO NORMAL — uno por semana, SOLO el lunes
       const dow = (now.getDay() + 6) % 7; // 0 = lunes … 6 = domingo
+      if (dow !== 0) return;
       const monday = new Date(now);
-      monday.setDate(now.getDate() - dow);
       const weekId = getLocalDate(monday);
       const key = `learnNudge:${weekId}`;
       try { if (localStorage.getItem(key)) return; } catch (e) {}
@@ -2073,12 +2134,31 @@ ${f.days.map(d => `  · ${d.meal || 'comida'}: ${(d.items||[]).map(it => `${it.n
     // poco confiable haciendo aritmética de calendario ("el lunes pasado" =
     // ¿qué YYYY-MM-DD?): cuando la calculaba mal, la comida quedaba registrada
     // en el día equivocado. Con la tabla solo tiene que COPIAR la fecha.
-    const dateTable = Array.from({ length: 14 }, (_, i) => {
+    const dateTable = Array.from({ length: 31 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const rel = i === 0 ? 'HOY' : i === 1 ? 'ayer' : i === 2 ? 'antier/anteayer' : `hace ${i} días`;
-      return `  · ${rel} — ${d.toLocaleDateString('es', { weekday: 'long' })} = ${getLocalDate(d)}`;
+      return `  · ${rel} — ${d.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'short' })} = ${getLocalDate(d)}`;
     }).join('\n');
+    // Días pasados que SÍ tienen registro (últimos 21): le da al modelo
+    // visibilidad del historial para borrar/consultar días anteriores. Sin
+    // esto, ante "borra lo del 20 de julio" el modelo no sabía ni si ese día
+    // existía, y el borrado por fecha era imposible.
+    const pastDaysBlock = (() => {
+      const lines = [];
+      for (let i = 1; i <= 21; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const key = getLocalDate(d);
+        const det = historyDetail[key];
+        if (!Array.isArray(det) || det.length === 0) continue;
+        const tot = history[key];
+        const meals = det.map(e => e.meal || 'comida').join(', ');
+        lines.push(`  · ${key}: ${det.length} comida(s) [${meals}]${tot ? ` · ${Math.round(tot.kcal || 0)} kcal` : ''}`);
+      }
+      return lines.length
+        ? `\nDÍAS PASADOS CON REGISTRO (para borrar/consultar días anteriores; si una fecha NO está aquí, ese día no tiene nada):\n${lines.join('\n')}\n`
+        : '\nDÍAS PASADOS CON REGISTRO: ninguno en los últimos 21 días.\n';
+    })();
     const contextSnippet = `
 CONTEXTO DEL CLIENTE:
 - Nombre: ${name || 'desconocido'}
@@ -2088,7 +2168,7 @@ CONTEXTO DEL CLIENTE:
 - Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
 - Fecha de hoy: ${today} (${new Date().toLocaleDateString('es', { weekday: 'long' })})
 - TABLA DE FECHAS (para "log_date" COPIA la fecha exacta de esta tabla, NO la calcules tú):
-${dateTable}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock}${appendHint}${voiceHint}${historyBlock}`;
+${dateTable}${pastDaysBlock}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock}${appendHint}${voiceHint}${historyBlock}`;
 
     const sys = `Eres un asistente nutricional inteligente y cálido. Devuelves SOLO JSON válido, sin markdown.
 
@@ -2151,11 +2231,11 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 ═══ INTENTS (elige UNO) ═══
 - "log_meal": registrar comida(s) nueva(s). Ej: "desayuno: 2 huevos y café", "almorcé pollo con arroz". Si el mensaje cubre VARIAS comidas del día, usa el campo "meals" (array) con un objeto por comida. Si es UNA sola comida, usa "items" + "meal".
   PROHIBIDO log_meal cuando el cliente PREGUNTA (futuro/condicional) cuánto DEBERÍA comer: "¿cuántas cucharadas de yogur griego tengo que comer para llegar a la meta de proteína?", "¿cuánto pollo necesito para completar el día?", "¿qué me falta comer para cerrar mis macros?" → eso es command="proportion" (la app calcula la cantidad exacta con lo que le falta hoy). log_meal es SOLO comida YA comida.
-  FECHA DEL REGISTRO ("log_date"): por defecto null = HOY. Si el cliente dice que comió en un día PASADO ("ayer", "antier", "hace N días", "el lunes", "el sábado pasado", "el 15", "12 de junio"), busca ese día en la TABLA DE FECHAS del contexto y COPIA la fecha exacta (YYYY-MM-DD) en "log_date" — PROHIBIDO calcular la fecha por tu cuenta, usa la tabla. Un día de la semana = la ocurrencia MÁS RECIENTE ya pasada de ese día. NUNCA uses una fecha futura. Si no hay ninguna referencia temporal a un día pasado, log_date=null. OJO: log_date es SOLO para comida NUEVA (aún no registrada). Si la comida YA quedó registrada hoy y el cliente solo pide cambiarle el día ("eso que te pasé era de ayer") → NO uses log_meal: usa command="move_entry" (ver comandos), o quedará duplicada.
+  FECHA DEL REGISTRO ("log_date"): por defecto null = HOY. Si el cliente dice que comió en un día PASADO ("ayer", "antier", "hace N días", "el lunes", "el sábado pasado", "el 15", "12 de junio"), busca ese día en la TABLA DE FECHAS del contexto y COPIA la fecha exacta (YYYY-MM-DD) en "log_date" — PROHIBIDO calcular la fecha por tu cuenta, usa la tabla. Un día de la semana = la ocurrencia MÁS RECIENTE ya pasada de ese día. NUNCA uses una fecha futura. Si no hay ninguna referencia temporal a un día pasado, log_date=null. OJO: con log_meal, log_date es SOLO para comida NUEVA (aún no registrada). Si la comida YA quedó registrada hoy y el cliente solo pide cambiarle el día ("eso que te pasé era de ayer") → NO uses log_meal: usa command="move_entry" (ver comandos), o quedará duplicada. log_date TAMBIÉN se usa con delete_entry y delete_day para borrar de un día pasado (misma regla: COPIA la fecha de la tabla).
   VARIOS DÍAS EN UN MISMO MENSAJE: si el cliente dicta comidas de MÁS DE UN día ("el viernes comí X y el sábado Y", "te voy a contar lo de ayer y lo de hoy"), usa el campo "meals" y pon en CADA objeto de "meals" su propio "log_date" (la fecha de ESE día según la tabla; null si esa comida es de hoy). PROHIBIDO amontonar comidas de días distintos bajo una misma fecha — cada comida va exactamente al día que el cliente dijo. Solo si TODO el mensaje es de UN único día pasado puedes usar el "log_date" raíz para todo el bloque.
   Ejemplos: "ayer cené pollo con arroz" → log_meal, meal=cena, log_date=(fecha de "ayer" en la tabla). "el lunes desayuné avena y el martes almorcé pasta" → log_meal, meals=[{meal:"desayuno", log_date:(lunes en la tabla), items:[avena]}, {meal:"almuerzo", log_date:(martes en la tabla), items:[pasta]}]. "el domingo desayuné huevos y almorcé asado" → log_meal, meals=[{meal:"desayuno", log_date:(domingo), items:[huevos]}, {meal:"almuerzo", log_date:(domingo), items:[asado]}].
 - "append_to_last": SUMAR alimentos a la ÚLTIMA comida registrada hoy (no crear meal nuevo). DETECTAR estos signos: "me faltó", "olvidé decirte", "también comí", "agregale", "sumá", "ah me acordé", "no te dije que también", "ese tercero suma a lo que ya registraste". SI hay última comida, los items van EN ELLA.
-  OJO — CORRECCIÓN ≠ append: si el cliente CORRIGE algo ya registrado hoy → command="edit_entry". PROHIBIDO append_to_last o log_meal en correcciones: duplicaría la comida. Una corrección puede ser CUALQUIER combinación de: cambiar cantidad ("eran 300g, no 150"), cambiar número de unidades ("eran 2 huevos, no 3"), SUSTITUIR un alimento ("no era pollo, era atún"), QUITAR un item ("la cena no llevaba pan") o AGREGAR items que faltaban dentro de la corrección ("no eran 3 huevos: eran 2 huevos Y una banana mediana"). Cómo llenarlo: (1) "edit_entry_index" = el número [#N] de esa comida en DETALLE COMIDAS DE HOY (si no dice cuál, la más reciente que coincida; llena también "meal" si lo menciona); (2) "items" = CÓMO QUEDÓ ESA COMIDA AL FINAL, completa: los items que el cliente NO mencionó se copian TAL CUAL del DETALLE (nombre, cantidad y macros), los corregidos van con sus macros recalculados, los quitados NO van, y los agregados van como items nuevos con macros estimados. La app reemplaza la comida entera con esta lista final. Ej: DETALLE dice [#2 desayuno] "3 huevos (240kcal P18) + café (5kcal)"; cliente: "me equivoqué, eran 2 huevos y una banana mediana" → items=[2 huevos (160kcal P12...), banana mediana (~105kcal...), café (5kcal, copiado igual)]. Si quiere BORRAR la comida completa → command="delete_entry". Si la corrección es de un día PASADO (no está en el DETALLE de hoy) → clarify explicando que las correcciones por chat son del día actual y su coach puede ajustar días anteriores.
+  OJO — CORRECCIÓN ≠ append: si el cliente CORRIGE algo ya registrado hoy → command="edit_entry". PROHIBIDO append_to_last o log_meal en correcciones: duplicaría la comida. Una corrección puede ser CUALQUIER combinación de: cambiar cantidad ("eran 300g, no 150"), cambiar número de unidades ("eran 2 huevos, no 3"), SUSTITUIR un alimento ("no era pollo, era atún"), QUITAR un item ("la cena no llevaba pan") o AGREGAR items que faltaban dentro de la corrección ("no eran 3 huevos: eran 2 huevos Y una banana mediana"). Cómo llenarlo: (1) "edit_entry_index" = el número [#N] de esa comida en DETALLE COMIDAS DE HOY (si no dice cuál, la más reciente que coincida; llena también "meal" si lo menciona); (2) "items" = CÓMO QUEDÓ ESA COMIDA AL FINAL, completa: los items que el cliente NO mencionó se copian TAL CUAL del DETALLE (nombre, cantidad y macros), los corregidos van con sus macros recalculados, los quitados NO van, y los agregados van como items nuevos con macros estimados. La app reemplaza la comida entera con esta lista final. Ej: DETALLE dice [#2 desayuno] "3 huevos (240kcal P18) + café (5kcal)"; cliente: "me equivoqué, eran 2 huevos y una banana mediana" → items=[2 huevos (160kcal P12...), banana mediana (~105kcal...), café (5kcal, copiado igual)]. Si quiere BORRAR la comida completa → command="delete_entry". BORRAR de un día PASADO SÍ se puede: "borra el desayuno del lunes 20"→delete_entry + meal="desayuno" + log_date de la tabla; "borra TODO lo del 20 de julio / borra ese día completo"→delete_day + log_date (verifica en DÍAS PASADOS CON REGISTRO que la fecha exista; si no está, dile que ese día no tiene registros). Lo que NO se puede en días pasados es EDITAR cantidades (edit_entry es solo de hoy): en ese caso → clarify sugiriendo borrar y re-registrar la comida de ese día.
 - "save_favorite_only": guardar una comida como RECETA/FAVORITO SIN que cuente en el día. DETECTAR: "no lo registres", "eso último no lo registres", "es solo para guardar la receta", "solo guárdalo en favoritos/como receta", "no lo cuentes", "no lo sumes", "quítalo del día pero guárdalo". Dos casos: (1) el mensaje DESCRIBE alimentos ("guárdame esta receta sin registrarla: 6 empanadas...") → llena "items" (+"meal") igual que en log_meal pero con ESTE intent; (2) se refiere a algo YA registrado ("eso último no lo registres, era solo la receta") → deja "items" vacío y el frontend lo aplica a la última comida registrada. PROHIBIDO clasificar como log_meal cuando el cliente pide explícitamente NO registrar.
 - "nutrition_query": pregunta informativa SIN registrar. Ej: "¿cuántas kcal tiene una manzana?", "¿es alta en proteína el atún?".
 - "meal_suggestion": pregunta abierta sobre QUÉ COMER en una comida específica. DETECTAR: "qué puedo comer", "qué como", "ideas de cena", "qué me sugieres", "qué desayuno", "qué hago de almuerzo", "no sé qué cenar". Indica también el "meal" deseado (desayuno/almuerzo/snack/cena) si lo menciona. EL FRONTEND MANEJA la respuesta usando los ingredientes favoritos del cliente, así que tú solo clasifica.
@@ -2174,7 +2254,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   ARGUMENTA SIEMPRE (campo "logic", 1-2 oraciones, concisas): di QUÉ target usaste y POR QUÉ, y la condición real para cumplir la meta. Ejemplos: "Ajusté tus 3 menús para que JUNTOS sumen tu meta diaria; cumplirla depende de que el día sea exactamente esto y nada más." / "Como esto es solo tu almuerzo, lo ajusté al ~35% de tu meta (no al día completo); el resto lo completas con desayuno y cena." / "Como aún no has registrado nada hoy, partí de tu meta completa; si ya comiste algo, dímelo y ajusto sobre lo que te queda."
   Devuelve "adjust_favorites_response" con la estructura del schema. NUNCA registres nada — es solo propuesta visual.
 - "water": registra agua. "1 vaso"=250ml, "1 termo"=500ml, "1 botella"=500ml, "1 litro"=1000ml.
-- "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite, move_entry, delete_entry}. Mapping: "reiniciar día"→reset_day, "bórrame la cena / elimina eso último que registré / quita ese snack, estaba mal / eso no lo comí, bórralo"→delete_entry (+meal si dice cuál comida), "eran 300g no 150 / corrígele la cantidad / me equivoqué en el arroz de la cena"→edit_entry (ver regla en append_to_last), "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion (TAMBIÉN toda pregunta de cuánto comer de un alimento para alcanzar/completar/cerrar una meta o lo que resta del día: "¿cuántas cucharadas de yogur griego tengo que comer para llegar a la meta de proteínas que resta hoy?", "¿cuánto arroz me falta para completar carbos?", "¿con cuánto atún cierro mi proteína?" → proportion), "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "¿qué ingredientes tengo guardados? / muéstrame mis ingredientes / no me acuerdo qué ingredientes te di / ver mi lista de ingredientes"→manage_favorites SIN items (la app abre su lista para que la vea y edite), "¿qué menús favoritos tengo? / muéstrame mis menús guardados"→favorites, "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
+- "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite, move_entry, delete_entry, delete_day}. Mapping: "reiniciar día"→reset_day, "bórrame la cena / elimina eso último que registré / quita ese snack, estaba mal / eso no lo comí, bórralo"→delete_entry (+meal si dice cuál comida; si es de un día pasado agrega log_date copiado de la tabla), "borra todo lo que registré el <día pasado> / borra ese día completo / elimina el registro del 20"→delete_day + log_date (para HOY usa reset_day, no delete_day), "eran 300g no 150 / corrígele la cantidad / me equivoqué en el arroz de la cena"→edit_entry (ver regla en append_to_last), "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion (TAMBIÉN toda pregunta de cuánto comer de un alimento para alcanzar/completar/cerrar una meta o lo que resta del día: "¿cuántas cucharadas de yogur griego tengo que comer para llegar a la meta de proteínas que resta hoy?", "¿cuánto arroz me falta para completar carbos?", "¿con cuánto atún cierro mi proteína?" → proportion), "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "¿qué ingredientes tengo guardados? / muéstrame mis ingredientes / no me acuerdo qué ingredientes te di / ver mi lista de ingredientes"→manage_favorites SIN items (la app abre su lista para que la vea y edite), "¿qué menús favoritos tengo? / muéstrame mis menús guardados"→favorites, "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
   MOVER UNA COMIDA YA REGISTRADA A OTRO DÍA → move_entry (CRÍTICO): si el cliente pide cambiar la fecha de algo que YA quedó registrado hoy ("eso que te pasé regístralo para ayer, no para hoy", "esa cena era de ayer", "lo que registraste pásalo al miércoles", "me equivoqué, eso fue antier") → command="move_entry" + meal=(tipo de comida referida: cena/almuerzo/etc., o null si no lo dice) + log_date=(fecha DESTINO copiada de la TABLA DE FECHAS). Se reconoce porque en el contexto de conversación YA aparece esa comida registrada ("(registré cena: …)"). PROHIBIDO responder con log_meal en ese caso: re-registrarla crearía un DUPLICADO (la comida quedaría contada en los dos días). log_meal con log_date es SOLO para comida que aún NO está registrada.
 - "clarify": SOLO si hay ambigüedad REAL. Llenar "clarify_interpretation" (tu mejor lectura ESCRITA PARA EL CLIENTE: 1 oración corta hablándole de "tú", ej: "quieres registrar pollo en tu cena") y "clarify_question" (pregunta corta y cálida, ej: "¿cuántos gramos aproximadamente?"). PROHIBIDO en ambos campos: razonamiento interno, tercera persona ("el cliente dice..."), o mencionar historial/señales/frontend/intents/reglas — el cliente lee estos textos TAL CUAL.
 - "off_topic": saludos, charla, preguntas sobre el coach, "qué dieta hacer". Llena "message" con respuesta cálida y breve.
@@ -2188,7 +2268,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N, "needs_quantity": false}],
   "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "log_date": "YYYY-MM-DD si ESA comida es de un día pasado, null = hoy", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N}]}] | null,
   "append_to_entry_id": N | null,
-  "command": "reset_day | change_goals | calendar | favorites | proportion | manage_favorites | plan_day | save_day_favorite | move_entry | delete_entry | edit_entry | null",
+  "command": "reset_day | change_goals | calendar | favorites | proportion | manage_favorites | plan_day | save_day_favorite | move_entry | delete_entry | delete_day | edit_entry | null",
   "edit_entry_index": "N (número [#N] del DETALLE COMIDAS DE HOY, solo para edit_entry) | null",
   "name_detected": "..." | null,
   "water_ml": N | null,
@@ -2362,6 +2442,48 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
     const t = all.reduce((a, e) => ({ kcal: a.kcal + (e.kcal || 0), p: a.p + (e.p || 0), c: a.c + (e.c || 0), g: a.g + (e.g || 0) }), { kcal: 0, p: 0, c: 0, g: 0 });
     setHistoryDetail(hd => ({ ...hd, [dateStr]: all }));
     setHistory(h => ({ ...h, [dateStr]: { kcal: Math.round(t.kcal), p: r1(t.p), c: r1(t.c), g: r1(t.g), water: h[dateStr]?.water || 0 } }));
+    // Si ese día o esas comidas tenían lápida (se borraron antes y se están
+    // re-registrando), se levanta la lápida para que no se filtren en el pull.
+    setHistoryDeleted(dels => {
+      const ids = new Set(newEntries.map(e => `${dateStr}#${e.id}`));
+      const next = dels.filter(t2 => t2 !== dateStr && !ids.has(t2));
+      return next.length === dels.length ? dels : next;
+    });
+  };
+
+  // Borra TODO un día pasado del historial (detalle + totales) y deja
+  // lápida para que la sincronización con la nube no lo resucite.
+  const removeDayFromHistory = (dateStr) => {
+    setHistoryDetail(hd => {
+      if (!(dateStr in hd)) return hd;
+      const next = { ...hd }; delete next[dateStr]; return next;
+    });
+    setHistory(h => {
+      if (!(dateStr in h)) return h;
+      const next = { ...h }; delete next[dateStr]; return next;
+    });
+    setHistoryDeleted(dels => Array.from(new Set([
+      // una lápida de día completo reemplaza las de comidas sueltas de ese día
+      ...dels.filter(t => !t.startsWith(`${dateStr}#`)),
+      dateStr,
+    ])).slice(-400));
+    // Limpia también las llaves crudas del día por si fue "hoy" en este
+    // dispositivo (evita que el archivador lo re-archive al recargar).
+    window.storage.set(`day:${dateStr}`, JSON.stringify([])).catch(() => {});
+  };
+
+  // Borra UNA comida de un día pasado y recalcula los totales de esa fecha.
+  // Si era la última comida del día, el día completo desaparece.
+  const removeEntryFromDate = (dateStr, entryId) => {
+    const r1 = (n) => Math.round(n * 10) / 10;
+    const prevDetail = Array.isArray(historyDetail[dateStr]) ? historyDetail[dateStr] : [];
+    const rest = prevDetail.filter(e => e.id !== entryId);
+    if (rest.length === prevDetail.length) return; // no estaba
+    if (rest.length === 0) { removeDayFromHistory(dateStr); return; }
+    const t = rest.reduce((a, e) => ({ kcal: a.kcal + (e.kcal || 0), p: a.p + (e.p || 0), c: a.c + (e.c || 0), g: a.g + (e.g || 0) }), { kcal: 0, p: 0, c: 0, g: 0 });
+    setHistoryDetail(hd => ({ ...hd, [dateStr]: rest }));
+    setHistory(h => ({ ...h, [dateStr]: { kcal: Math.round(t.kcal), p: r1(t.p), c: r1(t.c), g: r1(t.g), water: h[dateStr]?.water || 0 } }));
+    setHistoryDeleted(dels => Array.from(new Set([...dels, `${dateStr}#${entryId}`])).slice(-400));
   };
 
   // ── Deshacer: ventana de 6s tras cada registro para revertirlo de un tap ──
@@ -2615,20 +2737,66 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           }
         }
         else if (parsed.command === 'delete_entry') {
-          // Borrar una comida de HOY por chat ("bórrame la cena", "elimina
-          // eso último, estaba mal"). Antes solo existía el basurero de la
-          // tarjeta o reiniciar el día entero — pedirlo por chat caía al
-          // fallback genérico.
+          // Borrar una comida por chat ("bórrame la cena", "elimina eso
+          // último, estaba mal"). Con log_date pasado, borra de ESE día del
+          // historial (antes solo miraba las comidas de hoy y entraba en un
+          // loop de "no encuentro esa comida en tu día de hoy").
+          const isPastDel = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d < today;
+          const delDate = isPastDel(parsed.log_date) ? parsed.log_date : null;
           const wantedDel = (parsed.meal || '').toLowerCase();
+          const fmtDelDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+          if (delDate) {
+            const dayArr = Array.isArray(historyDetail[delDate]) ? historyDetail[delDate] : [];
+            const candPast = wantedDel ? dayArr.filter(en => (en.meal || '').toLowerCase() === wantedDel) : dayArr;
+            const targetPast = candPast[candPast.length - 1];
+            if (!dayArr.length) {
+              setMessages(m => [...m, { role: 'assistant', content: `El ${fmtDelDate(delDate)} no tiene registros, así que no había nada que borrar.`, ts: Date.now() }]);
+            } else if (!targetPast) {
+              setMessages(m => [...m, { role: 'assistant', content: `Ese día no encuentro ${wantedDel ? `una ${wantedDel}` : 'esa comida'}. Lo que hay registrado el ${fmtDelDate(delDate)}: ${dayArr.map(en => en.meal || 'comida').join(', ')}. Dime cuál borro.`, ts: Date.now() }]);
+            } else {
+              removeEntryFromDate(delDate, targetPast.id);
+              setMessages(m => m.filter(msg => msg.entryId !== targetPast.id));
+              setMessages(m => [...m, { role: 'assistant', content: `Listo, borré tu ${targetPast.meal || 'comida'} del ${fmtDelDate(delDate)} (${Math.round(targetPast.kcal || 0)} kcal). Los totales de ese día ya quedaron ajustados.`, ts: Date.now() }]);
+              haptic(15);
+            }
+          } else {
           const candDel = wantedDel ? entries.filter(en => (en.meal || '').toLowerCase() === wantedDel) : entries;
           const targetDel = candDel[candDel.length - 1]; // la más reciente de ese tipo
           if (!targetDel) {
-            setMessages(m => [...m, { role: 'assistant', content: `No encuentro ${wantedDel ? `esa ${wantedDel}` : 'esa comida'} en tu día de hoy, así que no borré nada. Si es de un día anterior, dime cuál y lo vemos.`, ts: Date.now() }]);
+            setMessages(m => [...m, { role: 'assistant', content: `No encuentro ${wantedDel ? `esa ${wantedDel}` : 'esa comida'} en tu día de hoy, así que no borré nada. Si es de un día anterior, dime la fecha ("borra la cena del 20 de julio") y lo borro directo.`, ts: Date.now() }]);
           } else {
             setEntries(es => es.filter(en => en.id !== targetDel.id));
             setMessages(m => m.filter(msg => msg.entryId !== targetDel.id));
             setMessages(m => [...m, { role: 'assistant', content: `Listo, borré tu ${targetDel.meal || 'comida'} (${Math.round(targetDel.kcal)} kcal · P${Math.round(targetDel.p)} C${Math.round(targetDel.c)} G${Math.round(targetDel.g)}) del día de hoy. Los totales ya quedaron ajustados.`, ts: Date.now() }]);
             haptic(15);
+          }
+          }
+        }
+        else if (parsed.command === 'delete_day') {
+          // Borrar TODO lo registrado en un día pasado ("borra todo lo del
+          // lunes 20 de julio"). Para HOY el modelo usa reset_day (que abre
+          // su confirmación); aquí cubrimos el historial.
+          const isPastDel = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d < today;
+          const delDate = isPastDel(parsed.log_date) ? parsed.log_date : null;
+          const fmtDelDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+          if (!delDate) {
+            if (parsed.log_date === today || /^hoy$/i.test(String(parsed.log_date || ''))) {
+              setActiveModal('reset');
+            } else {
+              setMessages(m => [...m, { role: 'assistant', content: 'Dime de qué fecha borro todo (por ejemplo: "borra todo lo del 20 de julio").', ts: Date.now() }]);
+            }
+          } else {
+            const dayArr = Array.isArray(historyDetail[delDate]) ? historyDetail[delDate] : [];
+            if (!dayArr.length) {
+              setMessages(m => [...m, { role: 'assistant', content: `El ${fmtDelDate(delDate)} no tiene registros, así que no había nada que borrar.`, ts: Date.now() }]);
+            } else {
+              const totDel = history[delDate];
+              const delIds = new Set(dayArr.map(en => en.id));
+              removeDayFromHistory(delDate);
+              setMessages(m => m.filter(msg => !delIds.has(msg.entryId)));
+              setMessages(m => [...m, { role: 'assistant', content: `Listo, borré todo lo del ${fmtDelDate(delDate)}: ${dayArr.length} comida(s)${totDel ? ` · ${Math.round(totDel.kcal || 0)} kcal` : ''}. Ese día quedó sin registro.`, ts: Date.now() }]);
+              haptic(15);
+            }
           }
         }
         else if (parsed.command === 'move_entry') {
@@ -3611,7 +3779,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           anclados al viewport porque este contenedor no tiene transform. */}
       <div ref={chatScrollRef} className="fixed inset-0 max-w-2xl mx-auto px-5 pb-32 overflow-y-auto" style={{
         zIndex: 1,
-        paddingTop: `${headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0) + (pushPrompt && !paymentDue ? 58 : 0)}px`,
+        paddingTop: `${zoneH != null
+          ? headerH + 6 + zoneH + 6
+          : headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0) + (pushPrompt ? 58 : 0)}px`,
         WebkitOverflowScrolling: 'touch',
         overscrollBehavior: 'contain',
       }}>
@@ -3731,11 +3901,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fade-up" style={{
             marginTop: '6px',
             display: 'flex', alignItems: 'center', gap: '10px',
-            padding: '8px 12px',
-            borderRadius: '14px',
-            background: 'linear-gradient(180deg, #FDF6E3 0%, #FBEFCF 100%)',
-            border: '1px solid #EBD9A6',
-            boxShadow: '0 4px 14px rgba(180,140,20,0.14)',
+            padding: '9px 13px',
+            borderRadius: '16px',
+            // Glass premium: tinte ámbar sobre vidrio blanco, borde hairline
+            // translúcido (nada de bordes sólidos) + brillo interior + sombra
+            // suave en dos capas. Sin backdrop-filter (regla de la app).
+            background: 'linear-gradient(135deg, rgba(253,246,227,0.85) 0%, rgba(251,239,207,0.55) 100%), rgba(255,255,255,0.92)',
+            border: '1px solid rgba(255,255,255,0.65)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(180,140,20,0.16), 0 1px 4px rgba(0,0,0,0.05)',
           }}>
             <span style={{ fontSize: '16px', flexShrink: 0 }}>💳</span>
             <div style={{ fontSize: '12px', color: '#6B5A22', lineHeight: 1.35, minWidth: 0 }}>
@@ -3749,19 +3922,20 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </div>
           </div>
         )}
-        {/* Invitación a activar recordatorios push — vive en la misma zona
-            fija del banner de pago (si hay recordatorio de pago, ese manda
-            y esta espera su turno). El permiso se pide SOLO al tocar
-            "Activar" (regla de iOS: gesto del usuario). */}
-        {pushPrompt && !paymentDue && (
+        {/* Invitación a activar recordatorios push — misma zona fija del
+            banner de pago; si ambos aplican se apilan (el cliente en deuda
+            también necesita poder activar sus recordatorios). El permiso se
+            pide SOLO al tocar "Activar" (regla de iOS: gesto del usuario). */}
+        {pushPrompt && (
           <div className="fade-up" style={{
             marginTop: '6px',
             display: 'flex', alignItems: 'center', gap: '10px',
-            padding: '8px 12px',
-            borderRadius: '14px',
-            background: 'rgba(255,255,255,0.95)',
-            border: '1px solid rgba(255,255,255,0.7)',
-            boxShadow: '0 4px 14px rgba(60,70,50,0.12)',
+            padding: '9px 13px',
+            borderRadius: '16px',
+            // Mismo glass premium del banner de pago, en tinte oliva/neutro.
+            background: `linear-gradient(135deg, ${ACCENT_PASTEL}40 0%, rgba(255,255,255,0.4) 100%), rgba(255,255,255,0.94)`,
+            border: '1px solid rgba(255,255,255,0.65)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(60,70,50,0.14), 0 1px 4px rgba(0,0,0,0.05)',
           }}>
             <span style={{ fontSize: '16px', flexShrink: 0 }}>🔔</span>
             <div className="flex-1 min-w-0" style={{ fontSize: '12px', color: TEXT_MUTED, lineHeight: 1.3 }}>
@@ -3999,7 +4173,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <CalendarModal
           history={history} historyDetail={historyDetail} goals={goals}
           today={today} todayEntries={entries} todayWater={water}
-          onClose={() => setActiveModal(null)} />
+          onClose={() => setActiveModal(null)}
+          onDeleteEntry={(dateStr, entryId) => {
+            if (dateStr === today) deleteEntry(entryId);
+            else removeEntryFromDate(dateStr, entryId);
+          }}
+          onDeleteDay={(dateStr) => {
+            if (dateStr === today) setActiveModal('reset'); // confirmación existente
+            else removeDayFromHistory(dateStr);
+          }} />
       )}
 
       {activeModal === 'favorites' && (
@@ -4566,10 +4748,12 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[92%] px-4 py-3.5 rounded-2xl rounded-bl-md text-[14px]" style={{
-          background: `linear-gradient(135deg, ${C_FAT_PASTEL}66, ${C_FAT_PASTEL}33), rgba(255,255,255,0.92)`,
-          border: `1px solid ${C_FAT_PASTEL}`,
-          borderLeft: `3px solid ${C_FAT}`,
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.10), 0 4px 16px rgba(107,122,143,0.14)',
+          // Glass premium: sin bordes sólidos — vidrio con tinte azul humo,
+          // hairline translúcido, brillo interior y sombra suave del color
+          // del acento. (Sin backdrop-filter, regla de la app.)
+          background: `linear-gradient(135deg, ${C_FAT_PASTEL}55, ${C_FAT_PASTEL}22), rgba(255,255,255,0.94)`,
+          border: '1px solid rgba(255,255,255,0.65)',
+          boxShadow: `0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px ${C_FAT}2E, 0 1px 4px rgba(0,0,0,0.05)`,
           lineHeight: 1.45,
         }}>
           <div className="flex items-center gap-1.5 mb-1.5">
@@ -5548,9 +5732,21 @@ function WeeklyModal({ history, goals, onClose }) {
   );
 }
 
-function CalendarModal({ history, historyDetail, goals, today, todayEntries, todayWater, onClose }) {
+function CalendarModal({ history, historyDetail, goals, today, todayEntries, todayWater, onClose, onDeleteEntry, onDeleteDay }) {
   const [viewDate, setViewDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
+  // Confirmación en dos toques para borrar (sin modal extra): el primer tap
+  // "arma" el botón (se pone rojo con la pregunta), el segundo ejecuta.
+  // Se desarma solo a los 3.5s o al cambiar de día.
+  const [armedDelete, setArmedDelete] = useState(null); // 'day' | entryId
+  const armTimerRef = useRef(null);
+  const armDelete = (key) => {
+    setArmedDelete(key);
+    if (armTimerRef.current) clearTimeout(armTimerRef.current);
+    armTimerRef.current = setTimeout(() => setArmedDelete(null), 3500);
+  };
+  useEffect(() => () => { if (armTimerRef.current) clearTimeout(armTimerRef.current); }, []);
+  useEffect(() => { setArmedDelete(null); }, [selectedDate]);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -5665,9 +5861,25 @@ function CalendarModal({ history, historyDetail, goals, today, todayEntries, tod
                 </div>
                 {selectedEntries.map((e, i) => (
                   <div key={i} className="text-xs p-3 rounded-xl" style={{ background: SURFACE_2 }}>
-                    <div className="flex justify-between mb-1.5">
+                    <div className="flex justify-between items-center mb-1.5">
                       <span className="uppercase text-[10px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>{e.meal}</span>
-                      <span className="num text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="num text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
+                        {typeof onDeleteEntry === 'function' && e.id != null && (
+                          armedDelete === e.id ? (
+                            <button onClick={() => { setArmedDelete(null); onDeleteEntry(selectedDate, e.id); }}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-semibold active:scale-95 transition"
+                              style={{ background: DANGER, color: '#fff' }}>
+                              ¿Borrar?
+                            </button>
+                          ) : (
+                            <button onClick={() => armDelete(e.id)} aria-label={`Borrar ${e.meal}`}
+                              className="p-1 -m-1 rounded-full active:scale-90 transition">
+                              <Trash2 size={13} style={{ color: TEXT_LIGHT }} />
+                            </button>
+                          )
+                        )}
+                      </span>
                     </div>
                     <div className="space-y-0.5">
                       {e.items.map((it, j) => (
@@ -5685,6 +5897,23 @@ function CalendarModal({ history, historyDetail, goals, today, todayEntries, tod
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            {typeof onDeleteDay === 'function' && (
+              <div className="mt-3 flex justify-center">
+                {armedDelete === 'day' ? (
+                  <button onClick={() => { setArmedDelete(null); onDeleteDay(selectedDate); }}
+                    className="px-4 py-1.5 rounded-full text-[11px] font-semibold active:scale-95 transition"
+                    style={{ background: DANGER, color: '#fff' }}>
+                    ¿Seguro? Toca de nuevo para borrar todo el día
+                  </button>
+                ) : (
+                  <button onClick={() => armDelete('day')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium active:scale-95 transition"
+                    style={{ color: DANGER, background: `${DANGER}12` }}>
+                    <Trash2 size={12} /> Borrar todo el día
+                  </button>
+                )}
               </div>
             )}
           </>
