@@ -332,6 +332,7 @@ export default async function handler(req, res) {
       id: String(r && r.id || '').slice(0, 40),
       text: String(r && r.text || '').trim().slice(0, 200),
       created_at: typeof (r && r.created_at) === 'string' ? r.created_at.slice(0, 40) : new Date().toISOString(),
+      seen_at: (r && typeof r.seen_at === 'string') ? r.seen_at.slice(0, 40) : null,
       done_at: (r && typeof r.done_at === 'string') ? r.done_at.slice(0, 40) : null,
       done_by: (r && (r.done_by === 'cliente' || r.done_by === 'coach')) ? r.done_by : null,
     })).filter(r => r.id && r.text);

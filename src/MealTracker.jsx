@@ -19,10 +19,12 @@ import {
   SUCCESS, WARN, DANGER, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
 } from './theme.js';
 
-// LLM model — single source of truth. To switch to Sonnet, change this one line:
-//   'claude-haiku-4-5-20251001'  (rápido, económico, actual)
-//   'claude-sonnet-4-6'          (más capaz, ~3x costo)
-const CHAT_MODEL = 'claude-haiku-4-5-20251001';
+// LLM model — single source of truth. Para revertir a Haiku, cambiar SOLO esta línea:
+//   'claude-sonnet-5'            (más capaz, ~2-3x costo, actual)
+//   'claude-haiku-4-5-20251001'  (rápido, económico)
+// El proxy /api/chat ajusta los parámetros según el modelo (Sonnet 5 no acepta
+// temperature; Haiku sí), así que el revert es únicamente esta línea.
+const CHAT_MODEL = 'claude-sonnet-5';
 
 
 // Display helpers — kills 25.100000004 floats once and for all.
@@ -828,15 +830,28 @@ export default function MealTracker() {
     const knownAt = remindersMetaRef.current?.at || '';
     const serverAt = serverMeta?.at || '';
     if (serverAt && serverAt <= knownAt) return; // ya tenemos esta versión (o una más nueva)
-    remindersMetaRef.current = serverMeta || { at: new Date().toISOString(), by: 'coach' };
-    window.storage.set('remindersMeta', JSON.stringify(remindersMetaRef.current)).catch(() => {});
-    setCoachReminders(serverRem);
 
     // Anunciar SOLO los pendientes que nunca se han anunciado en este equipo
     let announced = [];
     try { announced = JSON.parse(localStorage.getItem('remindersAnnounced') || '[]'); } catch (e) {}
     const seen = new Set(Array.isArray(announced) ? announced : []);
     const nuevos = serverRem.filter(r => r && r.id && !r.done_at && !seen.has(r.id));
+
+    // VISTO: al mostrarse el anuncio en el chat queda sellado seen_at — el
+    // próximo push lo lleva al server y el coach lo ve 👁 en su CRM. El
+    // sello {by:'cliente'} con hora actual hace que esta copia gane.
+    let adopted = serverRem;
+    if (nuevos.length > 0) {
+      const ahora = new Date().toISOString();
+      const nuevoIds = new Set(nuevos.map(r => r.id));
+      adopted = serverRem.map(r => (nuevoIds.has(r.id) && !r.seen_at) ? { ...r, seen_at: ahora } : r);
+      remindersMetaRef.current = { at: ahora, by: 'cliente' };
+    } else {
+      remindersMetaRef.current = serverMeta || { at: new Date().toISOString(), by: 'coach' };
+    }
+    window.storage.set('remindersMeta', JSON.stringify(remindersMetaRef.current)).catch(() => {});
+    setCoachReminders(adopted);
+
     if (nuevos.length > 0) {
       const firstName = name ? name.split(' ')[0] : '';
       const lista = nuevos.map(r => `• ${r.text}`).join('\n');
@@ -867,11 +882,24 @@ export default function MealTracker() {
     setCoachReminders(rs => rs.map(r => r.id === id
       ? (r.done_at
           ? { ...r, done_at: null, done_by: null }
-          : { ...r, done_at: new Date().toISOString(), done_by: 'cliente' })
+          : { ...r, done_at: new Date().toISOString(), done_by: 'cliente', seen_at: r.seen_at || new Date().toISOString() })
       : r));
     remindersMetaRef.current = { at: new Date().toISOString(), by: 'cliente' };
     window.storage.set('remindersMeta', JSON.stringify(remindersMetaRef.current)).catch(() => {});
   }, []);
+
+  // Al abrir "Mis recordatorios" cualquier pendiente sin sello queda VISTO
+  // (cubre el caso de un anuncio mostrado en otro dispositivo).
+  useEffect(() => {
+    if (activeModal !== 'reminders') return;
+    setCoachReminders(rs => {
+      if (!rs.some(r => !r.done_at && !r.seen_at)) return rs;
+      const ahora = new Date().toISOString();
+      remindersMetaRef.current = { at: ahora, by: 'cliente' };
+      window.storage.set('remindersMeta', JSON.stringify(remindersMetaRef.current)).catch(() => {});
+      return rs.map(r => (!r.done_at && !r.seen_at) ? { ...r, seen_at: ahora } : r);
+    });
+  }, [activeModal]);
 
   // Sondeo de metas: mientras la app está abierta chequea cada 60s (y al
   // volver a primer plano) si el coach cambió la meta. Payload mínimo
@@ -1408,7 +1436,9 @@ export default function MealTracker() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             model: CHAT_MODEL,
-            max_tokens: 4000,
+            // 5000 (antes 4000): Sonnet 5 cuenta ~30% más tokens por el mismo
+            // texto; sin este margen una respuesta larga podía cortarse.
+            max_tokens: 5000,
             system: systemBlocks,
             messages: [{ role: "user", content: prompt }],
             ...(onDelta ? { stream: true } : {}),
@@ -4064,6 +4094,38 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <span className="text-[13px] font-semibold tracking-wide">Herramientas</span>
         </button>
 
+        {/* Píldora de RECORDATORIOS pendientes del coach — flota sobre el
+            botón de Herramientas SOLO cuando hay algo pendiente, para que
+            no pase desapercibido (dentro del sheet quedaba escondido). Sin
+            pendientes desaparece y no estorba. */}
+        {coachReminders.some(r => !r.done_at) && (
+          <button
+            onPointerDown={(e) => { e.preventDefault(); haptic(8); setActiveModal('reminders'); }}
+            onClick={(e) => e.preventDefault()}
+            className="fixed z-40 rounded-full active:scale-90 items-center justify-center gap-1.5 fade-up"
+            style={{
+              display: actionsExpanded ? 'none' : 'flex',
+              bottom: 'calc(204px + env(safe-area-inset-bottom, 0px))',
+              right: '20px',
+              height: '40px',
+              padding: '0 14px 0 12px',
+              background: 'linear-gradient(135deg, #FBEFCF 0%, #F7E7B5 100%), #FFF',
+              color: '#6B5A22',
+              border: '1px solid rgba(255,255,255,0.7)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 6px 20px rgba(180,140,20,0.25), 0 2px 4px rgba(0,0,0,0.08)',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent'
+            }}
+            title="Recordatorios de tu coach pendientes">
+            <Bell size={15} strokeWidth={2.2} style={{ color: '#8A6D16' }} />
+            <span className="text-[12px] font-bold">Recordatorios</span>
+            <span className="rounded-full text-[10px] font-bold flex items-center justify-center"
+              style={{ background: '#C75A4A', color: '#FFF', minWidth: '17px', height: '17px', padding: '0 4px' }}>
+              {coachReminders.filter(r => !r.done_at).length}
+            </span>
+          </button>
+        )}
+
         {/* Bottom sheet — actions (always mounted to keep close instant on mobile) */}
         {(() => {
           const anyModalOpen = showWellbeingModal || showIngredientsModal || showPlannerModal || showPerformanceModal || showCapabilitiesModal || activeModal || editingEntry !== null || pendingFavoriteEntry;
@@ -5862,13 +5924,6 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
     unsupported: { txt: 'No disponible aquí', bg: SURFACE_2, fg: TEXT_MUTED },
   }[status];
 
-  const horario = (hora, txt) => (
-    <div className="flex items-start gap-3 p-2.5 rounded-xl" style={{ background: SURFACE_2 }}>
-      <span className="num text-[11px] font-bold flex-shrink-0 mt-0.5" style={{ color: ACCENT_DARK, minWidth: '52px' }}>{hora}</span>
-      <span className="text-[12px]" style={{ color: TEXT_MUTED, lineHeight: 1.4 }}>{txt}</span>
-    </div>
-  );
-
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-md">
       <ModalHeader accent={ACCENT} label="Ajustes" title="Mis recordatorios" onClose={onClose} />
@@ -5909,20 +5964,16 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-4 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
-        <span className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>Notificaciones del día</span>
+      <div className="flex items-center justify-between mb-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
+        <span className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>Notificaciones</span>
         <span className="px-3 py-1 rounded-full text-[11px] font-bold" style={{ background: pill.bg, color: pill.fg }}>{pill.txt}</span>
       </div>
 
-      <div className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: TEXT_LIGHT }}>
-        Qué te llega (en tu hora local)
-      </div>
-      <div className="space-y-2 mb-4">
-        {horario('8:00 am', 'Arranque del día — recordatorio para registrar tu desayuno.')}
-        {horario('12:00 m', 'Almuerzo — solo si aún no has registrado nada ese día.')}
-        {horario('8:00 pm', 'Cierre del día — solo si llevas menos de 3 registros.')}
-      </div>
-
+      {status === 'inactive' && (
+        <p className="text-[11px] text-center mb-3" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
+          Te acompañamos con avisos en el momento justo para que ningún registro se te pase.
+        </p>
+      )}
       {status === 'inactive' && (
         <button onClick={activar} disabled={busy}
           className="w-full py-3 rounded-full text-[13px] font-semibold active:scale-95 transition"
@@ -7657,7 +7708,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: CHAT_MODEL,
-          max_tokens: 200,
+          max_tokens: 300,
           system: sys,
           messages: [{ role: "user", content: `${item.name}: ${newAmount}` }],
         })
@@ -7667,8 +7718,14 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
       const clean = text.replace(/```json|```/g, '').trim();
       const result = JSON.parse(clean);
 
+      // Capa determinística también al EDITAR cantidad: si el alimento está
+      // en la tabla canónica (src/foods.js), los macros salen de ahí y no de
+      // la IA — sin esto, editar "arepa" de 1 a 2 daba números distintos a
+      // los de la tabla y volvía la inconsistencia que la tabla elimina.
+      const canon = canonicalizeItem({ name: item.name, amount: newAmount, kcal: result.kcal, p: result.p, c: result.c, g: result.g });
+
       const newItems = [...items];
-      newItems[idx] = { ...newItems[idx], amount: newAmount, kcal: result.kcal, p: result.p, c: result.c, g: result.g, needs_quantity: false };
+      newItems[idx] = { ...newItems[idx], amount: newAmount, kcal: canon.kcal, p: canon.p, c: canon.c, g: canon.g, needs_quantity: false };
       setItems(newItems);
       haptic(10);
     } catch (e) {

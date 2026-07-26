@@ -61,6 +61,8 @@ const MSGS = {
   ],
   payment: [
     'Recordatorio: tu mensualidad del programa está pendiente. Ponerte al día toma un minuto — gracias por entrenar con método 🤝',
+    'Tu mensualidad sigue pendiente. Cuando puedas, realiza el pago para seguir sin interrupciones 🤝',
+    'Pendiente por pagar tu mes del programa — un minuto y quedas al día. ¡Gracias! 💪',
   ],
 };
 
@@ -206,14 +208,12 @@ export default async function handler(req, res) {
         payloads.push({ title: 'Entrena con Método', body: pick(MSGS.morning), tag: 'ecm-m' });
       } else if (hour === 12) {
         if (registrosHoy < 1) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.midday), tag: 'ecm-d' });
-        // Pago: CADA 3 DÍAS mientras dure la deuda (no diario — presión
-        // sostenida sin sonar a cobrador intenso). Determinístico por día
-        // del año: no requiere guardar estado.
-        if (dayOfYear() % 3 === 0) {
-          await cargarDeudores();
-          if (deudores && s.name && deudores.has(normalizeName(s.name))) {
-            payloads.push({ title: 'Entrena con Método', body: pick(MSGS.payment), tag: 'ecm-p' });
-          }
+        // Pago: DIARIO al mediodía mientras dure la deuda (los copys rotan
+        // por día para no sonar a robot repetido). Desaparece solo al marcar
+        // el pago en el CRM.
+        await cargarDeudores();
+        if (deudores && s.name && deudores.has(normalizeName(s.name))) {
+          payloads.push({ title: 'Entrena con Método', body: pick(MSGS.payment), tag: 'ecm-p' });
         }
       } else if (hour === 20) {
         if (registrosHoy < 3) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.evening), tag: 'ecm-n' });

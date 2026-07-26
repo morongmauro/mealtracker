@@ -7,7 +7,9 @@ import { guard } from './_guard.js';
 // Solo los modelos que la app usa realmente. Sin esto, cualquiera que
 // descubriera el endpoint podía usar nuestra key con el modelo más caro.
 const ALLOWED_MODEL_PREFIXES = ['claude-haiku-', 'claude-sonnet-'];
-const MAX_TOKENS_CAP = 4000;
+// Sonnet 5 cuenta ~30% más tokens que Haiku para el mismo texto (tokenizador
+// nuevo), así que el techo sube para que las respuestas largas no se corten.
+const MAX_TOKENS_CAP = 6000;
 
 // Permite enviar la respuesta por partes (streaming) en vez de esperar a que
 // Anthropic termine de generar todo. El frontend muestra el avance en vivo.
@@ -60,13 +62,20 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: model || 'claude-haiku-4-5-20251001',
+        model: model || 'claude-sonnet-5',
         max_tokens: Math.min(Number(max_tokens) || 4000, MAX_TOKENS_CAP),
-        // temperature 0 SIEMPRE, fijada en el server: el trabajo principal de
-        // este endpoint es estimar macros, y con la temperature por defecto
-        // (1.0) el mismo "arepa mediana" daba números distintos cada día —
-        // el reporte de inconsistencia de los clientes. Determinismo primero.
-        temperature: 0,
+        // Parámetros por modelo, fijados en el server:
+        // - Sonnet 5 RECHAZA temperature con error 400 (la API la eliminó en
+        //   esa generación). Para consistencia de macros y respuesta rápida se
+        //   apaga el "thinking" (razonamiento extendido): sin él, Sonnet 5
+        //   responde casi tan rápido como Haiku y no gasta tokens extra de
+        //   salida. El parseo de comidas no necesita razonamiento profundo.
+        // - Haiku sigue con temperature 0: el mismo "arepa mediana" daba
+        //   números distintos cada día con la temperature por defecto (1.0) —
+        //   el reporte de inconsistencia de los clientes. Determinismo primero.
+        ...(String(model || '').startsWith('claude-sonnet-5')
+          ? { thinking: { type: 'disabled' } }
+          : { temperature: 0 }),
         system: system || '',
         messages: cleanedMessages,
         ...(stream ? { stream: true } : {}),
