@@ -5,13 +5,19 @@
 // suscripción (tz capturada del teléfono al suscribirse) y envía el
 // recordatorio del turno si corresponde:
 //
-//   08:00 local → arranque del día (registra tu desayuno)
-//   12:00 local → medio día (skip si ya registró algo hoy: no molestamos
-//                 a quien ya está usando la app)
+//   10:00 local → mañana (registra tu desayuno; skip si ya registró algo)
+//   14:00 local → tarde (registra tu almuerzo; skip si ya lleva 2+ registros)
 //   20:00 local → cierre del día (skip si ya lleva 3+ registros hoy)
-//   12:00 local → ADEMÁS recordatorio de pago SOLO a quien está en deuda
+//   12:00 local → recordatorio de pago SOLO a quien está en deuda
 //                 (misma regla que el banner de payment-status: corte
 //                 vencido y mes sin pago marcado en el CRM)
+//
+// RESILIENCIA: los crons de GitHub son "mejor esfuerzo" y a veces SALTAN
+// horas completas (documentado: bajo carga, los schedules se retrasan o se
+// omiten). Por eso cada turno tiene una VENTANA de 2 horas (la hora objetivo
+// y la siguiente) y una marca `last_slot` en push_subs evita duplicados: si
+// la corrida de las 10 se saltó, la de las 11 entrega el turno igual.
+// Requiere columna:  alter table push_subs add column if not exists last_slot text;
 //
 // Mensajes rotativos (por día del año) para no sonar a robot repetido.
 // Suscripciones muertas (410/404) se eliminan solas.
@@ -160,8 +166,8 @@ export default async function handler(req, res) {
   webpush.setVapidDetails('mailto:morongmauro@gmail.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
 
   try {
-    // 1) Todas las suscripciones
-    const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,user_id,name,tz,sub`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+    // 1) Todas las suscripciones (last_slot = marca anti-duplicado por turno)
+    const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,user_id,name,tz,sub,last_slot`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
     const subs = rs.ok ? await rs.json() : [];
     if (!Array.isArray(subs) || subs.length === 0) return res.status(200).json({ ok: true, sent: 0, subs: 0 });
 
@@ -197,27 +203,53 @@ export default async function handler(req, res) {
       }
     };
 
+    // Turnos con VENTANA de 2 horas (resiliencia a saltos del cron de GitHub).
+    // El orden importa: son secuenciales en el día, así una sola marca
+    // `last_slot` ("YYYY-MM-DD#id") basta para no duplicar dentro del turno.
     let sent = 0, removed = 0;
     for (const s of subs) {
       const { hour, date } = localNow(s.tz || 'America/Bogota');
       const act = activity.get(s.user_id) || { date: '', count: 0 };
       const registrosHoy = act.date === date ? act.count : 0;
 
+      // ¿Qué turno cae en esta hora? (ventana: hora objetivo o la siguiente)
+      let slot = null;
+      if (hour === 10 || hour === 11) slot = 'm';
+      else if (hour === 12 || hour === 13) slot = 'p';
+      else if (hour === 14 || hour === 15) slot = 'd';
+      else if (hour === 20 || hour === 21) slot = 'n';
+      if (!slot) continue;
+
+      // Anti-duplicado: si este turno ya se atendió hoy, saltar
+      const marca = `${date}#${slot}`;
+      if (s.last_slot === marca) continue;
+
       const payloads = [];
-      if (hour === 8) {
-        payloads.push({ title: 'Entrena con Método', body: pick(MSGS.morning), tag: 'ecm-m' });
-      } else if (hour === 12) {
-        if (registrosHoy < 1) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.midday), tag: 'ecm-d' });
-        // Pago: DIARIO al mediodía mientras dure la deuda (los copys rotan
-        // por día para no sonar a robot repetido). Desaparece solo al marcar
-        // el pago en el CRM.
+      if (slot === 'm') {
+        // Mañana (10am): solo a quien no ha registrado nada aún
+        if (registrosHoy < 1) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.morning), tag: 'ecm-m' });
+      } else if (slot === 'p') {
+        // Pago (mediodía): DIARIO mientras dure la deuda (copys rotan por
+        // día). Desaparece solo al marcar el pago en el CRM.
         await cargarDeudores();
         if (deudores && s.name && deudores.has(normalizeName(s.name))) {
           payloads.push({ title: 'Entrena con Método', body: pick(MSGS.payment), tag: 'ecm-p' });
         }
-      } else if (hour === 20) {
+      } else if (slot === 'd') {
+        // Tarde (2pm): a quien lleva menos de 2 registros (desayuno+almuerzo)
+        if (registrosHoy < 2) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.midday), tag: 'ecm-d' });
+      } else if (slot === 'n') {
+        // Noche (8pm): a quien lleva menos de 3 registros
         if (registrosHoy < 3) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.evening), tag: 'ecm-n' });
       }
+
+      // Marcar el turno como atendido AUNQUE no haya nada que enviar (p.ej.
+      // ya registró, o no debe): así la hora siguiente de la ventana no
+      // reevalúa, y el turno queda cerrado para hoy.
+      await fetch(`${SUPABASE_URL}/rest/v1/push_subs?endpoint=eq.${encodeURIComponent(s.endpoint)}`, {
+        method: 'PATCH', headers: sbHeaders(SUPABASE_SERVICE_KEY),
+        body: JSON.stringify({ last_slot: marca }),
+      }).catch(() => {});
 
       for (const p of payloads) {
         try {

@@ -122,7 +122,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -132,6 +132,14 @@ export default async function handler(req, res) {
         if (existing && existingAt && existingAt > incomingAt) {
           dataToWrite.goals = existing.goals;
           dataToWrite.goals_updated = existing.goals_updated;
+        }
+
+        // Señales de dispositivo (app instalada / push activo): las marca UN
+        // dispositivo; si otro sincroniza sin traerlas, se conserva la del
+        // server — nunca se "des-instala" por un push de otro teléfono.
+        if (existing) {
+          if (existing.pwa_installed_at && !dataToWrite.pwa_installed_at) dataToWrite.pwa_installed_at = existing.pwa_installed_at;
+          if (existing.push_enabled_at && !dataToWrite.push_enabled_at) dataToWrite.push_enabled_at = existing.push_enabled_at;
         }
 
         // Anti-pisado de RECORDATORIOS del coach: si el server tiene una

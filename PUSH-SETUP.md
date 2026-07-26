@@ -10,8 +10,11 @@ create table if not exists push_subs (
   name text,
   tz text default 'America/Bogota',
   sub jsonb not null,
-  updated_at timestamptz default now()
+  updated_at timestamptz default now(),
+  last_slot text
 );
+-- Si la tabla ya existía, solo agrega la columna anti-duplicados:
+alter table push_subs add column if not exists last_slot text;
 ```
 
 ## 2. Variables de entorno en Vercel (proyecto mealtracker)
@@ -38,12 +41,18 @@ cada hora; con los dos secrets configurados queda andando solo.
 > corriendo cada hora y en verde.
 
 ## 4. Los clientes
-Al abrir la app verán el banner "🔔 Recordatorios del día — Activar".
+La PRIMERA vez que abran la app instalada (pantalla de inicio) ven un aviso
+grande para activar los recordatorios; si dicen "ahora no", queda el banner
+"🔔 Recordatorios del día — Activar" en la zona de arriba.
 Al aceptar quedan suscritos con la zona horaria de SU teléfono:
-- 8:00 am → arranque del día
-- 12:00 m → recordatorio de almuerzo (solo si aún no registró nada hoy)
-  + recordatorio de pago (solo a quien tiene el corte vencido sin pago en el CRM)
-- 8:00 pm → cierre del día (solo si lleva menos de 3 registros)
+- 10:00 am → mañana (solo si aún no registró nada hoy)
+- 12:00 m  → recordatorio de pago (solo a quien tiene corte vencido sin pago en el CRM)
+- 2:00 pm  → tarde (solo si lleva menos de 2 registros)
+- 8:00 pm  → cierre del día (solo si lleva menos de 3 registros)
+
+Cada turno tiene una ventana de 2 horas y una marca anti-duplicado
+(`last_slot`): si GitHub se salta una corrida del cron —pasa seguido—, la
+hora siguiente entrega el recordatorio igual, y nunca llega dos veces.
 
 En iPhone: la app debe estar agregada a la pantalla de inicio (ya es el caso).
 Probar a mano: Actions → push-reminders → Run workflow.

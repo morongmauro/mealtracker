@@ -293,6 +293,9 @@ export default function MealTracker() {
   // Invitación a activar recordatorios push (visible solo si el permiso del
   // navegador está en 'default' y no la descartó hace poco)
   const [pushPrompt, setPushPrompt] = useState(false);
+  // Modal prominente de recordatorios: SOLO la primera apertura desde la app
+  // instalada (homescreen). Después, si no activó, queda el banner de arriba.
+  const [pushIntro, setPushIntro] = useState(false);
   // Adherencia de ENTRENAMIENTO de la semana pasada (viene del CRM vía
   // /api/adherence: seguimientos.dias_planeados/asistidos). null = aún sin
   // respuesta o sin datos; la parte de alimentación se calcula local.
@@ -956,6 +959,12 @@ export default function MealTracker() {
               frequentItems, wellbeing, goals, name,
               coach_reminders: coachReminders,
               reminders_updated: remindersMetaRef.current || undefined,
+              // Señales de dispositivo para el CRM: app instalada en
+              // homescreen y push activado. `undefined` no viaja en el JSON,
+              // y el server conserva el valor existente si no llega (así un
+              // segundo dispositivo sin la marca no la borra).
+              pwa_installed_at: (() => { try { return localStorage.getItem('mt:pwaInstalledAt') || undefined; } catch (e) { return undefined; } })(),
+              push_enabled_at: (() => { try { return localStorage.getItem('mt:pushEnabledAt') || undefined; } catch (e) { return undefined; } })(),
               // Versión de la meta que este dispositivo conoce; el server la
               // compara y NO deja que un push viejo pise una meta más nueva
               // (p.ej. recién cambiada por el coach).
@@ -1600,8 +1609,8 @@ export default function MealTracker() {
 
   // ─── Recordatorios push ────────────────────────────────────────────────
   // Suscribe este dispositivo al push (idempotente) y registra en el server
-  // la zona horaria del teléfono — así los recordatorios llegan a las 8am /
-  // 12m / 8pm HORA LOCAL de cada cliente, esté en el país que esté.
+  // la zona horaria del teléfono — así los recordatorios llegan a las 10am /
+  // 2pm / 8pm HORA LOCAL de cada cliente, esté en el país que esté.
   const ensurePushSubscription = useCallback(async () => {
     try {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
@@ -1620,15 +1629,48 @@ export default function MealTracker() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: uid, name, tz, sub: sub.toJSON() }),
       });
+      // Marca para el CRM ("🔔 Push activo") — viaja en el próximo sync
+      try {
+        if (!localStorage.getItem('mt:pushEnabledAt')) {
+          localStorage.setItem('mt:pushEnabledAt', new Date().toISOString());
+        }
+      } catch (e) {}
       return true;
     } catch (e) { return false; }
   }, [name]);
+
+  // ¿Corre como app instalada (homescreen)? Señal para el CRM y para el
+  // anuncio prominente de la primera apertura.
+  const esAppInstalada = () => {
+    try {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    } catch (e) { return false; }
+  };
+
+  // Marca UNA vez que este cliente ya tiene la app en homescreen; viaja al
+  // server en el próximo sync y el CRM la muestra como "📲 App instalada".
+  useEffect(() => {
+    if (view !== 'main' || !name) return;
+    try {
+      if (esAppInstalada() && !localStorage.getItem('mt:pwaInstalledAt')) {
+        localStorage.setItem('mt:pwaInstalledAt', new Date().toISOString());
+      }
+    } catch (e) {}
+  }, [view, name]);
 
   useEffect(() => {
     if (view !== 'main' || !name) return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') return;
     if (Notification.permission === 'granted') { ensurePushSubscription(); return; }
     if (Notification.permission === 'default') {
+      // Primera apertura desde la app instalada → anuncio PROMINENTE (modal),
+      // una sola vez. Las siguientes veces, el banner de la zona de arriba.
+      try {
+        if (esAppInstalada() && !localStorage.getItem('mt:pushIntroShown')) {
+          setPushIntro(true);
+          return;
+        }
+      } catch (e) {}
       // No insistir: si la descartó, se re-ofrece a la semana
       try {
         const dismissed = Number(localStorage.getItem('pushPromptDismissedAt') || 0);
@@ -4063,6 +4105,41 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         )}
         </div>
         </div>
+
+        {/* Anuncio PROMINENTE de recordatorios — solo la primera apertura
+            desde la app instalada. Modal centrado imposible de pasar por
+            alto; si elige "Ahora no", el banner de la zona fija lo sigue
+            recordando en las próximas aperturas. */}
+        {pushIntro && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(20,22,16,0.45)', backdropFilter: 'none' }}>
+            <div className="fade-up w-full" style={{
+              maxWidth: '340px', borderRadius: '24px', padding: '28px 24px 20px', textAlign: 'center',
+              background: `linear-gradient(135deg, ${ACCENT_PASTEL}50 0%, rgba(255,255,255,0.5) 100%), rgba(255,255,255,0.97)`,
+              border: '1px solid rgba(255,255,255,0.7)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 24px 64px rgba(20,25,15,0.35)',
+            }}>
+              <div style={{ fontSize: '44px', lineHeight: 1, marginBottom: '12px' }}>🔔</div>
+              <div style={{ fontSize: '17px', fontWeight: 700, color: TEXT, fontFamily: FONT_DISPLAY, marginBottom: '8px' }}>
+                Que ningún registro se te pase
+              </div>
+              <div style={{ fontSize: '13px', color: TEXT_MUTED, lineHeight: 1.45, marginBottom: '20px' }}>
+                Activa los recordatorios y te avisamos en los momentos clave del día — aunque la app esté cerrada. Los apagas cuando quieras.
+              </div>
+              <button
+                onClick={() => { try { localStorage.setItem('mt:pushIntroShown', '1'); } catch (e) {} setPushIntro(false); activarPush(); }}
+                className="w-full py-3 rounded-full text-[14px] font-semibold active:scale-95 transition"
+                style={{ background: '#1F1F1F', color: '#FFF' }}>
+                Activar recordatorios
+              </button>
+              <button
+                onClick={() => { haptic(6); try { localStorage.setItem('mt:pushIntroShown', '1'); } catch (e) {} setPushIntro(false); }}
+                className="w-full py-2.5 mt-2 text-[13px] font-medium active:scale-95 transition"
+                style={{ color: TEXT_LIGHT }}>
+                Ahora no
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Action FAB — onPointerDown para abrir al primer touchstart (sin esperar el click sintético
             de iOS Safari, que en este árbol grande agrega ~300ms perceptibles). Subido a bottom:120px
