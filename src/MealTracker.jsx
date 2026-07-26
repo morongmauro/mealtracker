@@ -3,7 +3,7 @@ import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
-  GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale, CalendarCheck, LayoutGrid
+  GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale, CalendarCheck, LayoutGrid, Bell
 } from 'lucide-react';
 import { canonicalizeItem } from './foods.js';
 
@@ -319,6 +319,12 @@ export default function MealTracker() {
   // Identidad estable para usar desde efectos sin re-suscribirlos (se
   // reasigna en cada render, mismo patrón que latestHandlersRef).
   const applyServerGoalsRef = useRef(() => {});
+  // Recordatorios que el COACH deja visibles en la app (los escribe desde el
+  // CRM vía coach-data action=reminders). Versionados con reminders_updated
+  // {at, by} — mismo patrón anti-pisado que las metas.
+  const [coachReminders, setCoachReminders] = useState([]);
+  const remindersMetaRef = useRef(null);
+  const applyServerRemindersRef = useRef(() => {});
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -372,7 +378,7 @@ export default function MealTracker() {
   useEffect(() => {
     (async () => {
       try {
-        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes, histDelRes] = await Promise.all([
+        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes, histDelRes, coachRemRes, remMetaRes] = await Promise.all([
           window.storage.get('goals').catch(() => null),
           window.storage.get('name').catch(() => null),
           window.storage.get('lastDay').catch(() => null),
@@ -387,6 +393,8 @@ export default function MealTracker() {
           window.storage.get('goalsUpdated').catch(() => null),
           window.storage.get('favoritesDeleted').catch(() => null),
           window.storage.get('historyDeleted').catch(() => null),
+          window.storage.get('coachReminders').catch(() => null),
+          window.storage.get('remindersMeta').catch(() => null),
         ]);
 
         if (favDelRes?.value) {
@@ -401,6 +409,16 @@ export default function MealTracker() {
             const dels = JSON.parse(histDelRes.value);
             if (Array.isArray(dels)) { historyDeletedRef.current = dels; setHistoryDeleted(dels); }
           } catch (e) {}
+        }
+
+        if (coachRemRes?.value) {
+          try {
+            const rem = JSON.parse(coachRemRes.value);
+            if (Array.isArray(rem)) setCoachReminders(rem);
+          } catch (e) {}
+        }
+        if (remMetaRes?.value) {
+          try { remindersMetaRef.current = JSON.parse(remMetaRes.value); } catch (e) {}
         }
 
         if (goalsUpdRes?.value) {
@@ -746,6 +764,7 @@ export default function MealTracker() {
           setWellbeing(local => ({ ...d.wellbeing, ...(local || {}) }));
         }
         applyServerGoalsRef.current(d.goals, d.goals_updated);
+        applyServerRemindersRef.current(d.coach_reminders, d.reminders_updated);
         if (Array.isArray(d.goals_history) && d.goals_history.length > 0) setGoalsHistory(d.goals_history);
         if (typeof d.name === 'string' && d.name) setName(d.name);
       } catch (e) {
@@ -800,6 +819,60 @@ export default function MealTracker() {
     }
   };
 
+  // Aplica recordatorios del coach que llegan del server (pull inicial o el
+  // mismo sondeo de metas). Solo se aplican si la versión del server es más
+  // nueva que la local; los NUEVOS pendientes se anuncian en el chat una
+  // sola vez (registro de anunciados en localStorage).
+  applyServerRemindersRef.current = (serverRem, serverMeta) => {
+    if (!Array.isArray(serverRem)) return;
+    const knownAt = remindersMetaRef.current?.at || '';
+    const serverAt = serverMeta?.at || '';
+    if (serverAt && serverAt <= knownAt) return; // ya tenemos esta versión (o una más nueva)
+    remindersMetaRef.current = serverMeta || { at: new Date().toISOString(), by: 'coach' };
+    window.storage.set('remindersMeta', JSON.stringify(remindersMetaRef.current)).catch(() => {});
+    setCoachReminders(serverRem);
+
+    // Anunciar SOLO los pendientes que nunca se han anunciado en este equipo
+    let announced = [];
+    try { announced = JSON.parse(localStorage.getItem('remindersAnnounced') || '[]'); } catch (e) {}
+    const seen = new Set(Array.isArray(announced) ? announced : []);
+    const nuevos = serverRem.filter(r => r && r.id && !r.done_at && !seen.has(r.id));
+    if (nuevos.length > 0) {
+      const firstName = name ? name.split(' ')[0] : '';
+      const lista = nuevos.map(r => `• ${r.text}`).join('\n');
+      setMessages(m => [...m, {
+        role: 'assistant',
+        isAnnouncement: true,
+        tag: 'Recordatorio de tu coach',
+        content: `${firstName ? firstName + ', ' : ''}tu coach te dejó ${nuevos.length === 1 ? 'un recordatorio' : nuevos.length + ' recordatorios'}:\n${lista}\n\nCuando lo cumplas, márcalo en Herramientas → Mis recordatorios y tu coach lo verá al instante.`,
+        ts: Date.now(),
+      }]);
+      haptic([20, 40, 20]);
+      try {
+        localStorage.setItem('remindersAnnounced', JSON.stringify([...seen, ...nuevos.map(r => r.id)].slice(-100)));
+      } catch (e) {}
+    }
+  };
+
+  // Persistir recordatorios + marcar cumplido desde la app. El sello
+  // {by:'cliente'} hace que el próximo push gane sobre la copia del server
+  // y el coach vea el ✓ en su CRM en el próximo refresco.
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
+    window.storage.set('coachReminders', JSON.stringify(coachReminders)).catch(() => {});
+  }, [coachReminders]);
+
+  const toggleCoachReminder = useCallback((id) => {
+    haptic(8);
+    setCoachReminders(rs => rs.map(r => r.id === id
+      ? (r.done_at
+          ? { ...r, done_at: null, done_by: null }
+          : { ...r, done_at: new Date().toISOString(), done_by: 'cliente' })
+      : r));
+    remindersMetaRef.current = { at: new Date().toISOString(), by: 'cliente' };
+    window.storage.set('remindersMeta', JSON.stringify(remindersMetaRef.current)).catch(() => {});
+  }, []);
+
   // Sondeo de metas: mientras la app está abierta chequea cada 60s (y al
   // volver a primer plano) si el coach cambió la meta. Payload mínimo
   // (goals_only=1), así el cliente NO tiene que recargar para enterarse.
@@ -816,7 +889,10 @@ export default function MealTracker() {
         const r = await fetch(`/api/sync?user_id=${uid}&goals_only=1`);
         if (!r.ok) return;
         const row = await r.json();
-        if (!stopped && row) applyServerGoalsRef.current(row.goals, row.goals_updated);
+        if (!stopped && row) {
+          applyServerGoalsRef.current(row.goals, row.goals_updated);
+          applyServerRemindersRef.current(row.coach_reminders, row.reminders_updated);
+        }
       } catch (e) {}
     };
     const interval = setInterval(check, 60000);
@@ -850,6 +926,8 @@ export default function MealTracker() {
             data: {
               favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted,
               frequentItems, wellbeing, goals, name,
+              coach_reminders: coachReminders,
+              reminders_updated: remindersMetaRef.current || undefined,
               // Versión de la meta que este dispositivo conoce; el server la
               // compara y NO deja que un push viejo pise una meta más nueva
               // (p.ej. recién cambiada por el coach).
@@ -869,14 +947,14 @@ export default function MealTracker() {
         });
       } catch (e) {}
     }, delayMs);
-  }, [cloudConsent, name, favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, frequentItems, wellbeing, goals, entries, water, today, messages]);
+  }, [cloudConsent, name, favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, coachReminders, frequentItems, wellbeing, goals, entries, water, today, messages]);
 
   // Watch: cualquier cambio en colecciones críticas dispara un push debounced.
   // Incluimos `entries` y `water` para que se sincronicen en vivo, NO solo al cambiar de día.
   useEffect(() => {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
     schedulePushToCloud();
-  }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, frequentItems, wellbeing, goals, name, entries, water, messages, cloudConsent, schedulePushToCloud]);
+  }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, coachReminders, frequentItems, wellbeing, goals, name, entries, water, messages, cloudConsent, schedulePushToCloud]);
 
   const acceptCloudConsent = useCallback(() => {
     try { localStorage.setItem('cloudConsent', 'accepted'); } catch (e) {}
@@ -1544,10 +1622,12 @@ export default function MealTracker() {
             : 'El permiso quedó activo, pero no pude completar la suscripción en este momento. Lo reintento automáticamente la próxima vez que abras la app; si en unos días sigues sin recibir recordatorios, avísale a tu coach.',
           ts: Date.now(),
         }]);
+        return ok;
       } else {
         try { localStorage.setItem('pushPromptDismissedAt', String(Date.now())); } catch (e) {}
+        return false;
       }
-    } catch (e) {}
+    } catch (e) { return false; }
   }, [ensurePushSubscription]);
 
   const posponerPush = useCallback(() => {
@@ -4072,6 +4152,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <div>
                   <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Ajustes</div>
                   <div className="grid grid-cols-2 gap-2">
+                    <ActionChipMini icon={<Bell size={15} strokeWidth={2.2} />}
+                      label={(() => { const n = coachReminders.filter(r => !r.done_at).length; return n > 0 ? `Mis recordatorios (${n})` : 'Mis recordatorios'; })()}
+                      pastel="#FBEFCF" color="#8A6D16"
+                      onClick={() => { haptic(8); setActiveModal('reminders'); }} />
                     <ActionChipMini icon={<RotateCcw size={15} strokeWidth={2.2} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
                       onClick={() => { haptic(8); setActiveModal('reset'); }} />
                   </div>
@@ -4182,6 +4266,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             if (dateStr === today) setActiveModal('reset'); // confirmación existente
             else removeDayFromHistory(dateStr);
           }} />
+      )}
+
+      {activeModal === 'reminders' && (
+        <RemindersModal onClose={() => setActiveModal(null)} onActivate={activarPush}
+          coachReminders={coachReminders} onToggleReminder={toggleCoachReminder} />
       )}
 
       {activeModal === 'favorites' && (
@@ -5727,6 +5816,137 @@ function WeeklyModal({ history, goals, onClose }) {
             );
           })}
         </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// ── MIS RECORDATORIOS: estado y control de los push desde Herramientas ──
+// Antes el único punto de entrada era el banner (que desaparece al activar
+// o posponer): quien lo cerraba no tenía cómo volver a activarlos ni ver
+// si estaban andando. Este modal muestra el estado real y los horarios.
+function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleReminder }) {
+  // checking | unsupported | denied | inactive | active
+  const [status, setStatus] = useState('checking');
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
+      setStatus('unsupported'); return;
+    }
+    if (Notification.permission === 'denied') { setStatus('denied'); return; }
+    if (Notification.permission === 'granted') {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        setStatus(sub ? 'active' : 'inactive');
+      } catch (e) { setStatus('inactive'); }
+      return;
+    }
+    setStatus('inactive');
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const activar = async () => {
+    setBusy(true);
+    try { await onActivate(); } catch (e) {}
+    await refresh();
+    setBusy(false);
+  };
+
+  const pill = {
+    checking:    { txt: 'Verificando…',      bg: SURFACE_2, fg: TEXT_MUTED },
+    active:      { txt: '● Activos',         bg: `${ACCENT}1A`, fg: ACCENT_DARK },
+    inactive:    { txt: '○ Sin activar',     bg: '#FBEFCF', fg: '#8A6D16' },
+    denied:      { txt: '✕ Bloqueados',      bg: `${DANGER}15`, fg: DANGER },
+    unsupported: { txt: 'No disponible aquí', bg: SURFACE_2, fg: TEXT_MUTED },
+  }[status];
+
+  const horario = (hora, txt) => (
+    <div className="flex items-start gap-3 p-2.5 rounded-xl" style={{ background: SURFACE_2 }}>
+      <span className="num text-[11px] font-bold flex-shrink-0 mt-0.5" style={{ color: ACCENT_DARK, minWidth: '52px' }}>{hora}</span>
+      <span className="text-[12px]" style={{ color: TEXT_MUTED, lineHeight: 1.4 }}>{txt}</span>
+    </div>
+  );
+
+  return (
+    <ModalShell onClose={onClose} maxWidth="max-w-md">
+      <ModalHeader accent={ACCENT} label="Ajustes" title="Mis recordatorios" onClose={onClose} />
+
+      {/* Recordatorios que el COACH dejó para este cliente. Tocar = marcar
+          cumplido (el coach lo ve ✓ en su CRM en el próximo refresco). */}
+      <div className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: TEXT_LIGHT }}>
+        De tu coach
+      </div>
+      {coachReminders.length === 0 ? (
+        <p className="text-[12px] mb-4 p-3 rounded-xl text-center" style={{ background: SURFACE_2, color: TEXT_LIGHT }}>
+          Por ahora no tienes recordatorios de tu coach. ✓
+        </p>
+      ) : (
+        <div className="space-y-2 mb-4">
+          {coachReminders.slice().sort((a, b) => (a.done_at ? 1 : 0) - (b.done_at ? 1 : 0)).map(r => (
+            <button key={r.id} onClick={() => onToggleReminder && onToggleReminder(r.id)}
+              className="w-full flex items-start gap-2.5 p-3 rounded-xl text-left active:scale-[0.98] transition"
+              style={{ background: r.done_at ? SURFACE_2 : '#FBEFCF' }}>
+              <span className="flex-shrink-0 w-[18px] h-[18px] rounded-md flex items-center justify-center mt-0.5"
+                style={{ background: r.done_at ? ACCENT : '#FFF', border: r.done_at ? 'none' : `1.5px solid #D9C58A` }}>
+                {r.done_at ? <Check size={12} strokeWidth={3} style={{ color: '#FFF' }} /> : null}
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-[13px] font-medium" style={{
+                  color: r.done_at ? TEXT_LIGHT : TEXT,
+                  textDecoration: r.done_at ? 'line-through' : 'none',
+                  lineHeight: 1.35,
+                }}>{r.text}</span>
+                {r.done_at && (
+                  <span className="block text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>
+                    ✓ cumplido {r.done_by === 'coach' ? 'según tu coach' : ''} · toca para desmarcar
+                  </span>
+                )}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-4 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
+        <span className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>Notificaciones del día</span>
+        <span className="px-3 py-1 rounded-full text-[11px] font-bold" style={{ background: pill.bg, color: pill.fg }}>{pill.txt}</span>
+      </div>
+
+      <div className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: TEXT_LIGHT }}>
+        Qué te llega (en tu hora local)
+      </div>
+      <div className="space-y-2 mb-4">
+        {horario('8:00 am', 'Arranque del día — recordatorio para registrar tu desayuno.')}
+        {horario('12:00 m', 'Almuerzo — solo si aún no has registrado nada ese día.')}
+        {horario('8:00 pm', 'Cierre del día — solo si llevas menos de 3 registros.')}
+      </div>
+
+      {status === 'inactive' && (
+        <button onClick={activar} disabled={busy}
+          className="w-full py-3 rounded-full text-[13px] font-semibold active:scale-95 transition"
+          style={{ background: '#1F1F1F', color: '#FFF', opacity: busy ? 0.6 : 1 }}>
+          {busy ? 'Activando…' : '🔔 Activar recordatorios'}
+        </button>
+      )}
+      {status === 'active' && (
+        <p className="text-[11px] text-center" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
+          Para pausarlos o apagarlos: Ajustes del teléfono → Notificaciones → Entrena con Método.
+        </p>
+      )}
+      {status === 'denied' && (
+        <p className="text-[11px] text-center" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+          Las notificaciones están bloqueadas para esta app. Actívalas desde
+          Ajustes del teléfono → Notificaciones → Entrena con Método, y vuelve aquí.
+        </p>
+      )}
+      {status === 'unsupported' && (
+        <p className="text-[11px] text-center" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+          Este navegador no permite notificaciones. En iPhone: abre la app desde
+          el ícono de tu pantalla de inicio (si no lo tienes: Compartir → Agregar
+          a pantalla de inicio) y vuelve a intentar desde ahí.
+        </p>
       )}
     </ModalShell>
   );

@@ -35,14 +35,21 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 );
 
 // Oculta el splash una vez React renderizó. Mínimo de exhibición: la
-// animación del logo (anillo + destello) dura ~1s; si la app carga más
-// rápido se retiene el splash apenas lo justo para que se complete, y si
-// la carga es lenta NO se agrega espera (el mínimo ya corrió en paralelo).
+// animación del logo dura ~1.4s; si la app carga más rápido se retiene el
+// splash apenas lo justo para que se complete, y si la carga es lenta NO
+// se agrega espera (el mínimo ya corrió en paralelo).
+// Arranque CALIENTE (misma sesión: volver de Aprendizaje, "atrás",
+// recarga por update): el opener ni se muestra (ver warm-start en
+// index.html) y no se retiene nada — directo a la app.
 if (typeof window !== 'undefined') {
-  const SPLASH_MIN_MS = 1050;
+  const warmStart = (() => { try { return !!sessionStorage.getItem('mt:booted'); } catch (e) { return false; } })();
+  const SPLASH_MIN_MS = warmStart ? 0 : 1600;
   requestAnimationFrame(() => {
     const holdLeft = Math.max(80, SPLASH_MIN_MS - performance.now());
-    setTimeout(() => document.body.classList.add('app-ready'), holdLeft);
+    setTimeout(() => {
+      document.body.classList.add('app-ready');
+      try { sessionStorage.setItem('mt:booted', '1'); } catch (e) {}
+    }, holdLeft);
   });
 }
 

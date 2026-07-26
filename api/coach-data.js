@@ -5,6 +5,9 @@
 // GET  /api/coach-data?action=list                → lista resumida de TODOS los clientes
 // GET  /api/coach-data?action=detail&user_id=...  → detalle completo de un cliente
 // PATCH /api/coach-data?action=goals&user_id=...  → actualiza solo .goals dentro de .data
+// PATCH /api/coach-data?action=reminders&user_id=... → reemplaza .coach_reminders (recordatorios
+//        que el coach deja visibles en la app del cliente; sella reminders_updated
+//        para el anti-pisado de /api/sync, igual que las metas)
 // PATCH /api/coach-data?action=mark_duplicate&user_id=...&duplicate_of=... → marca duplicado
 
 import { verifyCoachToken } from './coach-auth.js';
@@ -290,6 +293,79 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, goals: { kcal, p, c, g } });
     } catch (e) {
       return res.status(500).json({ error: 'goals failed', detail: String(e) });
+    }
+  }
+
+  // REMINDERS (GET) — solo la lista de recordatorios de un cliente (payload
+  // mínimo para el modal de seguimiento del CRM, sin bajar todo el detalle).
+  if (req.method === 'GET' && action === 'reminders') {
+    const userId = req.query.user_id;
+    if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
+    try {
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=reminders:data->coach_reminders,reminders_updated:data->reminders_updated`,
+        { headers: supaHeaders() }
+      );
+      const rows = await r.json();
+      if (!Array.isArray(rows) || rows.length === 0) return res.status(404).json({ error: 'client not found' });
+      return res.status(200).json({
+        reminders: Array.isArray(rows[0].reminders) ? rows[0].reminders : [],
+        reminders_updated: rows[0].reminders_updated || null,
+      });
+    } catch (e) {
+      return res.status(500).json({ error: 'reminders get failed', detail: String(e) });
+    }
+  }
+
+  // REMINDERS — el coach reemplaza la lista completa de recordatorios que el
+  // cliente ve en su app. Cada item: { id, text, created_at, done_at, done_by }.
+  // Se sella reminders_updated {at, by:'coach'} para que un push del cliente
+  // con una copia vieja no pise esta lista (mismo patrón que goals_updated).
+  if (req.method === 'PATCH' && action === 'reminders') {
+    const userId = req.query.user_id;
+    if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
+    const list = (req.body || {}).reminders;
+    if (!Array.isArray(list) || list.length > 30) {
+      return res.status(400).json({ error: 'reminders must be an array (max 30)' });
+    }
+    const clean = list.map(r => ({
+      id: String(r && r.id || '').slice(0, 40),
+      text: String(r && r.text || '').trim().slice(0, 200),
+      created_at: typeof (r && r.created_at) === 'string' ? r.created_at.slice(0, 40) : new Date().toISOString(),
+      done_at: (r && typeof r.done_at === 'string') ? r.done_at.slice(0, 40) : null,
+      done_by: (r && (r.done_by === 'cliente' || r.done_by === 'coach')) ? r.done_by : null,
+    })).filter(r => r.id && r.text);
+
+    try {
+      const r1 = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=data`,
+        { headers: supaHeaders() }
+      );
+      const rows = await r1.json();
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return res.status(404).json({ error: 'client not found' });
+      }
+      const currentData = rows[0].data || {};
+      const newData = {
+        ...currentData,
+        coach_reminders: clean,
+        reminders_updated: { at: new Date().toISOString(), by: 'coach' },
+      };
+      const r2 = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}`,
+        {
+          method: 'PATCH',
+          headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ data: newData, updated_at: new Date().toISOString() }),
+        }
+      );
+      if (!r2.ok) {
+        const detail = await r2.text();
+        return res.status(500).json({ error: 'reminders update failed', detail });
+      }
+      return res.status(200).json({ ok: true, reminders: clean });
+    } catch (e) {
+      return res.status(500).json({ error: 'reminders failed', detail: String(e) });
     }
   }
 

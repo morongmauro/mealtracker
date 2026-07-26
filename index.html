@@ -22,13 +22,21 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <title>Entrena con Método — Meal Tracker</title>
+    <script>
+      // Opener SOLO en arranque frío: si la app ya se abrió en esta sesión
+      // (volver del centro de Aprendizaje, botón "atrás", recarga por
+      // actualización), se entra directo sin animación — verla en cada
+      // regreso aburre y se siente como espera. sessionStorage muere al
+      // cerrar la app de verdad, así que el próximo arranque real sí la ve.
+      try { if (sessionStorage.getItem('mt:booted')) document.documentElement.classList.add('warm-start'); } catch (e) {}
+    </script>
     <style>
       /* CSS inline crítico — splash de marca mientras React carga. Todo es
          SVG+CSS inline (cero requests extra), así aparece al instante.
          Recrea el logo real: M blanca + anillo de progreso verde que se
          llena + punto blanco en la cabeza del anillo + destello sobre la M.
-         Dura <1s y se desvanece apenas la app monta (main.jsx pone
-         body.app-ready con un mínimo para que la animación se aprecie). */
+         Secuencia ~1.4s + fade; main.jsx retiene el splash ~1.6s (ritmo de
+         app premium: se alcanza a leer la marca sin sentir espera). */
       html, body { margin: 0; padding: 0; background: #F9F7F1; font-family: -apple-system, system-ui, sans-serif; }
       #splash {
         position: fixed; inset: 0;
@@ -42,14 +50,14 @@
       #splash .ring {
         stroke-dasharray: 1131.0;
         stroke-dashoffset: 1131.0;
-        animation: ringfill 0.85s cubic-bezier(0.3, 0, 0.2, 1) 0.1s forwards;
+        animation: ringfill 1.0s cubic-bezier(0.3, 0, 0.2, 1) 0.15s forwards;
       }
       @keyframes ringfill { to { stroke-dashoffset: 90.5; } }
       /* Punto blanco: gira acompañando la cabeza del anillo (~331° = 92%) */
       #splash .head {
         transform-origin: 256px 256px;
         transform: rotate(0deg);
-        animation: headspin 0.85s cubic-bezier(0.3, 0, 0.2, 1) 0.1s forwards;
+        animation: headspin 1.0s cubic-bezier(0.3, 0, 0.2, 1) 0.15s forwards;
       }
       @keyframes headspin { to { transform: rotate(331deg); } }
       /* Destello: un segmento de luz recorre el trazo de la M una vez */
@@ -57,7 +65,7 @@
         stroke-dasharray: 90 520;
         stroke-dashoffset: 90;
         opacity: 0;
-        animation: shinerun 0.55s ease-in-out 0.55s forwards;
+        animation: shinerun 0.6s ease-in-out 0.75s forwards;
       }
       @keyframes shinerun {
         0%   { opacity: 0; stroke-dashoffset: 90; }
@@ -70,11 +78,13 @@
         font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
         color: #A3B15E; font-weight: 600;
         opacity: 0;
-        animation: subfade 0.4s ease-out 0.45s forwards;
+        animation: subfade 0.5s ease-out 0.55s forwards;
       }
       @keyframes subfade { to { opacity: 1; } }
       /* Oculta el splash una vez que React montó */
       body.app-ready #splash { opacity: 0; pointer-events: none; }
+      /* Arranque caliente (misma sesión): sin opener, directo a la app */
+      html.warm-start #splash { display: none; }
       @media (prefers-reduced-motion: reduce) {
         #splash .ring { animation-duration: 0.01s; }
         #splash .head { animation-duration: 0.01s; }

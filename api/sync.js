@@ -76,8 +76,10 @@ export default async function handler(req, res) {
     // app pueda chequear cada minuto sin bajar todo el historial.
     if (req.query.goals_only) {
       try {
+        // Incluye también los recordatorios del coach: el mismo sondeo liviano
+        // que detecta cambios de meta entrega recordatorios nuevos casi en vivo.
         const r = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=goals:data->goals,goals_updated:data->goals_updated`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=goals:data->goals,goals_updated:data->goals_updated,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated`,
           { headers }
         );
         const rows = await r.json();
@@ -120,7 +122,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -130,6 +132,16 @@ export default async function handler(req, res) {
         if (existing && existingAt && existingAt > incomingAt) {
           dataToWrite.goals = existing.goals;
           dataToWrite.goals_updated = existing.goals_updated;
+        }
+
+        // Anti-pisado de RECORDATORIOS del coach: si el server tiene una
+        // versión MÁS NUEVA (el coach los cambió y este dispositivo aún no la
+        // aplicó), se conserva la del server. Mismo patrón que las metas.
+        const remExistAt = existing?.reminders_updated?.at || '';
+        const remInAt = dataToWrite.reminders_updated?.at || '';
+        if (existing && remExistAt && remExistAt > remInAt) {
+          dataToWrite.coach_reminders = existing.coach_reminders;
+          dataToWrite.reminders_updated = existing.reminders_updated;
         }
 
         // Anti-pisado de FAVORITOS: el push trae el snapshot completo del
