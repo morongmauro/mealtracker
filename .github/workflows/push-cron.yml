@@ -1,0 +1,32 @@
+# Dispara el envío de recordatorios push cada hora.
+# El endpoint /api/push-cron decide a quién enviarle según la hora LOCAL de
+# cada suscriptor (8am / 12m / 8pm), así que correr cada hora es correcto:
+# las horas que no aplican responden {sent: 0} sin costo.
+#
+# Requiere DOS secrets en el repo (Settings → Secrets → Actions):
+#   PUSH_CRON_SECRET  → el mismo valor que CRON_SECRET en Vercel
+#   PUSH_APP_URL      → la URL de producción, ej: https://tu-mealtracker.vercel.app
+name: push-reminders
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # cada hora en punto (UTC)
+  workflow_dispatch: {}    # permite "Run workflow" manual para probar
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Llamar /api/push-cron
+        env:
+          APP_URL: ${{ secrets.PUSH_APP_URL }}
+          KEY: ${{ secrets.PUSH_CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$KEY" ]; then
+            echo "Faltan secrets PUSH_APP_URL y/o PUSH_CRON_SECRET"; exit 1
+          fi
+          code=$(curl -s -o /tmp/out.json -w '%{http_code}' --max-time 60 \
+            -H "x-cron-key: $KEY" "$APP_URL/api/push-cron")
+          cat /tmp/out.json; echo
+          [ "$code" = "200" ] || { echo "HTTP $code"; exit 1; }
