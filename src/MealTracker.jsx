@@ -2013,10 +2013,21 @@ SCHEMA:
     }
   };
 
+  // Preferencias del plan en curso: lo que el cliente PIDIÓ en su mensaje
+  // ("al desayuno suelo comer huevos y arepa, de almuerzo pechuga y arroz…").
+  // Viven en un ref para que "regenerar" desde el modal las conserve.
+  const plannerPrefsRef = useRef({ text: '', extra: [] });
+
   const generatePlan = async () => {
     if (!goals) { setShowPlannerModal(false); avisarMetaPendiente(); return; }
+    const prefs = plannerPrefsRef.current || { text: '', extra: [] };
+    // Ingredientes efectivos = lista guardada + los mencionados en el pedido
+    const ingredientes = [...favoriteIngredients];
+    for (const x of (prefs.extra || [])) {
+      if (!ingredientes.some(y => String(y).toLowerCase().trim() === String(x).toLowerCase().trim())) ingredientes.push(x);
+    }
     // Allow planning if has either ingredients or saved meal menus
-    if (favoriteIngredients.length === 0 && favorites.length === 0) {
+    if (ingredientes.length === 0 && favorites.length === 0) {
       setShowIngredientsModal(true);
       return;
     }
@@ -2032,8 +2043,14 @@ SCHEMA:
 
 CLIENTE: ${name || 'Cliente'}
 META DIARIA: ${goals.kcal} kcal · P ${goals.p}g · C ${goals.c}g · G ${goals.g}g
-INGREDIENTES QUE LE GUSTAN Y COMPRA: ${favoriteIngredients.join(', ') || '(ninguno)'}
-${favoriteMenusBlock}
+INGREDIENTES QUE LE GUSTAN Y COMPRA: ${ingredientes.join(', ') || '(ninguno)'}
+${favoriteMenusBlock}${prefs.text ? `
+LO QUE EL CLIENTE PIDIÓ PARA ESTE PLAN (mandato — respétalo):
+"${prefs.text}"
+- Si dice qué suele comer en CADA comida (desayuno/almuerzo/cena/snack), asigna ESOS alimentos a ESA comida; tu trabajo es solo calcular las CANTIDADES para cuadrar la meta del día.
+- Los alimentos que menciona son válidos aunque no estuvieran en su lista de ingredientes.
+- Si para cuadrar macros necesitas complementar una comida, hazlo con ingredientes de su lista y márcalo natural (sin justificar de más).
+` : ''}
 REGLAS DURAS:
 - Puedes elegir LIBREMENTE entre: (a) combinar ingredientes sueltos para armar una comida, o (b) reutilizar un MENÚ FAVORITO completo como una comida del día. Mezcla ambos según convenga para cuadrar macros.
 - Si reutilizas un menú favorito, copia sus items tal cual (mismo nombre, amount, kcal, macros) y opcionalmente indícalo en el campo "from_favorite" del meal con el nombre del menú.
@@ -2363,6 +2380,13 @@ El cliente puede registrar de dos formas. Adáptate a su intención:
 - Si NO etiqueta y es claramente una sola comida puntual → asígnale la comida según la hora actual (antes 11h=desayuno, 11-16h=almuerzo, 16-21h=cena, resto=snack). Si dudas, usa meal="comida".
 - REGLA DE ORO: procesa SIEMPRE el mensaje completo. Si es una lista de 10 cosas, las 10 quedan registradas en esta misma respuesta. JAMÁS tomes una parte y dejes el resto para "después".
 
+═══ REGIÓN DEL CLIENTE ═══
+Zona horaria de su teléfono: ${(Intl.DateTimeFormat().resolvedOptions().timeZone) || 'America/Bogota'}. Úsala para interpretar regionalismos de alimentos:
+- Colombia/Venezuela/Centroamérica: "plátano" = plátano de cocinar (maduro/verde); la fruta dulce es "banano/banana/guineo".
+- España/Cono Sur (Europe/*, America/Argentina/*, America/Santiago, America/Montevideo): "plátano" suele ser la BANANA (fruta, ~89 kcal/100g) — interpreta así salvo que el contexto diga cocido/frito/tajadas.
+- México: "plátano" = banana (fruta); el de cocinar es "plátano macho".
+Aplica el mismo criterio a otros regionalismos (ej: "torta" = pastel en CO, sándwich en MX).
+
 ═══ GLOSARIO DE ALIMENTOS REGIONALES (reconócelos aunque vengan mal transcritos por voz) ═══
 - "ponqué/ponquecito/poncecito/quesito (si hablaban de postre)" = bizcocho/cupcake casero. ~250-350 kcal según receta.
 - "fainá/faina/faena" = masa de garbanzos horneada. ~110 kcal/100g.
@@ -2406,7 +2430,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   ARGUMENTA SIEMPRE (campo "logic", 1-2 oraciones, concisas): di QUÉ target usaste y POR QUÉ, y la condición real para cumplir la meta. Ejemplos: "Ajusté tus 3 menús para que JUNTOS sumen tu meta diaria; cumplirla depende de que el día sea exactamente esto y nada más." / "Como esto es solo tu almuerzo, lo ajusté al ~35% de tu meta (no al día completo); el resto lo completas con desayuno y cena." / "Como aún no has registrado nada hoy, partí de tu meta completa; si ya comiste algo, dímelo y ajusto sobre lo que te queda."
   Devuelve "adjust_favorites_response" con la estructura del schema. NUNCA registres nada — es solo propuesta visual.
 - "water": registra agua. "1 vaso"=250ml, "1 termo"=500ml, "1 botella"=500ml, "1 litro"=1000ml.
-- "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite, move_entry, delete_entry, delete_day}. Mapping: "reiniciar día"→reset_day, "bórrame la cena / elimina eso último que registré / quita ese snack, estaba mal / eso no lo comí, bórralo"→delete_entry (+meal si dice cuál comida; si es de un día pasado agrega log_date copiado de la tabla), "borra todo lo que registré el <día pasado> / borra ese día completo / elimina el registro del 20"→delete_day + log_date (para HOY usa reset_day, no delete_day), "eran 300g no 150 / corrígele la cantidad / me equivoqué en el arroz de la cena"→edit_entry (ver regla en append_to_last), "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion (TAMBIÉN toda pregunta de cuánto comer de un alimento para alcanzar/completar/cerrar una meta o lo que resta del día: "¿cuántas cucharadas de yogur griego tengo que comer para llegar a la meta de proteínas que resta hoy?", "¿cuánto arroz me falta para completar carbos?", "¿con cuánto atún cierro mi proteína?" → proportion), "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "¿qué ingredientes tengo guardados? / muéstrame mis ingredientes / no me acuerdo qué ingredientes te di / ver mi lista de ingredientes"→manage_favorites SIN items (la app abre su lista para que la vea y edite), "¿qué menús favoritos tengo? / muéstrame mis menús guardados"→favorites, "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
+- "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite, move_entry, delete_entry, delete_day}. Mapping: "reiniciar día"→reset_day, "bórrame la cena / elimina eso último que registré / quita ese snack, estaba mal / eso no lo comí, bórralo"→delete_entry (+meal si dice cuál comida; si es de un día pasado agrega log_date copiado de la tabla), "borra todo lo que registré el <día pasado> / borra ese día completo / elimina el registro del 20"→delete_day + log_date (para HOY usa reset_day, no delete_day), "eran 300g no 150 / corrígele la cantidad / me equivoqué en el arroz de la cena"→edit_entry (ver regla en append_to_last), "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion (TAMBIÉN toda pregunta de cuánto comer de un alimento para alcanzar/completar/cerrar una meta o lo que resta del día: "¿cuántas cucharadas de yogur griego tengo que comer para llegar a la meta de proteínas que resta hoy?", "¿cuánto arroz me falta para completar carbos?", "¿con cuánto atún cierro mi proteína?" → proportion), "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "¿qué ingredientes tengo guardados? / muéstrame mis ingredientes / no me acuerdo qué ingredientes te di / ver mi lista de ingredientes"→manage_favorites SIN items (la app abre su lista para que la vea y edite), "¿qué menús favoritos tengo? / muéstrame mis menús guardados"→favorites, "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day. TAMBIÉN plan_day (CRÍTICO) cuando pide porciones/distribución del DÍA COMPLETO contando qué suele comer en cada comida — ej: "regálame las porciones, al desayuno suelo comer huevos y arepa, de almuerzo pechuga y arroz, de cena huevos y fruta" → command=plan_day + llena "items" con TODOS los alimentos que mencionó (solo "name", amount vacío). PROHIBIDO clasificar eso como proportion o meal_suggestion: proportion es para cuadrar UNA comida o alimentos sueltos AHORA; si el mensaje recorre desayuno+almuerzo+cena (o pide "el día"), es plan_day SIEMPRE, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
   MOVER UNA COMIDA YA REGISTRADA A OTRO DÍA → move_entry (CRÍTICO): si el cliente pide cambiar la fecha de algo que YA quedó registrado hoy ("eso que te pasé regístralo para ayer, no para hoy", "esa cena era de ayer", "lo que registraste pásalo al miércoles", "me equivoqué, eso fue antier") → command="move_entry" + meal=(tipo de comida referida: cena/almuerzo/etc., o null si no lo dice) + log_date=(fecha DESTINO copiada de la TABLA DE FECHAS). Se reconoce porque en el contexto de conversación YA aparece esa comida registrada ("(registré cena: …)"). PROHIBIDO responder con log_meal en ese caso: re-registrarla crearía un DUPLICADO (la comida quedaría contada en los dos días). log_meal con log_date es SOLO para comida que aún NO está registrada.
 - "clarify": SOLO si hay ambigüedad REAL. Llenar "clarify_interpretation" (tu mejor lectura ESCRITA PARA EL CLIENTE: 1 oración corta hablándole de "tú", ej: "quieres registrar pollo en tu cena") y "clarify_question" (pregunta corta y cálida, ej: "¿cuántos gramos aproximadamente?"). PROHIBIDO en ambos campos: razonamiento interno, tercera persona ("el cliente dice..."), o mencionar historial/señales/frontend/intents/reglas — el cliente lee estos textos TAL CUAL.
 - "off_topic": saludos, charla, preguntas sobre el coach, "qué dieta hacer". Llena "message" con respuesta cálida y breve.
@@ -2974,6 +2998,19 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           }
         }
         else if (parsed.command === 'plan_day') {
+          // Si el pedido menciona alimentos ("suelo comer huevos y arepa al
+          // desayuno…"), son sus preferencias: (1) se agregan a su lista de
+          // ingredientes para el futuro, (2) el plan respeta qué va en cada
+          // comida (el texto original viaja al planificador).
+          const mencionados = (parsed.items || []).map(it => String(it.name || '').trim()).filter(Boolean);
+          if (mencionados.length) {
+            setFavoriteIngredients(prev => {
+              const ya = new Set(prev.map(x => String(x).toLowerCase().trim()));
+              const nuevos = mencionados.filter(n => !ya.has(n.toLowerCase().trim()));
+              return nuevos.length ? [...prev, ...nuevos] : prev;
+            });
+          }
+          plannerPrefsRef.current = mencionados.length ? { text: userMsg, extra: mencionados } : { text: '', extra: [] };
           setShowPlannerModal(true);
           generatePlan();
         }
@@ -4262,7 +4299,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
                   <div className="grid grid-cols-2 gap-2">
                     <ActionChipMini icon={<ChefHat size={15} strokeWidth={2.2} />} label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); setShowPlannerModal(true); generatePlan(); }} />
+                      onClick={() => { haptic(8); plannerPrefsRef.current = { text: '', extra: [] }; setShowPlannerModal(true); generatePlan(); }} />
                     <ActionChipMini icon={<Repeat size={15} strokeWidth={2.2} />} label="Repetir comida de ayer" pastel={C_FAT_PASTEL} color={C_FAT}
                       onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
                     <ActionChipMini icon={<Star size={15} strokeWidth={2.2} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color="#9C7C3C"
