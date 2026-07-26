@@ -303,7 +303,7 @@ export default async function handler(req, res) {
     if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
     try {
       const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=reminders:data->coach_reminders,reminders_updated:data->reminders_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at`,
+        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=reminders:data->coach_reminders,reminders_updated:data->reminders_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,updated_at`,
         { headers: supaHeaders() }
       );
       const rows = await r.json();
@@ -311,9 +311,11 @@ export default async function handler(req, res) {
       return res.status(200).json({
         reminders: Array.isArray(rows[0].reminders) ? rows[0].reminders : [],
         reminders_updated: rows[0].reminders_updated || null,
-        // Señales de dispositivo para los badges del CRM
+        // Señales de dispositivo para los badges y el journey del CRM
         pwa_installed_at: rows[0].pwa_installed_at || null,
         push_enabled_at: rows[0].push_enabled_at || null,
+        // Última sincronización de la app = proxy de "está usando el tracker"
+        mt_updated_at: rows[0].updated_at || null,
       });
     } catch (e) {
       return res.status(500).json({ error: 'reminders get failed', detail: String(e) });
