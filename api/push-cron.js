@@ -251,17 +251,17 @@ export default async function handler(req, res) {
       const payloads = [];
       if (slot === 'm') {
         // Mañana (10am): solo a quien no ha registrado nada aún
-        if (registrosHoy < 1) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.morning), tag: 'ecm-m' });
+        if (registrosHoy < 1) payloads.push({ title: 'Tu coach', body: pick(MSGS.morning), tag: 'ecm-m' });
       } else if (slot === 'p') {
         // Pago (5:30pm): DIARIO mientras dure la deuda (copys rotan por
         // día). Desaparece solo al marcar el pago en el CRM.
         await cargarDeudores();
         if (deudores && s.name && deudores.has(normalizeName(s.name))) {
-          payloads.push({ title: 'Entrena con Método', body: pick(MSGS.payment), tag: 'ecm-p' });
+          payloads.push({ title: 'Tu coach', body: pick(MSGS.payment), tag: 'ecm-p' });
         }
       } else if (slot === 'd') {
         // Tarde (2pm): a quien lleva menos de 2 registros (desayuno+almuerzo)
-        if (registrosHoy < 2) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.midday), tag: 'ecm-d' });
+        if (registrosHoy < 2) payloads.push({ title: 'Tu coach', body: pick(MSGS.midday), tag: 'ecm-d' });
       } else if (slot === 'n') {
         // Noche (8pm): DIARIO por % de meta de kcal. Los totales solo valen
         // si el "today" sincronizado es el día local del cliente (si no,
@@ -273,11 +273,11 @@ export default async function handler(req, res) {
           // recuerda a quien va por debajo del 80%.
           const pct = Math.min(999, Math.max(0, Math.round((kcalHoy / metaKcal) * 100)));
           if (pct < 80) {
-            payloads.push({ title: 'Entrena con Método', body: pick(MSGS.eveningLow).replace('{pct}', String(pct)), tag: 'ecm-n' });
+            payloads.push({ title: 'Tu coach', body: pick(MSGS.eveningLow).replace('{pct}', String(pct)), tag: 'ecm-n' });
           }
         } else if (registrosHoy < 3) {
           // Sin meta configurada: regla vieja por conteo de registros
-          payloads.push({ title: 'Entrena con Método', body: pick(MSGS.evening), tag: 'ecm-n' });
+          payloads.push({ title: 'Tu coach', body: pick(MSGS.evening), tag: 'ecm-n' });
         }
       }
 
