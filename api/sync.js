@@ -122,7 +122,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -175,16 +175,43 @@ export default async function handler(req, res) {
           dataToWrite.favorites = Array.from(byId.values()).filter(f => !tombstones.has(f.id));
           dataToWrite.favoritesDeleted = Array.from(tombstones).slice(-300);
 
-          // Lápidas de HISTORIAL borrado ('YYYY-MM-DD' día completo,
-          // 'YYYY-MM-DD#id' comida puntual): unión server + entrante y se
-          // aplican al historial que se va a escribir, para que un push de
-          // otro dispositivo con copia vieja no resucite días borrados.
+          // Lápidas de HISTORIAL + bitácora por día (historyDayOps:
+          // { 'YYYY-MM-DD': { op:'del'|'add', at:ISO } }). La bitácora manda:
+          // entre "borrado" y "re-registrado" GANA LA ACCIÓN MÁS RECIENTE.
+          // Sin esto, la unión de lápidas re-mataba un día que el cliente
+          // había borrado y luego vuelto a registrar (bug días 20/24).
+          const opsExist = (existing.history_day_ops && typeof existing.history_day_ops === 'object') ? existing.history_day_ops : {};
+          const opsIn = (dataToWrite.historyDayOps && typeof dataToWrite.historyDayOps === 'object') ? dataToWrite.historyDayOps : {};
+          const mergedOps = { ...opsExist };
+          for (const [day, op] of Object.entries(opsIn)) {
+            if (!op || !op.at) continue;
+            if (!mergedOps[day] || String(op.at) > String(mergedOps[day].at || '')) mergedOps[day] = op;
+          }
+          // Poda: solo los últimos ~200 días con actividad de borrado
+          const opDays = Object.keys(mergedOps).sort();
+          if (opDays.length > 200) for (const day of opDays.slice(0, opDays.length - 200)) delete mergedOps[day];
+          dataToWrite.historyDayOps = mergedOps;
+
           const histTombs = new Set([
             ...(Array.isArray(existing.history_deleted) ? existing.history_deleted : []),
             ...(Array.isArray(dataToWrite.historyDeleted) ? dataToWrite.historyDeleted : []),
           ]);
+          // Un día cuya última acción fue 'add' está VIVO: su lápida de DÍA
+          // COMPLETO se descarta de la unión. Las de comidas sueltas
+          // (fecha#id) se conservan: en un día re-registrado apuntan a ids
+          // que ya no existen (inofensivas) y protegen borrados puntuales
+          // hechos después del re-registro.
+          for (const t of Array.from(histTombs)) {
+            if (String(t).includes('#')) continue;
+            if (mergedOps[t] && mergedOps[t].op === 'add') histTombs.delete(t);
+          }
+          // Y un día con op 'del' explícita está muerto aunque su lápida
+          // legada se haya perdido por el límite de 400.
+          for (const [day, op] of Object.entries(mergedOps)) {
+            if (op && op.op === 'del') histTombs.add(day);
+          }
+          dataToWrite.historyDeleted = Array.from(histTombs).slice(-400);
           if (histTombs.size > 0) {
-            dataToWrite.historyDeleted = Array.from(histTombs).slice(-400);
             const deadDays = new Set(Array.from(histTombs).filter(t => !String(t).includes('#')));
             if (dataToWrite.history && typeof dataToWrite.history === 'object') {
               for (const day of deadDays) delete dataToWrite.history[day];

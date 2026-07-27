@@ -314,6 +314,12 @@ export default function MealTracker() {
   // (la fusión toma el snapshot del server como base).
   const [historyDeleted, setHistoryDeleted] = useState([]);
   const historyDeletedRef = useRef([]);
+  // Bitácora por día: última acción sobre un día pasado y CUÁNDO ocurrió —
+  // { 'YYYY-MM-DD': { op: 'del'|'add', at: ISO } }. Resuelve el ciclo
+  // borrar→re-registrar→se vuelve a borrar: entre lápida y re-registro GANA
+  // LA ACCIÓN MÁS RECIENTE (en cada dispositivo y en el server).
+  const [historyDayOps, setHistoryDayOps] = useState({});
+  const historyDayOpsRef = useRef({});
   const cloudUserIdRef = useRef(null);
   const cloudSyncedFromServer = useRef(false);
   const cloudPushTimerRef = useRef(null);
@@ -383,7 +389,7 @@ export default function MealTracker() {
   useEffect(() => {
     (async () => {
       try {
-        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes, histDelRes, coachRemRes, remMetaRes] = await Promise.all([
+        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes, histDelRes, coachRemRes, remMetaRes, dayOpsRes] = await Promise.all([
           window.storage.get('goals').catch(() => null),
           window.storage.get('name').catch(() => null),
           window.storage.get('lastDay').catch(() => null),
@@ -400,6 +406,7 @@ export default function MealTracker() {
           window.storage.get('historyDeleted').catch(() => null),
           window.storage.get('coachReminders').catch(() => null),
           window.storage.get('remindersMeta').catch(() => null),
+          window.storage.get('historyDayOps').catch(() => null),
         ]);
 
         if (favDelRes?.value) {
@@ -413,6 +420,13 @@ export default function MealTracker() {
           try {
             const dels = JSON.parse(histDelRes.value);
             if (Array.isArray(dels)) { historyDeletedRef.current = dels; setHistoryDeleted(dels); }
+          } catch (e) {}
+        }
+
+        if (dayOpsRes?.value) {
+          try {
+            const ops = JSON.parse(dayOpsRes.value);
+            if (ops && typeof ops === 'object') { historyDayOpsRef.current = ops; setHistoryDayOps(ops); }
           } catch (e) {}
         }
 
@@ -693,15 +707,40 @@ export default function MealTracker() {
         const todayLocal = getLocalDate();
         const archiveFromCloud = (cloudToday && cloudToday !== todayLocal && cloudEntries && cloudEntries.length > 0);
 
-        // Lápidas de historial: unión local + server, y se aplican a la
-        // fusión para que un día/comida borrado no reviva desde la nube.
+        // Lápidas de historial + bitácora por día. La bitácora (op del/add
+        // con fecha) manda sobre las lápidas: entre "borrado" y "re-registro"
+        // GANA LA ACCIÓN MÁS RECIENTE. Sin esto, un día borrado y luego
+        // re-registrado se volvía a borrar en cada sync (bug días 20/24).
         const serverHistDeleted = Array.isArray(d.historyDeleted) ? d.historyDeleted : [];
-        if (serverHistDeleted.length > 0) {
-          const mergedHDels = Array.from(new Set([...historyDeletedRef.current, ...serverHistDeleted])).slice(-400);
-          historyDeletedRef.current = mergedHDels;
-          setHistoryDeleted(mergedHDels);
+        const serverDayOps = (d.historyDayOps && typeof d.historyDayOps === 'object') ? d.historyDayOps : {};
+        // Fusión de bitácoras local+server: por día, la marca más reciente
+        const mergedOps = { ...historyDayOpsRef.current };
+        for (const [day, op] of Object.entries(serverDayOps)) {
+          if (!op || !op.at) continue;
+          if (!mergedOps[day] || String(op.at) > String(mergedOps[day].at || '')) mergedOps[day] = op;
         }
-        const histDead = new Set([...historyDeletedRef.current, ...serverHistDeleted]);
+        // Poda: solo interesan los últimos ~200 días con actividad de borrado
+        const opDays = Object.keys(mergedOps).sort();
+        if (opDays.length > 200) for (const day of opDays.slice(0, opDays.length - 200)) delete mergedOps[day];
+        historyDayOpsRef.current = mergedOps;
+        setHistoryDayOps(mergedOps);
+        // Lápidas legadas (unión), PERO un día cuya última acción fue 'add'
+        // queda vivo: su lápida DE DÍA COMPLETO se descarta. Las de comidas
+        // sueltas (fecha#id) se conservan — refieren a ids ya inexistentes
+        // en un día re-registrado (inofensivas) y sí protegen borrados de
+        // comidas puntuales hechos después del re-registro.
+        const rawDels = new Set([...historyDeletedRef.current, ...serverHistDeleted]);
+        const histDead = new Set(Array.from(rawDels).filter(t => {
+          if (t.includes('#')) return true;
+          return !(mergedOps[t] && mergedOps[t].op === 'add');
+        }));
+        // Días con op 'del' explícita también cuentan como muertos
+        for (const [day, op] of Object.entries(mergedOps)) {
+          if (op && op.op === 'del') histDead.add(day);
+        }
+        const mergedHDels = Array.from(histDead).slice(-400);
+        historyDeletedRef.current = mergedHDels;
+        setHistoryDeleted(mergedHDels);
         const histDeadDays = new Set(Array.from(histDead).filter(t => !t.includes('#')));
 
         if (d.history && typeof d.history === 'object') {
@@ -956,6 +995,7 @@ export default function MealTracker() {
             name,
             data: {
               favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted,
+              historyDayOps,
               frequentItems, wellbeing, goals, name,
               coach_reminders: coachReminders,
               reminders_updated: remindersMetaRef.current || undefined,
@@ -984,14 +1024,14 @@ export default function MealTracker() {
         });
       } catch (e) {}
     }, delayMs);
-  }, [cloudConsent, name, favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, coachReminders, frequentItems, wellbeing, goals, entries, water, today, messages]);
+  }, [cloudConsent, name, favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, historyDayOps, coachReminders, frequentItems, wellbeing, goals, entries, water, today, messages]);
 
   // Watch: cualquier cambio en colecciones críticas dispara un push debounced.
   // Incluimos `entries` y `water` para que se sincronicen en vivo, NO solo al cambiar de día.
   useEffect(() => {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
     schedulePushToCloud();
-  }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, coachReminders, frequentItems, wellbeing, goals, name, entries, water, messages, cloudConsent, schedulePushToCloud]);
+  }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, historyDayOps, coachReminders, frequentItems, wellbeing, goals, name, entries, water, messages, cloudConsent, schedulePushToCloud]);
 
   const acceptCloudConsent = useCallback(() => {
     try { localStorage.setItem('cloudConsent', 'accepted'); } catch (e) {}
@@ -1331,6 +1371,11 @@ export default function MealTracker() {
     if (!initialLoadDone.current) return;
     window.storage.set('historyDeleted', JSON.stringify(historyDeleted)).catch(() => {});
   }, [historyDeleted]);
+  useEffect(() => {
+    historyDayOpsRef.current = historyDayOps;
+    if (!initialLoadDone.current) return;
+    window.storage.set('historyDayOps', JSON.stringify(historyDayOps)).catch(() => {});
+  }, [historyDayOps]);
 
   useEffect(() => {
     if (view === 'main') {
@@ -2625,6 +2670,10 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       const next = dels.filter(t2 => t2 !== dateStr && !ids.has(t2));
       return next.length === dels.length ? dels : next;
     });
+    // Bitácora: este día fue RE-REGISTRADO ahora. Con esta marca, una lápida
+    // más vieja (local, de otro dispositivo o del server) ya no puede volver
+    // a matar el registro — gana la acción más reciente.
+    setHistoryDayOps(ops => ({ ...ops, [dateStr]: { op: 'add', at: new Date().toISOString() } }));
   };
 
   // Borra TODO un día pasado del historial (detalle + totales) y deja
@@ -2643,6 +2692,8 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       ...dels.filter(t => !t.startsWith(`${dateStr}#`)),
       dateStr,
     ])).slice(-400));
+    // Bitácora: este día fue BORRADO ahora (gana sobre cualquier 'add' viejo)
+    setHistoryDayOps(ops => ({ ...ops, [dateStr]: { op: 'del', at: new Date().toISOString() } }));
     // Limpia también las llaves crudas del día por si fue "hoy" en este
     // dispositivo (evita que el archivador lo re-archive al recargar).
     window.storage.set(`day:${dateStr}`, JSON.stringify([])).catch(() => {});

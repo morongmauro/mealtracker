@@ -5,18 +5,23 @@
 // suscripción (tz capturada del teléfono al suscribirse) y envía el
 // recordatorio del turno si corresponde:
 //
-//   10:00 local → mañana (registra tu desayuno; skip si ya registró algo)
+//   09:00 local → mañana (llega ANTES de las 10: registra tu desayuno;
+//                 skip si ya registró algo hoy)
 //   14:00 local → tarde (registra tu almuerzo; skip si ya lleva 2+ registros)
-//   20:00 local → cierre del día (skip si ya lleva 3+ registros hoy)
-//   12:00 local → recordatorio de pago SOLO a quien está en deuda
+//   17:30 local → recordatorio de pago SOLO a quien está en deuda
 //                 (misma regla que el banner de payment-status: corte
 //                 vencido y mes sin pago marcado en el CRM)
+//   20:00 local → cierre del día por % de meta: si el cliente tiene meta de
+//                 kcal y va por DEBAJO del 80%, se le recuerda registrar
+//                 todo el día (con su % real en el mensaje); al 80%+ no se
+//                 le molesta. Sin meta configurada cae a la regla vieja por
+//                 conteo (solo si lleva menos de 3 registros).
 //
 // RESILIENCIA: los crons de GitHub son "mejor esfuerzo" y a veces SALTAN
 // horas completas (documentado: bajo carga, los schedules se retrasan o se
 // omiten). Por eso cada turno tiene una VENTANA de 2 horas (la hora objetivo
 // y la siguiente) y una marca `last_slot` en push_subs evita duplicados: si
-// la corrida de las 10 se saltó, la de las 11 entrega el turno igual.
+// la corrida de las 9 se saltó, la de las 10 entrega el turno igual.
 // Requiere columna:  alter table push_subs add column if not exists last_slot text;
 //
 // Mensajes rotativos (por día del año) para no sonar a robot repetido.
@@ -52,7 +57,7 @@ const normalizeName = (str) => String(str || '')
 const MSGS = {
   morning: [
     'Buenos días ☀️ Un registro a tiempo vale más que uno perfecto. Cuando desayunes, cuéntamelo.',
-    'Arranca el día con claridad: registra tu desayuno y el resto fluye ☀️',
+    'Arranca el día con claridad: registra tu desayuno antes de las 10 y el resto fluye ☀️',
     'Nuevo día, mismo método. Tu primer registro marca la pauta 💪',
   ],
   midday: [
@@ -60,10 +65,19 @@ const MSGS = {
     'Mitad del día: registrar ahora te ahorra hacer memoria en la noche.',
     'Tu almuerzo cuenta — regístralo y sigue en lo tuyo 🍽',
   ],
+  // Cierre del día SIN meta configurada (regla vieja por conteo)
   evening: [
     'Cierra el día como se debe: registra tu cena y mira tu jornada completa 🌙',
     'Último empujón: tu cena al registro y quedas al día 🌙',
     'Antes de desconectar, registra la cena — un día cerrado es un día que cuenta.',
+  ],
+  // Cierre del día CON meta: {pct} se reemplaza por el avance real de kcal.
+  // Solo se envía a quien va por DEBAJO del 80% de su meta — quien ya llegó
+  // al 80%+ lleva el día bien y no se le molesta.
+  eveningLow: [
+    'Vas en un {pct}% de tu meta de hoy. Antes de cerrar el día, registra todo lo que comiste 🌙',
+    'Tu día va en {pct}% de la meta — registra lo que falte y cierra la jornada completa 📋',
+    'Aún estás en {pct}% de tu meta. Dos minutos: registra todo lo de hoy y duerme tranquilo 🌙',
   ],
   payment: [
     'Recordatorio: tu mensualidad del programa está pendiente. Ponerte al día toma un minuto — gracias por entrenar con método 🤝',
@@ -75,16 +89,16 @@ const MSGS = {
 const dayOfYear = () => Math.floor((Date.now() - Date.UTC(new Date().getUTCFullYear(), 0, 0)) / 86400000);
 const pick = (arr) => arr[dayOfYear() % arr.length];
 
-// Hora y fecha locales de una zona horaria
+// Hora, minuto y fecha locales de una zona horaria
 function localNow(tz) {
   try {
     const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit',
+      timeZone: tz, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
     }).formatToParts(new Date());
     const get = (t) => parts.find(p => p.type === t)?.value;
-    return { hour: Number(get('hour')), date: `${get('year')}-${get('month')}-${get('day')}` };
+    return { hour: Number(get('hour')), minute: Number(get('minute')), date: `${get('year')}-${get('month')}-${get('day')}` };
   } catch (e) {
-    return { hour: -1, date: '' };
+    return { hour: -1, minute: -1, date: '' };
   }
 }
 
@@ -171,13 +185,19 @@ export default async function handler(req, res) {
     const subs = rs.ok ? await rs.json() : [];
     if (!Array.isArray(subs) || subs.length === 0) return res.status(200).json({ ok: true, sent: 0, subs: 0 });
 
-    // 2) Actividad de HOY por cliente (para no molestar a quien ya registró).
-    //    Una sola consulta liviana: user_id + fecha del día + nº de entries.
-    const ra = await fetch(`${SUPABASE_URL}/rest/v1/user_data?select=user_id,today:data->today,today_entries:data->today_entries`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+    // 2) Actividad de HOY por cliente (para no molestar a quien ya registró)
+    //    + meta de kcal y total consumido (para el cierre del día por %).
+    //    Una sola consulta liviana con columnas extraídas del JSON.
+    const ra = await fetch(`${SUPABASE_URL}/rest/v1/user_data?select=user_id,today:data->today,today_entries:data->today_entries,goals:data->goals,totals:data->today_totals`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
     const rows = ra.ok ? await ra.json() : [];
-    const activity = new Map(); // user_id → { date, count }
+    const activity = new Map(); // user_id → { date, count, goalKcal, kcalHoy }
     for (const r of rows) {
-      activity.set(r.user_id, { date: r.today || '', count: Array.isArray(r.today_entries) ? r.today_entries.length : 0 });
+      activity.set(r.user_id, {
+        date: r.today || '',
+        count: Array.isArray(r.today_entries) ? r.today_entries.length : 0,
+        goalKcal: Number(r.goals?.kcal) || 0,
+        kcalHoy: Number(r.totals?.kcal) || 0,
+      });
     }
 
     // 3) Deudores (solo se consulta si alguna suscripción está en su mediodía)
@@ -208,15 +228,19 @@ export default async function handler(req, res) {
     // `last_slot` ("YYYY-MM-DD#id") basta para no duplicar dentro del turno.
     let sent = 0, removed = 0;
     for (const s of subs) {
-      const { hour, date } = localNow(s.tz || 'America/Bogota');
+      const { hour, minute, date } = localNow(s.tz || 'America/Bogota');
       const act = activity.get(s.user_id) || { date: '', count: 0 };
       const registrosHoy = act.date === date ? act.count : 0;
 
       // ¿Qué turno cae en esta hora? (ventana: hora objetivo o la siguiente)
+      // La mañana apunta a las 9 para que el recordatorio llegue ANTES de
+      // las 10 (su ventana de gracia es la hora 10 por si el cron saltó).
+      // La cobranza apunta a las 5:30pm: el primer tick del cron desde esa
+      // hora la entrega (típicamente 5:37pm), con la hora 18 de gracia.
       let slot = null;
-      if (hour === 10 || hour === 11) slot = 'm';
-      else if (hour === 12 || hour === 13) slot = 'p';
+      if (hour === 9 || hour === 10) slot = 'm';
       else if (hour === 14 || hour === 15) slot = 'd';
+      else if ((hour === 17 && minute >= 30) || hour === 18) slot = 'p';
       else if (hour === 20 || hour === 21) slot = 'n';
       if (!slot) continue;
 
@@ -229,7 +253,7 @@ export default async function handler(req, res) {
         // Mañana (10am): solo a quien no ha registrado nada aún
         if (registrosHoy < 1) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.morning), tag: 'ecm-m' });
       } else if (slot === 'p') {
-        // Pago (mediodía): DIARIO mientras dure la deuda (copys rotan por
+        // Pago (5:30pm): DIARIO mientras dure la deuda (copys rotan por
         // día). Desaparece solo al marcar el pago en el CRM.
         await cargarDeudores();
         if (deudores && s.name && deudores.has(normalizeName(s.name))) {
@@ -239,8 +263,22 @@ export default async function handler(req, res) {
         // Tarde (2pm): a quien lleva menos de 2 registros (desayuno+almuerzo)
         if (registrosHoy < 2) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.midday), tag: 'ecm-d' });
       } else if (slot === 'n') {
-        // Noche (8pm): a quien lleva menos de 3 registros
-        if (registrosHoy < 3) payloads.push({ title: 'Entrena con Método', body: pick(MSGS.evening), tag: 'ecm-n' });
+        // Noche (8pm): DIARIO por % de meta de kcal. Los totales solo valen
+        // si el "today" sincronizado es el día local del cliente (si no,
+        // son de un día viejo y cuentan como 0).
+        const metaKcal = act.goalKcal;
+        const kcalHoy = act.date === date ? act.kcalHoy : 0;
+        if (metaKcal > 0) {
+          // 80% o más de la meta = día bien llevado: no molestamos. Solo se
+          // recuerda a quien va por debajo del 80%.
+          const pct = Math.min(999, Math.max(0, Math.round((kcalHoy / metaKcal) * 100)));
+          if (pct < 80) {
+            payloads.push({ title: 'Entrena con Método', body: pick(MSGS.eveningLow).replace('{pct}', String(pct)), tag: 'ecm-n' });
+          }
+        } else if (registrosHoy < 3) {
+          // Sin meta configurada: regla vieja por conteo de registros
+          payloads.push({ title: 'Entrena con Método', body: pick(MSGS.evening), tag: 'ecm-n' });
+        }
       }
 
       // Marcar el turno como atendido AUNQUE no haya nada que enviar (p.ej.
