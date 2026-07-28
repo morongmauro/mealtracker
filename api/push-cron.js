@@ -218,7 +218,11 @@ export default async function handler(req, res) {
       for (const c of candidatos) {
         const rp = await fetch(`${CRM_URL}/rest/v1/pagos?select=pagado,monto&cliente_id=eq.${c.id}&mes=eq.${mes}`, { headers: sbHeaders(CRM_KEY) });
         const pagos = rp.ok ? await rp.json() : [];
-        const cubierto = Array.isArray(pagos) && pagos.some(p => p.pagado === true || Number(p.monto) === 0);
+        // Cubierto SOLO si hay pago marcado O el mes entero está en $0 (cortesía).
+        // Un placeholder en $0 junto al cobro real ya NO tapa la deuda.
+        const cubierto = Array.isArray(pagos) && pagos.length > 0 &&
+          (pagos.some(p => p.pagado === true) ||
+           Math.max(0, ...pagos.map(p => Number(p.monto) || 0)) === 0);
         if (!cubierto) deudores.add(normalizeName(c.nombre));
       }
     };

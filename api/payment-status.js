@@ -58,7 +58,11 @@ export default async function handler(req, res) {
 
   const rawName = req.method === 'POST' ? req.body?.name : req.query.name;
   const normalized = normalizeName(rawName);
-  if (!normalized) return res.status(200).json({ due: false });
+  // Modo diagnóstico (solo para el coach): ?debug=1 añade un campo "reason"
+  // que explica POR QUÉ due=false. No revela datos de otros clientes.
+  const debug = req.method === 'GET' && (req.query.debug === '1' || req.query.debug === 'true');
+  const out = (obj, reason) => res.status(200).json(debug ? { ...obj, reason } : obj);
+  if (!normalized) return out({ due: false }, 'nombre vacío en la petición');
 
   const headers = { 'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}` };
 
@@ -68,17 +72,20 @@ export default async function handler(req, res) {
       `${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago,monto,moneda`,
       { headers }
     );
-    if (!rc.ok) return res.status(200).json({ due: false });
+    if (!rc.ok) return out({ due: false }, `no pude leer la tabla clientes del CRM (HTTP ${rc.status})`);
     const clientes = await rc.json();
-    if (!Array.isArray(clientes)) return res.status(200).json({ due: false });
+    if (!Array.isArray(clientes)) return out({ due: false }, 'respuesta inesperada de clientes');
     const cliente = clientes.find(c => normalizeName(c.nombre) === normalized);
-    if (!cliente) return res.status(200).json({ due: false });
+    if (!cliente) return out({ due: false }, `ningún cliente del CRM coincide con el nombre "${rawName}" (revisa que el nombre en la app sea igual al del CRM)`);
 
     // Solo clientes activos con día de pago válido reciben recordatorio.
     const estado = String(cliente.estado || 'activo').toLowerCase();
     const diaPago = Number(cliente.dia_pago);
-    if (estado !== 'activo' || !Number.isFinite(diaPago) || diaPago < 1 || diaPago > 31) {
-      return res.status(200).json({ due: false });
+    if (estado !== 'activo') {
+      return out({ due: false }, `el cliente está en estado "${estado}", no "activo"`);
+    }
+    if (!Number.isFinite(diaPago) || diaPago < 1 || diaPago > 31) {
+      return out({ due: false }, `el cliente NO tiene "día de pago" (fecha de corte) configurado en el CRM — este es el motivo más común. Ábrele la ficha en el CRM y ponle su día de corte.`);
     }
 
     // 2) ¿La fecha de corte de este mes ya pasó? Recordatorio DESDE EL DÍA
@@ -86,7 +93,7 @@ export default async function handler(req, res) {
     //    de Colombia (ver todayInBogota).
     const { mes, dia: diaHoy } = todayInBogota();
     if (diaHoy <= diaPago) {
-      return res.status(200).json({ due: false, dia_corte: diaPago });
+      return out({ due: false, dia_corte: diaPago }, `hoy es día ${diaHoy} y su corte es el ${diaPago}: el aviso empieza al día SIGUIENTE del corte (mañana o después)`);
     }
 
     // 3) ¿El mes ya está cubierto? Cubierto = pago marcado como pagado, O un
@@ -98,10 +105,18 @@ export default async function handler(req, res) {
     let cubierto = false;
     if (rp.ok) {
       const pagos = await rp.json();
-      if (Array.isArray(pagos)) cubierto = pagos.some(p => p.pagado === true || Number(p.monto) === 0);
+      if (Array.isArray(pagos) && pagos.length) {
+        // Cubierto SOLO si: hay un pago marcado como pagado, O el mes ENTERO es
+        // sin cobro (TODOS los registros en 0 → cortesía/premio). Antes bastaba
+        // con que UN registro tuviera monto 0: si el mes tenía un placeholder en
+        // $0 junto al cobro real, el cliente en deuda dejaba de recibir el aviso.
+        const anyPaid = pagos.some(p => p.pagado === true);
+        const maxMonto = Math.max(0, ...pagos.map(p => Number(p.monto) || 0));
+        cubierto = anyPaid || maxMonto === 0;
+      }
     }
     if (cubierto) {
-      return res.status(200).json({ due: false, dia_corte: diaPago });
+      return out({ due: false, dia_corte: diaPago }, `el mes ${mes} ya figura CUBIERTO en la tabla pagos (marcado como pagado o con monto 0). Si crees que debe, revisa si hay un pago marcado por error.`);
     }
 
     // Debe: la fecha de corte pasó y no hay pago del mes.
