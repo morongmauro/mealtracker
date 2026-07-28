@@ -1478,7 +1478,7 @@ export default function MealTracker() {
   };
 
   const callClaude = async (prompt, systemPrompt, opts = {}) => {
-    const { retries = 2, onDelta = null } = opts;
+    const { retries = 2, onDelta = null, accion = 'chat' } = opts;
     let lastError = null;
     // Send the system prompt as a cacheable block. If it's identical across calls
     // (and reused within ~5 min), Anthropic charges ~10% for it (prompt caching).
@@ -1495,6 +1495,10 @@ export default function MealTracker() {
             max_tokens: 5000,
             system: systemBlocks,
             messages: [{ role: "user", content: prompt }],
+            // Para el tablero de consumo del CRM: quién llamó y qué tipo de
+            // acción fue. El server los registra pero NO los manda a Anthropic.
+            name,
+            accion,
             ...(onDelta ? { stream: true } : {}),
           })
         });
@@ -1972,7 +1976,7 @@ SCHEMA:
   ]
 }`;
     try {
-      const result = await callClaude('Genera 2 a 3 opciones para cubrir lo que falta usando solo los ingredientes del cliente.', sys);
+      const result = await callClaude('Genera 2 a 3 opciones para cubrir lo que falta usando solo los ingredientes del cliente.', sys, { accion: 'plan' });
       const clean = result.replace(/```json|```/g, '').trim();
       const match = clean.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(match ? match[0] : clean);
@@ -2039,7 +2043,7 @@ SCHEMA:
   ]
 }`;
     try {
-      const result = await callClaude(`Genera 2 o 3 opciones para ${mealType || 'una comida'} usando solo los ingredientes del cliente.`, sys);
+      const result = await callClaude(`Genera 2 o 3 opciones para ${mealType || 'una comida'} usando solo los ingredientes del cliente.`, sys, { accion: 'plan' });
       const clean = result.replace(/```json|```/g, '').trim();
       const match = clean.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(match ? match[0] : clean);
@@ -2126,7 +2130,7 @@ SCHEMA:
   "warning": "string | null"
 }`;
     try {
-      const result = await callClaude('Arma la distribución del día con los ingredientes que te di.', sys);
+      const result = await callClaude('Arma la distribución del día con los ingredientes que te di.', sys, { accion: 'plan' });
       const clean = result.replace(/```json|```/g, '').trim();
       const match = clean.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(match ? match[0] : clean);

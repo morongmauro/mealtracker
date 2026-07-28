@@ -11,6 +11,94 @@ const ALLOWED_MODEL_PREFIXES = ['claude-haiku-', 'claude-sonnet-'];
 // nuevo), así que el techo sube para que las respuestas largas no se corten.
 const MAX_TOKENS_CAP = 6000;
 
+// ─── Registro de consumo de IA (para el tablero del CRM) ─────────────────
+// Cada llamada al chat escribe una fila en la tabla `ia_uso` del Supabase del
+// CRM (las MISMAS credenciales que ya usan payment-status.js y push-cron.js).
+// Guarda: cliente, modelo, tokens (entrada/salida/caché) y costo calculado.
+// Es "fire-and-forget": si el registro falla NUNCA rompe el chat del cliente.
+const CRM_URL = process.env.CRM_SUPABASE_URL;
+const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
+
+// Precios por millón de tokens (USD). Sonnet 5 tiene precio introductorio
+// hasta 2026-08-31; después sube ~50%. Se elige según la fecha de la llamada
+// para que el costo guardado sea el real de ese día.
+function pricingFor(model) {
+  const m = String(model || '');
+  if (m.startsWith('claude-haiku-')) {
+    return { in: 1, out: 5, cacheWrite: 1.25, cacheRead: 0.10 };
+  }
+  // Sonnet 5
+  const introHasta = Date.UTC(2026, 7, 31, 23, 59, 59); // 31 ago 2026
+  const intro = Date.now() <= introHasta;
+  return intro
+    ? { in: 2, out: 10, cacheWrite: 2.50, cacheRead: 0.20 }
+    : { in: 3, out: 15, cacheWrite: 3.75, cacheRead: 0.30 };
+}
+
+function costoUSD(model, u) {
+  const p = pricingFor(model);
+  const inp = Number(u.input_tokens || 0);
+  const out = Number(u.output_tokens || 0);
+  const cw = Number(u.cache_creation_input_tokens || 0);
+  const cr = Number(u.cache_read_input_tokens || 0);
+  return (inp * p.in + out * p.out + cw * p.cacheWrite + cr * p.cacheRead) / 1e6;
+}
+
+// Extrae el objeto usage de un stream SSE ya bufferizado. input/caché vienen
+// en message_start; output_tokens final viene en el último message_delta.
+function usageFromSSE(buffer) {
+  const u = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
+  for (const line of String(buffer).split('\n')) {
+    const t = line.trim();
+    if (!t.startsWith('data:')) continue;
+    const json = t.slice(5).trim();
+    if (!json || json === '[DONE]') continue;
+    let ev; try { ev = JSON.parse(json); } catch (e) { continue; }
+    if (ev.type === 'message_start' && ev.message?.usage) {
+      const mu = ev.message.usage;
+      u.input_tokens = Number(mu.input_tokens || 0);
+      u.cache_creation_input_tokens = Number(mu.cache_creation_input_tokens || 0);
+      u.cache_read_input_tokens = Number(mu.cache_read_input_tokens || 0);
+      u.output_tokens = Number(mu.output_tokens || 0);
+    } else if (ev.type === 'message_delta' && ev.usage) {
+      if (ev.usage.output_tokens != null) u.output_tokens = Number(ev.usage.output_tokens);
+    }
+  }
+  return u;
+}
+
+// Inserta una fila en ia_uso. No await bloqueante en la ruta del chat.
+async function registrarUso({ model, usage, name, accion, mensaje }) {
+  if (!CRM_URL || !CRM_KEY) return;             // CRM no configurado → no molesta
+  const u = usage || {};
+  const tokens = Number(u.input_tokens || 0) + Number(u.output_tokens || 0)
+    + Number(u.cache_creation_input_tokens || 0) + Number(u.cache_read_input_tokens || 0);
+  if (tokens === 0) return;                      // nada que registrar
+  const row = {
+    cliente_nombre: String(name || '').slice(0, 120) || null,
+    modelo: model || null,
+    accion: accion || 'chat',
+    input_tokens: Number(u.input_tokens || 0),
+    output_tokens: Number(u.output_tokens || 0),
+    cache_read: Number(u.cache_read_input_tokens || 0),
+    cache_write: Number(u.cache_creation_input_tokens || 0),
+    costo_usd: Number(costoUSD(model, u).toFixed(6)),
+    // Mensaje recortado a 500 chars: alcanza para leer el registro de comida
+    // sin almacenar textos largos. Cambiar el 500 si se quiere más/menos.
+    mensaje: mensaje ? String(mensaje).slice(0, 500) : null,
+  };
+  try {
+    await fetch(`${CRM_URL}/rest/v1/ia_uso`, {
+      method: 'POST',
+      headers: {
+        'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify(row),
+    });
+  } catch (e) { /* el registro nunca rompe el chat */ }
+}
+
 // Permite enviar la respuesta por partes (streaming) en vez de esperar a que
 // Anthropic termine de generar todo. El frontend muestra el avance en vivo.
 export const config = { supportsResponseStreaming: true };
@@ -29,7 +117,12 @@ export default async function handler(req, res) {
   if (!guard(req, res, { key: 'chat', limit: 20 })) return;
 
   try {
-    const { model, max_tokens, system, messages, stream } = req.body;
+    const { model, max_tokens, system, messages, stream, name, accion } = req.body;
+    // Texto del último mensaje del usuario, para el registro (qué dijo).
+    const ultimoMsg = Array.isArray(messages) && messages.length
+      ? messages[messages.length - 1]?.content : null;
+    const mensajeTexto = typeof ultimoMsg === 'string' ? ultimoMsg
+      : (Array.isArray(ultimoMsg) ? ultimoMsg.map(b => b?.text || '').join(' ').trim() : null);
 
     if (typeof model === 'string' && !ALLOWED_MODEL_PREFIXES.some(p => model.startsWith(p))) {
       return res.status(400).json({ error: 'Model not allowed' });
@@ -99,13 +192,22 @@ export default async function handler(req, res) {
       res.setHeader('Cache-Control', 'no-cache, no-transform');
       res.setHeader('Connection', 'keep-alive');
       if (typeof res.flushHeaders === 'function') res.flushHeaders();
+      let sseBuffer = '';
       for await (const chunk of response.body) {
         res.write(chunk);
+        // Acumula una copia para leer el usage al final (respuestas chicas).
+        try { sseBuffer += chunk.toString('utf8'); } catch (e) {}
       }
-      return res.end();
+      res.end();
+      // Registro después de cerrar el stream: no añade latencia al cliente.
+      const usage = usageFromSSE(sseBuffer);
+      await registrarUso({ model, usage, name, accion, mensaje: mensajeTexto });
+      return;
     }
 
     const data = await response.json();
+    // Registro no bloqueante del consumo (nunca rompe la respuesta).
+    registrarUso({ model, usage: data.usage, name, accion, mensaje: mensajeTexto });
     return res.status(200).json(data);
   } catch (error) {
     console.error('Proxy error:', error);
