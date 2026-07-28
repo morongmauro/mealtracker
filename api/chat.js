@@ -9,14 +9,14 @@ import { guard } from './_guard.js';
 const ALLOWED_MODEL_PREFIXES = ['claude-haiku-', 'claude-sonnet-'];
 // Sonnet 5 cuenta ~30% más tokens que Haiku para el mismo texto (tokenizador
 // nuevo), así que el techo sube para que las respuestas largas no se corten.
-const MAX_TOKENS_CAP = 6000;
+const MAX_TOKENS_CAP = 8000;
 
 // ─── Registro de consumo de IA (para el tablero del CRM) ─────────────────
 // Cada llamada al chat escribe una fila en la tabla `ia_uso` del Supabase del
 // CRM (las MISMAS credenciales que ya usan payment-status.js y push-cron.js).
 // Guarda: cliente, modelo, tokens (entrada/salida/caché) y costo calculado.
 // Es "fire-and-forget": si el registro falla NUNCA rompe el chat del cliente.
-const CRM_URL = process.env.CRM_SUPABASE_URL;
+const CRM_URL = (process.env.CRM_SUPABASE_URL || '').replace(/\/+$/, ''); // sin barra final: '...supabase.co/' rompia la URL (doble // -> 404)
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
 
 // Precios por millón de tokens (USD). Sonnet 5 tiene precio introductorio

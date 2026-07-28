@@ -1490,9 +1490,11 @@ export default function MealTracker() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             model: CHAT_MODEL,
-            // 5000 (antes 4000): Sonnet 5 cuenta ~30% más tokens por el mismo
-            // texto; sin este margen una respuesta larga podía cortarse.
-            max_tokens: 5000,
+            // 8000 (antes 5000): tope de salida generoso para que un dictado
+            // MUY largo (la comida de toda la semana, recetas de 15+ items)
+            // no corte el JSON a la mitad. Es un TECHO, no un objetivo: las
+            // respuestas normales terminan mucho antes, así que no encarece.
+            max_tokens: 8000,
             system: systemBlocks,
             messages: [{ role: "user", content: prompt }],
             // Para el tablero de consumo del CRM: quién llamó y qué tipo de

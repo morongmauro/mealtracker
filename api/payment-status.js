@@ -22,7 +22,7 @@
 
 import { guard } from './_guard.js';
 
-const CRM_URL = process.env.CRM_SUPABASE_URL;
+const CRM_URL = (process.env.CRM_SUPABASE_URL || '').replace(/\/+$/, ''); // sin barra final: '...supabase.co/' rompia la URL (doble // -> 404)
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
 
 // Igual que en authorize.js: ignora mayúsculas, tildes y espacios de más.
@@ -51,17 +51,22 @@ export default async function handler(req, res) {
   // escribe nada, solo lee, así que lo permitimos igual que en /api/sync.
   if (!guard(req, res, { key: 'payment-status', limit: 40, allowNoOrigin: req.method === 'GET' })) return;
 
+  // Modo diagnóstico (solo para el coach): ?debug=1 añade "reason" y "crm_host"
+  // (el host del Supabase que la función está usando). Así verificas que apunte
+  // al CRM correcto sin tener que ver la variable en Vercel (que la oculta por
+  // seguridad). NO expone la key ni datos de otros clientes: el host del
+  // Supabase ya viaja al navegador en config.js, no es secreto.
+  const debug = req.method === 'GET' && (req.query.debug === '1' || req.query.debug === 'true');
+  const crmHost = (() => { try { return new URL(CRM_URL).host; } catch (e) { return CRM_URL || '(vacío)'; } })();
+  const out = (obj, reason) => res.status(200).json(debug ? { ...obj, reason, crm_host: crmHost } : obj);
+
   // Sin CRM configurado no molestamos con recordatorios (fail-safe).
   if (!CRM_URL || !CRM_KEY) {
-    return res.status(200).json({ due: false });
+    return out({ due: false }, 'CRM_SUPABASE_URL o CRM_SUPABASE_SERVICE_KEY no están configuradas en Vercel');
   }
 
   const rawName = req.method === 'POST' ? req.body?.name : req.query.name;
   const normalized = normalizeName(rawName);
-  // Modo diagnóstico (solo para el coach): ?debug=1 añade un campo "reason"
-  // que explica POR QUÉ due=false. No revela datos de otros clientes.
-  const debug = req.method === 'GET' && (req.query.debug === '1' || req.query.debug === 'true');
-  const out = (obj, reason) => res.status(200).json(debug ? { ...obj, reason } : obj);
   if (!normalized) return out({ due: false }, 'nombre vacío en la petición');
 
   const headers = { 'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}` };

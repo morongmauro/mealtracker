@@ -44,7 +44,7 @@ import { checkOrigin } from './_guard.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const CRM_URL = process.env.CRM_SUPABASE_URL;
+const CRM_URL = (process.env.CRM_SUPABASE_URL || '').replace(/\/+$/, ''); // sin barra final: '...supabase.co/' rompia la URL (doble // -> 404)
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
 
 const sbHeaders = (key) => ({ 'apikey': key, 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' });
