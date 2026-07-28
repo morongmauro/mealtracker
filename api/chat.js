@@ -167,7 +167,14 @@ export default async function handler(req, res) {
         //   números distintos cada día con la temperature por defecto (1.0) —
         //   el reporte de inconsistencia de los clientes. Determinismo primero.
         ...(String(model || '').startsWith('claude-sonnet-5')
-          ? { thinking: { type: 'disabled' } }
+          ? {
+              thinking: { type: 'disabled' },
+              // Con el thinking ya apagado, el esfuerzo controla cuántos tokens
+              // de salida gasta. Registros de comida → 'low' (extraer macros no
+              // requiere deliberación); generar planes → 'medium' (un poco más
+              // de calidad). El cliente no nota la diferencia en el chat diario.
+              output_config: { effort: accion === 'plan' ? 'medium' : 'low' },
+            }
           : { temperature: 0 }),
         system: system || '',
         messages: cleanedMessages,
