@@ -26,6 +26,106 @@ import {
 // temperature; Haiku sí), así que el revert es únicamente esta línea.
 const CHAT_MODEL = 'claude-sonnet-5';
 
+// ─── Salida estructurada (JSON garantizado por la API) ───────────────────
+// Con este schema, la API OBLIGA al modelo a devolver JSON válido con esta
+// forma exacta: se acaban los "JSON roto" → reintentos pagados → "tuve un
+// problema procesando eso". Si la API rechazara el schema (400), callClaude
+// reintenta automáticamente SIN él y todo sigue como antes (red de seguridad).
+// Apagar manualmente: STRICT_JSON = false.
+const STRICT_JSON = true;
+const _num = { type: ['number', 'null'] };
+const _str = { type: ['string', 'null'] };
+const ITEM_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  properties: { name: { type: 'string' }, amount: _str, kcal: _num, p: _num, c: _num, g: _num, fiber: _num, omega3: _num, sugar: _num, needs_quantity: { type: ['boolean', 'null'] } },
+  required: ['name', 'amount', 'kcal', 'p', 'c', 'g', 'fiber', 'omega3', 'sugar', 'needs_quantity'],
+};
+const TOTALS_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  properties: { kcal: _num, p: _num, c: _num, g: _num },
+  required: ['kcal', 'p', 'c', 'g'],
+};
+const PARSE_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  properties: {
+    intent: { type: 'string', enum: ['log_meal', 'append_to_last', 'save_favorite_only', 'nutrition_query', 'meal_suggestion', 'summary_day', 'summary_week', 'retro_advice', 'adjust_favorites_to_goal', 'water', 'command', 'clarify', 'off_topic', 'name'] },
+    meal: _str,
+    log_date: _str,
+    items: { anyOf: [{ type: 'array', items: ITEM_SCHEMA }, { type: 'null' }] },
+    meals: {
+      anyOf: [{
+        type: 'array',
+        items: {
+          type: 'object', additionalProperties: false,
+          properties: { meal: { type: 'string' }, log_date: _str, items: { type: 'array', items: ITEM_SCHEMA } },
+          required: ['meal', 'log_date', 'items'],
+        },
+      }, { type: 'null' }],
+    },
+    append_to_entry_id: { type: ['number', 'string', 'null'] },
+    command: _str,
+    edit_entry_index: { type: ['number', 'string', 'null'] },
+    name_detected: _str,
+    water_ml: _num,
+    preview: _str,
+    quantity_warning: _str,
+    nutrition_response: {
+      anyOf: [{
+        type: 'object', additionalProperties: false,
+        properties: { food: { type: 'string' }, amount: _str, kcal: _num, p: _num, c: _num, g: _num },
+        required: ['food', 'amount', 'kcal', 'p', 'c', 'g'],
+      }, { type: 'null' }],
+    },
+    clarify_interpretation: _str,
+    clarify_question: _str,
+    message: _str,
+    retro_advice_response: {
+      anyOf: [{
+        type: 'object', additionalProperties: false,
+        properties: {
+          scope: { type: 'string', enum: ['specific_meal', 'whole_day'] },
+          summary: { type: 'string' },
+          adjustments: {
+            type: 'array',
+            items: {
+              type: 'object', additionalProperties: false,
+              properties: { meal: { type: 'string' }, original_summary: { type: 'string' }, suggested_items: { type: 'array', items: ITEM_SCHEMA }, change_note: { type: 'string' } },
+              required: ['meal', 'original_summary', 'suggested_items', 'change_note'],
+            },
+          },
+          estimated_totals_after: TOTALS_SCHEMA,
+          tip: _str,
+        },
+        required: ['scope', 'summary', 'adjustments', 'estimated_totals_after', 'tip'],
+      }, { type: 'null' }],
+    },
+    adjust_favorites_response: {
+      anyOf: [{
+        type: 'object', additionalProperties: false,
+        properties: {
+          summary: { type: 'string' },
+          logic: _str,
+          current_totals: TOTALS_SCHEMA,
+          goal: TOTALS_SCHEMA,
+          target: TOTALS_SCHEMA,
+          adjustments: {
+            type: 'array',
+            items: {
+              type: 'object', additionalProperties: false,
+              properties: { favorite_id: { type: ['number', 'string', 'null'] }, favorite_name: { type: 'string' }, favorite_type: _str, original_summary: _str, suggested_items: { type: 'array', items: ITEM_SCHEMA }, change_note: _str, kcal: _num, p: _num, c: _num, g: _num },
+              required: ['favorite_id', 'favorite_name', 'favorite_type', 'original_summary', 'suggested_items', 'change_note', 'kcal', 'p', 'c', 'g'],
+            },
+          },
+          estimated_totals_after: TOTALS_SCHEMA,
+          tip: _str,
+        },
+        required: ['summary', 'logic', 'current_totals', 'goal', 'target', 'adjustments', 'estimated_totals_after', 'tip'],
+      }, { type: 'null' }],
+    },
+  },
+  required: ['intent', 'meal', 'log_date', 'items', 'meals', 'append_to_entry_id', 'command', 'edit_entry_index', 'name_detected', 'water_ml', 'preview', 'quantity_warning', 'nutrition_response', 'clarify_interpretation', 'clarify_question', 'message', 'retro_advice_response', 'adjust_favorites_response'],
+};
+
 
 // Display helpers — kills 25.100000004 floats once and for all.
 // fmt1: at most 1 decimal, no trailing zeros. fmt0: rounded to integer.
@@ -1417,7 +1517,9 @@ export default function MealTracker() {
 
   // Serialize the recent chat into plain text so the model has conversation memory.
   // We embed it in the prompt (instead of a multi-turn array) to avoid API alternating constraints.
-  const buildHistoryText = (maxTurns = 16) => {
+  // 10 turnos (antes 16): suficiente memoria para "esos ponquecitos que te
+  // dije" sin pagar tokens de conversación vieja en cada mensaje.
+  const buildHistoryText = (maxTurns = 10) => {
     const recent = messages.slice(-maxTurns);
     const lines = [];
     for (const m of recent) {
@@ -1483,12 +1585,20 @@ export default function MealTracker() {
   };
 
   const callClaude = async (prompt, systemPrompt, opts = {}) => {
-    const { retries = 2, onDelta = null, accion = 'chat' } = opts;
+    const { retries = 2, onDelta = null, accion = 'chat', schema = null } = opts;
     let lastError = null;
-    // Send the system prompt as a cacheable block. If it's identical across calls
-    // (and reused within ~5 min), Anthropic charges ~10% for it (prompt caching).
-    const systemBlocks = [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }];
+    // System prompt cacheable con TTL de 1 HORA. El prompt es byte-idéntico
+    // para TODOS los clientes (nombre y zona horaria van en el mensaje, no
+    // aquí), así que el caché se comparte entre clientes: cuando cualquiera
+    // escribe dentro de la hora, el prompt del siguiente cuesta ~10%. La
+    // escritura a caché de 1h cuesta 2x (vs 1.25x del de 5min) pero con
+    // comidas espaciadas horas, el de 5min nunca pegaba y este sí.
+    const systemBlocks = [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral', ttl: '1h' } }];
     for (let i = 0; i <= retries; i++) {
+      // Se evalúa DENTRO del loop: si la API rechaza el schema (400), el flag
+      // se apaga y el siguiente intento sale sin él — la app nunca se cae por
+      // el formato estricto.
+      const useSchema = STRICT_JSON && schema && !window.__schemaOff;
       try {
         const response = await fetch("/api/chat", {
           method: "POST",
@@ -1506,10 +1616,18 @@ export default function MealTracker() {
             // acción fue. El server los registra pero NO los manda a Anthropic.
             name,
             accion,
+            // Salida estructurada: la API garantiza JSON válido con esta forma.
+            ...(useSchema ? { output_config: { format: { type: 'json_schema', schema } } } : {}),
             ...(onDelta ? { stream: true } : {}),
           })
         });
         if (!response.ok) {
+          // Red de seguridad: si el 400 vino con schema puesto, se desactiva
+          // el schema para toda la sesión y se reintenta al modo clásico.
+          if (response.status === 400 && useSchema) {
+            window.__schemaOff = true;
+            throw new Error('schema-rejected:400');
+          }
           if (response.status === 429 || response.status === 529 || response.status >= 500) {
             throw new Error(`overloaded:${response.status}`);
           }
@@ -2392,6 +2510,7 @@ ${f.days.map(d => `  · ${d.meal || 'comida'}: ${(d.items||[]).map(it => `${it.n
     const contextSnippet = `
 CONTEXTO DEL CLIENTE:
 - Nombre: ${name || 'desconocido'}
+- Zona horaria del teléfono: ${(Intl.DateTimeFormat().resolvedOptions().timeZone) || 'America/Bogota'}
 - Comidas registradas hoy: ${entries.length}
 - Totales hoy: ${totals.kcal} kcal · P ${totals.p}g · C ${totals.c}g · G ${totals.g}g
 - Meta diaria: ${goals ? `${goals.kcal} kcal · P ${goals.p}g · C ${goals.c}g · G ${goals.g}g` : 'AÚN SIN ASIGNAR — la define su coach Mauro y le llegará con un aviso aquí; si el cliente pregunta por su meta, explícale eso con calma'}
@@ -2442,7 +2561,7 @@ El cliente puede registrar de dos formas. Adáptate a su intención:
 - REGLA DE ORO: procesa SIEMPRE el mensaje completo. Si es una lista de 10 cosas, las 10 quedan registradas en esta misma respuesta. JAMÁS tomes una parte y dejes el resto para "después".
 
 ═══ REGIÓN DEL CLIENTE ═══
-Zona horaria de su teléfono: ${(Intl.DateTimeFormat().resolvedOptions().timeZone) || 'America/Bogota'}. Úsala para interpretar regionalismos de alimentos:
+La zona horaria de su teléfono viene en el CONTEXTO DEL CLIENTE. Úsala para interpretar regionalismos de alimentos:
 - Colombia/Venezuela/Centroamérica: "plátano" = plátano de cocinar (maduro/verde); la fruta dulce es "banano/banana/guineo".
 - España/Cono Sur (Europe/*, America/Argentina/*, America/Santiago, America/Montevideo): "plátano" suele ser la BANANA (fruta, ~89 kcal/100g) — interpreta así salvo que el contexto diga cocido/frito/tajadas.
 - México: "plátano" = banana (fruta); el de cocinar es "plátano macho".
@@ -2561,7 +2680,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 - Si el texto incluye "ah me acordé que comí también X", "olvidé decirte X", "me faltó X", "agregale X a lo de antes" Y hay última comida → SIEMPRE intent=append_to_last.
 - Si menciona nombre propio en saludo ("soy Juan", "me llamo Ana") → intent=name, name_detected.
 - "direct" tipo "250 kcal 22p 30c 5g" → intent=log_meal con 1 item.
-- Si SOLO saluda ("hola", "buenas") sin comida → intent=off_topic, message="Hola${name ? ' ' + name.split(' ')[0] : ''}, cuéntame qué comiste y lo registro."
+- Si SOLO saluda ("hola", "buenas") sin comida → intent=off_topic, message tipo "Hola [primer nombre del CONTEXTO, si lo hay], cuéntame qué comiste y lo registro."
 - DERIVACIÓN A MAURO (cálida, nunca seca — evita que el cliente sienta que la app "no sirve"):
   · Si pide DEFINIR o CAMBIAR su plan/dieta/metas ("¿qué dieta hago?", "¿cuántas calorías debería comer?", "¿subo o bajo calorías?", "arma mi plan") → intent=off_topic. Reconoce que definir el plan es criterio de Mauro Y ofrécele un dato útil del día. Ej: message="Definir eso es criterio de Mauro y te va a orientar mejor que yo 💪 — escríbele directo. Por si te sirve mientras tanto: hoy te quedan unas [X] kcal y [Y] g de proteína por completar." Reemplaza [X] e [Y] con los números REALES de la META menos lo que lleva HOY (del CONTEXTO); si no puedes calcularlos, omite esa segunda oración. NUNCA cortes con un simple "eso es de Mauro" sin aportar nada.
   · Si pregunta por una CONDICIÓN MÉDICA, patología, síntomas, medicamentos o SUPLEMENTOS específicos ("tengo diabetes/hipotiroidismo/gastritis, ¿qué como?", "¿me tomo creatina/proteína/quemador?", "¿esto me sube el azúcar?") → intent=off_topic, deriva SIEMPRE a Mauro con calidez y sin dar la recomendación tú mismo. Ej: message="Eso ya entra en criterio profesional y de salud — mejor que lo defina Mauro contigo directamente. Escríbele y te orienta según tu caso 🙌". Es un LÍMITE DURO: nunca prescribas suplementos ni des indicaciones para condiciones médicas.
@@ -2595,7 +2714,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
     let lastErr = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const result = await callClaude(userMessage, sys, { onDelta });
+        const result = await callClaude(userMessage, sys, { onDelta, schema: PARSE_SCHEMA });
         const clean = result.replace(/```json|```/g, '').trim();
         const jsonMatch = clean.match(/\{[\s\S]*\}/);
         return JSON.parse(jsonMatch ? jsonMatch[0] : clean);
@@ -3389,7 +3508,7 @@ SCHEMA:
 
 EJEMPLO INPUT: "desayuno con 4 huevos revueltos, 2 tostadas integrales con manteca, café negro, creatina con cacao"
 EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo revuelto","amount":"4 unidades (~200g)","kcal":280,"p":24,"c":2,"g":20},{"name":"Pan integral tostado","amount":"2 unidades (~50g)","kcal":130,"p":5,"c":24,"g":2},{"name":"Manteca","amount":"~10g","kcal":72,"p":0,"c":0,"g":8},{"name":"Café negro","amount":"240ml","kcal":2,"p":0,"c":0,"g":0},{"name":"Creatina","amount":"5g","kcal":0,"p":0,"c":0,"g":0},{"name":"Cacao en polvo","amount":"2 cdas (~10g)","kcal":23,"p":2,"c":6,"g":1}],"quantity_warning":"asumí cantidades estándar; ajusta si difiere"}`;
-          const forcedResult = await callClaude(userMsg, forcedSys);
+          const forcedResult = await callClaude(userMsg, forcedSys, { schema: PARSE_SCHEMA });
           const cleanF = forcedResult.replace(/```json|```/g, '').trim();
           const matchF = cleanF.match(/\{[\s\S]*\}/);
           const forced = JSON.parse(matchF ? matchF[0] : cleanF);

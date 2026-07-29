@@ -140,7 +140,7 @@ export default async function handler(req, res) {
   if (!guard(req, res, { key: 'chat', limit: 20 })) return;
 
   try {
-    const { model, max_tokens, system, messages, stream, name, accion } = req.body;
+    const { model, max_tokens, system, messages, stream, name, accion, output_config } = req.body;
     // Texto del último mensaje del usuario, para el registro (qué dijo).
     const ultimoMsg = Array.isArray(messages) && messages.length
       ? messages[messages.length - 1]?.content : null;
@@ -196,7 +196,13 @@ export default async function handler(req, res) {
               // de salida gasta. Registros de comida → 'low' (extraer macros no
               // requiere deliberación); generar planes → 'medium' (un poco más
               // de calidad). El cliente no nota la diferencia en el chat diario.
-              output_config: { effort: accion === 'plan' ? 'medium' : 'low' },
+              // format (si el frontend lo manda): salida estructurada — la API
+              // garantiza JSON válido con esa forma. Solo se acepta json_schema.
+              output_config: {
+                effort: accion === 'plan' ? 'medium' : 'low',
+                ...(output_config && output_config.format && output_config.format.type === 'json_schema'
+                  ? { format: output_config.format } : {}),
+              },
             }
           : { temperature: 0 }),
         system: system || '',
