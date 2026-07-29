@@ -205,10 +205,14 @@ export default async function handler(req, res) {
         // Acumula una copia para leer el usage al final (respuestas chicas).
         try { sseBuffer += chunk.toString('utf8'); } catch (e) {}
       }
-      res.end();
-      // Registro después de cerrar el stream: no añade latencia al cliente.
+      // El registro va ANTES de res.end(): en serverless la función se congela
+      // al cerrar la respuesta, y un await DESPUÉS de res.end() no alcanza a
+      // correr (por eso no se grababan los registros del chat, que usan
+      // streaming). El cliente ya recibió todos los chunks por res.write();
+      // solo se demora ~100ms el cierre del stream (imperceptible).
       const usage = usageFromSSE(sseBuffer);
       await registrarUso({ model, usage, name, accion, mensaje: mensajeTexto });
+      res.end();
       return;
     }
 
