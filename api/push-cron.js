@@ -102,6 +102,33 @@ function localNow(tz) {
   }
 }
 
+// Devuelve un Set con los nombres normalizados de los clientes EN DEUDA hoy
+// (misma regla que el banner de payment-status). Módulo compartido entre el
+// cron y el modo de prueba del coach para que no se desincronicen.
+async function fetchDeudores() {
+  const set = new Set();
+  if (!CRM_URL || !CRM_KEY) return set;
+  const rc = await fetch(`${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago`, { headers: sbHeaders(CRM_KEY) });
+  const clientes = rc.ok ? await rc.json() : [];
+  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+  const mes = ymd.slice(0, 7);
+  const diaHoy = Number(ymd.slice(8));
+  const candidatos = (clientes || []).filter(c =>
+    String(c.estado || 'activo').toLowerCase() === 'activo' &&
+    Number.isFinite(Number(c.dia_pago)) && Number(c.dia_pago) >= 1 && Number(c.dia_pago) <= 31 &&
+    diaHoy > Number(c.dia_pago)
+  );
+  for (const c of candidatos) {
+    const rp = await fetch(`${CRM_URL}/rest/v1/pagos?select=pagado,monto&cliente_id=eq.${c.id}&mes=eq.${mes}`, { headers: sbHeaders(CRM_KEY) });
+    const pagos = rp.ok ? await rp.json() : [];
+    const cubierto = Array.isArray(pagos) && pagos.length > 0 &&
+      (pagos.some(p => p.pagado === true) ||
+       Math.max(0, ...pagos.map(p => Number(p.monto) || 0)) === 0);
+    if (!cubierto) set.add(normalizeName(c.nombre));
+  }
+  return set;
+}
+
 // CORS para el POST manual desde el CRM (otro dominio)
 function applyCors(req, res) {
   const origin = req.headers.origin;
@@ -123,6 +150,48 @@ async function handleCoachSend(req, res) {
     return res.status(200).json({ ok: false, causa: 'Faltan las llaves VAPID en Vercel (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY).' });
   }
   webpush.setVapidDetails('mailto:morongmauro@gmail.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+
+  // ── MODO PRUEBA del push de pago (a demanda, sin esperar a las 7:30pm) ──
+  // Ejecuta la MISMA lógica del recordatorio automático de pago para un
+  // cliente y reporta cada etapa: ¿es deudor? ¿tiene push activo? ¿se envió?
+  if (req.body && req.body.mode === 'test_payment') {
+    const nombre = String(req.body.name || '').trim();
+    if (!nombre) return res.status(400).json({ ok: false, causa: 'Falta el nombre del cliente a probar.' });
+    try {
+      const deudores = await fetchDeudores();
+      const esDeudor = deudores.has(normalizeName(nombre));
+      const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,user_id,name,sub`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+      const subs = rs.ok ? await rs.json() : [];
+      const objetivo = (Array.isArray(subs) ? subs : []).filter(s => s.name && normalizeName(s.name) === normalizeName(nombre));
+      const tieneSub = objetivo.length > 0;
+      let sent = 0;
+      if (esDeudor && tieneSub) {
+        for (const s of objetivo) {
+          try {
+            await webpush.sendNotification(s.sub, JSON.stringify({ title: 'Tu coach', body: pick(MSGS.payment), tag: 'ecm-p', url: '/' }));
+            sent++;
+          } catch (e) {
+            const code = e && e.statusCode;
+            if (code === 404 || code === 410) {
+              await fetch(`${SUPABASE_URL}/rest/v1/push_subs?endpoint=eq.${encodeURIComponent(s.endpoint)}`, { method: 'DELETE', headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+            }
+          }
+        }
+      }
+      return res.status(200).json({
+        ok: sent > 0,
+        es_deudor: esDeudor,
+        tiene_push_activo: tieneSub,
+        enviados: sent,
+        causa: !esDeudor ? `"${nombre}" NO figura como deudor hoy (revisa: activo, día de corte configurado y ya vencido este mes, y mes sin pago marcado).`
+          : !tieneSub ? `"${nombre}" es deudor pero NO tiene el push activado en su app (que toque "Activar" en el banner).`
+          : sent === 0 ? 'Es deudor y tiene push, pero el envío falló (suscripción vencida — que reactive el push).'
+          : '✓ Enviado. Debería llegarte la notificación de pago en unos segundos.',
+      });
+    } catch (e) {
+      return res.status(500).json({ ok: false, causa: 'Error en la prueba: ' + String(e).slice(0, 150) });
+    }
+  }
 
   const { user_id, name, title, body } = req.body || {};
   const texto = String(body || '').trim().slice(0, 400);
@@ -200,31 +269,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // 3) Deudores (solo se consulta si alguna suscripción está en su mediodía)
+    // 3) Deudores (solo se consulta si alguna suscripción está en su turno de
+    //    pago). Usa la función compartida fetchDeudores (misma que el modo
+    //    de prueba del coach), con caché por invocación.
     let deudores = null; // Set de nombres normalizados
     const cargarDeudores = async () => {
-      if (deudores || !CRM_URL || !CRM_KEY) return;
-      deudores = new Set();
-      const rc = await fetch(`${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago`, { headers: sbHeaders(CRM_KEY) });
-      const clientes = rc.ok ? await rc.json() : [];
-      const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
-      const mes = ymd.slice(0, 7);
-      const diaHoy = Number(ymd.slice(8));
-      const candidatos = (clientes || []).filter(c =>
-        String(c.estado || 'activo').toLowerCase() === 'activo' &&
-        Number.isFinite(Number(c.dia_pago)) && Number(c.dia_pago) >= 1 && Number(c.dia_pago) <= 31 &&
-        diaHoy > Number(c.dia_pago)
-      );
-      for (const c of candidatos) {
-        const rp = await fetch(`${CRM_URL}/rest/v1/pagos?select=pagado,monto&cliente_id=eq.${c.id}&mes=eq.${mes}`, { headers: sbHeaders(CRM_KEY) });
-        const pagos = rp.ok ? await rp.json() : [];
-        // Cubierto SOLO si hay pago marcado O el mes entero está en $0 (cortesía).
-        // Un placeholder en $0 junto al cobro real ya NO tapa la deuda.
-        const cubierto = Array.isArray(pagos) && pagos.length > 0 &&
-          (pagos.some(p => p.pagado === true) ||
-           Math.max(0, ...pagos.map(p => Number(p.monto) || 0)) === 0);
-        if (!cubierto) deudores.add(normalizeName(c.nombre));
-      }
+      if (deudores) return;
+      deudores = await fetchDeudores();
     };
 
     // Turnos con VENTANA de 2 horas (resiliencia a saltos del cron de GitHub).
