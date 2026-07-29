@@ -223,16 +223,21 @@ export default async function handler(req, res) {
       res.setHeader('Connection', 'keep-alive');
       if (typeof res.flushHeaders === 'function') res.flushHeaders();
       let sseBuffer = '';
+      // TextDecoder: los chunks del stream llegan como Uint8Array, y su
+      // .toString('utf8') NO decodifica — devuelve "104,101,..." (los bytes
+      // como números). Por eso usageFromSSE encontraba 0 tokens y el registro
+      // se saltaba. TextDecoder decodifica bien y arma chars partidos entre
+      // chunks. Este era el motivo de que el chat real no grabara en ia_uso.
+      const _dec = new TextDecoder();
       for await (const chunk of response.body) {
         res.write(chunk);
-        // Acumula una copia para leer el usage al final (respuestas chicas).
-        try { sseBuffer += chunk.toString('utf8'); } catch (e) {}
+        try { sseBuffer += _dec.decode(chunk, { stream: true }); } catch (e) {}
       }
+      try { sseBuffer += _dec.decode(); } catch (e) {}
       // El registro va ANTES de res.end(): en serverless la función se congela
       // al cerrar la respuesta, y un await DESPUÉS de res.end() no alcanza a
-      // correr (por eso no se grababan los registros del chat, que usan
-      // streaming). El cliente ya recibió todos los chunks por res.write();
-      // solo se demora ~100ms el cierre del stream (imperceptible).
+      // correr. El cliente ya recibió todos los chunks por res.write(); solo
+      // se demora ~100ms el cierre del stream (imperceptible).
       const usage = usageFromSSE(sseBuffer);
       await registrarUso({ model, usage, name, accion, mensaje: mensajeTexto });
       res.end();
