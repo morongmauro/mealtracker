@@ -1522,10 +1522,15 @@ export default function MealTracker() {
   const buildHistoryText = (maxTurns = 10) => {
     const recent = messages.slice(-maxTurns);
     const lines = [];
+    // Cada línea del historial se recorta a ~240 chars: un dictado largo de
+    // ayer no necesita repetirse completo en cada mensaje nuevo (se paga en
+    // CADA llamada de los siguientes 10 turnos). 240 conserva de sobra la
+    // referencia ("esos ponquecitos…") sin arrastrar la receta entera.
+    const cap = (t) => { const s = String(t); return s.length > 240 ? s.slice(0, 240) + '…' : s; };
     for (const m of recent) {
       if (m.isDaySeparator) continue;
       if (m.role === 'user') {
-        lines.push(`Cliente: ${m.content}`);
+        lines.push(`Cliente: ${cap(m.content)}`);
         continue;
       }
       // assistant / system messages — serialize the meaningful action
@@ -1545,7 +1550,7 @@ export default function MealTracker() {
       } else if (m.isMealSuggestion || m.isGapSuggestions) {
         lines.push(`Asistente: (di opciones de alimentos)`);
       } else if (typeof m.content === 'string' && m.content && !['logged', 'appended', 'water', 'macro_query', 'summary', 'summary_detailed', 'proportion'].includes(m.content)) {
-        lines.push(`Asistente: ${m.content}`);
+        lines.push(`Asistente: ${cap(m.content)}`);
       }
     }
     return lines.join('\n');
@@ -2468,7 +2473,7 @@ SCHEMA:
     // conoce las cantidades y termina preguntándole al cliente.
     const favoritesBlock = favorites.length > 0
       ? `\nMENÚS Y DÍAS FAVORITOS DEL CLIENTE (cantidades y macros ya guardados — NUNCA preguntes por ellos, ya los tienes acá):
-${favorites.slice(0, 25).map((f, i) => {
+${favorites.slice(0, 12).map((f, i) => {
   if (f.type === 'day' && Array.isArray(f.days) && f.days.length > 0) {
     return `[Día Fav #${f.id}] "${f.name}" — Total: ${Math.round(f.kcal||0)} kcal · P${Math.round(f.p||0)}g C${Math.round(f.c||0)}g G${Math.round(f.g||0)}g
 ${f.days.map(d => `  · ${d.meal || 'comida'}: ${(d.items||[]).map(it => `${it.name}${it.amount ? ' ' + it.amount : ''}`).join(', ')} (${Math.round(d.kcal||0)} kcal)`).join('\n')}`;
@@ -2482,11 +2487,14 @@ ${f.days.map(d => `  · ${d.meal || 'comida'}: ${(d.items||[]).map(it => `${it.n
     // poco confiable haciendo aritmética de calendario ("el lunes pasado" =
     // ¿qué YYYY-MM-DD?): cuando la calculaba mal, la comida quedaba registrada
     // en el día equivocado. Con la tabla solo tiene que COPIAR la fecha.
-    const dateTable = Array.from({ length: 31 }, (_, i) => {
+    // 15 días (antes 31) en formato compacto: cubre "ayer", "el lunes pasado"
+    // y "hace dos semanas" — los casos reales — a la mitad de tokens. Cada
+    // mensaje del chat paga esta tabla, así que su tamaño importa.
+    const dateTable = Array.from({ length: 15 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const rel = i === 0 ? 'HOY' : i === 1 ? 'ayer' : i === 2 ? 'antier/anteayer' : `hace ${i} días`;
-      return `  · ${rel} — ${d.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'short' })} = ${getLocalDate(d)}`;
+      return `  · ${rel} (${d.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' })}) = ${getLocalDate(d)}`;
     }).join('\n');
     // Días pasados que SÍ tienen registro (últimos 21): le da al modelo
     // visibilidad del historial para borrar/consultar días anteriores. Sin
@@ -2494,7 +2502,7 @@ ${f.days.map(d => `  · ${d.meal || 'comida'}: ${(d.items||[]).map(it => `${it.n
     // existía, y el borrado por fecha era imposible.
     const pastDaysBlock = (() => {
       const lines = [];
-      for (let i = 1; i <= 21; i++) {
+      for (let i = 1; i <= 14; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
         const key = getLocalDate(d);
         const det = historyDetail[key];
@@ -2505,7 +2513,7 @@ ${f.days.map(d => `  · ${d.meal || 'comida'}: ${(d.items||[]).map(it => `${it.n
       }
       return lines.length
         ? `\nDÍAS PASADOS CON REGISTRO (para borrar/consultar días anteriores; si una fecha NO está aquí, ese día no tiene nada):\n${lines.join('\n')}\n`
-        : '\nDÍAS PASADOS CON REGISTRO: ninguno en los últimos 21 días.\n';
+        : '\nDÍAS PASADOS CON REGISTRO: ninguno en los últimos 14 días.\n';
     })();
     const contextSnippet = `
 CONTEXTO DEL CLIENTE:
@@ -2681,6 +2689,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 - Si menciona nombre propio en saludo ("soy Juan", "me llamo Ana") → intent=name, name_detected.
 - "direct" tipo "250 kcal 22p 30c 5g" → intent=log_meal con 1 item.
 - Si SOLO saluda ("hola", "buenas") sin comida → intent=off_topic, message tipo "Hola [primer nombre del CONTEXTO, si lo hay], cuéntame qué comiste y lo registro."
+- FECHAS/RECETAS MÁS VIEJAS que la TABLA DE FECHAS (ej: "hace un mes", "en junio"): ese registro SÍ existe completo en el calendario de la app; tú ves lo reciente y los FAVORITOS (los favoritos los ves SIEMPRE, sin importar su antigüedad). PROHIBIDO sonar a error o límite ("no encuentro", "no tengo acceso"). Sé ASTUTO y enseña el camino rápido, message tipo: "Veo que eso no quedó guardado como favorito — quedó solo en el registro de ese día, y esos los tienes completos en tu calendario: te lo abro 👇 Cuando lo encuentres, guárdalo como favorito y de ahí en adelante lo ubico al instante cuando me lo pidas." + command="calendar". Si además quería REGISTRARLO HOY: agrega "y si recuerdas los ingredientes ahora, dímelos de una y te lo registro ya". Si quería BORRAR/corregir algo tan viejo: tranquiliza ("eso ya no incide en tu seguimiento actual") + calendario. Aplica este mismo patrón (redirigir + enseñar el camino rápido) a CUALQUIER cosa fuera de tu alcance.
 - DERIVACIÓN A MAURO (cálida, nunca seca — evita que el cliente sienta que la app "no sirve"):
   · Si pide DEFINIR o CAMBIAR su plan/dieta/metas ("¿qué dieta hago?", "¿cuántas calorías debería comer?", "¿subo o bajo calorías?", "arma mi plan") → intent=off_topic. Reconoce que definir el plan es criterio de Mauro Y ofrécele un dato útil del día. Ej: message="Definir eso es criterio de Mauro y te va a orientar mejor que yo 💪 — escríbele directo. Por si te sirve mientras tanto: hoy te quedan unas [X] kcal y [Y] g de proteína por completar." Reemplaza [X] e [Y] con los números REALES de la META menos lo que lleva HOY (del CONTEXTO); si no puedes calcularlos, omite esa segunda oración. NUNCA cortes con un simple "eso es de Mauro" sin aportar nada.
   · Si pregunta por una CONDICIÓN MÉDICA, patología, síntomas, medicamentos o SUPLEMENTOS específicos ("tengo diabetes/hipotiroidismo/gastritis, ¿qué como?", "¿me tomo creatina/proteína/quemador?", "¿esto me sube el azúcar?") → intent=off_topic, deriva SIEMPRE a Mauro con calidez y sin dar la recomendación tú mismo. Ej: message="Eso ya entra en criterio profesional y de salud — mejor que lo defina Mauro contigo directamente. Escríbele y te orienta según tu caso 🙌". Es un LÍMITE DURO: nunca prescribas suplementos ni des indicaciones para condiciones médicas.
@@ -3044,7 +3053,13 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           // La meta la administra el coach desde el CRM; acá solo se explica.
           setMessages(m => [...m, { role: 'assistant', content: 'Tu meta nutricional la administra tu coach y se ajusta según tu plan. Si sientes que necesita un cambio, coméntaselo directamente y él la actualizará — te llegará el aviso aquí en el chat. 💪', ts: Date.now() }]);
         }
-        else if (parsed.command === 'calendar') setActiveModal('calendar');
+        else if (parsed.command === 'calendar') {
+          // Si el modelo mandó un mensaje cálido (ej: "eso está completo en tu
+          // calendario, te lo abro 👇"), se muestra ANTES de abrir el calendario
+          // — clave para fechas viejas: nunca debe parecer un límite o error.
+          if (parsed.message) setMessages(m => [...m, { role: 'assistant', content: parsed.message, ts: Date.now() }]);
+          setActiveModal('calendar');
+        }
         else if (parsed.command === 'favorites') setActiveModal('favorites');
         else if (parsed.command === 'manage_favorites') {
           // flatMap + splitIngredients: si el modelo devuelve un item con la
@@ -3554,9 +3569,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       const isOverload = String(e?.message || '').includes('overloaded') || String(e?.message || '').includes('http:5');
       const firstName = name ? name.split(' ')[0] : '';
       const greeting = firstName ? `${firstName}, ` : '';
+      // Tono humano SIEMPRE: nada de "error", "problema" ni "servicio" — el
+      // cliente no debe sentir nunca que la app falló.
       const msg = isOverload
-        ? `${greeting}el servicio está saturado un momento. Prueba de nuevo en unos segundos.`
-        : `${greeting}tuve un problema procesando eso. ¿Puedes volver a escribirlo o agregar un detalle más?`;
+        ? `${greeting}dame unos segunditos que estoy con varios registros a la vez — vuelve a enviarlo ya mismo y te lo tomo 🙏`
+        : `${greeting}¿me lo escribes una vez más? Quiero registrártelo bien y no te alcancé a leer completo 🙏`;
       setMessages(m => [...m, { role: 'assistant', content: msg, ts: Date.now() }]);
     }
 
