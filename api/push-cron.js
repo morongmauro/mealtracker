@@ -8,7 +8,7 @@
 //   09:00 local → mañana (llega ANTES de las 10: registra tu desayuno;
 //                 skip si ya registró algo hoy)
 //   14:00 local → tarde (registra tu almuerzo; skip si ya lleva 2+ registros)
-//   17:30 local → recordatorio de pago SOLO a quien está en deuda
+//   19:30 local → recordatorio de pago SOLO a quien está en deuda
 //                 (misma regla que el banner de payment-status: corte
 //                 vencido y mes sin pago marcado en el CRM)
 //   20:00 local → cierre del día por % de meta: si el cliente tiene meta de
@@ -239,12 +239,14 @@ export default async function handler(req, res) {
       // ¿Qué turno cae en esta hora? (ventana: hora objetivo o la siguiente)
       // La mañana apunta a las 9 para que el recordatorio llegue ANTES de
       // las 10 (su ventana de gracia es la hora 10 por si el cron saltó).
-      // La cobranza apunta a las 5:30pm: el primer tick del cron desde esa
-      // hora la entrega (típicamente 5:37pm), con la hora 18 de gracia.
+      // La cobranza apunta a las 7:30pm HORA LOCAL del cliente: la corrida
+      // de las 19:37 la entrega (el cron corre a los minutos :07 y :37, así
+      // que 7:37pm es lo más cerca posible a las 7:30). Solo esa corrida, sin
+      // gracia en la hora 20 para no pisar el recordatorio nocturno de las 8.
       let slot = null;
       if (hour === 9 || hour === 10) slot = 'm';
       else if (hour === 14 || hour === 15) slot = 'd';
-      else if ((hour === 17 && minute >= 30) || hour === 18) slot = 'p';
+      else if (hour === 19 && minute >= 30) slot = 'p';
       else if (hour === 20 || hour === 21) slot = 'n';
       if (!slot) continue;
 

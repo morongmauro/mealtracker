@@ -65,6 +65,33 @@ export default async function handler(req, res) {
     return out({ due: false }, 'CRM_SUPABASE_URL o CRM_SUPABASE_SERVICE_KEY no están configuradas en Vercel');
   }
 
+  // Prueba de escritura en ia_uso (?testlog=1): inserta una fila marcada
+  // '__PRUEBA__' y devuelve el resultado HTTP. Sirve para saber si el tablero
+  // puede grabar, sin depender del flujo del chat. Borra esa fila del tablero
+  // o en Supabase cuando confirmes que funciona.
+  if (req.method === 'GET' && (req.query.testlog === '1' || req.query.testlog === 'true')) {
+    try {
+      const r = await fetch(`${CRM_URL}/rest/v1/ia_uso`, {
+        method: 'POST',
+        headers: {
+          'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}`,
+          'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({
+          cliente_nombre: '__PRUEBA__', modelo: 'test', accion: 'test',
+          input_tokens: 1, output_tokens: 1, costo_usd: 0, mensaje: 'prueba de escritura',
+        }),
+      });
+      const body = await r.text();
+      return res.status(200).json({
+        escritura_ok: r.ok, http: r.status, crm_host: crmHost,
+        detalle: body ? body.slice(0, 300) : '(vacío = insert exitoso)',
+      });
+    } catch (e) {
+      return res.status(200).json({ escritura_ok: false, error: String(e).slice(0, 200), crm_host: crmHost });
+    }
+  }
+
   const rawName = req.method === 'POST' ? req.body?.name : req.query.name;
   const normalized = normalizeName(rawName);
   if (!normalized) return out({ due: false }, 'nombre vacío en la petición');

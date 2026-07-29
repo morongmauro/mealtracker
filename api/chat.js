@@ -213,8 +213,11 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-    // Registro no bloqueante del consumo (nunca rompe la respuesta).
-    registrarUso({ model, usage: data.usage, name, accion, mensaje: mensajeTexto });
+    // Se ESPERA el registro antes de responder: en serverless, el trabajo
+    // async lanzado sin await tras enviar la respuesta se cancela cuando la
+    // función se congela — por eso las filas de ia_uso no se guardaban.
+    // registrarUso tiene su propio try/catch, así que nunca rompe el chat.
+    await registrarUso({ model, usage: data.usage, name, accion, mensaje: mensajeTexto });
     return res.status(200).json(data);
   } catch (error) {
     console.error('Proxy error:', error);
