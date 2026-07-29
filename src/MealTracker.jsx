@@ -290,6 +290,11 @@ export default function MealTracker() {
   // mes ya pasó y el coach aún no marcó el pago. Se muestra como banner (fuera
   // del chat) y desaparece solo cuando el coach marca el pago en el CRM.
   const [paymentDue, setPaymentDue] = useState(null);
+  // Modal de pago vencido (≥5 días): aparece al ABRIR la app, centrado, para
+  // que sea imposible de ignorar. Se muestra una vez por apertura (el ref
+  // evita que reaparezca al navegar dentro de la app en la misma sesión).
+  const [showPayModal, setShowPayModal] = useState(false);
+  const payModalShownRef = useRef(false);
   // Invitación a activar recordatorios push (visible solo si el permiso del
   // navegador está en 'default' y no la descartó hace poco)
   const [pushPrompt, setPushPrompt] = useState(false);
@@ -1650,6 +1655,11 @@ export default function MealTracker() {
         const d = await r.json();
         if (cancelled) return;
         setPaymentDue(d && d.due ? { dia_corte: d.dia_corte, dias_vencido: d.dias_vencido || 0, monto: d.monto, moneda: d.moneda } : null);
+        // ≥5 días vencido → cartel central al abrir la app (una vez por apertura).
+        if (d && d.due && (d.dias_vencido || 0) >= 5 && !payModalShownRef.current) {
+          payModalShownRef.current = true;
+          setShowPayModal(true);
+        }
       } catch (e) { /* sin red: no mostramos recordatorio */ }
     };
     check();
@@ -4171,6 +4181,32 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </div>
           </div>
         )}
+        {/* Recordatorio de pago ESCALADO — a partir de 5 días de vencido,
+            mismo lugar (zona fija SIEMPRE visible) pero rojo urgente y con
+            los días de vencimiento, para que sea lo primero que se ve al
+            ingresar. El discreto de arriba se oculta cuando aparece este. */}
+        {paymentDue && (paymentDue.dias_vencido || 0) >= 5 && (
+          <div className="fade-up" style={{
+            marginTop: '6px',
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '11px 14px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, rgba(254,226,226,0.96) 0%, rgba(254,202,202,0.78) 100%), rgba(255,255,255,0.97)',
+            border: '1px solid rgba(220,38,38,0.30)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(200,30,30,0.20), 0 1px 4px rgba(0,0,0,0.06)',
+          }}>
+            <span style={{ fontSize: '18px', flexShrink: 0 }}>⚠️</span>
+            <div style={{ fontSize: '12.5px', color: '#991B1B', lineHeight: 1.35, minWidth: 0 }}>
+              <strong style={{ color: '#B91C1C' }}>Pago pendiente hace {paymentDue.dias_vencido} días.</strong> Recuerda realizar el pago mensual del programa{paymentDue.monto ? (
+                <> (<strong style={{ color: '#B91C1C' }}>{
+                  (() => { try {
+                    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: paymentDue.moneda || 'COP', maximumFractionDigits: 0 }).format(paymentDue.monto);
+                  } catch (e) { return `${paymentDue.monto} ${paymentDue.moneda || ''}`.trim(); } })()
+                }</strong>)</>
+              ) : null} para seguir con tu proceso sin interrupciones.
+            </div>
+          </div>
+        )}
         {/* Invitación a activar recordatorios push — misma zona fija del
             banner de pago; si ambos aplican se apilan (el cliente en deuda
             también necesita poder activar sus recordatorios). El permiso se
@@ -4443,30 +4479,42 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </button>
       )}
 
-      {/* Recordatorio de pago ESCALADO: a partir de 5 días de vencido, el
-          banner sube JUSTO encima de la barra de escribir (donde el cliente
-          mira sí o sí al ir a registrar) y con tinte rojo urgente, para que
-          no pase desapercibido. Antes de los 5 días vive discreto bajo la
-          tarjeta de anillos (más arriba). */}
-      {paymentDue && (paymentDue.dias_vencido || 0) >= 5 && view === 'main' && (
-        <div className="fade-up max-w-2xl mx-auto w-full px-3" style={{ marginBottom: '8px' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '10px',
-            padding: '10px 14px', borderRadius: '16px',
-            background: 'linear-gradient(135deg, rgba(254,226,226,0.95) 0%, rgba(254,202,202,0.75) 100%), rgba(255,255,255,0.96)',
-            border: '1px solid rgba(220,38,38,0.25)',
-            boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(200,30,30,0.18), 0 1px 4px rgba(0,0,0,0.06)',
-          }}>
-            <span style={{ fontSize: '18px', flexShrink: 0 }}>⚠️</span>
-            <div style={{ fontSize: '12px', color: '#991B1B', lineHeight: 1.35, minWidth: 0 }}>
-              <strong style={{ color: '#B91C1C' }}>Pago pendiente hace {paymentDue.dias_vencido} días.</strong> Recuerda realizar el pago mensual del programa{paymentDue.monto ? (
-                <> (<strong style={{ color: '#B91C1C' }}>{
+      {/* Cartel central de pago vencido (≥5 días) — aparece al abrir la app.
+          Es un overlay position:fixed, así que no afecta el layout; se cierra
+          al tocar el botón o el fondo. Objetivo: que no se ignore. */}
+      {showPayModal && (
+        <div
+          onClick={() => setShowPayModal(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'rgba(0,0,0,0.55)' }}
+        >
+          <div
+            className="fade-up"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '360px', width: '100%', background: '#FFF', borderRadius: '24px', padding: '30px 24px 22px', textAlign: 'center', boxShadow: '0 24px 70px rgba(0,0,0,0.35)' }}
+          >
+            <div style={{ fontSize: '46px', lineHeight: 1, marginBottom: '10px' }}>⚠️</div>
+            <h2 style={{ fontSize: '21px', fontWeight: 800, color: '#B91C1C', margin: '0 0 10px' }}>Tu pago está pendiente</h2>
+            <p style={{ fontSize: '14.5px', color: '#3F3F46', lineHeight: 1.5, margin: 0 }}>
+              Llevas <strong>{paymentDue?.dias_vencido} días</strong> desde tu fecha de corte{paymentDue?.monto ? (
+                <> y tu mensualidad es de <strong>{
                   (() => { try {
                     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: paymentDue.moneda || 'COP', maximumFractionDigits: 0 }).format(paymentDue.monto);
                   } catch (e) { return `${paymentDue.monto} ${paymentDue.moneda || ''}`.trim(); } })()
-                }</strong>)</>
-              ) : null} para seguir sin interrupciones.
-            </div>
+                }</strong></>
+              ) : null}. Realiza el pago para seguir con tu proceso sin interrupciones.
+            </p>
+            <button
+              onClick={() => setShowPayModal(false)}
+              style={{ marginTop: '20px', width: '100%', padding: '14px', borderRadius: '14px', background: '#B91C1C', color: '#FFF', fontWeight: 700, fontSize: '15px', border: 'none', cursor: 'pointer' }}
+            >
+              Entendido, voy a pagar
+            </button>
+            <button
+              onClick={() => setShowPayModal(false)}
+              style={{ marginTop: '6px', width: '100%', padding: '9px', background: 'none', color: '#9CA3AF', fontSize: '13px', border: 'none', cursor: 'pointer' }}
+            >
+              Ahora no
+            </button>
           </div>
         </div>
       )}

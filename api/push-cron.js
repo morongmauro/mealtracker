@@ -80,9 +80,9 @@ const MSGS = {
     'Aún estás en {pct}% de tu meta. Dos minutos: registra todo lo de hoy y duerme tranquilo 🌙',
   ],
   payment: [
-    'Recordatorio: tu mensualidad del programa está pendiente. Ponerte al día toma un minuto — gracias por entrenar con método 🤝',
-    'Tu mensualidad sigue pendiente. Cuando puedas, realiza el pago para seguir sin interrupciones 🤝',
-    'Pendiente por pagar tu mes del programa — un minuto y quedas al día. ¡Gracias! 💪',
+    'Hola 👋 Tu mensualidad del programa quedó pendiente. Cuando puedas, realiza el pago para seguir con tu proceso sin interrupciones. ¡Gracias por entrenar con método! 💪',
+    'Recordatorio amable: tu pago mensual está pendiente. Ponerte al día toma un momento y así no frenamos tu avance 🙌',
+    'Tu mensualidad sigue pendiente. Realiza el pago cuando puedas y seguimos con tu proceso sin pausas. ¡Gracias! 🤝',
   ],
 };
 
@@ -213,7 +213,13 @@ async function handleCoachSend(req, res) {
   // ── ENVIAR el recordatorio de pago a TODOS los deudores con push activo ──
   if (req.body && req.body.mode === 'send_payment_all') {
     try {
-      const lista = await fetchDeudores();
+      let lista = await fetchDeudores();
+      // Si el coach mandó una lista de nombres (los que dejó marcados en la
+      // confirmación), enviamos SOLO a esos. Si no, a todos los deudores.
+      if (Array.isArray(req.body.names) && req.body.names.length) {
+        const permitidos = new Set(req.body.names.map(n => normalizeName(n)));
+        lista = lista.filter(d => permitidos.has(d.nombreNorm));
+      }
       const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,name,sub`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
       const subs = rs.ok ? await rs.json() : [];
       const porNombre = new Map();
