@@ -104,6 +104,29 @@ async function registrarUso({ model, usage, name, accion, mensaje }) {
 export const config = { supportsResponseStreaming: true };
 
 export default async function handler(req, res) {
+  // Diagnóstico: GET ?ping=1 confirma qué versión de chat.js está desplegada
+  // y prueba que ESTE archivo puede escribir en ia_uso. Sin secretos.
+  if (req.method === 'GET' && (req.query?.ping === '1' || req.query?.ping === 'true')) {
+    const host = (() => { try { return new URL(CRM_URL).host; } catch (e) { return CRM_URL || '(vacío)'; } })();
+    let escritura = { ok: false, motivo: 'CRM no configurado' };
+    if (CRM_URL && CRM_KEY) {
+      try {
+        const r = await fetch(`${CRM_URL}/rest/v1/ia_uso`, {
+          method: 'POST',
+          headers: { 'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ cliente_nombre: '__PING_CHAT__', modelo: 'test', accion: 'test', input_tokens: 1, output_tokens: 1, costo_usd: 0, mensaje: 'ping desde chat.js' }),
+        });
+        escritura = { ok: r.ok, http: r.status };
+      } catch (e) { escritura = { ok: false, error: String(e).slice(0, 150) }; }
+    }
+    return res.status(200).json({
+      version: 'ia-logging-2026-07-29',
+      crm_configurado: !!(CRM_URL && CRM_KEY),
+      crm_host: host,
+      escritura_ia_uso: escritura,
+    });
+  }
+
   // Solo aceptamos POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
