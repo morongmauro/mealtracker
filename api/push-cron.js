@@ -102,12 +102,12 @@ function localNow(tz) {
   }
 }
 
-// Devuelve un Set con los nombres normalizados de los clientes EN DEUDA hoy
-// (misma regla que el banner de payment-status). Módulo compartido entre el
-// cron y el modo de prueba del coach para que no se desincronicen.
+// Devuelve la LISTA de clientes EN DEUDA hoy con su nombre real y días de
+// vencimiento (misma regla que el banner de payment-status). Compartida por
+// el cron, la prueba y el envío masivo para que no se desincronicen.
+//   → [{ id, nombre, nombreNorm, dia_pago, dias_vencido }]
 async function fetchDeudores() {
-  const set = new Set();
-  if (!CRM_URL || !CRM_KEY) return set;
+  if (!CRM_URL || !CRM_KEY) return [];
   const rc = await fetch(`${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago`, { headers: sbHeaders(CRM_KEY) });
   const clientes = rc.ok ? await rc.json() : [];
   const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
@@ -118,15 +118,16 @@ async function fetchDeudores() {
     Number.isFinite(Number(c.dia_pago)) && Number(c.dia_pago) >= 1 && Number(c.dia_pago) <= 31 &&
     diaHoy > Number(c.dia_pago)
   );
+  const lista = [];
   for (const c of candidatos) {
     const rp = await fetch(`${CRM_URL}/rest/v1/pagos?select=pagado,monto&cliente_id=eq.${c.id}&mes=eq.${mes}`, { headers: sbHeaders(CRM_KEY) });
     const pagos = rp.ok ? await rp.json() : [];
     const cubierto = Array.isArray(pagos) && pagos.length > 0 &&
       (pagos.some(p => p.pagado === true) ||
        Math.max(0, ...pagos.map(p => Number(p.monto) || 0)) === 0);
-    if (!cubierto) set.add(normalizeName(c.nombre));
+    if (!cubierto) lista.push({ id: c.id, nombre: c.nombre, nombreNorm: normalizeName(c.nombre), dia_pago: Number(c.dia_pago), dias_vencido: diaHoy - Number(c.dia_pago) });
   }
-  return set;
+  return lista;
 }
 
 // CORS para el POST manual desde el CRM (otro dominio)
@@ -158,8 +159,8 @@ async function handleCoachSend(req, res) {
     const nombre = String(req.body.name || '').trim();
     if (!nombre) return res.status(400).json({ ok: false, causa: 'Falta el nombre del cliente a probar.' });
     try {
-      const deudores = await fetchDeudores();
-      const esDeudor = deudores.has(normalizeName(nombre));
+      const listaDeudores = await fetchDeudores();
+      const esDeudor = listaDeudores.some(d => d.nombreNorm === normalizeName(nombre));
       const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,user_id,name,sub`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
       const subs = rs.ok ? await rs.json() : [];
       const objetivo = (Array.isArray(subs) ? subs : []).filter(s => s.name && normalizeName(s.name) === normalizeName(nombre));
@@ -190,6 +191,69 @@ async function handleCoachSend(req, res) {
       });
     } catch (e) {
       return res.status(500).json({ ok: false, causa: 'Error en la prueba: ' + String(e).slice(0, 150) });
+    }
+  }
+
+  // ── LISTAR deudores + si tienen push (para la confirmación antes de enviar) ──
+  if (req.body && req.body.mode === 'list_debtors') {
+    try {
+      const lista = await fetchDeudores();
+      const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=name`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+      const subs = rs.ok ? await rs.json() : [];
+      const conPush = new Set((Array.isArray(subs) ? subs : []).map(s => normalizeName(s.name)).filter(Boolean));
+      const deudores = lista
+        .map(d => ({ nombre: d.nombre, dias_vencido: d.dias_vencido, tiene_push: conPush.has(d.nombreNorm) }))
+        .sort((a, b) => b.dias_vencido - a.dias_vencido);
+      return res.status(200).json({ ok: true, deudores });
+    } catch (e) {
+      return res.status(500).json({ ok: false, causa: 'Error al listar: ' + String(e).slice(0, 150) });
+    }
+  }
+
+  // ── ENVIAR el recordatorio de pago a TODOS los deudores con push activo ──
+  if (req.body && req.body.mode === 'send_payment_all') {
+    try {
+      const lista = await fetchDeudores();
+      const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,name,sub`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+      const subs = rs.ok ? await rs.json() : [];
+      const porNombre = new Map();
+      for (const s of (Array.isArray(subs) ? subs : [])) {
+        const n = normalizeName(s.name);
+        if (!n) continue;
+        if (!porNombre.has(n)) porNombre.set(n, []);
+        porNombre.get(n).push(s);
+      }
+      const enviadosNombres = [];
+      let dispositivos = 0;
+      for (const d of lista) {
+        const objetivo = porNombre.get(d.nombreNorm) || [];
+        let alguno = false;
+        for (const s of objetivo) {
+          try {
+            await webpush.sendNotification(s.sub, JSON.stringify({ title: 'Tu coach', body: pick(MSGS.payment), tag: 'ecm-p', url: '/' }));
+            dispositivos++; alguno = true;
+          } catch (e) {
+            const code = e && e.statusCode;
+            if (code === 404 || code === 410) {
+              await fetch(`${SUPABASE_URL}/rest/v1/push_subs?endpoint=eq.${encodeURIComponent(s.endpoint)}`, { method: 'DELETE', headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+            }
+          }
+        }
+        if (alguno) enviadosNombres.push(d.nombre);
+      }
+      // Historial en el CRM (tabla push_pago_log). No rompe la respuesta si falla.
+      if (CRM_URL && CRM_KEY && enviadosNombres.length) {
+        try {
+          await fetch(`${CRM_URL}/rest/v1/push_pago_log`, {
+            method: 'POST',
+            headers: { 'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ enviados: enviadosNombres.length, destinatarios: enviadosNombres }),
+          });
+        } catch (e) { /* el historial no bloquea el envío */ }
+      }
+      return res.status(200).json({ ok: enviadosNombres.length > 0, enviados: enviadosNombres.length, dispositivos, destinatarios: enviadosNombres });
+    } catch (e) {
+      return res.status(500).json({ ok: false, causa: 'Error al enviar: ' + String(e).slice(0, 150) });
     }
   }
 
@@ -275,7 +339,8 @@ export default async function handler(req, res) {
     let deudores = null; // Set de nombres normalizados
     const cargarDeudores = async () => {
       if (deudores) return;
-      deudores = await fetchDeudores();
+      const lista = await fetchDeudores();
+      deudores = new Set(lista.map(d => d.nombreNorm));
     };
 
     // Turnos con VENTANA de 2 horas (resiliencia a saltos del cron de GitHub).

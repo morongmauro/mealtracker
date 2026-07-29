@@ -1649,7 +1649,7 @@ export default function MealTracker() {
         if (!r.ok) return;
         const d = await r.json();
         if (cancelled) return;
-        setPaymentDue(d && d.due ? { dia_corte: d.dia_corte, monto: d.monto, moneda: d.moneda } : null);
+        setPaymentDue(d && d.due ? { dia_corte: d.dia_corte, dias_vencido: d.dias_vencido || 0, monto: d.monto, moneda: d.moneda } : null);
       } catch (e) { /* sin red: no mostramos recordatorio */ }
     };
     check();
@@ -4146,7 +4146,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             historial del chat y el auto-scroll al último mensaje lo dejaba
             fuera de pantalla: se renderizaba pero nadie lo veía.) Fuera de
             la conversación, y desaparece solo al marcar el pago en el CRM. */}
-        {paymentDue && (
+        {paymentDue && (paymentDue.dias_vencido || 0) < 5 && (
           <div className="fade-up" style={{
             marginTop: '6px',
             display: 'flex', alignItems: 'center', gap: '10px',
@@ -4441,6 +4441,34 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           title="Ir al último mensaje">
           <ChevronDown size={18} strokeWidth={2.2} style={{ color: TEXT_MUTED }} />
         </button>
+      )}
+
+      {/* Recordatorio de pago ESCALADO: a partir de 5 días de vencido, el
+          banner sube JUSTO encima de la barra de escribir (donde el cliente
+          mira sí o sí al ir a registrar) y con tinte rojo urgente, para que
+          no pase desapercibido. Antes de los 5 días vive discreto bajo la
+          tarjeta de anillos (más arriba). */}
+      {paymentDue && (paymentDue.dias_vencido || 0) >= 5 && view === 'main' && (
+        <div className="fade-up max-w-2xl mx-auto w-full px-3" style={{ marginBottom: '8px' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '10px 14px', borderRadius: '16px',
+            background: 'linear-gradient(135deg, rgba(254,226,226,0.95) 0%, rgba(254,202,202,0.75) 100%), rgba(255,255,255,0.96)',
+            border: '1px solid rgba(220,38,38,0.25)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(200,30,30,0.18), 0 1px 4px rgba(0,0,0,0.06)',
+          }}>
+            <span style={{ fontSize: '18px', flexShrink: 0 }}>⚠️</span>
+            <div style={{ fontSize: '12px', color: '#991B1B', lineHeight: 1.35, minWidth: 0 }}>
+              <strong style={{ color: '#B91C1C' }}>Pago pendiente hace {paymentDue.dias_vencido} días.</strong> Recuerda realizar el pago mensual del programa{paymentDue.monto ? (
+                <> (<strong style={{ color: '#B91C1C' }}>{
+                  (() => { try {
+                    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: paymentDue.moneda || 'COP', maximumFractionDigits: 0 }).format(paymentDue.monto);
+                  } catch (e) { return `${paymentDue.monto} ${paymentDue.moneda || ''}`.trim(); } })()
+                }</strong>)</>
+              ) : null} para seguir sin interrupciones.
+            </div>
+          </div>
+        </div>
       )}
 
       <InputBar

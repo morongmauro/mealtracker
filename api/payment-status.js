@@ -155,6 +155,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       due: true,
       dia_corte: diaPago,
+      dias_vencido: diaHoy - diaPago,   // días transcurridos desde el corte
       monto: (cliente.monto != null && Number(cliente.monto) > 0) ? Number(cliente.monto) : null,
       moneda: cliente.moneda || 'COP',
     });
