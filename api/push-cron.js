@@ -5,9 +5,11 @@
 // suscripción (tz capturada del teléfono al suscribirse) y envía el
 // recordatorio del turno si corresponde:
 //
-//   09:00 local → mañana (llega ANTES de las 10: registra tu desayuno;
-//                 skip si ya registró algo hoy)
-//   14:00 local → tarde (registra tu almuerzo; skip si ya lleva 2+ registros)
+//   09:00 local → mañana (primer empujón del día; skip si ya registró algo
+//                 hoy). Los copys son NEUTROS: no nombran comidas (desayuno/
+//                 almuerzo/cena) ni imponen horarios — cada cliente tiene su
+//                 propia estructura de comidas.
+//   14:00 local → mediodía (skip si ya lleva 2+ registros)
 //   19:30 local → recordatorio de pago SOLO a quien está en deuda
 //                 (misma regla que el banner de payment-status: corte
 //                 vencido y mes sin pago marcado en el CRM)
@@ -54,22 +56,25 @@ const normalizeName = (str) => String(str || '')
   .replace(/\s+/g, ' ').trim();
 
 // ── Copys: profesionales, cálidos, accionables — 3 variantes por turno ──
+// NEUTROS a propósito: no nombran comidas (desayuno/almuerzo/cena) ni
+// sugieren a qué hora comer — cada cliente tiene su propia estructura y
+// horarios. Solo invitan a REGISTRAR lo que haya comido, cuando sea.
 const MSGS = {
   morning: [
-    'Buenos días ☀️ Un registro a tiempo vale más que uno perfecto. Cuando desayunes, cuéntamelo.',
-    'Arranca el día con claridad: registra tu desayuno antes de las 10 y el resto fluye ☀️',
-    'Nuevo día, mismo método. Tu primer registro marca la pauta 💪',
+    'Buenos días ☀️ Un registro a tiempo vale más que uno perfecto. Cuando tengas tu primera comida, cuéntamelo.',
+    'Arranca el día con claridad: tu primer registro marca la pauta ☀️',
+    'Nuevo día, mismo método 💪 Registra a tu ritmo — cada comida cuenta, sea la que sea.',
   ],
   midday: [
-    '¿Almuerzo listo? Dos líneas en tu registro y tu día sigue en orden 🍽',
-    'Mitad del día: registrar ahora te ahorra hacer memoria en la noche.',
-    'Tu almuerzo cuenta — regístralo y sigue en lo tuyo 🍽',
+    '¿Ya comiste algo hoy? Dos líneas en tu registro y tu día sigue en orden 🍽',
+    'Mitad del día: registrar lo que has comido ahora te ahorra hacer memoria en la noche.',
+    'Sea cual sea tu próxima comida, regístrala y sigue en lo tuyo 🍽',
   ],
   // Cierre del día SIN meta configurada (regla vieja por conteo)
   evening: [
-    'Cierra el día como se debe: registra tu cena y mira tu jornada completa 🌙',
-    'Último empujón: tu cena al registro y quedas al día 🌙',
-    'Antes de desconectar, registra la cena — un día cerrado es un día que cuenta.',
+    'Cierra el día como se debe: registra lo que comiste y mira tu jornada completa 🌙',
+    'Último empujón: pon tu registro al día antes de descansar 🌙',
+    'Antes de desconectar, registra lo que falte — un día cerrado es un día que cuenta.',
   ],
   // Cierre del día CON meta: {pct} se reemplaza por el avance real de kcal.
   // Solo se envía a quien va por DEBAJO del 80% de su meta — quien ya llegó
@@ -388,7 +393,7 @@ export default async function handler(req, res) {
           payloads.push({ title: 'Tu coach', body: pick(MSGS.payment), tag: 'ecm-p' });
         }
       } else if (slot === 'd') {
-        // Tarde (2pm): a quien lleva menos de 2 registros (desayuno+almuerzo)
+        // Mediodía (2pm): a quien lleva menos de 2 registros hasta ahora
         if (registrosHoy < 2) payloads.push({ title: 'Tu coach', body: pick(MSGS.midday), tag: 'ecm-d' });
       } else if (slot === 'n') {
         // Noche (8pm): DIARIO por % de meta de kcal. Los totales solo valen

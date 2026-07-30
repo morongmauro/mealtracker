@@ -155,6 +155,10 @@ function summarize(row) {
     } : null,
     goals,
     coach_notes: row.coach_notes || {},
+    // Señales de dispositivo (las marca la app del cliente al sincronizar):
+    // el CRM las usa para el listado global "App en pantalla de inicio".
+    pwa_installed_at: data.pwa_installed_at || null,
+    push_enabled_at: data.push_enabled_at || null,
   };
 }
 
