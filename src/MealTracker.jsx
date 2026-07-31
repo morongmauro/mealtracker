@@ -319,6 +319,13 @@ const getLocalDate = (d = new Date()) => {
   return `${y}-${m}-${day}`;
 };
 
+// Monto en formato de moneda para los avisos de pago ("$ 250.000").
+const fmtMonto = (monto, moneda) => {
+  try {
+    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: moneda || 'COP', maximumFractionDigits: 0 }).format(monto);
+  } catch (e) { return `${monto} ${moneda || ''}`.trim(); }
+};
+
 if (typeof window !== 'undefined' && !window.storage) {
   const PREFIX = 'mt:';
   window.storage = {
@@ -1590,7 +1597,10 @@ export default function MealTracker() {
   };
 
   const callClaude = async (prompt, systemPrompt, opts = {}) => {
-    const { retries = 2, onDelta = null, accion = 'chat', schema = null } = opts;
+    // clientText: el texto TAL CUAL lo escribió/dictó el cliente, para el
+    // registro de mensajes del CRM. El prompt completo no sirve para eso:
+    // lleva delante el bloque de CONTEXTO interno (igual para todos).
+    const { retries = 2, onDelta = null, accion = 'chat', schema = null, clientText = null } = opts;
     let lastError = null;
     // System prompt cacheable con TTL de 1 HORA. El prompt es byte-idéntico
     // para TODOS los clientes (nombre y zona horaria van en el mensaje, no
@@ -1617,10 +1627,12 @@ export default function MealTracker() {
             max_tokens: 8000,
             system: systemBlocks,
             messages: [{ role: "user", content: prompt }],
-            // Para el tablero de consumo del CRM: quién llamó y qué tipo de
-            // acción fue. El server los registra pero NO los manda a Anthropic.
+            // Para el tablero de consumo del CRM: quién llamó, qué tipo de
+            // acción fue y qué escribió (texto limpio del cliente). El server
+            // los registra pero NO los manda a Anthropic.
             name,
             accion,
+            ...(clientText ? { mensaje_cliente: String(clientText).slice(0, 500) } : {}),
             // Salida estructurada: la API garantiza JSON válido con esta forma.
             ...(useSchema ? { output_config: { format: { type: 'json_schema', schema } } } : {}),
             ...(onDelta ? { stream: true } : {}),
@@ -1777,7 +1789,12 @@ export default function MealTracker() {
         if (!r.ok) return;
         const d = await r.json();
         if (cancelled) return;
-        setPaymentDue(d && d.due ? { dia_corte: d.dia_corte, dias_vencido: d.dias_vencido || 0, monto: d.monto, moneda: d.moneda } : null);
+        setPaymentDue(d && d.due ? {
+          dia_corte: d.dia_corte, dias_vencido: d.dias_vencido || 0, monto: d.monto, moneda: d.moneda,
+          // Deuda TOTAL cuando arrastra varios meses (el aviso debe decir la
+          // suma completa, no solo la mensualidad del último mes).
+          meses_deuda: d.meses_deuda || 1, monto_total: d.monto_total || null,
+        } : null);
         // ≥5 días vencido → cartel central al abrir la app (una vez por apertura).
         if (d && d.due && (d.dias_vencido || 0) >= 5 && !payModalShownRef.current) {
           payModalShownRef.current = true;
@@ -2607,6 +2624,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 - "summary_week": pide resumen semanal. Ej: "resumen semana", "cómo voy esta semana".
 - "retro_advice": CONSULTA RETROSPECTIVA sobre cómo ajustar lo YA registrado hoy para acercarse a la meta. NO registres nada nuevo. DETECTAR: "me pasé qué hago", "qué proporciones debí usar", "cómo evitar pasarme", "qué pude ajustar", "qué cambiar de esa cena/almuerzo/desayuno", "cómo corregir mi día", "esta comida me hizo pasar qué ajusto", "qué proporciones me recomiendas", "qué ajustes hago para llegar a la meta", "ayúdame a corregir", "cómo equilibro lo de hoy". El cliente ya registró su día, ve que se pasó/quedó corto, y quiere APRENDER qué pudo haber comido diferente.
   IMPORTANTE: usa DETALLE COMIDAS DE HOY del contexto para identificar qué item específico está empujando los macros fuera de meta. Si menciona una comida específica ("de la cena"), enfócate en esa; si dice "todo el día", da sugerencias para varias comidas del día.
+  OBLIGATORIO — LA PROPUESTA DEBE CERRAR CONTRA LA META: los ajustes que sugieras deben dejar "estimated_totals_after" DENTRO DE ±5% de la meta diaria en kcal (y proteína lo más cercana posible). PROHIBIDO proponer un día que quede muy por debajo o muy por arriba de la meta — ej. proponer 1600 kcal con meta de 1850 es un ERROR GRAVE (-13%): el cliente no pidió comer menos, pidió CUADRAR. Antes de responder, SUMA aritméticamente los totales de tu propuesta; si caen fuera del ±5%, RECALCULA subiendo o bajando cantidades de los mismos alimentos hasta cuadrar.
   Devuelve "retro_advice_response" con la estructura del schema. NUNCA agregues items al registro real del cliente.
 - "adjust_favorites_to_goal": el cliente pide AJUSTAR sus MENÚS O DÍAS FAVORITOS guardados para que las cantidades cuadren con su meta diaria. DETECTAR: "ajusta mis menús favoritos", "ajusta esos 3 menús para llegar a la meta", "qué cambio en mis favoritos para cuadrar macros", "haz que mis menús sumen mi meta", "esos menús son lo que como todos los días, ajustalos", "organiza mis favoritos para llegar a mi meta", "qué proporciones nuevas pongo a mis menús guardados".
   CRÍTICO: las CANTIDADES Y MACROS DE CADA FAVORITO YA ESTÁN EN EL CONTEXTO (bloque MENÚS Y DÍAS FAVORITOS DEL CLIENTE). PROHIBIDO pedirle al cliente que te cuente las cantidades — ya las tienes. PROHIBIDO devolver una pregunta. Usa esos datos directamente.
@@ -2720,10 +2738,14 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
       }
     };
 
+    // Para el registro de mensajes del CRM: el texto tal cual del cliente,
+    // sin la nota automática de verificación del guard de propuestas.
+    const logText = String(text).split('[NOTA AUTOMÁTICA DE VERIFICACIÓN')[0].trim();
+
     let lastErr = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const result = await callClaude(userMessage, sys, { onDelta, schema: PARSE_SCHEMA });
+        const result = await callClaude(userMessage, sys, { onDelta, schema: PARSE_SCHEMA, clientText: logText });
         const clean = result.replace(/```json|```/g, '').trim();
         const jsonMatch = clean.match(/\{[\s\S]*\}/);
         return JSON.parse(jsonMatch ? jsonMatch[0] : clean);
@@ -2796,7 +2818,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
   "totals": {"kcal": N, "p": N, "c": N, "g": N},
   "note": "nota técnica breve, máximo 12 palabras"
 }`;
-    const result = await callClaude(text, sys);
+    const result = await callClaude(text, sys, { clientText: text });
     const clean = result.replace(/```json|```/g, '').trim();
     return JSON.parse(clean);
   };
@@ -3025,9 +3047,34 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         maybeAppendGapSuggestion();
         return;
       }
+      // GUARD DE CIERRE (retro_advice y adjust_favorites): una propuesta debe
+      // quedar a ±5% de su objetivo en kcal. El prompt ya lo exige, pero el
+      // modelo a veces entrega sumas muy desviadas (caso real: propuso 1599
+      // kcal con meta de 1850 = -13%). Aquí se VERIFICA la suma antes de
+      // mostrar nada y, si está fuera, se pide UNA recalculada automática con
+      // el desvío exacto. Si el reintento tampoco cuadra, se muestra la mejor
+      // de las dos (nunca se deja al cliente sin respuesta).
+      const cerrarPropuesta = async (resp, key) => {
+        const targetDe = (r) => Number(r?.target?.kcal) || Number(r?.goal?.kcal) || Number(goals?.kcal) || 0;
+        const target = targetDe(resp);
+        const after = Number(resp?.estimated_totals_after?.kcal) || 0;
+        if (!target || !after) return resp;
+        const dev = (after - target) / target;
+        if (Math.abs(dev) <= 0.05) return resp;
+        try {
+          const nota = `\n\n[NOTA AUTOMÁTICA DE VERIFICACIÓN — NO LA ESCRIBIÓ EL CLIENTE, NO LA MENCIONES: tu propuesta anterior sumó ${Math.round(after)} kcal y el objetivo es ${Math.round(target)} kcal (desvío ${dev > 0 ? '+' : ''}${Math.round(dev * 100)}%), fuera del ±5% permitido. Repite la MISMA respuesta (mismo intent y estructura) recalculando las cantidades de los mismos alimentos hasta que estimated_totals_after quede DENTRO de ±5% del objetivo.]`;
+          const retry = await parseFoodEntry(userMsg + nota, { voiceInput: fromVoice, lastEntry, hasExplicitAppendIntent });
+          const resp2 = retry?.[key];
+          const after2 = Number(resp2?.estimated_totals_after?.kcal) || 0;
+          const target2 = targetDe(resp2) || target;
+          if (resp2 && after2 && Math.abs((after2 - target2) / target2) < Math.abs(dev)) return resp2;
+        } catch (e) { /* reintento fallido: se muestra la propuesta original */ }
+        return resp;
+      };
       // RETRO ADVICE — el cliente pide consejo sobre cómo ajustar lo que YA registró. Solo aprendizaje.
       if (intent === 'retro_advice' && parsed.retro_advice_response) {
-        setMessages(m => [...m, { role: 'assistant', content: 'retro_advice', isRetroAdvice: true, data: parsed.retro_advice_response, ts: Date.now() }]);
+        const data = await cerrarPropuesta(parsed.retro_advice_response, 'retro_advice_response');
+        setMessages(m => [...m, { role: 'assistant', content: 'retro_advice', isRetroAdvice: true, data, ts: Date.now() }]);
         setLoading(false); setLoadingPreview('');
         return;
       }
@@ -3035,7 +3082,8 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       // para llegar a la meta diaria. Es solo propuesta visual, no toca ni los favoritos
       // guardados ni el registro real del día.
       if (intent === 'adjust_favorites_to_goal' && parsed.adjust_favorites_response) {
-        setMessages(m => [...m, { role: 'assistant', content: 'adjust_favorites', isAdjustFavorites: true, data: parsed.adjust_favorites_response, ts: Date.now() }]);
+        const data = await cerrarPropuesta(parsed.adjust_favorites_response, 'adjust_favorites_response');
+        setMessages(m => [...m, { role: 'assistant', content: 'adjust_favorites', isAdjustFavorites: true, data, ts: Date.now() }]);
         setLoading(false); setLoadingPreview('');
         return;
       }
@@ -3523,7 +3571,7 @@ SCHEMA:
 
 EJEMPLO INPUT: "desayuno con 4 huevos revueltos, 2 tostadas integrales con manteca, café negro, creatina con cacao"
 EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo revuelto","amount":"4 unidades (~200g)","kcal":280,"p":24,"c":2,"g":20},{"name":"Pan integral tostado","amount":"2 unidades (~50g)","kcal":130,"p":5,"c":24,"g":2},{"name":"Manteca","amount":"~10g","kcal":72,"p":0,"c":0,"g":8},{"name":"Café negro","amount":"240ml","kcal":2,"p":0,"c":0,"g":0},{"name":"Creatina","amount":"5g","kcal":0,"p":0,"c":0,"g":0},{"name":"Cacao en polvo","amount":"2 cdas (~10g)","kcal":23,"p":2,"c":6,"g":1}],"quantity_warning":"asumí cantidades estándar; ajusta si difiere"}`;
-          const forcedResult = await callClaude(userMsg, forcedSys, { schema: PARSE_SCHEMA });
+          const forcedResult = await callClaude(userMsg, forcedSys, { schema: PARSE_SCHEMA, clientText: userMsg });
           const cleanF = forcedResult.replace(/```json|```/g, '').trim();
           const matchF = cleanF.match(/\{[\s\S]*\}/);
           const forced = JSON.parse(matchF ? matchF[0] : cleanF);
@@ -4307,13 +4355,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           }}>
             <span style={{ fontSize: '16px', flexShrink: 0 }}>💳</span>
             <div style={{ fontSize: '12px', color: '#6B5A22', lineHeight: 1.35, minWidth: 0 }}>
-              <strong style={{ color: '#8A6D16' }}>Recordatorio de pago:</strong> tu fecha de corte fue el {paymentDue.dia_corte} de {new Date().toLocaleDateString('es', { month: 'long' })}. Recuerda efectuar el pago mensual del programa{paymentDue.monto ? (
-                <> (<strong style={{ color: '#8A6D16' }}>{
-                  (() => { try {
-                    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: paymentDue.moneda || 'COP', maximumFractionDigits: 0 }).format(paymentDue.monto);
-                  } catch (e) { return `${paymentDue.monto} ${paymentDue.moneda || ''}`.trim(); } })()
-                }</strong>)</>
-              ) : null}.
+              <strong style={{ color: '#8A6D16' }}>Recordatorio de pago:</strong> {(paymentDue.meses_deuda || 1) > 1 ? (
+                <>tienes <strong style={{ color: '#8A6D16' }}>{paymentDue.meses_deuda} mensualidades pendientes</strong> del programa{paymentDue.monto_total ? (
+                  <> por un total de <strong style={{ color: '#8A6D16' }}>{fmtMonto(paymentDue.monto_total, paymentDue.moneda)}</strong></>
+                ) : null}. Recuerda ponerte al día</>
+              ) : (
+                <>tu fecha de corte fue el {paymentDue.dia_corte} de {new Date().toLocaleDateString('es', { month: 'long' })}. Recuerda efectuar el pago mensual del programa{paymentDue.monto ? (
+                  <> (<strong style={{ color: '#8A6D16' }}>{fmtMonto(paymentDue.monto, paymentDue.moneda)}</strong>)</>
+                ) : null}</>
+              )}.
             </div>
           </div>
         )}
@@ -4333,13 +4383,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           }}>
             <span style={{ fontSize: '18px', flexShrink: 0 }}>⚠️</span>
             <div style={{ fontSize: '12.5px', color: '#991B1B', lineHeight: 1.35, minWidth: 0 }}>
-              <strong style={{ color: '#B91C1C' }}>Pago pendiente hace {paymentDue.dias_vencido} días.</strong> Recuerda realizar el pago mensual del programa{paymentDue.monto ? (
-                <> (<strong style={{ color: '#B91C1C' }}>{
-                  (() => { try {
-                    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: paymentDue.moneda || 'COP', maximumFractionDigits: 0 }).format(paymentDue.monto);
-                  } catch (e) { return `${paymentDue.monto} ${paymentDue.moneda || ''}`.trim(); } })()
-                }</strong>)</>
-              ) : null} para seguir con tu proceso sin interrupciones.
+              <strong style={{ color: '#B91C1C' }}>Pago pendiente hace {paymentDue.dias_vencido} días.</strong> {(paymentDue.meses_deuda || 1) > 1 ? (
+                <>Tienes <strong style={{ color: '#B91C1C' }}>{paymentDue.meses_deuda} mensualidades pendientes</strong>{paymentDue.monto_total ? (
+                  <> — total <strong style={{ color: '#B91C1C' }}>{fmtMonto(paymentDue.monto_total, paymentDue.moneda)}</strong></>
+                ) : null}. Ponte al día</>
+              ) : (
+                <>Recuerda realizar el pago mensual del programa{paymentDue.monto ? (
+                  <> (<strong style={{ color: '#B91C1C' }}>{fmtMonto(paymentDue.monto, paymentDue.moneda)}</strong>)</>
+                ) : null}</>
+              )} para seguir con tu proceso sin interrupciones.
             </div>
           </div>
         )}
@@ -4631,12 +4683,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             <div style={{ fontSize: '46px', lineHeight: 1, marginBottom: '10px' }}>⚠️</div>
             <h2 style={{ fontSize: '21px', fontWeight: 800, color: '#B91C1C', margin: '0 0 10px' }}>Tu pago está pendiente</h2>
             <p style={{ fontSize: '14.5px', color: '#3F3F46', lineHeight: 1.5, margin: 0 }}>
-              Llevas <strong>{paymentDue?.dias_vencido} días</strong> desde tu fecha de corte{paymentDue?.monto ? (
-                <> y tu mensualidad es de <strong>{
-                  (() => { try {
-                    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: paymentDue.moneda || 'COP', maximumFractionDigits: 0 }).format(paymentDue.monto);
-                  } catch (e) { return `${paymentDue.monto} ${paymentDue.moneda || ''}`.trim(); } })()
-                }</strong></>
+              Llevas <strong>{paymentDue?.dias_vencido} días</strong> desde tu fecha de corte{(paymentDue?.meses_deuda || 1) > 1 ? (
+                <> y acumulas <strong>{paymentDue.meses_deuda} mensualidades pendientes</strong>{paymentDue.monto_total ? (
+                  <> por un total de <strong>{fmtMonto(paymentDue.monto_total, paymentDue.moneda)}</strong></>
+                ) : null}</>
+              ) : paymentDue?.monto ? (
+                <> y tu mensualidad es de <strong>{fmtMonto(paymentDue.monto, paymentDue.moneda)}</strong></>
               ) : null}. Realiza el pago para seguir con tu proceso sin interrupciones.
             </p>
             <button
