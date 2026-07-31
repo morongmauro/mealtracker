@@ -140,12 +140,22 @@ export default async function handler(req, res) {
   if (!guard(req, res, { key: 'chat', limit: 20 })) return;
 
   try {
-    const { model, max_tokens, system, messages, stream, name, accion, output_config } = req.body;
-    // Texto del último mensaje del usuario, para el registro (qué dijo).
+    const { model, max_tokens, system, messages, stream, name, accion, output_config, mensaje_cliente } = req.body;
+    // Texto del cliente para el registro (qué dijo). El frontend nuevo lo
+    // manda LIMPIO en `mensaje_cliente` (solo se registra, NO viaja a
+    // Anthropic). OJO: el último mensaje del chat NO sirve tal cual — es el
+    // prompt completo, que arranca con un bloque grande de CONTEXTO interno
+    // idéntico para todos los clientes; registrar sus primeros 500 chars
+    // mostraba "lo mismo" en todos en el tablero del CRM. Fallback para
+    // versiones viejas de la app: recortar desde el marcador del mensaje.
     const ultimoMsg = Array.isArray(messages) && messages.length
       ? messages[messages.length - 1]?.content : null;
-    const mensajeTexto = typeof ultimoMsg === 'string' ? ultimoMsg
+    const crudo = typeof ultimoMsg === 'string' ? ultimoMsg
       : (Array.isArray(ultimoMsg) ? ultimoMsg.map(b => b?.text || '').join(' ').trim() : null);
+    const MARCA_MSG = '═══ MENSAJE ACTUAL DEL CLIENTE ═══';
+    const mensajeTexto = (typeof mensaje_cliente === 'string' && mensaje_cliente.trim())
+      ? mensaje_cliente.trim()
+      : (crudo && crudo.includes(MARCA_MSG) ? crudo.split(MARCA_MSG).pop().trim() : crudo);
 
     if (typeof model === 'string' && !ALLOWED_MODEL_PREFIXES.some(p => model.startsWith(p))) {
       return res.status(400).json({ error: 'Model not allowed' });
