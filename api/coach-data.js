@@ -379,6 +379,136 @@ export default async function handler(req, res) {
     }
   }
 
+  // DAY EDIT — el coach agrega o quita comidas en un día del cliente desde
+  // su dashboard ("regístralo por mí"). Funciona con una COLA DE OPERACIONES
+  // (data.coach_day_edits) que la app del cliente aplica de forma idempotente
+  // (mismo patrón de canal coach→cliente que goals/reminders), y además se
+  // aplica OPTIMISTA aquí mismo sobre historyDetail/history (y today_entries
+  // si es el día vivo) para que el coach vea el cambio al instante.
+  // Body: { date:'YYYY-MM-DD', add:[{id?, meal, items:[{name,amount,kcal,p,c,g}]}], remove:[entryId,...] }
+  if (req.method === 'PATCH' && action === 'day_edit') {
+    const userId = req.query.user_id;
+    if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
+    const { date, add, remove } = req.body || {};
+    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'invalid date (YYYY-MM-DD)' });
+    }
+    const r1 = (n) => Math.round(n * 10) / 10;
+    const cleanNum = (v) => { const n = Number(v); return (Number.isFinite(n) && n >= 0 && n < 100000) ? r1(n) : 0; };
+    const MEALS = ['desayuno', 'almuerzo', 'cena', 'snack', 'comida'];
+    const cleanItems = (arr) => (Array.isArray(arr) ? arr : []).slice(0, 20).map(it => ({
+      name: String((it && it.name) || '').trim().slice(0, 120),
+      amount: String((it && it.amount) || '').trim().slice(0, 80),
+      kcal: cleanNum(it && it.kcal), p: cleanNum(it && it.p), c: cleanNum(it && it.c), g: cleanNum(it && it.g),
+      needs_quantity: false,
+    })).filter(it => it.name);
+    const now = new Date().toISOString();
+    const newOps = [];
+    for (const [i, a] of (Array.isArray(add) ? add : []).slice(0, 10).entries()) {
+      const items = cleanItems(a && a.items);
+      if (items.length === 0) continue;
+      const entry = {
+        id: Number.isFinite(Number(a && a.id)) && Number(a.id) > 0 ? Number(a.id) : Date.now() + i,
+        meal: MEALS.includes(String((a && a.meal) || '').toLowerCase()) ? String(a.meal).toLowerCase() : 'comida',
+        items,
+        kcal: Math.round(items.reduce((s, it) => s + it.kcal, 0)),
+        p: r1(items.reduce((s, it) => s + it.p, 0)),
+        c: r1(items.reduce((s, it) => s + it.c, 0)),
+        g: r1(items.reduce((s, it) => s + it.g, 0)),
+        time: '',
+        rawInput: 'ajuste del coach',
+        coach_added: true,
+      };
+      newOps.push({ id: `ce_add_${entry.id}`, date, op: 'add', entry, at: now, by: 'coach' });
+    }
+    for (const rid of (Array.isArray(remove) ? remove : []).slice(0, 30)) {
+      const idNum = Number(rid);
+      if (Number.isFinite(idNum)) newOps.push({ id: `ce_del_${date}_${idNum}`, date, op: 'del', entry_id: idNum, at: now, by: 'coach' });
+    }
+    if (newOps.length === 0) return res.status(400).json({ error: 'nothing to apply (add/remove empty or invalid)' });
+
+    try {
+      const r1q = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=data`,
+        { headers: supaHeaders() }
+      );
+      const rows = await r1q.json();
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return res.status(404).json({ error: 'client not found' });
+      }
+      const currentData = rows[0].data || {};
+
+      // 1) Cola de ops (dedup por id — reintentos del dashboard no duplican)
+      const ops = Array.isArray(currentData.coach_day_edits) ? currentData.coach_day_edits.slice() : [];
+      const known = new Set(ops.map(o => o && o.id));
+      for (const o of newOps) if (!known.has(o.id)) ops.push(o);
+      const newData = {
+        ...currentData,
+        coach_day_edits: ops.slice(-100),
+        coach_edits_updated: { at: now, by: 'coach' },
+      };
+
+      // 2) Aplicación optimista sobre el snapshot del server
+      const applyOps = (arr) => {
+        let next = Array.isArray(arr) ? arr.slice() : [];
+        for (const o of newOps) {
+          if (o.op === 'add' && !next.some(e => e && e.id === o.entry.id)) next.push(o.entry);
+          if (o.op === 'del') next = next.filter(e => !(e && e.id === o.entry_id));
+        }
+        return next;
+      };
+      const totalsOf = (arr) => arr.reduce((a, e) => ({
+        kcal: a.kcal + (e.kcal || 0), p: a.p + (e.p || 0), c: a.c + (e.c || 0), g: a.g + (e.g || 0),
+      }), { kcal: 0, p: 0, c: 0, g: 0 });
+
+      const hd = { ...(newData.historyDetail || {}) };
+      const nextDay = applyOps(hd[date]);
+      const hist = { ...(newData.history || {}) };
+      if (nextDay.length === 0) {
+        delete hd[date]; delete hist[date];
+      } else {
+        hd[date] = nextDay;
+        const t = totalsOf(nextDay);
+        hist[date] = { kcal: Math.round(t.kcal), p: r1(t.p), c: r1(t.c), g: r1(t.g), water: (hist[date] && hist[date].water) || 0 };
+      }
+      newData.historyDetail = hd;
+      newData.history = hist;
+      if (newData.today === date && Array.isArray(newData.today_entries)) {
+        const nextToday = applyOps(newData.today_entries);
+        newData.today_entries = nextToday;
+        const t = totalsOf(nextToday);
+        newData.today_totals = { kcal: Math.round(t.kcal), p: r1(t.p), c: r1(t.c), g: r1(t.g) };
+      }
+
+      // 3) Lápidas para lo QUITADO: sin esto, el próximo push del cliente
+      // (que aún trae la comida) la resucitaría en el server.
+      const dels = new Set(Array.isArray(newData.historyDeleted) ? newData.historyDeleted : []);
+      for (const o of newOps) if (o.op === 'del') dels.add(`${date}#${o.entry_id}`);
+      // Y lo AGREGADO levanta lápidas viejas que lo matarían al llegar al cliente.
+      for (const o of newOps) if (o.op === 'add') { dels.delete(`${date}#${o.entry.id}`); dels.delete(date); }
+      newData.historyDeleted = Array.from(dels).slice(-400);
+      if (newOps.some(o => o.op === 'add')) {
+        newData.historyDayOps = { ...(newData.historyDayOps || {}), [date]: { op: 'add', at: now } };
+      }
+
+      const r2 = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}`,
+        {
+          method: 'PATCH',
+          headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ data: newData, updated_at: now }),
+        }
+      );
+      if (!r2.ok) {
+        const detail = await r2.text();
+        return res.status(500).json({ error: 'day_edit failed', detail });
+      }
+      return res.status(200).json({ ok: true, applied: newOps.length, date });
+    } catch (e) {
+      return res.status(500).json({ error: 'day_edit failed', detail: String(e) });
+    }
+  }
+
   // MARK DUPLICATE — etiqueta a un cliente como duplicado de otro
   if (req.method === 'PATCH' && action === 'mark_duplicate') {
     const userId = req.query.user_id;

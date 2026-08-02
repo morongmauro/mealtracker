@@ -79,7 +79,7 @@ export default async function handler(req, res) {
         // Incluye también los recordatorios del coach: el mismo sondeo liviano
         // que detecta cambios de meta entrega recordatorios nuevos casi en vivo.
         const r = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=goals:data->goals,goals_updated:data->goals_updated,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=goals:data->goals,goals_updated:data->goals_updated,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated`,
           { headers }
         );
         const rows = await r.json();
@@ -122,7 +122,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -150,6 +150,51 @@ export default async function handler(req, res) {
         if (existing && remExistAt && remExistAt > remInAt) {
           dataToWrite.coach_reminders = existing.coach_reminders;
           dataToWrite.reminders_updated = existing.reminders_updated;
+        }
+
+        // Cola de EDICIONES DEL COACH (coach_day_edits, escrita por
+        // coach-data action=day_edit): el cliente NO la incluye en su push,
+        // así que sin esta fusión cada push del cliente la borraba. Unión
+        // por id de op; el sello coach_edits_updated conserva el más nuevo.
+        if (existing) {
+          const opsServer = Array.isArray(existing.coach_day_edits) ? existing.coach_day_edits : [];
+          const opsClient = Array.isArray(dataToWrite.coach_day_edits) ? dataToWrite.coach_day_edits : [];
+          if (opsServer.length || opsClient.length) {
+            const opsById = new Map();
+            for (const o of opsClient) { if (o && o.id) opsById.set(o.id, o); }
+            for (const o of opsServer) { if (o && o.id && !opsById.has(o.id)) opsById.set(o.id, o); }
+            dataToWrite.coach_day_edits = Array.from(opsById.values())
+              .sort((a, b) => String(a.at || '').localeCompare(String(b.at || ''))).slice(-100);
+          }
+          const ceExistAt = existing.coach_edits_updated?.at || '';
+          const ceInAt = dataToWrite.coach_edits_updated?.at || '';
+          if (ceExistAt && ceExistAt > ceInAt) dataToWrite.coach_edits_updated = existing.coach_edits_updated;
+
+          // Re-aplicar ADDS del coach pendientes sobre el snapshot entrante:
+          // un cliente que aún no aplicó la op (app cerrada o versión vieja)
+          // empuja su historial SIN esa comida y borraría lo que el coach
+          // agregó. Guardado por lápida: si el cliente la borró a propósito
+          // después de aplicarla, la lápida fecha#id existe y NO se resucita.
+          const opsFinal = Array.isArray(dataToWrite.coach_day_edits) ? dataToWrite.coach_day_edits : [];
+          const tombsForCoach = new Set([
+            ...(Array.isArray(existing.history_deleted) ? existing.history_deleted : []),
+            ...(Array.isArray(dataToWrite.historyDeleted) ? dataToWrite.historyDeleted : []),
+          ]);
+          for (const o of opsFinal) {
+            if (!o || o.op !== 'add' || !o.entry || o.entry.id == null || !o.date) continue;
+            if (o.date === dataToWrite.today) continue; // el día vivo lo gobierna la app
+            if (tombsForCoach.has(`${o.date}#${o.entry.id}`) || tombsForCoach.has(o.date)) continue;
+            if (!dataToWrite.historyDetail || typeof dataToWrite.historyDetail !== 'object') continue;
+            const arr = Array.isArray(dataToWrite.historyDetail[o.date]) ? dataToWrite.historyDetail[o.date] : [];
+            if (arr.some(e => e && e.id === o.entry.id)) continue;
+            const next = [...arr, o.entry];
+            dataToWrite.historyDetail[o.date] = next;
+            if (dataToWrite.history && typeof dataToWrite.history === 'object') {
+              const t = next.reduce((a, e) => ({ kcal: a.kcal + (e.kcal || 0), p: a.p + (e.p || 0), c: a.c + (e.c || 0), g: a.g + (e.g || 0) }), { kcal: 0, p: 0, c: 0, g: 0 });
+              const water = dataToWrite.history[o.date]?.water || 0;
+              dataToWrite.history[o.date] = { kcal: Math.round(t.kcal), p: Math.round(t.p * 10) / 10, c: Math.round(t.c * 10) / 10, g: Math.round(t.g * 10) / 10, water };
+            }
+          }
         }
 
         // Anti-pisado de FAVORITOS: el push trae el snapshot completo del
