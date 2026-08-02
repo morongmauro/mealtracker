@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   LogOut, Search, ArrowLeft, Save,
   Droplet, Edit2, X, Link2, Link2Off, ChevronRight,
+  Plus, Trash2,
 } from 'lucide-react';
 
 // Paleta del CRM (crm_entrenaconmetodo) — ver src/coachTheme.js.
@@ -707,6 +708,28 @@ function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Agregar/quitar comidas en un día del cliente (action=day_edit). Se envía
+  // a TODAS las sesiones del cliente (mismo patrón que las metas): las ops
+  // son idempotentes por id, así que aplicar en sesiones hermanas es seguro.
+  const coachDayEdit = useCallback(async (date, payload) => {
+    try {
+      const results = await Promise.all(allIds.map(id =>
+        apiFetch(`/api/coach-data?action=day_edit&user_id=${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ date, ...payload }),
+        }).catch(() => null)
+      ));
+      const okCount = results.filter(r => r && r.ok).length;
+      if (okCount === 0) {
+        const j = results[0] ? await results[0].json().catch(() => ({})) : { error: 'sin conexión' };
+        alert('No pude guardar el ajuste: ' + (j.error || 'revisa la conexión e intenta de nuevo.'));
+        return false;
+      }
+      await load();
+      return true;
+    } catch (e) { alert('Error: ' + e); return false; }
+  }, [allIds, apiFetch, load]);
+
   if (client === null && !error) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
@@ -811,7 +834,7 @@ function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
         ))}
       </div>
 
-      {tab === 'dia' && <TabDia goals={goals} todaySummary={todaySummary} todayEntries={todayEntries} wellbeingToday={wellbeing[today]} />}
+      {tab === 'dia' && <TabDia goals={goals} date={today} todaySummary={todaySummary} todayEntries={todayEntries} wellbeingToday={wellbeing[today]} onDayEdit={coachDayEdit} />}
       {tab === 'semana' && <TabSemana goals={goals} goalsHistory={goalsHistory} history={history} onSelectDay={setDrilldownDate} />}
       {tab === 'mes' && <TabMes goals={goals} goalsHistory={goalsHistory} history={history} onSelectDay={setDrilldownDate} />}
       {tab === 'tendencia' && <TabTendencia history={history} />}
@@ -828,6 +851,7 @@ function DetailView({ userId, siblings = [], apiFetch, onBack, onLogout }) {
           summary={history[drilldownDate] || null}
           entries={historyDetail[drilldownDate] || []}
           wellbeing={wellbeing[drilldownDate]}
+          onDayEdit={coachDayEdit}
           onClose={() => setDrilldownDate(null)} />
       )}
     </div>
@@ -846,7 +870,7 @@ function goalsEnFecha(goalsHistory, currentGoals, date) {
   return g || goalsHistory[0] || currentGoals || null;
 }
 
-function DayDetailModal({ date, goals: goalsProp, goalsHistory, summary, entries, wellbeing, onClose }) {
+function DayDetailModal({ date, goals: goalsProp, goalsHistory, summary, entries, wellbeing, onDayEdit, onClose }) {
   // La meta contra la que se muestra este día es la VIGENTE en esa fecha
   const goals = goalsEnFecha(goalsHistory, goalsProp, date) || goalsProp;
   // Cerrar con ESC
@@ -864,7 +888,7 @@ function DayDetailModal({ date, goals: goalsProp, goalsHistory, summary, entries
             <X size={18} style={{ color: TEXT_MUTED }} />
           </button>
         </div>
-        <DayDetail date={date} goals={goals} summary={summary} entries={entries} wellbeing={wellbeing} />
+        <DayDetail date={date} goals={goals} summary={summary} entries={entries} wellbeing={wellbeing} onDayEdit={onDayEdit} />
       </div>
     </div>
   );
@@ -1054,16 +1078,19 @@ function DuplicateCard({ client, apiFetch, onChange }) {
 }
 
 // ─── TABS ─────────────────────────────────────────────────────────────────
-function TabDia({ goals, todaySummary, todayEntries, wellbeingToday }) {
-  const today = todayLocal();
+function TabDia({ goals, date, todaySummary, todayEntries, wellbeingToday, onDayEdit }) {
+  // La fecha viene del DetailView (data.today reportado por el CLIENTE):
+  // usar todayLocal() aquí desfasaba las ediciones del coach cuando su zona
+  // horaria no coincide con la del cliente.
   return (
     <DayDetail
-      date={today}
+      date={date || todayLocal()}
       goals={goals}
       summary={todaySummary}
       entries={todayEntries}
       wellbeing={wellbeingToday}
       labelOverride="Hoy"
+      onDayEdit={onDayEdit}
     />
   );
 }
@@ -1071,8 +1098,14 @@ function TabDia({ goals, todaySummary, todayEntries, wellbeingToday }) {
 // Reporte detallado de un día — formato del coach, idéntico al PDF.
 // Usado por TabDia (hoy) y por el modal que se abre cuando clickeás un día
 // en TabSemana o TabMes.
-function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) {
+function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride, onDayEdit }) {
   const t = summary || { kcal: 0, p: 0, c: 0, g: 0, water: 0 };
+  const removeEntry = async (e) => {
+    if (!onDayEdit) return;
+    const label = `${(e.meal || 'comida')} (${fmt0(e.kcal)} kcal)`;
+    if (!window.confirm(`¿Quitar ${label} del registro del cliente en este día? El cliente verá el ajuste con un aviso en su app.`)) return;
+    await onDayEdit(date, { remove: [e.id] });
+  };
   return (
     <div className="space-y-4">
       {/* Meta diaria */}
@@ -1127,10 +1160,21 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) 
           {entries.map((e, i) => (
             <div key={i} className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
               <div className="flex justify-between items-baseline mb-2">
-                <div className="text-[13px] uppercase tracking-[0.04em] font-bold" style={{ color: TEXT }}>
+                <div className="text-[13px] uppercase tracking-[0.04em] font-bold flex items-center gap-2" style={{ color: TEXT }}>
                   {(e.meal || 'comida').toUpperCase()}
+                  {e.coach_added && (
+                    <span className="text-[10px] normal-case tracking-normal font-semibold px-1.5 py-0.5 rounded-full" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>agregada por ti</span>
+                  )}
                 </div>
-                <div className="text-[13px] num" style={{ color: TEXT_LIGHT }}>{e.time || ''}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[13px] num" style={{ color: TEXT_LIGHT }}>{e.time || ''}</div>
+                  {onDayEdit && (
+                    <button onClick={() => removeEntry(e)} title="Quitar esta comida del registro del cliente"
+                      className="p-1.5 rounded-full hover:bg-black/5 transition">
+                      <Trash2 size={13} style={{ color: DANGER }} />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="space-y-0.5">
                 {(e.items || []).map((it, j) => (
@@ -1153,6 +1197,9 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) 
         </div>
       )}
 
+      {/* Agregar comida por el coach ("regístralo por mí") */}
+      {onDayEdit && <CoachAddMeal date={date} onDayEdit={onDayEdit} />}
+
       {/* Bienestar del día (si hay) */}
       {wellbeing && (
         <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
@@ -1164,6 +1211,103 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride }) 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Formulario del coach para AGREGAR una comida al día del cliente. Crea un
+// entry con el mismo formato que la app (meal + items con macros) y lo envía
+// por action=day_edit; el cliente lo recibe con aviso en su chat en ~1 min.
+function CoachAddMeal({ date, onDayEdit }) {
+  const emptyItem = { name: '', amount: '', kcal: '', p: '', c: '', g: '' };
+  const [open, setOpen] = useState(false);
+  const [meal, setMeal] = useState('comida');
+  const [items, setItems] = useState([{ ...emptyItem }]);
+  const [saving, setSaving] = useState(false);
+  const setItem = (i, k, v) => setItems(arr => arr.map((it, j) => j === i ? { ...it, [k]: v } : it));
+  const validItems = items.filter(it => it.name.trim());
+  const totKcal = validItems.reduce((s, it) => s + (Number(it.kcal) || 0), 0);
+
+  const save = async () => {
+    if (validItems.length === 0 || saving) return;
+    setSaving(true);
+    const clean = validItems.map(it => ({
+      name: it.name.trim(), amount: it.amount.trim(),
+      kcal: Number(it.kcal) || 0, p: Number(it.p) || 0, c: Number(it.c) || 0, g: Number(it.g) || 0,
+    }));
+    const ok = await onDayEdit(date, { add: [{ id: Date.now(), meal, items: clean }] });
+    setSaving(false);
+    if (ok) { setOpen(false); setMeal('comida'); setItems([{ ...emptyItem }]); }
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)}
+        className="w-full p-4 rounded-2xl flex items-center justify-center gap-2 text-[14px] font-semibold transition hover:opacity-90"
+        style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, border: `1px dashed ${ACCENT}` }}>
+        <Plus size={15} strokeWidth={2.5} /> Agregar comida a este día del cliente
+      </button>
+    );
+  }
+  const inputStyle = { background: SURFACE_2, border: `1px solid ${BORDER}`, color: TEXT };
+  return (
+    <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${ACCENT}`, boxShadow: SHADOW_CARD }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[13px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>Agregar comida · {date}</div>
+        <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 transition">
+          <X size={14} style={{ color: TEXT_MUTED }} />
+        </button>
+      </div>
+      <div className="mb-3">
+        <select value={meal} onChange={e => setMeal(e.target.value)}
+          className="text-[14px] px-3 py-2 rounded-lg outline-none" style={inputStyle}>
+          {['desayuno', 'almuerzo', 'cena', 'snack', 'comida'].map(m => (
+            <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-2">
+        {items.map((it, i) => (
+          <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
+            <input placeholder="Alimento" value={it.name} onChange={e => setItem(i, 'name', e.target.value)}
+              className="col-span-4 text-[13px] px-2 py-1.5 rounded-lg outline-none" style={inputStyle} />
+            <input placeholder="Cantidad" value={it.amount} onChange={e => setItem(i, 'amount', e.target.value)}
+              className="col-span-3 text-[13px] px-2 py-1.5 rounded-lg outline-none" style={inputStyle} />
+            <input placeholder="kcal" type="number" value={it.kcal} onChange={e => setItem(i, 'kcal', e.target.value)}
+              className="col-span-1 text-[13px] px-1 py-1.5 rounded-lg outline-none num text-center" style={inputStyle} />
+            <input placeholder="P" type="number" value={it.p} onChange={e => setItem(i, 'p', e.target.value)}
+              className="col-span-1 text-[13px] px-1 py-1.5 rounded-lg outline-none num text-center" style={{ ...inputStyle, color: C_PROTEIN }} />
+            <input placeholder="C" type="number" value={it.c} onChange={e => setItem(i, 'c', e.target.value)}
+              className="col-span-1 text-[13px] px-1 py-1.5 rounded-lg outline-none num text-center" style={{ ...inputStyle, color: C_CARBS }} />
+            <input placeholder="G" type="number" value={it.g} onChange={e => setItem(i, 'g', e.target.value)}
+              className="col-span-1 text-[13px] px-1 py-1.5 rounded-lg outline-none num text-center" style={{ ...inputStyle, color: C_FAT }} />
+            <button onClick={() => setItems(arr => arr.length > 1 ? arr.filter((_, j) => j !== i) : arr)}
+              className="col-span-1 p-1.5 rounded-full hover:bg-black/5 transition justify-self-center" title="Quitar fila">
+              <Trash2 size={12} style={{ color: items.length > 1 ? DANGER : BORDER }} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between mt-3">
+        <button onClick={() => setItems(arr => [...arr, { ...emptyItem }])}
+          className="flex items-center gap-1 text-[13px] font-medium px-2.5 py-1.5 rounded-full"
+          style={{ background: SURFACE_2, color: TEXT_MUTED }}>
+          <Plus size={12} /> Otro alimento
+        </button>
+        <div className="flex items-center gap-3">
+          {validItems.length > 0 && (
+            <span className="text-[13px] num" style={{ color: TEXT_MUTED }}>Total: <strong style={{ color: TEXT }}>{fmt0(totKcal)} kcal</strong></span>
+          )}
+          <button onClick={save} disabled={validItems.length === 0 || saving}
+            className="flex items-center gap-1.5 text-[13px] font-semibold px-3.5 py-2 rounded-full transition"
+            style={{ background: validItems.length && !saving ? ACCENT : BORDER, color: '#fff', cursor: validItems.length && !saving ? 'pointer' : 'default' }}>
+            <Save size={13} /> {saving ? 'Guardando…' : 'Guardar en el día del cliente'}
+          </button>
+        </div>
+      </div>
+      <div className="text-[12px] mt-3" style={{ color: TEXT_LIGHT }}>
+        El cliente lo verá reflejado en su app en ~1 minuto (o al abrirla), con un aviso de que fue un ajuste tuyo. Los totales del día se recalculan solos.
+      </div>
     </div>
   );
 }

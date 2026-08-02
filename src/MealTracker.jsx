@@ -51,6 +51,7 @@ const PARSE_SCHEMA = {
     intent: { type: 'string', enum: ['log_meal', 'append_to_last', 'save_favorite_only', 'nutrition_query', 'meal_suggestion', 'summary_day', 'summary_week', 'retro_advice', 'adjust_favorites_to_goal', 'water', 'command', 'clarify', 'off_topic', 'name'] },
     meal: _str,
     log_date: _str,
+    move_from: _str,
     items: { anyOf: [{ type: 'array', items: ITEM_SCHEMA }, { type: 'null' }] },
     meals: {
       anyOf: [{
@@ -448,6 +449,10 @@ export default function MealTracker() {
   const [coachReminders, setCoachReminders] = useState([]);
   const remindersMetaRef = useRef(null);
   const applyServerRemindersRef = useRef(() => {});
+  // Ediciones de comidas hechas por el COACH desde su dashboard (cola de
+  // operaciones data.coach_day_edits escrita por coach-data action=day_edit).
+  // Se aplican una sola vez por op (registro local de ids aplicados).
+  const applyServerCoachEditsRef = useRef(() => {});
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -921,6 +926,15 @@ export default function MealTracker() {
         }
         applyServerGoalsRef.current(d.goals, d.goals_updated);
         applyServerRemindersRef.current(d.coach_reminders, d.reminders_updated);
+        // Ediciones del coach: se aplican DESPUÉS de que los merges de arriba
+        // asienten estado (el aplicador lee historyDetail/entries del render
+        // vigente; correr en el mismo tick usaría los valores pre-merge y
+        // podría pisar el día fusionado). El ref siempre apunta a la versión
+        // del último render, así que el timeout lee estado fresco.
+        if (Array.isArray(d.coach_day_edits) && d.coach_day_edits.length > 0) {
+          const ceOps = d.coach_day_edits;
+          setTimeout(() => { try { applyServerCoachEditsRef.current(ceOps); } catch (e) {} }, 1200);
+        }
         if (Array.isArray(d.goals_history) && d.goals_history.length > 0) setGoalsHistory(d.goals_history);
         if (typeof d.name === 'string' && d.name) setName(d.name);
       } catch (e) {
@@ -1023,6 +1037,84 @@ export default function MealTracker() {
     }
   };
 
+  // Aplica las ediciones de comidas que el COACH hizo desde su dashboard
+  // (agregar/quitar comidas en un día del cliente). Cada op se aplica UNA
+  // sola vez (registro de ids aplicados en localStorage) y es idempotente
+  // por id de comida: si el server ya la trajo aplicada en el pull, aquí
+  // solo se marca como vista. Las ops de días distintos a hoy van al
+  // historial; las de hoy tocan las comidas vivas del día.
+  applyServerCoachEditsRef.current = (ops) => {
+    if (!Array.isArray(ops) || ops.length === 0) return;
+    let seen = [];
+    try { seen = JSON.parse(localStorage.getItem('mt:coachEditsApplied') || '[]'); } catch (e) {}
+    const done = new Set(Array.isArray(seen) ? seen : []);
+    const pending = ops
+      .filter(o => o && o.id && typeof o.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.date) && !done.has(o.id))
+      .sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')));
+    if (pending.length === 0) return;
+    const todayNow = getLocalDate();
+    // Agrupar por día y aplicar CADA día en una sola pasada — llamar
+    // removeEntryFromDate/addEntriesToDate varias veces sobre el mismo día
+    // en el mismo tick pisaría los cambios (leen el estado del closure).
+    const byDate = {};
+    for (const op of pending) {
+      (byDate[op.date] = byDate[op.date] || { adds: [], removeIds: [] });
+      if (op.op === 'add' && op.entry && op.entry.id != null) byDate[op.date].adds.push(op.entry);
+      else if (op.op === 'del' && op.entry_id != null) byDate[op.date].removeIds.push(op.entry_id);
+      done.add(op.id);
+    }
+    const r1 = (n) => Math.round(n * 10) / 10;
+    const noteLines = [];
+    for (const [dateStr, { adds, removeIds }] of Object.entries(byDate)) {
+      const removeSet = new Set(removeIds);
+      if (dateStr === todayNow) {
+        setEntries(es => {
+          let next = es.filter(en => !removeSet.has(en.id));
+          for (const en of adds) if (!next.some(x => x.id === en.id)) next = [...next, { ...en }];
+          return next;
+        });
+        if (removeIds.length) setMessages(m => m.filter(msg => !removeSet.has(msg.entryId)));
+      } else {
+        const prev = Array.isArray(historyDetail[dateStr]) ? historyDetail[dateStr] : [];
+        let next = prev.filter(en => !removeSet.has(en.id));
+        for (const en of adds) if (!next.some(x => x.id === en.id)) next = [...next, { ...en }];
+        if (next.length === 0) {
+          removeDayFromHistory(dateStr);
+        } else {
+          const t = next.reduce((a, e) => ({ kcal: a.kcal + (e.kcal || 0), p: a.p + (e.p || 0), c: a.c + (e.c || 0), g: a.g + (e.g || 0) }), { kcal: 0, p: 0, c: 0, g: 0 });
+          setHistoryDetail(hd => ({ ...hd, [dateStr]: next }));
+          setHistory(h => ({ ...h, [dateStr]: { kcal: Math.round(t.kcal), p: r1(t.p), c: r1(t.c), g: r1(t.g), water: h[dateStr]?.water || 0 } }));
+          // Lápidas: las comidas quitadas no deben resucitar desde otro
+          // dispositivo; las agregadas levantan lápidas viejas de ese día.
+          setHistoryDeleted(dels => {
+            const addIds = new Set(adds.map(e => `${dateStr}#${e.id}`));
+            const merged = new Set(dels.filter(t2 => t2 !== dateStr && !addIds.has(t2)));
+            for (const id of removeIds) merged.add(`${dateStr}#${id}`);
+            return Array.from(merged).slice(-400);
+          });
+          if (adds.length) setHistoryDayOps(o => ({ ...o, [dateStr]: { op: 'add', at: new Date().toISOString() } }));
+        }
+      }
+      const dayLabel = dateStr === todayNow ? 'hoy' : new Date(dateStr + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+      const parts = [];
+      if (adds.length) parts.push(`agregó ${adds.map(e => `${e.meal || 'comida'} (${Math.round(e.kcal || 0)} kcal)`).join(', ')}`);
+      if (removeIds.length) parts.push(`quitó ${removeIds.length === 1 ? 'una comida' : removeIds.length + ' comidas'}`);
+      if (parts.length) noteLines.push(`• ${dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1)}: ${parts.join(' y ')}`);
+    }
+    try { localStorage.setItem('mt:coachEditsApplied', JSON.stringify(Array.from(done).slice(-200))); } catch (e) {}
+    if (noteLines.length) {
+      const firstName = name ? name.split(' ')[0] : '';
+      setMessages(m => [...m, {
+        role: 'assistant',
+        isAnnouncement: true,
+        tag: 'Ajuste de tu coach',
+        content: `${firstName ? firstName + ', ' : ''}tu coach ajustó tu registro:\n${noteLines.join('\n')}\nLos totales de ${noteLines.length === 1 ? 'ese día' : 'esos días'} ya quedaron actualizados.`,
+        ts: Date.now(),
+      }]);
+      haptic([20, 40, 20]);
+    }
+  };
+
   // Persistir recordatorios + marcar cumplido desde la app. El sello
   // {by:'cliente'} hace que el próximo push gane sobre la copia del server
   // y el coach vea el ✓ en su CRM en el próximo refresco.
@@ -1074,6 +1166,7 @@ export default function MealTracker() {
         if (!stopped && row) {
           applyServerGoalsRef.current(row.goals, row.goals_updated);
           applyServerRemindersRef.current(row.coach_reminders, row.reminders_updated);
+          applyServerCoachEditsRef.current(row.coach_day_edits);
         }
       } catch (e) {}
     };
@@ -2612,7 +2705,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 ═══ INTENTS (elige UNO) ═══
 - "log_meal": registrar comida(s) nueva(s). Ej: "desayuno: 2 huevos y café", "almorcé pollo con arroz". Si el mensaje cubre VARIAS comidas del día, usa el campo "meals" (array) con un objeto por comida. Si es UNA sola comida, usa "items" + "meal".
   PROHIBIDO log_meal cuando el cliente PREGUNTA (futuro/condicional) cuánto DEBERÍA comer: "¿cuántas cucharadas de yogur griego tengo que comer para llegar a la meta de proteína?", "¿cuánto pollo necesito para completar el día?", "¿qué me falta comer para cerrar mis macros?" → eso es command="proportion" (la app calcula la cantidad exacta con lo que le falta hoy). log_meal es SOLO comida YA comida.
-  FECHA DEL REGISTRO ("log_date"): por defecto null = HOY. Si el cliente dice que comió en un día PASADO ("ayer", "antier", "hace N días", "el lunes", "el sábado pasado", "el 15", "12 de junio"), busca ese día en la TABLA DE FECHAS del contexto y COPIA la fecha exacta (YYYY-MM-DD) en "log_date" — PROHIBIDO calcular la fecha por tu cuenta, usa la tabla. Un día de la semana = la ocurrencia MÁS RECIENTE ya pasada de ese día. NUNCA uses una fecha futura. Si no hay ninguna referencia temporal a un día pasado, log_date=null. OJO: con log_meal, log_date es SOLO para comida NUEVA (aún no registrada). Si la comida YA quedó registrada hoy y el cliente solo pide cambiarle el día ("eso que te pasé era de ayer") → NO uses log_meal: usa command="move_entry" (ver comandos), o quedará duplicada. log_date TAMBIÉN se usa con delete_entry y delete_day para borrar de un día pasado (misma regla: COPIA la fecha de la tabla).
+  FECHA DEL REGISTRO ("log_date"): por defecto null = HOY. La referencia temporal debe estar EN EL MENSAJE ACTUAL del cliente ("ayer", "antier", "hace N días", "el lunes", "el sábado pasado", "el 15", "12 de junio"). PROHIBIDO deducir un día pasado del historial de conversación o de los DÍAS PASADOS CON REGISTRO: "añade a mi desayuno X" sin mencionar día = HOY SIEMPRE, aunque ayer se haya hablado de otro desayuno. Si el mensaje actual trae la referencia, busca ese día en la TABLA DE FECHAS del contexto y COPIA la fecha exacta (YYYY-MM-DD) en "log_date" — PROHIBIDO calcular la fecha por tu cuenta, usa la tabla. Un día de la semana = la ocurrencia MÁS RECIENTE ya pasada de ese día. NUNCA uses una fecha futura. Si no hay ninguna referencia temporal a un día pasado, log_date=null. OJO: con log_meal, log_date es SOLO para comida NUEVA (aún no registrada). Si la comida YA quedó registrada hoy y el cliente solo pide cambiarle el día ("eso que te pasé era de ayer") → NO uses log_meal: usa command="move_entry" (ver comandos), o quedará duplicada. log_date TAMBIÉN se usa con delete_entry y delete_day para borrar de un día pasado (misma regla: COPIA la fecha de la tabla).
   VARIOS DÍAS EN UN MISMO MENSAJE: si el cliente dicta comidas de MÁS DE UN día ("el viernes comí X y el sábado Y", "te voy a contar lo de ayer y lo de hoy"), usa el campo "meals" y pon en CADA objeto de "meals" su propio "log_date" (la fecha de ESE día según la tabla; null si esa comida es de hoy). PROHIBIDO amontonar comidas de días distintos bajo una misma fecha — cada comida va exactamente al día que el cliente dijo. Solo si TODO el mensaje es de UN único día pasado puedes usar el "log_date" raíz para todo el bloque.
   Ejemplos: "ayer cené pollo con arroz" → log_meal, meal=cena, log_date=(fecha de "ayer" en la tabla). "el lunes desayuné avena y el martes almorcé pasta" → log_meal, meals=[{meal:"desayuno", log_date:(lunes en la tabla), items:[avena]}, {meal:"almuerzo", log_date:(martes en la tabla), items:[pasta]}]. "el domingo desayuné huevos y almorcé asado" → log_meal, meals=[{meal:"desayuno", log_date:(domingo), items:[huevos]}, {meal:"almuerzo", log_date:(domingo), items:[asado]}].
 - "append_to_last": SUMAR alimentos a la ÚLTIMA comida registrada hoy (no crear meal nuevo). DETECTAR estos signos: "me faltó", "olvidé decirte", "también comí", "agregale", "sumá", "ah me acordé", "no te dije que también", "ese tercero suma a lo que ya registraste". SI hay última comida, los items van EN ELLA.
@@ -2637,7 +2730,7 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
   Devuelve "adjust_favorites_response" con la estructura del schema. NUNCA registres nada — es solo propuesta visual.
 - "water": registra agua. "1 vaso"=250ml, "1 termo"=500ml, "1 botella"=500ml, "1 litro"=1000ml.
 - "command": acción de UI. command ∈ {reset_day, change_goals, calendar, favorites, export, proportion, manage_favorites, plan_day, save_day_favorite, move_entry, delete_entry, delete_day}. Mapping: "reiniciar día"→reset_day, "bórrame la cena / elimina eso último que registré / quita ese snack, estaba mal / eso no lo comí, bórralo"→delete_entry (+meal si dice cuál comida; si es de un día pasado agrega log_date copiado de la tabla), "borra todo lo que registré el <día pasado> / borra ese día completo / elimina el registro del 20"→delete_day + log_date (para HOY usa reset_day, no delete_day), "eran 300g no 150 / corrígele la cantidad / me equivoqué en el arroz de la cena"→edit_entry (ver regla en append_to_last), "cambiar meta"→change_goals, "calendario"→calendar, "favoritos/menús favoritos"→favorites, "exportar/descargar reporte"→export, "ayuda con proporciones/qué me sirve para cuadrar"→proportion (TAMBIÉN toda pregunta de cuánto comer de un alimento para alcanzar/completar/cerrar una meta o lo que resta del día: "¿cuántas cucharadas de yogur griego tengo que comer para llegar a la meta de proteínas que resta hoy?", "¿cuánto arroz me falta para completar carbos?", "¿con cuánto atún cierro mi proteína?" → proportion), "mis ingredientes son X, Y, Z / suelo comprar X, Y / mis favoritos son X"→manage_favorites (los items vienen en "items" o "preview"), "¿qué ingredientes tengo guardados? / muéstrame mis ingredientes / no me acuerdo qué ingredientes te di / ver mi lista de ingredientes"→manage_favorites SIN items (la app abre su lista para que la vea y edite), "¿qué menús favoritos tengo? / muéstrame mis menús guardados"→favorites, "armame el día/propón mi día/qué como hoy con lo que me gusta/distribuí lo que tengo"→plan_day. TAMBIÉN plan_day (CRÍTICO) cuando pide porciones/distribución del DÍA COMPLETO contando qué suele comer en cada comida — ej: "regálame las porciones, al desayuno suelo comer huevos y arepa, de almuerzo pechuga y arroz, de cena huevos y fruta" → command=plan_day + llena "items" con TODOS los alimentos que mencionó (solo "name", amount vacío). PROHIBIDO clasificar eso como proportion o meal_suggestion: proportion es para cuadrar UNA comida o alimentos sueltos AHORA; si el mensaje recorre desayuno+almuerzo+cena (o pide "el día"), es plan_day SIEMPRE, "guarda mi día como favorito / guardar el día como favorito / quiero guardar este día / agregar este día a favoritos / hoy fue un buen día guárdalo"→save_day_favorite.
-  MOVER UNA COMIDA YA REGISTRADA A OTRO DÍA → move_entry (CRÍTICO): si el cliente pide cambiar la fecha de algo que YA quedó registrado hoy ("eso que te pasé regístralo para ayer, no para hoy", "esa cena era de ayer", "lo que registraste pásalo al miércoles", "me equivoqué, eso fue antier") → command="move_entry" + meal=(tipo de comida referida: cena/almuerzo/etc., o null si no lo dice) + log_date=(fecha DESTINO copiada de la TABLA DE FECHAS). Se reconoce porque en el contexto de conversación YA aparece esa comida registrada ("(registré cena: …)"). PROHIBIDO responder con log_meal en ese caso: re-registrarla crearía un DUPLICADO (la comida quedaría contada en los dos días). log_meal con log_date es SOLO para comida que aún NO está registrada.
+  MOVER UNA COMIDA YA REGISTRADA A OTRO DÍA → move_entry (CRÍTICO): si el cliente pide cambiar la fecha de algo que YA quedó registrado — EN CUALQUIER DIRECCIÓN: de hoy a un día pasado ("esa cena era de ayer", "lo que registraste pásalo al miércoles", "me equivoqué, eso fue antier") O de un día pasado a hoy u otro día ("ese registro era para hoy, no para ayer", "eso que quedó en el sábado muévelo a hoy", "el desayuno del lunes era del martes") → command="move_entry" + meal=(tipo de comida referida: cena/almuerzo/etc., o null si no lo dice) + log_date=(fecha DESTINO copiada de la TABLA DE FECHAS — puede ser la fila HOY) + move_from=(fecha ORIGEN donde está registrada la comida, copiada de la tabla; null si está en hoy). "para hoy"/"era de hoy" → log_date = la fecha de la fila HOY de la tabla, NUNCA null. Se reconoce porque la comida ya aparece registrada (en el contexto de conversación o en DÍAS PASADOS CON REGISTRO). PROHIBIDO responder con log_meal en ese caso: re-registrarla crearía un DUPLICADO (la comida quedaría contada en los dos días). log_meal con log_date es SOLO para comida que aún NO está registrada.
 - "clarify": SOLO si hay ambigüedad REAL. Llenar "clarify_interpretation" (tu mejor lectura ESCRITA PARA EL CLIENTE: 1 oración corta hablándole de "tú", ej: "quieres registrar pollo en tu cena") y "clarify_question" (pregunta corta y cálida, ej: "¿cuántos gramos aproximadamente?"). PROHIBIDO en ambos campos: razonamiento interno, tercera persona ("el cliente dice..."), o mencionar historial/señales/frontend/intents/reglas — el cliente lee estos textos TAL CUAL.
 - "off_topic": saludos, charla, preguntas sobre el coach, definir/cambiar dieta o metas, condiciones médicas/suplementos, y preguntas de nutrición GENERAL educativa. Llena "message" con respuesta cálida y breve (ver reglas de DERIVACIÓN A MAURO más abajo para el tono exacto según el caso).
 - "name": cliente dice su nombre. Llena "name_detected".
@@ -2646,7 +2739,8 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 {
   "intent": "log_meal | append_to_last | save_favorite_only | nutrition_query | meal_suggestion | summary_day | summary_week | retro_advice | adjust_favorites_to_goal | water | command | clarify | off_topic | name",
   "meal": "desayuno | almuerzo | cena | snack | comida | null",
-  "log_date": "YYYY-MM-DD si el cliente registra un día PASADO, null = hoy",
+  "log_date": "YYYY-MM-DD si el cliente registra un día PASADO, null = hoy. Para move_entry es la fecha DESTINO (puede ser la de HOY)",
+  "move_from": "SOLO para move_entry: YYYY-MM-DD del día ORIGEN donde está la comida (copiado de la tabla), null si está en hoy",
   "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N, "needs_quantity": false}],
   "meals": [{"meal": "desayuno|almuerzo|cena|snack|comida", "log_date": "YYYY-MM-DD si ESA comida es de un día pasado, null = hoy", "items": [{"name": "...", "amount": "...", "kcal": N, "p": N, "c": N, "g": N, "fiber": N, "omega3": N, "sugar": N}]}] | null,
   "append_to_entry_id": N | null,
@@ -3228,24 +3322,72 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           }
         }
         else if (parsed.command === 'move_entry') {
-          // Mover una comida YA registrada hoy a un día pasado. Sin esto,
-          // "eso que te pasé era de ayer" se re-registraba con log_date y la
-          // comida quedaba DOBLE: contada en hoy y en ayer.
-          const isPast = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d < today;
-          const targetDate = isPast(parsed.log_date) ? parsed.log_date : null;
+          // Mover una comida YA registrada entre días — en AMBAS direcciones:
+          // hoy → día pasado ("esa cena era de ayer") y día pasado → hoy u
+          // otro día pasado ("ese registro era para hoy, no para ayer").
+          // Antes solo existía hoy→pasado: pedir "muévela a hoy" caía en un
+          // bucle infinito de "¿para qué día?" porque el destino nunca podía
+          // ser hoy, y el origen solo se buscaba en las comidas de hoy.
+          const isDateStr = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+          let targetDate = (isDateStr(parsed.log_date) && parsed.log_date <= today) ? parsed.log_date : null;
+          // Guardia determinística: si el modelo no llenó el destino pero el
+          // cliente dijo "hoy" en su mensaje, el destino es HOY. Sin esto,
+          // "muévela para hoy" repetía la pregunta para siempre.
+          if (!targetDate && /\bhoy\b/i.test(userMsg)) targetDate = today;
           const wanted = (parsed.meal || '').toLowerCase();
-          const candidates = wanted ? entries.filter(en => (en.meal || '').toLowerCase() === wanted) : entries;
-          const target = candidates[candidates.length - 1]; // la más reciente de ese tipo
+          const moveFrom = (isDateStr(parsed.move_from) && parsed.move_from < today) ? parsed.move_from : null;
+          const findIn = (arr) => {
+            const cand = wanted ? arr.filter(en => (en.meal || '').toLowerCase() === wanted) : arr;
+            return cand[cand.length - 1] || null; // la más reciente de ese tipo
+          };
+          // Origen: primero el día que indique el modelo, luego HOY, luego el
+          // día MÁS RECIENTE del historial (14 días) que tenga esa comida.
+          let srcDate = null; let target = null;
+          if (moveFrom && moveFrom !== targetDate) {
+            target = findIn(Array.isArray(historyDetail[moveFrom]) ? historyDetail[moveFrom] : []);
+            if (target) srcDate = moveFrom;
+          }
+          if (!target && targetDate !== today) {
+            target = findIn(entries);
+            if (target) srcDate = today;
+          }
+          if (!target) {
+            for (let i = 1; i <= 14 && !target; i++) {
+              const d = new Date(); d.setDate(d.getDate() - i);
+              const key = getLocalDate(d);
+              if (key === targetDate) continue; // el origen no puede ser el propio destino
+              const hit = findIn(Array.isArray(historyDetail[key]) ? historyDetail[key] : []);
+              if (hit) { target = hit; srcDate = key; }
+            }
+          }
+          if (!target && targetDate === today) {
+            // último recurso: quizá sí está en hoy y el cliente quiere "moverla a hoy" por error
+            target = findIn(entries);
+            if (target) srcDate = today;
+          }
+          const dayLabel = (d) => d === today ? 'hoy' : new Date(d + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
           if (!targetDate) {
-            setMessages(m => [...m, { role: 'assistant', content: '¿Para qué día muevo esa comida? Dime por ejemplo "para ayer" o la fecha exacta.', ts: Date.now() }]);
+            setMessages(m => [...m, { role: 'assistant', content: '¿Para qué día muevo esa comida? Dime por ejemplo "para hoy", "para ayer" o la fecha exacta.', ts: Date.now() }]);
           } else if (!target) {
-            setMessages(m => [...m, { role: 'assistant', content: `No encuentro ${wanted ? `esa ${wanted}` : 'esa comida'} registrada en tu día de hoy, así que no moví nada. Si quedó en otro día por error, dímelo y lo revisamos con tu coach.`, ts: Date.now() }]);
+            setMessages(m => [...m, { role: 'assistant', content: `No encuentro ${wanted ? `esa ${wanted}` : 'esa comida'} ni en tu día de hoy ni en tus últimos 14 días, así que no moví nada. Dime en qué día quedó registrada y la muevo.`, ts: Date.now() }]);
+          } else if (srcDate === targetDate) {
+            setMessages(m => [...m, { role: 'assistant', content: `Tu ${target.meal || 'comida'} ya está registrada en ${dayLabel(targetDate)} — no había nada que mover.`, ts: Date.now() }]);
           } else {
-            setEntries(es => es.filter(en => en.id !== target.id));
-            setMessages(m => m.filter(msg => msg.entryId !== target.id));
-            addEntriesToDate(targetDate, [{ ...target, time: '' }]);
-            const dayLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
-            setMessages(m => [...m, { role: 'assistant', content: `Hecho: moví tu ${target.meal || 'comida'} (${Math.round(target.kcal)} kcal · P${Math.round(target.p)} C${Math.round(target.c)} G${Math.round(target.g)}) de hoy a ${dayLabel}. Salió de los totales de hoy y quedó contada solo en ese día — nada doble.`, ts: Date.now() }]);
+            // 1) Sacarla del día origen
+            if (srcDate === today) {
+              setEntries(es => es.filter(en => en.id !== target.id));
+              setMessages(m => m.filter(msg => msg.entryId !== target.id));
+            } else {
+              removeEntryFromDate(srcDate, target.id);
+            }
+            // 2) Meterla en el día destino
+            if (targetDate === today) {
+              const movedEntry = { ...target, time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) };
+              setEntries(es => es.some(en => en.id === movedEntry.id) ? es : [...es, movedEntry]);
+            } else {
+              addEntriesToDate(targetDate, [{ ...target, time: '' }]);
+            }
+            setMessages(m => [...m, { role: 'assistant', content: `Hecho: moví tu ${target.meal || 'comida'} (${Math.round(target.kcal)} kcal · P${Math.round(target.p)} C${Math.round(target.c)} G${Math.round(target.g)}) de ${dayLabel(srcDate)} a ${dayLabel(targetDate)}. Quedó contada solo en ${dayLabel(targetDate)} — nada doble.`, ts: Date.now() }]);
             haptic(15);
           }
         }
@@ -3398,7 +3540,16 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
       // parsed.log_date como respaldo global. Antes existía UN solo log_date
       // para todo el mensaje: al dictar varios días, todo caía amontonado en
       // una sola fecha del historial.
+      // GUARDIA DETERMINÍSTICA DE FECHA (caso real: "añade a mi desayuno X"
+      // sin mencionar día quedó registrado en AYER porque el modelo dedujo la
+      // fecha del historial de conversación). Una fecha pasada del modelo solo
+      // se acepta si el MENSAJE del cliente trae una referencia temporal
+      // explícita; si no la hay, todo se registra HOY, diga lo que diga el
+      // modelo. Mismo patrón que la señal determinística de append.
+      const PAST_REF_REGEX = /(ayer|antier|anteayer|anoche|antenoche|pasad[oa]s?\b|hace\s+(\d+|un|una|dos|tres|cuatro|cinco|seis|siete)\s+(d[ií]as?|semanas?)|\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b|\bel\s+\d{1,2}\b|\d{1,2}\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)|\d{4}-\d{2}-\d{2})/i;
+      const hasExplicitPastRef = PAST_REF_REGEX.test(userMsg);
       const normPastDate = (d) => {
+        if (!hasExplicitPastRef) return null; // sin referencia temporal explícita → HOY siempre
         if (!d || typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
         return d < today ? d : null; // solo fechas pasadas; hoy/futuro = flujo normal
       };
@@ -5733,14 +5884,24 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </div>
           )}
 
-          <div className="space-y-1 mb-3">
+          <div className="space-y-1.5 mb-3">
             {e.items.map((it, i) => (
-              <div key={i} className="text-xs flex justify-between gap-3">
-                <span style={{ color: TEXT }}>
-                  {it.name}{it.amount ? ` · ${it.amount}` : ''}
-                  {it.needs_quantity && <span className="ml-1 text-[10px]" style={{ color: WARN }}>· estimado</span>}
-                </span>
-                <span className="num" style={{ color: TEXT_LIGHT }}>{it.kcal} kcal</span>
+              <div key={i} className="text-xs">
+                <div className="flex justify-between gap-3">
+                  <span style={{ color: TEXT }}>
+                    {it.name}{it.amount ? ` · ${it.amount}` : ''}
+                    {it.needs_quantity && <span className="ml-1 text-[10px]" style={{ color: WARN }}>· estimado</span>}
+                  </span>
+                  <span className="num" style={{ color: TEXT_LIGHT }}>{it.kcal} kcal</span>
+                </div>
+                {/* Macros por ingrediente: en comidas de varios alimentos el
+                    total no deja ver QUÉ aporta cada cosa — con esto el
+                    cliente aprende y sabe qué ajustar. */}
+                <div className="flex gap-2.5 text-[10px] num mt-0.5">
+                  <span style={{ color: C_PROTEIN }}>P {fmt1(it.p ?? 0)}g</span>
+                  <span style={{ color: C_CARBS }}>C {fmt1(it.c ?? 0)}g</span>
+                  <span style={{ color: C_FAT }}>G {fmt1(it.g ?? 0)}g</span>
+                </div>
               </div>
             ))}
           </div>
