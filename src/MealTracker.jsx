@@ -517,6 +517,18 @@ export default function MealTracker() {
   const stableStopVoice = useCallback(() => latestHandlersRef.current.stopVoice?.(), []);
   const stableFocusInput = useCallback(() => setActionsExpanded(false), []);
 
+  // Herramientas que ACTÚAN sobre el chat (repetir ayer, resumen del día,
+  // proporciones): si se abrieron desde Hoy o Recetario, primero llevan al
+  // cliente al chat — si no, la acción ocurre "detrás" y parece que la app
+  // no hizo nada. Actualiza también los espejos ref para que el cierre por
+  // DOM directo (closeActionsSheet) ya vea el destino correcto.
+  const goToChat = useCallback(() => {
+    showRecetarioRef.current = false;
+    tabRef.current = 'chat';
+    setShowRecetario(false);
+    setTab('chat');
+  }, []);
+
   const openActionsSheet = useCallback(() => {
     if (actionsSheetRef.current) actionsSheetRef.current.style.display = 'flex';
     if (inputBarRef.current) inputBarRef.current.style.display = 'none';
@@ -4608,6 +4620,18 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
 
 
+        {/* DIFUMINADO bajo la zona fija (header + tarjeta de anillos): los
+            mensajes no "chocan" contra la tarjeta al scrollear — se
+            desvanecen hacia el borde superior antes de pasar por debajo.
+            zIndex 25: sobre los mensajes (auto), bajo la zona fija (30). */}
+        <div className="fixed left-0 right-0 pointer-events-none" style={{
+          zIndex: 25,
+          top: `${zoneH != null
+            ? headerH + 6 + zoneH
+            : headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0) + (pushPrompt ? 58 : 0)}px`,
+          height: '46px',
+          background: 'linear-gradient(180deg, #F9F7F1 0%, rgba(249,247,241,0.85) 35%, rgba(249,247,241,0) 100%)',
+        }} />
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '84px', contain: 'layout paint', willChange: 'transform' }}>
           {/* Editorial hand-drawn food silhouettes — thin organic lines */}
@@ -4654,7 +4678,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           alto; si elige "Ahora no", el banner de la zona fija lo sigue
           recordando en las próximas aperturas. */}
       {pushIntro && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(20,22,16,0.45)', backdropFilter: 'none' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(20,22,16,0.38)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
           <div className="fade-up w-full" style={{
             maxWidth: '340px', borderRadius: '24px', padding: '28px 24px 20px', textAlign: 'center',
             background: `linear-gradient(135deg, ${ACCENT_PASTEL}50 0%, rgba(255,255,255,0.5) 100%), rgba(255,255,255,0.97)`,
@@ -4740,9 +4764,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               ignora dentro de contenedores con scroll). Las tarjetas glass
               encima lo dejan respirar. */}
           <div className="fixed inset-0 pointer-events-none" style={{
-            background: `radial-gradient(52% 38% at 90% 2%, rgba(140,196,178,0.36), transparent 70%),
-              radial-gradient(46% 34% at -4% 28%, rgba(168,197,150,0.30), transparent 70%),
-              radial-gradient(48% 38% at 98% 88%, rgba(212,218,184,0.42), transparent 72%)`,
+            // 6 manchas repartidas por TODA la pantalla (no solo esquinas):
+            // el glass de las tarjetas deja verlas a través.
+            background: `radial-gradient(44% 30% at 88% 0%, rgba(140,196,178,0.42), transparent 70%),
+              radial-gradient(38% 26% at -2% 16%, rgba(168,197,150,0.36), transparent 70%),
+              radial-gradient(46% 30% at 55% 38%, rgba(140,196,178,0.24), transparent 70%),
+              radial-gradient(40% 28% at 2% 72%, rgba(212,218,184,0.48), transparent 72%),
+              radial-gradient(44% 32% at 100% 58%, rgba(168,197,150,0.30), transparent 70%),
+              radial-gradient(42% 30% at 60% 102%, rgba(140,196,178,0.34), transparent 72%)`,
           }} />
           <div className="relative max-w-2xl mx-auto px-5">
             <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em', marginTop: '6px' }}>
@@ -4761,9 +4790,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 página; la tarjeta es vidrio esmerilado con sombra premium. */}
             <div className="relative overflow-hidden" style={{
               marginTop: '16px', borderRadius: '26px', padding: '20px',
-              background: 'rgba(255,255,255,0.55)',
-              backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
-              boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 16px 38px rgba(96,102,72,0.13), 0 3px 10px rgba(96,102,72,0.06)',
+              // Más transparente y blur más corto: las manchas del fondo se
+              // VEN a través del vidrio (antes el 0.55 + blur 18 las tapaba).
+              background: 'rgba(255,255,255,0.40)',
+              backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.80) inset, 0 16px 38px rgba(96,102,72,0.13), 0 3px 10px rgba(96,102,72,0.06)',
             }}>
               {!goals ? (
                 <div className="relative text-center py-3">
@@ -4944,7 +4975,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           la zona de barras SOLO cuando hay algo pendiente, para que
           no pase desapercibido (dentro del sheet quedaba escondido). Sin
           pendientes desaparece y no estorba. */}
-      {coachReminders.some(r => !r.done_at) && (
+      {/* Solo en el chat: en Hoy ya existe el icono de Recordatorios entre
+          las herramientas — la píldora ahí redundaba. */}
+      {tab === 'chat' && !showRecetario && coachReminders.some(r => !r.done_at) && (
         <button
           onPointerDown={(e) => { e.preventDefault(); haptic(8); setActiveModal('reminders'); }}
           onClick={(e) => e.preventDefault()}
@@ -4981,7 +5014,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           ref={actionsSheetRef}
           className="fixed inset-0 z-50 flex items-end justify-center"
           style={{
-            background: 'rgba(0,0,0,0.45)',
+            // Blur sutil del fondo (6px): profundidad premium. Es seguro —
+            // el congelamiento histórico venía del re-render del árbol, no
+            // del blur (la barra de navegación y la píldora ya lo usan); y
+            // como el sheet vive con display:none, el blur solo se computa
+            // mientras está abierto. En WebViews viejos degrada a solo dim.
+            background: 'rgba(20,22,16,0.38)',
+            backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
             display: visible ? 'flex' : 'none',
             contain: 'strict'
           }}
@@ -5033,7 +5072,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <ActionChipMini icon={<ChefHat size={15} strokeWidth={2.2} />} label="Arma mi día" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
                     onClick={() => { haptic(8); plannerPrefsRef.current = { text: '', extra: [] }; setShowPlannerModal(true); generatePlan(); }} />
                   <ActionChipMini icon={<Repeat size={15} strokeWidth={2.2} />} label="Repetir comida de ayer" grad="linear-gradient(135deg, #7C8CA3, #4E5D74)"
-                    onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
+                    onClick={() => { haptic(8); goToChat(); repeatYesterday(); closeActionsSheet(); }} />
                   <ActionChipMini icon={<Star size={15} strokeWidth={2.2} />} label="Menús favoritos" grad="linear-gradient(135deg, #D4B581, #9C7C3C)"
                     onClick={() => { haptic(8); setActiveModal('favorites'); }} />
                   <ActionChipMini icon={<ShoppingBasket size={15} strokeWidth={2.2} />} label="Mis ingredientes" grad="linear-gradient(135deg, #E09479, #C05E44)"
@@ -5049,11 +5088,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mi Semana" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
                     onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
                   <ActionChipMini icon={<FileText size={15} strokeWidth={2.2} />} label="Resumen del día" grad="linear-gradient(135deg, #7C8CA3, #4E5D74)"
-                    onClick={() => { haptic(8); closeActionsSheet(); handleSend('ver resumen diario'); }} />
+                    onClick={() => { haptic(8); goToChat(); closeActionsSheet(); handleSend('ver resumen diario'); }} />
                   <ActionChipMini icon={<Calendar size={15} strokeWidth={2.2} />} label="Calendario" grad="linear-gradient(135deg, #74AECB, #3F81A6)"
                     onClick={() => { haptic(8); setActiveModal('calendar'); }} />
                   <ActionChipMini icon={<Scale size={15} strokeWidth={2.2} />} label="Ayuda con proporciones" grad="linear-gradient(135deg, #E09479, #C05E44)"
-                    onClick={() => { haptic(8); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); }} />
+                    onClick={() => { haptic(8); goToChat(); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); }} />
                 </div>
               </div>
 
@@ -5653,7 +5692,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
           background: ACCENT_PASTEL + '40',
-          border: `1px solid ${ACCENT_PASTEL}`,
+          boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 24px rgba(96,102,72,0.12), 0 1px 4px rgba(0,0,0,0.04)',
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Star size={14} style={{ color: ACCENT_DARK }} />
@@ -5692,7 +5731,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
           background: ACCENT_PASTEL + '40',
-          border: `1px solid ${ACCENT_PASTEL}`,
+          boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 24px rgba(96,102,72,0.12), 0 1px 4px rgba(0,0,0,0.04)',
         }}>
           <div className="flex items-center gap-2 mb-2">
             <ChefHat size={14} style={{ color: ACCENT_DARK }} />
@@ -5782,9 +5821,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
       <div className="flex justify-start fade-up">
         <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
           background: 'rgba(255,255,255,0.92)',
-          border: `1px solid ${C_CARBS_PASTEL}`,
-          borderLeft: `3px solid ${C_CARBS}`,
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.06)',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(212,181,129,0.22), 0 1px 4px rgba(0,0,0,0.05)',
         }}>
           <div className="flex items-center gap-1.5 mb-2">
             <Star size={13} strokeWidth={2.2} style={{ color: C_CARBS, fill: C_CARBS }} />
@@ -5906,7 +5943,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
                 time: ''
               };
               return (
-                <div key={idx} className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER_SOFT}` }}>
+                <div key={idx} className="p-3 rounded-xl" style={{ background: SURFACE_2, boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 3px 12px rgba(60,70,50,0.08)' }}>
                   <div className="text-[11px] uppercase tracking-[0.03em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>{a.meal || 'comida'}</div>
                   {a.original_summary && (
                     <div className="text-[11px] mb-1.5" style={{ color: TEXT_LIGHT }}>Original: {a.original_summary}</div>
@@ -5987,7 +6024,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </div>
           )}
           {(current.kcal || goal.kcal) && (
-            <div className="mb-3 p-2.5 rounded-lg" style={{ background: SURFACE_2, border: `1px solid ${BORDER_SOFT}` }}>
+            <div className="mb-3 p-2.5 rounded-lg" style={{ background: SURFACE_2, boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 3px 12px rgba(60,70,50,0.08)' }}>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
                   <div className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_LIGHT }}>Suma actual</div>
@@ -6018,7 +6055,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
                 time: ''
               };
               return (
-                <div key={idx} className="p-3 rounded-xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER_SOFT}` }}>
+                <div key={idx} className="p-3 rounded-xl" style={{ background: SURFACE_2, boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 3px 12px rgba(60,70,50,0.08)' }}>
                   <div className="flex items-center gap-1.5 mb-1">
                     <Star size={11} style={{ color: C_CARBS }} />
                     <span className="text-[12px] font-semibold" style={{ color: TEXT }}>{a.favorite_name || 'Favorito'}</span>
@@ -6224,7 +6261,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               </div>
               <div className="space-y-2.5">
                 {options.map((opt, i) => (
-                  <div key={i} className="p-3 rounded-xl" style={{ background: ACCENT_PASTEL + '25', border: `1px solid ${ACCENT_PASTEL}80` }}>
+                  <div key={i} className="p-3 rounded-xl" style={{ background: ACCENT_PASTEL + '30', boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 3px 12px rgba(96,102,72,0.10)' }}>
                     <div className="text-[10px] uppercase tracking-wider font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
                     <div className="space-y-0.5">
                       {opt.items.map((it, j) => (
@@ -6292,7 +6329,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               </div>
               <div className="space-y-2.5">
                 {options.map((opt, i) => (
-                  <div key={i} className="p-3 rounded-xl" style={{ background: ACCENT_PASTEL + '25', border: `1px solid ${ACCENT_PASTEL}80` }}>
+                  <div key={i} className="p-3 rounded-xl" style={{ background: ACCENT_PASTEL + '30', boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 3px 12px rgba(96,102,72,0.10)' }}>
                     <div className="text-[10px] uppercase tracking-wider font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
                     <div className="space-y-0.5">
                       {opt.items.map((it, j) => (
@@ -6360,7 +6397,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
 
           {/* Confirmation banner: makes "this was added to existing meal" obvious */}
           {onSeparateAppended && (
-            <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[11px]" style={{ background: ACCENT_PASTEL + '40', border: `1px solid ${ACCENT_PASTEL}` }}>
+            <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[11px]" style={{ background: ACCENT_PASTEL + '40', boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 3px 12px rgba(96,102,72,0.10)' }}>
               <Info size={12} style={{ color: ACCENT_DARK, flexShrink: 0, marginTop: 1 }} />
               <div style={{ color: ACCENT_DARK, lineHeight: 1.4 }}>
                 Sumé esto a tu <strong>{e.meal} de las {e.time}</strong>. Si era una comida nueva, sepárala con el botón de abajo.
@@ -6641,7 +6678,8 @@ function ModalShell({ children, onClose, maxWidth = 'max-w-md' }) {
   return (
     <ModalCloseContext.Provider value={handleClose}>
       <div ref={outerRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{
-        background: 'rgba(0,0,0,0.45)',
+        background: 'rgba(20,22,16,0.38)',
+        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
         // Sin teclado: las hojas inferiores respetan el home-indicator en la
         // app instalada (env=0 en navegador normal). Con teclado manda kbLift.
         paddingBottom: kbLift ? `${kbLift}px` : 'calc(16px + env(safe-area-inset-bottom, 0px))',
@@ -8326,6 +8364,34 @@ function IngredientsModal({ ingredients, onSave, onClose }) {
   );
 }
 
+// La espera de "Arma mi día" es la más larga de la app (~15-30s: el modelo
+// cuadra un día completo al ±5% de la meta). Las frases rotando cuentan QUÉ
+// está pasando — una espera explicada se siente la mitad de larga que un
+// spinner mudo.
+const FRASES_ARMADO = [
+  'Leyendo tus ingredientes y menús…',
+  'Cuadrando proteína, carbos y grasas…',
+  'Ajustando los gramos a tu meta…',
+  'Verificando los totales del día…',
+  'Puliendo la propuesta…',
+];
+function PlannerLoading() {
+  const [i, setI] = React.useState(0);
+  React.useEffect(() => {
+    const t = setInterval(() => setI(x => Math.min(x + 1, FRASES_ARMADO.length - 1)), 4000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="py-12 flex flex-col items-center gap-3">
+      <Loader2 size={24} className="animate-spin" style={{ color: ACCENT }} />
+      <div className="text-[13px] font-medium" style={{ color: TEXT_MUTED }}>{FRASES_ARMADO[i]}</div>
+      <div className="text-[11px] px-6 text-center" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
+        Estoy cuadrando tu día completo al ±5% de la meta — suele tomar 15 a 30 segundos.
+      </div>
+    </div>
+  );
+}
+
 function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister, onSaveFavorite, onEditIngredients, onClose }) {
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-lg">
@@ -8341,12 +8407,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
         </div>
       )}
 
-      {loading && (
-        <div className="py-12 flex flex-col items-center gap-3">
-          <Loader2 size={24} className="animate-spin" style={{ color: ACCENT }} />
-          <div className="text-[13px]" style={{ color: TEXT_MUTED }}>Armando tu distribución…</div>
-        </div>
-      )}
+      {loading && <PlannerLoading />}
 
       {proposal && proposal.error && (
         <div className="p-4 rounded-2xl text-[13px] mb-4" style={{ background: '#FBF1E5', color: WARN }}>

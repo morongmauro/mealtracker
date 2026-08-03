@@ -1299,6 +1299,20 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           radial-gradient(46% 34% at -4% 28%, rgba(168,197,150,0.30), transparent 70%),
           radial-gradient(48% 38% at 98% 88%, rgba(212,218,184,0.42), transparent 72%)`,
       }} />
+      {/* DIFUMINADOS de scroll: el contenido se desvanece bajo la píldora de
+          marca (arriba) y antes de la barra de navegación (abajo) en lugar de
+          "chocar" con ellas. zIndex 2 > contenido (1); la píldora y la barra
+          viven en el MealTracker por encima de todo el Recetario. */}
+      <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
+        zIndex: 2,
+        height: 'calc(env(safe-area-inset-top, 0px) + 66px)',
+        background: 'linear-gradient(180deg, #F9F7F1 25%, rgba(249,247,241,0.88) 55%, rgba(249,247,241,0) 100%)',
+      }} />
+      <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
+        zIndex: 2,
+        height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
+        background: 'linear-gradient(0deg, #F9F7F1 22%, rgba(249,247,241,0.88) 52%, rgba(249,247,241,0) 100%)',
+      }} />
       <style>{`
         .rec-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; background:${BORDER}; outline:none; }
         .rec-range::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:24px; height:24px; border-radius:50%; background:#1F1F1F; border:3px solid #fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
