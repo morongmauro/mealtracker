@@ -259,8 +259,11 @@ const parseAbsoluteDateEs = (text, todayStr) => {
   const yNow = Number(today.slice(0, 4));
   const mk = (y) => `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   if (year) { const d = mk(year); return d < today ? d : null; }
-  // Sin año: la ocurrencia pasada más reciente (este año, o el anterior)
+  // Sin año: la ocurrencia pasada más reciente (este año, o el anterior).
+  // Si la fecha nombrada ES hoy ("3 de agosto" siendo hoy 3/8) NO saltar al
+  // año pasado: se devuelve null y quien llama decide qué hacer con hoy.
   const thisYear = mk(yNow);
+  if (thisYear === today) return null;
   return thisYear < today ? thisYear : mk(yNow - 1);
 };
 
@@ -285,7 +288,11 @@ const resolveDateEs = (text, todayStr) => {
       return getLocalDate(d);
     }
   }
-  const abs = parseAbsoluteDateEs(text, today);
+  // Absolutas: aquí HOY sí es válido ("3 de agosto" siendo hoy 3/8 → hoy).
+  // Se evalúa contra MAÑANA para que la fecha de hoy cuente como pasada
+  // válida sin tocar el contrato estricto de parseAbsoluteDateEs.
+  const manana = (() => { const d = new Date(today + 'T12:00:00'); d.setDate(d.getDate() + 1); return getLocalDate(d); })();
+  const abs = parseAbsoluteDateEs(text, manana);
   if (abs) return abs;
   // "el 15" (día del mes, sin mes): la ocurrencia pasada más reciente
   const mDia = t.match(/\bel\s+(\d{1,2})\b/);
@@ -362,6 +369,7 @@ export default function MealTracker() {
   });
   // Marca de actividad para la próxima apertura (escritura barata y frecuente)
   useEffect(() => {
+    tabRef.current = tab;
     const marca = () => { try { localStorage.setItem('mt:lastActiveAt', String(Date.now())); } catch (e) {} };
     marca();
     document.addEventListener('visibilitychange', marca);
@@ -468,8 +476,11 @@ export default function MealTracker() {
   // InputBar y el padre solo lo lee/escribe a través de este ref.
   const inputApiRef = useRef(null);
   const actionsSheetRef = useRef(null);
-  const actionsFabRef = useRef(null);
+  const navBarRef = useRef(null);
   const inputBarRef = useRef(null);
+  // Espejo del tab activo para los helpers de DOM directo (callbacks con
+  // deps=[] que no ven el estado fresco).
+  const tabRef = useRef(null);
   const headerRef = useRef(null);
   const goalsCardRef = useRef(null);
   // El SCROLLER del chat: la página NO scrollea (body congelado); solo este
@@ -481,12 +492,15 @@ export default function MealTracker() {
   // Closes the actions sheet INSTANTLY via direct DOM mutation + paint flush,
   // before letting React run its expensive re-render. On mobile the parent
   // component takes 1-2s to reconcile; without this, the user sees the menu
-  // "frozen" for those seconds, AND the input bar / FAB stay hidden during
+  // "frozen" for those seconds, AND the input/nav bars stay hidden during
   // that gap. We toggle their display directly to keep the UI in sync.
   const closeActionsSheet = useCallback(() => {
     if (actionsSheetRef.current) actionsSheetRef.current.style.display = 'none';
-    if (inputBarRef.current) inputBarRef.current.style.display = 'block';
-    if (actionsFabRef.current) actionsFabRef.current.style.display = 'flex';
+    // La barra de entrada solo vuelve si estamos en la pestaña CHAT — en Hoy
+    // el input no existe y forzar display:block lo hacía aparecer encima de
+    // la vista (el DOM directo debe respetar la pestaña activa).
+    if (inputBarRef.current) inputBarRef.current.style.display = tabRef.current === 'chat' ? 'block' : 'none';
+    if (navBarRef.current) navBarRef.current.style.display = '';
     // El sync de estado va en startTransition: React 18 lo marca como no
     // urgente y cede al paint, así el tap se siente instantáneo.
     startTransition(() => setActionsExpanded(false));
@@ -502,7 +516,7 @@ export default function MealTracker() {
   const openActionsSheet = useCallback(() => {
     if (actionsSheetRef.current) actionsSheetRef.current.style.display = 'flex';
     if (inputBarRef.current) inputBarRef.current.style.display = 'none';
-    if (actionsFabRef.current) actionsFabRef.current.style.display = 'none';
+    if (navBarRef.current) navBarRef.current.style.display = 'none';
     startTransition(() => setActionsExpanded(true));
   }, []);
 
@@ -1437,14 +1451,19 @@ export default function MealTracker() {
         // esos íconos del sistema la tapan. Con el teclado abierto dejamos
         // ~52px de fondo sólido bajo el campo: los íconos flotan sobre ese
         // espacio vacío y el texto queda siempre visible y clickeable.
+        // OJO: con el teclado CERRADO este valor debe incluir el colchón de
+        // la barra de navegación inferior (liftPx=64 en el render). Antes se
+        // escribía solo 20px y pisaba el padding de React → la barra de chat
+        // caía ENCIMA de la barra de opciones (se superponían y los taps en
+        // "Herram." morían en el padding invisible del input).
         inputBarRef.current.style.paddingBottom = kbOpen
           ? '52px'
-          : 'calc(20px + env(safe-area-inset-bottom, 0px))';
+          : 'calc(84px + env(safe-area-inset-bottom, 0px))';
       }
-      // Mientras se escribe, el botón flotante "Herramientas" solo estorba:
-      // se oculta con el teclado abierto y reaparece al cerrarlo.
-      if (actionsFabRef.current) {
-        actionsFabRef.current.style.visibility = kbOpen ? 'hidden' : '';
+      // Con el teclado abierto la barra de navegación estorba (el input baja
+      // a pegarse al teclado); se oculta y reaparece al cerrarlo.
+      if (navBarRef.current) {
+        navBarRef.current.style.visibility = kbOpen ? 'hidden' : '';
       }
     };
     // rAF-throttle: los eventos del visual viewport llegan en ráfaga durante
@@ -4338,50 +4357,32 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <div className="absolute inset-0 pointer-events-none opacity-40" style={{
           background: `radial-gradient(circle at 90% 30%, ${ACCENT}40, transparent 55%)`
         }} />
-        <div className="relative max-w-2xl mx-auto px-3 py-3 flex items-center gap-2">
-          {/* Marca en bloque: nombre arriba y "Entrena con Método" debajo en
-              peso normal (sin ®: a este tamaño el símbolo se veía sucio).
-              min-w-0 + truncate: la marca CEDE espacio antes que cortar los
-              botones — en el iPhone 15 Pro Max el Reto quedaba fuera. */}
-          <div className="min-w-0 flex-shrink" style={{ minWidth: '100px' }}>
+        {/* Header ULTRA-SLIM: una sola línea de marca — "MEAL TRACKER" y
+            "ENTRENA CON MÉTODO" al lado (baseline compartida), sin avatar
+            (Mi Semana vive en Herramientas). py-2 en vez de py-3: el
+            ResizeObserver de headerH reacomoda el resto solo. */}
+        <div className="relative max-w-2xl mx-auto px-4 py-2 flex items-center gap-2">
+          <div className="min-w-0 flex-shrink flex items-baseline gap-2" style={{ minWidth: '100px' }}>
             <div className="display font-normal truncate" style={{
               color: '#FFF',
-              fontSize: '16px',
+              fontSize: '15px',
               lineHeight: 1,
               letterSpacing: '0.03em',
               textTransform: 'uppercase'
             }}>
               Meal Tracker
             </div>
-            {/* Chiquito de verdad (7.5px, tracking corto): así "ENTRENA CON
-                MÉTODO" entra COMPLETO bajo el nombre, sin cortarse nunca. */}
-            <div style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 400, fontSize: '7.5px', letterSpacing: '0.03em', marginTop: '3px', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
+            <div style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '8.5px', letterSpacing: '0.09em', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
               Entrena con Método
             </div>
           </div>
-          {/* Header SLIM (rediseño v3): los accesos viven ahora en la barra
-              inferior y en Hoy — el header queda solo con la marca (siempre
-              visible, identidad) y el perfil. Lo que hacía "viejo" al header
-              no era el negro sino el grosor con botones apilados. */}
           <div className="ml-auto flex items-center gap-2 flex-shrink-0">
             {streak >= 2 && (
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
                 <span className="text-[11px] font-bold" style={{ color: ACCENT_PASTEL }}>{streak}</span>
                 <span className="text-[9px] font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>días</span>
               </div>
             )}
-            <button
-              onClick={() => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); }}
-              title="Mi semana — tu adherencia y desempeño"
-              className="rounded-full flex items-center justify-center active:scale-95 transition"
-              style={{
-                width: '34px', height: '34px',
-                background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DARK})`,
-                border: '1.5px solid rgba(255,255,255,0.30)',
-                color: '#FFF', fontWeight: 800, fontSize: '14px',
-              }}>
-              {(name || 'M').trim().charAt(0).toUpperCase()}
-            </button>
           </div>
         </div>
       </div>
@@ -4647,38 +4648,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           </div>
         )}
 
-        {/* Action FAB — onPointerDown para abrir al primer touchstart (sin esperar el click sintético
-            de iOS Safari, que en este árbol grande agrega ~300ms perceptibles). Subido a bottom:120px
-            para no rozar la barra de entrada. */}
-        <button
-          ref={actionsFabRef}
-          onPointerDown={(e) => { e.preventDefault(); openActionsSheet(); }}
-          onClick={(e) => e.preventDefault()}
-          className="fixed z-40 rounded-full active:scale-90 fab-press items-center justify-center gap-1.5"
-          style={{
-            display: actionsExpanded ? 'none' : 'flex',
-            // Separado de la barra de texto: pegado (120px) los taps durante
-            // el scroll caían en la barra y el botón "no respondía". El
-            // safe-area suma el alto del home-indicator en la app instalada.
-            bottom: 'calc(150px + env(safe-area-inset-bottom, 0px))',
-            right: '20px',
-            height: '46px',
-            padding: '0 16px 0 14px',
-            background: '#1F1F1F',
-            color: '#fff',
-            boxShadow: '0 6px 20px rgba(0,0,0,0.22), 0 2px 4px rgba(0,0,0,0.10)',
-            touchAction: 'manipulation',
-            WebkitTapHighlightColor: 'transparent'
-          }}
-          title="Herramientas y acciones">
-          {/* LayoutGrid (cuadrícula de opciones) en crema: la estrellita
-              parecía botón de IA y la tuerca sonaba a configuración. */}
-          <LayoutGrid size={16} strokeWidth={2} style={{ color: '#F9F7F1' }} />
-          <span className="text-[13px] font-semibold tracking-wide">Herramientas</span>
-        </button>
+        {/* El FAB negro "Herramientas" se eliminó: duplicaba el botón
+            "Herram." de la barra de navegación inferior, y su apertura por
+            pointerdown disparaba el ghost-click de iOS sobre el backdrop del
+            sheet recién abierto — el menú se cerraba solo y el botón parecía
+            congelado. */}
 
-        {/* Píldora de RECORDATORIOS pendientes del coach — flota sobre el
-            botón de Herramientas SOLO cuando hay algo pendiente, para que
+        {/* Píldora de RECORDATORIOS pendientes del coach — flota arriba de
+            la zona de barras SOLO cuando hay algo pendiente, para que
             no pase desapercibido (dentro del sheet quedaba escondido). Sin
             pendientes desaparece y no estorba. */}
         {coachReminders.some(r => !r.done_at) && (
@@ -5056,9 +5033,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </div>
       )}
 
-      {/* ══════════ BARRA DE NAVEGACIÓN (rediseño v3) ══════════ */}
-      {!keyboardOpen && !actionsExpanded && (
-        <div className="fixed left-0 right-0 bottom-0 z-[45] px-4" style={{ paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', pointerEvents: 'none' }}>
+      {/* ══════════ BARRA DE NAVEGACIÓN (rediseño v3) ══════════
+          Siempre montada (como el sheet): el display lo gobierna React según
+          actionsExpanded y la visibility la gobierna el handler del
+          visualViewport (teclado). Así closeActionsSheet puede re-mostrarla
+          por DOM directo SIN esperar el re-render de 1-2s del árbol gigante. */}
+      <div ref={navBarRef} className="fixed left-0 right-0 bottom-0 z-[45] px-4" style={{
+        paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
+        pointerEvents: 'none',
+        display: actionsExpanded ? 'none' : 'block'
+      }}>
           <div className="max-w-md mx-auto flex rounded-[24px] px-2 py-2" style={{
             pointerEvents: 'auto',
             background: 'rgba(255,255,255,0.86)',
@@ -5070,7 +5054,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat', onClick: () => { haptic(6); setTab('chat'); } },
               { key: 'recetario', label: 'Recetario', icon: BookOpen, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowRecetario(true); } },
               ...(learningUrl ? [{ key: 'aprende', label: 'Aprende', icon: GraduationCap, onClick: openLearning }] : []),
-              { key: 'herr', label: 'Herram.', icon: LayoutGrid, onClick: () => { haptic(8); setActionsExpanded(true); } },
+              // openActionsSheet (DOM directo) y NO setActionsExpanded: el
+              // sheet aparece en el mismo frame del tap; con solo estado, el
+              // re-render del árbol gigante tardaba 1-2s en móvil y el botón
+              // se sentía congelado.
+              { key: 'herr', label: 'Herram.', icon: LayoutGrid, onClick: () => { haptic(8); openActionsSheet(); } },
             ].map(n => (
               <button key={n.key} onClick={n.onClick}
                 className="flex-1 flex flex-col items-center gap-0.5 py-1 active:scale-95 transition"
@@ -5080,8 +5068,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </button>
             ))}
           </div>
-        </div>
-      )}
+      </div>
 
       <InputBar
         barRef={inputBarRef}
