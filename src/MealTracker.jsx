@@ -16,7 +16,7 @@ const Recetario = lazy(() => import('./Recetario.jsx'));
 import {
   ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
   C_PROTEIN, C_PROTEIN_PASTEL, C_CARBS, C_CARBS_PASTEL, C_FAT, C_FAT_PASTEL, C_WATER,
-  BG, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
+  BG, BG_STAINS, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
   SUCCESS, WARN, DANGER, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
 } from './theme.js';
 import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
@@ -4423,12 +4423,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             (capa fixed aparte — iOS ignora background-attachment en
             scrollers). Las burbujas blancas flotan encima. */}
         <div className="fixed inset-0 pointer-events-none" style={{
-          background: `radial-gradient(44% 30% at 88% 0%, rgba(140,196,178,0.42), transparent 70%),
-            radial-gradient(38% 26% at -2% 16%, rgba(168,197,150,0.36), transparent 70%),
-            radial-gradient(46% 30% at 55% 38%, rgba(140,196,178,0.24), transparent 70%),
-            radial-gradient(40% 28% at 2% 72%, rgba(212,218,184,0.48), transparent 72%),
-            radial-gradient(44% 32% at 100% 58%, rgba(168,197,150,0.30), transparent 70%),
-            radial-gradient(42% 30% at 60% 102%, rgba(140,196,178,0.34), transparent 72%)`,
+          background: BG_STAINS,
         }} />
 
         {/* Goals card — FIXED + visualViewport tracking. top = altura real
@@ -4438,7 +4433,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           paddingLeft: '20px', paddingRight: '20px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
-          background: `linear-gradient(180deg, ${BG} 0%, rgba(249,247,241,0.92) 80%, rgba(249,247,241,0.6) 100%)`,
+          background: `linear-gradient(180deg, ${BG} 0%, rgba(243,242,237,0.92) 80%, rgba(243,242,237,0.6) 100%)`,
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)',
           transform: 'translate3d(0, 0, 0)',
           zIndex: 30,
@@ -4644,7 +4639,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           return (
             <div className="fixed left-0 right-0 pointer-events-none" style={{
               zIndex: 25, top: 0, height: `${zb + 50}px`,
-              background: `linear-gradient(180deg, #F9F7F1 0%, #F9F7F1 ${zb}px, rgba(249,247,241,0) 100%)`,
+              background: `linear-gradient(180deg, #F3F2ED 0%, #F3F2ED ${zb}px, rgba(243,242,237,0) 100%)`,
             }} />
           );
         })()}
@@ -4782,12 +4777,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed inset-0 pointer-events-none" style={{
             // 6 manchas repartidas por TODA la pantalla (no solo esquinas):
             // el glass de las tarjetas deja verlas a través.
-            background: `radial-gradient(44% 30% at 88% 0%, rgba(140,196,178,0.42), transparent 70%),
-              radial-gradient(38% 26% at -2% 16%, rgba(168,197,150,0.36), transparent 70%),
-              radial-gradient(46% 30% at 55% 38%, rgba(140,196,178,0.24), transparent 70%),
-              radial-gradient(40% 28% at 2% 72%, rgba(212,218,184,0.48), transparent 72%),
-              radial-gradient(44% 32% at 100% 58%, rgba(168,197,150,0.30), transparent 70%),
-              radial-gradient(42% 30% at 60% 102%, rgba(140,196,178,0.34), transparent 72%)`,
+            background: BG_STAINS,
           }} />
           {/* DIFUMINADO superior (estilo Recetario): el contenido se diluye
               hacia el borde de la pantalla al scrollear bajo la píldora de
@@ -4796,7 +4786,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
             zIndex: 5,
             height: `${headerH + 26}px`,
-            background: 'linear-gradient(180deg, #F9F7F1 30%, rgba(249,247,241,0.88) 62%, rgba(249,247,241,0) 100%)',
+            background: 'linear-gradient(180deg, #F3F2ED 30%, rgba(243,242,237,0.88) 62%, rgba(243,242,237,0) 100%)',
           }} />
           <div className="relative max-w-2xl mx-auto px-5">
             <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em', marginTop: '6px' }}>
@@ -5523,7 +5513,7 @@ const InputBar = memo(function InputBar({
             title={recording ? 'Detener dictado' : transcribing ? 'Transcribiendo…' : 'Dictar por voz'}>
             {transcribing
               ? <Loader2 size={20} strokeWidth={2} className="animate-spin" />
-              : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: '#F9F7F1' }} />}
+              : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: '#F3F2ED' }} />}
           </button>
           {text.trim() && !recording && (
             <button

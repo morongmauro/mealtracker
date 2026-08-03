@@ -5,7 +5,7 @@ import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, In
 import {
   ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
   C_PROTEIN, C_CARBS, C_FAT,
-  BG, SURFACE, SURFACE_2, BORDER, TEXT, TEXT_MUTED, TEXT_LIGHT,
+  BG, BG_STAINS, SURFACE, SURFACE_2, BORDER, TEXT, TEXT_MUTED, TEXT_LIGHT,
   FONT_UI, SHADOW_CARD,
 } from './theme.js';
 
@@ -1295,9 +1295,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           ignora background-attachment en contenedores con scroll). */}
       <div className="fixed inset-0 pointer-events-none" style={{
         zIndex: 0,
-        background: `radial-gradient(52% 38% at 90% 2%, rgba(140,196,178,0.36), transparent 70%),
-          radial-gradient(46% 34% at -4% 28%, rgba(168,197,150,0.30), transparent 70%),
-          radial-gradient(48% 38% at 98% 88%, rgba(212,218,184,0.42), transparent 72%)`,
+        background: BG_STAINS,
       }} />
       {/* DIFUMINADOS de scroll: el contenido se desvanece bajo la píldora de
           marca (arriba) y antes de la barra de navegación (abajo) en lugar de
@@ -1306,12 +1304,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
         zIndex: 2,
         height: 'calc(env(safe-area-inset-top, 0px) + 66px)',
-        background: 'linear-gradient(180deg, #F9F7F1 25%, rgba(249,247,241,0.88) 55%, rgba(249,247,241,0) 100%)',
+        background: 'linear-gradient(180deg, #F3F2ED 25%, rgba(243,242,237,0.88) 55%, rgba(243,242,237,0) 100%)',
       }} />
       <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
         zIndex: 2,
         height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
-        background: 'linear-gradient(0deg, #F9F7F1 22%, rgba(249,247,241,0.88) 52%, rgba(249,247,241,0) 100%)',
+        background: 'linear-gradient(0deg, #F3F2ED 22%, rgba(243,242,237,0.88) 52%, rgba(243,242,237,0) 100%)',
       }} />
       <style>{`
         .rec-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; background:${BORDER}; outline:none; }
