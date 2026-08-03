@@ -4419,6 +4419,17 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         WebkitOverflowScrolling: 'touch',
         overscrollBehavior: 'contain',
       }}>
+        {/* Mismo degradado orgánico de Hoy y Recetario en el fondo del chat
+            (capa fixed aparte — iOS ignora background-attachment en
+            scrollers). Las burbujas blancas flotan encima. */}
+        <div className="fixed inset-0 pointer-events-none" style={{
+          background: `radial-gradient(44% 30% at 88% 0%, rgba(140,196,178,0.42), transparent 70%),
+            radial-gradient(38% 26% at -2% 16%, rgba(168,197,150,0.36), transparent 70%),
+            radial-gradient(46% 30% at 55% 38%, rgba(140,196,178,0.24), transparent 70%),
+            radial-gradient(40% 28% at 2% 72%, rgba(212,218,184,0.48), transparent 72%),
+            radial-gradient(44% 32% at 100% 58%, rgba(168,197,150,0.30), transparent 70%),
+            radial-gradient(42% 30% at 60% 102%, rgba(140,196,178,0.34), transparent 72%)`,
+        }} />
 
         {/* Goals card — FIXED + visualViewport tracking. top = altura real
             del header + separación, para que NUNCA quede debajo de él. */}
@@ -4620,18 +4631,23 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
 
 
-        {/* DIFUMINADO bajo la zona fija (header + tarjeta de anillos): los
-            mensajes no "chocan" contra la tarjeta al scrollear — se
-            desvanecen hacia el borde superior antes de pasar por debajo.
-            zIndex 25: sobre los mensajes (auto), bajo la zona fija (30). */}
-        <div className="fixed left-0 right-0 pointer-events-none" style={{
-          zIndex: 25,
-          top: `${zoneH != null
+        {/* DIFUMINADO superior (estilo Recetario): capa crema sólida desde el
+            borde de la pantalla hasta la tarjeta de anillos que se desvanece
+            50px por debajo de ella — los mensajes se diluyen hacia el extremo
+            superior en vez de "chocar" con la tarjeta o verse pasar por los
+            huecos alrededor. zIndex 25: sobre los mensajes (auto), bajo la
+            zona fija de la tarjeta (30). */}
+        {(() => {
+          const zb = zoneH != null
             ? headerH + 6 + zoneH
-            : headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0) + (pushPrompt ? 58 : 0)}px`,
-          height: '46px',
-          background: 'linear-gradient(180deg, #F9F7F1 0%, rgba(249,247,241,0.85) 35%, rgba(249,247,241,0) 100%)',
-        }} />
+            : headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0) + (pushPrompt ? 58 : 0);
+          return (
+            <div className="fixed left-0 right-0 pointer-events-none" style={{
+              zIndex: 25, top: 0, height: `${zb + 50}px`,
+              background: `linear-gradient(180deg, #F9F7F1 0%, #F9F7F1 ${zb}px, rgba(249,247,241,0) 100%)`,
+            }} />
+          );
+        })()}
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '84px', contain: 'layout paint', willChange: 'transform' }}>
           {/* Editorial hand-drawn food silhouettes — thin organic lines */}
@@ -4772,6 +4788,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               radial-gradient(40% 28% at 2% 72%, rgba(212,218,184,0.48), transparent 72%),
               radial-gradient(44% 32% at 100% 58%, rgba(168,197,150,0.30), transparent 70%),
               radial-gradient(42% 30% at 60% 102%, rgba(140,196,178,0.34), transparent 72%)`,
+          }} />
+          {/* DIFUMINADO superior (estilo Recetario): el contenido se diluye
+              hacia el borde de la pantalla al scrollear bajo la píldora de
+              marca. zIndex 5 > contenido (auto); la píldora (z-50) queda
+              por encima. */}
+          <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
+            zIndex: 5,
+            height: `${headerH + 26}px`,
+            background: 'linear-gradient(180deg, #F9F7F1 30%, rgba(249,247,241,0.88) 62%, rgba(249,247,241,0) 100%)',
           }} />
           <div className="relative max-w-2xl mx-auto px-5">
             <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em', marginTop: '6px' }}>
@@ -4981,25 +5006,24 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <button
           onPointerDown={(e) => { e.preventDefault(); haptic(8); setActiveModal('reminders'); }}
           onClick={(e) => e.preventDefault()}
-          className="fixed z-40 rounded-full active:scale-90 items-center justify-center gap-1.5 fade-up"
+          className="fixed z-40 rounded-full active:scale-90 items-center justify-center fade-up"
           style={{
             display: actionsExpanded ? 'none' : 'flex',
-            bottom: 'calc(204px + env(safe-area-inset-bottom, 0px))',
+            // Discreto: solo el círculo con la campanita (sin texto, que
+            // gritaba) y un pelín más abajo que antes.
+            bottom: 'calc(176px + env(safe-area-inset-bottom, 0px))',
             right: '20px',
-            height: '40px',
-            padding: '0 14px 0 12px',
+            width: '46px', height: '46px',
             background: 'linear-gradient(135deg, #FBEFCF 0%, #F7E7B5 100%), #FFF',
-            color: '#6B5A22',
             border: '1px solid rgba(255,255,255,0.7)',
             boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 6px 20px rgba(180,140,20,0.25), 0 2px 4px rgba(0,0,0,0.08)',
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'transparent'
           }}
           title="Recordatorios de tu coach pendientes">
-          <Bell size={15} strokeWidth={2.2} style={{ color: '#8A6D16' }} />
-          <span className="text-[12px] font-bold">Recordatorios</span>
-          <span className="rounded-full text-[10px] font-bold flex items-center justify-center"
-            style={{ background: '#C75A4A', color: '#FFF', minWidth: '17px', height: '17px', padding: '0 4px' }}>
+          <Bell size={18} strokeWidth={2.2} style={{ color: '#8A6D16' }} />
+          <span className="absolute rounded-full text-[10px] font-bold flex items-center justify-center"
+            style={{ top: '-4px', right: '-4px', background: '#C75A4A', color: '#FFF', minWidth: '18px', height: '18px', padding: '0 4px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
             {coachReminders.filter(r => !r.done_at).length}
           </span>
         </button>
