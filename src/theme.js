@@ -25,21 +25,24 @@ export const C_FAT_PASTEL = '#CDD2DB';
 export const C_WATER = '#5BA3C7';
 
 // Neutros
-export const BG = '#F3F2ED';             // crema-gris — EL fondo, único en toda la app.
-                                         // Un punto más gris que el crema original
-                                         // (#F9F7F1) para que las tarjetas blancas
-                                         // contrasten sin que el fondo se sienta sucio.
+export const BG = '#EDECE6';             // gris cálido suave — EL fondo, único en toda
+                                         // la app. Dos pasos más gris que el crema
+                                         // original (#F9F7F1): las tarjetas blancas
+                                         // contrastan de verdad sin que el fondo se
+                                         // sienta oscuro ni sucio.
 
 // Manchas orgánicas del fondo (Hoy, Chat y Recetario) — exactamente TRES
-// tonalidades: verde azulado claro, gris suave y verde oliva claro, dos
-// manchas de cada una repartidas por la pantalla. Definidas aquí para que
+// tonalidades: verde azulado, verde oliva y gris (más profundos que la v1), repartidas
+// por TODA la pantalla incluido el centro. Es una capa fixed: al hacer
+// scroll siempre están presentes. Definidas aquí para que
 // las tres vistas usen byte a byte el mismo fondo.
-export const BG_STAINS = `radial-gradient(44% 30% at 88% 0%, rgba(139,196,178,0.42), transparent 70%),
-  radial-gradient(38% 26% at -2% 16%, rgba(180,189,141,0.38), transparent 70%),
-  radial-gradient(46% 30% at 55% 38%, rgba(161,166,159,0.28), transparent 70%),
-  radial-gradient(40% 28% at 2% 72%, rgba(139,196,178,0.30), transparent 72%),
-  radial-gradient(44% 32% at 100% 58%, rgba(180,189,141,0.32), transparent 70%),
-  radial-gradient(42% 30% at 60% 102%, rgba(161,166,159,0.30), transparent 72%)`;
+export const BG_STAINS = `radial-gradient(48% 34% at 90% 0%, rgba(126,188,168,0.55), transparent 70%),
+  radial-gradient(42% 30% at -4% 14%, rgba(172,182,126,0.50), transparent 70%),
+  radial-gradient(50% 34% at 55% 36%, rgba(146,151,144,0.40), transparent 70%),
+  radial-gradient(44% 32% at 0% 70%, rgba(126,188,168,0.44), transparent 72%),
+  radial-gradient(48% 36% at 102% 56%, rgba(172,182,126,0.42), transparent 70%),
+  radial-gradient(46% 34% at 30% 100%, rgba(146,151,144,0.38), transparent 72%),
+  radial-gradient(40% 30% at 78% 88%, rgba(126,188,168,0.36), transparent 72%)`;
 export const SURFACE = '#FFFFFF';
 export const SURFACE_2 = '#EFEBE0';
 export const BORDER = '#E2DECC';

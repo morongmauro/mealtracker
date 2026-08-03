@@ -4433,7 +4433,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           paddingLeft: '20px', paddingRight: '20px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
-          background: `linear-gradient(180deg, ${BG} 0%, rgba(243,242,237,0.92) 80%, rgba(243,242,237,0.6) 100%)`,
+          background: `linear-gradient(180deg, ${BG} 0%, rgba(237,236,230,0.92) 80%, rgba(237,236,230,0.6) 100%)`,
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)',
           transform: 'translate3d(0, 0, 0)',
           zIndex: 30,
@@ -4639,7 +4639,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           return (
             <div className="fixed left-0 right-0 pointer-events-none" style={{
               zIndex: 25, top: 0, height: `${zb + 50}px`,
-              background: `linear-gradient(180deg, #F3F2ED 0%, #F3F2ED ${zb}px, rgba(243,242,237,0) 100%)`,
+              background: `linear-gradient(180deg, #EDECE6 0%, #EDECE6 ${zb}px, rgba(237,236,230,0) 100%)`,
             }} />
           );
         })()}
@@ -4786,7 +4786,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
             zIndex: 5,
             height: `${headerH + 26}px`,
-            background: 'linear-gradient(180deg, #F3F2ED 30%, rgba(243,242,237,0.88) 62%, rgba(243,242,237,0) 100%)',
+            background: 'linear-gradient(180deg, #EDECE6 30%, rgba(237,236,230,0.88) 62%, rgba(237,236,230,0) 100%)',
           }} />
           <div className="relative max-w-2xl mx-auto px-5">
             <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em', marginTop: '6px' }}>
@@ -5513,7 +5513,7 @@ const InputBar = memo(function InputBar({
             title={recording ? 'Detener dictado' : transcribing ? 'Transcribiendo…' : 'Dictar por voz'}>
             {transcribing
               ? <Loader2 size={20} strokeWidth={2} className="animate-spin" />
-              : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: '#F3F2ED' }} />}
+              : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: '#EDECE6' }} />}
           </button>
           {text.trim() && !recording && (
             <button
