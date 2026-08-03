@@ -1286,7 +1286,19 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
   // ───────────────────────── LISTA ─────────────────────────
   return (
-    <div ref={rootRef} className="fixed inset-0 z-[60] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
+    // z-38: DEBAJO de la barra de navegación inferior (z-45) y de la
+    // píldora de marca (z-50) del MealTracker — navegar desde la barra
+    // cierra el Recetario, así que aquí no hay botón "atrás". El fondo usa
+    // el mismo degradado orgánico de la vista Hoy (una sola app).
+    <div ref={rootRef} className="fixed inset-0 z-[38] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
+      {/* Mismo degradado orgánico de la vista Hoy — capa fixed aparte (iOS
+          ignora background-attachment en contenedores con scroll). */}
+      <div className="fixed inset-0 pointer-events-none" style={{
+        zIndex: 0,
+        background: `radial-gradient(52% 38% at 90% 2%, rgba(140,196,178,0.36), transparent 70%),
+          radial-gradient(46% 34% at -4% 28%, rgba(168,197,150,0.30), transparent 70%),
+          radial-gradient(48% 38% at 98% 88%, rgba(212,218,184,0.42), transparent 72%)`,
+      }} />
       <style>{`
         .rec-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; background:${BORDER}; outline:none; }
         .rec-range::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:24px; height:24px; border-radius:50%; background:#1F1F1F; border:3px solid #fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
@@ -1295,22 +1307,18 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         @keyframes recSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .rec-slide-in { animation: recSlideIn 0.24s cubic-bezier(0.2, 0, 0, 1); }
       `}</style>
-      {blobs}
-      {/* safe-area-inset-top: en la app instalada el header no se mete bajo el notch */}
-      <div className="sticky top-0 z-20 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))' }}>
-        <div className="max-w-xl mx-auto flex items-center gap-2">
-          <button
-            onPointerDown={(e) => { e.preventDefault(); haptic(6); fastClose(); }}
-            onClick={(e) => e.preventDefault()}
-            className="flex items-center gap-1 p-1.5 -ml-1.5 rounded-full active:scale-90"
-            style={{ touchAction: 'manipulation' }}>
-            <ChevronLeft size={20} /><span className="text-[13px] font-semibold">MealTracker</span>
-          </button>
-          <span className="ml-auto font-semibold text-[15px]">Recetario</span>
+      {/* Sin header negro ni botón "atrás": la píldora de marca flota arriba
+          (viene del MealTracker) y se vuelve con la barra de navegación.
+          El paddingTop despeja esa píldora; el paddingBottom, la barra. */}
+      <div className="relative max-w-xl mx-auto px-4 space-y-3.5" style={{
+        zIndex: 1,
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 58px)',
+        paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))',
+      }}>
+        <div>
+          <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em' }}>Entrena con Método</div>
+          <div style={{ color: TEXT, fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginTop: '2px', lineHeight: 1.1 }}>Recetario</div>
         </div>
-      </div>
-
-      <div className="relative max-w-xl mx-auto px-4 pt-4 pb-24 space-y-3.5" style={{ zIndex: 1 }}>
         {/* Meta nutricional */}
         <div className="rounded-3xl p-4" style={cardStyle}>
           <div className="flex items-center justify-between mb-3">

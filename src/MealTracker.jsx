@@ -368,6 +368,9 @@ export default function MealTracker() {
     } catch (e) { return 'hoy'; }
   });
   // Marca de actividad para la próxima apertura (escritura barata y frecuente)
+  // El input de chat solo puede re-mostrarse (vía DOM directo en
+  // closeActionsSheet) si estamos en chat Y el Recetario no está encima.
+  useEffect(() => { showRecetarioRef.current = showRecetario; }, [showRecetario]);
   useEffect(() => {
     tabRef.current = tab;
     const marca = () => { try { localStorage.setItem('mt:lastActiveAt', String(Date.now())); } catch (e) {} };
@@ -478,9 +481,10 @@ export default function MealTracker() {
   const actionsSheetRef = useRef(null);
   const navBarRef = useRef(null);
   const inputBarRef = useRef(null);
-  // Espejo del tab activo para los helpers de DOM directo (callbacks con
-  // deps=[] que no ven el estado fresco).
+  // Espejos del tab activo y del Recetario para los helpers de DOM directo
+  // (callbacks con deps=[] que no ven el estado fresco).
   const tabRef = useRef(null);
+  const showRecetarioRef = useRef(false);
   const headerRef = useRef(null);
   const goalsCardRef = useRef(null);
   // El SCROLLER del chat: la página NO scrollea (body congelado); solo este
@@ -499,7 +503,7 @@ export default function MealTracker() {
     // La barra de entrada solo vuelve si estamos en la pestaña CHAT — en Hoy
     // el input no existe y forzar display:block lo hacía aparecer encima de
     // la vista (el DOM directo debe respetar la pestaña activa).
-    if (inputBarRef.current) inputBarRef.current.style.display = tabRef.current === 'chat' ? 'block' : 'none';
+    if (inputBarRef.current) inputBarRef.current.style.display = (tabRef.current === 'chat' && !showRecetarioRef.current) ? 'block' : 'none';
     if (navBarRef.current) navBarRef.current.style.display = '';
     // El sync de estado va en startTransition: React 18 lo marca como no
     // urgente y cede al paint, así el tap se siente instantáneo.
@@ -4338,58 +4342,47 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
       {/* Background blobs removed for cleaner look */}
 
-      {/* Header — full-width app bar (FIXED + visualViewport tracking).
-          safe-area-inset-top: en la app instalada en el iPhone (Agregar a
-          inicio) el contenido corre por DEBAJO del notch/cámara; este padding
-          empuja la fila de la marca fuera de esa zona y el grafito del header
-          rellena el hueco (se ve nativo). El ResizeObserver de headerH mide
-          el alto CON este padding, así que la tarjeta de anillos y el
-          contenido se acomodan solos. En navegador normal env() = 0. */}
-      <div ref={headerRef} className="fixed top-0 left-0 right-0 w-full overflow-hidden" style={{
-        background: '#1F1F1F',
-        color: '#FFF',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+      {/* Header — píldora flotante de marca (edge-to-edge). Ya NO hay barra
+          negra de ancho completo: la app llega hasta el borde superior de la
+          pantalla y la marca vive en un óvalo grafito flotante con glass.
+          El wrapper transparente sigue siendo el headerRef que mide el
+          ResizeObserver (safe-area + píldora), así todo lo que se acomoda
+          con headerH sigue funcionando igual. Sin chip de racha (el conteo
+          de días vive en la vista Hoy con contexto). */}
+      <div ref={headerRef} className="fixed top-0 left-0 right-0 w-full" style={{
         zIndex: 50,
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-        transform: 'translate3d(0, 0, 0)',
-        willChange: 'transform'
+        pointerEvents: 'none',
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
+        paddingBottom: '4px',
       }}>
-        <div className="absolute inset-0 pointer-events-none opacity-40" style={{
-          background: `radial-gradient(circle at 90% 30%, ${ACCENT}40, transparent 55%)`
-        }} />
-        {/* Header ULTRA-SLIM: una sola línea de marca — "MEAL TRACKER" y
-            "ENTRENA CON MÉTODO" al lado (baseline compartida), sin avatar
-            (Mi Semana vive en Herramientas). py-2 en vez de py-3: el
-            ResizeObserver de headerH reacomoda el resto solo. */}
-        <div className="relative max-w-2xl mx-auto px-4 py-2 flex items-center gap-2">
-          <div className="min-w-0 flex-shrink flex items-baseline gap-2" style={{ minWidth: '100px' }}>
-            <div className="display font-normal truncate" style={{
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="inline-flex items-baseline gap-2 rounded-full" style={{
+            pointerEvents: 'auto',
+            background: 'rgba(31,31,31,0.90)',
+            backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            padding: '9px 16px 8px',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.10) inset, 0 10px 28px rgba(20,22,14,0.28), 0 2px 6px rgba(20,22,14,0.12)',
+          }}>
+            <span className="display font-normal" style={{
               color: '#FFF',
-              fontSize: '15px',
+              fontSize: '14px',
               lineHeight: 1,
-              letterSpacing: '0.03em',
-              textTransform: 'uppercase'
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap'
             }}>
               Meal Tracker
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '8.5px', letterSpacing: '0.09em', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
+            </span>
+            <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '8px', letterSpacing: '0.09em', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
               Entrena con Método
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-            {streak >= 2 && (
-              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                <span className="text-[11px] font-bold" style={{ color: ACCENT_PASTEL }}>{streak}</span>
-                <span className="text-[9px] font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>días</span>
-              </div>
-            )}
+            </span>
           </div>
         </div>
       </div>
 
       {showRecetario && goals && (
         <Suspense fallback={
-          <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: BG }}>
+          <div className="fixed inset-0 z-[38] flex items-center justify-center" style={{ background: BG }}>
             <Loader2 className="animate-spin" style={{ color: ACCENT }} size={26} />
           </div>
         }>
@@ -4613,180 +4606,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </div>
         </div>
 
-        {/* Anuncio PROMINENTE de recordatorios — solo la primera apertura
-            desde la app instalada. Modal centrado imposible de pasar por
-            alto; si elige "Ahora no", el banner de la zona fija lo sigue
-            recordando en las próximas aperturas. */}
-        {pushIntro && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(20,22,16,0.45)', backdropFilter: 'none' }}>
-            <div className="fade-up w-full" style={{
-              maxWidth: '340px', borderRadius: '24px', padding: '28px 24px 20px', textAlign: 'center',
-              background: `linear-gradient(135deg, ${ACCENT_PASTEL}50 0%, rgba(255,255,255,0.5) 100%), rgba(255,255,255,0.97)`,
-              border: '1px solid rgba(255,255,255,0.7)',
-              boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 24px 64px rgba(20,25,15,0.35)',
-            }}>
-              <div style={{ fontSize: '44px', lineHeight: 1, marginBottom: '12px' }}>🔔</div>
-              <div style={{ fontSize: '17px', fontWeight: 700, color: TEXT, fontFamily: FONT_DISPLAY, marginBottom: '8px' }}>
-                Que ningún registro se te pase
-              </div>
-              <div style={{ fontSize: '13px', color: TEXT_MUTED, lineHeight: 1.45, marginBottom: '20px' }}>
-                Activa los recordatorios y te avisamos en los momentos clave del día — aunque la app esté cerrada. Los apagas cuando quieras.
-              </div>
-              <button
-                onClick={() => { try { localStorage.setItem('mt:pushIntroShown', '1'); } catch (e) {} setPushIntro(false); activarPush(); }}
-                className="w-full py-3 rounded-full text-[14px] font-semibold active:scale-95 transition"
-                style={{ background: '#1F1F1F', color: '#FFF' }}>
-                Activar recordatorios
-              </button>
-              <button
-                onClick={() => { haptic(6); try { localStorage.setItem('mt:pushIntroShown', '1'); } catch (e) {} setPushIntro(false); }}
-                className="w-full py-2.5 mt-2 text-[13px] font-medium active:scale-95 transition"
-                style={{ color: TEXT_LIGHT }}>
-                Ahora no
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* El FAB negro "Herramientas" se eliminó: duplicaba el botón
-            "Herram." de la barra de navegación inferior, y su apertura por
-            pointerdown disparaba el ghost-click de iOS sobre el backdrop del
-            sheet recién abierto — el menú se cerraba solo y el botón parecía
-            congelado. */}
-
-        {/* Píldora de RECORDATORIOS pendientes del coach — flota arriba de
-            la zona de barras SOLO cuando hay algo pendiente, para que
-            no pase desapercibido (dentro del sheet quedaba escondido). Sin
-            pendientes desaparece y no estorba. */}
-        {coachReminders.some(r => !r.done_at) && (
-          <button
-            onPointerDown={(e) => { e.preventDefault(); haptic(8); setActiveModal('reminders'); }}
-            onClick={(e) => e.preventDefault()}
-            className="fixed z-40 rounded-full active:scale-90 items-center justify-center gap-1.5 fade-up"
-            style={{
-              display: actionsExpanded ? 'none' : 'flex',
-              bottom: 'calc(204px + env(safe-area-inset-bottom, 0px))',
-              right: '20px',
-              height: '40px',
-              padding: '0 14px 0 12px',
-              background: 'linear-gradient(135deg, #FBEFCF 0%, #F7E7B5 100%), #FFF',
-              color: '#6B5A22',
-              border: '1px solid rgba(255,255,255,0.7)',
-              boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 6px 20px rgba(180,140,20,0.25), 0 2px 4px rgba(0,0,0,0.08)',
-              touchAction: 'manipulation',
-              WebkitTapHighlightColor: 'transparent'
-            }}
-            title="Recordatorios de tu coach pendientes">
-            <Bell size={15} strokeWidth={2.2} style={{ color: '#8A6D16' }} />
-            <span className="text-[12px] font-bold">Recordatorios</span>
-            <span className="rounded-full text-[10px] font-bold flex items-center justify-center"
-              style={{ background: '#C75A4A', color: '#FFF', minWidth: '17px', height: '17px', padding: '0 4px' }}>
-              {coachReminders.filter(r => !r.done_at).length}
-            </span>
-          </button>
-        )}
-
-        {/* Bottom sheet — actions (always mounted to keep close instant on mobile) */}
-        {(() => {
-          const anyModalOpen = showWellbeingModal || showIngredientsModal || showPlannerModal || showPerformanceModal || showCapabilitiesModal || activeModal || editingEntry !== null || pendingFavoriteEntry;
-          const visible = actionsExpanded && !anyModalOpen;
-          return (
-          <div
-            ref={actionsSheetRef}
-            className="fixed inset-0 z-50 flex items-end justify-center"
-            style={{
-              background: 'rgba(0,0,0,0.45)',
-              display: visible ? 'flex' : 'none',
-              contain: 'strict'
-            }}
-            onClick={() => { haptic(6); closeActionsSheet(); }}>
-            <div
-              className={`w-full max-w-md rounded-t-3xl px-4 pt-2 ${visible ? 'sheet-up' : ''}`}
-              style={{
-                background: BG,
-                boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
-                paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
-                maxHeight: '78vh',
-                overflowY: 'auto'
-              }}
-              onClick={(e) => e.stopPropagation()}>
-              {/* Grabber */}
-              <div className="flex justify-center mb-2">
-                <div className="h-1 w-10 rounded-full" style={{ background: BORDER }} />
-              </div>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <div>
-                  <div className="text-[10px] tracking-[0.05em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
-                  <div className="text-[15px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
-                </div>
-                {/* Cierre: X usando onPointerDown (touchstart inmediato) + feedback visual
-                    visible al press (scale-90 + halo gris). El cierre real está optimizado
-                    con DOM-mutation directo en closeActionsSheet. */}
-                <button
-                  onPointerDown={(e) => { e.preventDefault(); swallowGhostClick(); closeActionsSheet(); }}
-                  onClick={(e) => e.preventDefault()}
-                  aria-label="Cerrar"
-                  className="p-2 rounded-full active:scale-90 active-x"
-                  style={{
-                    background: SURFACE_2,
-                    touchAction: 'manipulation',
-                    WebkitTapHighlightColor: 'transparent'
-                  }}>
-                  <X size={16} style={{ color: TEXT_MUTED }} />
-                </button>
-              </div>
-              {/* Iconos de LÍNEA (lucide, como el onboarding del centro de
-                  recursos) en insignias circulares, cada uno con su tono de
-                  la paleta de la app — se acabaron los emojis repetidos en
-                  el mismo pastel. Menos chips: "Aprendizaje" vive en el
-                  header y "¿Qué puedo hacer?" en el chat. */}
-              <div className="space-y-2.5">
-                <div>
-                  <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon={<ChefHat size={15} strokeWidth={2.2} />} label="Arma mi día" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); plannerPrefsRef.current = { text: '', extra: [] }; setShowPlannerModal(true); generatePlan(); }} />
-                    <ActionChipMini icon={<Repeat size={15} strokeWidth={2.2} />} label="Repetir comida de ayer" pastel={C_FAT_PASTEL} color={C_FAT}
-                      onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
-                    <ActionChipMini icon={<Star size={15} strokeWidth={2.2} />} label="Menús favoritos" pastel={C_CARBS_PASTEL} color="#9C7C3C"
-                      onClick={() => { haptic(8); setActiveModal('favorites'); }} />
-                    <ActionChipMini icon={<ShoppingBasket size={15} strokeWidth={2.2} />} label="Mis ingredientes" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); setShowIngredientsModal(true); }} />
-                    <ActionChipMini icon={<Pin size={15} strokeWidth={2.2} />} label="Guardar día como favorito" pastel="#D6E8F1" color="#3F81A6"
-                      onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); }} />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mi Semana" pastel={ACCENT_PASTEL} color={ACCENT_DARK}
-                      onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
-                    <ActionChipMini icon={<FileText size={15} strokeWidth={2.2} />} label="Resumen del día" pastel={C_FAT_PASTEL} color={C_FAT}
-                      onClick={() => { haptic(8); closeActionsSheet(); handleSend('ver resumen diario'); }} />
-                    <ActionChipMini icon={<Calendar size={15} strokeWidth={2.2} />} label="Calendario" pastel="#D6E8F1" color="#3F81A6"
-                      onClick={() => { haptic(8); setActiveModal('calendar'); }} />
-                    <ActionChipMini icon={<Scale size={15} strokeWidth={2.2} />} label="Ayuda con proporciones" pastel={C_PROTEIN_PASTEL} color={C_PROTEIN}
-                      onClick={() => { haptic(8); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); }} />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Ajustes</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <ActionChipMini icon={<Bell size={15} strokeWidth={2.2} />}
-                      label={(() => { const n = coachReminders.filter(r => !r.done_at).length; return n > 0 ? `Mis recordatorios (${n})` : 'Mis recordatorios'; })()}
-                      pastel="#FBEFCF" color="#8A6D16"
-                      onClick={() => { haptic(8); setActiveModal('reminders'); }} />
-                    <ActionChipMini icon={<RotateCcw size={15} strokeWidth={2.2} />} label="Reiniciar día" pastel="#E5E2D5" color={TEXT_MUTED}
-                      onClick={() => { haptic(8); setActiveModal('reset'); }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          );
-        })()}
 
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '84px', contain: 'layout paint', willChange: 'transform' }}>
@@ -4827,6 +4647,41 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           title="Ir al último mensaje">
           <ChevronDown size={18} strokeWidth={2.2} style={{ color: TEXT_MUTED }} />
         </button>
+      )}
+
+      {/* Anuncio PROMINENTE de recordatorios — solo la primera apertura
+          desde la app instalada. Modal centrado imposible de pasar por
+          alto; si elige "Ahora no", el banner de la zona fija lo sigue
+          recordando en las próximas aperturas. */}
+      {pushIntro && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(20,22,16,0.45)', backdropFilter: 'none' }}>
+          <div className="fade-up w-full" style={{
+            maxWidth: '340px', borderRadius: '24px', padding: '28px 24px 20px', textAlign: 'center',
+            background: `linear-gradient(135deg, ${ACCENT_PASTEL}50 0%, rgba(255,255,255,0.5) 100%), rgba(255,255,255,0.97)`,
+            border: '1px solid rgba(255,255,255,0.7)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 24px 64px rgba(20,25,15,0.35)',
+          }}>
+            <div style={{ fontSize: '44px', lineHeight: 1, marginBottom: '12px' }}>🔔</div>
+            <div style={{ fontSize: '17px', fontWeight: 700, color: TEXT, fontFamily: FONT_DISPLAY, marginBottom: '8px' }}>
+              Que ningún registro se te pase
+            </div>
+            <div style={{ fontSize: '13px', color: TEXT_MUTED, lineHeight: 1.45, marginBottom: '20px' }}>
+              Activa los recordatorios y te avisamos en los momentos clave del día — aunque la app esté cerrada. Los apagas cuando quieras.
+            </div>
+            <button
+              onClick={() => { try { localStorage.setItem('mt:pushIntroShown', '1'); } catch (e) {} setPushIntro(false); activarPush(); }}
+              className="w-full py-3 rounded-full text-[14px] font-semibold active:scale-95 transition"
+              style={{ background: '#1F1F1F', color: '#FFF' }}>
+              Activar recordatorios
+            </button>
+            <button
+              onClick={() => { haptic(6); try { localStorage.setItem('mt:pushIntroShown', '1'); } catch (e) {} setPushIntro(false); }}
+              className="w-full py-2.5 mt-2 text-[13px] font-medium active:scale-95 transition"
+              style={{ color: TEXT_LIGHT }}>
+              Ahora no
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Cartel central de pago vencido (≥5 días) — aparece al abrir la app.
@@ -4880,7 +4735,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))',
           WebkitOverflowScrolling: 'touch',
         }}>
-          <div className="max-w-2xl mx-auto px-5">
+          {/* Degradado orgánico (manchas verde agua + oliva) en el FONDO de
+              la página — capa fixed aparte, NO background-attachment (iOS lo
+              ignora dentro de contenedores con scroll). Las tarjetas glass
+              encima lo dejan respirar. */}
+          <div className="fixed inset-0 pointer-events-none" style={{
+            background: `radial-gradient(52% 38% at 90% 2%, rgba(140,196,178,0.36), transparent 70%),
+              radial-gradient(46% 34% at -4% 28%, rgba(168,197,150,0.30), transparent 70%),
+              radial-gradient(48% 38% at 98% 88%, rgba(212,218,184,0.42), transparent 72%)`,
+          }} />
+          <div className="relative max-w-2xl mx-auto px-5">
             <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em', marginTop: '6px' }}>
               {formatDate(today)}
             </div>
@@ -4893,22 +4757,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
             )}
 
-            {/* Héroe del día */}
+            {/* Héroe del día — GLASS: el degradado quedó en el fondo de la
+                página; la tarjeta es vidrio esmerilado con sombra premium. */}
             <div className="relative overflow-hidden" style={{
               marginTop: '16px', borderRadius: '26px', padding: '20px',
-              background: '#F0F1ED',
-              boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 16px 38px rgba(96,102,72,0.14), 0 3px 10px rgba(96,102,72,0.07)',
+              background: 'rgba(255,255,255,0.55)',
+              backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 16px 38px rgba(96,102,72,0.13), 0 3px 10px rgba(96,102,72,0.06)',
             }}>
-              <div className="absolute pointer-events-none" style={{
-                width: '240px', height: '220px', right: '-70px', top: '-90px',
-                background: 'radial-gradient(closest-side, rgba(140,196,178,0.5), rgba(140,196,178,0))',
-                borderRadius: '47% 53% 62% 38% / 55% 44% 56% 45%',
-              }} />
-              <div className="absolute pointer-events-none" style={{
-                width: '180px', height: '170px', left: '-60px', bottom: '-80px',
-                background: 'radial-gradient(closest-side, rgba(168,197,150,0.38), rgba(168,197,150,0))',
-                borderRadius: '58% 42% 45% 55% / 48% 60% 40% 52%',
-              }} />
               {!goals ? (
                 <div className="relative text-center py-3">
                   <div className="text-[14px] font-bold" style={{ color: TEXT }}>🎯 Tu coach está preparando tu meta</div>
@@ -4917,20 +4773,19 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               ) : (
                 <>
                   <div className="relative flex items-center gap-4">
-                    {(() => {
-                      const pct = Math.min(100, Math.round((totals.kcal / (goals.kcal || 1)) * 100));
-                      return (
-                        <div className="flex-shrink-0 rounded-full grid place-items-center" style={{
-                          width: '78px', height: '78px',
-                          background: `conic-gradient(from -90deg, #A8B56B 0%, ${ACCENT} ${Math.max(1, pct * 0.55)}%, ${ACCENT_DARK} ${pct}%, rgba(138,149,88,0.16) ${pct}% 100%)`,
-                          boxShadow: '0 6px 16px rgba(74,82,56,0.25)',
-                        }}>
-                          <div className="rounded-full grid place-items-center num" style={{ width: '60px', height: '60px', background: '#FDFCF8', color: ACCENT_DARK, fontWeight: 800, fontSize: '15px' }}>
-                            {pct}%
-                          </div>
-                        </div>
-                      );
-                    })()}
+                    {/* Aro principal FINO (trazo 7px) con degradado oliva del
+                        logo, punta redonda, centro transparente (glass) y
+                        sombra premium en el trazo mismo. */}
+                    <RingGauge size={86} stroke={7}
+                      pct={Math.min(100, Math.round((totals.kcal / (goals.kcal || 1)) * 100))}
+                      gradId="ring-kcal"
+                      stops={[['0%', '#A8B56B'], ['55%', ACCENT], ['100%', ACCENT_DARK]]}
+                      track="rgba(138,149,88,0.14)"
+                      shadow="drop-shadow(0 5px 10px rgba(74,82,56,0.30))">
+                      <div className="num" style={{ color: ACCENT_DARK, fontWeight: 800, fontSize: '16px' }}>
+                        {Math.min(100, Math.round((totals.kcal / (goals.kcal || 1)) * 100))}%
+                      </div>
+                    </RingGauge>
                     <div className="min-w-0">
                       <div className="text-[10px] font-bold uppercase" style={{ color: ACCENT_DARK, letterSpacing: '0.16em' }}>Tu día · en vivo</div>
                       <div className="num" style={{ color: TEXT, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
@@ -4941,22 +4796,24 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       </div>
                     </div>
                   </div>
-                  <div className="relative flex gap-2 mt-4">
+                  {/* Macros: mismos aros finos que el principal, uno por
+                      macro, centro sin relleno con los gramos adentro. */}
+                  <div className="relative flex mt-4">
                     {[
                       { k: 'Proteína', v: totals.p, g: goals.p, c: C_PROTEIN },
                       { k: 'Carbos', v: totals.c, g: goals.c, c: C_CARBS },
                       { k: 'Grasas', v: totals.g, g: goals.g, c: C_FAT },
                     ].map(mch => (
-                      <div key={mch.k} className="flex-1 rounded-2xl px-2.5 py-2" style={{
-                        background: 'rgba(255,255,255,0.66)',
-                        boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 4px 12px rgba(96,102,72,0.07)',
-                      }}>
-                        <div className="text-[9px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.1em' }}>{mch.k}</div>
-                        <div className="num" style={{ color: TEXT, fontSize: '14px', fontWeight: 800, marginTop: '2px' }}>
-                          {fmt1(mch.v)}<span style={{ fontSize: '10px', color: TEXT_LIGHT, fontWeight: 600 }}>/{fmt0(mch.g)}g</span>
-                        </div>
-                        <div className="rounded-full mt-1.5 overflow-hidden" style={{ height: '4px', background: 'rgba(31,31,31,0.08)' }}>
-                          <div className="rounded-full" style={{ height: '100%', width: `${Math.min(100, Math.round((mch.v / (mch.g || 1)) * 100))}%`, background: mch.c }} />
+                      <div key={mch.k} className="flex-1 flex flex-col items-center gap-1.5">
+                        <RingGauge size={56} stroke={5}
+                          pct={Math.min(100, Math.round((mch.v / (mch.g || 1)) * 100))}
+                          color={mch.c} track="rgba(31,31,31,0.07)"
+                          shadow="drop-shadow(0 3px 7px rgba(60,66,42,0.18))">
+                          <div className="num" style={{ color: TEXT, fontWeight: 800, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
+                        </RingGauge>
+                        <div className="text-center leading-tight">
+                          <div className="text-[9px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.09em' }}>{mch.k}</div>
+                          <div className="num text-[10px]" style={{ color: TEXT_LIGHT, fontWeight: 600, marginTop: '1px' }}>de {fmt0(mch.g)} g</div>
                         </div>
                       </div>
                     ))}
@@ -5050,9 +4907,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 12px 34px rgba(60,66,42,0.16), 0 2px 8px rgba(60,66,42,0.08)',
           }}>
             {[
-              { key: 'hoy', label: 'Hoy', icon: Home, active: tab === 'hoy', onClick: () => { haptic(6); setTab('hoy'); } },
-              { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat', onClick: () => { haptic(6); setTab('chat'); } },
-              { key: 'recetario', label: 'Recetario', icon: BookOpen, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowRecetario(true); } },
+              // El Recetario vive DEBAJO de esta barra (z-38 < z-45): navegar
+              // a Hoy/Chat lo cierra — sin botón "atrás" en su header.
+              { key: 'hoy', label: 'Hoy', icon: Home, active: tab === 'hoy' && !showRecetario, onClick: () => { haptic(6); setShowRecetario(false); setTab('hoy'); } },
+              { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat' && !showRecetario, onClick: () => { haptic(6); setShowRecetario(false); setTab('chat'); } },
+              { key: 'recetario', label: 'Recetario', icon: BookOpen, active: showRecetario, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowRecetario(true); } },
               ...(learningUrl ? [{ key: 'aprende', label: 'Aprende', icon: GraduationCap, onClick: openLearning }] : []),
               // openActionsSheet (DOM directo) y NO setActionsExpanded: el
               // sheet aparece en el mismo frame del tap; con solo estado, el
@@ -5070,10 +4929,155 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           </div>
       </div>
 
+      {/* Sheet de Herramientas + píldora de recordatorios — viven en la
+          RAÍZ, no dentro del scroller del chat: su zIndex:1 creaba un
+          stacking context que atrapaba el z-50 del sheet DEBAJO de la vista
+          Hoy (z-35) y del Recetario — abrir Herramientas fuera del chat
+          dejaba la app "congelada" (sheet invisible + barras ocultas). */}
+      {/* El FAB negro "Herramientas" se eliminó: duplicaba el botón
+          "Herram." de la barra de navegación inferior, y su apertura por
+          pointerdown disparaba el ghost-click de iOS sobre el backdrop del
+          sheet recién abierto — el menú se cerraba solo y el botón parecía
+          congelado. */}
+
+      {/* Píldora de RECORDATORIOS pendientes del coach — flota arriba de
+          la zona de barras SOLO cuando hay algo pendiente, para que
+          no pase desapercibido (dentro del sheet quedaba escondido). Sin
+          pendientes desaparece y no estorba. */}
+      {coachReminders.some(r => !r.done_at) && (
+        <button
+          onPointerDown={(e) => { e.preventDefault(); haptic(8); setActiveModal('reminders'); }}
+          onClick={(e) => e.preventDefault()}
+          className="fixed z-40 rounded-full active:scale-90 items-center justify-center gap-1.5 fade-up"
+          style={{
+            display: actionsExpanded ? 'none' : 'flex',
+            bottom: 'calc(204px + env(safe-area-inset-bottom, 0px))',
+            right: '20px',
+            height: '40px',
+            padding: '0 14px 0 12px',
+            background: 'linear-gradient(135deg, #FBEFCF 0%, #F7E7B5 100%), #FFF',
+            color: '#6B5A22',
+            border: '1px solid rgba(255,255,255,0.7)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 6px 20px rgba(180,140,20,0.25), 0 2px 4px rgba(0,0,0,0.08)',
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent'
+          }}
+          title="Recordatorios de tu coach pendientes">
+          <Bell size={15} strokeWidth={2.2} style={{ color: '#8A6D16' }} />
+          <span className="text-[12px] font-bold">Recordatorios</span>
+          <span className="rounded-full text-[10px] font-bold flex items-center justify-center"
+            style={{ background: '#C75A4A', color: '#FFF', minWidth: '17px', height: '17px', padding: '0 4px' }}>
+            {coachReminders.filter(r => !r.done_at).length}
+          </span>
+        </button>
+      )}
+
+      {/* Bottom sheet — actions (always mounted to keep close instant on mobile) */}
+      {(() => {
+        const anyModalOpen = showWellbeingModal || showIngredientsModal || showPlannerModal || showPerformanceModal || showCapabilitiesModal || activeModal || editingEntry !== null || pendingFavoriteEntry;
+        const visible = actionsExpanded && !anyModalOpen;
+        return (
+        <div
+          ref={actionsSheetRef}
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{
+            background: 'rgba(0,0,0,0.45)',
+            display: visible ? 'flex' : 'none',
+            contain: 'strict'
+          }}
+          onClick={() => { haptic(6); closeActionsSheet(); }}>
+          <div
+            className={`w-full max-w-md rounded-t-3xl px-4 pt-2 ${visible ? 'sheet-up' : ''}`}
+            style={{
+              background: BG,
+              boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
+              paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+              maxHeight: '78vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}>
+            {/* Grabber */}
+            <div className="flex justify-center mb-2">
+              <div className="h-1 w-10 rounded-full" style={{ background: BORDER }} />
+            </div>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <div>
+                <div className="text-[10px] tracking-[0.05em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
+                <div className="text-[15px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
+              </div>
+              {/* Cierre: X usando onPointerDown (touchstart inmediato) + feedback visual
+                  visible al press (scale-90 + halo gris). El cierre real está optimizado
+                  con DOM-mutation directo en closeActionsSheet. */}
+              <button
+                onPointerDown={(e) => { e.preventDefault(); swallowGhostClick(); closeActionsSheet(); }}
+                onClick={(e) => e.preventDefault()}
+                aria-label="Cerrar"
+                className="p-2 rounded-full active:scale-90 active-x"
+                style={{
+                  background: SURFACE_2,
+                  touchAction: 'manipulation',
+                  WebkitTapHighlightColor: 'transparent'
+                }}>
+                <X size={16} style={{ color: TEXT_MUTED }} />
+              </button>
+            </div>
+            {/* Iconos de LÍNEA (lucide, como el onboarding del centro de
+                recursos) en insignias circulares, cada uno con su tono de
+                la paleta de la app — se acabaron los emojis repetidos en
+                el mismo pastel. Menos chips: "Aprendizaje" vive en el
+                header y "¿Qué puedo hacer?" en el chat. */}
+            <div className="space-y-2.5">
+              <div>
+                <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <ActionChipMini icon={<ChefHat size={15} strokeWidth={2.2} />} label="Arma mi día" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
+                    onClick={() => { haptic(8); plannerPrefsRef.current = { text: '', extra: [] }; setShowPlannerModal(true); generatePlan(); }} />
+                  <ActionChipMini icon={<Repeat size={15} strokeWidth={2.2} />} label="Repetir comida de ayer" grad="linear-gradient(135deg, #7C8CA3, #4E5D74)"
+                    onClick={() => { haptic(8); repeatYesterday(); setActionsExpanded(false); }} />
+                  <ActionChipMini icon={<Star size={15} strokeWidth={2.2} />} label="Menús favoritos" grad="linear-gradient(135deg, #D4B581, #9C7C3C)"
+                    onClick={() => { haptic(8); setActiveModal('favorites'); }} />
+                  <ActionChipMini icon={<ShoppingBasket size={15} strokeWidth={2.2} />} label="Mis ingredientes" grad="linear-gradient(135deg, #E09479, #C05E44)"
+                    onClick={() => { haptic(8); setShowIngredientsModal(true); }} />
+                  <ActionChipMini icon={<Pin size={15} strokeWidth={2.2} />} label="Guardar día como favorito" grad="linear-gradient(135deg, #74AECB, #3F81A6)"
+                    onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); }} />
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mi Semana" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
+                    onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
+                  <ActionChipMini icon={<FileText size={15} strokeWidth={2.2} />} label="Resumen del día" grad="linear-gradient(135deg, #7C8CA3, #4E5D74)"
+                    onClick={() => { haptic(8); closeActionsSheet(); handleSend('ver resumen diario'); }} />
+                  <ActionChipMini icon={<Calendar size={15} strokeWidth={2.2} />} label="Calendario" grad="linear-gradient(135deg, #74AECB, #3F81A6)"
+                    onClick={() => { haptic(8); setActiveModal('calendar'); }} />
+                  <ActionChipMini icon={<Scale size={15} strokeWidth={2.2} />} label="Ayuda con proporciones" grad="linear-gradient(135deg, #E09479, #C05E44)"
+                    onClick={() => { haptic(8); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); }} />
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Ajustes</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <ActionChipMini icon={<Bell size={15} strokeWidth={2.2} />}
+                    label={(() => { const n = coachReminders.filter(r => !r.done_at).length; return n > 0 ? `Mis recordatorios (${n})` : 'Mis recordatorios'; })()}
+                    grad="linear-gradient(135deg, #C4A353, #8A6D16)"
+                    onClick={() => { haptic(8); setActiveModal('reminders'); }} />
+                  <ActionChipMini icon={<RotateCcw size={15} strokeWidth={2.2} />} label="Reiniciar día" grad="linear-gradient(135deg, #9A9A8F, #62625A)"
+                    onClick={() => { haptic(8); setActiveModal('reset'); }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
       <InputBar
         barRef={inputBarRef}
         apiRef={inputApiRef}
-        hidden={actionsExpanded || tab !== 'chat'}
+        hidden={actionsExpanded || tab !== 'chat' || showRecetario}
         liftPx={keyboardOpen ? 0 : 64}
         recording={recording}
         transcribing={transcribing}
@@ -5554,7 +5558,39 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
 
 }
 
-function ActionChipMini({ icon, label, color, pastel, onClick }) {
+// Aro de progreso en SVG — trazo fino con punta redonda, centro SIN relleno
+// (se ve el glass de la tarjeta detrás). `gradId` + `stops` pintan el trazo
+// con degradado; sin ellos usa `color` plano. El id debe ser único por
+// instancia para que los <defs> no colisionen entre aros.
+function RingGauge({ size = 78, stroke = 6, pct = 0, color = ACCENT, track = 'rgba(31,31,31,0.08)', gradId = null, stops = null, shadow = null, children }) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const p = Math.max(0, Math.min(100, pct));
+  return (
+    <div className="relative grid place-items-center flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', filter: shadow || undefined, overflow: 'visible' }}>
+        {gradId && stops && (
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              {stops.map(([off, c]) => <stop key={off} offset={off} stopColor={c} />)}
+            </linearGradient>
+          </defs>
+        )}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
+        {p > 0 && (
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+            stroke={gradId ? `url(#${gradId})` : color}
+            strokeWidth={stroke} strokeLinecap="round"
+            strokeDasharray={circ} strokeDashoffset={circ * (1 - p / 100)}
+            style={{ transition: 'stroke-dashoffset 0.7s cubic-bezier(0.2, 0, 0, 1)' }} />
+        )}
+      </svg>
+      <div className="absolute inset-0 grid place-items-center">{children}</div>
+    </div>
+  );
+}
+
+function ActionChipMini({ icon, label, color, pastel, grad, onClick }) {
   // Chip compacto + tap instantáneo: usa onPointerDown para disparar al
   // primer touchstart sin esperar el click sintético de iOS. Llevamos un
   // ref del punto de inicio para descartar el tap si el dedo se movió
@@ -5585,11 +5621,10 @@ function ActionChipMini({ icon, label, color, pastel, onClick }) {
         touchAction: 'manipulation',
         WebkitTapHighlightColor: 'transparent'
       }}>
-      {/* Insignia en "squircle" (cuadrado redondeado) con icono de línea:
-          blanco pleno + borde hairline + sombra suave y tipografía medium —
-          la receta de tarjeta premium; el pastel queda SOLO dentro de la
-          insignia, no gritando en todo el chip. */}
-      <div className="flex items-center justify-center rounded-[10px] shrink-0" style={{ width: 32, height: 32, background: pastel || ACCENT_PASTEL, color: color || ACCENT_DARK, fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1 }}>
+      {/* Insignia en "squircle" con el MISMO lenguaje que las herramientas
+          de la vista Hoy: degradado de color + icono de línea BLANCO. Si no
+          llega `grad` cae al pastel viejo (compatibilidad). */}
+      <div className="flex items-center justify-center rounded-[10px] shrink-0" style={{ width: 32, height: 32, background: grad || pastel || ACCENT_PASTEL, color: grad ? '#FFF' : (color || ACCENT_DARK), fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1 }}>
         {icon}
       </div>
       <div className="text-[12px] font-medium leading-tight text-left" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{label}</div>
