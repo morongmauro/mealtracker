@@ -1468,13 +1468,13 @@ export default function MealTracker() {
         // ~52px de fondo sólido bajo el campo: los íconos flotan sobre ese
         // espacio vacío y el texto queda siempre visible y clickeable.
         // OJO: con el teclado CERRADO este valor debe incluir el colchón de
-        // la barra de navegación inferior (liftPx=64 en el render). Antes se
-        // escribía solo 20px y pisaba el padding de React → la barra de chat
-        // caía ENCIMA de la barra de opciones (se superponían y los taps en
-        // "Herram." morían en el padding invisible del input).
+        // la barra de navegación inferior (20 + liftPx=70 en el render — si
+        // cambia uno deben cambiar AMBOS). Antes se escribía solo 20px y
+        // pisaba el padding de React → la barra de chat caía ENCIMA de la
+        // barra de opciones y los taps en "Herram." morían en el padding.
         inputBarRef.current.style.paddingBottom = kbOpen
           ? '52px'
-          : 'calc(84px + env(safe-area-inset-bottom, 0px))';
+          : 'calc(90px + env(safe-area-inset-bottom, 0px))';
       }
       // Con el teclado abierto la barra de navegación estorba (el input baja
       // a pegarse al teclado); se oculta y reaparece al cerrarlo.
@@ -4330,6 +4330,23 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         .msg-input:empty:before { content: attr(data-placeholder); color: ${TEXT_LIGHT}; pointer-events: none; }
         .msg-input { -webkit-user-modify: read-write-plaintext-only; }
         .fade-up { animation: fadeUp 0.45s cubic-bezier(0.2, 0, 0, 1); }
+        /* Mientras el modelo PIENSA, las manchas del fondo del chat derivan
+           suavemente (estilo Gemini) y al terminar vuelven a su lugar. Solo
+           anima transform + opacity: capa única compuesta en GPU, cero
+           repintado de gradientes — no toca el rendimiento del chat. La capa
+           está sobredimensionada (inset -8%) para que la deriva nunca
+           descubra los bordes. */
+        @keyframes bgDrift {
+          0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+          25%  { transform: translate3d(-3%, 2.5%, 0) scale(1.07); opacity: 0.92; }
+          50%  { transform: translate3d(2.5%, -2%, 0) scale(1.04); opacity: 1; }
+          75%  { transform: translate3d(-1.5%, -2.5%, 0) scale(1.08); opacity: 0.94; }
+          100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+        }
+        .bg-stains-chat.thinking { animation: bgDrift 6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .bg-stains-chat.thinking { animation: none; }
+        }
         .pulse-ring { animation: pulseRing 1.5s ease-in-out infinite; }
         .shimmer-text {
           background: linear-gradient(90deg, ${TEXT_MUTED} 0%, ${ACCENT} 50%, ${TEXT_MUTED} 100%);
@@ -4421,9 +4438,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       }}>
         {/* Mismo degradado orgánico de Hoy y Recetario en el fondo del chat
             (capa fixed aparte — iOS ignora background-attachment en
-            scrollers). Las burbujas blancas flotan encima. */}
-        <div className="fixed inset-0 pointer-events-none" style={{
+            scrollers). Las burbujas blancas flotan encima. Con .thinking
+            (mientras el modelo responde) las manchas derivan suavemente. */}
+        <div className={`fixed pointer-events-none bg-stains-chat${loading ? ' thinking' : ''}`} style={{
+          top: '-8%', left: '-8%', right: '-8%', bottom: '-8%',
           background: BG_STAINS,
+          willChange: loading ? 'transform' : 'auto',
         }} />
 
         {/* Goals card — FIXED + visualViewport tracking. top = altura real
@@ -4433,7 +4453,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           paddingLeft: '20px', paddingRight: '20px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
-          background: `linear-gradient(180deg, ${BG} 0%, rgba(237,236,230,0.92) 80%, rgba(237,236,230,0.6) 100%)`,
+          background: `linear-gradient(180deg, ${BG} 0%, rgba(241,240,234,0.92) 80%, rgba(241,240,234,0.6) 100%)`,
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)',
           transform: 'translate3d(0, 0, 0)',
           zIndex: 30,
@@ -4639,7 +4659,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           return (
             <div className="fixed left-0 right-0 pointer-events-none" style={{
               zIndex: 25, top: 0, height: `${zb + 50}px`,
-              background: `linear-gradient(180deg, #EDECE6 0%, #EDECE6 ${zb}px, rgba(237,236,230,0) 100%)`,
+              background: `linear-gradient(180deg, #F1F0EA 0%, #F1F0EA ${zb}px, rgba(241,240,234,0) 100%)`,
             }} />
           );
         })()}
@@ -4786,7 +4806,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
             zIndex: 5,
             height: `${headerH + 26}px`,
-            background: 'linear-gradient(180deg, #EDECE6 30%, rgba(237,236,230,0.88) 62%, rgba(237,236,230,0) 100%)',
+            background: 'linear-gradient(180deg, #F1F0EA 30%, rgba(241,240,234,0.88) 62%, rgba(241,240,234,0) 100%)',
           }} />
           <div className="relative max-w-2xl mx-auto px-5">
             <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em', marginTop: '6px' }}>
@@ -4946,7 +4966,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         pointerEvents: 'none',
         display: actionsExpanded ? 'none' : 'block'
       }}>
-          <div className="max-w-md mx-auto flex rounded-[24px] px-2 py-2" style={{
+          {/* Barra OVALADA (rounded-full) y un poco más alta que la v1. */}
+          <div className="max-w-md mx-auto flex rounded-full px-3 py-2.5" style={{
             pointerEvents: 'auto',
             background: 'rgba(255,255,255,0.86)',
             backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
@@ -4966,10 +4987,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               { key: 'herr', label: 'Herram.', icon: LayoutGrid, onClick: () => { haptic(8); openActionsSheet(); } },
             ].map(n => (
               <button key={n.key} onClick={n.onClick}
-                className="flex-1 flex flex-col items-center gap-0.5 py-1 active:scale-95 transition"
+                className="flex-1 flex flex-col items-center gap-1 py-1 active:scale-95 transition"
                 style={{ color: n.active ? ACCENT_DARK : '#9A988C', WebkitTapHighlightColor: 'transparent' }}>
-                <n.icon size={20} strokeWidth={n.active ? 2.4 : 2} />
-                <span className="text-[10px] font-bold" style={{ letterSpacing: '0.01em' }}>{n.label}</span>
+                <n.icon size={22} strokeWidth={n.active ? 2.4 : 2} />
+                <span className="text-[10.5px] font-bold" style={{ letterSpacing: '0.01em' }}>{n.label}</span>
               </button>
             ))}
           </div>
@@ -5131,7 +5152,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         barRef={inputBarRef}
         apiRef={inputApiRef}
         hidden={actionsExpanded || tab !== 'chat' || showRecetario}
-        liftPx={keyboardOpen ? 0 : 64}
+        liftPx={keyboardOpen ? 0 : 70}
         recording={recording}
         transcribing={transcribing}
         loading={loading}
@@ -5456,7 +5477,9 @@ const InputBar = memo(function InputBar({
             → se registrará como {predictedMeal}
           </div>
         )}
-        <div className="flex items-center gap-2 p-2 rounded-2xl" style={{
+        {/* Barra OVALADA (rounded-full) con micrófono circular — el px-2
+            extra del contenido compensa la curva del óvalo. */}
+        <div className="flex items-center gap-2 p-2 rounded-full" style={{
           background: SURFACE,
           border: `1px solid ${recording ? C_PROTEIN : BORDER}`,
           boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, 0 8px 32px rgba(0,0,0,0.08)` : '0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
@@ -5494,7 +5517,7 @@ const InputBar = memo(function InputBar({
             data-form-type="other"
             data-1p-ignore="true"
             data-lpignore="true"
-            className="msg-input flex-1 bg-transparent px-3 py-3 outline-none"
+            className="msg-input flex-1 bg-transparent pl-4 pr-2 py-3 outline-none"
             style={{ color: TEXT, fontSize: '16px', minHeight: '24px', maxHeight: '120px', overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
           />
           {/* Voice is the PRIMARY action (grafito, prominent). Send only appears when there's text. */}
@@ -5502,9 +5525,9 @@ const InputBar = memo(function InputBar({
             type="button"
             onClick={recording ? onStopVoice : onStartVoice}
             disabled={transcribing}
-            className="rounded-xl transition active:scale-[0.95] disabled:opacity-60 shrink-0 flex items-center justify-center"
+            className="rounded-full transition active:scale-[0.95] disabled:opacity-60 shrink-0 flex items-center justify-center"
             style={{
-              width: '46px', height: '46px',
+              width: '50px', height: '50px',
               background: recording ? C_PROTEIN : '#1F1F1F',
               color: '#fff',
               boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}30` : '0 2px 8px rgba(0,0,0,0.18)',
@@ -5512,18 +5535,18 @@ const InputBar = memo(function InputBar({
             }}
             title={recording ? 'Detener dictado' : transcribing ? 'Transcribiendo…' : 'Dictar por voz'}>
             {transcribing
-              ? <Loader2 size={20} strokeWidth={2} className="animate-spin" />
-              : <Mic size={20} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: '#EDECE6' }} />}
+              ? <Loader2 size={22} strokeWidth={2} className="animate-spin" />
+              : <Mic size={22} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: '#F1F0EA' }} />}
           </button>
           {text.trim() && !recording && (
             <button
               type="button"
               onClick={send}
               disabled={loading}
-              className="rounded-xl transition disabled:opacity-30 active:scale-[0.95] shrink-0 flex items-center justify-center fade-up"
-              style={{ width: '46px', height: '46px', background: '#1F1F1F', color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.18)' }}
+              className="rounded-full transition disabled:opacity-30 active:scale-[0.95] shrink-0 flex items-center justify-center fade-up"
+              style={{ width: '50px', height: '50px', background: '#1F1F1F', color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.18)' }}
               title="Enviar">
-              <ArrowUp size={18} strokeWidth={2.5} />
+              <ArrowUp size={20} strokeWidth={2.5} />
             </button>
           )}
         </div>
