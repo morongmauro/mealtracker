@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, startTransition } from 'react';
+import React, { useState, useMemo, useRef, useEffect, startTransition } from 'react';
 import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, Info, Clock, AlertTriangle, X } from 'lucide-react';
 
 // Paleta, sombras y tipografía compartidas — ver src/theme.js.
@@ -1098,7 +1098,7 @@ const cardStyle = { background: 'rgba(255,255,255,0.9)', border: '1px solid rgba
 // (mismo lenguaje que las burbujas del chat del MealTracker).
 const plainCard = { background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(60,70,50,0.09), 0 2px 6px rgba(60,70,50,0.05)' };
 
-export default function Recetario({ goals, consumed, onClose, onRegister, onChangeGoal }) {
+export default function Recetario({ goals, consumed, onClose, onRegister, onChangeGoal, scrollSignal }) {
   // El modo global "Ajustar recetas a mi día" se eliminó: confundía ("¿no
   // deberían venir TODAS ajustadas al día?"). Ahora toda receta llega
   // ajustada a su comida dentro de la meta, y DENTRO del detalle aparece la
@@ -1111,6 +1111,15 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const [manualK, setManualK] = useState(null);
   const [registered, setRegistered] = useState(false);
   const rootRef = useRef(null);
+  const detailRef = useRef(null);
+
+  // Re-tap en la pestaña Recetario (señal del MealTracker): volver al
+  // principio de la página — del detalle si hay receta abierta, o de la lista.
+  useEffect(() => {
+    if (!scrollSignal) return;
+    const el = detailRef.current || rootRef.current;
+    el?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [scrollSignal]);
 
   // Cierra el overlay del Recetario INSTANTÁNEO: oculta el contenedor por
   // mutación directa de DOM antes de que el padre desmonte el componente.
@@ -1172,6 +1181,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     if (manualK != null) return scale(open, open.totals.p * manualK);
     return scale(open, targetP(open.slot, fitRemaining));
   }, [open, manualK, fitRemaining, remaining, g]);
+  // Factor de la porción SUGERIDA (sin ajuste manual): referencia del %
+  const kSuggested = useMemo(() => open ? scale(open, targetP(open.slot, fitRemaining)).k : 1, [open, fitRemaining, remaining, g]);
 
   const handleRegister = () => {
     if (!open || !detail) return;
@@ -1196,7 +1207,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   // las demás vistas. El "atrás" es un botón flotante circular arriba a la
   // derecha (la píldora ocupa la izquierda).
   const detailOverlay = (open && detail) ? (
-      <div className="fixed inset-0 z-[39] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
+      <div ref={detailRef} className="fixed inset-0 z-[39] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
         <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: BG_STAINS }} />
         <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
           zIndex: 2,
@@ -1257,6 +1268,35 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             {/* Si YA registró comida hoy, la receta puede adaptarse a lo que
                 le queda del día — la decisión vive AQUÍ, dentro de la receta,
                 no en un modo global confuso de la lista. */}
+            {/* Cantidad — sin slider técnico: botones simples de − / +
+                sobre la porción sugerida (pasos de 15%, entre 50% y 200%).
+                El donut y los totales de arriba se actualizan en vivo. */}
+            <div className="flex items-center gap-2 mt-3">
+              <div>
+                <div className="text-[11.5px] font-semibold" style={{ color: TEXT_MUTED }}>Cantidad de la porción</div>
+                <div className="text-[10.5px]" style={{ color: TEXT_LIGHT }}>La sugerida ya cuadra con tu meta</div>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={() => { haptic(6); const base = manualK ?? detail.k; setManualK(Math.max(kSuggested * 0.5, +(base / 1.15).toFixed(3))); }}
+                  aria-label="Menos porción"
+                  className="rounded-full flex items-center justify-center active:scale-90 transition font-bold"
+                  style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.95)', color: TEXT, fontSize: 18, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 3px 10px rgba(60,70,50,0.12)' }}>−</button>
+                <span className="num text-[12.5px] font-bold" style={{ color: TEXT, minWidth: 42, textAlign: 'center' }}>
+                  {manualK == null ? 'normal' : `${Math.round((manualK / (kSuggested || 1)) * 100)}%`}
+                </span>
+                <button
+                  onClick={() => { haptic(6); const base = manualK ?? detail.k; setManualK(Math.min(kSuggested * 2, +(base * 1.15).toFixed(3))); }}
+                  aria-label="Más porción"
+                  className="rounded-full flex items-center justify-center active:scale-90 transition font-bold"
+                  style={{ width: 34, height: 34, background: '#1F1F1F', color: '#FFF', fontSize: 17, boxShadow: '0 3px 10px rgba(0,0,0,0.2)' }}>+</button>
+              </div>
+            </div>
+            {manualK != null && (
+              <button onClick={() => { haptic(6); setManualK(null); }} className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold" style={{ color: TEXT_MUTED }}>
+                <RotateCcw size={11} /> Volver a la porción sugerida
+              </button>
+            )}
             {hasEatenToday && (
               <button
                 onClick={() => { haptic(8); setManualK(null); setFitRemaining(f => !f); }}
@@ -1305,18 +1345,6 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             ))}
           </div>
 
-          {/* Ajuste manual */}
-          <div className="rounded-3xl p-4" style={plainCard}>
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-1.5 text-[11px] tracking-[0.04em] uppercase font-semibold" style={{ color: ACCENT }}><Sliders size={13} /> Ajuste fino</div>
-              {manualK != null && <button onClick={() => setManualK(null)} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: TEXT_MUTED }}><RotateCcw size={11} /> Volver a tu meta</button>}
-            </div>
-            <div className="text-[11.5px] mb-2" style={{ color: TEXT_MUTED }}>
-              Las porciones de arriba ya están calculadas según tu meta. Usa esto solo si quieres aumentar o reducir esa cantidad sugerida.
-            </div>
-            <input type="range" min="0.5" max="2" step="0.05" value={manualK ?? detail.k} onChange={(e) => setManualK(parseFloat(e.target.value))} className="rec-range" />
-            <div className="text-[11px] mt-1" style={{ color: TEXT_LIGHT }}>{(manualK ?? detail.k).toFixed(2)}× respecto a la receta base</div>
-          </div>
         </div>
 
         {/* Botón de registrar ARRIBA de la barra de navegación (antes en
@@ -1407,25 +1435,26 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             vive dentro de cada receta cuando ya se registró comida. Menos
             botones = un solo camino claro: busca o filtra, y abre. */}
 
-        {/* Filtro por comida — siempre los 4 momentos */}
-        {!searching && (
-          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            {SLOT_FILTERS.map(f => (
-              <button key={f.key} onClick={() => { haptic(4); setFilterSlot(f.key); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: filterSlot === f.key ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: filterSlot === f.key ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: filterSlot === f.key ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{f.label}</button>
-            ))}
-          </div>
-        )}
-
-        {/* Filtros rápidos / ordenar */}
+        {/* Filtros en DOS grupos etiquetados (¿para qué comida? / ordenar
+            por), sin emojis ni notas — un solo camino claro y ordenado. */}
         {!searching && (
           <>
-            <div style={{ height: 1, background: BORDER, opacity: 0.7 }} className="mx-1 my-0.5" />
-            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-              {[{ k: 'reco', l: 'Recomendado' }, { k: 'rapidos', l: '⚡ Más rápidos' }, { k: 'economicos', l: '💰 Más económicos' }, { k: 'proteina', l: '💪 Alta proteína' }].map(o => (
-                <button key={o.k} onClick={() => { haptic(4); setSort(o.k); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: sort === o.k ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: sort === o.k ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: sort === o.k ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{o.l}</button>
-              ))}
+            <div>
+              <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>¿Para qué comida?</div>
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                {SLOT_FILTERS.map(f => (
+                  <button key={f.key} onClick={() => { haptic(4); setFilterSlot(f.key); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: filterSlot === f.key ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: filterSlot === f.key ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: filterSlot === f.key ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{f.label}</button>
+                ))}
+              </div>
             </div>
-            <div className="-mt-1.5 px-1 text-[11.5px]" style={{ color: TEXT_MUTED }}>{SORT_NOTES[sort]}</div>
+            <div>
+              <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Ordenar por</div>
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                {[{ k: 'reco', l: 'Recomendadas' }, { k: 'rapidos', l: 'Más rápidas' }, { k: 'economicos', l: 'Más económicas' }, { k: 'proteina', l: 'Alta proteína' }].map(o => (
+                  <button key={o.k} onClick={() => { haptic(4); setSort(o.k); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: sort === o.k ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: sort === o.k ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: sort === o.k ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{o.l}</button>
+                ))}
+              </div>
+            </div>
           </>
         )}
 
@@ -1442,7 +1471,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                 setFitRemaining(false);
               })}
               onClick={(e) => e.preventDefault()}
-              className="w-full text-left rounded-2xl p-3 active:scale-[0.99] transition flex items-center gap-3"
+              className="w-full text-left rounded-[20px] p-3 active:scale-[0.99] transition flex items-center gap-3"
               style={{ ...cardStyle, touchAction: 'manipulation' }}>
               <div className="flex items-center justify-center rounded-xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24, flexShrink: 0 }}>{recipe.icon}</div>
               <div className="flex-1 min-w-0">

@@ -17,7 +17,7 @@ import {
   ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
   C_PROTEIN, C_PROTEIN_PASTEL, C_CARBS, C_CARBS_PASTEL, C_FAT, C_FAT_PASTEL, C_WATER,
   BG, BG_STAINS, BG_STAINS_WARM, BG_STAINS_COOL, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
-  SUCCESS, WARN, DANGER, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
+  SUCCESS, WARN, DANGER, DANGER_SOFT, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
 } from './theme.js';
 import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
 
@@ -362,6 +362,11 @@ export default function MealTracker() {
   // como salir a otra página en vez de una sección más de la app.
   const [showLearning, setShowLearning] = useState(false);
   const [learningSrc, setLearningSrc] = useState('');
+  // Re-tap en la pestaña activa = "llévame al inicio": señales que disparan
+  // el scroll (Recetario) o la recarga del iframe (Aprendizaje).
+  const [recetarioScrollSig, setRecetarioScrollSig] = useState(0);
+  const [learningKey, setLearningKey] = useState(0);
+  const hoyScrollRef = useRef(null);
   const [cardCompact, setCardCompact] = useState(false);
   // ── Pestañas (rediseño v3): 'hoy' | 'chat'. Apertura FRÍA (primera del
   // día o >60 min sin usar la app) → Hoy, que te reubica; re-apertura
@@ -4433,7 +4438,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               textTransform: 'uppercase',
               whiteSpace: 'nowrap'
             }}>
-              Meal Tracker
+              {showLearning ? 'Aprendizaje' : 'Meal Tracker'}
             </span>
             <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '8px', letterSpacing: '0.09em', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
               Entrena con Método
@@ -4451,6 +4456,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <Recetario
             goals={goals}
             consumed={totals}
+            scrollSignal={recetarioScrollSig}
             onClose={() => setShowRecetario(false)}
             onRegister={registerRecipeEntry}
           />
@@ -4510,7 +4516,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             etiqueta) es lo ÚNICO que abre el panel — cada tap hace lo que
             dice. */}
         <div className="rounded-3xl relative" style={{
-          padding: cardCompact ? '8px 12px' : '16px',
+          padding: cardCompact ? '11px 14px' : '16px',
           background: 'rgba(255,255,255,0.95)',
           border: '1px solid rgba(255,255,255,0.7)',
           boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 8px 28px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
@@ -4832,7 +4838,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           estado). Héroe gris suave con manchas orgánicas verde agua y
           anillo oliva degradado; luego herramientas y las comidas del día. */}
       {tab === 'hoy' && (
-        <div className="fixed inset-0 overflow-y-auto" style={{
+        <div ref={hoyScrollRef} className="fixed inset-0 overflow-y-auto" style={{
           zIndex: 35, background: BG,
           paddingTop: `${headerH + 10}px`,
           paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))',
@@ -4904,13 +4910,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       stops={[['0%', '#A8B56B'], ['55%', ACCENT], ['100%', ACCENT_DARK]]}
                       track="rgba(138,149,88,0.14)"
                       shadow="drop-shadow(0 5px 10px rgba(74,82,56,0.30))">
-                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER : ACCENT_DARK, fontWeight: 800, fontSize: '16px' }}>
+                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : ACCENT_DARK, fontWeight: 800, fontSize: '16px' }}>
                         {Math.round((totals.kcal / (goals.kcal || 1)) * 100)}%
                       </div>
                     </RingGauge>
                     <div className="min-w-0">
                       <div className="text-[10px] font-bold uppercase" style={{ color: ACCENT_DARK, letterSpacing: '0.16em' }}>Tu día · en vivo</div>
-                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER : TEXT, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
+                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : TEXT, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
                         {Math.round(totals.kcal).toLocaleString('es')} / {Math.round(goals.kcal).toLocaleString('es')} kcal
                       </div>
                       {/* Celebrar SOLO cumplimiento real: kcal en ±5% de la
@@ -4920,7 +4926,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                         const ratio = totals.kcal / (goals.kcal || 1);
                         const pOk = !goals.p || (totals.p >= goals.p * 0.9 && totals.p <= goals.p * 1.15);
                         if (ratio > 1.05) return (
-                          <div className="text-[12.5px] font-semibold" style={{ color: DANGER, marginTop: '2px' }}>
+                          <div className="text-[12.5px] font-semibold" style={{ color: DANGER_SOFT, marginTop: '2px' }}>
                             Te excediste por {Math.round(totals.kcal - goals.kcal)} kcal
                           </div>
                         );
@@ -4949,7 +4955,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                           pct={Math.min(100, Math.round((mch.v / (mch.g || 1)) * 100))}
                           color={mch.c} track="rgba(31,31,31,0.07)"
                           shadow="drop-shadow(0 3px 7px rgba(60,66,42,0.18))">
-                          <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER : TEXT, fontWeight: 800, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
+                          <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER_SOFT : TEXT, fontWeight: 800, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
                         </RingGauge>
                         <div className="text-center leading-tight">
                           <div className="text-[9px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.09em' }}>{mch.k}</div>
@@ -5039,7 +5045,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {showLearning && (
         <div className="fixed inset-0" style={{ zIndex: 37, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
+          {/* Difuminado superior: el contenido del centro se diluye bajo la
+              píldora "Aprendizaje" hasta el borde del teléfono (pointer-
+              events none: los toques atraviesan hacia el iframe). */}
+          <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
+            zIndex: 2,
+            height: 'calc(env(safe-area-inset-top, 0px) + 66px)',
+            background: 'linear-gradient(180deg, rgba(241,240,234,0.95) 25%, rgba(241,240,234,0.85) 55%, rgba(241,240,234,0) 100%)',
+          }} />
           <iframe
+            key={learningKey}
             title="Centro de aprendizaje"
             src={learningSrc}
             style={{
@@ -5071,10 +5086,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             {[
               // El Recetario vive DEBAJO de esta barra (z-38 < z-45): navegar
               // a Hoy/Chat lo cierra — sin botón "atrás" en su header.
-              { key: 'hoy', label: 'Hoy', icon: Home, active: tab === 'hoy' && !showRecetario && !showLearning, onClick: () => { haptic(6); setShowRecetario(false); setShowLearning(false); setTab('hoy'); } },
-              { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat' && !showRecetario && !showLearning, onClick: () => { haptic(6); setShowRecetario(false); setShowLearning(false); setTab('chat'); } },
-              { key: 'recetario', label: 'Recetario', icon: BookOpen, active: showRecetario, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowLearning(false); setShowRecetario(true); } },
-              ...(learningUrl ? [{ key: 'aprende', label: 'Aprende', icon: GraduationCap, active: showLearning, onClick: openLearning }] : []),
+              // Re-tap en la pestaña ya activa: Hoy sube al inicio, Chat baja
+              // al mensaje más reciente, Recetario sube al inicio y Aprende
+              // vuelve al principio del centro.
+              { key: 'hoy', label: 'Hoy', icon: Home, active: tab === 'hoy' && !showRecetario && !showLearning, onClick: () => { haptic(6); if (tab === 'hoy' && !showRecetario && !showLearning) { hoyScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); return; } setShowRecetario(false); setShowLearning(false); setTab('hoy'); } },
+              { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat' && !showRecetario && !showLearning, onClick: () => { haptic(6); if (tab === 'chat' && !showRecetario && !showLearning) { const sc = chatScrollRef.current; if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' }); return; } setShowRecetario(false); setShowLearning(false); setTab('chat'); } },
+              { key: 'recetario', label: 'Recetario', icon: BookOpen, active: showRecetario, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } if (showRecetario) { setRecetarioScrollSig(x => x + 1); return; } setShowLearning(false); setShowRecetario(true); } },
+              ...(learningUrl ? [{ key: 'aprende', label: 'Aprende', icon: GraduationCap, active: showLearning, onClick: () => { if (showLearning) { haptic(6); setLearningKey(k => k + 1); return; } openLearning(); } }] : []),
               // openActionsSheet (DOM directo) y NO setActionsExpanded: el
               // sheet aparece en el mismo frame del tap; con solo estado, el
               // re-render del árbol gigante tardaba 1-2s en móvil y el botón
@@ -5674,20 +5692,31 @@ function formatDateShort(iso) {
 
 // True Apple-style glass ring — the chart is the focal element
 function CompactMacro({ val, goal, color, label, unit = '' }) {
-  // Compacto CON claridad: valor/meta y una barrita de progreso — antes solo
-  // se veía el valor y el cliente no sabía contra qué comparar. Si se pasa
-  // de la meta (>105%) el número se pone rojo.
+  // Aro circular en su color de SIEMPRE (el aro nunca se pone rojo) +
+  // valor/meta al lado. Solo el TEXTO avisa el exceso, en rojo pastel.
   const pct = goal > 0 ? Math.min(1, val / goal) : 0;
   const over = goal > 0 && val > goal * 1.05;
+  const size = 34;
+  const stroke = 3.5;
+  const radius = (size - stroke) / 2;
+  const circ = 2 * Math.PI * radius;
+  const dash = circ * pct;
+  const center = size / 2;
   return (
-    <div className="flex-1 min-w-0">
-      <div className="flex items-baseline gap-1">
-        <span className="text-[10px] font-semibold" style={{ color: TEXT_LIGHT }}>{label}</span>
-        <span className="text-[12px] font-bold num" style={{ color: over ? DANGER : TEXT, letterSpacing: '-0.01em' }}>{Math.round(val)}</span>
-        <span className="text-[9.5px] num font-semibold" style={{ color: TEXT_LIGHT }}>/{Math.round(goal)}{unit}</span>
-      </div>
-      <div className="rounded-full overflow-hidden mt-1" style={{ height: '3.5px', background: 'rgba(31,31,31,0.08)' }}>
-        <div className="rounded-full" style={{ height: '100%', width: `${Math.round(pct * 100)}%`, background: over ? DANGER : color, transition: 'width 0.6s ease' }} />
+    <div className="flex items-center gap-2 flex-1 min-w-0">
+      <svg width={size} height={size} className="flex-shrink-0">
+        <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.16" strokeWidth={stroke} />
+        <g transform={`rotate(-90 ${center} ${center})`}>
+          <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+            strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 0.6s ease' }} />
+        </g>
+      </svg>
+      <div className="min-w-0">
+        <div className="text-[10px] font-semibold leading-tight" style={{ color: TEXT_LIGHT }}>{label}</div>
+        <div className="leading-tight num whitespace-nowrap">
+          <span className="text-[12.5px] font-bold" style={{ color: over ? DANGER_SOFT : TEXT, letterSpacing: '-0.01em' }}>{Math.round(val)}</span>
+          <span className="text-[9.5px] font-semibold" style={{ color: TEXT_LIGHT }}>/{Math.round(goal)}{unit}</span>
+        </div>
       </div>
     </div>
   );
@@ -5711,7 +5740,7 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
           <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
             strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
         </g>
-        <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 20, fill: goal > 0 && val > goal * 1.05 ? DANGER : TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
+        <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 20, fill: goal > 0 && val > goal * 1.05 ? DANGER_SOFT : TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
         <text x={center} y={center + 13} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10.5, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
       </svg>
       <div className="text-[10px] uppercase tracking-wider mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.03em' }}>

@@ -68,6 +68,9 @@ export const TEXT_LIGHT = '#9A9A9A';
 export const SUCCESS = '#7A9579';
 export const WARN = '#B8732B';
 export const DANGER = '#C75A4A';
+export const DANGER_SOFT = '#D08A7D';    // rojo pastel para textos de exceso —
+                                         // avisa sin castigar (los aros nunca
+                                         // cambian de color, solo el texto).
 
 // Sombras — escala de 3 niveles. No inventar más variantes inline.
 export const SHADOW_CARD = '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 30px rgba(60,70,50,0.10), 0 2px 8px rgba(60,70,50,0.05)';
