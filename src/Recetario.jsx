@@ -1060,13 +1060,15 @@ function MacroDonut({ totals, size = 92 }) {
   let off = 0;
   const seg = (val, color) => {
     const len = (val / tot) * C;
-    const el = (<circle key={color} cx="18" cy="18" r={r} fill="none" stroke={color} strokeWidth="3.6" strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-off} strokeLinecap="round" transform="rotate(-90 18 18)" />);
+    const el = (<circle key={color} cx="18" cy="18" r={r} fill="none" stroke={color} strokeWidth="3" strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-off} strokeLinecap="round" transform="rotate(-90 18 18)" />);
     off += len; return el;
   };
   return (
     <div className="relative" style={{ width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size} viewBox="0 0 36 36">
-        <circle cx="18" cy="18" r={r} fill="none" stroke="#EDE8DA" strokeWidth="3.6" />
+      {/* Trazo fino + sombra en el trazo: mismo lenguaje premium que los
+          aros de la vista Hoy, con los colores de macros de la paleta. */}
+      <svg width={size} height={size} viewBox="0 0 36 36" style={{ filter: 'drop-shadow(0 3px 6px rgba(60,66,42,0.18))', overflow: 'visible' }}>
+        <circle cx="18" cy="18" r={r} fill="none" stroke="rgba(31,31,31,0.07)" strokeWidth="3" />
         {seg(pc, C_PROTEIN)}{seg(cc, C_CARBS)}{seg(gc, C_FAT)}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -1092,10 +1094,16 @@ function MacroLegend({ totals }) {
 // abrir/cerrar y al entrar a una receta. Fondo semi-sólido + sombra = mismo look
 // premium, sin costo de GPU.
 const cardStyle = { background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.85)', boxShadow: SHADOW_CARD };
-const plainCard = { background: SURFACE, border: `1px solid ${BORDER}` };
+// Sin bordes sólidos: tarjeta blanca con sombra suave y brillo interior
+// (mismo lenguaje que las burbujas del chat del MealTracker).
+const plainCard = { background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(60,70,50,0.09), 0 2px 6px rgba(60,70,50,0.05)' };
 
 export default function Recetario({ goals, consumed, onClose, onRegister, onChangeGoal }) {
-  const [mode, setMode] = useState('comida');
+  // El modo global "Ajustar recetas a mi día" se eliminó: confundía ("¿no
+  // deberían venir TODAS ajustadas al día?"). Ahora toda receta llega
+  // ajustada a su comida dentro de la meta, y DENTRO del detalle aparece la
+  // opción "Adaptar a lo que me queda hoy" cuando ya se registró comida.
+  const [fitRemaining, setFitRemaining] = useState(false);
   const [filterSlot, setFilterSlot] = useState('todas');
   const [sort, setSort] = useState('reco'); // reco | rapidos | economicos | proteina
   const [query, setQuery] = useState('');
@@ -1134,10 +1142,13 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     p: Math.max(0, g.p - (consumed?.p || 0)),
   }), [g, consumed]);
 
-  const targetP = (slot) => {
-    if (mode === 'dia') return remaining.p > 20 ? remaining.p : g.p * (SPLIT[slot] || 0.3);
+  // Porción objetivo: por defecto la comida típica dentro de la meta; con
+  // "adaptar a lo que me queda" (solo detalle), lo restante del día.
+  const targetP = (slot, fit = false) => {
+    if (fit) return remaining.p > 20 ? remaining.p : g.p * (SPLIT[slot] || 0.3);
     return g.p * (SPLIT[slot] || 0.3);
   };
+  const hasEatenToday = (consumed?.kcal || 0) >= 50;
 
   const searching = query.trim().length > 0;
   const list = useMemo(() => {
@@ -1145,7 +1156,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     if (searching) {
       const q = norm(query);
       recs = RECIPES.filter(r => norm(r.name).includes(q) || r.main.some(i => norm(i.n).includes(q)) || r.season.some(s => norm(s).includes(q)));
-    } else if (filterSlot !== 'todas' && mode === 'comida') {
+    } else if (filterSlot !== 'todas') {
       recs = RECIPES.filter(r => slotMatches(r.slot, filterSlot));
     }
     const sorted = [...recs];
@@ -1153,14 +1164,14 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     else if (sort === 'economicos') sorted.sort((a, b) => META[a.id].cost - META[b.id].cost);
     else if (sort === 'proteina') sorted.sort((a, b) => b.totals.p - a.totals.p);
     return sorted.map(r => ({ recipe: r, sc: scale(r, targetP(r.slot)) }));
-  }, [filterSlot, mode, query, sort, remaining, g]);
+  }, [filterSlot, query, sort, remaining, g]);
 
   const open = openId ? RECIPES.find(r => r.id === openId) : null;
   const detail = useMemo(() => {
     if (!open) return null;
     if (manualK != null) return scale(open, open.totals.p * manualK);
-    return scale(open, targetP(open.slot));
-  }, [open, manualK, mode, remaining, g]);
+    return scale(open, targetP(open.slot, fitRemaining));
+  }, [open, manualK, fitRemaining, remaining, g]);
 
   const handleRegister = () => {
     if (!open || !detail) return;
@@ -1174,31 +1185,50 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     };
     onRegister?.(entry);
     setRegistered(true);
-    setTimeout(() => { setRegistered(false); setOpenId(null); setManualK(null); }, 950);
+    setTimeout(() => { setRegistered(false); setOpenId(null); setManualK(null); setFitRemaining(false); }, 950);
   };
-
-  // Fondo de manchas orgánicas con GRADIENTES (sin filter:blur) — el look se
-  // mantiene y deja de congelar al re-renderizar.
-  // OJO: sin <style> aquí. Antes este fragmento incluía un <style> y se
-  // renderizaba DOS veces (lista + overlay de detalle); cada montaje del
-  // detalle insertaba un tag de estilo nuevo y forzaba un recálculo de
-  // estilos de TODO el documento — parte del delay al abrir una receta.
-  const blobs = (
-    <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: `radial-gradient(60% 45% at 88% 6%, ${ACCENT_PASTEL}66, transparent 70%), radial-gradient(55% 42% at 3% 42%, #F2CBBE44, transparent 70%), radial-gradient(50% 42% at 96% 96%, #CDD2DB40, transparent 72%)` }} />
-  );
 
   const sectionLabel = (t) => <div className="text-[11px] tracking-[0.04em] uppercase font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
 
   // ───────────────────────── DETALLE (overlay sobre la lista) ─────────────────────────
+  // Sin header negro: vive BAJO la píldora de marca y la barra de navegación
+  // del MealTracker (z-39 < 45/50), con los mismos fondos y difuminados de
+  // las demás vistas. El "atrás" es un botón flotante circular arriba a la
+  // derecha (la píldora ocupa la izquierda).
   const detailOverlay = (open && detail) ? (
-      <div className="fixed inset-0 z-[70] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
-        {blobs}
-        <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-3" style={{ background: '#1F1F1F', color: '#FFF', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))' }}>
-          <button onClick={() => { haptic(6); setOpenId(null); setManualK(null); }} className="p-1.5 -ml-1.5 rounded-full active:scale-90"><ChevronLeft size={22} /></button>
-          <span className="font-semibold text-[15px] truncate">{open.name}</span>
-        </div>
+      <div className="fixed inset-0 z-[39] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
+        <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: BG_STAINS }} />
+        <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
+          zIndex: 2,
+          height: 'calc(env(safe-area-inset-top, 0px) + 66px)',
+          background: 'linear-gradient(180deg, rgba(241,240,234,0.95) 25%, rgba(241,240,234,0.86) 55%, rgba(241,240,234,0) 100%)',
+        }} />
+        <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
+          zIndex: 2,
+          height: 'calc(150px + env(safe-area-inset-bottom, 0px))',
+          background: 'linear-gradient(0deg, #F1F0EA 40%, rgba(241,240,234,0.9) 65%, rgba(241,240,234,0) 100%)',
+        }} />
+        <button
+          onClick={() => { haptic(6); setOpenId(null); setManualK(null); setFitRemaining(false); }}
+          aria-label="Volver al recetario"
+          className="fixed rounded-full flex items-center justify-center active:scale-90 transition"
+          style={{
+            zIndex: 10,
+            top: 'calc(env(safe-area-inset-top, 0px) + 10px)', right: '16px',
+            width: '38px', height: '38px',
+            background: 'rgba(255,255,255,0.88)',
+            backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 6px 18px rgba(60,70,50,0.16)',
+          }}>
+          <ChevronLeft size={20} style={{ color: TEXT }} />
+        </button>
 
-        <div className="relative max-w-xl mx-auto px-4 pt-4 pb-32 space-y-3.5" style={{ zIndex: 1 }}>
+        <div className="relative max-w-xl mx-auto px-4 space-y-3.5" style={{
+          zIndex: 1,
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 58px)',
+          paddingBottom: 'calc(170px + env(safe-area-inset-bottom, 0px))',
+        }}>
+          <div style={{ color: TEXT, fontSize: '24px', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 }}>{open.name}</div>
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center rounded-2xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24 }}>{open.icon}</div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -1222,8 +1252,23 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             </div>
             <div className="text-[11.5px] mt-3 flex items-start gap-1.5" style={{ color: TEXT_MUTED }}>
               <Info size={13} style={{ color: ACCENT, marginTop: 1, flexShrink: 0 }} />
-              <span>{mode === 'dia' ? 'Ajustado a lo que te queda hoy.' : `Ajustado a tu ${displaySlot(open.slot).toLowerCase()} (~${Math.round((SPLIT[open.slot] || 0.3) * 100)}% de tu meta).`} Las porciones se recalculan solas si cambia tu meta.</span>
+              <span>{fitRemaining ? `Adaptado a lo que te queda disponible hoy (${r0(remaining.kcal)} kcal · ${r0(remaining.p)}g de proteína).` : `Ajustado a tu ${displaySlot(open.slot).toLowerCase()} (~${Math.round((SPLIT[open.slot] || 0.3) * 100)}% de tu meta).`} Las porciones se recalculan solas si cambia tu meta.</span>
             </div>
+            {/* Si YA registró comida hoy, la receta puede adaptarse a lo que
+                le queda del día — la decisión vive AQUÍ, dentro de la receta,
+                no en un modo global confuso de la lista. */}
+            {hasEatenToday && (
+              <button
+                onClick={() => { haptic(8); setManualK(null); setFitRemaining(f => !f); }}
+                className="mt-3 w-full py-2.5 rounded-full text-[12.5px] font-semibold active:scale-[0.98] transition flex items-center justify-center gap-1.5"
+                style={fitRemaining
+                  ? { background: ACCENT_PASTEL, color: ACCENT_DARK }
+                  : { background: 'rgba(255,255,255,0.9)', color: TEXT_MUTED, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 3px 10px rgba(60,70,50,0.10)' }}>
+                {fitRemaining
+                  ? <><Check size={14} /> Adaptada a lo que te queda · volver a porción normal</>
+                  : <>Adaptar a lo que me queda del día ({r0(remaining.kcal)} kcal)</>}
+              </button>
+            )}
           </div>
 
           {/* Ingredientes */}
@@ -1274,9 +1319,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           </div>
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3 z-10" style={{ background: `linear-gradient(180deg, transparent, ${BG} 30%)` }}>
+        {/* Botón de registrar ARRIBA de la barra de navegación (antes en
+            bottom-0 quedaba escondido detrás de ella). El fade inferior de
+            z-2 ya funde el contenido debajo. */}
+        <div className="fixed left-0 right-0 px-4 z-10" style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="max-w-xl mx-auto">
-            <button onClick={handleRegister} disabled={registered} className="w-full py-4 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 active:scale-[0.98] transition" style={{ background: '#1F1F1F', color: '#FFF', boxShadow: '0 6px 20px rgba(0,0,0,0.25)' }}>
+            <button onClick={handleRegister} disabled={registered} className="w-full py-4 rounded-full font-bold text-[15px] flex items-center justify-center gap-2 active:scale-[0.98] transition" style={{ background: '#1F1F1F', color: '#FFF', boxShadow: '0 6px 20px rgba(0,0,0,0.25)' }}>
               {registered ? <><Check size={18} /> Registrado en tu día</> : 'Registrar en mi día'}
             </button>
           </div>
@@ -1354,25 +1402,13 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           {query && <button onClick={() => setQuery('')} className="p-0.5 rounded-full active:scale-90"><X size={15} style={{ color: TEXT_LIGHT }} /></button>}
         </div>
 
-        {/* Modo (oculto al buscar) */}
-        {!searching && (
-          <>
-            <div className="flex gap-2 p-1 rounded-2xl" style={{ background: SURFACE_2 }}>
-              {[{ k: 'comida', l: 'Por comida' }, { k: 'dia', l: 'Ajustar recetas a mi día' }].map(m => (
-                <button key={m.k} onClick={() => { haptic(6); setMode(m.k); }} className="flex-1 py-2 px-1 rounded-xl text-[12.5px] font-semibold transition text-center leading-tight flex items-center justify-center" style={{ minHeight: 40, background: mode === m.k ? SURFACE : 'transparent', color: mode === m.k ? TEXT : TEXT_MUTED, boxShadow: mode === m.k ? '0 1px 4px rgba(0,0,0,0.08)' : 'none' }}>{m.l}</button>
-              ))}
-            </div>
-            <div className="flex items-start gap-1.5 -mt-1.5 px-1 text-[11.5px]" style={{ color: TEXT_MUTED }}>
-              <Info size={12} style={{ color: ACCENT, marginTop: 1, flexShrink: 0 }} />
-              <span>{mode === 'dia'
-                ? `Ajusta cada receta a lo que te queda por comer hoy, según lo que ya registraste en MealTracker. Úsalo cuando ya comiste algo y quieres cerrar el día justo en tu meta. Ahora mismo te quedan ${r0(remaining.kcal)} kcal y ${r0(remaining.p)}g de proteína, y las recetas se ajustan a eso.`
-                : 'Ajusta cada receta a la porción típica de esa comida dentro de tu meta diaria. Ideal para planear de cero.'}</span>
-            </div>
-          </>
-        )}
+        {/* El toggle de modo se eliminó: todas las recetas vienen ajustadas
+            a su comida dentro de la meta, y "adaptar a lo que me queda hoy"
+            vive dentro de cada receta cuando ya se registró comida. Menos
+            botones = un solo camino claro: busca o filtra, y abre. */}
 
         {/* Filtro por comida — siempre los 4 momentos */}
-        {!searching && mode === 'comida' && (
+        {!searching && (
           <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
             {SLOT_FILTERS.map(f => (
               <button key={f.key} onClick={() => { haptic(4); setFilterSlot(f.key); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: filterSlot === f.key ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: filterSlot === f.key ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: filterSlot === f.key ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{f.label}</button>
@@ -1383,7 +1419,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {/* Filtros rápidos / ordenar */}
         {!searching && (
           <>
-            {mode === 'comida' && <div style={{ height: 1, background: BORDER, opacity: 0.7 }} className="mx-1 my-0.5" />}
+            <div style={{ height: 1, background: BORDER, opacity: 0.7 }} className="mx-1 my-0.5" />
             <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
               {[{ k: 'reco', l: 'Recomendado' }, { k: 'rapidos', l: '⚡ Más rápidos' }, { k: 'economicos', l: '💰 Más económicos' }, { k: 'proteina', l: '💪 Alta proteína' }].map(o => (
                 <button key={o.k} onClick={() => { haptic(4); setSort(o.k); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: sort === o.k ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: sort === o.k ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: sort === o.k ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{o.l}</button>
@@ -1403,6 +1439,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                 haptic(8);
                 setOpenId(recipe.id);
                 setManualK(null);
+                setFitRemaining(false);
               })}
               onClick={(e) => e.preventDefault()}
               className="w-full text-left rounded-2xl p-3 active:scale-[0.99] transition flex items-center gap-3"
@@ -1434,7 +1471,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
         {!searching && (
           <div className="text-[11px] text-center pt-1" style={{ color: TEXT_LIGHT }}>
-            {mode === 'dia' ? `Ajustadas a lo que te queda hoy · ${r0(remaining.p)}g proteína · ${r0(remaining.kcal)} kcal` : 'Cada receta se ajusta a su comida dentro de tu meta'}
+            Cada receta se ajusta a su comida dentro de tu meta — y al abrirla puedes adaptarla a lo que te queda del día
           </div>
         )}
       </div>

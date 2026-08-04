@@ -357,6 +357,11 @@ export default function MealTracker() {
   const keyboardOpenRef = useRef(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
   const [showRecetario, setShowRecetario] = useState(false);
+  // Centro de aprendizaje DENTRO de la app (iframe): abrirlo con
+  // window.open mostraba el navegador con su barra de URL negra — se sentía
+  // como salir a otra página en vez de una sección más de la app.
+  const [showLearning, setShowLearning] = useState(false);
+  const [learningSrc, setLearningSrc] = useState('');
   const [cardCompact, setCardCompact] = useState(false);
   // ── Pestañas (rediseño v3): 'hoy' | 'chat'. Apertura FRÍA (primera del
   // día o >60 min sin usar la app) → Hoy, que te reubica; re-apertura
@@ -371,6 +376,7 @@ export default function MealTracker() {
   // El input de chat solo puede re-mostrarse (vía DOM directo en
   // closeActionsSheet) si estamos en chat Y el Recetario no está encima.
   useEffect(() => { showRecetarioRef.current = showRecetario; }, [showRecetario]);
+  useEffect(() => { showLearningRef.current = showLearning; }, [showLearning]);
   useEffect(() => {
     tabRef.current = tab;
     const marca = () => { try { localStorage.setItem('mt:lastActiveAt', String(Date.now())); } catch (e) {} };
@@ -485,6 +491,7 @@ export default function MealTracker() {
   // (callbacks con deps=[] que no ven el estado fresco).
   const tabRef = useRef(null);
   const showRecetarioRef = useRef(false);
+  const showLearningRef = useRef(false);
   const headerRef = useRef(null);
   const goalsCardRef = useRef(null);
   // El SCROLLER del chat: la página NO scrollea (body congelado); solo este
@@ -503,7 +510,7 @@ export default function MealTracker() {
     // La barra de entrada solo vuelve si estamos en la pestaña CHAT — en Hoy
     // el input no existe y forzar display:block lo hacía aparecer encima de
     // la vista (el DOM directo debe respetar la pestaña activa).
-    if (inputBarRef.current) inputBarRef.current.style.display = (tabRef.current === 'chat' && !showRecetarioRef.current) ? 'block' : 'none';
+    if (inputBarRef.current) inputBarRef.current.style.display = (tabRef.current === 'chat' && !showRecetarioRef.current && !showLearningRef.current) ? 'block' : 'none';
     if (navBarRef.current) navBarRef.current.style.display = '';
     // El sync de estado va en startTransition: React 18 lo marca como no
     // urgente y cede al paint, así el tap se siente instantáneo.
@@ -524,8 +531,10 @@ export default function MealTracker() {
   // DOM directo (closeActionsSheet) ya vea el destino correcto.
   const goToChat = useCallback(() => {
     showRecetarioRef.current = false;
+    showLearningRef.current = false;
     tabRef.current = 'chat';
     setShowRecetario(false);
+    setShowLearning(false);
     setTab('chat');
   }, []);
 
@@ -2082,7 +2091,11 @@ export default function MealTracker() {
       if (name) u.searchParams.set('mt_name', name);
       url = u.toString();
     } catch (e) { /* URL inválida: se abre tal cual */ }
-    window.open(url, '_blank', 'noopener');
+    // Overlay interno (iframe), no window.open: así no aparece la barra de
+    // URL del navegador y el centro se siente una sección más de la app.
+    setLearningSrc(url);
+    setShowRecetario(false);
+    setShowLearning(true);
   }, [learningUrl, name]);
 
   // Anuncio de actualización de la app: se muestra UNA vez por id (ver
@@ -4480,10 +4493,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             del header + separación, para que NUNCA quede debajo de él. */}
         <div ref={goalsCardRef} className="fixed left-0 right-0" style={{
           top: `${headerH + 6}px`,
-          paddingLeft: '20px', paddingRight: '20px',
+          // 16px como la barra de texto: la tarjeta queda del MISMO ancho
+          // que la barra de escribir (antes 20px la dejaba más angosta).
+          paddingLeft: '16px', paddingRight: '16px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
-          background: `linear-gradient(180deg, ${BG} 0%, rgba(241,240,234,0.92) 80%, rgba(241,240,234,0.6) 100%)`,
+          background: 'linear-gradient(180deg, rgba(241,240,234,0.88) 0%, rgba(241,240,234,0.78) 80%, rgba(241,240,234,0.5) 100%)',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)',
           transform: 'translate3d(0, 0, 0)',
           zIndex: 30,
@@ -4689,7 +4704,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           return (
             <div className="fixed left-0 right-0 pointer-events-none" style={{
               zIndex: 25, top: 0, height: `${zb + 50}px`,
-              background: `linear-gradient(180deg, #F1F0EA 0%, #F1F0EA ${zb}px, rgba(241,240,234,0) 100%)`,
+              // Semi-transparente (no crema sólido): los mensajes se alcanzan
+              // a INTUIR difuminados detrás de la tarjeta hasta el borde
+              // superior del teléfono — más profundidad, menos "tapa".
+              background: `linear-gradient(180deg, rgba(241,240,234,0.93) 0%, rgba(241,240,234,0.86) ${zb}px, rgba(241,240,234,0) 100%)`,
             }} />
           );
         })()}
@@ -4838,6 +4856,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             height: `${headerH + 26}px`,
             background: 'linear-gradient(180deg, #F1F0EA 30%, rgba(241,240,234,0.88) 62%, rgba(241,240,234,0) 100%)',
           }} />
+          {/* DIFUMINADO inferior: el contenido se diluye ANTES de pasar por
+              detrás de la barra de opciones — la barra queda flotando encima
+              del fade, no del contenido crudo. */}
+          <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
+            zIndex: 5,
+            height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(0deg, #F1F0EA 22%, rgba(241,240,234,0.88) 52%, rgba(241,240,234,0) 100%)',
+          }} />
           <div className="relative max-w-2xl mx-auto px-5">
             <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em', marginTop: '6px' }}>
               {formatDate(today)}
@@ -4878,18 +4904,36 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       stops={[['0%', '#A8B56B'], ['55%', ACCENT], ['100%', ACCENT_DARK]]}
                       track="rgba(138,149,88,0.14)"
                       shadow="drop-shadow(0 5px 10px rgba(74,82,56,0.30))">
-                      <div className="num" style={{ color: ACCENT_DARK, fontWeight: 800, fontSize: '16px' }}>
-                        {Math.min(100, Math.round((totals.kcal / (goals.kcal || 1)) * 100))}%
+                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER : ACCENT_DARK, fontWeight: 800, fontSize: '16px' }}>
+                        {Math.round((totals.kcal / (goals.kcal || 1)) * 100)}%
                       </div>
                     </RingGauge>
                     <div className="min-w-0">
                       <div className="text-[10px] font-bold uppercase" style={{ color: ACCENT_DARK, letterSpacing: '0.16em' }}>Tu día · en vivo</div>
-                      <div className="num" style={{ color: TEXT, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
+                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER : TEXT, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
                         {Math.round(totals.kcal).toLocaleString('es')} / {Math.round(goals.kcal).toLocaleString('es')} kcal
                       </div>
-                      <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>
-                        {totals.kcal >= goals.kcal ? 'Meta del día completa 🎉' : `Te faltan ${Math.round(goals.kcal - totals.kcal)} kcal`}
-                      </div>
+                      {/* Celebrar SOLO cumplimiento real: kcal en ±5% de la
+                          meta Y proteína bien (90-115%). Pasarse no es
+                          fiesta: el exceso se dice claro y en rojo. */}
+                      {(() => {
+                        const ratio = totals.kcal / (goals.kcal || 1);
+                        const pOk = !goals.p || (totals.p >= goals.p * 0.9 && totals.p <= goals.p * 1.15);
+                        if (ratio > 1.05) return (
+                          <div className="text-[12.5px] font-semibold" style={{ color: DANGER, marginTop: '2px' }}>
+                            Te excediste por {Math.round(totals.kcal - goals.kcal)} kcal
+                          </div>
+                        );
+                        if (ratio >= 0.95 && pOk) return (
+                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>Meta del día completa 🎉</div>
+                        );
+                        if (ratio >= 0.95) return (
+                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>Calorías al día — revisa tu proteína</div>
+                        );
+                        return (
+                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>Te faltan {Math.round(goals.kcal - totals.kcal)} kcal</div>
+                        );
+                      })()}
                     </div>
                   </div>
                   {/* Macros: mismos aros finos que el principal, uno por
@@ -4905,7 +4949,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                           pct={Math.min(100, Math.round((mch.v / (mch.g || 1)) * 100))}
                           color={mch.c} track="rgba(31,31,31,0.07)"
                           shadow="drop-shadow(0 3px 7px rgba(60,66,42,0.18))">
-                          <div className="num" style={{ color: TEXT, fontWeight: 800, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
+                          <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER : TEXT, fontWeight: 800, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
                         </RingGauge>
                         <div className="text-center leading-tight">
                           <div className="text-[9px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.09em' }}>{mch.k}</div>
@@ -4986,6 +5030,27 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </div>
       )}
 
+      {/* ══════════ CENTRO DE APRENDIZAJE (overlay interno) ══════════
+          Iframe a pantalla casi completa: sin barra de URL del navegador,
+          se siente una sección más de la app. Vive bajo la barra de
+          navegación (z-37 < 45): cambiar de pestaña lo cierra. El alto deja
+          libre la franja de la barra para que el final del contenido del
+          centro nunca quede tapado. */}
+      {showLearning && (
+        <div className="fixed inset-0" style={{ zIndex: 37, background: BG }}>
+          <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
+          <iframe
+            title="Centro de aprendizaje"
+            src={learningSrc}
+            style={{
+              position: 'absolute', top: 0, left: 0, width: '100%',
+              height: 'calc(100% - 64px - env(safe-area-inset-bottom, 0px))',
+              border: 0, background: 'transparent',
+            }}
+          />
+        </div>
+      )}
+
       {/* ══════════ BARRA DE NAVEGACIÓN (rediseño v3) ══════════
           Siempre montada (como el sheet): el display lo gobierna React según
           actionsExpanded y la visibility la gobierna el handler del
@@ -5006,10 +5071,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             {[
               // El Recetario vive DEBAJO de esta barra (z-38 < z-45): navegar
               // a Hoy/Chat lo cierra — sin botón "atrás" en su header.
-              { key: 'hoy', label: 'Hoy', icon: Home, active: tab === 'hoy' && !showRecetario, onClick: () => { haptic(6); setShowRecetario(false); setTab('hoy'); } },
-              { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat' && !showRecetario, onClick: () => { haptic(6); setShowRecetario(false); setTab('chat'); } },
-              { key: 'recetario', label: 'Recetario', icon: BookOpen, active: showRecetario, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowRecetario(true); } },
-              ...(learningUrl ? [{ key: 'aprende', label: 'Aprende', icon: GraduationCap, onClick: openLearning }] : []),
+              { key: 'hoy', label: 'Hoy', icon: Home, active: tab === 'hoy' && !showRecetario && !showLearning, onClick: () => { haptic(6); setShowRecetario(false); setShowLearning(false); setTab('hoy'); } },
+              { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat' && !showRecetario && !showLearning, onClick: () => { haptic(6); setShowRecetario(false); setShowLearning(false); setTab('chat'); } },
+              { key: 'recetario', label: 'Recetario', icon: BookOpen, active: showRecetario, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowLearning(false); setShowRecetario(true); } },
+              ...(learningUrl ? [{ key: 'aprende', label: 'Aprende', icon: GraduationCap, active: showLearning, onClick: openLearning }] : []),
               // openActionsSheet (DOM directo) y NO setActionsExpanded: el
               // sheet aparece en el mismo frame del tap; con solo estado, el
               // re-render del árbol gigante tardaba 1-2s en móvil y el botón
@@ -5181,7 +5246,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       <InputBar
         barRef={inputBarRef}
         apiRef={inputApiRef}
-        hidden={actionsExpanded || tab !== 'chat' || showRecetario}
+        hidden={actionsExpanded || tab !== 'chat' || showRecetario || showLearning}
         liftPx={keyboardOpen ? 0 : 70}
         recording={recording}
         transcribing={transcribing}
@@ -5609,27 +5674,20 @@ function formatDateShort(iso) {
 
 // True Apple-style glass ring — the chart is the focal element
 function CompactMacro({ val, goal, color, label, unit = '' }) {
+  // Compacto CON claridad: valor/meta y una barrita de progreso — antes solo
+  // se veía el valor y el cliente no sabía contra qué comparar. Si se pasa
+  // de la meta (>105%) el número se pone rojo.
   const pct = goal > 0 ? Math.min(1, val / goal) : 0;
-  const size = 28;
-  const stroke = 3;
-  const radius = (size - stroke) / 2;
-  const circ = 2 * Math.PI * radius;
-  const dash = circ * pct;
-  const center = size / 2;
+  const over = goal > 0 && val > goal * 1.05;
   return (
-    <div className="flex items-center gap-1.5 flex-1 min-w-0">
-      <svg width={size} height={size} className="flex-shrink-0">
-        <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.18" strokeWidth={stroke} />
-        <g transform={`rotate(-90 ${center} ${center})`}>
-          <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-            strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 0.6s ease' }} />
-        </g>
-      </svg>
-      <div className="min-w-0">
-        <div className="text-[10px] font-semibold leading-tight" style={{ color: TEXT_LIGHT }}>{label}</div>
-        <div className="text-[12px] font-bold num leading-tight" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
-          {Math.round(val)}{unit}
-        </div>
+    <div className="flex-1 min-w-0">
+      <div className="flex items-baseline gap-1">
+        <span className="text-[10px] font-semibold" style={{ color: TEXT_LIGHT }}>{label}</span>
+        <span className="text-[12px] font-bold num" style={{ color: over ? DANGER : TEXT, letterSpacing: '-0.01em' }}>{Math.round(val)}</span>
+        <span className="text-[9.5px] num font-semibold" style={{ color: TEXT_LIGHT }}>/{Math.round(goal)}{unit}</span>
+      </div>
+      <div className="rounded-full overflow-hidden mt-1" style={{ height: '3.5px', background: 'rgba(31,31,31,0.08)' }}>
+        <div className="rounded-full" style={{ height: '100%', width: `${Math.round(pct * 100)}%`, background: over ? DANGER : color, transition: 'width 0.6s ease' }} />
       </div>
     </div>
   );
@@ -5653,7 +5711,7 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
           <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
             strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
         </g>
-        <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 20, fill: TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
+        <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 20, fill: goal > 0 && val > goal * 1.05 ? DANGER : TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
         <text x={center} y={center + 13} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10.5, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
       </svg>
       <div className="text-[10px] uppercase tracking-wider mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.03em' }}>
