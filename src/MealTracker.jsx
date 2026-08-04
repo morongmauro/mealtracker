@@ -16,7 +16,7 @@ const Recetario = lazy(() => import('./Recetario.jsx'));
 import {
   ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
   C_PROTEIN, C_PROTEIN_PASTEL, C_CARBS, C_CARBS_PASTEL, C_FAT, C_FAT_PASTEL, C_WATER,
-  BG, BG_STAINS, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
+  BG, BG_STAINS, BG_STAINS_WARM, BG_STAINS_COOL, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
   SUCCESS, WARN, DANGER, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
 } from './theme.js';
 import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
@@ -4344,8 +4344,43 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
         }
         .bg-stains-chat.thinking { animation: bgDrift 6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+        /* Capas EXTRA de pensando: cálida y fría orbitan en direcciones
+           opuestas sobre el fondo — los colores se cruzan y se iluminan.
+           Se encienden/apagan con fade de opacity (transición), así el final
+           es suave aunque la animación de transform se corte. */
+        .bg-stains-extra { opacity: 0; transition: opacity 1.1s ease; will-change: transform, opacity; }
+        .bg-stains-extra.on { opacity: 1; }
+        .bg-stains-extra.warm.on { animation: bgOrbitA 7s ease-in-out infinite; }
+        .bg-stains-extra.cool.on { animation: bgOrbitB 9s ease-in-out infinite; }
+        @keyframes bgOrbitA {
+          0%   { transform: translate3d(-4%, 3%, 0) scale(1); }
+          33%  { transform: translate3d(4%, -3%, 0) scale(1.12); }
+          66%  { transform: translate3d(-2%, -5%, 0) scale(1.05); }
+          100% { transform: translate3d(-4%, 3%, 0) scale(1); }
+        }
+        @keyframes bgOrbitB {
+          0%   { transform: translate3d(4%, -2%, 0) scale(1.06); }
+          50%  { transform: translate3d(-5%, 4%, 0) scale(1); }
+          100% { transform: translate3d(4%, -2%, 0) scale(1.06); }
+        }
+        /* Indicador "pensando": estrellita IA que respira y gira + tres
+           punticos en ola. Vive lo que viva la respuesta. */
+        .ia-sparkle { animation: iaSparkle 1.8s ease-in-out infinite; transform-origin: center; }
+        @keyframes iaSparkle {
+          0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; }
+          50%      { transform: scale(1.3) rotate(90deg); opacity: 1; }
+        }
+        .ia-dot {
+          width: 5px; height: 5px; border-radius: 999px; display: inline-block;
+          background: linear-gradient(135deg, ${ACCENT}, ${ACCENT_DARK});
+          animation: iaDot 1.1s ease-in-out infinite;
+        }
+        @keyframes iaDot {
+          0%, 100% { transform: translateY(0); opacity: 0.4; }
+          50%      { transform: translateY(-4px); opacity: 1; }
+        }
         @media (prefers-reduced-motion: reduce) {
-          .bg-stains-chat.thinking { animation: none; }
+          .bg-stains-chat.thinking, .bg-stains-extra.on, .ia-sparkle, .ia-dot { animation: none; }
         }
         .pulse-ring { animation: pulseRing 1.5s ease-in-out infinite; }
         .shimmer-text {
@@ -4444,6 +4479,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           top: '-8%', left: '-8%', right: '-8%', bottom: '-8%',
           background: BG_STAINS,
           willChange: loading ? 'transform' : 'auto',
+        }} />
+        {/* Capas de pensando (cálida + fría) — siempre montadas con opacity
+            0 para que el encendido/apagado sea un fade y no un salto. */}
+        <div className={`fixed pointer-events-none bg-stains-extra warm${loading ? ' on' : ''}`} style={{
+          top: '-12%', left: '-12%', right: '-12%', bottom: '-12%',
+          background: BG_STAINS_WARM,
+        }} />
+        <div className={`fixed pointer-events-none bg-stains-extra cool${loading ? ' on' : ''}`} style={{
+          top: '-12%', left: '-12%', right: '-12%', bottom: '-12%',
+          background: BG_STAINS_COOL,
         }} />
 
         {/* Goals card — FIXED + visualViewport tracking. top = altura real
@@ -4674,9 +4719,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="relative">
             {renderedMessages}
             {loading && (
-              <div className="flex items-center gap-2 text-sm px-4 py-3">
-                <Loader2 size={14} className="animate-spin" style={{ color: ACCENT }} />
-                <span className="shimmer-text font-medium">{loadingPreview || 'Procesando…'}</span>
+              <div className="flex items-center gap-2.5 text-sm px-4 py-3 fade-up">
+                <Sparkles size={16} className="ia-sparkle" style={{ color: ACCENT }} />
+                <span className="flex items-center gap-1" style={{ paddingTop: '2px' }}>
+                  <span className="ia-dot" />
+                  <span className="ia-dot" style={{ animationDelay: '0.18s' }} />
+                  <span className="ia-dot" style={{ animationDelay: '0.36s' }} />
+                </span>
+                <span className="shimmer-text font-medium">{loadingPreview || 'Pensando…'}</span>
               </div>
             )}
           </div>
