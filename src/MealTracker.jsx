@@ -4361,26 +4361,31 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           75%  { transform: translate3d(-5%, -7%, 0) scale(1.16); opacity: 0.92; }
           100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
         }
-        .bg-stains-chat.thinking { animation: bgDrift 4s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+        .bg-stains-chat.thinking { animation: bgDrift 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
         /* Capas EXTRA de pensando: cálida y fría PASEAN por toda la pantalla
            en direcciones opuestas — se juntan hacia el centro, se separan y
            vuelven, bien perceptible y rápido. Encendido/apagado con fade de
            opacity para que el final sea suave aunque el transform se corte. */
         .bg-stains-extra { opacity: 0; transition: opacity 0.9s ease; will-change: transform, opacity; }
         .bg-stains-extra.on { opacity: 1; }
-        .bg-stains-extra.warm.on { animation: bgRoamA 3.2s ease-in-out infinite; }
-        .bg-stains-extra.cool.on { animation: bgRoamB 3.9s ease-in-out infinite; }
+        /* Coreografía rápida y visible: los colores llegan AL CENTRO, se
+           abren a los LADOS, suben, bajan y vuelven al centro — las dos
+           capas en espejo para que se crucen en cada fase (~2.4s el ciclo). */
+        .bg-stains-extra.warm.on { animation: bgRoamA 2.4s ease-in-out infinite; }
+        .bg-stains-extra.cool.on { animation: bgRoamB 2.4s ease-in-out 0.15s infinite; }
         @keyframes bgRoamA {
-          0%   { transform: translate3d(-18%, 12%, 0) scale(1.05); }
-          35%  { transform: translate3d(14%, -14%, 0) scale(1.28); }
-          70%  { transform: translate3d(-10%, -18%, 0) scale(0.92); }
-          100% { transform: translate3d(-18%, 12%, 0) scale(1.05); }
+          0%   { transform: translate3d(0, 0, 0) scale(1.3); }
+          25%  { transform: translate3d(-24%, 0, 0) scale(1); }
+          50%  { transform: translate3d(0, -22%, 0) scale(1.18); }
+          75%  { transform: translate3d(0, 22%, 0) scale(1); }
+          100% { transform: translate3d(0, 0, 0) scale(1.3); }
         }
         @keyframes bgRoamB {
-          0%   { transform: translate3d(16%, -10%, 0) scale(1.12); }
-          40%  { transform: translate3d(-16%, 14%, 0) scale(0.9); }
-          75%  { transform: translate3d(12%, 18%, 0) scale(1.24); }
-          100% { transform: translate3d(16%, -10%, 0) scale(1.12); }
+          0%   { transform: translate3d(0, 0, 0) scale(1.3); }
+          25%  { transform: translate3d(24%, 0, 0) scale(1); }
+          50%  { transform: translate3d(0, 22%, 0) scale(1.18); }
+          75%  { transform: translate3d(0, -22%, 0) scale(1); }
+          100% { transform: translate3d(0, 0, 0) scale(1.3); }
         }
         @media (prefers-reduced-motion: reduce) {
           .bg-stains-chat.thinking, .bg-stains-extra.on { animation: none; }
@@ -4559,14 +4564,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </div>
           ) : cardCompact ? (
             <>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-start justify-between gap-1">
                 {[
                   { k: 'kcal', el: <CompactMacro val={totals.kcal} goal={goals.kcal} color={ACCENT} label="kcal" /> },
                   { k: 'p', el: <CompactMacro val={totals.p} goal={goals.p} color={C_PROTEIN} label="P" unit="g" /> },
                   { k: 'c', el: <CompactMacro val={totals.c} goal={goals.c} color={C_CARBS} label="C" unit="g" /> },
                   { k: 'g', el: <CompactMacro val={totals.g} goal={goals.g} color={C_FAT} label="G" unit="g" /> },
                 ].map(({ k, el }) => (
-                  <div key={k} onClick={() => { haptic(6); setMacroTip(t => t === k ? null : k); }}>{el}</div>
+                  <div key={k} className="flex-1 min-w-0 flex" onClick={() => { haptic(6); setMacroTip(t => t === k ? null : k); }}>{el}</div>
                 ))}
               </div>
               {macroTip && MACRO_INFO[macroTip] && (
@@ -4910,14 +4915,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       stops={[['0%', '#A8B56B'], ['55%', ACCENT], ['100%', ACCENT_DARK]]}
                       track="rgba(138,149,88,0.14)"
                       shadow="drop-shadow(0 5px 10px rgba(74,82,56,0.30))">
-                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : ACCENT_DARK, fontWeight: 800, fontSize: '16px' }}>
+                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : TEXT, fontWeight: 500, fontSize: '16px' }}>
                         {Math.round((totals.kcal / (goals.kcal || 1)) * 100)}%
                       </div>
                     </RingGauge>
                     <div className="min-w-0">
                       <div className="text-[10px] font-bold uppercase" style={{ color: ACCENT_DARK, letterSpacing: '0.16em' }}>Tu día · en vivo</div>
-                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : TEXT, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
-                        {Math.round(totals.kcal).toLocaleString('es')} / {Math.round(goals.kcal).toLocaleString('es')} kcal
+                      <div className="num" style={{ color: TEXT, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
+                        <span style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : TEXT }}>{Math.round(totals.kcal).toLocaleString('es')}</span> / {Math.round(goals.kcal).toLocaleString('es')} kcal
                       </div>
                       {/* Celebrar SOLO cumplimiento real: kcal en ±5% de la
                           meta Y proteína bien (90-115%). Pasarse no es
@@ -4955,7 +4960,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                           pct={Math.min(100, Math.round((mch.v / (mch.g || 1)) * 100))}
                           color={mch.c} track="rgba(31,31,31,0.07)"
                           shadow="drop-shadow(0 3px 7px rgba(60,66,42,0.18))">
-                          <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER_SOFT : TEXT, fontWeight: 800, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
+                          <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER_SOFT : TEXT, fontWeight: 500, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
                         </RingGauge>
                         <div className="text-center leading-tight">
                           <div className="text-[9px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.09em' }}>{mch.k}</div>
@@ -5692,31 +5697,34 @@ function formatDateShort(iso) {
 
 // True Apple-style glass ring — the chart is the focal element
 function CompactMacro({ val, goal, color, label, unit = '' }) {
-  // Aro circular en su color de SIEMPRE (el aro nunca se pone rojo) +
-  // valor/meta al lado. Solo el TEXTO avisa el exceso, en rojo pastel.
+  // Columna vertical: aro (con la etiqueta ADENTRO) y el número debajo.
+  // Antes iban aro+texto en fila y en iPhones angostos el último macro se
+  // cortaba contra el borde; en columna cada macro necesita ~55px y entran
+  // los 4 hasta en un SE. El aro conserva SIEMPRE su color; solo el texto
+  // avisa el exceso en rojo pastel.
   const pct = goal > 0 ? Math.min(1, val / goal) : 0;
   const over = goal > 0 && val > goal * 1.05;
-  const size = 34;
+  const size = 30;
   const stroke = 3.5;
   const radius = (size - stroke) / 2;
   const circ = 2 * Math.PI * radius;
   const dash = circ * pct;
   const center = size / 2;
   return (
-    <div className="flex items-center gap-2 flex-1 min-w-0">
-      <svg width={size} height={size} className="flex-shrink-0">
-        <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.16" strokeWidth={stroke} />
-        <g transform={`rotate(-90 ${center} ${center})`}>
-          <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-            strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 0.6s ease' }} />
-        </g>
-      </svg>
-      <div className="min-w-0">
-        <div className="text-[10px] font-semibold leading-tight" style={{ color: TEXT_LIGHT }}>{label}</div>
-        <div className="leading-tight num whitespace-nowrap">
-          <span className="text-[12.5px] font-bold" style={{ color: over ? DANGER_SOFT : TEXT, letterSpacing: '-0.01em' }}>{Math.round(val)}</span>
-          <span className="text-[9.5px] font-semibold" style={{ color: TEXT_LIGHT }}>/{Math.round(goal)}{unit}</span>
-        </div>
+    <div className="flex-1 min-w-0 flex flex-col items-center" style={{ gap: '3px' }}>
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size}>
+          <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.16" strokeWidth={stroke} />
+          <g transform={`rotate(-90 ${center} ${center})`}>
+            <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+              strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 0.6s ease' }} />
+          </g>
+        </svg>
+        <div className="absolute inset-0 grid place-items-center text-[8px] font-bold" style={{ color: TEXT_LIGHT }}>{label}</div>
+      </div>
+      <div className="num whitespace-nowrap leading-none">
+        <span className="text-[11.5px]" style={{ fontWeight: 600, color: over ? DANGER_SOFT : TEXT, letterSpacing: '-0.01em' }}>{Math.round(val)}</span>
+        <span className="text-[9px] font-medium" style={{ color: TEXT_LIGHT }}>/{Math.round(goal)}{unit}</span>
       </div>
     </div>
   );

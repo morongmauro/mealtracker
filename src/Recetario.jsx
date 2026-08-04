@@ -1407,19 +1407,15 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em' }}>Entrena con Método</div>
           <div style={{ color: TEXT, fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginTop: '2px', lineHeight: 1.1 }}>Recetario</div>
         </div>
-        {/* Meta nutricional */}
-        <div className="rounded-3xl p-4" style={cardStyle}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-[11px] tracking-[0.04em] uppercase font-semibold" style={{ color: ACCENT }}>Tu meta de hoy</div>
-            {/* La meta la administra el coach desde el CRM — sin botón de cambio */}
-          </div>
-          <div className="grid grid-cols-4 gap-2 text-center">
-            {[{ v: g.kcal, l: 'Calorías', c: TEXT, u: '' }, { v: g.p, l: 'Proteína', c: C_PROTEIN, u: 'g' }, { v: g.c, l: 'Carbos', c: C_CARBS, u: 'g' }, { v: g.g, l: 'Grasas', c: C_FAT, u: 'g' }].map((m, i) => (
-              <div key={i}>
-                <div className="font-bold num" style={{ fontSize: 19, color: m.c, lineHeight: 1 }}>{m.v}<span style={{ fontSize: 11 }}>{m.u}</span></div>
-                <div className="text-[10px] uppercase tracking-wider font-semibold mt-1" style={{ color: TEXT_MUTED }}>{m.l}</div>
-              </div>
-            ))}
+        {/* Meta nutricional — píldora compacta de UNA fila (la meta la
+            administra el coach desde el CRM; aquí solo se consulta). */}
+        <div className="rounded-full px-4 py-2.5 flex items-center gap-2" style={cardStyle}>
+          <span className="text-[9.5px] tracking-[0.05em] uppercase font-bold flex-shrink-0" style={{ color: ACCENT }}>Tu meta de hoy</span>
+          <div className="ml-auto flex items-center gap-2.5 num text-[12px] font-bold whitespace-nowrap">
+            <span style={{ color: TEXT }}>{g.kcal}<span className="text-[9px] font-semibold" style={{ color: TEXT_LIGHT }}> kcal</span></span>
+            <span style={{ color: C_PROTEIN }}>P{g.p}</span>
+            <span style={{ color: C_CARBS }}>C{g.c}</span>
+            <span style={{ color: C_FAT }}>G{g.g}</span>
           </div>
         </div>
 
@@ -1435,23 +1431,45 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             vive dentro de cada receta cuando ya se registró comida. Menos
             botones = un solo camino claro: busca o filtra, y abre. */}
 
-        {/* Filtros en DOS grupos etiquetados (¿para qué comida? / ordenar
-            por), sin emojis ni notas — un solo camino claro y ordenado. */}
+        {/* Filtros como TEXTO clicable separado por líneas — ya había
+            demasiados rectángulos ovalados y confundían. La opción activa
+            va en grafito con subrayado oliva; el resto en gris. Todo cabe
+            sin scroll horizontal hasta en un iPhone SE. */}
         {!searching && (
           <>
             <div>
-              <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>¿Para qué comida?</div>
-              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                {SLOT_FILTERS.map(f => (
-                  <button key={f.key} onClick={() => { haptic(4); setFilterSlot(f.key); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: filterSlot === f.key ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: filterSlot === f.key ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: filterSlot === f.key ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{f.label}</button>
+              <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Filtrar según tipo de comida</div>
+              <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
+                {SLOT_FILTERS.map((f, i) => (
+                  <React.Fragment key={f.key}>
+                    {i > 0 && <span style={{ width: 1, height: 12, background: BORDER, margin: '0 9px', flexShrink: 0 }} />}
+                    <button onClick={() => { haptic(4); setFilterSlot(f.key); }}
+                      className="text-[12.5px] whitespace-nowrap transition active:scale-95"
+                      style={{
+                        color: filterSlot === f.key ? TEXT : TEXT_MUTED,
+                        fontWeight: filterSlot === f.key ? 700 : 500,
+                        borderBottom: filterSlot === f.key ? `2px solid ${ACCENT}` : '2px solid transparent',
+                        paddingBottom: '1px',
+                      }}>{f.label}</button>
+                  </React.Fragment>
                 ))}
               </div>
             </div>
             <div>
-              <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Ordenar por</div>
-              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                {[{ k: 'reco', l: 'Recomendadas' }, { k: 'rapidos', l: 'Más rápidas' }, { k: 'economicos', l: 'Más económicas' }, { k: 'proteina', l: 'Alta proteína' }].map(o => (
-                  <button key={o.k} onClick={() => { haptic(4); setSort(o.k); }} className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition" style={{ background: sort === o.k ? '#1F1F1F' : 'rgba(255,255,255,0.92)', color: sort === o.k ? '#FFF' : TEXT_MUTED, border: 'none', boxShadow: sort === o.k ? '0 2px 6px rgba(0,0,0,0.16)' : '0 1px 4px rgba(60,70,50,0.08)' }}>{o.l}</button>
+              <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Ordenar según</div>
+              <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
+                {[{ k: 'reco', l: 'Recomendadas' }, { k: 'rapidos', l: 'Rápidas' }, { k: 'economicos', l: 'Económicas' }, { k: 'proteina', l: 'Alta proteína' }].map((o, i) => (
+                  <React.Fragment key={o.k}>
+                    {i > 0 && <span style={{ width: 1, height: 12, background: BORDER, margin: '0 9px', flexShrink: 0 }} />}
+                    <button onClick={() => { haptic(4); setSort(o.k); }}
+                      className="text-[12.5px] whitespace-nowrap transition active:scale-95"
+                      style={{
+                        color: sort === o.k ? TEXT : TEXT_MUTED,
+                        fontWeight: sort === o.k ? 700 : 500,
+                        borderBottom: sort === o.k ? `2px solid ${ACCENT}` : '2px solid transparent',
+                        paddingBottom: '1px',
+                      }}>{o.l}</button>
+                  </React.Fragment>
                 ))}
               </div>
             </div>
