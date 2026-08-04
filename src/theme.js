@@ -37,11 +37,11 @@ export const BG = '#F1F0EA';             // gris cálido claro — EL fondo, ún
 // las tres vistas usen byte a byte el mismo fondo.
 export const BG_STAINS = `radial-gradient(48% 34% at 90% 0%, rgba(126,188,168,0.50), transparent 70%),
   radial-gradient(42% 30% at -4% 14%, rgba(238,168,138,0.42), transparent 70%),
-  radial-gradient(40% 30% at 34% 10%, rgba(240,204,120,0.38), transparent 70%),
+  radial-gradient(40% 30% at 34% 10%, rgba(246,218,156,0.30), transparent 70%),
   radial-gradient(50% 36% at 55% 36%, rgba(255,255,255,0.85), transparent 70%),
   radial-gradient(44% 32% at 0% 66%, rgba(146,151,144,0.42), transparent 72%),
   radial-gradient(48% 36% at 103% 54%, rgba(126,188,168,0.36), transparent 70%),
-  radial-gradient(42% 30% at 100% 84%, rgba(240,204,120,0.34), transparent 72%),
+  radial-gradient(42% 30% at 100% 84%, rgba(246,218,156,0.26), transparent 72%),
   radial-gradient(44% 32% at 26% 100%, rgba(238,168,138,0.36), transparent 72%),
   radial-gradient(42% 32% at 74% 96%, rgba(255,255,255,0.75), transparent 72%),
   radial-gradient(38% 28% at 100% 26%, rgba(146,151,144,0.30), transparent 72%)`;
@@ -50,12 +50,12 @@ export const BG_STAINS = `radial-gradient(48% 34% at 90% 0%, rgba(126,188,168,0.
 // encienden encima del fondo y derivan en direcciones opuestas — los tonos
 // cálidos y fríos se cruzan e iluminan (efecto Gemini). Al terminar se
 // apagan con un fade y queda solo BG_STAINS estático.
-export const BG_STAINS_WARM = `radial-gradient(52% 40% at 80% 10%, rgba(244,196,110,0.55), transparent 70%),
-  radial-gradient(48% 38% at 12% 40%, rgba(240,158,120,0.48), transparent 70%),
-  radial-gradient(46% 36% at 60% 90%, rgba(244,196,110,0.40), transparent 72%)`;
-export const BG_STAINS_COOL = `radial-gradient(50% 40% at 16% 12%, rgba(126,188,168,0.50), transparent 70%),
-  radial-gradient(46% 36% at 88% 55%, rgba(152,190,232,0.35), transparent 70%),
-  radial-gradient(52% 40% at 45% 100%, rgba(255,255,255,0.85), transparent 72%)`;
+export const BG_STAINS_WARM = `radial-gradient(52% 40% at 80% 10%, rgba(244,196,110,0.65), transparent 70%),
+  radial-gradient(48% 38% at 12% 40%, rgba(240,158,120,0.60), transparent 70%),
+  radial-gradient(46% 36% at 60% 90%, rgba(244,196,110,0.52), transparent 72%)`;
+export const BG_STAINS_COOL = `radial-gradient(50% 40% at 16% 12%, rgba(126,188,168,0.62), transparent 70%),
+  radial-gradient(46% 36% at 88% 55%, rgba(152,190,232,0.45), transparent 70%),
+  radial-gradient(52% 40% at 45% 100%, rgba(255,255,255,0.95), transparent 72%)`;
 export const SURFACE = '#FFFFFF';
 export const SURFACE_2 = '#EFEBE0';
 export const BORDER = '#E2DECC';

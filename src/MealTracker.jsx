@@ -4338,49 +4338,34 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
            descubra los bordes. */
         @keyframes bgDrift {
           0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
-          25%  { transform: translate3d(-3%, 2.5%, 0) scale(1.07); opacity: 0.92; }
-          50%  { transform: translate3d(2.5%, -2%, 0) scale(1.04); opacity: 1; }
-          75%  { transform: translate3d(-1.5%, -2.5%, 0) scale(1.08); opacity: 0.94; }
+          25%  { transform: translate3d(-8%, 6%, 0) scale(1.14); opacity: 0.9; }
+          50%  { transform: translate3d(7%, -6%, 0) scale(1.06); opacity: 1; }
+          75%  { transform: translate3d(-5%, -7%, 0) scale(1.16); opacity: 0.92; }
           100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
         }
-        .bg-stains-chat.thinking { animation: bgDrift 6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
-        /* Capas EXTRA de pensando: cálida y fría orbitan en direcciones
-           opuestas sobre el fondo — los colores se cruzan y se iluminan.
-           Se encienden/apagan con fade de opacity (transición), así el final
-           es suave aunque la animación de transform se corte. */
-        .bg-stains-extra { opacity: 0; transition: opacity 1.1s ease; will-change: transform, opacity; }
+        .bg-stains-chat.thinking { animation: bgDrift 4s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+        /* Capas EXTRA de pensando: cálida y fría PASEAN por toda la pantalla
+           en direcciones opuestas — se juntan hacia el centro, se separan y
+           vuelven, bien perceptible y rápido. Encendido/apagado con fade de
+           opacity para que el final sea suave aunque el transform se corte. */
+        .bg-stains-extra { opacity: 0; transition: opacity 0.9s ease; will-change: transform, opacity; }
         .bg-stains-extra.on { opacity: 1; }
-        .bg-stains-extra.warm.on { animation: bgOrbitA 7s ease-in-out infinite; }
-        .bg-stains-extra.cool.on { animation: bgOrbitB 9s ease-in-out infinite; }
-        @keyframes bgOrbitA {
-          0%   { transform: translate3d(-4%, 3%, 0) scale(1); }
-          33%  { transform: translate3d(4%, -3%, 0) scale(1.12); }
-          66%  { transform: translate3d(-2%, -5%, 0) scale(1.05); }
-          100% { transform: translate3d(-4%, 3%, 0) scale(1); }
+        .bg-stains-extra.warm.on { animation: bgRoamA 3.2s ease-in-out infinite; }
+        .bg-stains-extra.cool.on { animation: bgRoamB 3.9s ease-in-out infinite; }
+        @keyframes bgRoamA {
+          0%   { transform: translate3d(-18%, 12%, 0) scale(1.05); }
+          35%  { transform: translate3d(14%, -14%, 0) scale(1.28); }
+          70%  { transform: translate3d(-10%, -18%, 0) scale(0.92); }
+          100% { transform: translate3d(-18%, 12%, 0) scale(1.05); }
         }
-        @keyframes bgOrbitB {
-          0%   { transform: translate3d(4%, -2%, 0) scale(1.06); }
-          50%  { transform: translate3d(-5%, 4%, 0) scale(1); }
-          100% { transform: translate3d(4%, -2%, 0) scale(1.06); }
-        }
-        /* Indicador "pensando": estrellita IA que respira y gira + tres
-           punticos en ola. Vive lo que viva la respuesta. */
-        .ia-sparkle { animation: iaSparkle 1.8s ease-in-out infinite; transform-origin: center; }
-        @keyframes iaSparkle {
-          0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; }
-          50%      { transform: scale(1.3) rotate(90deg); opacity: 1; }
-        }
-        .ia-dot {
-          width: 5px; height: 5px; border-radius: 999px; display: inline-block;
-          background: linear-gradient(135deg, ${ACCENT}, ${ACCENT_DARK});
-          animation: iaDot 1.1s ease-in-out infinite;
-        }
-        @keyframes iaDot {
-          0%, 100% { transform: translateY(0); opacity: 0.4; }
-          50%      { transform: translateY(-4px); opacity: 1; }
+        @keyframes bgRoamB {
+          0%   { transform: translate3d(16%, -10%, 0) scale(1.12); }
+          40%  { transform: translate3d(-16%, 14%, 0) scale(0.9); }
+          75%  { transform: translate3d(12%, 18%, 0) scale(1.24); }
+          100% { transform: translate3d(16%, -10%, 0) scale(1.12); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .bg-stains-chat.thinking, .bg-stains-extra.on, .ia-sparkle, .ia-dot { animation: none; }
+          .bg-stains-chat.thinking, .bg-stains-extra.on { animation: none; }
         }
         .pulse-ring { animation: pulseRing 1.5s ease-in-out infinite; }
         .shimmer-text {
@@ -4476,18 +4461,18 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             scrollers). Las burbujas blancas flotan encima. Con .thinking
             (mientras el modelo responde) las manchas derivan suavemente. */}
         <div className={`fixed pointer-events-none bg-stains-chat${loading ? ' thinking' : ''}`} style={{
-          top: '-8%', left: '-8%', right: '-8%', bottom: '-8%',
+          top: '-16%', left: '-16%', right: '-16%', bottom: '-16%',
           background: BG_STAINS,
           willChange: loading ? 'transform' : 'auto',
         }} />
         {/* Capas de pensando (cálida + fría) — siempre montadas con opacity
             0 para que el encendido/apagado sea un fade y no un salto. */}
         <div className={`fixed pointer-events-none bg-stains-extra warm${loading ? ' on' : ''}`} style={{
-          top: '-12%', left: '-12%', right: '-12%', bottom: '-12%',
+          top: '-30%', left: '-30%', right: '-30%', bottom: '-30%',
           background: BG_STAINS_WARM,
         }} />
         <div className={`fixed pointer-events-none bg-stains-extra cool${loading ? ' on' : ''}`} style={{
-          top: '-12%', left: '-12%', right: '-12%', bottom: '-12%',
+          top: '-30%', left: '-30%', right: '-30%', bottom: '-30%',
           background: BG_STAINS_COOL,
         }} />
 
@@ -4719,13 +4704,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="relative">
             {renderedMessages}
             {loading && (
-              <div className="flex items-center gap-2.5 text-sm px-4 py-3 fade-up">
-                <Sparkles size={16} className="ia-sparkle" style={{ color: ACCENT }} />
-                <span className="flex items-center gap-1" style={{ paddingTop: '2px' }}>
-                  <span className="ia-dot" />
-                  <span className="ia-dot" style={{ animationDelay: '0.18s' }} />
-                  <span className="ia-dot" style={{ animationDelay: '0.36s' }} />
-                </span>
+              <div className="flex items-center gap-2 text-sm px-4 py-3">
+                <Loader2 size={14} className="animate-spin" style={{ color: ACCENT }} />
                 <span className="shimmer-text font-medium">{loadingPreview || 'Pensando…'}</span>
               </div>
             )}
