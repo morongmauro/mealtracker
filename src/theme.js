@@ -50,12 +50,12 @@ export const BG_STAINS = `radial-gradient(48% 34% at 90% 0%, rgba(126,188,168,0.
 // encienden encima del fondo y derivan en direcciones opuestas — los tonos
 // cálidos y fríos se cruzan e iluminan (efecto Gemini). Al terminar se
 // apagan con un fade y queda solo BG_STAINS estático.
-export const BG_STAINS_WARM = `radial-gradient(52% 40% at 80% 10%, rgba(244,196,110,0.65), transparent 70%),
-  radial-gradient(48% 38% at 12% 40%, rgba(240,158,120,0.60), transparent 70%),
-  radial-gradient(46% 36% at 60% 90%, rgba(244,196,110,0.52), transparent 72%)`;
-export const BG_STAINS_COOL = `radial-gradient(50% 40% at 16% 12%, rgba(126,188,168,0.62), transparent 70%),
-  radial-gradient(46% 36% at 88% 55%, rgba(152,190,232,0.45), transparent 70%),
-  radial-gradient(52% 40% at 45% 100%, rgba(255,255,255,0.95), transparent 72%)`;
+export const BG_STAINS_WARM = `radial-gradient(56% 44% at 78% 12%, rgba(248,196,96,0.85), transparent 68%),
+  radial-gradient(52% 42% at 14% 42%, rgba(244,146,104,0.78), transparent 68%),
+  radial-gradient(50% 40% at 62% 88%, rgba(248,206,120,0.70), transparent 70%)`;
+export const BG_STAINS_COOL = `radial-gradient(54% 44% at 18% 14%, rgba(104,196,172,0.82), transparent 68%),
+  radial-gradient(50% 40% at 86% 56%, rgba(132,182,240,0.68), transparent 68%),
+  radial-gradient(56% 44% at 46% 96%, rgba(255,255,255,1), transparent 70%)`;
 export const SURFACE = '#FFFFFF';
 export const SURFACE_2 = '#EFEBE0';
 export const BORDER = '#E2DECC';

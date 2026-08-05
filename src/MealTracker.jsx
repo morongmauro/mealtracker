@@ -4346,11 +4346,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
            está sobredimensionada (inset -8%) para que la deriva nunca
            descubra los bordes. */
         @keyframes bgDrift {
-          0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
-          25%  { transform: translate3d(-8%, 6%, 0) scale(1.14); opacity: 0.9; }
-          50%  { transform: translate3d(7%, -6%, 0) scale(1.06); opacity: 1; }
-          75%  { transform: translate3d(-5%, -7%, 0) scale(1.16); opacity: 0.92; }
-          100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+          0%   { transform: translate3d(0, 0, 0) scale(1.1); opacity: 1; }
+          25%  { transform: translate3d(-9%, 7%, 0) scale(1.22); opacity: 0.92; }
+          50%  { transform: translate3d(8%, -7%, 0) scale(1.12); opacity: 1; }
+          75%  { transform: translate3d(-6%, -8%, 0) scale(1.24); opacity: 0.94; }
+          100% { transform: translate3d(0, 0, 0) scale(1.1); opacity: 1; }
         }
         .bg-stains-chat.thinking { animation: bgDrift 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
         /* Capas EXTRA de pensando: cálida y fría PASEAN por toda la pantalla
@@ -4359,24 +4359,28 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
            opacity para que el final sea suave aunque el transform se corte. */
         .bg-stains-extra { opacity: 0; transition: opacity 0.9s ease; will-change: transform, opacity; }
         .bg-stains-extra.on { opacity: 1; }
-        /* Coreografía rápida y visible: los colores llegan AL CENTRO, se
-           abren a los LADOS, suben, bajan y vuelven al centro — las dos
-           capas en espejo para que se crucen en cada fase (~2.4s el ciclo). */
-        .bg-stains-extra.warm.on { animation: bgRoamA 2.4s ease-in-out infinite; }
-        .bg-stains-extra.cool.on { animation: bgRoamB 2.4s ease-in-out 0.15s infinite; }
+        /* Coreografía: los colores CONVERGEN al centro (grandes y muy
+           cerca, se cruzan e iluminan), se abren a los lados, suben, bajan y
+           vuelven a juntarse. El brillo sube en cada encuentro central: el
+           filtro de saturación/brillo va en la MISMA capa que el transform,
+           así todo se compone en GPU sin repintar gradientes. */
+        .bg-stains-extra { opacity: 0; transition: opacity 0.7s ease; will-change: transform, opacity, filter; }
+        .bg-stains-extra.on { opacity: 1; }
+        .bg-stains-extra.warm.on { animation: bgRoamA 2.6s ease-in-out infinite; }
+        .bg-stains-extra.cool.on { animation: bgRoamB 2.6s ease-in-out infinite; }
         @keyframes bgRoamA {
-          0%   { transform: translate3d(0, 0, 0) scale(1.3); }
-          25%  { transform: translate3d(-24%, 0, 0) scale(1); }
-          50%  { transform: translate3d(0, -22%, 0) scale(1.18); }
-          75%  { transform: translate3d(0, 22%, 0) scale(1); }
-          100% { transform: translate3d(0, 0, 0) scale(1.3); }
+          0%   { transform: translate3d(-6%, 4%, 0) scale(1.55); filter: saturate(1.5) brightness(1.14); }
+          22%  { transform: translate3d(-30%, 0, 0) scale(1); filter: saturate(1.15) brightness(1); }
+          48%  { transform: translate3d(0, -26%, 0) scale(1.2); filter: saturate(1.3) brightness(1.06); }
+          72%  { transform: translate3d(0, 26%, 0) scale(1); filter: saturate(1.15) brightness(1); }
+          100% { transform: translate3d(-6%, 4%, 0) scale(1.55); filter: saturate(1.5) brightness(1.14); }
         }
         @keyframes bgRoamB {
-          0%   { transform: translate3d(0, 0, 0) scale(1.3); }
-          25%  { transform: translate3d(24%, 0, 0) scale(1); }
-          50%  { transform: translate3d(0, 22%, 0) scale(1.18); }
-          75%  { transform: translate3d(0, -22%, 0) scale(1); }
-          100% { transform: translate3d(0, 0, 0) scale(1.3); }
+          0%   { transform: translate3d(6%, -4%, 0) scale(1.55); filter: saturate(1.5) brightness(1.14); }
+          22%  { transform: translate3d(30%, 0, 0) scale(1); filter: saturate(1.15) brightness(1); }
+          48%  { transform: translate3d(0, 26%, 0) scale(1.2); filter: saturate(1.3) brightness(1.06); }
+          72%  { transform: translate3d(0, -26%, 0) scale(1); filter: saturate(1.15) brightness(1); }
+          100% { transform: translate3d(6%, -4%, 0) scale(1.55); filter: saturate(1.5) brightness(1.14); }
         }
         @media (prefers-reduced-motion: reduce) {
           .bg-stains-chat.thinking, .bg-stains-extra.on { animation: none; }
