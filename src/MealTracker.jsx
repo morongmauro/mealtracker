@@ -4742,6 +4742,213 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           queremos. El aviso premium de PaymentNotice vive fijo en Chat y en
           Hoy — imposible de no ver, sin arruinar la entrada a la app. */}
 
+      {/* ══════════ VISTA HOY (rediseño v3) ══════════
+          Overlay sobre el chat (que queda montado debajo conservando su
+          estado). Héroe gris suave con manchas orgánicas verde agua y
+          anillo oliva degradado; luego herramientas y las comidas del día. */}
+      {tab === 'hoy' && (
+        <div ref={hoyScrollRef} className="fixed inset-0 overflow-y-auto" style={{
+          zIndex: 35, background: BG,
+          paddingTop: `${headerH + 10}px`,
+          paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))',
+          WebkitOverflowScrolling: 'touch',
+        }}>
+          {/* Degradado orgánico (manchas verde agua + oliva) en el FONDO de
+              la página — capa fixed aparte, NO background-attachment (iOS lo
+              ignora dentro de contenedores con scroll). Las tarjetas glass
+              encima lo dejan respirar. */}
+          <div className="fixed inset-0 pointer-events-none" style={{
+            // 6 manchas repartidas por TODA la pantalla (no solo esquinas):
+            // el glass de las tarjetas deja verlas a través.
+            background: BG_STAINS,
+          }} />
+          {/* DIFUMINADO superior (estilo Recetario): el contenido se diluye
+              hacia el borde de la pantalla al scrollear bajo la píldora de
+              marca. zIndex 5 > contenido (auto); la píldora (z-50) queda
+              por encima. */}
+          <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
+            zIndex: 5,
+            height: `${headerH + 26}px`,
+            background: 'linear-gradient(180deg, #F1F0EA 30%, rgba(241,240,234,0.88) 62%, rgba(241,240,234,0) 100%)',
+          }} />
+          {/* DIFUMINADO inferior: el contenido se diluye ANTES de pasar por
+              detrás de la barra de opciones — la barra queda flotando encima
+              del fade, no del contenido crudo. */}
+          <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
+            zIndex: 5,
+            height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(0deg, #F1F0EA 22%, rgba(241,240,234,0.88) 52%, rgba(241,240,234,0) 100%)',
+          }} />
+          <div className="relative max-w-2xl mx-auto px-5">
+            <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em', marginTop: '6px' }}>
+              {formatDate(today)}
+            </div>
+            <div style={{ color: TEXT, fontSize: '30px', fontWeight: 800, letterSpacing: '-0.02em', marginTop: '2px', lineHeight: 1.1 }}>
+              Hola{name ? `, ${name.split(' ')[0]}` : ''}
+            </div>
+            {streak >= 2 && (
+              <div className="text-[13.5px]" style={{ color: TEXT_MUTED, marginTop: '4px' }}>
+                {streak} días seguidos registrando. Sigamos.
+              </div>
+            )}
+
+            {/* Aviso de pago también en Hoy (mismo componente que el chat):
+                es la pantalla de aterrizaje, no puede pasar desapercibido. */}
+            {paymentDue && <PaymentNotice info={paymentDue} style={{ marginTop: '16px' }} />}
+
+            {/* Héroe del día — GLASS: el degradado quedó en el fondo de la
+                página; la tarjeta es vidrio esmerilado con sombra premium. */}
+            <div className="relative overflow-hidden" style={{
+              marginTop: '16px', borderRadius: '26px', padding: '20px',
+              // Más transparente y blur más corto: las manchas del fondo se
+              // VEN a través del vidrio (antes el 0.55 + blur 18 las tapaba).
+              background: 'rgba(255,255,255,0.40)',
+              backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.80) inset, 0 16px 38px rgba(96,102,72,0.13), 0 3px 10px rgba(96,102,72,0.06)',
+            }}>
+              {!goals ? (
+                <div className="relative text-center py-3">
+                  <div className="text-[14px] font-bold" style={{ color: TEXT }}>🎯 Tu coach está preparando tu meta</div>
+                  <div className="text-[12px] mt-1" style={{ color: TEXT_MUTED }}>Mientras tanto, cuéntame en el chat qué comes y llevo tus totales.</div>
+                </div>
+              ) : (
+                <>
+                  <div className="relative flex items-center gap-4">
+                    {/* Aro principal FINO (trazo 7px) con degradado oliva del
+                        logo, punta redonda, centro transparente (glass) y
+                        sombra premium en el trazo mismo. */}
+                    <RingGauge size={86} stroke={7}
+                      pct={Math.min(100, Math.round((totals.kcal / (goals.kcal || 1)) * 100))}
+                      gradId="ring-kcal"
+                      stops={[['0%', '#A8B56B'], ['55%', ACCENT], ['100%', ACCENT_DARK]]}
+                      track="rgba(138,149,88,0.14)"
+                      shadow="drop-shadow(0 5px 10px rgba(74,82,56,0.30))">
+                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : TEXT, fontWeight: 500, fontSize: '16px' }}>
+                        {Math.round((totals.kcal / (goals.kcal || 1)) * 100)}%
+                      </div>
+                    </RingGauge>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase" style={{ color: ACCENT_DARK, letterSpacing: '0.16em' }}>Tu día · en vivo</div>
+                      <div className="num" style={{ color: TEXT, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
+                        <span style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : TEXT }}>{Math.round(totals.kcal).toLocaleString('es')}</span> / {Math.round(goals.kcal).toLocaleString('es')} kcal
+                      </div>
+                      {/* Celebrar SOLO cumplimiento real: kcal en ±5% de la
+                          meta Y proteína bien (90-115%). Pasarse no es
+                          fiesta: el exceso se dice claro y en rojo. */}
+                      {(() => {
+                        const ratio = totals.kcal / (goals.kcal || 1);
+                        const pOk = !goals.p || (totals.p >= goals.p * 0.9 && totals.p <= goals.p * 1.15);
+                        if (ratio > 1.05) return (
+                          <div className="text-[12.5px] font-semibold" style={{ color: DANGER_SOFT, marginTop: '2px' }}>
+                            Te excediste por {Math.round(totals.kcal - goals.kcal)} kcal
+                          </div>
+                        );
+                        if (ratio >= 0.95 && pOk) return (
+                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>Meta del día completa 🎉</div>
+                        );
+                        if (ratio >= 0.95) return (
+                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>Calorías al día — revisa tu proteína</div>
+                        );
+                        return (
+                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>Te faltan {Math.round(goals.kcal - totals.kcal)} kcal</div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  {/* Macros: mismos aros finos que el principal, uno por
+                      macro, centro sin relleno con los gramos adentro. */}
+                  <div className="relative flex mt-4">
+                    {[
+                      { k: 'Proteína', v: totals.p, g: goals.p, c: C_PROTEIN },
+                      { k: 'Carbos', v: totals.c, g: goals.c, c: C_CARBS },
+                      { k: 'Grasas', v: totals.g, g: goals.g, c: C_FAT },
+                    ].map(mch => (
+                      <div key={mch.k} className="flex-1 flex flex-col items-center gap-1.5">
+                        <RingGauge size={56} stroke={5}
+                          pct={Math.min(100, Math.round((mch.v / (mch.g || 1)) * 100))}
+                          color={mch.c} track="rgba(31,31,31,0.07)"
+                          shadow="drop-shadow(0 3px 7px rgba(60,66,42,0.18))">
+                          <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER_SOFT : TEXT, fontWeight: 500, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
+                        </RingGauge>
+                        <div className="text-center leading-tight">
+                          <div className="text-[9px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.09em' }}>{mch.k}</div>
+                          <div className="num text-[10px]" style={{ color: TEXT_LIGHT, fontWeight: 600, marginTop: '1px' }}>de {fmt0(mch.g)} g</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Herramientas */}
+            <div className="text-[10.5px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.16em', margin: '22px 0 10px' }}>
+              Tus herramientas
+            </div>
+            <div className="flex gap-2.5">
+              {[
+                { label: 'Mi semana', icon: CalendarCheck, grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); } },
+                { label: 'Reto', icon: Mountain, grad: 'linear-gradient(135deg, #E09479, #C05E44)', onClick: () => { haptic(8); window.location.href = '/ranking'; } },
+                { label: 'Recordat.', icon: Bell, grad: 'linear-gradient(135deg, #7C8CA3, #4E5D74)', badge: coachReminders.filter(r => !r.done_at).length, onClick: () => { haptic(8); setActiveModal('reminders'); } },
+                { label: 'Calendario', icon: Calendar, grad: 'linear-gradient(135deg, #74AECB, #3F81A6)', onClick: () => { haptic(8); setActiveModal('calendar'); } },
+              ].map(tl => (
+                <button key={tl.label} onClick={tl.onClick}
+                  className="flex-1 rounded-[20px] py-3.5 px-1 text-center active:scale-95 transition relative"
+                  style={{ background: 'rgba(255,255,255,0.75)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 8px 22px rgba(96,102,72,0.09)' }}>
+                  <div className="mx-auto rounded-[14px] grid place-items-center" style={{ width: '40px', height: '40px', background: tl.grad, marginBottom: '8px' }}>
+                    <tl.icon size={18} strokeWidth={2} style={{ color: '#FFF' }} />
+                  </div>
+                  {tl.badge > 0 && (
+                    <span className="absolute rounded-full text-[10px] font-bold grid place-items-center" style={{ top: '8px', right: '14px', background: DANGER, color: '#FFF', minWidth: '17px', height: '17px', padding: '0 4px' }}>{tl.badge}</span>
+                  )}
+                  <div className="text-[11.5px] font-bold" style={{ color: '#3A3A34' }}>{tl.label}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Comidas de hoy */}
+            <div className="text-[10.5px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.16em', margin: '22px 0 10px' }}>
+              Hoy
+            </div>
+            {entries.length === 0 ? (
+              <div className="rounded-[22px] p-5 text-center" style={{ background: 'rgba(255,255,255,0.75)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 8px 22px rgba(96,102,72,0.09)' }}>
+                <div className="text-[14px] font-semibold" style={{ color: TEXT }}>Aún no registras nada hoy</div>
+                <div className="text-[12px] mt-1 mb-3" style={{ color: TEXT_MUTED }}>Dicta o escribe tu primera comida en el chat y la calculo al instante.</div>
+                <button onClick={() => { haptic(8); setTab('chat'); }}
+                  className="px-5 py-2.5 rounded-full text-[13px] font-bold active:scale-95 transition"
+                  style={{ background: TEXT, color: '#FFF' }}>
+                  Ir al chat
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {entries.map(e => (
+                  <div key={e.id} className="rounded-[22px] px-4 py-3.5" style={{ background: 'rgba(255,255,255,0.78)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 10px 30px rgba(96,102,72,0.10), 0 2px 6px rgba(96,102,72,0.06)' }}>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-[12px] font-extrabold uppercase" style={{ color: ACCENT_DARK, letterSpacing: '0.06em' }}>{e.meal || 'comida'}{e.time ? <span style={{ color: TEXT_LIGHT, fontWeight: 600, marginLeft: '6px', textTransform: 'none', letterSpacing: 0 }}>{e.time}</span> : null}</span>
+                      <span className="num text-[14px] font-extrabold" style={{ color: TEXT }}>{Math.round(e.kcal)} <span className="text-[10px] font-semibold" style={{ color: TEXT_LIGHT }}>kcal</span></span>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {(e.items || []).map((it, i) => (
+                        <div key={i} className="flex justify-between gap-3 text-[12.5px]">
+                          <span style={{ color: '#3A3A34' }}>{it.name}{it.amount ? <span style={{ color: TEXT_LIGHT }}> · {it.amount}</span> : null}</span>
+                          <span className="num flex-shrink-0" style={{ color: TEXT_LIGHT }}>{Math.round(it.kcal || 0)} kcal</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-3 mt-2.5 pt-2.5 text-[11px] font-bold num" style={{ borderTop: '1px solid rgba(138,149,88,0.14)' }}>
+                      <span style={{ color: C_PROTEIN }}>P {fmt1(e.p)}g</span>
+                      <span style={{ color: '#9C7C3C' }}>C {fmt1(e.c)}g</span>
+                      <span style={{ color: C_FAT }}>G {fmt1(e.g)}g</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ══════════ CENTRO DE APRENDIZAJE (overlay interno) ══════════
           Iframe a pantalla casi completa: sin barra de URL del navegador,
           se siente una sección más de la app. Vive bajo la barra de
