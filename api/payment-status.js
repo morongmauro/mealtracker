@@ -160,9 +160,13 @@ export default async function handler(req, res) {
     //    cliente con meses vencidos no veía nada si hoy aún no llegaba a su
     //    día de corte.
     const { mes: mesActual, ymd: hoyYmd, anio, mesNum } = todayInBogota();
-    const inicio = String(cliente.fecha_inicio || '').slice(0, 7); // 'YYYY-MM' o ''
-    const ventana = mesesHasta(anio, mesNum, 12)
-      .filter(m => !inicio || m.mes >= inicio);
+    const inicioYmd = String(cliente.fecha_inicio || '').slice(0, 10); // 'YYYY-MM-DD' o ''
+    // La ventana NO se recorta por fecha_inicio: si el coach registró un mes
+    // como pendiente en el CRM, ese registro manda aunque sea anterior a la
+    // fecha de inicio de la ficha (pasa cuando el cliente venía de antes y se
+    // cargó al CRM después). fecha_inicio solo protege los meses SIN registro,
+    // para no inventarle deuda de cuando todavía no era cliente.
+    const ventana = mesesHasta(anio, mesNum, 12);
 
     // Meses cuya fecha de corte YA pasó (el aviso empieza al día SIGUIENTE del
     // corte: en el día mismo todavía no se molesta).
@@ -195,27 +199,37 @@ export default async function handler(req, res) {
     // a un cliente en deuda.
     const montoMensual = (cliente.monto != null && Number(cliente.monto) > 0) ? Number(cliente.monto) : 0;
     const deuda = [];
+    // Traza mes a mes para el modo ?debug=1: qué se contó, qué se descartó y
+    // por qué. Sin esto, un total que no cuadra obliga a adivinar.
+    const detalle = [];
     for (const m of vencidos) {
       const filas = porMes.get(m.mes) || [];
       if (filas.length) {
         const anyPaid = filas.some(p => p.pagado === true);
         const maxMonto = Math.max(0, ...filas.map(p => Number(p.monto) || 0));
-        if (anyPaid || maxMonto === 0) continue;              // cubierto
+        if (anyPaid) { detalle.push({ mes: m.mes, cuenta: false, motivo: 'marcado como PAGADO en la tabla pagos' }); continue; }
+        if (maxMonto === 0) { detalle.push({ mes: m.mes, cuenta: false, motivo: 'registro(s) en $0 → se interpreta como mes de cortesía' }); continue; }
         deuda.push({ mes: m.mes, corte: m.corte, monto: maxMonto });
+        detalle.push({ mes: m.mes, cuenta: true, monto: maxMonto, motivo: 'registro pendiente en la tabla pagos' });
+      } else if (inicioYmd && m.corte < inicioYmd) {
+        // Sin registro Y con el corte anterior a su fecha de inicio: no era
+        // cliente todavía, no se le inventa deuda.
+        detalle.push({ mes: m.mes, cuenta: false, motivo: `sin registro y el corte (${m.corte}) es anterior a su fecha de inicio (${inicioYmd})` });
       } else {
         // Sin registro en `pagos` = el coach no ha marcado nada para ese mes.
         deuda.push({ mes: m.mes, corte: m.corte, monto: montoMensual });
+        detalle.push({ mes: m.mes, cuenta: true, monto: montoMensual, motivo: 'sin registro en pagos → se cobra el monto de su ficha' });
       }
     }
 
     if (!deuda.length) {
-      return out({ due: false, dia_corte: diaPago }, `todos los meses vencidos (${vencidos.map(v => v.mes).join(', ')}) figuran CUBIERTOS en la tabla pagos. Si crees que debe, revisa si hay un pago marcado por error.`);
+      return out({ due: false, dia_corte: diaPago, detalle }, `todos los meses vencidos (${vencidos.map(v => v.mes).join(', ')}) figuran CUBIERTOS en la tabla pagos. Si crees que debe, revisa si hay un pago marcado por error.`);
     }
 
     // Debe. Los días de vencimiento se cuentan desde el corte MÁS ANTIGUO sin
     // pagar, y el total suma todos los meses pendientes.
     const montoTotal = deuda.reduce((s, d) => s + (Number(d.monto) || 0), 0);
-    return res.status(200).json({
+    const payload = {
       due: true,
       dia_corte: diaPago,
       dias_vencido: diasEntre(deuda[0].corte, hoyYmd),
@@ -224,7 +238,18 @@ export default async function handler(req, res) {
       monto: montoMensual || null,                    // mensualidad
       monto_total: montoTotal > 0 ? montoTotal : null, // deuda acumulada
       moneda: cliente.moneda || 'COP',
-    });
+    };
+    if (debug) {
+      payload.debug = {
+        crm_host: crmHost,
+        cliente: { nombre: cliente.nombre, monto_ficha: cliente.monto, dia_pago: diaPago, fecha_inicio: cliente.fecha_inicio || null },
+        hoy: hoyYmd,
+        meses_evaluados: vencidos.map(v => v.mes),
+        detalle,
+        suma: montoTotal,
+      };
+    }
+    return res.status(200).json(payload);
   } catch (e) {
     // Ante cualquier fallo, no mostramos recordatorio (nunca bloqueamos la app).
     return res.status(200).json({ due: false });
