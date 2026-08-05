@@ -4,13 +4,20 @@
 // recordatorio de pago cuando la fecha de corte del mes ya pasó y el coach
 // todavía no marcó el pago.
 //
-// Regla ("debe pagar"):
+// Regla ("debe pagar") — se evalúa sobre TODOS los meses del historial
+// reciente, no solo el mes en curso:
 //   - cliente activo con dia_pago configurado, y
-//   - hoy ya pasó su fecha de corte de ESTE mes (desde el día siguiente), y
-//   - no hay un pago marcado como pagado para el mes actual.
-// El recordatorio PERSISTE día a día hasta que el coach marca el pago en el
-// CRM (tabla `pagos`); en cuanto lo marca, este endpoint devuelve due:false y
-// el banner desaparece solo. No expone datos de otros clientes.
+//   - de cada mes desde que arrancó (máx. 12 atrás) cuya fecha de corte ya
+//     pasó, se descartan los que están cubiertos (pago marcado como pagado o
+//     mes de cortesía en $0); lo que queda es la deuda.
+// El recordatorio PERSISTE día a día hasta que el coach marca los pagos en el
+// CRM (tabla `pagos`); en cuanto los marca, este endpoint devuelve due:false y
+// el aviso desaparece solo. No expone datos de otros clientes.
+//
+// OJO (bug que esto corrige): antes solo se miraba el MES ACTUAL y se salía
+// con due:false si el día de hoy aún no había pasado el día de corte. Un
+// cliente con dos meses vencidos y corte el día 15 no veía NADA entre el 1 y
+// el 15 de cada mes — justo el caso reportado.
 //
 // Config (Vercel → proyecto mealtracker → Environment Variables) — las MISMAS
 // que ya usa authorize.js:
@@ -18,7 +25,8 @@
 //   CRM_SUPABASE_SERVICE_KEY  → key service_role del Supabase del CRM
 //
 // GET  /api/payment-status?name=...   (o POST { name })
-//   → { due: bool, dia_corte?: number, monto?: number, moneda?: string }
+//   → { due: bool, dia_corte?, dias_vencido?, meses_deuda?, monto?,
+//       monto_total?, moneda?, meses? }
 
 import { guard } from './_guard.js';
 
@@ -40,7 +48,33 @@ function todayInBogota() {
   const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' })
     .format(new Date()); // "YYYY-MM-DD"
   const [y, m, d] = ymd.split('-');
-  return { mes: `${y}-${m}`, dia: Number(d) };
+  return { mes: `${y}-${m}`, dia: Number(d), ymd, anio: Number(y), mesNum: Number(m) };
+}
+
+// Fecha de corte REAL de un mes: si el cliente paga el 31 y el mes tiene 30
+// días, el corte es el último día de ese mes (nunca una fecha inexistente).
+function fechaCorte(anio, mesNum, diaPago) {
+  const ultimoDia = new Date(Date.UTC(anio, mesNum, 0)).getUTCDate();
+  const dia = Math.min(diaPago, ultimoDia);
+  return `${anio}-${String(mesNum).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+}
+
+// Días transcurridos entre dos fechas 'YYYY-MM-DD' (ambas a mediodía UTC para
+// que ningún horario de verano ajeno mueva el resultado).
+function diasEntre(desdeYmd, hastaYmd) {
+  const a = Date.parse(`${desdeYmd}T12:00:00Z`);
+  const b = Date.parse(`${hastaYmd}T12:00:00Z`);
+  return Math.round((b - a) / 86400000);
+}
+
+// Los N meses (YYYY-MM) hasta el actual, del más viejo al más nuevo.
+function mesesHasta(anio, mesNum, cuantos) {
+  const out = [];
+  for (let i = cuantos - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(anio, mesNum - 1 - i, 1));
+    out.push({ mes: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`, anio: d.getUTCFullYear(), mesNum: d.getUTCMonth() + 1 });
+  }
+  return out;
 }
 
 export default async function handler(req, res) {
@@ -101,7 +135,7 @@ export default async function handler(req, res) {
   try {
     // 1) Buscar al cliente en el CRM por nombre normalizado.
     const rc = await fetch(
-      `${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago,monto,moneda`,
+      `${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago,monto,moneda,fecha_inicio`,
       { headers }
     );
     if (!rc.ok) return out({ due: false }, `no pude leer la tabla clientes del CRM (HTTP ${rc.status})`);
@@ -120,43 +154,75 @@ export default async function handler(req, res) {
       return out({ due: false }, `el cliente NO tiene "día de pago" (fecha de corte) configurado en el CRM — este es el motivo más común. Ábrele la ficha en el CRM y ponle su día de corte.`);
     }
 
-    // 2) ¿La fecha de corte de este mes ya pasó? Recordatorio DESDE EL DÍA
-    //    SIGUIENTE: en el día de corte todavía no molestamos. Fechas en hora
-    //    de Colombia (ver todayInBogota).
-    const { mes, dia: diaHoy } = todayInBogota();
-    if (diaHoy <= diaPago) {
-      return out({ due: false, dia_corte: diaPago }, `hoy es día ${diaHoy} y su corte es el ${diaPago}: el aviso empieza al día SIGUIENTE del corte (mañana o después)`);
+    // 2) Ventana de meses a revisar: los últimos 12 hasta el actual, recortados
+    //    al mes de inicio del cliente (nunca se le cobra un mes anterior a su
+    //    fecha_inicio). Antes solo se miraba el mes en curso — por eso un
+    //    cliente con meses vencidos no veía nada si hoy aún no llegaba a su
+    //    día de corte.
+    const { mes: mesActual, ymd: hoyYmd, anio, mesNum } = todayInBogota();
+    const inicio = String(cliente.fecha_inicio || '').slice(0, 7); // 'YYYY-MM' o ''
+    const ventana = mesesHasta(anio, mesNum, 12)
+      .filter(m => !inicio || m.mes >= inicio);
+
+    // Meses cuya fecha de corte YA pasó (el aviso empieza al día SIGUIENTE del
+    // corte: en el día mismo todavía no se molesta).
+    const vencidos = ventana
+      .map(m => ({ ...m, corte: fechaCorte(m.anio, m.mesNum, diaPago) }))
+      .filter(m => m.corte < hoyYmd);
+
+    if (!vencidos.length) {
+      return out({ due: false, dia_corte: diaPago }, `todavía no hay ningún mes con la fecha de corte cumplida (corte el ${diaPago}; el aviso empieza al día SIGUIENTE)`);
     }
 
-    // 3) ¿El mes ya está cubierto? Cubierto = pago marcado como pagado, O un
-    //    registro con monto 0 (mes sin cobro: premio del reto, cortesía…).
+    // 3) Pagos registrados en esa ventana, en UNA sola consulta.
+    const desde = vencidos[0].mes;
     const rp = await fetch(
-      `${CRM_URL}/rest/v1/pagos?select=pagado,monto&cliente_id=eq.${cliente.id}&mes=eq.${mes}`,
+      `${CRM_URL}/rest/v1/pagos?select=mes,pagado,monto&cliente_id=eq.${cliente.id}&mes=gte.${desde}&mes=lte.${mesActual}`,
       { headers }
     );
-    let cubierto = false;
-    if (rp.ok) {
-      const pagos = await rp.json();
-      if (Array.isArray(pagos) && pagos.length) {
-        // Cubierto SOLO si: hay un pago marcado como pagado, O el mes ENTERO es
-        // sin cobro (TODOS los registros en 0 → cortesía/premio). Antes bastaba
-        // con que UN registro tuviera monto 0: si el mes tenía un placeholder en
-        // $0 junto al cobro real, el cliente en deuda dejaba de recibir el aviso.
-        const anyPaid = pagos.some(p => p.pagado === true);
-        const maxMonto = Math.max(0, ...pagos.map(p => Number(p.monto) || 0));
-        cubierto = anyPaid || maxMonto === 0;
+    const pagos = rp.ok ? await rp.json() : [];
+    const porMes = new Map();
+    if (Array.isArray(pagos)) {
+      for (const p of pagos) {
+        if (!porMes.has(p.mes)) porMes.set(p.mes, []);
+        porMes.get(p.mes).push(p);
       }
     }
-    if (cubierto) {
-      return out({ due: false, dia_corte: diaPago }, `el mes ${mes} ya figura CUBIERTO en la tabla pagos (marcado como pagado o con monto 0). Si crees que debe, revisa si hay un pago marcado por error.`);
+
+    // Cubierto SOLO si: hay un pago marcado como pagado, O el mes ENTERO es sin
+    // cobro (TODOS los registros en 0 → cortesía/premio). Que UN registro esté
+    // en 0 no basta: un placeholder en $0 junto al cobro real dejaba sin aviso
+    // a un cliente en deuda.
+    const montoMensual = (cliente.monto != null && Number(cliente.monto) > 0) ? Number(cliente.monto) : 0;
+    const deuda = [];
+    for (const m of vencidos) {
+      const filas = porMes.get(m.mes) || [];
+      if (filas.length) {
+        const anyPaid = filas.some(p => p.pagado === true);
+        const maxMonto = Math.max(0, ...filas.map(p => Number(p.monto) || 0));
+        if (anyPaid || maxMonto === 0) continue;              // cubierto
+        deuda.push({ mes: m.mes, corte: m.corte, monto: maxMonto });
+      } else {
+        // Sin registro en `pagos` = el coach no ha marcado nada para ese mes.
+        deuda.push({ mes: m.mes, corte: m.corte, monto: montoMensual });
+      }
     }
 
-    // Debe: la fecha de corte pasó y no hay pago del mes.
+    if (!deuda.length) {
+      return out({ due: false, dia_corte: diaPago }, `todos los meses vencidos (${vencidos.map(v => v.mes).join(', ')}) figuran CUBIERTOS en la tabla pagos. Si crees que debe, revisa si hay un pago marcado por error.`);
+    }
+
+    // Debe. Los días de vencimiento se cuentan desde el corte MÁS ANTIGUO sin
+    // pagar, y el total suma todos los meses pendientes.
+    const montoTotal = deuda.reduce((s, d) => s + (Number(d.monto) || 0), 0);
     return res.status(200).json({
       due: true,
       dia_corte: diaPago,
-      dias_vencido: diaHoy - diaPago,   // días transcurridos desde el corte
-      monto: (cliente.monto != null && Number(cliente.monto) > 0) ? Number(cliente.monto) : null,
+      dias_vencido: diasEntre(deuda[0].corte, hoyYmd),
+      meses_deuda: deuda.length,
+      meses: deuda.map(d => d.mes),
+      monto: montoMensual || null,                    // mensualidad
+      monto_total: montoTotal > 0 ? montoTotal : null, // deuda acumulada
       moneda: cliente.moneda || 'COP',
     });
   } catch (e) {
