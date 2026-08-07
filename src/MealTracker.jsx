@@ -4784,8 +4784,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             background: 'linear-gradient(0deg, #F1F0EA 22%, rgba(241,240,234,0.88) 52%, rgba(241,240,234,0) 100%)',
           }} />
           <div className="relative max-w-2xl mx-auto px-5">
-            <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em', marginTop: '6px' }}>
-              {formatDate(today)}
+            {/* Subtítulo normal: caja alta + tracking ancho es lenguaje de
+                etiqueta, no de fecha, y en pantalla se lee como plantilla. */}
+            <div className="text-[12.5px] font-semibold" style={{ color: ACCENT, letterSpacing: '-0.01em', marginTop: '6px' }}>
+              {capFirst(formatDate(today))}
             </div>
             <div style={{ color: TEXT, fontSize: '30px', fontWeight: 800, letterSpacing: '-0.02em', marginTop: '2px', lineHeight: 1.1 }}>
               Hola{name ? `, ${name.split(' ')[0]}` : ''}
@@ -4832,7 +4834,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       </div>
                     </RingGauge>
                     <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase" style={{ color: ACCENT_DARK, letterSpacing: '0.16em' }}>Tu día · en vivo</div>
+                      <div className="text-[12px] font-semibold" style={{ color: ACCENT_DARK, letterSpacing: '-0.01em' }}>Tu día · en vivo</div>
                       <div className="num" style={{ color: TEXT, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
                         <span style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : TEXT }}>{Math.round(totals.kcal).toLocaleString('es')}</span> / {Math.round(goals.kcal).toLocaleString('es')} kcal
                       </div>
@@ -4886,7 +4888,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </div>
 
             {/* Herramientas */}
-            <div className="text-[10.5px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.16em', margin: '22px 0 10px' }}>
+            <div className="text-[13.5px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em', margin: '22px 0 10px' }}>
               Tus herramientas
             </div>
             <div className="flex gap-2.5">
@@ -4911,7 +4913,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </div>
 
             {/* Comidas de hoy */}
-            <div className="text-[10.5px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.16em', margin: '22px 0 10px' }}>
+            <div className="text-[13.5px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em', margin: '22px 0 10px' }}>
               Hoy
             </div>
             {entries.length === 0 ? (
@@ -5597,6 +5599,13 @@ function FontStyles() {
   );
 }
 
+// El español escribe días y meses en minúscula; a principio de línea la
+// fecha necesita mayúscula inicial. `capitalize` de Tailwind no sirve: subiría
+// también "De" y "Agosto".
+function capFirst(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
 function formatDate(iso) {
   const d = new Date(iso + 'T12:00:00');
   return d.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -5727,8 +5736,8 @@ function PaymentNotice({ info, style }) {
       ...style,
     }}>
       <div className="flex items-center gap-2" style={{ marginBottom: '5px' }}>
-        <CreditCard size={13} strokeWidth={2.2} style={{ color: t.label, flexShrink: 0 }} />
-        <span className="text-[9.5px] uppercase font-bold" style={{ color: t.label, letterSpacing: '0.09em' }}>
+        <CreditCard size={14} strokeWidth={2.2} style={{ color: t.label, flexShrink: 0 }} />
+        <span className="text-[12px] font-semibold" style={{ color: t.label, letterSpacing: '-0.01em' }}>
           {meses > 1 ? `${meses} mensualidades pendientes` : 'Mensualidad pendiente'}
         </span>
       </div>
