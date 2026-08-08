@@ -4995,8 +4995,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         pointerEvents: 'none',
         display: actionsExpanded ? 'none' : 'block'
       }}>
-          {/* Barra OVALADA (rounded-full) y un poco más alta que la v1. */}
-          <div className="max-w-md mx-auto flex rounded-full px-3 py-2.5" style={{
+          {/* Barra OVALADA (rounded-full) y un poco más alta que la v1.
+              Aprendizaje NO va dentro: es otro producto (el centro de
+              recursos, en su propio dominio). Vive en un círculo pegado al
+              costado — juntos, pero no revueltos. */}
+          <div className="max-w-md mx-auto flex items-center gap-2">
+          <div className="flex-1 flex rounded-full px-3 py-2.5" style={{
             pointerEvents: 'auto',
             background: 'rgba(255,255,255,0.86)',
             backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
@@ -5006,12 +5010,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               // El Recetario vive DEBAJO de esta barra (z-38 < z-45): navegar
               // a Hoy/Chat lo cierra — sin botón "atrás" en su header.
               // Re-tap en la pestaña ya activa: Hoy sube al inicio, Chat baja
-              // al mensaje más reciente, Recetario sube al inicio y Aprende
-              // vuelve al principio del centro.
+              // al mensaje más reciente y Recetario sube al inicio. (El
+              // re-tap de Aprendizaje recarga el centro; su botón está
+              // fuera de esta barra.)
               { key: 'hoy', label: 'Hoy', icon: Home, active: tab === 'hoy' && !showRecetario && !showLearning, onClick: () => { haptic(6); if (tab === 'hoy' && !showRecetario && !showLearning) { hoyScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); return; } setShowRecetario(false); setShowLearning(false); setTab('hoy'); } },
               { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat' && !showRecetario && !showLearning, onClick: () => { haptic(6); if (tab === 'chat' && !showRecetario && !showLearning) { const sc = chatScrollRef.current; if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' }); return; } setShowRecetario(false); setShowLearning(false); setTab('chat'); } },
               { key: 'recetario', label: 'Recetario', icon: BookOpen, active: showRecetario, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } if (showRecetario) { setRecetarioScrollSig(x => x + 1); return; } setShowLearning(false); setShowRecetario(true); } },
-              ...(learningUrl ? [{ key: 'aprende', label: 'Aprende', icon: GraduationCap, active: showLearning, onClick: () => { if (showLearning) { haptic(6); setLearningKey(k => k + 1); return; } openLearning(); } }] : []),
               // openActionsSheet (DOM directo) y NO setActionsExpanded: el
               // sheet aparece en el mismo frame del tap; con solo estado, el
               // re-render del árbol gigante tardaba 1-2s en móvil y el botón
@@ -5025,6 +5029,27 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <span className="text-[10.5px] font-bold" style={{ letterSpacing: '0.01em' }}>{n.label}</span>
               </button>
             ))}
+          </div>
+
+          {/* APRENDIZAJE — círculo aparte, al ladito de la barra */}
+          {learningUrl && (
+            <button
+              onClick={() => { if (showLearning) { haptic(6); setLearningKey(k => k + 1); return; } openLearning(); }}
+              aria-label="Aprendizaje"
+              title="Aprendizaje"
+              className="flex-none flex items-center justify-center rounded-full active:scale-95 transition"
+              style={{
+                pointerEvents: 'auto',
+                width: '54px', height: '54px',
+                background: showLearning ? ACCENT_DARK : 'rgba(255,255,255,0.86)',
+                color: showLearning ? '#FFF' : '#9A988C',
+                backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+                boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 12px 34px rgba(60,66,42,0.16), 0 2px 8px rgba(60,66,42,0.08)',
+                WebkitTapHighlightColor: 'transparent',
+              }}>
+              <GraduationCap size={23} strokeWidth={showLearning ? 2.4 : 2} />
+            </button>
+          )}
           </div>
       </div>
 
@@ -5045,7 +5070,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           pendientes desaparece y no estorba. */}
       {/* Solo en el chat: en Hoy ya existe el icono de Recordatorios entre
           las herramientas — la píldora ahí redundaba. */}
-      {tab === 'chat' && !showRecetario && coachReminders.some(r => !r.done_at) && (
+      {tab === 'chat' && !showRecetario && !showLearning && coachReminders.some(r => !r.done_at) && (
         <button
           onPointerDown={(e) => { e.preventDefault(); haptic(8); setActiveModal('reminders'); }}
           onClick={(e) => e.preventDefault()}
