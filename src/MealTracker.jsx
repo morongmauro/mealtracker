@@ -4665,6 +4665,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             }} />
           );
         })()}
+        {/* DIFUMINADO inferior: el chat también se apaga contra el borde del
+            teléfono y por detrás de la barra de entrada y la de navegación,
+            igual que ya lo hacía hacia arriba. */}
+        <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
+          zIndex: 25,
+          height: `calc(${keyboardOpen ? 132 : 150}px + env(safe-area-inset-bottom, 0px))`,
+          background: 'linear-gradient(0deg, #F1F0EA 24%, rgba(241,240,234,0.88) 54%, rgba(241,240,234,0) 100%)',
+        }} />
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '84px', contain: 'layout paint', willChange: 'transform' }}>
           {/* Editorial hand-drawn food silhouettes — thin organic lines */}
@@ -4789,7 +4797,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             <div className="text-[12.5px] font-semibold" style={{ color: ACCENT, letterSpacing: '-0.01em', marginTop: '6px' }}>
               {capFirst(formatDate(today))}
             </div>
-            <div style={{ color: TEXT, fontSize: '30px', fontWeight: 800, letterSpacing: '-0.02em', marginTop: '2px', lineHeight: 1.1 }}>
+            {/* Mismo tipo que el hero del centro de aprendizaje (.em-hero-name):
+                Bebas, cuerpo grande y line-height apretado. Las dos entradas
+                a la marca — "Hola X" aquí y el nombre allá — se leen igual. */}
+            <div style={{
+              color: TEXT, fontFamily: FONT_DISPLAY, fontWeight: 400,
+              fontSize: '42px', letterSpacing: '0.015em', marginTop: '4px', lineHeight: 0.94,
+            }}>
               Hola{name ? `, ${name.split(' ')[0]}` : ''}
             </div>
             {streak >= 2 && (
@@ -4971,6 +4985,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             zIndex: 2,
             height: 'calc(env(safe-area-inset-top, 0px) + 66px)',
             background: 'linear-gradient(180deg, rgba(241,240,234,0.95) 25%, rgba(241,240,234,0.85) 55%, rgba(241,240,234,0) 100%)',
+          }} />
+          {/* Y el mismo difuminado abajo: el final del centro se apaga por
+              detrás de la barra en vez de cortarse contra ella. */}
+          <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
+            zIndex: 2,
+            height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(0deg, #F1F0EA 22%, rgba(241,240,234,0.88) 52%, rgba(241,240,234,0) 100%)',
           }} />
           <iframe
             key={learningKey}
