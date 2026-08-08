@@ -5031,23 +5031,27 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             ))}
           </div>
 
-          {/* APRENDIZAJE — círculo aparte, al ladito de la barra */}
+          {/* APRENDIZAJE — pastilla aparte, al ladito de la barra. Mismo
+              icono + etiqueta + tamaños que un item de la barra, para que
+              se lea igual de bien; lo único que cambia es que va suelto,
+              porque es otro producto. */}
           {learningUrl && (
             <button
               onClick={() => { if (showLearning) { haptic(6); setLearningKey(k => k + 1); return; } openLearning(); }}
-              aria-label="Aprendizaje"
               title="Aprendizaje"
-              className="flex-none flex items-center justify-center rounded-full active:scale-95 transition"
+              className="flex-none flex flex-col items-center justify-center gap-1 rounded-full active:scale-95 transition"
               style={{
                 pointerEvents: 'auto',
-                width: '54px', height: '54px',
+                width: '68px',
+                paddingTop: '10px', paddingBottom: '10px',
                 background: showLearning ? ACCENT_DARK : 'rgba(255,255,255,0.86)',
                 color: showLearning ? '#FFF' : '#9A988C',
                 backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
                 boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 12px 34px rgba(60,66,42,0.16), 0 2px 8px rgba(60,66,42,0.08)',
                 WebkitTapHighlightColor: 'transparent',
               }}>
-              <GraduationCap size={23} strokeWidth={showLearning ? 2.4 : 2} />
+              <GraduationCap size={22} strokeWidth={showLearning ? 2.4 : 2} />
+              <span className="text-[10.5px] font-bold" style={{ letterSpacing: '0.01em' }}>Aprende</span>
             </button>
           )}
           </div>
