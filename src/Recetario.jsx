@@ -1212,12 +1212,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
           zIndex: 2,
           height: 'calc(env(safe-area-inset-top, 0px) + 66px)',
-          background: 'linear-gradient(180deg, rgba(241,240,234,0.95) 25%, rgba(241,240,234,0.86) 55%, rgba(241,240,234,0) 100%)',
+          background: 'linear-gradient(180deg, rgba(237,236,229,0.95) 25%, rgba(237,236,229,0.86) 55%, rgba(237,236,229,0) 100%)',
         }} />
         <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
           zIndex: 2,
-          height: 'calc(112px + env(safe-area-inset-bottom, 0px))',
-          background: 'linear-gradient(0deg, #F1F0EA 10%, rgba(241,240,234,0.58) 48%, rgba(241,240,234,0) 100%)',
+          height: 'calc(168px + env(safe-area-inset-bottom, 0px))',
+          background: 'linear-gradient(0deg, #EDECE5 0%, #EDECE5 48%, rgba(237,236,229,0.72) 68%, rgba(237,236,229,0.32) 85%, rgba(237,236,229,0) 100%)',
         }} />
         <button
           onClick={() => { haptic(6); setOpenId(null); setManualK(null); setFitRemaining(false); }}
@@ -1380,12 +1380,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
         zIndex: 2,
         height: 'calc(env(safe-area-inset-top, 0px) + 66px)',
-        background: 'linear-gradient(180deg, #F1F0EA 25%, rgba(241,240,234,0.88) 55%, rgba(241,240,234,0) 100%)',
+        background: 'linear-gradient(180deg, #EDECE5 25%, rgba(237,236,229,0.88) 55%, rgba(237,236,229,0) 100%)',
       }} />
       <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
         zIndex: 2,
-        height: 'calc(72px + env(safe-area-inset-bottom, 0px))',
-        background: 'linear-gradient(0deg, #F1F0EA 10%, rgba(241,240,234,0.58) 48%, rgba(241,240,234,0) 100%)',
+        height: 'calc(128px + env(safe-area-inset-bottom, 0px))',
+        background: 'linear-gradient(0deg, #EDECE5 0%, #EDECE5 48%, rgba(237,236,229,0.72) 68%, rgba(237,236,229,0.32) 85%, rgba(237,236,229,0) 100%)',
       }} />
       <style>{`
         .rec-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; background:${BORDER}; outline:none; }

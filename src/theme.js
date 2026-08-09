@@ -25,7 +25,7 @@ export const C_FAT_PASTEL = '#CDD2DB';
 export const C_WATER = '#5BA3C7';
 
 // Neutros
-export const BG = '#F1F0EA';             // gris cálido claro — EL fondo, único en toda
+export const BG = '#EDECE5';             // gris cálido claro — EL fondo, único en toda
                                          // la app. Con gris suficiente para que las
                                          // tarjetas blancas contrasten, un grano más
                                          // claro que la v2 (#EDECE6).

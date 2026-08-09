@@ -4504,7 +4504,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           paddingLeft: '16px', paddingRight: '16px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
-          background: 'linear-gradient(180deg, rgba(241,240,234,0.88) 0%, rgba(241,240,234,0.78) 80%, rgba(241,240,234,0.5) 100%)',
+          background: 'linear-gradient(180deg, rgba(237,236,229,0.88) 0%, rgba(237,236,229,0.78) 80%, rgba(237,236,229,0.5) 100%)',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)',
           transform: 'translate3d(0, 0, 0)',
           zIndex: 30,
@@ -4661,7 +4661,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               // Semi-transparente (no crema sólido): los mensajes se alcanzan
               // a INTUIR difuminados detrás de la tarjeta hasta el borde
               // superior del teléfono — más profundidad, menos "tapa".
-              background: `linear-gradient(180deg, rgba(241,240,234,0.93) 0%, rgba(241,240,234,0.86) ${zb}px, rgba(241,240,234,0) 100%)`,
+              background: `linear-gradient(180deg, rgba(237,236,229,0.93) 0%, rgba(237,236,229,0.86) ${zb}px, rgba(237,236,229,0) 100%)`,
             }} />
           );
         })()}
@@ -4670,8 +4670,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             igual que ya lo hacía hacia arriba. */}
         <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
           zIndex: 25,
-          height: `calc(${keyboardOpen ? 104 : 118}px + env(safe-area-inset-bottom, 0px))`,
-          background: 'linear-gradient(0deg, #F1F0EA 10%, rgba(241,240,234,0.58) 48%, rgba(241,240,234,0) 100%)',
+          height: `calc(${keyboardOpen ? 158 : 176}px + env(safe-area-inset-bottom, 0px))`,
+          background: 'linear-gradient(0deg, #EDECE5 0%, #EDECE5 48%, rgba(237,236,229,0.72) 68%, rgba(237,236,229,0.32) 85%, rgba(237,236,229,0) 100%)',
         }} />
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '84px', contain: 'layout paint', willChange: 'transform' }}>
@@ -4781,15 +4781,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
             zIndex: 5,
             height: `${headerH + 26}px`,
-            background: 'linear-gradient(180deg, #F1F0EA 30%, rgba(241,240,234,0.88) 62%, rgba(241,240,234,0) 100%)',
+            background: 'linear-gradient(180deg, #EDECE5 30%, rgba(237,236,229,0.88) 62%, rgba(237,236,229,0) 100%)',
           }} />
           {/* DIFUMINADO inferior: el contenido se diluye ANTES de pasar por
               detrás de la barra de opciones — la barra queda flotando encima
               del fade, no del contenido crudo. */}
           <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
             zIndex: 5,
-            height: 'calc(72px + env(safe-area-inset-bottom, 0px))',
-            background: 'linear-gradient(0deg, #F1F0EA 10%, rgba(241,240,234,0.58) 48%, rgba(241,240,234,0) 100%)',
+            height: 'calc(128px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(0deg, #EDECE5 0%, #EDECE5 48%, rgba(237,236,229,0.72) 68%, rgba(237,236,229,0.32) 85%, rgba(237,236,229,0) 100%)',
           }} />
           <div className="relative max-w-2xl mx-auto px-5">
             {/* Subtítulo normal: caja alta + tracking ancho es lenguaje de
@@ -4984,14 +4984,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
             zIndex: 2,
             height: 'calc(env(safe-area-inset-top, 0px) + 66px)',
-            background: 'linear-gradient(180deg, rgba(241,240,234,0.95) 25%, rgba(241,240,234,0.85) 55%, rgba(241,240,234,0) 100%)',
+            background: 'linear-gradient(180deg, rgba(237,236,229,0.95) 25%, rgba(237,236,229,0.85) 55%, rgba(237,236,229,0) 100%)',
           }} />
           {/* Y el mismo difuminado abajo: el final del centro se apaga por
               detrás de la barra en vez de cortarse contra ella. */}
           <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
             zIndex: 2,
-            height: 'calc(72px + env(safe-area-inset-bottom, 0px))',
-            background: 'linear-gradient(0deg, #F1F0EA 10%, rgba(241,240,234,0.58) 48%, rgba(241,240,234,0) 100%)',
+            height: 'calc(128px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(0deg, #EDECE5 0%, #EDECE5 48%, rgba(237,236,229,0.72) 68%, rgba(237,236,229,0.32) 85%, rgba(237,236,229,0) 100%)',
           }} />
           <iframe
             key={learningKey}
@@ -5618,7 +5618,7 @@ const InputBar = memo(function InputBar({
             title={recording ? 'Detener dictado' : transcribing ? 'Transcribiendo…' : 'Dictar por voz'}>
             {transcribing
               ? <Loader2 size={22} strokeWidth={2} className="animate-spin" />
-              : <Mic size={22} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: '#F1F0EA' }} />}
+              : <Mic size={22} strokeWidth={2} className={recording ? 'pulse-ring' : ''} style={{ color: '#EDECE5' }} />}
           </button>
           {text.trim() && !recording && (
             <button
