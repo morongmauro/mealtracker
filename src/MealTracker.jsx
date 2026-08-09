@@ -4983,15 +4983,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               events none: los toques atraviesan hacia el iframe). */}
           <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
             zIndex: 2,
-            height: 'calc(env(safe-area-inset-top, 0px) + 66px)',
-            background: 'linear-gradient(180deg, rgba(237,236,229,0.95) 25%, rgba(237,236,229,0.85) 55%, rgba(237,236,229,0) 100%)',
+            height: 'calc(env(safe-area-inset-top, 0px) + 46px)',
+            background: 'linear-gradient(180deg, rgba(237,236,229,0.42) 0%, rgba(237,236,229,0.22) 55%, rgba(237,236,229,0) 100%)',
           }} />
           {/* Y el mismo difuminado abajo: el final del centro se apaga por
               detrás de la barra en vez de cortarse contra ella. */}
           <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
             zIndex: 2,
-            height: 'calc(128px + env(safe-area-inset-bottom, 0px))',
-            background: 'linear-gradient(0deg, #EDECE5 0%, #EDECE5 48%, rgba(237,236,229,0.72) 68%, rgba(237,236,229,0.32) 85%, rgba(237,236,229,0) 100%)',
+            height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(0deg, rgba(237,236,229,0.96) 0%, rgba(237,236,229,0.72) 42%, rgba(237,236,229,0.3) 72%, rgba(237,236,229,0) 100%)',
           }} />
           <iframe
             key={learningKey}
