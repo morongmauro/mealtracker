@@ -1216,8 +1216,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         }} />
         <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
           zIndex: 2,
-          height: 'calc(150px + env(safe-area-inset-bottom, 0px))',
-          background: 'linear-gradient(0deg, #F1F0EA 40%, rgba(241,240,234,0.9) 65%, rgba(241,240,234,0) 100%)',
+          height: 'calc(112px + env(safe-area-inset-bottom, 0px))',
+          background: 'linear-gradient(0deg, #F1F0EA 10%, rgba(241,240,234,0.58) 48%, rgba(241,240,234,0) 100%)',
         }} />
         <button
           onClick={() => { haptic(6); setOpenId(null); setManualK(null); setFitRemaining(false); }}
@@ -1384,8 +1384,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       }} />
       <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
         zIndex: 2,
-        height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
-        background: 'linear-gradient(0deg, #F1F0EA 22%, rgba(241,240,234,0.88) 52%, rgba(241,240,234,0) 100%)',
+        height: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+        background: 'linear-gradient(0deg, #F1F0EA 10%, rgba(241,240,234,0.58) 48%, rgba(241,240,234,0) 100%)',
       }} />
       <style>{`
         .rec-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; background:${BORDER}; outline:none; }

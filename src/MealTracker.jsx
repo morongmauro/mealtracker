@@ -4670,8 +4670,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             igual que ya lo hacía hacia arriba. */}
         <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
           zIndex: 25,
-          height: `calc(${keyboardOpen ? 132 : 150}px + env(safe-area-inset-bottom, 0px))`,
-          background: 'linear-gradient(0deg, #F1F0EA 24%, rgba(241,240,234,0.88) 54%, rgba(241,240,234,0) 100%)',
+          height: `calc(${keyboardOpen ? 104 : 118}px + env(safe-area-inset-bottom, 0px))`,
+          background: 'linear-gradient(0deg, #F1F0EA 10%, rgba(241,240,234,0.58) 48%, rgba(241,240,234,0) 100%)',
         }} />
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '84px', contain: 'layout paint', willChange: 'transform' }}>
@@ -4788,8 +4788,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               del fade, no del contenido crudo. */}
           <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
             zIndex: 5,
-            height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
-            background: 'linear-gradient(0deg, #F1F0EA 22%, rgba(241,240,234,0.88) 52%, rgba(241,240,234,0) 100%)',
+            height: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(0deg, #F1F0EA 10%, rgba(241,240,234,0.58) 48%, rgba(241,240,234,0) 100%)',
           }} />
           <div className="relative max-w-2xl mx-auto px-5">
             {/* Subtítulo normal: caja alta + tracking ancho es lenguaje de
@@ -4990,8 +4990,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               detrás de la barra en vez de cortarse contra ella. */}
           <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
             zIndex: 2,
-            height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
-            background: 'linear-gradient(0deg, #F1F0EA 22%, rgba(241,240,234,0.88) 52%, rgba(241,240,234,0) 100%)',
+            height: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(0deg, #F1F0EA 10%, rgba(241,240,234,0.58) 48%, rgba(241,240,234,0) 100%)',
           }} />
           <iframe
             key={learningKey}
