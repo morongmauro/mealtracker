@@ -24,11 +24,13 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <title>Entrena con Método — Meal Tracker</title>
-    <!-- Bebas Neue para el splash: se pide antes de que React monte, si no
-         el nombre de la marca aparece con la tipografía de reserva. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" />
+    <!-- Bebas Neue para el splash, SERVIDA DESDE AQUÍ (nunca desde un
+         dominio externo): una hoja de estilos remota bloquea el primer
+         pintado y deja la app en blanco si la red falla. font-display:swap
+         + @font-face inline: si la fuente tarda, se pinta con la de reserva
+         y se cambia sola cuando llega. -->
+    <link rel="preload" as="font" type="font/woff2"
+          href="/fonts/bebas-neue-latin-400-normal.woff2" crossorigin />
     <script>
       // Opener SOLO en arranque frío: si la app ya se abrió en esta sesión
       // (volver del centro de Aprendizaje, botón "atrás", recarga por
@@ -44,7 +46,12 @@
          llena + punto blanco en la cabeza del anillo + destello sobre la M.
          Secuencia ~1.4s + fade; main.jsx retiene el splash ~1.6s (ritmo de
          app premium: se alcanza a leer la marca sin sentir espera). */
-      html, body { margin: 0; padding: 0; background: #F1F0EA; font-family: -apple-system, system-ui, sans-serif; }
+      @font-face {
+        font-family: 'Bebas Neue';
+        src: url('/fonts/bebas-neue-latin-400-normal.woff2') format('woff2');
+        font-weight: 400; font-style: normal; font-display: swap;
+      }
+      html, body { margin: 0; padding: 0; background: #EDECE5; font-family: -apple-system, system-ui, sans-serif; }
       #splash {
         position: fixed; inset: 0;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
