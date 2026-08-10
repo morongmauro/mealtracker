@@ -24,6 +24,11 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <title>Entrena con Método — Meal Tracker</title>
+    <!-- Bebas Neue para el splash: se pide antes de que React monte, si no
+         el nombre de la marca aparece con la tipografía de reserva. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" />
     <script>
       // Opener SOLO en arranque frío: si la app ya se abrió en esta sesión
       // (volver del centro de Aprendizaje, botón "atrás", recarga por
@@ -76,9 +81,12 @@
         100% { opacity: 0; stroke-dashoffset: -520; }
       }
       #splash .sub {
-        margin-top: 22px;
-        font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
-        color: #A3B15E; font-weight: 600;
+        margin-top: 20px;
+        /* Tipo de la marca. La fuente web puede no haber cargado todavía en
+           un arranque frío, así que se declara la pila completa. */
+        font-family: 'Bebas Neue', 'Oswald', 'Haettenschweiler', 'Arial Narrow', sans-serif;
+        font-size: 26px; letter-spacing: 0.06em; text-transform: uppercase;
+        color: #FFFFFF; font-weight: 400; line-height: 1;
         opacity: 0;
         animation: subfade 0.5s ease-out 0.55s forwards;
       }

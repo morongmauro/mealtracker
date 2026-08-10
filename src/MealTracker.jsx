@@ -4234,7 +4234,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       <div className="min-h-screen flex items-center justify-center px-6" style={{ background: BG, fontFamily: FONT_UI }}>
         <FontStyles />
         <div className="max-w-sm w-full p-7 rounded-3xl text-center" style={{
-          background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(255,255,255,0.7)',
+          background: '#FFFFFF', border: '1px solid rgba(255,255,255,0.7)',
           boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 32px rgba(0,0,0,0.06)'
         }}>
           <div className="display mb-2" style={{ fontFamily: FONT_DISPLAY, fontSize: 30, textTransform: 'uppercase', color: TEXT, lineHeight: 1 }}>
@@ -4806,9 +4806,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             }}>
               Hola{name ? `, ${name.split(' ')[0]}` : ''}
             </div>
-            {streak >= 2 && (
+            {streak >= 2 ? (
               <div className="text-[13.5px]" style={{ color: TEXT_MUTED, marginTop: '4px' }}>
                 {streak} días seguidos registrando. Sigamos.
+              </div>
+            ) : (
+              <div className="text-[13.5px]" style={{ color: TEXT_MUTED, marginTop: '4px' }}>
+                {totals.kcal > 0 ? 'Ya registraste hoy. Un día a la vez.' : 'Registra tu primera comida cuando la tengas.'}
               </div>
             )}
 
@@ -4869,8 +4873,17 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                         if (ratio >= 0.95) return (
                           <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>Calorías al día — revisa tu proteína</div>
                         );
+                        const faltan = Math.round(goals.kcal - totals.kcal);
+                        // Frase según el tramo: acompaña sin inventar logros.
+                        const nota = ratio === 0 ? 'Arranca cuando comas'
+                          : ratio < 0.3 ? 'Vas empezando el día'
+                          : ratio < 0.6 ? 'Buen ritmo, sigue así'
+                          : ratio < 0.85 ? 'Ya casi, te queda poco'
+                          : 'A un paso de tu meta';
                         return (
-                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>Te faltan {Math.round(goals.kcal - totals.kcal)} kcal</div>
+                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>
+                            Te faltan {faltan} kcal · <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{nota}</span>
+                          </div>
                         );
                       })()}
                     </div>
@@ -5866,7 +5879,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     const alreadyAdded = favoriteIngredients.includes(message.suggestedKey);
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
+        <div className="max-w-[90%] p-4 rounded-[22px] rounded-bl-lg text-sm" style={{
           background: ACCENT_PASTEL + '40',
           boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 24px rgba(96,102,72,0.12), 0 1px 4px rgba(0,0,0,0.04)',
         }}>
@@ -5891,7 +5904,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
                 </button>
                 <button onClick={() => onDismissAutoFav(message.suggestedKey)}
                   className="flex-1 py-2 rounded-xl text-[12px] font-semibold active:scale-95"
-                  style={{ background: 'rgba(255,255,255,0.92)', color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
+                  style={{ background: '#FFFFFF', color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
                   No, gracias
                 </button>
               </div>
@@ -5905,7 +5918,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
   if (message.isFavSuggestion) {
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
+        <div className="max-w-[90%] p-4 rounded-[22px] rounded-bl-lg text-sm" style={{
           background: ACCENT_PASTEL + '40',
           boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 24px rgba(96,102,72,0.12), 0 1px 4px rgba(0,0,0,0.04)',
         }}>
@@ -5922,7 +5935,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </button>
             <button onClick={onDismissFavSuggestion}
               className="flex-1 py-2 rounded-xl text-[12px] font-semibold transition active:scale-95"
-              style={{ background: 'rgba(255,255,255,0.92)', color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
+              style={{ background: '#FFFFFF', color: TEXT_MUTED, border: `1px solid ${BORDER}` }}>
               Más tarde
             </button>
           </div>
@@ -5962,7 +5975,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
       : { tint: C_FAT_PASTEL, ink: C_FAT, icon: C_FAT };
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[92%] px-4 py-3.5 rounded-2xl rounded-bl-md text-[14px]" style={{
+        <div className="max-w-[92%] px-4 py-3.5 rounded-[22px] rounded-bl-lg text-[14px]" style={{
           // Glass premium: sin bordes sólidos — vidrio con el tinte del tipo,
           // hairline translúcido, brillo interior y sombra suave del acento.
           background: `linear-gradient(135deg, ${tone.tint}55, ${tone.tint}22), rgba(255,255,255,0.94)`,
@@ -5995,8 +6008,8 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     const d = message.data;
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: 'rgba(255,255,255,0.92)',
+        <div className="max-w-[92%] p-4 rounded-[22px] rounded-bl-lg text-sm" style={{
+          background: '#FFFFFF',
           boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(212,181,129,0.22), 0 1px 4px rgba(0,0,0,0.05)',
         }}>
           <div className="flex items-center gap-1.5 mb-2">
@@ -6027,9 +6040,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
   if (message.role === 'user') {
     return (
       <div className="flex justify-end fade-up">
-        <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-br-md text-[15px]" style={{
+        <div className="max-w-[85%] px-4 py-3 rounded-[22px] rounded-br-lg text-[15px]" style={{
           background: ACCENT_PASTEL, color: TEXT, fontWeight: 500, lineHeight: 1.4,
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13)'
+          boxShadow: '0 0 0 1px rgba(74,82,56,0.10) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 18px rgba(60,66,42,0.10)'
         }}>
           {message.content}
         </div>
@@ -6045,9 +6058,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
   if (message.isWater) {
     return (
       <div className="flex justify-start fade-up">
-        <div className="px-4 py-2.5 rounded-2xl rounded-bl-md text-sm flex items-center gap-2" style={{
-          background: 'rgba(255,255,255,0.92)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        <div className="px-4 py-2.5 rounded-[22px] rounded-bl-lg text-sm flex items-center gap-2" style={{
+          background: '#FFFFFF',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <Droplet size={14} style={{ color: C_WATER }} />
           <span style={{ color: TEXT }}>+{message.ml} ml registrados</span>
@@ -6060,9 +6073,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     const d = message.data;
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[85%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: 'rgba(255,255,255,0.92)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        <div className="max-w-[85%] p-4 rounded-[22px] rounded-bl-lg text-sm" style={{
+          background: '#FFFFFF',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Info size={12} style={{ color: ACCENT }} />
@@ -6090,9 +6103,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     const after = d.estimated_totals_after || {};
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
+        <div className="max-w-[92%] p-4 rounded-[22px] rounded-bl-lg text-sm" style={{
           background: 'rgba(255,255,255,0.95)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={12} style={{ color: ACCENT }} />
@@ -6183,9 +6196,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     const goal = d.goal || {};
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
+        <div className="max-w-[92%] p-4 rounded-[22px] rounded-bl-lg text-sm" style={{
           background: 'rgba(255,255,255,0.95)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Star size={12} style={{ color: C_CARBS }} />
@@ -6313,9 +6326,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     }
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: 'rgba(255,255,255,0.92)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        <div className="max-w-[90%] p-4 rounded-[22px] rounded-bl-lg text-sm w-full" style={{
+          background: '#FFFFFF',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -6392,9 +6405,24 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="mt-3 pt-3 border-t text-[10px] num" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT }}>
               {(() => {
                 const left = Math.round(goals.kcal - totals.kcal);
-                if (left > 0) return `Llevas ${Math.round(totals.kcal)} kcal · te quedan ${left} disponibles`;
-                if (left === 0) return `Llevas ${Math.round(totals.kcal)} kcal · meta del día alcanzada`;
-                return `Llevas ${Math.round(totals.kcal)} kcal · ${Math.abs(left)} sobre la meta`;
+                const ratio = totals.kcal / (goals.kcal || 1);
+                // Una frase corta que acompañe al dato. Registrar y que solo
+                // te devuelvan números se siente frío; pero pasarse de la meta
+                // NO se celebra: ahí el mensaje es de ajuste, no de ánimo.
+                const nota = left < 0 ? 'Sin drama: mañana ajustas'
+                  : ratio >= 0.95 ? '¡Meta del día cerrada!'
+                  : ratio >= 0.6 ? 'Vas muy bien'
+                  : ratio >= 0.3 ? 'Buen ritmo'
+                  : 'Bien ahí, quedó registrado';
+                const base = left > 0 ? `Llevas ${Math.round(totals.kcal)} kcal · te quedan ${left} disponibles`
+                  : left === 0 ? `Llevas ${Math.round(totals.kcal)} kcal · meta del día alcanzada`
+                  : `Llevas ${Math.round(totals.kcal)} kcal · ${Math.abs(left)} sobre la meta`;
+                return (
+                  <>
+                    {base}
+                    <span style={{ color: ACCENT_DARK, fontWeight: 700 }}> · {nota}</span>
+                  </>
+                );
               })()}
             </div>
           )}
@@ -6408,9 +6436,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     const mealLabel = mealType ? mealType.charAt(0).toUpperCase() + mealType.slice(1) : 'Comida';
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: 'rgba(255,255,255,0.92)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        <div className="max-w-[92%] p-4 rounded-[22px] rounded-bl-lg text-sm w-full" style={{
+          background: '#FFFFFF',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center gap-2 mb-3">
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
@@ -6474,9 +6502,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     const significantGaps = gaps.filter(g => g.remaining > 0 && (g.goal > 0 && g.remaining / g.goal >= 0.10));
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[92%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: 'rgba(255,255,255,0.92)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        <div className="max-w-[92%] p-4 rounded-[22px] rounded-bl-lg text-sm w-full" style={{
+          background: '#FFFFFF',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center gap-2 mb-3">
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
@@ -6544,9 +6572,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     const addedKeys = new Set(added.map(it => `${it.name}|${it.amount || ''}`));
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: 'rgba(255,255,255,0.92)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        <div className="max-w-[90%] p-4 rounded-[22px] rounded-bl-lg text-sm w-full" style={{
+          background: '#FFFFFF',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -6633,7 +6661,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <button
               onClick={() => onSeparateAppended(e.id, added)}
               className="mt-3 w-full py-2 rounded-xl text-[11px] font-semibold transition active:scale-[0.98] flex items-center justify-center gap-1.5"
-              style={{ background: 'rgba(255,255,255,0.92)', color: TEXT_MUTED, border: `1px dashed ${BORDER}` }}
+              style={{ background: '#FFFFFF', color: TEXT_MUTED, border: `1px dashed ${BORDER}` }}
               title="Si esto era una comida nueva y no un agregado, sepárala">
               <span style={{ fontSize: '12px' }}>↗</span>
               Separar como comida nueva
@@ -6648,9 +6676,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     const d = message.data;
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: 'rgba(255,255,255,0.92)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        <div className="max-w-[90%] p-4 rounded-[22px] rounded-bl-lg text-sm" style={{
+          background: '#FFFFFF',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center gap-2 mb-3">
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
@@ -6686,9 +6714,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     const dayEntries = message.entries || [];
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm w-full" style={{
-          background: 'rgba(255,255,255,0.92)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        <div className="max-w-[90%] p-4 rounded-[22px] rounded-bl-lg text-sm w-full" style={{
+          background: '#FFFFFF',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center gap-2 mb-3">
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
@@ -6751,9 +6779,9 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
   if (message.isSummary) {
     return (
       <div className="flex justify-start fade-up">
-        <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-md text-sm" style={{
-          background: 'rgba(255,255,255,0.92)',
-          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        <div className="max-w-[90%] p-4 rounded-[22px] rounded-bl-lg text-sm" style={{
+          background: '#FFFFFF',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center gap-2 mb-3">
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
@@ -6774,10 +6802,10 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
 
   return (
     <div className="flex justify-start fade-up">
-      <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-md text-[15px] whitespace-pre-wrap" style={{
-        background: 'rgba(255,255,255,0.92)',
+      <div className="max-w-[85%] px-4 py-3 rounded-[22px] rounded-bl-lg text-[15px] whitespace-pre-wrap" style={{
+        background: '#FFFFFF',
         color: TEXT, lineHeight: 1.5,
-        boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset'
+        boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
       }}>
         {message.content}
       </div>
@@ -8041,7 +8069,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
         const r = computeWeekReview(combinedHistory, goals, training, today, goalsHistory);
         const e = r.entreno;
         const entrenoCerrado = !!(e && e.cerrado && e.planeados > 0);
-        const cardShadow = { background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' };
+        const cardShadow = { background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' };
 
         // Rango legible "14–20 de julio" (o "28 jul – 3 de agosto" si cruza mes)
         const fdate = (k, opts) => { const [y, m, dd] = k.split('-').map(Number); return new Date(y, m - 1, dd).toLocaleDateString('es', opts); };
@@ -8261,7 +8289,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                   queda solo en los deltas pequeños; antes el terracota del
                   macro proteína se leía como alerta roja. */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' }}>
+                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
                   <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Adherencia</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{recordedLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/7 días</span></div>
                   <div className="text-[10px] mt-0.5 num" style={{ color: adherenceDelta > 0 ? SUCCESS : adherenceDelta < 0 ? WARN : TEXT_LIGHT }}>
@@ -8269,13 +8297,13 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' }}>
+                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
                   <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Inicio del día</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{fmtHour(avgFirstHour)}</div>
                   <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>hora del primer registro en promedio</div>
                 </div>
 
-                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' }}>
+                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
                   <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Proteína · tendencia</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{protLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>g/día</span></div>
                   <div className="text-[10px] mt-0.5 num" style={{ color: protDelta > 0 ? SUCCESS : protDelta < 0 ? WARN : TEXT_LIGHT }}>
@@ -8283,7 +8311,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' }}>
+                <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
                   <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Detalle del registro</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{avgItemsPerDay}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}> items/día</span></div>
                   <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>promedio de alimentos registrados por día</div>
@@ -8294,7 +8322,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
           {/* Wellbeing */}
           {wbAvg && (
-            <div className="mb-5 p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0.5px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.7) inset' }}>
+            <div className="mb-5 p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
               <div className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: ACCENT_DARK }}>Bienestar promedio</div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
@@ -9062,7 +9090,7 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
         <button onClick={onTutorial}
           className="w-full py-3.5 mb-3 rounded-2xl text-[14px] font-semibold transition active:scale-[0.98] flex items-center justify-center gap-2"
           style={{
-            background: 'rgba(255,255,255,0.92)',
+            background: '#FFFFFF',
             border: `1px solid ${BORDER}`,
             color: TEXT,
             boxShadow: '0 1px 0 rgba(255,255,255,0.6) inset, 0 2px 8px rgba(0,0,0,0.04)'
@@ -9262,7 +9290,7 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
         </div>
 
         <div className="p-6 rounded-3xl relative overflow-hidden" style={{
-          background: 'rgba(255,255,255,0.92)',
+          background: '#FFFFFF',
           border: '1px solid rgba(255,255,255,0.7)',
           boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 32px rgba(0,0,0,0.06)'
         }}>
