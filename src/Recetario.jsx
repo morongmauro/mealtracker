@@ -6,7 +6,7 @@ import {
   ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
   C_PROTEIN, C_CARBS, C_FAT,
   BG, BG_STAINS, SURFACE, SURFACE_2, BORDER, TEXT, TEXT_MUTED, TEXT_LIGHT,
-  FONT_UI, SHADOW_CARD,
+  FONT_UI, FONT_DISPLAY, SHADOW_CARD,
 } from './theme.js';
 
 const haptic = (p = 10) => { if (typeof window !== 'undefined' && window.navigator?.vibrate) window.navigator.vibrate(p); };
@@ -1398,15 +1398,47 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       {/* Sin header negro ni botón "atrás": la píldora de marca flota arriba
           (viene del MealTracker) y se vuelve con la barra de navegación.
           El paddingTop despeja esa píldora; el paddingBottom, la barra. */}
+      {/* Portada del recetario: una franja de foto de extremo a extremo, baja
+          (150px) para no robarle sitio a las recetas. La imagen va en
+          public/recetario-hero.jpg; si no está, queda el degradado oliva y
+          nada se rompe. El texto va encima, siempre legible. */}
+      <div className="relative w-full overflow-hidden" style={{
+        zIndex: 1,
+        height: 'calc(env(safe-area-inset-top, 0px) + 150px)',
+        background: 'linear-gradient(135deg, #3A4126 0%, #4A5238 55%, #6B7350 100%)',
+      }}>
+        <img
+          src="/recetario-hero.jpg"
+          alt=""
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', objectPosition: 'center center',
+            filter: 'saturate(0.86) brightness(0.82)',
+          }}
+        />
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(180deg, rgba(18,18,17,0.34) 0%, rgba(18,18,17,0.48) 55%, rgba(18,18,17,0.62) 100%)',
+        }} />
+        <div className="relative max-w-xl mx-auto px-4 h-full flex flex-col justify-end" style={{
+          paddingBottom: '16px',
+        }}>
+          <div className="text-[10.5px] font-bold uppercase" style={{ color: '#DCE2C4', letterSpacing: '0.16em', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>Entrena con Método</div>
+          <div style={{
+            color: '#FFFFFF', fontFamily: FONT_DISPLAY, fontWeight: 400,
+            fontSize: '34px', letterSpacing: '0.02em', marginTop: '4px', lineHeight: 0.96,
+            textTransform: 'uppercase', textShadow: '0 1px 3px rgba(0,0,0,0.5), 0 4px 24px rgba(0,0,0,0.55)',
+          }}>Recetario</div>
+          <div style={{ width: 44, height: 2, borderRadius: 2, background: ACCENT_PASTEL, marginTop: 8, opacity: 0.9 }} />
+        </div>
+      </div>
+
       <div className="relative max-w-xl mx-auto px-4 space-y-3.5" style={{
         zIndex: 1,
-        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 58px)',
+        paddingTop: '16px',
         paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))',
       }}>
-        <div>
-          <div className="text-[10.5px] font-bold uppercase" style={{ color: ACCENT, letterSpacing: '0.16em' }}>Entrena con Método</div>
-          <div style={{ color: TEXT, fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginTop: '2px', lineHeight: 1.1 }}>Recetario</div>
-        </div>
         {/* Meta nutricional — píldora compacta de UNA fila (la meta la
             administra el coach desde el CRM; aquí solo se consulta). */}
         <div className="rounded-full px-4 py-2.5 flex items-center gap-2" style={cardStyle}>
