@@ -960,6 +960,104 @@ const RECIPES = [
       'Sírvelos calientes y corona con la mantequilla de almendras, la miel de maple y los arándanos.',
     ],
   },
+  // ── Recetas nuevas (agosto 2026) ──
+  {
+    id: 'banana-whey-shake', name: 'Batido de banano y whey', slot: 'snack', time: '5 min', icon: '🥤',
+    allergens: ['Lácteos'], tags: ['Sin cocción', 'Alta en proteína', 'Comida simple'],
+    totals: { kcal: 218, p: 21, c: 32, g: 2 },
+    main: [
+      { n: 'Banano', q: 1, u: 'unidad' },
+      { n: 'Proteína whey', q: 1.5, u: 'scoop' },
+      { n: 'Hielo', q: 218, u: 'g' },
+    ],
+    season: ['Agua · 240 ml'],
+    steps: [
+      'Licúa el banano con la proteína, el hielo y aproximadamente 1 taza de agua hasta que quede suave.',
+      'Sirve de inmediato.',
+    ],
+  },
+  {
+    id: 'choco-whey-pudding', name: 'Pudín de whey con chocolate y fresas', slot: 'snack', time: '5 min', icon: '🍫',
+    allergens: ['Lácteos', 'Frutos secos'], tags: ['Sin cocción', 'Alta en proteína', 'Dulce'],
+    totals: { kcal: 223, p: 27, c: 21, g: 5 },
+    main: [
+      { n: 'Fresas', q: 152, u: 'g' },
+      { n: 'Proteína whey sabor chocolate', q: 1, u: 'scoop' },
+      { n: 'Cacao en polvo sin azúcar', q: 1, u: 'cda' },
+      { n: 'Mantequilla de almendras', q: 1, u: 'cdta' },
+    ],
+    season: ['Agua · la necesaria para dar consistencia'],
+    steps: [
+      'Mezcla la mantequilla de almendras, la proteína y el cacao con una cucharada de agua.',
+      'Revuelve hasta integrar y ve agregando agua poco a poco hasta lograr consistencia de pudín.',
+      'Sirve con las fresas en rodajas encima.',
+    ],
+  },
+  {
+    id: 'omelette-quesadilla', name: 'Quesadilla de omelette', slot: 'desayuno', time: '15 min', icon: '🫓',
+    allergens: ['Lácteos', 'Huevo', 'Gluten'], tags: ['Comida simple', 'Alta en proteína'],
+    totals: { kcal: 456, p: 35, c: 42, g: 16 },
+    main: [
+      { n: 'Huevo', q: 2, u: 'unidades' },
+      { n: 'Queso suizo bajo en grasa', q: 60, u: 'g' },
+      { n: 'Tortilla de harina', q: 60, u: 'g' },
+      { n: 'Champiñones', q: 3, u: 'unidades' },
+      { n: 'Cebolla', q: 1, u: 'rebanadas' },
+      { n: 'Espinaca', q: 15, u: 'g' },
+    ],
+    season: ['Sal y pimienta al gusto', 'Ajo en polvo al gusto'],
+    steps: [
+      'Alista los ingredientes: corta los champiñones y la cebolla en láminas y pica la espinaca.',
+      'Bate los huevos con sal, pimienta y ajo en polvo hasta integrarlos bien.',
+      'Calienta una sartén antiadherente mediana a fuego bajo. Agrega la cebolla y los champiñones y cocina hasta que ablanden.',
+      'Añade la espinaca y mezcla hasta que se marchite.',
+      'Vierte el huevo batido en la sartén y cocina a fuego suave hasta que la superficie empiece a cuajar.',
+      'Reparte el queso sobre una mitad del omelette y coloca la tortilla encima. Apaga el fuego y dobla el omelette por la mitad para formar la quesadilla.',
+      'Pásala al plato, córtala a la mitad y disfruta.',
+    ],
+  },
+  {
+    id: 'pineapple-shrimp-bowl', name: 'Bowl de camarón y piña', slot: 'almuerzo', time: '15 min', icon: '🍤',
+    allergens: ['Mariscos'], tags: ['Alto en fibra', 'Ensalada'],
+    totals: { kcal: 494, p: 37, c: 59, g: 14 },
+    main: [
+      { n: 'Camarón cocido', q: 120, u: 'g' },
+      { n: 'Quinua cocida', q: 139, u: 'g' },
+      { n: 'Piña', q: 116, u: 'g' },
+      { n: 'Aguacate', q: 60, u: 'g' },
+      { n: 'Repollo morado', q: 60, u: 'g' },
+      { n: 'Pimentón rojo', q: 40, u: 'g' },
+    ],
+    season: ['Perejil fresco · 1 cda', 'Sal al gusto'],
+    steps: [
+      'Alista los ingredientes: ralla el repollo, pica el aguacate en cubos y pica finamente el pimentón.',
+      'Prepara la ensalada de piña: en un bol combina la piña, el aguacate y el pimentón rojo. Sazona con un poco de sal y mezcla con suavidad.',
+      'Arma el bowl: pon la quinua de base y encima la ensalada de piña, el repollo rallado y el camarón.',
+      'Termina con el perejil picado y sirve.',
+    ],
+  },
+  {
+    id: 'beef-sweet-potato-wrap', name: 'Wrap de carne y batata', slot: 'cena', time: '20 min', icon: '🌯',
+    allergens: ['Gluten', 'Carne'], tags: ['Comida simple'],
+    totals: { kcal: 460, p: 29, c: 49, g: 16 },
+    main: [
+      { n: 'Carne molida de res 90% magra', q: 110, u: 'g' },
+      { n: 'Tortilla de harina', q: 60, u: 'g' },
+      { n: 'Batata (camote)', q: 60, u: 'g' },
+      { n: 'Cebolla', q: 3, u: 'cda' },
+      { n: 'Pimentón rojo', q: 19, u: 'g' },
+    ],
+    season: ['Spray de cocina · 1 disparo', 'Paprika · 1 cdta', 'Perejil fresco · 1 cdta', 'Ajo en polvo, sal y pimienta al gusto'],
+    steps: [
+      'Pela y pica la batata en trozos pequeños. Pica finamente la cebolla, el pimentón y el perejil.',
+      'Pon la batata en una olla, cúbrela con agua, lleva a hervor y baja a fuego medio.',
+      'Cocina 5 minutos o hasta que los trozos se atraviesen fácil con un tenedor. Escurre y reserva.',
+      'Calienta una sartén a fuego medio con un disparo de spray. Sofríe la cebolla hasta que ablande, agrega el pimentón y la carne molida. Sazona con paprika, ajo en polvo, sal y pimienta. Cocina hasta que la carne pierda el color rosado.',
+      'Calienta la tortilla lo justo para que se ablande, en sartén o microondas.',
+      'Pon la carne y la batata en el centro de la tortilla y corona con el perejil. Envuelve con cuidado.',
+      'Corta el wrap a la mitad, sirve y disfruta.',
+    ],
+  },
 ];
 
 // Metadata para tags y filtros: costo (1=económico … 3=premium), dificultad
@@ -1017,7 +1115,215 @@ const META = {
   'chocolate-whey-pudding': { cost: 2, diff: 'Fácil', min: 5 },
   'banana-pancakes': { cost: 2, diff: 'Fácil', min: 15 },
   'balanced-protein-pancakes': { cost: 1, diff: 'Fácil', min: 15 },
+  'banana-whey-shake': { cost: 2, diff: 'Fácil', min: 5 },
+  'choco-whey-pudding': { cost: 2, diff: 'Fácil', min: 5 },
+  'omelette-quesadilla': { cost: 2, diff: 'Fácil', min: 15 },
+  'pineapple-shrimp-bowl': { cost: 3, diff: 'Media', min: 15 },
+  'beef-sweet-potato-wrap': { cost: 2, diff: 'Media', min: 20 },
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// MENÚS · propuestas de día y de semana armadas con las recetas de arriba
+// ─────────────────────────────────────────────────────────────────────────
+// El recetario resuelve "qué cocino ahora"; esto resuelve "qué como hoy":
+// desayuno, almuerzo y cena que SUMADOS caen cerca de la meta, en vez de
+// tres recetas sueltas que cada una cuadra por su lado y el día se pasa.
+// Todo se genera desde una semilla, así que el mismo menú se puede volver a
+// obtener y no cambia solo cuando React vuelve a pintar.
+
+const MENU_SLOTS = ['desayuno', 'almuerzo', 'cena'];
+const ALERGENOS = ['Lácteos', 'Gluten', 'Huevo', 'Frutos secos', 'Pescado', 'Mariscos', 'Carne', 'Soya', 'Maní'];
+const MENUS_KEY = 'mt:menus_guardados';
+
+// mulberry32: PRNG diminuto y determinista (no hace falta más).
+function mkRng(seed) {
+  let a = (seed >>> 0) || 1;
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Recetas candidatas para un hueco del día, aplicando los filtros del usuario.
+// Almuerzo y cena comparten pool: son intercambiables en este recetario.
+function recetasPara(slot, opts = {}) {
+  const evitar = opts.evitar || [];
+  const maxMin = opts.maxMin || 0;
+  return RECIPES.filter(r => {
+    const ok = slot === 'snack' ? r.slot === 'snack'
+      : slot === 'desayuno' ? r.slot === 'desayuno'
+      : (r.slot === 'almuerzo' || r.slot === 'cena');
+    if (!ok) return false;
+    if (evitar.some(a => (r.allergens || []).includes(a))) return false;
+    if (maxMin && (META[r.id]?.min || 0) > maxMin) return false;
+    return true;
+  });
+}
+
+// Elige la receta cuyo tamaño ajustado cae más cerca de las kcal del hueco.
+// No coge SIEMPRE la mejor: sortea entre las que caen dentro de un margen
+// razonable, si no el menú sería idéntico cada vez y "otro día" no serviría.
+//
+// El margen es RELATIVO (±25% de las kcal del hueco) y no un top fijo: con un
+// top fijo de 4, las recetas sistemáticamente más pequeñas o más grandes que
+// el hueco no salían NUNCA por bien que cuadraran en el día completo. El
+// mínimo de 4 garantiza que siempre haya de dónde escoger aunque el margen
+// deje fuera a casi todas.
+function elegirReceta(slot, targetKcal, targetP, opts, rand, usados = new Set()) {
+  let pool = recetasPara(slot, opts);
+  if (!pool.length) return null;
+  const frescas = pool.filter(r => !usados.has(r.id));
+  if (frescas.length) pool = frescas;              // variedad primero
+  const puntuadas = pool
+    .map(r => ({ r, sc: scale(r, targetP) }))
+    .map(x => ({ ...x, dist: Math.abs(x.sc.totals.kcal - targetKcal) }))
+    .sort((a, b) => a.dist - b.dist);
+  const margen = Math.max(targetKcal * 0.25, puntuadas[Math.min(3, puntuadas.length - 1)].dist);
+  const candidatas = puntuadas.filter(x => x.dist <= margen);
+  return candidatas[Math.floor(rand() * candidatas.length)];
+}
+
+// Un día completo. `conSnack` solo si la meta da margen: meter snack en una
+// meta baja obliga a raciones ridículas en las comidas principales.
+function generarDia(g, opts = {}, seed = 1) {
+  const rand = mkRng(seed);
+  const conSnack = opts.snack !== false && g.kcal >= 1800;
+  const slots = conSnack ? [...MENU_SLOTS, 'snack'] : MENU_SLOTS;
+  // Sin snack su parte se reparte entre las tres comidas, si no el día
+  // se quedaría corto respecto a la meta.
+  const pesoTotal = slots.reduce((a, s) => a + (SPLIT[s] || 0), 0);
+  const usados = opts.usados || new Set();
+
+  const comidas = [];
+  for (const slot of slots) {
+    const share = (SPLIT[slot] || 0.3) / pesoTotal;
+    const targetKcal = g.kcal * share;
+    const targetP = g.p * share;
+    const el = elegirReceta(slot, targetKcal, targetP, opts, rand, usados);
+    if (!el) continue;
+    usados.add(el.r.id);
+    comidas.push({ slot, recipe: el.r, sc: el.sc });
+  }
+  const totals = comidas.reduce((a, c) => ({
+    kcal: a.kcal + c.sc.totals.kcal, p: a.p + c.sc.totals.p,
+    c: a.c + c.sc.totals.c, g: a.g + c.sc.totals.g,
+  }), { kcal: 0, p: 0, c: 0, g: 0 });
+  return { comidas, totals, desvio: desvioDe(totals, g), seed };
+}
+
+// Qué tan lejos quedó el día de la meta, en % de kcal y de proteína.
+function desvioDe(totals, g) {
+  const pct = (v, meta) => meta > 0 ? Math.round(((v - meta) / meta) * 100) : 0;
+  const kcal = pct(totals.kcal, g.kcal);
+  const p = pct(totals.p, g.p);
+  const peor = Math.max(Math.abs(kcal), Math.abs(p));
+  return { kcal, p, nivel: peor <= 8 ? 'bien' : peor <= 18 ? 'cerca' : 'lejos' };
+}
+
+// Semana: no repite plato principal en días seguidos. La memoria se limpia
+// cada 3 días porque con 24 principales una semana sin repetir nada obliga
+// a raciones forzadas; 3 días es suficiente para que no se sienta repetido.
+function generarSemana(g, opts = {}, seed = 1) {
+  const dias = [];
+  let usados = new Set();
+  for (let i = 0; i < 7; i++) {
+    // Al vaciar la memoria se arranca con los platos del día ANTERIOR ya
+    // vetados: si no, el día del reinicio podía repetir lo de ayer, que es
+    // justo lo único que de verdad se nota.
+    if (i % 3 === 0) {
+      const ayer = dias[i - 1];
+      usados = new Set(ayer ? ayer.comidas.map(c => c.recipe.id) : []);
+    }
+    const d = generarDia(g, { ...opts, usados }, seed + i * 977);
+    dias.push(d);
+  }
+  return dias;
+}
+
+// Cambia una sola comida del día sin tocar las otras dos.
+function cambiarComida(dia, slot, g, opts = {}, seed = Date.now()) {
+  const rand = mkRng(seed);
+  const conSnack = dia.comidas.some(c => c.slot === 'snack');
+  const slots = conSnack ? [...MENU_SLOTS, 'snack'] : MENU_SLOTS;
+  const pesoTotal = slots.reduce((a, s) => a + (SPLIT[s] || 0), 0);
+  const share = (SPLIT[slot] || 0.3) / pesoTotal;
+  // Se evita repetir lo que ya está en el día y la propia receta que se cambia
+  const usados = new Set(dia.comidas.map(c => c.recipe.id));
+  const el = elegirReceta(slot, g.kcal * share, g.p * share, opts, rand, usados);
+  if (!el) return dia;
+  const comidas = dia.comidas.map(c => c.slot === slot ? { slot, recipe: el.r, sc: el.sc } : c);
+  const totals = comidas.reduce((a, c) => ({
+    kcal: a.kcal + c.sc.totals.kcal, p: a.p + c.sc.totals.p,
+    c: a.c + c.sc.totals.c, g: a.g + c.sc.totals.g,
+  }), { kcal: 0, p: 0, c: 0, g: 0 });
+  return { ...dia, comidas, totals, desvio: desvioDe(totals, g) };
+}
+
+// Pone una receta concreta en un hueco (lo usa el armador manual).
+function ponerComida(dia, slot, recipeId, g) {
+  const r = RECIPES.find(x => x.id === recipeId);
+  if (!r) return dia;
+  const conSnack = slot === 'snack' || dia.comidas.some(c => c.slot === 'snack');
+  const slots = conSnack ? [...MENU_SLOTS, 'snack'] : MENU_SLOTS;
+  const pesoTotal = slots.reduce((a, s) => a + (SPLIT[s] || 0), 0);
+  const share = (SPLIT[slot] || 0.3) / pesoTotal;
+  const sc = scale(r, g.p * share);
+  const otras = dia.comidas.filter(c => c.slot !== slot);
+  const comidas = [...otras, { slot, recipe: r, sc }]
+    .sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot));
+  const totals = comidas.reduce((a, c) => ({
+    kcal: a.kcal + c.sc.totals.kcal, p: a.p + c.sc.totals.p,
+    c: a.c + c.sc.totals.c, g: a.g + c.sc.totals.g,
+  }), { kcal: 0, p: 0, c: 0, g: 0 });
+  return { ...dia, comidas, totals, desvio: desvioDe(totals, g) };
+}
+
+function quitarComida(dia, slot, g) {
+  const comidas = dia.comidas.filter(c => c.slot !== slot);
+  const totals = comidas.reduce((a, c) => ({
+    kcal: a.kcal + c.sc.totals.kcal, p: a.p + c.sc.totals.p,
+    c: a.c + c.sc.totals.c, g: a.g + c.sc.totals.g,
+  }), { kcal: 0, p: 0, c: 0, g: 0 });
+  return { ...dia, comidas, totals, desvio: desvioDe(totals, g) };
+}
+
+// ── Menús guardados (viven en el teléfono, no necesitan cuenta) ──
+function leerMenusGuardados() {
+  try { return JSON.parse(localStorage.getItem(MENUS_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function escribirMenusGuardados(arr) {
+  try { localStorage.setItem(MENUS_KEY, JSON.stringify(arr)); return true; }
+  catch (e) { return false; }
+}
+// Se guardan los IDs, no las recetas enteras: si mañana se corrige una receta,
+// los menús guardados heredan la corrección en vez de quedarse con la copia vieja.
+function guardarMenu(nombre, dia) {
+  const menus = leerMenusGuardados();
+  const item = {
+    // Date.now() solo no basta: guardar dos menús en el mismo milisegundo
+    // les daba el mismo id, y borrar uno se llevaba los dos por delante.
+    id: `m${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+    nombre: (nombre || '').trim() || `Menú ${menus.length + 1}`,
+    comidas: dia.comidas.map(c => ({ slot: c.slot, recipeId: c.recipe.id })),
+    creado: new Date().toISOString().slice(0, 10),
+  };
+  escribirMenusGuardados([item, ...menus]);
+  return item;
+}
+function borrarMenu(id) {
+  escribirMenusGuardados(leerMenusGuardados().filter(m => m.id !== id));
+}
+// Rehidrata un menú guardado con la meta ACTUAL: si el coach cambió la meta,
+// las porciones se recalculan solas.
+function menuADia(menu, g) {
+  let dia = { comidas: [], totals: { kcal: 0, p: 0, c: 0, g: 0 }, desvio: desvioDe({ kcal: 0, p: 0, c: 0, g: 0 }, g) };
+  for (const c of menu.comidas) dia = ponerComida(dia, c.slot, c.recipeId, g);
+  return dia;
+}
+
 const COST_LABELS = { 1: 'Económica', 2: 'Moderada', 3: 'Premium' };
 const SORT_NOTES = {
   reco: 'Las más equilibradas en tiempo, costo y eficiencia nutricional. Nuestra selección para empezar.',
@@ -1098,6 +1404,140 @@ const cardStyle = { background: 'rgba(255,255,255,0.9)', border: '1px solid rgba
 // (mismo lenguaje que las burbujas del chat del MealTracker).
 const plainCard = { background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(60,70,50,0.09), 0 2px 6px rgba(60,70,50,0.05)' };
 
+// Semáforo del día: qué tan cerca quedó de la meta.
+// Entrada para el tracker a partir de una receta ya escalada. La comparten el
+// detalle de la receta y las comidas de un menú: una sola forma de registrar.
+function entradaDeReceta(recipe, sc, slot) {
+  return {
+    id: Date.now(), meal: slot || recipe.slot,
+    items: sc.main.map(i => ({ name: i.n, amount: `${i.q} ${i.u}`, kcal: 0, p: 0, c: 0, g: 0, needs_quantity: false })),
+    kcal: r0(sc.totals.kcal), p: r0(sc.totals.p), c: r0(sc.totals.c), g: r0(sc.totals.g),
+    time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
+    rawInput: `receta: ${recipe.name}`, hasMissingQuantity: false,
+  };
+}
+
+const NIVEL_COLOR = { bien: '#4C7A34', cerca: '#B07A1E', lejos: '#B4462F' };
+const NIVEL_TEXTO = { bien: 'Cuadra con tu meta', cerca: 'Cerca de tu meta', lejos: 'Lejos de tu meta' };
+const DIAS_SEM = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+function MenuTotales({ dia, g, chico = false }) {
+  const d = dia.desvio;
+  const col = NIVEL_COLOR[d.nivel];
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="num font-bold" style={{ color: TEXT, fontSize: chico ? 12 : 15 }}>
+        {r0(dia.totals.kcal)}<span className="font-semibold" style={{ color: TEXT_LIGHT, fontSize: chico ? 9 : 10 }}> kcal</span>
+      </span>
+      <span className="num font-bold" style={{ color: C_PROTEIN, fontSize: chico ? 11 : 12 }}>P{r0(dia.totals.p)}</span>
+      <span className="num font-bold" style={{ color: C_CARBS, fontSize: chico ? 11 : 12 }}>C{r0(dia.totals.c)}</span>
+      <span className="num font-bold" style={{ color: C_FAT, fontSize: chico ? 11 : 12 }}>G{r0(dia.totals.g)}</span>
+      <span className="px-2 py-0.5 rounded-full font-bold tracking-[0.03em] uppercase"
+        style={{ background: `${col}1A`, color: col, fontSize: 9 }}>
+        {d.kcal > 0 ? '+' : ''}{d.kcal}% {chico ? '' : `· ${NIVEL_TEXTO[d.nivel]}`}
+      </span>
+    </div>
+  );
+}
+
+// Una comida dentro de un menú. Tocarla abre la receta completa; los botones
+// de la derecha cambian el plato o lo registran sin salir del menú.
+function MenuComida({ c, onAbrir, onCambiar, onRegistrar, onQuitar, registrada }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-2xl px-2.5 py-2" style={{ background: SURFACE_2 }}>
+      <button onClick={() => onAbrir?.(c.recipe.id)}
+        className="flex items-center gap-2.5 flex-1 min-w-0 text-left active:scale-[0.99] transition">
+        <span className="flex items-center justify-center rounded-xl flex-shrink-0"
+          style={{ width: 38, height: 38, background: '#fff', fontSize: 20 }}>{c.recipe.icon}</span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-[9.5px] font-bold tracking-[0.05em] uppercase" style={{ color: ACCENT }}>{SLOT_LABELS[c.slot]}</span>
+          <span className="block font-bold text-[13px] truncate" style={{ color: TEXT }}>{c.recipe.name}</span>
+          <span className="flex items-center gap-2 text-[10.5px] num font-semibold mt-0.5">
+            <span style={{ color: TEXT_MUTED }}>{r0(c.sc.totals.kcal)} kcal</span>
+            <span style={{ color: C_PROTEIN }}>P{r0(c.sc.totals.p)}</span>
+            <span className="flex items-center gap-0.5" style={{ color: TEXT_LIGHT }}><Clock size={9} />{c.recipe.time}</span>
+          </span>
+        </span>
+      </button>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {onCambiar && (
+          <button onClick={() => onCambiar(c.slot)} title="Cambiar este plato" aria-label="Cambiar este plato"
+            className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition"
+            style={{ background: '#fff', color: TEXT_MUTED }}><RotateCcw size={14} /></button>
+        )}
+        {onQuitar && (
+          <button onClick={() => onQuitar(c.slot)} title="Quitar" aria-label="Quitar"
+            className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition"
+            style={{ background: '#fff', color: TEXT_MUTED }}><X size={14} /></button>
+        )}
+        {onRegistrar && (
+          <button onClick={() => onRegistrar(c)} title="Registrar esta comida" aria-label="Registrar esta comida"
+            className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition"
+            style={{ background: registrada ? ACCENT : '#fff', color: registrada ? '#fff' : ACCENT_DARK }}>
+            <Check size={15} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Elegir receta para un hueco concreto del día (armador manual).
+function SlotPicker({ slot, g, opts, onElegir, onCerrar }) {
+  const [q, setQ] = useState('');
+  const share = (SPLIT[slot] || 0.3);
+  const lista = useMemo(() => {
+    const base = recetasPara(slot, opts);
+    const filtradas = q.trim() ? base.filter(r => norm(r.name).includes(norm(q)) || r.main.some(i => norm(i.n).includes(norm(q)))) : base;
+    return filtradas.map(r => ({ r, sc: scale(r, g.p * share) }))
+      .sort((a, b) => a.r.name.localeCompare(b.r.name));
+  }, [slot, q, opts, g]);
+
+  return (
+    <div className="fixed inset-0 z-[41] flex flex-col" style={{ background: BG, fontFamily: FONT_UI }}>
+      <div className="flex items-center gap-2 px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 62px)', paddingBottom: 10 }}>
+        <div className="flex-1">
+          <div className="text-[9.5px] font-bold tracking-[0.06em] uppercase" style={{ color: ACCENT }}>Elegir para</div>
+          <div className="font-bold text-[17px]" style={{ color: TEXT }}>{SLOT_LABELS[slot]}</div>
+        </div>
+        <button onClick={onCerrar} aria-label="Cerrar"
+          className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90" style={{ ...plainCard, color: TEXT }}>
+          <X size={17} />
+        </button>
+      </div>
+      <div className="px-4 pb-2">
+        <div className="flex items-center gap-2 rounded-2xl px-3.5 py-2.5" style={plainCard}>
+          <Search size={16} style={{ color: TEXT_LIGHT, flexShrink: 0 }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar receta o ingrediente…"
+            className="flex-1 bg-transparent outline-none text-[14px]" style={{ color: TEXT }} />
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 space-y-2" style={{ paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))' }}>
+        {lista.map(({ r, sc }) => (
+          <button key={r.id} onClick={() => { haptic(8); onElegir(r.id); }}
+            className="w-full text-left rounded-[18px] p-2.5 flex items-center gap-2.5 active:scale-[0.99] transition"
+            style={cardStyle}>
+            <span className="flex items-center justify-center rounded-xl flex-shrink-0" style={{ width: 40, height: 40, background: SURFACE_2, fontSize: 21 }}>{r.icon}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block font-bold text-[13.5px] truncate" style={{ color: TEXT }}>{r.name}</span>
+              <span className="flex items-center gap-2 text-[10.5px] num font-semibold mt-0.5">
+                <span style={{ color: TEXT_MUTED }}>{r0(sc.totals.kcal)} kcal</span>
+                <span style={{ color: C_PROTEIN }}>P{r0(sc.totals.p)}</span>
+                <span className="flex items-center gap-0.5" style={{ color: TEXT_LIGHT }}><Clock size={9} />{r.time}</span>
+              </span>
+            </span>
+          </button>
+        ))}
+        {lista.length === 0 && (
+          <div className="text-center py-10 text-[13px]" style={{ color: TEXT_LIGHT }}>
+            Ninguna receta encaja con lo que buscas y los filtros que pusiste.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Recetario({ goals, consumed, onClose, onRegister, onChangeGoal, scrollSignal }) {
   // El modo global "Ajustar recetas a mi día" se eliminó: confundía ("¿no
   // deberían venir TODAS ajustadas al día?"). Ahora toda receta llega
@@ -1110,6 +1550,18 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const [openId, setOpenId] = useState(null);
   const [manualK, setManualK] = useState(null);
   const [registered, setRegistered] = useState(false);
+  // ── Sección Menús ──
+  const [vista, setVista] = useState('recetas');        // recetas | menus
+  const [menuTab, setMenuTab] = useState('dia');        // dia | semana | mios
+  const [menuSeed, setMenuSeed] = useState(() => Math.floor(Math.random() * 1e6) + 1);
+  const [evitar, setEvitar] = useState([]);
+  const [maxMin, setMaxMin] = useState(0);
+  const [diaEdit, setDiaEdit] = useState(null);         // el día tras cambiar platos a mano
+  const [misMenus, setMisMenus] = useState(() => leerMenusGuardados());
+  const [armando, setArmando] = useState(null);         // día en construcción (armador manual)
+  const [pickerSlot, setPickerSlot] = useState(null);
+  const [registradas, setRegistradas] = useState({});
+  const [diaSemana, setDiaSemana] = useState(0);
   const rootRef = useRef(null);
   const detailRef = useRef(null);
 
@@ -1187,17 +1639,47 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const handleRegister = () => {
     if (!open || !detail) return;
     haptic(15);
-    const entry = {
-      id: Date.now(), meal: open.slot,
-      items: detail.main.map(i => ({ name: i.n, amount: `${i.q} ${i.u}`, kcal: 0, p: 0, c: 0, g: 0, needs_quantity: false })),
-      kcal: r0(detail.totals.kcal), p: r0(detail.totals.p), c: r0(detail.totals.c), g: r0(detail.totals.g),
-      time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
-      rawInput: `receta: ${open.name}`, hasMissingQuantity: false,
-    };
-    onRegister?.(entry);
+    onRegister?.(entradaDeReceta(open, detail, open.slot));
     setRegistered(true);
     setTimeout(() => { setRegistered(false); setOpenId(null); setManualK(null); setFitRemaining(false); }, 950);
   };
+
+  // ── Menús: propuestas derivadas de la meta y los filtros ──
+  const menuOpts = useMemo(() => ({ evitar, maxMin }), [evitar, maxMin]);
+  const diaPropuesto = useMemo(() => generarDia(g, menuOpts, menuSeed), [g, menuOpts, menuSeed]);
+  const semana = useMemo(() => generarSemana(g, menuOpts, menuSeed), [g, menuOpts, menuSeed]);
+  // Los cambios a mano valen para ESA propuesta: al pedir otra o mover un
+  // filtro se descartan, si no la pantalla mostraría un día que ya no existe.
+  useEffect(() => { setDiaEdit(null); setRegistradas({}); }, [menuSeed, evitar, maxMin, g.kcal, g.p]);
+  const diaActivo = diaEdit || diaPropuesto;
+
+  const otraPropuesta = () => { haptic(8); setMenuSeed(Math.floor(Math.random() * 1e6) + 1); };
+  const toggleEvitar = (a) => { haptic(4); setEvitar(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]); };
+  const cambiarPlato = (slot) => { haptic(6); setDiaEdit(cambiarComida(diaActivo, slot, g, menuOpts, Date.now())); };
+
+  const registrarComida = (c) => {
+    haptic(15);
+    onRegister?.(entradaDeReceta(c.recipe, c.sc, c.slot));
+    setRegistradas(prev => ({ ...prev, [`${c.slot}:${c.recipe.id}`]: true }));
+  };
+
+  const guardarEsteMenu = (dia) => {
+    if (!dia || !dia.comidas.length) return;
+    const nombre = window.prompt('Ponle un nombre a este menú', `Menú del ${new Date().toLocaleDateString('es', { day: 'numeric', month: 'short' })}`);
+    if (nombre === null) return;                    // canceló
+    guardarMenu(nombre, dia);
+    setMisMenus(leerMenusGuardados());
+    haptic(12);
+    setMenuTab('mios');
+  };
+  const eliminarMenu = (id, nombre) => {
+    if (!window.confirm(`¿Borrar "${nombre}"?`)) return;
+    borrarMenu(id);
+    setMisMenus(leerMenusGuardados());
+  };
+
+  const diaVacio = () => ({ comidas: [], totals: { kcal: 0, p: 0, c: 0, g: 0 }, desvio: desvioDe({ kcal: 0, p: 0, c: 0, g: 0 }, g) });
+  const abrirArmador = (base) => { haptic(8); setArmando(base || diaVacio()); };
 
   const sectionLabel = (t) => <div className="text-[11px] tracking-[0.04em] uppercase font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
 
@@ -1360,6 +1842,287 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       </div>
   ) : null;
 
+  // ───────────────────────── VISTA MENÚS ─────────────────────────
+  // El recetario responde "qué cocino"; los menús responden "qué como hoy":
+  // desayuno, almuerzo y cena que SUMADOS caen en la meta.
+  const tabBtn = (k, label, activo, set) => (
+    <button key={k} onClick={() => { haptic(4); set(k); }}
+      className="text-[12.5px] whitespace-nowrap transition active:scale-95"
+      style={{
+        color: activo ? TEXT : TEXT_MUTED,
+        fontWeight: activo ? 700 : 500,
+        borderBottom: activo ? `2px solid ${ACCENT}` : '2px solid transparent',
+        paddingBottom: '1px',
+      }}>{label}</button>
+  );
+
+  const filtrosMenu = (
+    <div className="space-y-2.5">
+      <div>
+        <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Evitar en el menú</div>
+        <div className="flex flex-wrap gap-1.5 px-1">
+          {ALERGENOS.map(a => {
+            const on = evitar.includes(a);
+            return (
+              <button key={a} onClick={() => toggleEvitar(a)}
+                className="px-2.5 py-1 rounded-full text-[11px] font-semibold active:scale-95 transition"
+                style={{
+                  background: on ? ACCENT : 'rgba(255,255,255,0.92)',
+                  color: on ? '#fff' : TEXT_MUTED,
+                  boxShadow: on ? 'none' : '0 1px 4px rgba(60,70,50,0.08)',
+                }}>{on ? '✕ ' : ''}{a}</button>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Tiempo máximo por receta</div>
+        <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
+          {[{ v: 0, l: 'Sin límite' }, { v: 10, l: '10 min' }, { v: 15, l: '15 min' }, { v: 25, l: '25 min' }].map((o, i) => (
+            <React.Fragment key={o.v}>
+              {i > 0 && <span style={{ width: 1, height: 12, background: BORDER, margin: '0 9px', flexShrink: 0 }} />}
+              <button onClick={() => { haptic(4); setMaxMin(o.v); }}
+                className="text-[12.5px] whitespace-nowrap transition active:scale-95"
+                style={{
+                  color: maxMin === o.v ? TEXT : TEXT_MUTED,
+                  fontWeight: maxMin === o.v ? 700 : 500,
+                  borderBottom: maxMin === o.v ? `2px solid ${ACCENT}` : '2px solid transparent',
+                  paddingBottom: '1px',
+                }}>{o.l}</button>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const vistaMenus = (
+    <>
+      <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
+        {[['dia', 'Un día'], ['semana', 'La semana'], ['mios', `Mis menús${misMenus.length ? ` (${misMenus.length})` : ''}`]].map(([k, l], i) => (
+          <React.Fragment key={k}>
+            {i > 0 && <span style={{ width: 1, height: 12, background: BORDER, margin: '0 9px', flexShrink: 0 }} />}
+            {tabBtn(k, l, menuTab === k, setMenuTab)}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {menuTab !== 'mios' && filtrosMenu}
+
+      {/* ── UN DÍA ── */}
+      {menuTab === 'dia' && (
+        <div className="rounded-[22px] p-3.5 space-y-3" style={cardStyle}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[9.5px] font-bold tracking-[0.06em] uppercase" style={{ color: ACCENT }}>Propuesta del día</div>
+              <div className="mt-1"><MenuTotales dia={diaActivo} g={g} /></div>
+              <div className="text-[10.5px] mt-1" style={{ color: TEXT_LIGHT }}>Tu meta: {g.kcal} kcal · P{g.p} C{g.c} G{g.g}</div>
+            </div>
+            <button onClick={otraPropuesta}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full text-[11.5px] font-bold active:scale-95 transition flex-shrink-0"
+              style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
+              <RotateCcw size={13} /> Otro día
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {diaActivo.comidas.map(c => (
+              <MenuComida key={c.slot} c={c}
+                onAbrir={(id) => { haptic(8); setOpenId(id); setManualK(null); setFitRemaining(false); }}
+                onCambiar={cambiarPlato}
+                onRegistrar={registrarComida}
+                registrada={!!registradas[`${c.slot}:${c.recipe.id}`]} />
+            ))}
+            {diaActivo.comidas.length === 0 && (
+              <div className="text-center py-8 text-[13px]" style={{ color: TEXT_LIGHT }}>
+                Con esos filtros no queda ninguna receta. Quita alguno para volver a ver propuestas.
+              </div>
+            )}
+          </div>
+
+          {diaActivo.comidas.length > 0 && (
+            <div className="flex items-center gap-2 pt-1">
+              <button onClick={() => guardarEsteMenu(diaActivo)}
+                className="flex-1 py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition"
+                style={{ background: ACCENT, color: '#fff' }}>Guardar este menú</button>
+              <button onClick={() => abrirArmador(diaActivo)}
+                className="px-3.5 py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition"
+                style={{ background: SURFACE_2, color: TEXT }}>Ajustarlo yo</button>
+            </div>
+          )}
+          <div className="text-[10.5px] text-center" style={{ color: TEXT_LIGHT }}>
+            Toca un plato para ver la receta · ↺ cambia solo ese · ✓ lo registra en tu día
+          </div>
+        </div>
+      )}
+
+      {/* ── LA SEMANA ── */}
+      {menuTab === 'semana' && (
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="text-[11px]" style={{ color: TEXT_MUTED }}>Siete días sin repetir plato de un día para otro.</div>
+            <button onClick={otraPropuesta}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold active:scale-95 transition flex-shrink-0"
+              style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
+              <RotateCcw size={13} /> Otra semana
+            </button>
+          </div>
+          {semana.map((d, i) => {
+            const abierto = diaSemana === i;
+            return (
+              <div key={i} className="rounded-[20px] overflow-hidden" style={cardStyle}>
+                <button onClick={() => { haptic(5); setDiaSemana(abierto ? -1 : i); }}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-3 text-left active:scale-[0.995] transition">
+                  <span className="font-bold text-[13.5px] flex-shrink-0" style={{ color: TEXT, minWidth: 74 }}>{DIAS_SEM[i]}</span>
+                  <span className="flex-1 min-w-0">
+                    {!abierto && (
+                      <span className="block text-[11px] truncate" style={{ color: TEXT_MUTED }}>
+                        {d.comidas.map(c => c.recipe.icon + ' ' + c.recipe.name).join(' · ')}
+                      </span>
+                    )}
+                    {abierto && <MenuTotales dia={d} g={g} chico />}
+                  </span>
+                  <span className="num text-[11px] font-bold flex-shrink-0" style={{ color: TEXT_LIGHT }}>{r0(d.totals.kcal)}</span>
+                </button>
+                {abierto && (
+                  <div className="px-3 pb-3 space-y-2">
+                    {d.comidas.map(c => (
+                      <MenuComida key={c.slot} c={c}
+                        onAbrir={(id) => { haptic(8); setOpenId(id); setManualK(null); setFitRemaining(false); }}
+                        onRegistrar={registrarComida}
+                        registrada={!!registradas[`${c.slot}:${c.recipe.id}`]} />
+                    ))}
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button onClick={() => guardarEsteMenu(d)}
+                        className="flex-1 py-2 rounded-2xl text-[12px] font-bold active:scale-[0.98] transition"
+                        style={{ background: ACCENT, color: '#fff' }}>Guardar el {DIAS_SEM[i].toLowerCase()}</button>
+                      <button onClick={() => abrirArmador(d)}
+                        className="px-3 py-2 rounded-2xl text-[12px] font-bold active:scale-[0.98] transition"
+                        style={{ background: SURFACE_2, color: TEXT }}>Ajustarlo</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── MIS MENÚS ── */}
+      {menuTab === 'mios' && (
+        <div className="space-y-2.5">
+          <button onClick={() => abrirArmador(null)}
+            className="w-full py-3 rounded-2xl text-[13px] font-bold active:scale-[0.98] transition"
+            style={{ background: ACCENT, color: '#fff' }}>+ Armar un menú desde cero</button>
+
+          {misMenus.length === 0 && (
+            <div className="text-center py-8 text-[12.5px] px-6" style={{ color: TEXT_LIGHT }}>
+              Todavía no has guardado ninguno. Puedes armarlo tú desde cero, o guardar una propuesta de “Un día” y ajustarla a tu gusto.
+            </div>
+          )}
+
+          {misMenus.map(m => {
+            const d = menuADia(m, g);
+            return (
+              <div key={m.id} className="rounded-[20px] p-3.5 space-y-2.5" style={cardStyle}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-bold text-[14px] truncate" style={{ color: TEXT }}>{m.nombre}</div>
+                    <div className="mt-1"><MenuTotales dia={d} g={g} chico /></div>
+                  </div>
+                  <button onClick={() => eliminarMenu(m.id, m.nombre)} aria-label="Borrar menú" title="Borrar menú"
+                    className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 flex-shrink-0"
+                    style={{ background: SURFACE_2, color: TEXT_MUTED }}><X size={15} /></button>
+                </div>
+                <div className="space-y-2">
+                  {d.comidas.map(c => (
+                    <MenuComida key={c.slot} c={c}
+                      onAbrir={(id) => { haptic(8); setOpenId(id); setManualK(null); setFitRemaining(false); }}
+                      onRegistrar={registrarComida}
+                      registrada={!!registradas[`${c.slot}:${c.recipe.id}`]} />
+                  ))}
+                </div>
+                <button onClick={() => abrirArmador(d)}
+                  className="w-full py-2 rounded-2xl text-[12px] font-bold active:scale-[0.98] transition"
+                  style={{ background: SURFACE_2, color: TEXT }}>Editar este menú</button>
+              </div>
+            );
+          })}
+          {misMenus.length > 0 && (
+            <div className="text-[10.5px] text-center px-4" style={{ color: TEXT_LIGHT }}>
+              Se guardan en este teléfono. Las porciones se recalculan solas si tu coach cambia tu meta.
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  // ── Armador manual (overlay) ──
+  const armadorOverlay = armando ? (
+    <div className="fixed inset-0 z-[40] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
+      <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: BG_STAINS }} />
+      <div className="relative max-w-xl mx-auto px-4 space-y-3" style={{
+        zIndex: 1,
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 62px)',
+        paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 0px))',
+      }}>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="text-[9.5px] font-bold tracking-[0.06em] uppercase" style={{ color: ACCENT }}>Armar menú</div>
+            <div className="font-bold text-[19px]" style={{ color: TEXT }}>Tu día, a tu manera</div>
+          </div>
+          <button onClick={() => setArmando(null)} aria-label="Cerrar"
+            className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 flex-shrink-0" style={{ ...plainCard, color: TEXT }}>
+            <X size={17} />
+          </button>
+        </div>
+
+        <div className="rounded-[20px] p-3.5" style={cardStyle}>
+          <MenuTotales dia={armando} g={g} />
+          <div className="text-[10.5px] mt-1" style={{ color: TEXT_LIGHT }}>Tu meta: {g.kcal} kcal · P{g.p} C{g.c} G{g.g}</div>
+        </div>
+
+        <div className="space-y-2">
+          {SLOT_ORDER.map(slot => {
+            const c = armando.comidas.find(x => x.slot === slot);
+            if (c) {
+              return (
+                <MenuComida key={slot} c={c}
+                  onAbrir={(id) => { haptic(8); setOpenId(id); setManualK(null); setFitRemaining(false); }}
+                  onCambiar={() => setPickerSlot(slot)}
+                  onQuitar={(sl) => { haptic(6); setArmando(quitarComida(armando, sl, g)); }} />
+              );
+            }
+            return (
+              <button key={slot} onClick={() => { haptic(6); setPickerSlot(slot); }}
+                className="w-full rounded-2xl px-3.5 py-3 text-left active:scale-[0.99] transition flex items-center gap-2"
+                style={{ background: 'rgba(255,255,255,0.55)', border: `1.5px dashed ${BORDER}` }}>
+                <span className="text-[9.5px] font-bold tracking-[0.05em] uppercase" style={{ color: ACCENT }}>{SLOT_LABELS[slot]}</span>
+                <span className="text-[12.5px] font-semibold ml-auto" style={{ color: TEXT_MUTED }}>+ Elegir receta</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button onClick={() => { guardarEsteMenu(armando); setArmando(null); }}
+          disabled={!armando.comidas.length}
+          className="w-full py-3 rounded-2xl text-[13px] font-bold active:scale-[0.98] transition"
+          style={{ background: armando.comidas.length ? ACCENT : BORDER, color: '#fff' }}>
+          Guardar menú
+        </button>
+        <div className="text-[10.5px] text-center" style={{ color: TEXT_LIGHT }}>
+          Cada receta se ajusta sola al tamaño que le toca dentro de tu meta.
+        </div>
+      </div>
+      {pickerSlot && (
+        <SlotPicker slot={pickerSlot} g={g} opts={menuOpts}
+          onElegir={(id) => { setArmando(ponerComida(armando, pickerSlot, id, g)); setPickerSlot(null); }}
+          onCerrar={() => setPickerSlot(null)} />
+      )}
+    </div>
+  ) : null;
+
   // ───────────────────────── LISTA ─────────────────────────
   return (
     // z-38: DEBAJO de la barra de navegación inferior (z-45) y de la
@@ -1451,6 +2214,42 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           </div>
         </div>
 
+        {/* Aviso de criterio: la receta es un punto de partida, no una regla.
+            Va arriba del todo y SIEMPRE visible (no se puede cerrar): es lo
+            que evita que alguien abandone porque no consiguió un ingrediente. */}
+        <div className="rounded-[20px] px-3.5 py-3 flex gap-2.5" style={{
+          background: 'rgba(255,255,255,0.82)',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 6px 18px rgba(60,70,50,0.07)',
+          borderLeft: `3px solid ${ACCENT}`,
+        }}>
+          <Info size={15} style={{ color: ACCENT, flexShrink: 0, marginTop: 1 }} />
+          <div className="text-[11.5px] leading-[1.5]" style={{ color: TEXT_MUTED }}>
+            <span className="font-bold" style={{ color: TEXT }}>Son sugerencias, no reglas.</span>{' '}
+            Personaliza cualquier receta: agrega ingredientes u omite los que no te gusten o no consigas.
+            Lo esencial es <span className="font-semibold" style={{ color: ACCENT_DARK }}>cumplir tus macros</span> y
+            elegir <span className="font-semibold" style={{ color: ACCENT_DARK }}>alimentos saludables</span>.
+          </div>
+        </div>
+
+        {/* Recetas vs Menús: dos preguntas distintas — "qué cocino" y "qué
+            como hoy". Mismo lenguaje de pestañas de texto que los filtros. */}
+        <div className="flex items-center px-1 pt-0.5">
+          {[['recetas', 'Recetas'], ['menus', 'Menús del día']].map(([k, l], i) => (
+            <React.Fragment key={k}>
+              {i > 0 && <span style={{ width: 1, height: 14, background: BORDER, margin: '0 12px', flexShrink: 0 }} />}
+              <button onClick={() => { haptic(5); setVista(k); }}
+                className="text-[14px] whitespace-nowrap transition active:scale-95"
+                style={{
+                  color: vista === k ? TEXT : TEXT_MUTED,
+                  fontWeight: vista === k ? 800 : 500,
+                  borderBottom: vista === k ? `2px solid ${ACCENT}` : '2px solid transparent',
+                  paddingBottom: '2px',
+                }}>{l}</button>
+            </React.Fragment>
+          ))}
+        </div>
+
+        {vista === 'menus' ? vistaMenus : (<>
         {/* Buscador */}
         <div className="flex items-center gap-2 rounded-2xl px-3.5 py-2.5" style={plainCard}>
           <Search size={16} style={{ color: TEXT_LIGHT, flexShrink: 0 }} />
@@ -1553,7 +2352,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             Cada receta se ajusta a su comida dentro de tu meta — y al abrirla puedes adaptarla a lo que te queda del día
           </div>
         )}
+        </>)}
       </div>
+      {armadorOverlay}
       {detailOverlay}
     </div>
   );
