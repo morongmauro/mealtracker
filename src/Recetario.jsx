@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, startTransition } from 'react';
-import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, Info, Clock, AlertTriangle, X } from 'lucide-react';
+import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, Info, Clock, AlertTriangle, X, ShoppingCart, Copy } from 'lucide-react';
 
 // Paleta, sombras y tipografía compartidas — ver src/theme.js.
 import {
@@ -1289,6 +1289,57 @@ function quitarComida(dia, slot, g) {
   return { ...dia, comidas, totals, desvio: desvioDe(totals, g) };
 }
 
+// ── Lista de mercado ──────────────────────────────────────────────────
+// Un menú sin lista de compras se queda en buena intención: el día que toca
+// cocinar falta un ingrediente y se abandona. Aquí se suman las cantidades
+// de todas las comidas, así que lo que sale es lo que hay que comprar de
+// verdad, no una receta detrás de otra.
+//
+// Los ingredientes principales se suman por nombre y unidad (el mismo
+// alimento en g y en unidades no se puede mezclar). Los de "para realzar"
+// son texto libre — sal, especias, un chorrito de aceite — así que se
+// listan aparte, sin cantidades: es la despensa, no la compra de la semana.
+const MERCADO_UNIDAD_UNICA = { unidades: 'unidad', unidad: 'unidad' };
+
+function listaMercado(dias) {
+  const principales = new Map();
+  const despensa = new Set();
+  for (const dia of dias || []) {
+    for (const c of dia.comidas || []) {
+      for (const i of c.sc.main) {
+        const unidad = MERCADO_UNIDAD_UNICA[i.u] || i.u;
+        const clave = `${norm(i.n)}|${unidad}`;
+        const prev = principales.get(clave);
+        if (prev) prev.q += i.q;
+        else principales.set(clave, { n: i.n, u: unidad, q: i.q, recetas: new Set() });
+        principales.get(clave).recetas.add(c.recipe.name);
+      }
+      for (const s of c.recipe.season || []) despensa.add(s.split('·')[0].trim());
+    }
+  }
+  const items = [...principales.values()]
+    .map(x => ({
+      ...x,
+      // Se redondea al comprar, no al gramo: nadie pesa 137 g de quinua en
+      // el supermercado.
+      q: x.u === 'g' || x.u === 'ml' ? round5(x.q) : roundHalf(x.q),
+      recetas: [...x.recetas],
+    }))
+    .sort((a, b) => a.n.localeCompare(b.n));
+  return { items, despensa: [...despensa].sort((a, b) => a.localeCompare(b)) };
+}
+
+// Texto plano para pegar en notas o mandar por WhatsApp.
+function listaMercadoTexto(lista, titulo) {
+  const l = [`🛒 ${titulo}`, ''];
+  for (const i of lista.items) l.push(`• ${i.n} — ${i.q} ${i.u}`);
+  if (lista.despensa.length) {
+    l.push('', 'De despensa (revisa si te queda):');
+    for (const d of lista.despensa) l.push(`• ${d}`);
+  }
+  return l.join('\n');
+}
+
 // ── Menús guardados (viven en el teléfono, no necesitan cuenta) ──
 function leerMenusGuardados() {
   try { return JSON.parse(localStorage.getItem(MENUS_KEY) || '[]'); }
@@ -1551,7 +1602,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const [manualK, setManualK] = useState(null);
   const [registered, setRegistered] = useState(false);
   // ── Sección Menús ──
-  const [vista, setVista] = useState('recetas');        // recetas | menus
+  const [vista, setVista] = useState('inicio');         // inicio | recetas | menus
+  const [mercado, setMercado] = useState(null);         // { titulo, dias } de la lista de compras
+  const [copiado, setCopiado] = useState(false);
   const [menuTab, setMenuTab] = useState('dia');        // dia | semana | mios
   const [menuSeed, setMenuSeed] = useState(() => Math.floor(Math.random() * 1e6) + 1);
   const [evitar, setEvitar] = useState([]);
@@ -1676,6 +1729,22 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     if (!window.confirm(`¿Borrar "${nombre}"?`)) return;
     borrarMenu(id);
     setMisMenus(leerMenusGuardados());
+  };
+
+  const abrirMercado = (titulo, dias) => { haptic(8); setMercado({ titulo, dias }); };
+  const copiarMercado = async () => {
+    if (!mercado) return;
+    const texto = listaMercadoTexto(listaMercado(mercado.dias), mercado.titulo);
+    try {
+      await navigator.clipboard.writeText(texto);
+      haptic(12);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1600);
+    } catch (e) {
+      // Sin permiso de portapapeles (Safari en algunos casos): al menos que
+      // se pueda seleccionar y copiar a mano.
+      window.prompt('Copia tu lista:', texto);
+    }
   };
 
   const diaVacio = () => ({ comidas: [], totals: { kcal: 0, p: 0, c: 0, g: 0 }, desvio: desvioDe({ kcal: 0, p: 0, c: 0, g: 0 }, g) });
@@ -1842,6 +1911,24 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       </div>
   ) : null;
 
+  // Criterio de uso, arriba del todo: la receta es una guía, no una regla.
+  // Es lo que evita que alguien abandone porque le faltó un ingrediente
+  // secundario — y a la vez marca el límite (los primarios sostienen la receta).
+  const avisoIngredientes = (
+    <div className="rounded-[20px] px-3.5 py-3 flex gap-2.5" style={{
+      background: 'rgba(255,255,255,0.82)',
+      boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 6px 18px rgba(60,70,50,0.07)',
+      borderLeft: `3px solid ${ACCENT}`,
+    }}>
+      <Info size={15} style={{ color: ACCENT, flexShrink: 0, marginTop: 1 }} />
+      <div className="text-[11.5px] leading-[1.5]" style={{ color: TEXT_MUTED }}>
+        <span className="font-bold" style={{ color: TEXT }}>Usa los ingredientes primarios.</span>{' '}
+        Los secundarios puedes agregarlos u omitirlos según tu preferencia, manteniendo la{' '}
+        <span className="font-semibold" style={{ color: ACCENT_DARK }}>esencia de la receta</span>.
+      </div>
+    </div>
+  );
+
   // ───────────────────────── VISTA MENÚS ─────────────────────────
   // El recetario responde "qué cocino"; los menús responden "qué como hoy":
   // desayuno, almuerzo y cena que SUMADOS caen en la meta.
@@ -1898,6 +1985,29 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
   const vistaMenus = (
     <>
+      {/* Qué es esto, en dos líneas. Sin esto la gente no entendía que la
+          sección son las MISMAS recetas repartidas en un día o una semana. */}
+      <div className="rounded-[20px] p-3.5" style={cardStyle}>
+        <div className="font-bold text-[15px]" style={{ color: TEXT }}>🗓️ Organiza qué comer</div>
+        <div className="text-[12px] leading-[1.5] mt-1" style={{ color: TEXT_MUTED }}>
+          Las mismas recetas, repartidas en desayuno, almuerzo y cena para que sumadas cuadren con tu meta.
+          Sirve de <span className="font-semibold" style={{ color: ACCENT_DARK }}>guía</span> — no es obligatorio seguirla al pie de la letra.
+        </div>
+        <div className="mt-2.5 space-y-1">
+          {[
+            ['1', 'Elige un día suelto o la semana completa'],
+            ['2', 'Cambia los platos que no te convenzan, o arma el tuyo'],
+            ['3', 'Llévate la lista de mercado con todo lo que hay que comprar'],
+          ].map(([n, txt]) => (
+            <div key={n} className="flex items-start gap-2 text-[11.5px]" style={{ color: TEXT_MUTED }}>
+              <span className="flex items-center justify-center rounded-full flex-shrink-0 font-bold"
+                style={{ width: 16, height: 16, background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 9, marginTop: 1 }}>{n}</span>
+              <span>{txt}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
         {[['dia', 'Un día'], ['semana', 'La semana'], ['mios', `Mis menús${misMenus.length ? ` (${misMenus.length})` : ''}`]].map(([k, l], i) => (
           <React.Fragment key={k}>
@@ -1941,18 +2051,32 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           </div>
 
           {diaActivo.comidas.length > 0 && (
-            <div className="flex items-center gap-2 pt-1">
-              <button onClick={() => guardarEsteMenu(diaActivo)}
-                className="flex-1 py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition"
-                style={{ background: ACCENT, color: '#fff' }}>Guardar este menú</button>
-              <button onClick={() => abrirArmador(diaActivo)}
-                className="px-3.5 py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition"
-                style={{ background: SURFACE_2, color: TEXT }}>Ajustarlo yo</button>
-            </div>
+            <>
+              <button onClick={() => abrirMercado('Mercado del día', [diaActivo])}
+                className="w-full py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition flex items-center justify-center gap-1.5"
+                style={{ background: ACCENT, color: '#fff' }}>
+                <ShoppingCart size={14} /> Ver lista de mercado
+              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => guardarEsteMenu(diaActivo)}
+                  className="flex-1 py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition"
+                  style={{ background: SURFACE_2, color: TEXT }}>Guardar este menú</button>
+                <button onClick={() => abrirArmador(diaActivo)}
+                  className="flex-1 py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition"
+                  style={{ background: SURFACE_2, color: TEXT }}>Ajustarlo yo</button>
+              </div>
+              {/* El registro va al final a propósito: esto es una guía de qué
+                  comer, no un formulario. Registrar es lo último, y solo si
+                  de verdad te lo comiste. */}
+              <div className="pt-1 mt-1" style={{ borderTop: `1px solid ${BORDER}` }}>
+                <div className="text-[10.5px] leading-[1.5] pt-2" style={{ color: TEXT_LIGHT }}>
+                  Toca un plato para ver la receta completa · <RotateCcw size={9} style={{ display: 'inline', verticalAlign: 'middle' }} /> cambia solo ese plato
+                  <br />
+                  <span style={{ color: TEXT_MUTED }}>¿Ya te lo comiste? El <Check size={9} style={{ display: 'inline', verticalAlign: 'middle' }} /> de cada comida la suma a tu día en el tracking.</span>
+                </div>
+              </div>
+            </>
           )}
-          <div className="text-[10.5px] text-center" style={{ color: TEXT_LIGHT }}>
-            Toca un plato para ver la receta · ↺ cambia solo ese · ✓ lo registra en tu día
-          </div>
         </div>
       )}
 
@@ -1967,6 +2091,11 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               <RotateCcw size={13} /> Otra semana
             </button>
           </div>
+          <button onClick={() => abrirMercado('Mercado de la semana', semana)}
+            className="w-full py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition flex items-center justify-center gap-1.5"
+            style={{ background: ACCENT, color: '#fff' }}>
+            <ShoppingCart size={14} /> Lista de mercado de los 7 días
+          </button>
           {semana.map((d, i) => {
             const abierto = diaSemana === i;
             return (
@@ -2042,9 +2171,14 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                       registrada={!!registradas[`${c.slot}:${c.recipe.id}`]} />
                   ))}
                 </div>
-                <button onClick={() => abrirArmador(d)}
-                  className="w-full py-2 rounded-2xl text-[12px] font-bold active:scale-[0.98] transition"
-                  style={{ background: SURFACE_2, color: TEXT }}>Editar este menú</button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => abrirMercado(`Mercado · ${m.nombre}`, [d])}
+                    className="flex-1 py-2 rounded-2xl text-[12px] font-bold active:scale-[0.98] transition flex items-center justify-center gap-1.5"
+                    style={{ background: ACCENT, color: '#fff' }}><ShoppingCart size={13} /> Mercado</button>
+                  <button onClick={() => abrirArmador(d)}
+                    className="flex-1 py-2 rounded-2xl text-[12px] font-bold active:scale-[0.98] transition"
+                    style={{ background: SURFACE_2, color: TEXT }}>Editar</button>
+                </div>
               </div>
             );
           })}
@@ -2057,6 +2191,63 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       )}
     </>
   );
+
+  // ── Lista de mercado (overlay) ──
+  const mercadoOverlay = mercado ? (() => {
+    const L = listaMercado(mercado.dias);
+    return (
+      <div className="fixed inset-0 z-[42] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
+        <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: BG_STAINS }} />
+        <div className="relative max-w-xl mx-auto px-4 space-y-3" style={{
+          zIndex: 1,
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 62px)',
+          paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 0px))',
+        }}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[9.5px] font-bold tracking-[0.06em] uppercase" style={{ color: ACCENT }}>Lista de mercado</div>
+              <div className="font-bold text-[19px] leading-tight" style={{ color: TEXT }}>{mercado.titulo}</div>
+              <div className="text-[11.5px] mt-0.5" style={{ color: TEXT_MUTED }}>
+                {L.items.length} ingrediente{L.items.length === 1 ? '' : 's'} · cantidades ya sumadas de todas las comidas
+              </div>
+            </div>
+            <button onClick={() => setMercado(null)} aria-label="Cerrar"
+              className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 flex-shrink-0" style={{ ...plainCard, color: TEXT }}>
+              <X size={17} />
+            </button>
+          </div>
+
+          <button onClick={copiarMercado}
+            className="w-full py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition flex items-center justify-center gap-1.5"
+            style={{ background: copiado ? ACCENT_DARK : ACCENT, color: '#fff' }}>
+            {copiado ? <><Check size={14} /> Copiada</> : <><Copy size={14} /> Copiar la lista</>}
+          </button>
+
+          <div className="rounded-[20px] p-3.5 space-y-1.5" style={cardStyle}>
+            <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1" style={{ color: ACCENT }}>Para comprar</div>
+            {L.items.map(i => (
+              <div key={i.n + i.u} className="flex items-baseline gap-2 py-1" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                <span className="flex-1 min-w-0 text-[13px]" style={{ color: TEXT }}>{i.n}</span>
+                <span className="num text-[13px] font-bold whitespace-nowrap" style={{ color: ACCENT_DARK }}>{i.q} {i.u}</span>
+              </div>
+            ))}
+            {L.items.length === 0 && <div className="text-[12.5px] py-2" style={{ color: TEXT_LIGHT }}>Este menú aún no tiene comidas.</div>}
+          </div>
+
+          {L.despensa.length > 0 && (
+            <div className="rounded-[20px] p-3.5" style={plainCard}>
+              <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1.5" style={{ color: TEXT_MUTED }}>De despensa · revisa si te queda</div>
+              <div className="text-[12px] leading-[1.6]" style={{ color: TEXT_MUTED }}>{L.despensa.join(' · ')}</div>
+            </div>
+          )}
+
+          <div className="text-[10.5px] text-center px-4" style={{ color: TEXT_LIGHT }}>
+            Las cantidades vienen redondeadas para comprar, no al gramo exacto. Si cambias un plato, vuelve a abrir la lista.
+          </div>
+        </div>
+      </div>
+    );
+  })() : null;
 
   // ── Armador manual (overlay) ──
   const armadorOverlay = armando ? (
@@ -2214,42 +2405,57 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           </div>
         </div>
 
-        {/* Aviso de criterio: la receta es un punto de partida, no una regla.
-            Va arriba del todo y SIEMPRE visible (no se puede cerrar): es lo
-            que evita que alguien abandone porque no consiguió un ingrediente. */}
-        <div className="rounded-[20px] px-3.5 py-3 flex gap-2.5" style={{
-          background: 'rgba(255,255,255,0.82)',
-          boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 6px 18px rgba(60,70,50,0.07)',
-          borderLeft: `3px solid ${ACCENT}`,
-        }}>
-          <Info size={15} style={{ color: ACCENT, flexShrink: 0, marginTop: 1 }} />
-          <div className="text-[11.5px] leading-[1.5]" style={{ color: TEXT_MUTED }}>
-            <span className="font-bold" style={{ color: TEXT }}>Son sugerencias, no reglas.</span>{' '}
-            Personaliza cualquier receta: agrega ingredientes u omite los que no te gusten o no consigas.
-            Lo esencial es <span className="font-semibold" style={{ color: ACCENT_DARK }}>cumplir tus macros</span> y
-            elegir <span className="font-semibold" style={{ color: ACCENT_DARK }}>alimentos saludables</span>.
-          </div>
-        </div>
+        {/* Portada: DOS caminos y nada más. Antes se entraba a un muro de
+            buscador, filtros y tarjetas y no se sabía por dónde empezar.
+            Ahora se elige primero qué se viene a hacer. */}
+        {vista === 'inicio' && (
+          <>
+            {avisoIngredientes}
+            <button onClick={() => { haptic(8); setVista('recetas'); }}
+              className="w-full text-left rounded-[22px] p-4 active:scale-[0.99] transition flex items-center gap-3.5"
+              style={cardStyle}>
+              <span className="flex items-center justify-center rounded-2xl flex-shrink-0" style={{ width: 52, height: 52, background: SURFACE_2, fontSize: 26 }}>🍳</span>
+              <span className="flex-1 min-w-0">
+                <span className="block font-bold text-[16px]" style={{ color: TEXT }}>Recetas</span>
+                <span className="block text-[12px] leading-[1.45] mt-0.5" style={{ color: TEXT_MUTED }}>
+                  Busca una receta y cocínala. {RECIPES.length} recetas, cada una ajustada al tamaño que le toca dentro de tu meta.
+                </span>
+              </span>
+              <span style={{ color: TEXT_LIGHT, transform: 'rotate(180deg)', flexShrink: 0 }}><ChevronLeft size={20} /></span>
+            </button>
 
-        {/* Recetas vs Menús: dos preguntas distintas — "qué cocino" y "qué
-            como hoy". Mismo lenguaje de pestañas de texto que los filtros. */}
-        <div className="flex items-center px-1 pt-0.5">
-          {[['recetas', 'Recetas'], ['menus', 'Menús del día']].map(([k, l], i) => (
-            <React.Fragment key={k}>
-              {i > 0 && <span style={{ width: 1, height: 14, background: BORDER, margin: '0 12px', flexShrink: 0 }} />}
-              <button onClick={() => { haptic(5); setVista(k); }}
-                className="text-[14px] whitespace-nowrap transition active:scale-95"
-                style={{
-                  color: vista === k ? TEXT : TEXT_MUTED,
-                  fontWeight: vista === k ? 800 : 500,
-                  borderBottom: vista === k ? `2px solid ${ACCENT}` : '2px solid transparent',
-                  paddingBottom: '2px',
-                }}>{l}</button>
-            </React.Fragment>
-          ))}
-        </div>
+            <button onClick={() => { haptic(8); setVista('menus'); }}
+              className="w-full text-left rounded-[22px] p-4 active:scale-[0.99] transition flex items-center gap-3.5"
+              style={cardStyle}>
+              <span className="flex items-center justify-center rounded-2xl flex-shrink-0" style={{ width: 52, height: 52, background: ACCENT_PASTEL, fontSize: 26 }}>🗓️</span>
+              <span className="flex-1 min-w-0">
+                <span className="block font-bold text-[16px]" style={{ color: TEXT }}>Organiza tu día o tu semana</span>
+                <span className="block text-[12px] leading-[1.45] mt-0.5" style={{ color: TEXT_MUTED }}>
+                  Esas mismas recetas repartidas en desayuno, almuerzo y cena — para saber qué comer y llevarte la lista de mercado.
+                </span>
+              </span>
+              <span style={{ color: TEXT_LIGHT, transform: 'rotate(180deg)', flexShrink: 0 }}><ChevronLeft size={20} /></span>
+            </button>
 
-        {vista === 'menus' ? vistaMenus : (<>
+            <div className="text-[11px] text-center px-4 pt-1" style={{ color: TEXT_LIGHT }}>
+              Puedes moverte entre las dos cuando quieras.
+            </div>
+          </>
+        )}
+
+        {vista !== 'inicio' && (
+          <button onClick={() => { haptic(5); setVista('inicio'); }}
+            className="flex items-center gap-1 text-[12.5px] font-semibold active:scale-95 transition self-start"
+            style={{ color: TEXT_MUTED }}>
+            <ChevronLeft size={15} /> Recetario
+          </button>
+        )}
+
+        {vista === 'recetas' && avisoIngredientes}
+
+        {vista === 'menus' && vistaMenus}
+
+        {vista === 'recetas' && (<>
         {/* Buscador */}
         <div className="flex items-center gap-2 rounded-2xl px-3.5 py-2.5" style={plainCard}>
           <Search size={16} style={{ color: TEXT_LIGHT, flexShrink: 0 }} />
@@ -2354,6 +2560,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         )}
         </>)}
       </div>
+      {mercadoOverlay}
       {armadorOverlay}
       {detailOverlay}
     </div>
