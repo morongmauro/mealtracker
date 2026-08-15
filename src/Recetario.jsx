@@ -1151,7 +1151,7 @@ function mkRng(seed) {
 function recetasPara(slot, opts = {}) {
   const evitar = opts.evitar || [];
   const maxMin = opts.maxMin || 0;
-  return RECIPES.filter(r => {
+  const base = RECIPES.filter(r => {
     const ok = slot === 'snack' ? r.slot === 'snack'
       : slot === 'desayuno' ? r.slot === 'desayuno'
       : (r.slot === 'almuerzo' || r.slot === 'cena');
@@ -1160,6 +1160,18 @@ function recetasPara(slot, opts = {}) {
     if (maxMin && (META[r.id]?.min || 0) > maxMin) return false;
     return true;
   });
+  return base;
+}
+
+// "Priorizar" no excluye: inclina la balanza. Se aplica como un castigo a la
+// distancia de las que NO cumplen, no filtrando el pool — filtrándolo, las
+// altas en proteína (que son más pequeñas) copaban todos los huecos y el día
+// se quedaba corto: el desvío medio se iba del 4% al 16%. Sesgando, las
+// preferidas ganan cuando encajan y pierden cuando descuadrarían el día.
+function testPrioridad(priorizar) {
+  if (priorizar === 'proteina') return isHighProtein;
+  if (priorizar === 'economico') return (r) => (META[r.id]?.cost || 3) === 1;
+  return null;
 }
 
 // Elige la receta cuyo tamaño ajustado cae más cerca de las kcal del hueco.
@@ -1176,12 +1188,18 @@ function elegirReceta(slot, targetKcal, targetP, opts, rand, usados = new Set())
   if (!pool.length) return null;
   const frescas = pool.filter(r => !usados.has(r.id));
   if (frescas.length) pool = frescas;              // variedad primero
+  const prefiere = testPrioridad(opts.priorizar);
   const puntuadas = pool
     .map(r => ({ r, sc: scale(r, targetP) }))
-    .map(x => ({ ...x, dist: Math.abs(x.sc.totals.kcal - targetKcal) }))
-    .sort((a, b) => a.dist - b.dist);
-  const margen = Math.max(targetKcal * 0.25, puntuadas[Math.min(3, puntuadas.length - 1)].dist);
-  const candidatas = puntuadas.filter(x => x.dist <= margen);
+    .map(x => ({
+      ...x,
+      dist: Math.abs(x.sc.totals.kcal - targetKcal),
+      // La distancia real manda para el margen; la puntuada solo ordena.
+      score: Math.abs(x.sc.totals.kcal - targetKcal) * (prefiere && !prefiere(x.r) ? 5 : 1),
+    }))
+    .sort((a, b) => a.score - b.score);
+  const margen = Math.max(targetKcal * 0.25, puntuadas[Math.min(3, puntuadas.length - 1)].score);
+  const candidatas = puntuadas.filter(x => x.score <= margen);
   return candidatas[Math.floor(rand() * candidatas.length)];
 }
 
@@ -1609,6 +1627,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const [menuSeed, setMenuSeed] = useState(() => Math.floor(Math.random() * 1e6) + 1);
   const [evitar, setEvitar] = useState([]);
   const [maxMin, setMaxMin] = useState(0);
+  const [priorizar, setPriorizar] = useState('');       // '' | 'proteina' | 'economico'
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [diaEdit, setDiaEdit] = useState(null);         // el día tras cambiar platos a mano
   const [misMenus, setMisMenus] = useState(() => leerMenusGuardados());
   const [armando, setArmando] = useState(null);         // día en construcción (armador manual)
@@ -1698,12 +1718,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   };
 
   // ── Menús: propuestas derivadas de la meta y los filtros ──
-  const menuOpts = useMemo(() => ({ evitar, maxMin }), [evitar, maxMin]);
+  const menuOpts = useMemo(() => ({ evitar, maxMin, priorizar }), [evitar, maxMin, priorizar]);
   const diaPropuesto = useMemo(() => generarDia(g, menuOpts, menuSeed), [g, menuOpts, menuSeed]);
   const semana = useMemo(() => generarSemana(g, menuOpts, menuSeed), [g, menuOpts, menuSeed]);
   // Los cambios a mano valen para ESA propuesta: al pedir otra o mover un
   // filtro se descartan, si no la pantalla mostraría un día que ya no existe.
-  useEffect(() => { setDiaEdit(null); setRegistradas({}); }, [menuSeed, evitar, maxMin, g.kcal, g.p]);
+  useEffect(() => { setDiaEdit(null); setRegistradas({}); }, [menuSeed, evitar, maxMin, priorizar, g.kcal, g.p]);
   const diaActivo = diaEdit || diaPropuesto;
 
   const otraPropuesta = () => { haptic(8); setMenuSeed(Math.floor(Math.random() * 1e6) + 1); };
@@ -1911,20 +1931,15 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       </div>
   ) : null;
 
-  // Criterio de uso, arriba del todo: la receta es una guía, no una regla.
-  // Es lo que evita que alguien abandone porque le faltó un ingrediente
-  // secundario — y a la vez marca el límite (los primarios sostienen la receta).
+  // Criterio de uso. Vive dentro de "Organiza tu día", que es donde se
+  // decide qué cocinar: en la lista de recetas estorbaba y empujaba hacia
+  // abajo el buscador, que es por donde se empieza de verdad.
   const avisoIngredientes = (
-    <div className="rounded-[20px] px-3.5 py-3 flex gap-2.5" style={{
-      background: 'rgba(255,255,255,0.82)',
-      boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 6px 18px rgba(60,70,50,0.07)',
-      borderLeft: `3px solid ${ACCENT}`,
-    }}>
-      <Info size={15} style={{ color: ACCENT, flexShrink: 0, marginTop: 1 }} />
+    <div className="rounded-[20px] px-3.5 py-3 flex gap-2.5" style={plainCard}>
+      <Info size={15} style={{ color: TEXT_LIGHT, flexShrink: 0, marginTop: 1 }} />
       <div className="text-[11.5px] leading-[1.5]" style={{ color: TEXT_MUTED }}>
-        <span className="font-bold" style={{ color: TEXT }}>Usa los ingredientes primarios.</span>{' '}
-        Los secundarios puedes agregarlos u omitirlos según tu preferencia, manteniendo la{' '}
-        <span className="font-semibold" style={{ color: ACCENT_DARK }}>esencia de la receta</span>.
+        <span className="font-bold" style={{ color: TEXT }}>Si no tienes todos los ingredientes, usa los primarios.</span>{' '}
+        Busca conservar la esencia que mantenga los macros — no te preocupes si no queda perfectamente igual.
       </div>
     </div>
   );
@@ -1943,45 +1958,99 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       }}>{label}</button>
   );
 
-  const filtrosMenu = (
-    <div className="space-y-2.5">
-      <div>
-        <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Evitar en el menú</div>
-        <div className="flex flex-wrap gap-1.5 px-1">
-          {ALERGENOS.map(a => {
-            const on = evitar.includes(a);
-            return (
-              <button key={a} onClick={() => toggleEvitar(a)}
-                className="px-2.5 py-1 rounded-full text-[11px] font-semibold active:scale-95 transition"
-                style={{
-                  background: on ? ACCENT : 'rgba(255,255,255,0.92)',
-                  color: on ? '#fff' : TEXT_MUTED,
-                  boxShadow: on ? 'none' : '0 1px 4px rgba(60,70,50,0.08)',
-                }}>{on ? '✕ ' : ''}{a}</button>
-            );
-          })}
+  // Antes los alérgenos eran 9 chips siempre visibles + otra fila de tiempo:
+  // dos bloques de filtros ocupando media pantalla antes de ver una sola
+  // propuesta. Ahora es un botón que dice cuántos filtros hay puestos, y
+  // todo lo demás vive en una ventana aparte.
+  const nFiltros = evitar.length + (maxMin ? 1 : 0) + (priorizar ? 1 : 0);
+  const barraFiltros = (
+    <div className="flex items-center gap-2 px-1">
+      <button onClick={() => { haptic(5); setFiltrosAbiertos(true); }}
+        className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold active:scale-95 transition"
+        style={{
+          background: nFiltros ? TEXT : 'rgba(255,255,255,0.92)',
+          color: nFiltros ? '#fff' : TEXT_MUTED,
+          boxShadow: nFiltros ? 'none' : '0 1px 4px rgba(60,70,50,0.08)',
+        }}>
+        <Sliders size={13} /> Filtrar{nFiltros ? ` · ${nFiltros}` : ''}
+      </button>
+      {nFiltros > 0 && (
+        <button onClick={() => { haptic(4); setEvitar([]); setMaxMin(0); setPriorizar(''); }}
+          className="text-[11.5px] font-semibold active:scale-95 transition"
+          style={{ color: TEXT_LIGHT }}>Quitar filtros</button>
+      )}
+    </div>
+  );
+
+  // Ventana de filtros: qué QUITAR y qué PRIORIZAR, separado, porque son dos
+  // decisiones distintas (una excluye, la otra solo prefiere).
+  const filtrosOverlay = filtrosAbiertos ? (
+    <div className="fixed inset-0 z-[43] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
+      <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: BG_STAINS }} />
+      <div className="relative max-w-xl mx-auto px-4 space-y-3" style={{
+        zIndex: 1,
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 62px)',
+        paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 0px))',
+      }}>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="text-[9.5px] font-bold tracking-[0.06em] uppercase" style={{ color: ACCENT }}>Menús</div>
+            <div className="font-bold text-[19px]" style={{ color: TEXT }}>Filtrar</div>
+          </div>
+          <button onClick={() => setFiltrosAbiertos(false)} aria-label="Cerrar"
+            className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 flex-shrink-0" style={{ ...plainCard, color: TEXT }}>
+            <X size={17} />
+          </button>
         </div>
-      </div>
-      <div>
-        <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Tiempo máximo por receta</div>
-        <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
-          {[{ v: 0, l: 'Sin límite' }, { v: 10, l: '10 min' }, { v: 15, l: '15 min' }, { v: 25, l: '25 min' }].map((o, i) => (
-            <React.Fragment key={o.v}>
-              {i > 0 && <span style={{ width: 1, height: 12, background: BORDER, margin: '0 9px', flexShrink: 0 }} />}
-              <button onClick={() => { haptic(4); setMaxMin(o.v); }}
-                className="text-[12.5px] whitespace-nowrap transition active:scale-95"
-                style={{
-                  color: maxMin === o.v ? TEXT : TEXT_MUTED,
-                  fontWeight: maxMin === o.v ? 700 : 500,
-                  borderBottom: maxMin === o.v ? `2px solid ${ACCENT}` : '2px solid transparent',
-                  paddingBottom: '1px',
-                }}>{o.l}</button>
-            </React.Fragment>
-          ))}
+
+        <div className="rounded-[20px] p-3.5" style={cardStyle}>
+          <div className="font-bold text-[13.5px]" style={{ color: TEXT }}>Quitar del menú</div>
+          <div className="text-[11px] mb-2.5" style={{ color: TEXT_MUTED }}>Ninguna receta con esto entrará en las propuestas.</div>
+          <div className="flex flex-wrap gap-1.5">
+            {ALERGENOS.map(a => {
+              const on = evitar.includes(a);
+              return (
+                <button key={a} onClick={() => toggleEvitar(a)}
+                  className="px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
+                  style={{ background: on ? TEXT : SURFACE_2, color: on ? '#fff' : TEXT_MUTED }}>
+                  {on ? '✕ ' : ''}{a}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-[20px] p-3.5" style={cardStyle}>
+          <div className="font-bold text-[13.5px]" style={{ color: TEXT }}>Priorizar</div>
+          <div className="text-[11px] mb-2.5" style={{ color: TEXT_MUTED }}>No excluye nada: solo hace que se propongan primero.</div>
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {[['', 'Sin preferencia'], ['proteina', 'Alta en proteína'], ['economico', 'Económicas']].map(([k, l]) => (
+              <button key={k} onClick={() => { haptic(4); setPriorizar(k); }}
+                className="px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
+                style={{ background: priorizar === k ? TEXT : SURFACE_2, color: priorizar === k ? '#fff' : TEXT_MUTED }}>{l}</button>
+            ))}
+          </div>
+          <div className="font-bold text-[12.5px] mb-1.5" style={{ color: TEXT }}>Tiempo máximo por receta</div>
+          <div className="flex flex-wrap gap-1.5">
+            {[{ v: 0, l: 'Sin límite' }, { v: 10, l: '10 min' }, { v: 15, l: '15 min' }, { v: 25, l: '25 min' }].map(o => (
+              <button key={o.v} onClick={() => { haptic(4); setMaxMin(o.v); }}
+                className="px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
+                style={{ background: maxMin === o.v ? TEXT : SURFACE_2, color: maxMin === o.v ? '#fff' : TEXT_MUTED }}>{o.l}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button onClick={() => { haptic(4); setEvitar([]); setMaxMin(0); setPriorizar(''); }}
+            className="flex-1 py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition"
+            style={{ background: SURFACE_2, color: TEXT }}>Quitar todo</button>
+          <button onClick={() => setFiltrosAbiertos(false)}
+            className="flex-1 py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition"
+            style={{ background: TEXT, color: '#fff' }}>Ver propuestas</button>
         </div>
       </div>
     </div>
-  );
+  ) : null;
 
   const vistaMenus = (
     <>
@@ -2008,6 +2077,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         </div>
       </div>
 
+      {avisoIngredientes}
+
       <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
         {[['dia', 'Un día'], ['semana', 'La semana'], ['mios', `Mis menús${misMenus.length ? ` (${misMenus.length})` : ''}`]].map(([k, l], i) => (
           <React.Fragment key={k}>
@@ -2017,7 +2088,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         ))}
       </div>
 
-      {menuTab !== 'mios' && filtrosMenu}
+      {menuTab !== 'mios' && barraFiltros}
 
       {/* ── UN DÍA ── */}
       {menuTab === 'dia' && (
@@ -2030,7 +2101,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             </div>
             <button onClick={otraPropuesta}
               className="flex items-center gap-1.5 px-3 py-2 rounded-full text-[11.5px] font-bold active:scale-95 transition flex-shrink-0"
-              style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
+              style={{ background: SURFACE_2, color: TEXT }}>
               <RotateCcw size={13} /> Otro día
             </button>
           </div>
@@ -2054,7 +2125,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             <>
               <button onClick={() => abrirMercado('Mercado del día', [diaActivo])}
                 className="w-full py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition flex items-center justify-center gap-1.5"
-                style={{ background: ACCENT, color: '#fff' }}>
+                style={{ background: TEXT, color: '#fff' }}>
                 <ShoppingCart size={14} /> Ver lista de mercado
               </button>
               <div className="flex items-center gap-2">
@@ -2087,13 +2158,13 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             <div className="text-[11px]" style={{ color: TEXT_MUTED }}>Siete días sin repetir plato de un día para otro.</div>
             <button onClick={otraPropuesta}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold active:scale-95 transition flex-shrink-0"
-              style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
+              style={{ background: SURFACE_2, color: TEXT }}>
               <RotateCcw size={13} /> Otra semana
             </button>
           </div>
           <button onClick={() => abrirMercado('Mercado de la semana', semana)}
             className="w-full py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition flex items-center justify-center gap-1.5"
-            style={{ background: ACCENT, color: '#fff' }}>
+            style={{ background: TEXT, color: '#fff' }}>
             <ShoppingCart size={14} /> Lista de mercado de los 7 días
           </button>
           {semana.map((d, i) => {
@@ -2124,7 +2195,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                     <div className="flex items-center gap-2 pt-0.5">
                       <button onClick={() => guardarEsteMenu(d)}
                         className="flex-1 py-2 rounded-2xl text-[12px] font-bold active:scale-[0.98] transition"
-                        style={{ background: ACCENT, color: '#fff' }}>Guardar el {DIAS_SEM[i].toLowerCase()}</button>
+                        style={{ background: TEXT, color: '#fff' }}>Guardar el {DIAS_SEM[i].toLowerCase()}</button>
                       <button onClick={() => abrirArmador(d)}
                         className="px-3 py-2 rounded-2xl text-[12px] font-bold active:scale-[0.98] transition"
                         style={{ background: SURFACE_2, color: TEXT }}>Ajustarlo</button>
@@ -2142,7 +2213,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         <div className="space-y-2.5">
           <button onClick={() => abrirArmador(null)}
             className="w-full py-3 rounded-2xl text-[13px] font-bold active:scale-[0.98] transition"
-            style={{ background: ACCENT, color: '#fff' }}>+ Armar un menú desde cero</button>
+            style={{ background: TEXT, color: '#fff' }}>+ Armar un menú desde cero</button>
 
           {misMenus.length === 0 && (
             <div className="text-center py-8 text-[12.5px] px-6" style={{ color: TEXT_LIGHT }}>
@@ -2174,7 +2245,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                 <div className="flex items-center gap-2">
                   <button onClick={() => abrirMercado(`Mercado · ${m.nombre}`, [d])}
                     className="flex-1 py-2 rounded-2xl text-[12px] font-bold active:scale-[0.98] transition flex items-center justify-center gap-1.5"
-                    style={{ background: ACCENT, color: '#fff' }}><ShoppingCart size={13} /> Mercado</button>
+                    style={{ background: TEXT, color: '#fff' }}><ShoppingCart size={13} /> Mercado</button>
                   <button onClick={() => abrirArmador(d)}
                     className="flex-1 py-2 rounded-2xl text-[12px] font-bold active:scale-[0.98] transition"
                     style={{ background: SURFACE_2, color: TEXT }}>Editar</button>
@@ -2219,7 +2290,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
           <button onClick={copiarMercado}
             className="w-full py-2.5 rounded-2xl text-[12.5px] font-bold active:scale-[0.98] transition flex items-center justify-center gap-1.5"
-            style={{ background: copiado ? ACCENT_DARK : ACCENT, color: '#fff' }}>
+            style={{ background: copiado ? ACCENT : TEXT, color: '#fff' }}>
             {copiado ? <><Check size={14} /> Copiada</> : <><Copy size={14} /> Copiar la lista</>}
           </button>
 
@@ -2299,7 +2370,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         <button onClick={() => { guardarEsteMenu(armando); setArmando(null); }}
           disabled={!armando.comidas.length}
           className="w-full py-3 rounded-2xl text-[13px] font-bold active:scale-[0.98] transition"
-          style={{ background: armando.comidas.length ? ACCENT : BORDER, color: '#fff' }}>
+          style={{ background: armando.comidas.length ? TEXT : BORDER, color: '#fff' }}>
           Guardar menú
         </button>
         <div className="text-[10.5px] text-center" style={{ color: TEXT_LIGHT }}>
@@ -2362,9 +2433,15 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         background: 'linear-gradient(135deg, #3A4126 0%, #4A5238 55%, #6B7350 100%)',
       }}>
         <img
-          src="/recetario-hero.jpg"
+          src="/recetario-hero.png"
           alt=""
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          onError={(e) => {
+            // La foto puede subirse como .png o .jpg: se prueba la otra antes
+            // de rendirse, y si tampoco está queda el degradado oliva.
+            const el = e.currentTarget;
+            if (!el.dataset.retry) { el.dataset.retry = '1'; el.src = '/recetario-hero.jpg'; return; }
+            el.style.display = 'none';
+          }}
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
             objectFit: 'cover', objectPosition: 'center center',
@@ -2410,7 +2487,6 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             Ahora se elige primero qué se viene a hacer. */}
         {vista === 'inicio' && (
           <>
-            {avisoIngredientes}
             <button onClick={() => { haptic(8); setVista('recetas'); }}
               className="w-full text-left rounded-[22px] p-4 active:scale-[0.99] transition flex items-center gap-3.5"
               style={cardStyle}>
@@ -2450,8 +2526,6 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             <ChevronLeft size={15} /> Recetario
           </button>
         )}
-
-        {vista === 'recetas' && avisoIngredientes}
 
         {vista === 'menus' && vistaMenus}
 
@@ -2559,7 +2633,20 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           </div>
         )}
         </>)}
+
+        {/* Footer de marca — el mismo cierre que llevan las demás páginas */}
+        <div className="pt-6 pb-1 text-center">
+          <div style={{ width: 30, height: 1, background: BORDER, margin: '0 auto 14px' }} />
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 17, letterSpacing: '0.06em', color: TEXT }}>ENTRENA CON MÉTODO</div>
+          <div className="text-[10px] mt-1.5" style={{ color: TEXT_MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            Mauro Morón · ISSA Training and Nutrition Coach
+          </div>
+          <div className="text-[10px] mt-2.5" style={{ color: TEXT_LIGHT, letterSpacing: '0.04em' }}>
+            <span style={{ color: TEXT_MUTED, fontWeight: 600 }}>© 2026 Mauro Morón.</span> Todos los derechos reservados.
+          </div>
+        </div>
       </div>
+      {filtrosOverlay}
       {mercadoOverlay}
       {armadorOverlay}
       {detailOverlay}

@@ -31,6 +31,18 @@ import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
 // según modelo (Haiku: temperature 0; Sonnet 5: thinking off + effort).
 // Apagar el híbrido (todo Sonnet): HYBRID_MODELS = false.
 // Validación: node scripts/bateria.mjs --model=both  compara ambos modelos.
+// ── Tarjeta protagonista de Hoy (la de los aros) ──────────────────────────
+// Todas las demás tarjetas de la app son blancas. Esta es la que importa —
+// el estado del día — y en blanco quedaba como una más. Va en grafito: no
+// compite con nada, y es el color primario de la marca (el oliva se reserva
+// para acentos y confirmación). Sobre oscuro, además, los aros de macros
+// ganan mucho más brillo del que tenían sobre blanco.
+const HOY_HERO_BG = 'linear-gradient(158deg, #33332E 0%, #232320 46%, #1C1C19 100%)';
+const HOY_INK = '#F3EFE4';                        // tinta principal
+const HOY_INK_SOFT = 'rgba(243,239,228,0.66)';    // secundaria
+const HOY_INK_FAINT = 'rgba(243,239,228,0.46)';   // terciaria
+const HOY_OLIVE = '#C3D093';                      // oliva claro, legible sobre grafito
+
 const MODEL_SMART = 'claude-sonnet-5';
 const MODEL_FAST = 'claude-haiku-4-5-20251001';
 const HYBRID_MODELS = true;
@@ -4792,29 +4804,51 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             background: 'linear-gradient(0deg, #EDECE5 0%, #EDECE5 48%, rgba(237,236,229,0.72) 68%, rgba(237,236,229,0.32) 85%, rgba(237,236,229,0) 100%)',
           }} />
           <div className="relative max-w-2xl mx-auto px-5">
-            {/* Subtítulo normal: caja alta + tracking ancho es lenguaje de
-                etiqueta, no de fecha, y en pantalla se lee como plantilla. */}
-            <div className="text-[12.5px] font-semibold" style={{ color: ACCENT, letterSpacing: '-0.01em', marginTop: '6px' }}>
-              {capFirst(formatDate(today))}
-            </div>
-            {/* Mismo tipo que el hero del centro de aprendizaje (.em-hero-name):
-                Bebas, cuerpo grande y line-height apretado. Las dos entradas
-                a la marca — "Hola X" aquí y el nombre allá — se leen igual. */}
+            {/* PORTADA DE HOY — curva, sin foto.
+                Hoy es la primera pantalla que se ve y no tenía portada: el
+                color quedaba tan diluido que la entrada se sentía plana. Aquí
+                el color HACE de portada, con el borde inferior curvo para que
+                no sea otro rectángulo más.
+                A propósito NO lleva foto: Hoy se abre muchas veces al día y
+                una imagen empujaría los aros y las comidas fuera de la
+                pantalla. La portada la envuelve el saludo que ya estaba, así
+                que no roba ni un píxel de alto. */}
             <div style={{
-              color: TEXT, fontFamily: FONT_DISPLAY, fontWeight: 400,
-              fontSize: '42px', letterSpacing: '0.015em', marginTop: '4px', lineHeight: 0.94,
+              marginLeft: '-20px', marginRight: '-20px',
+              marginTop: '-10px', padding: '20px 20px 26px',
+              borderBottomLeftRadius: '40px', borderBottomRightRadius: '40px',
+              background: `radial-gradient(70% 90% at 88% 0%, rgba(126,188,168,0.62), transparent 72%),
+                radial-gradient(64% 82% at 4% 16%, rgba(238,168,138,0.52), transparent 74%),
+                radial-gradient(58% 76% at 44% 4%, rgba(246,218,156,0.46), transparent 74%),
+                radial-gradient(80% 100% at 50% 108%, rgba(255,255,255,0.92), transparent 70%),
+                linear-gradient(180deg, rgba(255,255,255,0.30), rgba(237,236,229,0.85))`,
+              boxShadow: '0 10px 26px rgba(96,102,72,0.07)',
             }}>
-              Hola{name ? `, ${name.split(' ')[0]}` : ''}
+              {/* Subtítulo normal: caja alta + tracking ancho es lenguaje de
+                  etiqueta, no de fecha, y en pantalla se lee como plantilla. */}
+              <div className="text-[12.5px] font-semibold" style={{ color: ACCENT_DARK, letterSpacing: '-0.01em' }}>
+                {capFirst(formatDate(today))}
+              </div>
+              {/* Mismo tipo que el hero del centro de aprendizaje (.em-hero-name):
+                  Bebas, cuerpo grande y line-height apretado. Las dos entradas
+                  a la marca — "Hola X" aquí y el nombre allá — se leen igual. */}
+              <div style={{
+                color: TEXT, fontFamily: FONT_DISPLAY, fontWeight: 400,
+                fontSize: '42px', letterSpacing: '0.015em', marginTop: '4px', lineHeight: 0.94,
+              }}>
+                Hola{name ? `, ${name.split(' ')[0]}` : ''}
+              </div>
+              <div style={{ width: 44, height: 2, borderRadius: 2, background: ACCENT, marginTop: 8, opacity: 0.75 }} />
+              {streak >= 2 ? (
+                <div className="text-[13.5px]" style={{ color: TEXT_MUTED, marginTop: '8px' }}>
+                  {streak} días seguidos registrando. Sigamos.
+                </div>
+              ) : (
+                <div className="text-[13.5px]" style={{ color: TEXT_MUTED, marginTop: '8px' }}>
+                  {totals.kcal > 0 ? 'Ya registraste hoy. Un día a la vez.' : 'Registra tu primera comida cuando la tengas.'}
+                </div>
+              )}
             </div>
-            {streak >= 2 ? (
-              <div className="text-[13.5px]" style={{ color: TEXT_MUTED, marginTop: '4px' }}>
-                {streak} días seguidos registrando. Sigamos.
-              </div>
-            ) : (
-              <div className="text-[13.5px]" style={{ color: TEXT_MUTED, marginTop: '4px' }}>
-                {totals.kcal > 0 ? 'Ya registraste hoy. Un día a la vez.' : 'Registra tu primera comida cuando la tengas.'}
-              </div>
-            )}
 
             {/* Aviso de pago también en Hoy (mismo componente que el chat):
                 es la pantalla de aterrizaje, no puede pasar desapercibido. */}
@@ -4823,17 +4857,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             {/* Héroe del día — GLASS: el degradado quedó en el fondo de la
                 página; la tarjeta es vidrio esmerilado con sombra premium. */}
             <div className="relative overflow-hidden" style={{
-              marginTop: '16px', borderRadius: '26px', padding: '20px',
-              // Más transparente y blur más corto: las manchas del fondo se
-              // VEN a través del vidrio (antes el 0.55 + blur 18 las tapaba).
-              background: 'rgba(255,255,255,0.40)',
-              backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-              boxShadow: '0 1px 0 rgba(255,255,255,0.80) inset, 0 16px 38px rgba(96,102,72,0.13), 0 3px 10px rgba(96,102,72,0.06)',
+              marginTop: '16px', borderRadius: '32px', padding: '22px 20px',
+              background: HOY_HERO_BG,
+              boxShadow: '0 1px 0 rgba(255,255,255,0.10) inset, 0 18px 44px rgba(28,28,25,0.30), 0 4px 12px rgba(28,28,25,0.18)',
             }}>
               {!goals ? (
                 <div className="relative text-center py-3">
-                  <div className="text-[14px] font-bold" style={{ color: TEXT }}>🎯 Tu coach está preparando tu meta</div>
-                  <div className="text-[12px] mt-1" style={{ color: TEXT_MUTED }}>Mientras tanto, cuéntame en el chat qué comes y llevo tus totales.</div>
+                  <div className="text-[14px] font-bold" style={{ color: HOY_INK }}>🎯 Tu coach está preparando tu meta</div>
+                  <div className="text-[12px] mt-1" style={{ color: HOY_INK_SOFT }}>Mientras tanto, cuéntame en el chat qué comes y llevo tus totales.</div>
                 </div>
               ) : (
                 <>
@@ -4845,16 +4876,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       pct={Math.min(100, Math.round((totals.kcal / (goals.kcal || 1)) * 100))}
                       gradId="ring-kcal"
                       stops={[['0%', '#A8B56B'], ['55%', ACCENT], ['100%', ACCENT_DARK]]}
-                      track="rgba(138,149,88,0.14)"
-                      shadow="drop-shadow(0 5px 10px rgba(74,82,56,0.30))">
-                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : TEXT, fontWeight: 500, fontSize: '16px' }}>
+                      track="rgba(243,239,228,0.14)"
+                      shadow="drop-shadow(0 5px 12px rgba(0,0,0,0.45))">
+                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : HOY_INK, fontWeight: 500, fontSize: '16px' }}>
                         {Math.round((totals.kcal / (goals.kcal || 1)) * 100)}%
                       </div>
                     </RingGauge>
                     <div className="min-w-0">
-                      <div className="text-[12px] font-semibold" style={{ color: ACCENT_DARK, letterSpacing: '-0.01em' }}>Tu día · en vivo</div>
-                      <div className="num" style={{ color: TEXT, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
-                        <span style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : TEXT }}>{Math.round(totals.kcal).toLocaleString('es')}</span> / {Math.round(goals.kcal).toLocaleString('es')} kcal
+                      <div className="text-[12px] font-semibold" style={{ color: HOY_OLIVE, letterSpacing: '-0.01em' }}>Tu día · en vivo</div>
+                      <div className="num" style={{ color: HOY_INK, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
+                        <span style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : HOY_INK }}>{Math.round(totals.kcal).toLocaleString('es')}</span> <span style={{ color: HOY_INK_SOFT, fontWeight: 700 }}>/ {Math.round(goals.kcal).toLocaleString('es')} kcal</span>
                       </div>
                       {/* Celebrar SOLO cumplimiento real: kcal en ±5% de la
                           meta Y proteína bien (90-115%). Pasarse no es
@@ -4868,10 +4899,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                           </div>
                         );
                         if (ratio >= 0.95 && pOk) return (
-                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>Meta del día completa 🎉</div>
+                          <div className="text-[12.5px]" style={{ color: HOY_INK_SOFT, marginTop: '2px' }}>Meta del día completa 🎉</div>
                         );
                         if (ratio >= 0.95) return (
-                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>Calorías al día — revisa tu proteína</div>
+                          <div className="text-[12.5px]" style={{ color: HOY_INK_SOFT, marginTop: '2px' }}>Calorías al día — revisa tu proteína</div>
                         );
                         const faltan = Math.round(goals.kcal - totals.kcal);
                         // Frase según el tramo: acompaña sin inventar logros.
@@ -4881,8 +4912,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                           : ratio < 0.85 ? 'Ya casi, te queda poco'
                           : 'A un paso de tu meta';
                         return (
-                          <div className="text-[12.5px]" style={{ color: TEXT_MUTED, marginTop: '2px' }}>
-                            Te faltan {faltan} kcal · <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{nota}</span>
+                          <div className="text-[12.5px]" style={{ color: HOY_INK_SOFT, marginTop: '2px' }}>
+                            Te faltan {faltan} kcal · <span style={{ color: HOY_OLIVE, fontWeight: 600 }}>{nota}</span>
                           </div>
                         );
                       })()}
@@ -4899,13 +4930,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       <div key={mch.k} className="flex-1 flex flex-col items-center gap-1.5">
                         <RingGauge size={56} stroke={5}
                           pct={Math.min(100, Math.round((mch.v / (mch.g || 1)) * 100))}
-                          color={mch.c} track="rgba(31,31,31,0.07)"
-                          shadow="drop-shadow(0 3px 7px rgba(60,66,42,0.18))">
-                          <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER_SOFT : TEXT, fontWeight: 500, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
+                          color={mch.c} track="rgba(243,239,228,0.13)"
+                          shadow="drop-shadow(0 3px 8px rgba(0,0,0,0.40))">
+                          <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER_SOFT : HOY_INK, fontWeight: 500, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
                         </RingGauge>
                         <div className="text-center leading-tight">
-                          <div className="text-[9px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.09em' }}>{mch.k}</div>
-                          <div className="num text-[10px]" style={{ color: TEXT_LIGHT, fontWeight: 600, marginTop: '1px' }}>de {fmt0(mch.g)} g</div>
+                          <div className="text-[9px] font-bold uppercase" style={{ color: HOY_INK_FAINT, letterSpacing: '0.09em' }}>{mch.k}</div>
+                          <div className="num text-[10px]" style={{ color: HOY_INK_FAINT, fontWeight: 600, marginTop: '1px' }}>de {fmt0(mch.g)} g</div>
                         </div>
                       </div>
                     ))}
@@ -4922,12 +4953,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               {[
                 { label: 'Mi semana', icon: CalendarCheck, grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); } },
                 { label: 'Reto', icon: Mountain, grad: 'linear-gradient(135deg, #E09479, #C05E44)', onClick: () => { haptic(8); window.location.href = '/ranking'; } },
-                { label: 'Recordat.', icon: Bell, grad: 'linear-gradient(135deg, #7C8CA3, #4E5D74)', badge: coachReminders.filter(r => !r.done_at).length, onClick: () => { haptic(8); setActiveModal('reminders'); } },
+                { label: 'Recordat.', icon: Bell, grad: 'linear-gradient(135deg, #F7B733, #D68910)', badge: coachReminders.filter(r => !r.done_at).length, onClick: () => { haptic(8); setActiveModal('reminders'); } },
                 { label: 'Calendario', icon: Calendar, grad: 'linear-gradient(135deg, #74AECB, #3F81A6)', onClick: () => { haptic(8); setActiveModal('calendar'); } },
               ].map(tl => (
                 <button key={tl.label} onClick={tl.onClick}
-                  className="flex-1 rounded-[20px] py-3.5 px-1 text-center active:scale-95 transition relative"
-                  style={{ background: 'rgba(255,255,255,0.75)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 8px 22px rgba(96,102,72,0.09)' }}>
+                  className="flex-1 rounded-[26px] py-3.5 px-1 text-center active:scale-95 transition relative"
+                  style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 8px 22px rgba(96,102,72,0.10)' }}>
                   <div className="mx-auto rounded-[14px] grid place-items-center" style={{ width: '40px', height: '40px', background: tl.grad, marginBottom: '8px' }}>
                     <tl.icon size={18} strokeWidth={2} style={{ color: '#FFF' }} />
                   </div>
@@ -4944,7 +4975,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               Hoy
             </div>
             {entries.length === 0 ? (
-              <div className="rounded-[22px] p-5 text-center" style={{ background: 'rgba(255,255,255,0.75)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 8px 22px rgba(96,102,72,0.09)' }}>
+              <div className="rounded-[28px] p-5 text-center" style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 8px 22px rgba(96,102,72,0.10)' }}>
                 <div className="text-[14px] font-semibold" style={{ color: TEXT }}>Aún no registras nada hoy</div>
                 <div className="text-[12px] mt-1 mb-3" style={{ color: TEXT_MUTED }}>Dicta o escribe tu primera comida en el chat y la calculo al instante.</div>
                 <button onClick={() => { haptic(8); setTab('chat'); }}
@@ -4956,7 +4987,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             ) : (
               <div className="space-y-3">
                 {entries.map(e => (
-                  <div key={e.id} className="rounded-[22px] px-4 py-3.5" style={{ background: 'rgba(255,255,255,0.78)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 10px 30px rgba(96,102,72,0.10), 0 2px 6px rgba(96,102,72,0.06)' }}>
+                  <div key={e.id} className="rounded-[28px] px-4 py-3.5" style={{ background: 'rgba(255,255,255,0.93)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 10px 30px rgba(96,102,72,0.11), 0 2px 6px rgba(96,102,72,0.06)' }}>
                     <div className="flex items-baseline justify-between">
                       <span className="text-[12px] font-extrabold uppercase" style={{ color: ACCENT_DARK, letterSpacing: '0.06em' }}>{e.meal || 'comida'}{e.time ? <span style={{ color: TEXT_LIGHT, fontWeight: 600, marginLeft: '6px', textTransform: 'none', letterSpacing: 0 }}>{e.time}</span> : null}</span>
                       <span className="num text-[14px] font-extrabold" style={{ color: TEXT }}>{Math.round(e.kcal)} <span className="text-[10px] font-semibold" style={{ color: TEXT_LIGHT }}>kcal</span></span>
@@ -5120,14 +5151,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             bottom: 'calc(176px + env(safe-area-inset-bottom, 0px))',
             right: '20px',
             width: '46px', height: '46px',
-            background: 'linear-gradient(135deg, #FBEFCF 0%, #F7E7B5 100%), #FFF',
-            border: '1px solid rgba(255,255,255,0.7)',
-            boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 6px 20px rgba(180,140,20,0.25), 0 2px 4px rgba(0,0,0,0.08)',
+            background: 'linear-gradient(135deg, #F7B733 0%, #D68910 100%)',
+            border: '1px solid rgba(255,255,255,0.45)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.35) inset, 0 8px 22px rgba(180,140,20,0.42), 0 2px 6px rgba(0,0,0,0.12)',
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'transparent'
           }}
           title="Recordatorios de tu coach pendientes">
-          <Bell size={18} strokeWidth={2.2} style={{ color: '#8A6D16' }} />
+          <Bell size={18} strokeWidth={2.3} style={{ color: '#FFFFFF' }} />
           <span className="absolute rounded-full text-[10px] font-bold flex items-center justify-center"
             style={{ top: '-4px', right: '-4px', background: '#C75A4A', color: '#FFF', minWidth: '18px', height: '18px', padding: '0 4px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
             {coachReminders.filter(r => !r.done_at).length}
@@ -5840,7 +5871,7 @@ function ActionChipMini({ icon, label, color, pastel, grad, onClick }) {
         onClick?.();
       }}
       onClick={(e) => e.preventDefault()}
-      className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl active:scale-[0.97]"
+      className="flex items-center gap-2.5 px-3 py-2.5 rounded-[22px] active:scale-[0.97]"
       style={{
         background: '#FFFFFF',
         border: '1px solid rgba(60,70,50,0.07)',
