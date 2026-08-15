@@ -1461,9 +1461,17 @@ export default function MealTracker() {
       // conversación queda visible sobre la barra, y scrollear con el
       // teclado abierto es scroll nativo del contenedor (cero persecución).
       if (chatScrollRef.current) {
-        chatScrollRef.current.style.bottom = fromBottom > 0 ? `${fromBottom}px` : '';
+        const sc = chatScrollRef.current;
+        sc.style.bottom = fromBottom > 0 ? `${fromBottom}px` : '';
+        // Scroll BLOQUEADO mientras se escribe. Con el teclado abierto, iOS
+        // desplaza el visual viewport en cada gesto y las tres piezas fijas
+        // (píldora, metas, barra) llegan tarde a su nueva posición: eso es lo
+        // que se veía "descuadrado". Sin scroll no hay nada que perseguir.
+        // Se sale arrastrando: el gesto cierra el teclado (más abajo) y el
+        // scroll se devuelve solo.
+        sc.style.overflowY = kbOpen ? 'hidden' : '';
+        sc.style.overscrollBehavior = kbOpen ? 'none' : '';
         if (kbOpen && !keyboardOpenRef.current_prev) {
-          const sc = chatScrollRef.current;
           requestAnimationFrame(() => sc.scrollTo({ top: sc.scrollHeight, behavior: 'auto' }));
         }
       }
@@ -1491,10 +1499,7 @@ export default function MealTracker() {
       if (navBarRef.current) {
         navBarRef.current.style.visibility = kbOpen ? 'hidden' : '';
       }
-      if (goalsCardRef.current) {
-        goalsCardRef.current.style.visibility = kbOpen ? 'hidden' : '';
-        goalsCardRef.current.style.pointerEvents = kbOpen ? 'none' : '';
-      }
+
     };
     // rAF-throttle: los eventos del visual viewport llegan en ráfaga durante
     // el scroll y aplicar transforms en cada uno producía la vibración —
@@ -4425,7 +4430,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         pointerEvents: 'none',
         paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
         paddingBottom: '4px',
-        background: 'linear-gradient(180deg, rgba(237,236,229,0.92) 0%, rgba(237,236,229,0.70) 62%, rgba(237,236,229,0) 100%)',
       }}>
         <div className="max-w-2xl mx-auto px-4">
           <div className="inline-flex items-baseline gap-2 rounded-full" style={{
@@ -4785,15 +4789,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             // el glass de las tarjetas deja verlas a través.
             background: BG_STAINS,
           }} />
-          {/* DIFUMINADO superior (estilo Recetario): el contenido se diluye
-              hacia el borde de la pantalla al scrollear bajo la píldora de
-              marca. zIndex 5 > contenido (auto); la píldora (z-50) queda
-              por encima. */}
-          <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
-            zIndex: 5,
-            height: `${headerH + 26}px`,
-            background: 'linear-gradient(180deg, #EDECE5 30%, rgba(237,236,229,0.88) 62%, rgba(237,236,229,0) 100%)',
-          }} />
           {/* DIFUMINADO inferior: el contenido se diluye ANTES de pasar por
               detrás de la barra de opciones — la barra queda flotando encima
               del fade, no del contenido crudo. */}
@@ -4803,24 +4798,26 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             background: 'linear-gradient(0deg, #EDECE5 0%, #EDECE5 48%, rgba(237,236,229,0.72) 68%, rgba(237,236,229,0.32) 85%, rgba(237,236,229,0) 100%)',
           }} />
           <div className="relative max-w-2xl mx-auto px-5">
-            {/* PORTADA DE HOY — curva, sin foto.
-                Hoy es la primera pantalla que se ve y no tenía portada: el
-                color quedaba tan diluido que la entrada se sentía plana. Aquí
-                el color HACE de portada, con el borde inferior curvo para que
-                no sea otro rectángulo más.
-                A propósito NO lleva foto: Hoy se abre muchas veces al día y
-                una imagen empujaría los aros y las comidas fuera de la
-                pantalla. La portada la envuelve el saludo que ya estaba, así
-                que no roba ni un píxel de alto. */}
+            {/* PORTADA DE HOY — el color llega al BORDE de la pantalla.
+                Antes la franja arrancaba debajo de la píldora de marca y por
+                encima quedaba fondo liso, así que el color parecía una mancha
+                alrededor del nombre en vez de una portada. Ahora sube por
+                detrás de la píldora hasta el extremo superior (los márgenes
+                negativos cancelan el padding del scroller) y es OPACA: sin
+                velos ni difuminados encima que la laven.
+                Sin foto a propósito: Hoy se abre muchas veces al día y una
+                imagen empujaría los aros y las comidas fuera de pantalla. */}
             <div style={{
               marginLeft: '-20px', marginRight: '-20px',
-              marginTop: '-10px', padding: '20px 20px 26px',
+              marginTop: `calc(-${headerH + 10}px - 6px)`,
+              paddingTop: `calc(${headerH + 10}px + 14px)`,
+              paddingLeft: '20px', paddingRight: '20px', paddingBottom: '26px',
               borderBottomLeftRadius: '40px', borderBottomRightRadius: '40px',
-              background: `radial-gradient(70% 90% at 88% 0%, rgba(126,188,168,0.62), transparent 72%),
-                radial-gradient(64% 82% at 4% 16%, rgba(238,168,138,0.52), transparent 74%),
-                radial-gradient(58% 76% at 44% 4%, rgba(246,218,156,0.46), transparent 74%),
-                radial-gradient(80% 100% at 50% 108%, rgba(255,255,255,0.92), transparent 70%),
-                linear-gradient(180deg, rgba(255,255,255,0.30), rgba(237,236,229,0.85))`,
+              background: `radial-gradient(78% 62% at 88% 6%, #A9D8C6 0%, rgba(169,216,198,0) 72%),
+                radial-gradient(72% 58% at 2% 30%, #F3C2A8 0%, rgba(243,194,168,0) 74%),
+                radial-gradient(64% 52% at 46% 0%, #F7E3AE 0%, rgba(247,227,174,0) 74%),
+                radial-gradient(96% 70% at 50% 104%, #F6F4ED 0%, rgba(246,244,237,0) 72%),
+                linear-gradient(180deg, #E7E9DC 0%, #EDECE5 100%)`,
               boxShadow: '0 10px 26px rgba(96,102,72,0.07)',
             }}>
               {/* Subtítulo normal: caja alta + tracking ancho es lenguaje de
@@ -5009,17 +5006,19 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
             )}
 
-            {/* Footer — el mismo cierre del Centro de Recursos y del Recetario */}
-            <div className="pt-9 pb-2 text-center">
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, letterSpacing: '0.10em', color: TEXT }}>ENTRENA CON MÉTODO</div>
-              <div className="text-[10px] mt-1.5" style={{ color: TEXT_MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            {/* Footer — réplica exacta del de las páginas de Aprendizaje. */}
+            <div style={{ padding: '3rem 1rem 1.5rem', marginTop: '2rem', textAlign: 'center' }}>
+              <div style={{ width: 32, height: 1, background: ACCENT, margin: '0 auto 1.5rem' }} />
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: '18px', letterSpacing: '2px', color: TEXT, marginBottom: '.5rem' }}>
+                ENTRENA CON MÉTODO
+              </div>
+              <div style={{ fontSize: '11px', letterSpacing: '.5px', textTransform: 'uppercase', color: TEXT_LIGHT, marginBottom: '1rem' }}>
                 Mauro Morón · ISSA Training and Nutrition Coach
               </div>
-              <div style={{ width: 30, height: 1, background: BORDER, margin: '16px auto' }} />
-              <div className="text-[10px]" style={{ color: TEXT_LIGHT, letterSpacing: '0.05em' }}>
-                <span style={{ color: TEXT_MUTED, fontWeight: 600 }}>© 2026 Mauro Morón.</span> Todos los derechos reservados.
+              <div style={{ fontSize: '10px', letterSpacing: '.3px', color: TEXT_LIGHT, opacity: 0.7, lineHeight: 1.5 }}>
+                <strong style={{ color: TEXT_MUTED, fontWeight: 500 }}>© 2026 Mauro Morón.</strong> Todos los derechos reservados.
               </div>
-            </div>
+        </div>
           </div>
         </div>
       )}

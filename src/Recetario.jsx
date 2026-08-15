@@ -2077,8 +2077,6 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         </div>
       </div>
 
-      {avisoIngredientes}
-
       <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
         {[['dia', 'Un día'], ['semana', 'La semana'], ['mios', `Mis menús${misMenus.length ? ` (${misMenus.length})` : ''}`]].map(([k, l], i) => (
           <React.Fragment key={k}>
@@ -2260,6 +2258,11 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           )}
         </div>
       )}
+
+      {/* La nota va al FINAL: arriba se sumaba a la explicación y a las
+          pestañas y el bloque de texto retrasaba ver la primera propuesta.
+          Aquí cierra la sección, que es cuando de verdad hace falta leerla. */}
+      {avisoIngredientes}
     </>
   );
 
@@ -2398,15 +2401,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         zIndex: 0,
         background: BG_STAINS,
       }} />
-      {/* DIFUMINADOS de scroll: el contenido se desvanece bajo la píldora de
-          marca (arriba) y antes de la barra de navegación (abajo) en lugar de
-          "chocar" con ellas. zIndex 2 > contenido (1); la píldora y la barra
-          viven en el MealTracker por encima de todo el Recetario. */}
-      <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
-        zIndex: 2,
-        height: 'calc(env(safe-area-inset-top, 0px) + 66px)',
-        background: 'linear-gradient(180deg, #EDECE5 25%, rgba(237,236,229,0.88) 55%, rgba(237,236,229,0) 100%)',
-      }} />
+      {/* Solo queda el difuminado de ABAJO, que evita que el contenido choque
+          con la barra de navegación. Arriba no hay ninguno: la portada llega
+          limpia hasta el borde. */}
       <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
         zIndex: 2,
         height: 'calc(128px + env(safe-area-inset-bottom, 0px))',
@@ -2423,50 +2420,36 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       {/* Sin header negro ni botón "atrás": la píldora de marca flota arriba
           (viene del MealTracker) y se vuelve con la barra de navegación.
           El paddingTop despeja esa píldora; el paddingBottom, la barra. */}
-      {/* PORTADA — mismo patrón que las portadas del Centro de Recursos:
-          foto a sangre, más alta, y el borde inferior DIFUMINADO con una
-          máscara en vez de cortarse en seco. Ese corte era la "línea blanca"
-          fea: la foto terminaba de golpe contra el fondo crema.
+      {/* PORTADA — la foto ocupa TODO el ancho y todo el alto de la franja,
+          de borde a borde de la pantalla, y termina en un corte limpio: sin
+          máscaras ni difuminados que la diluyan por arriba o por abajo.
           La imagen va en public/recetario-hero.png (o .jpg); si no está,
           queda el degradado oliva y nada se rompe. */}
-      <div className="relative w-full" style={{
+      <div className="relative w-full overflow-hidden" style={{
         zIndex: 1,
-        height: 'calc(env(safe-area-inset-top, 0px) + 232px)',
-        marginBottom: '-26px',
-        background: `radial-gradient(ellipse at 85% 12%, rgba(169,180,120,0.38), rgba(169,180,120,0.12) 40%, transparent 65%),
-          radial-gradient(ellipse at 10% 100%, rgba(138,149,88,0.26), transparent 60%),
-          linear-gradient(180deg, #23231F 0%, #2C2C26 54%, ${BG} 100%)`,
+        height: 'calc(env(safe-area-inset-top, 0px) + 236px)',
+        background: 'linear-gradient(135deg, #3A4126 0%, #4A5238 55%, #6B7350 100%)',
       }}>
-        <div style={{
-          position: 'absolute', inset: 0, overflow: 'hidden',
-          // La máscara apaga la foto hacia abajo: el degradado del contenedor
-          // asoma por debajo y la portada se funde con la página.
-          WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 46%, rgba(0,0,0,0.55) 76%, rgba(0,0,0,0) 99%)',
-          maskImage: 'linear-gradient(180deg, #000 0%, #000 46%, rgba(0,0,0,0.55) 76%, rgba(0,0,0,0) 99%)',
-        }}>
-          <img
-            src="/recetario-hero.png"
-            alt=""
-            onError={(e) => {
-              // La foto puede subirse como .png o .jpg: se prueba la otra
-              // antes de rendirse, y si tampoco está queda el degradado.
-              const el = e.currentTarget;
-              if (!el.dataset.retry) { el.dataset.retry = '1'; el.src = '/recetario-hero.jpg'; return; }
-              el.style.display = 'none';
-            }}
-            style={{
-              position: 'absolute', inset: 0, width: '100%', height: '100%',
-              objectFit: 'cover', objectPosition: 'center center',
-              filter: 'saturate(0.88) brightness(0.80)',
-            }}
-          />
-        </div>
-        {/* Velo para que el texto se lea sobre cualquier foto */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(180deg, rgba(18,18,17,0.30) 0%, rgba(18,18,17,0.34) 46%, rgba(18,18,17,0.20) 78%, rgba(18,18,17,0) 100%)',
-        }} />
-        <div className="relative max-w-xl mx-auto px-4 h-full flex flex-col justify-end" style={{ paddingBottom: '34px' }}>
+        <img
+          src="/recetario-hero.png"
+          alt=""
+          onError={(e) => {
+            // La foto puede subirse como .png o .jpg: se prueba la otra antes
+            // de rendirse, y si tampoco está queda el degradado oliva.
+            const el = e.currentTarget;
+            if (!el.dataset.retry) { el.dataset.retry = '1'; el.src = '/recetario-hero.jpg'; return; }
+            el.style.display = 'none';
+          }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', objectPosition: 'center center',
+            filter: 'saturate(0.88) brightness(0.82)',
+          }}
+        />
+        {/* Velo parejo para que el título se lea sobre cualquier foto. No es
+            un difuminado de borde: oscurece igual de arriba a abajo. */}
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(18,18,17,0.38)' }} />
+        <div className="relative max-w-xl mx-auto px-4 h-full flex flex-col justify-end" style={{ paddingBottom: '20px' }}>
           <div className="text-[10.5px] font-bold uppercase" style={{ color: '#DCE2C4', letterSpacing: '0.16em', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>Entrena con Método</div>
           <div style={{
             color: '#FFFFFF', fontFamily: FONT_DISPLAY, fontWeight: 400,
@@ -2646,15 +2629,18 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         )}
         </>)}
 
-        {/* Footer — el mismo cierre, palabra por palabra, del Centro de Recursos */}
-        <div className="pt-8 pb-2 text-center">
-          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, letterSpacing: '0.10em', color: TEXT }}>ENTRENA CON MÉTODO</div>
-          <div className="text-[10px] mt-1.5" style={{ color: TEXT_MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        {/* Footer — réplica exacta del de las páginas de Aprendizaje:
+            misma jerarquía, mismos tamaños, mismo texto. */}
+        <div style={{ padding: '3rem 1rem 1.5rem', marginTop: '2rem', textAlign: 'center' }}>
+          <div style={{ width: 32, height: 1, background: ACCENT, margin: '0 auto 1.5rem' }} />
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: '18px', letterSpacing: '2px', color: TEXT, marginBottom: '.5rem' }}>
+            ENTRENA CON MÉTODO
+          </div>
+          <div style={{ fontSize: '11px', letterSpacing: '.5px', textTransform: 'uppercase', color: TEXT_LIGHT, marginBottom: '1rem' }}>
             Mauro Morón · ISSA Training and Nutrition Coach
           </div>
-          <div style={{ width: 30, height: 1, background: BORDER, margin: '16px auto' }} />
-          <div className="text-[10px]" style={{ color: TEXT_LIGHT, letterSpacing: '0.05em' }}>
-            <span style={{ color: TEXT_MUTED, fontWeight: 600 }}>© 2026 Mauro Morón.</span> Todos los derechos reservados.
+          <div style={{ fontSize: '10px', letterSpacing: '.3px', color: TEXT_LIGHT, opacity: 0.7, lineHeight: 1.5 }}>
+            <strong style={{ color: TEXT_MUTED, fontWeight: 500 }}>© 2026 Mauro Morón.</strong> Todos los derechos reservados.
           </div>
         </div>
       </div>
