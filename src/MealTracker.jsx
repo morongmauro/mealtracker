@@ -31,18 +31,6 @@ import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
 // según modelo (Haiku: temperature 0; Sonnet 5: thinking off + effort).
 // Apagar el híbrido (todo Sonnet): HYBRID_MODELS = false.
 // Validación: node scripts/bateria.mjs --model=both  compara ambos modelos.
-// ── Tarjeta protagonista de Hoy (la de los aros) ──────────────────────────
-// Todas las demás tarjetas de la app son blancas. Esta es la que importa —
-// el estado del día — y en blanco quedaba como una más. Va en grafito: no
-// compite con nada, y es el color primario de la marca (el oliva se reserva
-// para acentos y confirmación). Sobre oscuro, además, los aros de macros
-// ganan mucho más brillo del que tenían sobre blanco.
-const HOY_HERO_BG = 'linear-gradient(158deg, #33332E 0%, #232320 46%, #1C1C19 100%)';
-const HOY_INK = '#F3EFE4';                        // tinta principal
-const HOY_INK_SOFT = 'rgba(243,239,228,0.66)';    // secundaria
-const HOY_INK_FAINT = 'rgba(243,239,228,0.46)';   // terciaria
-const HOY_OLIVE = '#C3D093';                      // oliva claro, legible sobre grafito
-
 const MODEL_SMART = 'claude-sonnet-5';
 const MODEL_FAST = 'claude-haiku-4-5-20251001';
 const HYBRID_MODELS = true;
@@ -1502,6 +1490,10 @@ export default function MealTracker() {
       // a pegarse al teclado); se oculta y reaparece al cerrarlo.
       if (navBarRef.current) {
         navBarRef.current.style.visibility = kbOpen ? 'hidden' : '';
+      }
+      if (goalsCardRef.current) {
+        goalsCardRef.current.style.visibility = kbOpen ? 'hidden' : '';
+        goalsCardRef.current.style.pointerEvents = kbOpen ? 'none' : '';
       }
     };
     // rAF-throttle: los eventos del visual viewport llegan en ráfaga durante
@@ -4433,6 +4425,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         pointerEvents: 'none',
         paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
         paddingBottom: '4px',
+        background: 'linear-gradient(180deg, rgba(237,236,229,0.92) 0%, rgba(237,236,229,0.70) 62%, rgba(237,236,229,0) 100%)',
       }}>
         <div className="max-w-2xl mx-auto px-4">
           <div className="inline-flex items-baseline gap-2 rounded-full" style={{
@@ -4529,9 +4522,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             dice. */}
         <div className="rounded-3xl relative" style={{
           padding: cardCompact ? '11px 14px' : '16px',
-          background: 'rgba(255,255,255,0.95)',
-          border: '1px solid rgba(255,255,255,0.7)',
-          boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 8px 28px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
+          // Se perdía contra el fondo: blanco al 95% sobre un fondo crema
+          // claro, con un borde también blanco. Oscurecerla era demasiado
+          // (es una tarjeta de datos, no un CTA), así que el contraste sale
+          // de tres cosas suaves: blanco PURO y opaco en vez de translúcido,
+          // un contorno grafito muy tenue en lugar del borde blanco que la
+          // fundía, y una sombra más profunda que la despega de la página.
+          background: '#FFFFFF',
+          border: '1px solid rgba(31,31,31,0.09)',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 10px 30px rgba(45,48,32,0.13), 0 2px 6px rgba(45,48,32,0.07)',
           overflow: 'hidden',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)'
         }}>
@@ -4854,89 +4853,89 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 es la pantalla de aterrizaje, no puede pasar desapercibido. */}
             {paymentDue && <PaymentNotice info={paymentDue} style={{ marginTop: '16px' }} />}
 
-            {/* Héroe del día — GLASS: el degradado quedó en el fondo de la
-                página; la tarjeta es vidrio esmerilado con sombra premium. */}
+            {/* Estado del día. Antes ocupaba muchísimo alto: un aro grande de
+                86px con su bloque de texto al lado, y DEBAJO otra fila con los
+                tres aros de macros. Ahora los cuatro aros van en una sola fila
+                y el texto encima — misma información, casi la mitad de alto,
+                y los cuatro se leen de una pasada en vez de en dos zonas. */}
             <div className="relative overflow-hidden" style={{
-              marginTop: '16px', borderRadius: '32px', padding: '22px 20px',
-              background: HOY_HERO_BG,
-              boxShadow: '0 1px 0 rgba(255,255,255,0.10) inset, 0 18px 44px rgba(28,28,25,0.30), 0 4px 12px rgba(28,28,25,0.18)',
+              marginTop: '14px', borderRadius: '28px', padding: '16px 14px 14px',
+              background: 'rgba(255,255,255,0.93)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 10px 30px rgba(96,102,72,0.11), 0 2px 6px rgba(96,102,72,0.06)',
             }}>
               {!goals ? (
                 <div className="relative text-center py-3">
-                  <div className="text-[14px] font-bold" style={{ color: HOY_INK }}>🎯 Tu coach está preparando tu meta</div>
-                  <div className="text-[12px] mt-1" style={{ color: HOY_INK_SOFT }}>Mientras tanto, cuéntame en el chat qué comes y llevo tus totales.</div>
+                  <div className="text-[14px] font-bold" style={{ color: TEXT }}>🎯 Tu coach está preparando tu meta</div>
+                  <div className="text-[12px] mt-1" style={{ color: TEXT_MUTED }}>Mientras tanto, cuéntame en el chat qué comes y llevo tus totales.</div>
                 </div>
               ) : (
                 <>
-                  <div className="relative flex items-center gap-4">
-                    {/* Aro principal FINO (trazo 7px) con degradado oliva del
-                        logo, punta redonda, centro transparente (glass) y
-                        sombra premium en el trazo mismo. */}
-                    <RingGauge size={86} stroke={7}
-                      pct={Math.min(100, Math.round((totals.kcal / (goals.kcal || 1)) * 100))}
-                      gradId="ring-kcal"
-                      stops={[['0%', '#A8B56B'], ['55%', ACCENT], ['100%', ACCENT_DARK]]}
-                      track="rgba(243,239,228,0.14)"
-                      shadow="drop-shadow(0 5px 12px rgba(0,0,0,0.45))">
-                      <div className="num" style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : HOY_INK, fontWeight: 500, fontSize: '16px' }}>
-                        {Math.round((totals.kcal / (goals.kcal || 1)) * 100)}%
-                      </div>
-                    </RingGauge>
+                  <div className="relative flex items-baseline justify-between gap-2 px-1">
                     <div className="min-w-0">
-                      <div className="text-[12px] font-semibold" style={{ color: HOY_OLIVE, letterSpacing: '-0.01em' }}>Tu día · en vivo</div>
-                      <div className="num" style={{ color: HOY_INK, fontSize: '19px', fontWeight: 800, marginTop: '3px' }}>
-                        <span style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : HOY_INK }}>{Math.round(totals.kcal).toLocaleString('es')}</span> <span style={{ color: HOY_INK_SOFT, fontWeight: 700 }}>/ {Math.round(goals.kcal).toLocaleString('es')} kcal</span>
+                      <div className="num" style={{ color: TEXT, fontSize: '19px', fontWeight: 800, lineHeight: 1.1 }}>
+                        <span style={{ color: totals.kcal > goals.kcal * 1.05 ? DANGER_SOFT : TEXT }}>{Math.round(totals.kcal).toLocaleString('es')}</span>
+                        <span style={{ color: TEXT_LIGHT, fontWeight: 700, fontSize: '14px' }}> / {Math.round(goals.kcal).toLocaleString('es')} kcal</span>
                       </div>
-                      {/* Celebrar SOLO cumplimiento real: kcal en ±5% de la
-                          meta Y proteína bien (90-115%). Pasarse no es
-                          fiesta: el exceso se dice claro y en rojo. */}
-                      {(() => {
-                        const ratio = totals.kcal / (goals.kcal || 1);
-                        const pOk = !goals.p || (totals.p >= goals.p * 0.9 && totals.p <= goals.p * 1.15);
-                        if (ratio > 1.05) return (
-                          <div className="text-[12.5px] font-semibold" style={{ color: DANGER_SOFT, marginTop: '2px' }}>
-                            Te excediste por {Math.round(totals.kcal - goals.kcal)} kcal
-                          </div>
-                        );
-                        if (ratio >= 0.95 && pOk) return (
-                          <div className="text-[12.5px]" style={{ color: HOY_INK_SOFT, marginTop: '2px' }}>Meta del día completa 🎉</div>
-                        );
-                        if (ratio >= 0.95) return (
-                          <div className="text-[12.5px]" style={{ color: HOY_INK_SOFT, marginTop: '2px' }}>Calorías al día — revisa tu proteína</div>
-                        );
-                        const faltan = Math.round(goals.kcal - totals.kcal);
-                        // Frase según el tramo: acompaña sin inventar logros.
-                        const nota = ratio === 0 ? 'Arranca cuando comas'
-                          : ratio < 0.3 ? 'Vas empezando el día'
-                          : ratio < 0.6 ? 'Buen ritmo, sigue así'
-                          : ratio < 0.85 ? 'Ya casi, te queda poco'
-                          : 'A un paso de tu meta';
-                        return (
-                          <div className="text-[12.5px]" style={{ color: HOY_INK_SOFT, marginTop: '2px' }}>
-                            Te faltan {faltan} kcal · <span style={{ color: HOY_OLIVE, fontWeight: 600 }}>{nota}</span>
-                          </div>
-                        );
-                      })()}
                     </div>
+                    <div className="text-[11px] font-semibold flex-shrink-0" style={{ color: ACCENT_DARK }}>Tu día · en vivo</div>
                   </div>
-                  {/* Macros: mismos aros finos que el principal, uno por
-                      macro, centro sin relleno con los gramos adentro. */}
-                  <div className="relative flex mt-4">
+
+                  {/* Frase de estado — celebra SOLO cumplimiento real: kcal en
+                      ±5% de la meta Y proteína bien (90-115%). Pasarse no es
+                      fiesta: el exceso se dice claro y en rojo. */}
+                  {(() => {
+                    const ratio = totals.kcal / (goals.kcal || 1);
+                    const pOk = !goals.p || (totals.p >= goals.p * 0.9 && totals.p <= goals.p * 1.15);
+                    if (ratio > 1.05) return (
+                      <div className="text-[12px] font-semibold px-1" style={{ color: DANGER_SOFT, marginTop: '3px' }}>
+                        Te excediste por {Math.round(totals.kcal - goals.kcal)} kcal
+                      </div>
+                    );
+                    if (ratio >= 0.95 && pOk) return (
+                      <div className="text-[12px] px-1" style={{ color: TEXT_MUTED, marginTop: '3px' }}>Meta del día completa 🎉</div>
+                    );
+                    if (ratio >= 0.95) return (
+                      <div className="text-[12px] px-1" style={{ color: TEXT_MUTED, marginTop: '3px' }}>Calorías al día — revisa tu proteína</div>
+                    );
+                    const faltan = Math.round(goals.kcal - totals.kcal);
+                    const nota = ratio === 0 ? 'Arranca cuando comas'
+                      : ratio < 0.3 ? 'Vas empezando el día'
+                      : ratio < 0.6 ? 'Buen ritmo, sigue así'
+                      : ratio < 0.85 ? 'Ya casi, te queda poco'
+                      : 'A un paso de tu meta';
+                    return (
+                      <div className="text-[12px] px-1" style={{ color: TEXT_MUTED, marginTop: '3px' }}>
+                        Te faltan {faltan} kcal · <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{nota}</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Los CUATRO aros en una fila: calorías primero y algo más
+                      grande (es la cifra que manda), luego los tres macros. */}
+                  <div className="relative flex items-start mt-3.5">
                     {[
-                      { k: 'Proteína', v: totals.p, g: goals.p, c: C_PROTEIN },
-                      { k: 'Carbos', v: totals.c, g: goals.c, c: C_CARBS },
-                      { k: 'Grasas', v: totals.g, g: goals.g, c: C_FAT },
+                      { k: 'kcal', v: totals.kcal, g: goals.kcal, c: ACCENT, size: 62, u: '', grad: true },
+                      { k: 'Proteína', v: totals.p, g: goals.p, c: C_PROTEIN, size: 54, u: 'g' },
+                      { k: 'Carbos', v: totals.c, g: goals.c, c: C_CARBS, size: 54, u: 'g' },
+                      { k: 'Grasas', v: totals.g, g: goals.g, c: C_FAT, size: 54, u: 'g' },
                     ].map(mch => (
                       <div key={mch.k} className="flex-1 flex flex-col items-center gap-1.5">
-                        <RingGauge size={56} stroke={5}
+                        <RingGauge size={mch.size} stroke={mch.grad ? 6 : 5}
                           pct={Math.min(100, Math.round((mch.v / (mch.g || 1)) * 100))}
-                          color={mch.c} track="rgba(243,239,228,0.13)"
-                          shadow="drop-shadow(0 3px 8px rgba(0,0,0,0.40))">
-                          <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER_SOFT : HOY_INK, fontWeight: 500, fontSize: '11.5px' }}>{fmt1(mch.v)}</div>
+                          color={mch.c}
+                          gradId={mch.grad ? 'ring-kcal' : null}
+                          stops={mch.grad ? [['0%', '#A8B56B'], ['55%', ACCENT], ['100%', ACCENT_DARK]] : null}
+                          track={mch.grad ? 'rgba(138,149,88,0.14)' : 'rgba(31,31,31,0.07)'}
+                          shadow={mch.grad ? 'drop-shadow(0 4px 9px rgba(74,82,56,0.28))' : 'drop-shadow(0 3px 7px rgba(60,66,42,0.18))'}>
+                          <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER_SOFT : TEXT, fontWeight: 500, fontSize: mch.grad ? '13px' : '11.5px' }}>
+                            {mch.grad ? `${Math.round((mch.v / (mch.g || 1)) * 100)}%` : fmt1(mch.v)}
+                          </div>
                         </RingGauge>
                         <div className="text-center leading-tight">
-                          <div className="text-[9px] font-bold uppercase" style={{ color: HOY_INK_FAINT, letterSpacing: '0.09em' }}>{mch.k}</div>
-                          <div className="num text-[10px]" style={{ color: HOY_INK_FAINT, fontWeight: 600, marginTop: '1px' }}>de {fmt0(mch.g)} g</div>
+                          <div className="text-[9px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.08em' }}>{mch.k}</div>
+                          <div className="num text-[9.5px]" style={{ color: TEXT_LIGHT, fontWeight: 600, marginTop: '1px' }}>
+                            {mch.grad ? `${fmt0(mch.v)}/${fmt0(mch.g)}` : `de ${fmt0(mch.g)} ${mch.u}`}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -4953,14 +4952,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               {[
                 { label: 'Mi semana', icon: CalendarCheck, grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); } },
                 { label: 'Reto', icon: Mountain, grad: 'linear-gradient(135deg, #E09479, #C05E44)', onClick: () => { haptic(8); window.location.href = '/ranking'; } },
-                { label: 'Recordat.', icon: Bell, grad: 'linear-gradient(135deg, #F7B733, #D68910)', badge: coachReminders.filter(r => !r.done_at).length, onClick: () => { haptic(8); setActiveModal('reminders'); } },
+                { label: 'Recordat.', icon: Bell, ink: '#6B4E05', grad: 'linear-gradient(135deg, #FFD95C, #F0AE22)', badge: coachReminders.filter(r => !r.done_at).length, onClick: () => { haptic(8); setActiveModal('reminders'); } },
                 { label: 'Calendario', icon: Calendar, grad: 'linear-gradient(135deg, #74AECB, #3F81A6)', onClick: () => { haptic(8); setActiveModal('calendar'); } },
               ].map(tl => (
                 <button key={tl.label} onClick={tl.onClick}
                   className="flex-1 rounded-[26px] py-3.5 px-1 text-center active:scale-95 transition relative"
                   style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 8px 22px rgba(96,102,72,0.10)' }}>
                   <div className="mx-auto rounded-[14px] grid place-items-center" style={{ width: '40px', height: '40px', background: tl.grad, marginBottom: '8px' }}>
-                    <tl.icon size={18} strokeWidth={2} style={{ color: '#FFF' }} />
+                    <tl.icon size={18} strokeWidth={tl.ink ? 2.3 : 2} style={{ color: tl.ink || '#FFF' }} />
                   </div>
                   {tl.badge > 0 && (
                     <span className="absolute rounded-full text-[10px] font-bold grid place-items-center" style={{ top: '8px', right: '14px', background: DANGER, color: '#FFF', minWidth: '17px', height: '17px', padding: '0 4px' }}>{tl.badge}</span>
@@ -5009,6 +5008,18 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 ))}
               </div>
             )}
+
+            {/* Footer — el mismo cierre del Centro de Recursos y del Recetario */}
+            <div className="pt-9 pb-2 text-center">
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, letterSpacing: '0.10em', color: TEXT }}>ENTRENA CON MÉTODO</div>
+              <div className="text-[10px] mt-1.5" style={{ color: TEXT_MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                Mauro Morón · ISSA Training and Nutrition Coach
+              </div>
+              <div style={{ width: 30, height: 1, background: BORDER, margin: '16px auto' }} />
+              <div className="text-[10px]" style={{ color: TEXT_LIGHT, letterSpacing: '0.05em' }}>
+                <span style={{ color: TEXT_MUTED, fontWeight: 600 }}>© 2026 Mauro Morón.</span> Todos los derechos reservados.
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -5151,14 +5162,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             bottom: 'calc(176px + env(safe-area-inset-bottom, 0px))',
             right: '20px',
             width: '46px', height: '46px',
-            background: 'linear-gradient(135deg, #F7B733 0%, #D68910 100%)',
+            background: 'linear-gradient(135deg, #FFD95C 0%, #F0AE22 100%)',
             border: '1px solid rgba(255,255,255,0.45)',
             boxShadow: '0 1px 0 rgba(255,255,255,0.35) inset, 0 8px 22px rgba(180,140,20,0.42), 0 2px 6px rgba(0,0,0,0.12)',
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'transparent'
           }}
           title="Recordatorios de tu coach pendientes">
-          <Bell size={18} strokeWidth={2.3} style={{ color: '#FFFFFF' }} />
+          <Bell size={18} strokeWidth={2.4} style={{ color: '#6B4E05' }} />
           <span className="absolute rounded-full text-[10px] font-bold flex items-center justify-center"
             style={{ top: '-4px', right: '-4px', background: '#C75A4A', color: '#FFF', minWidth: '18px', height: '18px', padding: '0 4px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
             {coachReminders.filter(r => !r.done_at).length}
@@ -5597,10 +5608,22 @@ const InputBar = memo(function InputBar({
           </div>
         )}
         {text.trim() && !text.toLowerCase().match(/desayuno|almuerzo|cena|snack|reiniciar|cambiar|resumen|semanal|calendario|favoritos|proporciones|agua|cuántas|cuanto|cuánto/) && (
-          <div className="text-[10px] text-center mb-2 px-3 py-1 rounded-full inline-block" style={{
-            background: ACCENT_PASTEL + '60', color: ACCENT_DARK, fontWeight: 500
-          }}>
-            → se registrará como {predictedMeal}
+          <div className="flex justify-center mb-2">
+            <div className="text-[11px] px-3 py-1.5 rounded-full" style={{
+              // Opaca y con sombra: antes iba al 37% de opacidad sobre la
+              // zona transparente de la barra, así que los mensajes del chat
+              // se transparentaban por detrás y no se leía ni una cosa ni la
+              // otra. Y centrada de verdad (era inline-block con text-center,
+              // que la dejaba pegada a la izquierda encima del texto).
+              background: '#FFFFFF',
+              color: ACCENT_DARK,
+              fontWeight: 600,
+              border: `1px solid ${ACCENT_PASTEL}`,
+              boxShadow: '0 4px 14px rgba(45,48,32,0.14), 0 1px 3px rgba(45,48,32,0.08)',
+              whiteSpace: 'nowrap',
+            }}>
+              → se registrará como {predictedMeal}
+            </div>
           </div>
         )}
         {/* Barra OVALADA (rounded-full) con micrófono circular — el px-2

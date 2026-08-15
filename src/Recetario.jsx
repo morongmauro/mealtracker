@@ -2423,42 +2423,54 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       {/* Sin header negro ni botón "atrás": la píldora de marca flota arriba
           (viene del MealTracker) y se vuelve con la barra de navegación.
           El paddingTop despeja esa píldora; el paddingBottom, la barra. */}
-      {/* Portada del recetario: una franja de foto de extremo a extremo, baja
-          (150px) para no robarle sitio a las recetas. La imagen va en
-          public/recetario-hero.jpg; si no está, queda el degradado oliva y
-          nada se rompe. El texto va encima, siempre legible. */}
-      <div className="relative w-full overflow-hidden" style={{
+      {/* PORTADA — mismo patrón que las portadas del Centro de Recursos:
+          foto a sangre, más alta, y el borde inferior DIFUMINADO con una
+          máscara en vez de cortarse en seco. Ese corte era la "línea blanca"
+          fea: la foto terminaba de golpe contra el fondo crema.
+          La imagen va en public/recetario-hero.png (o .jpg); si no está,
+          queda el degradado oliva y nada se rompe. */}
+      <div className="relative w-full" style={{
         zIndex: 1,
-        height: 'calc(env(safe-area-inset-top, 0px) + 150px)',
-        background: 'linear-gradient(135deg, #3A4126 0%, #4A5238 55%, #6B7350 100%)',
+        height: 'calc(env(safe-area-inset-top, 0px) + 232px)',
+        marginBottom: '-26px',
+        background: `radial-gradient(ellipse at 85% 12%, rgba(169,180,120,0.38), rgba(169,180,120,0.12) 40%, transparent 65%),
+          radial-gradient(ellipse at 10% 100%, rgba(138,149,88,0.26), transparent 60%),
+          linear-gradient(180deg, #23231F 0%, #2C2C26 54%, ${BG} 100%)`,
       }}>
-        <img
-          src="/recetario-hero.png"
-          alt=""
-          onError={(e) => {
-            // La foto puede subirse como .png o .jpg: se prueba la otra antes
-            // de rendirse, y si tampoco está queda el degradado oliva.
-            const el = e.currentTarget;
-            if (!el.dataset.retry) { el.dataset.retry = '1'; el.src = '/recetario-hero.jpg'; return; }
-            el.style.display = 'none';
-          }}
-          style={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%',
-            objectFit: 'cover', objectPosition: 'center center',
-            filter: 'saturate(0.86) brightness(0.82)',
-          }}
-        />
+        <div style={{
+          position: 'absolute', inset: 0, overflow: 'hidden',
+          // La máscara apaga la foto hacia abajo: el degradado del contenedor
+          // asoma por debajo y la portada se funde con la página.
+          WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 46%, rgba(0,0,0,0.55) 76%, rgba(0,0,0,0) 99%)',
+          maskImage: 'linear-gradient(180deg, #000 0%, #000 46%, rgba(0,0,0,0.55) 76%, rgba(0,0,0,0) 99%)',
+        }}>
+          <img
+            src="/recetario-hero.png"
+            alt=""
+            onError={(e) => {
+              // La foto puede subirse como .png o .jpg: se prueba la otra
+              // antes de rendirse, y si tampoco está queda el degradado.
+              const el = e.currentTarget;
+              if (!el.dataset.retry) { el.dataset.retry = '1'; el.src = '/recetario-hero.jpg'; return; }
+              el.style.display = 'none';
+            }}
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              objectFit: 'cover', objectPosition: 'center center',
+              filter: 'saturate(0.88) brightness(0.80)',
+            }}
+          />
+        </div>
+        {/* Velo para que el texto se lea sobre cualquier foto */}
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'linear-gradient(180deg, rgba(18,18,17,0.34) 0%, rgba(18,18,17,0.48) 55%, rgba(18,18,17,0.62) 100%)',
+          background: 'linear-gradient(180deg, rgba(18,18,17,0.30) 0%, rgba(18,18,17,0.34) 46%, rgba(18,18,17,0.20) 78%, rgba(18,18,17,0) 100%)',
         }} />
-        <div className="relative max-w-xl mx-auto px-4 h-full flex flex-col justify-end" style={{
-          paddingBottom: '16px',
-        }}>
+        <div className="relative max-w-xl mx-auto px-4 h-full flex flex-col justify-end" style={{ paddingBottom: '34px' }}>
           <div className="text-[10.5px] font-bold uppercase" style={{ color: '#DCE2C4', letterSpacing: '0.16em', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>Entrena con Método</div>
           <div style={{
             color: '#FFFFFF', fontFamily: FONT_DISPLAY, fontWeight: 400,
-            fontSize: '34px', letterSpacing: '0.02em', marginTop: '4px', lineHeight: 0.96,
+            fontSize: '40px', letterSpacing: '0.02em', marginTop: '4px', lineHeight: 0.96,
             textTransform: 'uppercase', textShadow: '0 1px 3px rgba(0,0,0,0.5), 0 4px 24px rgba(0,0,0,0.55)',
           }}>Recetario</div>
           <div style={{ width: 44, height: 2, borderRadius: 2, background: ACCENT_PASTEL, marginTop: 8, opacity: 0.9 }} />
@@ -2634,14 +2646,14 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         )}
         </>)}
 
-        {/* Footer de marca — el mismo cierre que llevan las demás páginas */}
-        <div className="pt-6 pb-1 text-center">
-          <div style={{ width: 30, height: 1, background: BORDER, margin: '0 auto 14px' }} />
-          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 17, letterSpacing: '0.06em', color: TEXT }}>ENTRENA CON MÉTODO</div>
-          <div className="text-[10px] mt-1.5" style={{ color: TEXT_MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        {/* Footer — el mismo cierre, palabra por palabra, del Centro de Recursos */}
+        <div className="pt-8 pb-2 text-center">
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, letterSpacing: '0.10em', color: TEXT }}>ENTRENA CON MÉTODO</div>
+          <div className="text-[10px] mt-1.5" style={{ color: TEXT_MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Mauro Morón · ISSA Training and Nutrition Coach
           </div>
-          <div className="text-[10px] mt-2.5" style={{ color: TEXT_LIGHT, letterSpacing: '0.04em' }}>
+          <div style={{ width: 30, height: 1, background: BORDER, margin: '16px auto' }} />
+          <div className="text-[10px]" style={{ color: TEXT_LIGHT, letterSpacing: '0.05em' }}>
             <span style={{ color: TEXT_MUTED, fontWeight: 600 }}>© 2026 Mauro Morón.</span> Todos los derechos reservados.
           </div>
         </div>
