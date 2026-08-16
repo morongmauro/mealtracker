@@ -1463,14 +1463,6 @@ export default function MealTracker() {
       if (chatScrollRef.current) {
         const sc = chatScrollRef.current;
         sc.style.bottom = fromBottom > 0 ? `${fromBottom}px` : '';
-        // Scroll BLOQUEADO mientras se escribe. Con el teclado abierto, iOS
-        // desplaza el visual viewport en cada gesto y las tres piezas fijas
-        // (píldora, metas, barra) llegan tarde a su nueva posición: eso es lo
-        // que se veía "descuadrado". Sin scroll no hay nada que perseguir.
-        // Se sale arrastrando: el gesto cierra el teclado (más abajo) y el
-        // scroll se devuelve solo.
-        sc.style.overflowY = kbOpen ? 'hidden' : '';
-        sc.style.overscrollBehavior = kbOpen ? 'none' : '';
         if (kbOpen && !keyboardOpenRef.current_prev) {
           requestAnimationFrame(() => sc.scrollTo({ top: sc.scrollHeight, behavior: 'auto' }));
         }
@@ -1519,35 +1511,55 @@ export default function MealTracker() {
     };
   }, []);
 
-  // SCROLL PARA CERRAR EL TECLADO — el patrón de WhatsApp/Telegram/iMessage.
-  // El estado "teclado abierto + usuario scrolleando" es imposible de pintar
-  // estable en iOS (los eventos del visual viewport llegan tarde y la barra
-  // persigue al teclado a los tirones). En vez de perseguirlo: si el cliente
-  // arrastra la conversación con el teclado abierto, el teclado se cierra y
-  // el layout vuelve a su estado estable. touchmove solo lo disparan dedos
-  // reales, así que los auto-scrolls programáticos (llegada de mensajes) no
-  // cierran el teclado por accidente.
+  // TECLADO ABIERTO = PANTALLA CONGELADA.
+  // En iOS, con el teclado arriba, arrastrar mueve el "visual viewport"
+  // completo aunque el scroller esté bloqueado por CSS. Ese desplazamiento
+  // es justo lo que corría la tarjeta de metas y descuadraba la barra de
+  // escribir: los elementos fijos persiguen al viewport y llegan tarde.
+  //
+  // No hay forma de pintarlo estable, así que se corta de raíz: mientras el
+  // teclado está abierto se CANCELA el gesto de arrastre (preventDefault en
+  // un listener no pasivo — con passive:true el navegador lo ignora, que es
+  // por lo que el intento anterior no sirvió). Nada se mueve.
+  //
+  // Para salir se toca cualquier punto de la conversación: eso cierra el
+  // teclado y devuelve el scroll. Antes se salía arrastrando, pero el
+  // arrastre es justo el gesto que hay que anular.
   useEffect(() => {
-    let startY = null;
-    const onTouchStart = (e) => { startY = e.touches && e.touches[0] ? e.touches[0].clientY : null; };
+    const dentroDelInput = (target) =>
+      inputBarRef.current && target && inputBarRef.current.contains(target);
+
     const onTouchMove = (e) => {
-      if (startY == null || !keyboardOpenRef.current) return;
-      const t = e.touches && e.touches[0];
-      if (!t) return;
-      // Arrastres DENTRO de la barra de escribir (seleccionar texto, mover el
-      // cursor) no cierran el teclado.
-      if (inputBarRef.current && e.target && inputBarRef.current.contains(e.target)) return;
-      if (Math.abs(t.clientY - startY) > 24) {
-        const ae = document.activeElement;
-        if (ae && typeof ae.blur === 'function') ae.blur();
-        startY = null;
-      }
+      if (!keyboardOpenRef.current) return;
+      // Dentro de la barra sí se permite (seleccionar texto, mover cursor).
+      if (dentroDelInput(e.target)) return;
+      if (e.cancelable) e.preventDefault();
     };
+    // Un TAP en la conversación cierra el teclado. Se distingue del arrastre
+    // por distancia: si el dedo se movió, no era un tap.
+    let ini = null;
+    const onTouchStart = (e) => {
+      const t = e.touches && e.touches[0];
+      ini = t ? { x: t.clientX, y: t.clientY } : null;
+    };
+    const onTouchEnd = (e) => {
+      const p0 = ini; ini = null;
+      if (!keyboardOpenRef.current || !p0) return;
+      if (dentroDelInput(e.target)) return;
+      const t = e.changedTouches && e.changedTouches[0];
+      if (!t) return;
+      if (Math.abs(t.clientX - p0.x) > 12 || Math.abs(t.clientY - p0.y) > 12) return;
+      const ae = document.activeElement;
+      if (ae && typeof ae.blur === 'function') ae.blur();
+    };
+
     window.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
     return () => {
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
     };
   }, []);
 
@@ -4482,7 +4494,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           ? headerH + 6 + zoneH + 6
           : headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0) + (pushPrompt ? 58 : 0)}px`,
         WebkitOverflowScrolling: 'touch',
-        overscrollBehavior: 'contain',
+        // Con el teclado abierto el scroller se bloquea desde el ESTADO, no
+        // por JS: los re-renders que dispara el teclado pisaban el valor
+        // puesto a mano y el scroll volvía solo.
+        overflowY: keyboardOpen ? 'hidden' : 'auto',
+        overscrollBehavior: keyboardOpen ? 'none' : 'contain',
       }}>
         {/* Mismo degradado orgánico de Hoy y Recetario en el fondo del chat
             (capa fixed aparte — iOS ignora background-attachment en
@@ -4848,7 +4864,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
             {/* Aviso de pago también en Hoy (mismo componente que el chat):
                 es la pantalla de aterrizaje, no puede pasar desapercibido. */}
-            {paymentDue && <PaymentNotice info={paymentDue} style={{ marginTop: '16px' }} />}
+            {paymentDue && <PaymentNotice info={paymentDue} style={{ marginTop: '-14px', position: 'relative', zIndex: 2 }} />}
 
             {/* Estado del día. Antes ocupaba muchísimo alto: un aro grande de
                 86px con su bloque de texto al lado, y DEBAJO otra fila con los
@@ -4856,7 +4872,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 y el texto encima — misma información, casi la mitad de alto,
                 y los cuatro se leen de una pasada en vez de en dos zonas. */}
             <div className="relative overflow-hidden" style={{
-              marginTop: '14px', borderRadius: '28px', padding: '16px 14px 14px',
+              // Sube hasta MORDER el borde curvo de la portada: en vez de dos
+              // bloques separados por aire, la tarjeta queda encajada en la
+              // curva y las dos piezas se leen como una sola entrada.
+              marginTop: '-26px', zIndex: 2,
+              borderRadius: '28px', padding: '16px 14px 14px',
               background: 'rgba(255,255,255,0.93)',
               boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 10px 30px rgba(96,102,72,0.11), 0 2px 6px rgba(96,102,72,0.06)',
             }}>
@@ -5006,18 +5026,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
             )}
 
-            {/* Footer — réplica exacta del de las páginas de Aprendizaje. */}
-            <div style={{ padding: '3rem 1rem 1.5rem', marginTop: '2rem', textAlign: 'center' }}>
-              <div style={{ width: 32, height: 1, background: ACCENT, margin: '0 auto 1.5rem' }} />
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: '18px', letterSpacing: '2px', color: TEXT, marginBottom: '.5rem' }}>
-                ENTRENA CON MÉTODO
-              </div>
-              <div style={{ fontSize: '11px', letterSpacing: '.5px', textTransform: 'uppercase', color: TEXT_LIGHT, marginBottom: '1rem' }}>
-                Mauro Morón · ISSA Training and Nutrition Coach
-              </div>
-              <div style={{ fontSize: '10px', letterSpacing: '.3px', color: TEXT_LIGHT, opacity: 0.7, lineHeight: 1.5 }}>
-                <strong style={{ color: TEXT_MUTED, fontWeight: 500 }}>© 2026 Mauro Morón.</strong> Todos los derechos reservados.
-              </div>
+            {/* Firma — réplica exacta de .em-signature del Centro de Aprendizaje.
+                Sin el botón "Cerrar sesión" que lleva allá: en la app del cliente
+                no hay sesión que cerrar, y un botón que no hace nada es peor que
+                no tenerlo. */}
+        <div style={{ margin: '10px 0 0', padding: '14px 2px 6px', textAlign: 'left' }}>
+              <div style={{ width: 28, height: 1, background: BORDER, margin: '14px 0 10px' }} />
+              <div style={{ fontSize: '11.5px', fontWeight: 600, letterSpacing: '-.01em', color: TEXT_MUTED }}>Mauro Morón</div>
+              <div style={{ fontSize: '10px', fontWeight: 400, letterSpacing: '.01em', color: TEXT_LIGHT, margin: '2px 0 0' }}>ISSA Certified Fitness &amp; Nutrition Coach</div>
+              <div style={{ fontSize: '9.5px', color: TEXT_LIGHT, opacity: 0.75, margin: '12px 0 0' }}>© 2026 · Acceso personal e intransferible</div>
         </div>
           </div>
         </div>

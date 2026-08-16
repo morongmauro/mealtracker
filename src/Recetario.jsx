@@ -1307,6 +1307,115 @@ function quitarComida(dia, slot, g) {
   return { ...dia, comidas, totals, desvio: desvioDe(totals, g) };
 }
 
+// ── Diccionario de compra ─────────────────────────────────────────────────
+// Las recetas nombran los ingredientes como se cocinan ("zanahoria rallada",
+// "pechuga de pollo cocida", "yogur griego natural sin grasa") y los miden
+// como se cocinan (cucharadas de cebolla, scoops de proteína). En una lista
+// de mercado eso no sirve: salían tres líneas de lo mismo y cantidades que
+// nadie puede pedir en una tienda — 5 cucharadas de cebolla.
+//
+// Esta tabla dice, por alimento: cómo se llama al comprarlo, en qué unidad se
+// compra, y cuánto pesa cada medida de cocina. Todo lo que no esté aquí se
+// agrupa por su nombre normalizado (sin tildes, sin mayúsculas, sin plural) y
+// conserva su unidad, que es lo correcto para los que ya venían en gramos.
+const _sinTildes = (t) => (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const _clave = (t) => _sinTildes(t)
+  .replace(/\(.*?\)/g, ' ')
+  .replace(/[^a-z0-9%\s]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .split(' ').map(p => p.replace(/s$/, '')).join(' ');
+
+// n = nombre en la lista · u = unidad de compra · c = cuánto vale 1 de cada
+// medida de cocina en la unidad de compra · a = cómo aparece en las recetas.
+const COMPRA = [
+  // Verduras y frutas: al mercado se van en gramos o en piezas, nunca en cucharadas
+  { n: 'Cebolla', u: 'g', c: { cda: 10, rebanadas: 15, unidades: 110 }, a: ['cebolla'] },
+  { n: 'Zanahoria', u: 'g', c: { unidades: 60 }, a: ['zanahoria', 'zanahoria rallada'] },
+  { n: 'Champiñones', u: 'g', c: { unidades: 18 }, a: ['champinone'] },
+  { n: 'Tomate', u: 'g', c: { unidades: 120 }, a: ['tomate'] },
+  { n: 'Tomate cherry', u: 'g', c: {}, a: ['tomate cherry'] },
+  { n: 'Tomates secos', u: 'g', c: {}, a: ['tomate seco', 'tomate deshidratado'] },
+  { n: 'Lechuga', u: 'g', c: { unidades: 12 }, a: ['lechuga', 'lechuga romana', 'hoja grande de lechuga'] },
+  { n: 'Espinaca', u: 'g', c: {}, a: ['espinaca', 'espinaca baby'] },
+  { n: 'Papa', u: 'g', c: {}, a: ['papa', 'papa al horno', 'papa blanca'] },
+  { n: 'Papas baby', u: 'g', c: { unidades: 22 }, a: ['papa baby'] },
+  { n: 'Almendras', u: 'g', c: { unidades: 1.2 }, a: ['almendra cruda'] },
+  { n: 'Banano', u: 'unidades', c: {}, a: ['banano', 'banana'] },
+  { n: 'Puré de calabaza', u: 'g', c: {}, a: ['pure de calabaza', 'pure de auyama'] },
+
+  // Proteínas
+  { n: 'Pechuga de pollo', u: 'g', c: {}, a: ['pechuga de pollo', 'pechuga de pollo cocida', 'pechuga de pollo cruda'] },
+  { n: 'Carne molida de res magra', u: 'g', c: {}, a: ['carne molida magra', 'carne molida de re 90% magra'] },
+  { n: 'Huevos', u: 'unidades', c: {}, a: ['huevo'] },
+  { n: 'Claras de huevo', u: 'unidades', c: { g: 1 / 33 }, a: ['clara de huevo', 'clara de huevo cocida'] },
+
+  // Lácteos
+  { n: 'Yogur griego natural', u: 'g', c: {}, a: ['yogur griego natural', 'yogur griego natural bajo en grasa', 'yogur griego natural sin grasa', 'yogur griego 0% grasa'] },
+  { n: 'Queso cheddar', u: 'g', c: {}, a: ['queso cheddar', 'queso cheddar light'] },
+  { n: 'Queso cottage', u: 'g', c: {}, a: ['queso cottage', 'queso cottage bajo en grasa'] },
+  { n: 'Queso suizo', u: 'g', c: {}, a: ['queso suizo bajo en grasa', 'queso suizo light'] },
+  { n: 'Queso crema', u: 'g', c: { cda: 15 }, a: ['queso crema'] },
+  { n: 'Leche de almendras', u: 'ml', c: {}, a: ['leche de almendra', 'leche de almendra de vainilla', 'leche de almendra de vainilla sin azucar'] },
+
+  // Despensa que en receta va en cucharadas o scoops
+  { n: 'Proteína whey', u: 'g', c: { scoop: 30 }, a: ['proteina whey', 'proteina whey de vainilla', 'proteina whey de chocolate', 'proteina whey sabor chocolate'] },
+  { n: 'Proteína de arveja en polvo', u: 'g', c: { scoop: 30 }, a: ['proteina de arveja en polvo'] },
+  { n: 'Mantequilla de almendras', u: 'g', c: { cda: 16, cdta: 5.5 }, a: ['mantequilla de almendra', 'mantequilla de almendra con sal'] },
+  { n: 'Cacao en polvo sin azúcar', u: 'g', c: { cda: 6 }, a: ['cacao en polvo sin azucar'] },
+  { n: 'Harina de almendra', u: 'g', c: { cda: 8 }, a: ['harina de almendra'] },
+  { n: 'Harina de avena', u: 'g', c: { cda: 6 }, a: ['harina de avena'] },
+  { n: 'Arándanos', u: 'g', c: { cda: 10 }, a: ['arandano'] },
+  { n: 'Hummus', u: 'g', c: { cda: 15 }, a: ['hummu'] },
+  { n: 'Pesto de albahaca', u: 'g', c: { cda: 16 }, a: ['pesto de albahaca'] },
+  { n: 'Miel de maple', u: 'ml', c: { cda: 15 }, a: ['miel de maple'] },
+  { n: 'Aceite de coco', u: 'ml', c: { cdta: 5 }, a: ['aceite de coco'] },
+  { n: 'Quinua cocida', u: 'g', c: {}, a: ['quinua cocida', 'quinoa cocida'] },
+
+  // Panadería: se compra por pieza
+  { n: 'Tortillas de harina', u: 'unidades', c: { g: 1 / 60 }, a: ['tortilla de harina'] },
+];
+
+const _COMPRA_IDX = (() => {
+  const m = new Map();
+  for (const it of COMPRA) for (const al of it.a) m.set(_clave(al), it);
+  return m;
+})();
+
+// "unidad" y "unidades" son lo mismo: las recetas usan las dos y eso partía
+// en dos líneas el mismo alimento (las tortillas salían por duplicado).
+const _uni = (u) => (u === 'unidad' ? 'unidades' : u);
+
+// Devuelve cómo debe figurar un ingrediente en la lista de mercado.
+function aCompra(nombre, cantidad, unidadRaw) {
+  const unidad = _uni(unidadRaw);
+  const it = _COMPRA_IDX.get(_clave(nombre));
+  if (!it) {
+    // Sin entrada en la tabla: se agrupa por nombre normalizado y conserva su
+    // unidad. Es lo correcto para los que ya venían en gramos o en piezas.
+    return { clave: `${_clave(nombre)}|${unidad}`, nombre, unidad, cantidad };
+  }
+  const factor = unidad === it.u ? 1 : (it.c[unidad] ?? null);
+  // Medida sin conversión conocida: se deja tal cual en vez de inventar un
+  // número. Mejor una línea rara que una cantidad falsa.
+  if (factor === null) return { clave: `${_clave(it.n)}|${unidad}`, nombre: it.n, unidad, cantidad };
+  return { clave: _clave(it.n), nombre: it.n, unidad: it.u, cantidad: cantidad * factor };
+}
+
+// "1 unidades" chirría: la unidad se escribe en singular cuando toca.
+function unidadTexto(q, u) {
+  if (q !== 1) return u;
+  return { unidades: 'unidad', dientes: 'diente', tallos: 'tallo', rebanadas: 'rebanada' }[u] || u;
+}
+
+// Redondeo de COMPRA: hacia arriba y a un número que se pueda pedir. Falta
+// media cebolla arruina la receta; sobrar 20 g no le importa a nadie.
+function redondearCompra(q, u) {
+  if (u === 'g') return q < 50 ? Math.ceil(q / 5) * 5 : Math.ceil(q / 10) * 10;
+  if (u === 'ml') return Math.ceil(q / 10) * 10;
+  return Math.max(0.5, Math.ceil(q * 2) / 2);
+}
+
 // ── Lista de mercado ──────────────────────────────────────────────────
 // Un menú sin lista de compras se queda en buena intención: el día que toca
 // cocinar falta un ingrediente y se abandona. Aquí se suman las cantidades
@@ -1317,40 +1426,34 @@ function quitarComida(dia, slot, g) {
 // alimento en g y en unidades no se puede mezclar). Los de "para realzar"
 // son texto libre — sal, especias, un chorrito de aceite — así que se
 // listan aparte, sin cantidades: es la despensa, no la compra de la semana.
-const MERCADO_UNIDAD_UNICA = { unidades: 'unidad', unidad: 'unidad' };
-
 function listaMercado(dias) {
   const principales = new Map();
   const despensa = new Set();
   for (const dia of dias || []) {
     for (const c of dia.comidas || []) {
       for (const i of c.sc.main) {
-        const unidad = MERCADO_UNIDAD_UNICA[i.u] || i.u;
-        const clave = `${norm(i.n)}|${unidad}`;
-        const prev = principales.get(clave);
-        if (prev) prev.q += i.q;
-        else principales.set(clave, { n: i.n, u: unidad, q: i.q, recetas: new Set() });
-        principales.get(clave).recetas.add(c.recipe.name);
+        // Cada ingrediente se traduce a "cómo se compra" ANTES de sumar: así
+        // 3 cdas de cebolla, 1 rebanada y 80 g terminan en una sola línea de
+        // gramos, y "zanahoria rallada" no vive aparte de "zanahoria".
+        const it = aCompra(i.n, i.q, i.u);
+        const prev = principales.get(it.clave);
+        if (prev) prev.q += it.cantidad;
+        else principales.set(it.clave, { n: it.nombre, u: it.unidad, q: it.cantidad, recetas: new Set() });
+        principales.get(it.clave).recetas.add(c.recipe.name);
       }
       for (const s of c.recipe.season || []) despensa.add(s.split('·')[0].trim());
     }
   }
   const items = [...principales.values()]
-    .map(x => ({
-      ...x,
-      // Se redondea al comprar, no al gramo: nadie pesa 137 g de quinua en
-      // el supermercado.
-      q: x.u === 'g' || x.u === 'ml' ? round5(x.q) : roundHalf(x.q),
-      recetas: [...x.recetas],
-    }))
-    .sort((a, b) => a.n.localeCompare(b.n));
-  return { items, despensa: [...despensa].sort((a, b) => a.localeCompare(b)) };
+    .map(x => ({ ...x, q: redondearCompra(x.q, x.u), recetas: [...x.recetas] }))
+    .sort((a, b) => a.n.localeCompare(b.n, 'es'));
+  return { items, despensa: [...despensa].sort((a, b) => a.localeCompare(b, 'es')) };
 }
 
 // Texto plano para pegar en notas o mandar por WhatsApp.
 function listaMercadoTexto(lista, titulo) {
   const l = [`🛒 ${titulo}`, ''];
-  for (const i of lista.items) l.push(`• ${i.n} — ${i.q} ${i.u}`);
+  for (const i of lista.items) l.push(`• ${i.n} — ${i.q} ${unidadTexto(i.q, i.u)}`);
   if (lista.despensa.length) {
     l.push('', 'De despensa (revisa si te queda):');
     for (const d of lista.despensa) l.push(`• ${d}`);
@@ -2302,7 +2405,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             {L.items.map(i => (
               <div key={i.n + i.u} className="flex items-baseline gap-2 py-1" style={{ borderBottom: `1px solid ${BORDER}` }}>
                 <span className="flex-1 min-w-0 text-[13px]" style={{ color: TEXT }}>{i.n}</span>
-                <span className="num text-[13px] font-bold whitespace-nowrap" style={{ color: ACCENT_DARK }}>{i.q} {i.u}</span>
+                <span className="num text-[13px] font-bold whitespace-nowrap" style={{ color: ACCENT_DARK }}>{i.q} {unidadTexto(i.q, i.u)}</span>
               </div>
             ))}
             {L.items.length === 0 && <div className="text-[12.5px] py-2" style={{ color: TEXT_LIGHT }}>Este menú aún no tiene comidas.</div>}
@@ -2449,7 +2552,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {/* Velo parejo para que el título se lea sobre cualquier foto. No es
             un difuminado de borde: oscurece igual de arriba a abajo. */}
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(18,18,17,0.38)' }} />
-        <div className="relative max-w-xl mx-auto px-4 h-full flex flex-col justify-end" style={{ paddingBottom: '20px' }}>
+        <div className="relative max-w-xl mx-auto px-4 h-full flex flex-col justify-end" style={{ paddingBottom: '46px' }}>
           <div className="text-[10.5px] font-bold uppercase" style={{ color: '#DCE2C4', letterSpacing: '0.16em', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>Entrena con Método</div>
           <div style={{
             color: '#FFFFFF', fontFamily: FONT_DISPLAY, fontWeight: 400,
@@ -2629,19 +2732,15 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         )}
         </>)}
 
-        {/* Footer — réplica exacta del de las páginas de Aprendizaje:
-            misma jerarquía, mismos tamaños, mismo texto. */}
-        <div style={{ padding: '3rem 1rem 1.5rem', marginTop: '2rem', textAlign: 'center' }}>
-          <div style={{ width: 32, height: 1, background: ACCENT, margin: '0 auto 1.5rem' }} />
-          <div style={{ fontFamily: FONT_DISPLAY, fontSize: '18px', letterSpacing: '2px', color: TEXT, marginBottom: '.5rem' }}>
-            ENTRENA CON MÉTODO
-          </div>
-          <div style={{ fontSize: '11px', letterSpacing: '.5px', textTransform: 'uppercase', color: TEXT_LIGHT, marginBottom: '1rem' }}>
-            Mauro Morón · ISSA Training and Nutrition Coach
-          </div>
-          <div style={{ fontSize: '10px', letterSpacing: '.3px', color: TEXT_LIGHT, opacity: 0.7, lineHeight: 1.5 }}>
-            <strong style={{ color: TEXT_MUTED, fontWeight: 500 }}>© 2026 Mauro Morón.</strong> Todos los derechos reservados.
-          </div>
+        {/* Firma — réplica exacta de .em-signature del Centro de Aprendizaje.
+            Sin el botón "Cerrar sesión" que lleva allá: en la app del cliente
+            no hay sesión que cerrar, y un botón que no hace nada es peor que
+            no tenerlo. */}
+        <div style={{ margin: '10px 0 0', padding: '14px 2px 6px', textAlign: 'left' }}>
+          <div style={{ width: 28, height: 1, background: BORDER, margin: '14px 0 10px' }} />
+          <div style={{ fontSize: '11.5px', fontWeight: 600, letterSpacing: '-.01em', color: TEXT_MUTED }}>Mauro Morón</div>
+          <div style={{ fontSize: '10px', fontWeight: 400, letterSpacing: '.01em', color: TEXT_LIGHT, margin: '2px 0 0' }}>ISSA Certified Fitness &amp; Nutrition Coach</div>
+          <div style={{ fontSize: '9.5px', color: TEXT_LIGHT, opacity: 0.75, margin: '12px 0 0' }}>© 2026 · Acceso personal e intransferible</div>
         </div>
       </div>
       {filtrosOverlay}
