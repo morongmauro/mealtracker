@@ -365,6 +365,10 @@ export default function MealTracker() {
   // Re-tap en la pestaña activa = "llévame al inicio": señales que disparan
   // el scroll (Recetario) o la recarga del iframe (Aprendizaje).
   const [recetarioScrollSig, setRecetarioScrollSig] = useState(0);
+  // Petición de apertura DIRIGIDA del Recetario desde el chat: { id, query, ts }.
+  // Sin esto, tocar una receta propuesta en el chat solo abría el Recetario
+  // por su portada y había que volver a buscarla a mano.
+  const [recetarioAbrir, setRecetarioAbrir] = useState(null);
   const [learningKey, setLearningKey] = useState(0);
   const hoyScrollRef = useRef(null);
   const [cardCompact, setCardCompact] = useState(false);
@@ -1757,6 +1761,11 @@ export default function MealTracker() {
         lines.push(`Asistente: (mostré el resumen del día)`);
       } else if (m.isMealSuggestion || m.isGapSuggestions) {
         lines.push(`Asistente: (di opciones de alimentos)`);
+      } else if (m.isRecipeIdeas) {
+        const rs = (m.data?.recetas || []).map(r => r.name).join(', ');
+        lines.push(rs
+          ? `Asistente: (propuse recetas del recetario con "${m.data?.entrada || ''}": ${rs})`
+          : `Asistente: (le pedí ingredientes para buscarle recetas en el recetario)`);
       } else if (typeof m.content === 'string' && m.content && !['logged', 'appended', 'water', 'macro_query', 'summary', 'summary_detailed', 'proportion'].includes(m.content)) {
         lines.push(`Asistente: ${cap(m.content)}`);
       }
@@ -2595,17 +2604,40 @@ SCHEMA:
   // Repeat last meal from yesterday matching predicted meal type
   // ── IDEAS DE RECETAS ────────────────────────────────────────────────
   // Las propuestas salen SIEMPRE del recetario, nunca del modelo: se buscan
-  // por código en el catálogo real y el texto se arma aquí. Así es imposible
-  // que el chat invente un plato que no existe o unos macros que no son.
-  // El recetario se importa en el momento (ya viene en su propio chunk), así
-  // que no engorda el arranque de la app.
-  const pedirIdeasRecetas = () => {
+  // por código en el catálogo real y las tarjetas se arman aquí. Así es
+  // imposible que el chat invente un plato que no existe o unos macros que
+  // no son. El recetario se importa en el momento (ya viene en su propio
+  // chunk), así que no engorda el arranque de la app.
+  //
+  // Abre el Recetario en un punto CONCRETO: una receta (id) o la lista ya
+  // filtrada por unos ingredientes (query). Es lo que convierte las tarjetas
+  // del chat en algo explorable — se toca y se cae en la receta completa, con
+  // sus pasos y su botón de registrar, que es donde se gestiona todo.
+  const abrirRecetarioEn = useCallback(({ id = null, query = '', slot = null } = {}) => {
+    haptic(10);
+    if (!goals) { avisarMetaPendiente(); return; }
+    setRecetarioAbrir({ id, query, slot, ts: Date.now() });
+    setShowLearning(false);
+    // Si veníamos de la hoja de Herramientas hay que cerrarla por el camino
+    // bueno (mutación directa + sync de la barra de entrada), no solo apagar
+    // el estado: si no, el input del chat queda visible sobre el Recetario.
+    closeActionsSheet();
+    setShowRecetario(true);
+  }, [goals, closeActionsSheet]);
+
+  const pedirIdeasRecetas = async () => {
     haptic(8);
     goToChat();
     closeActionsSheet();
+    // El chunk del Recetario se carga YA (no al responder): así el número de
+    // recetas de la tarjeta es el real y, si el cliente toca "verlas todas",
+    // el Recetario abre al instante.
+    let totalRecetario = null;
+    try { totalRecetario = (await import('./Recetario.jsx')).TOTAL_RECETAS; } catch (e) { /* sin número */ }
     setMessages(m => [...m, {
       role: 'assistant',
-      content: 'Dime uno o dos ingredientes que tengas a mano — "pollo y arroz", "huevos", "salmón" — y te propongo recetas del recetario que encajen con tu meta.',
+      isRecipeIdeas: true,
+      data: { ask: true, totalRecetario },
       ts: Date.now(),
     }]);
     pendingActionRef.current = {
@@ -2618,10 +2650,40 @@ SCHEMA:
   const responderIdeasRecetas = async (texto) => {
     try {
       const mod = await import('./Recetario.jsx');
-      const props = mod.buscarRecetasPorIngredientes(texto, { goals, max: 3 });
+      // "Recetas para la cena" no nombra ingredientes pero sí dice cuáles
+      // mostrar: el momento del día entra como filtro.
+      const slot = mod.detectarSlot(texto);
+      const { recetas, total, totalRecetario, sinTerminos, porSlot, consulta } = mod.resumenRecetasPorIngredientes(texto, { goals, max: 4, slot });
+      // "Dame ideas de recetas" sin decir ingredientes: no es que no haya —
+      // es que no dijo con qué. Se le vuelve a preguntar (y mientras tanto
+      // puede abrir el recetario completo).
+      if (sinTerminos) {
+        setMessages(m => [...m, {
+          role: 'assistant',
+          isRecipeIdeas: true,
+          data: { ask: true, totalRecetario },
+          ts: Date.now(),
+        }]);
+        pendingActionRef.current = {
+          type: 'recipe_ideas',
+          asked: '¿qué ingredientes tienes a mano?',
+          expiresAt: Date.now() + 5 * 60 * 1000,
+        };
+        return;
+      }
       setMessages(m => [...m, {
         role: 'assistant',
-        content: mod.textoPropuestaRecetas(props, `"${texto.trim()}"`),
+        isRecipeIdeas: true,
+        data: {
+          // Con ingredientes, la "entrada" es lo que el cliente dijo; por
+          // momento del día, la etiqueta de esa comida (y la búsqueda que
+          // se abrirá en el Recetario va vacía: allá se filtra por pestaña).
+          entrada: porSlot ? '' : texto.trim(),
+          slotLabel: porSlot ? mod.ETIQUETA_SLOT(slot) : '',
+          slotKey: porSlot ? slot : null,
+          consulta,
+          recetas, total, totalRecetario,
+        },
         ts: Date.now(),
       }]);
     } catch (e) {
@@ -3586,6 +3648,15 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         else if (parsed.command === 'save_day_favorite') {
           saveDayAsFavorite();
         }
+        else if (parsed.command === 'recipes') {
+          // Las recetas SIEMPRE salen del catálogo, nunca del modelo: él solo
+          // detecta la intención y de qué ingredientes hablaba. Si no nombró
+          // ninguno, va el mensaje entero (y si tampoco trae ingredientes,
+          // responderIdeasRecetas vuelve a preguntar).
+          const ingr = (parsed.items || []).map(i => String(i.name || '').trim()).filter(Boolean).join(' ');
+          if (parsed.message) setMessages(m => [...m, { role: 'assistant', content: parsed.message, ts: Date.now() }]);
+          await responderIdeasRecetas(ingr || userMsg);
+        }
         else if (parsed.command === 'proportion') {
           if (parsed.items && parsed.items.length > 0) {
             const propResult = await calculateProportions(userMsg);
@@ -4335,9 +4406,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         favoriteSignatures={favoriteSignatures}
         favSignature={favSignature}
         onOpenLearning={openLearning}
+        onOpenRecetario={abrirRecetarioEn}
       />
     </div>
-  )), [messages, goals, totals, entries, historyDetail, favoriteIngredients, favoriteSignatures, favSignature, handleEditEntry, deleteEntry, addToFavorites, handleAcceptFavSuggestion, handleDismissFavSuggestion, acceptAutoFavorite, dismissAutoFavorite, handleOpenPerformance, separateAppendedItems, openLearning]);
+  )), [messages, goals, totals, entries, historyDetail, favoriteIngredients, favoriteSignatures, favSignature, handleEditEntry, deleteEntry, addToFavorites, handleAcceptFavSuggestion, handleDismissFavSuggestion, acceptAutoFavorite, dismissAutoFavorite, handleOpenPerformance, separateAppendedItems, openLearning, abrirRecetarioEn]);
 
   if (view === 'loading') {
     return (
@@ -4577,7 +4649,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             goals={goals}
             consumed={totals}
             scrollSignal={recetarioScrollSig}
-            onClose={() => setShowRecetario(false)}
+            abrir={recetarioAbrir}
+            onClose={() => { setShowRecetario(false); setRecetarioAbrir(null); }}
             onRegister={registerRecipeEntry}
           />
         </Suspense>
@@ -5233,7 +5306,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               // fuera de esta barra.)
               { key: 'hoy', label: 'Hoy', icon: Home, active: tab === 'hoy' && !showRecetario && !showLearning, onClick: () => { haptic(6); if (tab === 'hoy' && !showRecetario && !showLearning) { hoyScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); return; } setShowRecetario(false); setShowLearning(false); setTab('hoy'); } },
               { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat' && !showRecetario && !showLearning, onClick: () => { haptic(6); if (tab === 'chat' && !showRecetario && !showLearning) { const sc = chatScrollRef.current; if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' }); return; } setShowRecetario(false); setShowLearning(false); setTab('chat'); } },
-              { key: 'recetario', label: 'Recetario', icon: BookOpen, active: showRecetario, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } if (showRecetario) { setRecetarioScrollSig(x => x + 1); return; } setShowLearning(false); setShowRecetario(true); } },
+              { key: 'recetario', label: 'Recetario', icon: BookOpen, active: showRecetario, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } if (showRecetario) { setRecetarioScrollSig(x => x + 1); return; } setShowLearning(false); setRecetarioAbrir(null); setShowRecetario(true); } },
               // openActionsSheet (DOM directo) y NO setActionsExpanded: el
               // sheet aparece en el mismo frame del tap; con solo estado, el
               // re-render del árbol gigante tardaba 1-2s en móvil y el botón
@@ -5342,7 +5415,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div
             className={`w-full max-w-md rounded-t-3xl px-4 pt-2 ${visible ? 'sheet-up' : ''}`}
             style={{
-              background: BG,
+              // Fondo DEGRADADO con las mismas manchas de color de la app
+              // (oliva, terracota, azul) en vez del crema plano: al abrir,
+              // la hoja se siente parte de la pantalla y no una caja gris
+              // pegada encima. Los degradados son estáticos (no animan) y
+              // solo se pintan mientras la hoja está visible.
+              background: `radial-gradient(120% 62% at 8% 0%, rgba(169,184,123,0.42), transparent 64%),
+                radial-gradient(110% 56% at 98% 2%, rgba(224,148,121,0.28), transparent 62%),
+                radial-gradient(120% 60% at 50% 104%, rgba(116,174,203,0.22), transparent 66%),
+                ${BG}`,
               boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
               paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
               maxHeight: '78vh',
@@ -5381,7 +5462,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 header y "¿Qué puedo hacer?" en el chat. */}
             <div className="space-y-2.5">
               <div>
-                <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Día a día</div>
+                <div className="flex items-center gap-2 mb-1.5 px-1">
+                  <span className="rounded-full" style={{ width: 14, height: 3, background: 'linear-gradient(90deg, #98A465, #C9D19B)' }} />
+                  <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Día a día</span>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <ActionChipMini icon={<ChefHat size={15} strokeWidth={2.2} />} label="Arma mi día" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
                     onClick={() => { haptic(8); plannerPrefsRef.current = { text: '', extra: [] }; setShowPlannerModal(true); generatePlan(); }} />
@@ -5399,7 +5483,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
 
               <div>
-                <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Tu progreso</div>
+                <div className="flex items-center gap-2 mb-1.5 px-1">
+                  <span className="rounded-full" style={{ width: 14, height: 3, background: 'linear-gradient(90deg, #74AECB, #B7D8E7)' }} />
+                  <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Tu progreso</span>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mi Semana" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
                     onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
@@ -5413,7 +5500,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
 
               <div>
-                <div className="text-[10px] tracking-[0.04em] uppercase font-bold mb-1.5 px-1" style={{ color: TEXT_MUTED }}>Ajustes</div>
+                <div className="flex items-center gap-2 mb-1.5 px-1">
+                  <span className="rounded-full" style={{ width: 14, height: 3, background: 'linear-gradient(90deg, #C4A353, #E4D2A5)' }} />
+                  <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Ajustes</span>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <ActionChipMini icon={<Bell size={15} strokeWidth={2.2} />}
                     label={(() => { const n = coachReminders.filter(r => !r.done_at).length; return n > 0 ? `Mis recordatorios (${n})` : 'Mis recordatorios'; })()}
@@ -5562,6 +5652,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           onRegister={registerPlan}
           onSaveFavorite={savePlanAsFavorite}
           onEditIngredients={() => { setShowPlannerModal(false); setShowIngredientsModal(true); }}
+          onOpenRecetario={(arg) => { setShowPlannerModal(false); abrirRecetarioEn(arg); }}
           onClose={() => { setShowPlannerModal(false); setPlannerProposal(null); }} />
       )}
 
@@ -6016,12 +6107,21 @@ function PaymentNotice({ info, style }) {
   );
 }
 
-function ActionChipMini({ icon, label, color, pastel, grad, onClick }) {
+// El color base de un chip = el primer color de su degradado. Así el lavado
+// del fondo, el borde y la sombra salen SOLOS del mismo tono de la insignia,
+// sin repetir el hex en cada llamada.
+const tintDe = (grad, fallback = ACCENT) => {
+  const m = typeof grad === 'string' ? grad.match(/#[0-9a-fA-F]{6}/) : null;
+  return m ? m[0] : fallback;
+};
+
+function ActionChipMini({ icon, label, color, pastel, grad, tint, onClick }) {
   // Chip compacto + tap instantáneo: usa onPointerDown para disparar al
   // primer touchstart sin esperar el click sintético de iOS. Llevamos un
   // ref del punto de inicio para descartar el tap si el dedo se movió
   // (evita falsos positivos cuando la hoja se scrollea).
   const startRef = useRef(null);
+  const t = tint || tintDe(grad);
   return (
     <button
       onPointerDown={(e) => {
@@ -6040,9 +6140,13 @@ function ActionChipMini({ icon, label, color, pastel, grad, onClick }) {
       onClick={(e) => e.preventDefault()}
       className="flex items-center gap-2.5 px-3 py-2.5 rounded-[22px] active:scale-[0.97]"
       style={{
-        background: '#FFFFFF',
-        border: '1px solid rgba(60,70,50,0.07)',
-        boxShadow: '0 2px 10px rgba(60,70,50,0.07), 0 1px 2px rgba(60,70,50,0.04)',
+        // El chip entero se tiñe del color de su insignia: degradado suave
+        // desde el tono (arriba-izquierda) hasta blanco (abajo-derecha). La
+        // hoja deja de ser una rejilla de tarjetas blancas iguales — cada
+        // herramienta se reconoce por su color antes de leer la etiqueta.
+        background: `linear-gradient(135deg, ${t}30 0%, ${t}14 46%, #FFFFFF 100%)`,
+        border: `1px solid ${t}33`,
+        boxShadow: `0 1px 0 rgba(255,255,255,0.75) inset, 0 3px 12px ${t}2B, 0 1px 2px rgba(60,70,50,0.05)`,
         transition: 'transform 0.08s ease-out',
         touchAction: 'manipulation',
         WebkitTapHighlightColor: 'transparent'
@@ -6050,7 +6154,15 @@ function ActionChipMini({ icon, label, color, pastel, grad, onClick }) {
       {/* Insignia en "squircle" con el MISMO lenguaje que las herramientas
           de la vista Hoy: degradado de color + icono de línea BLANCO. Si no
           llega `grad` cae al pastel viejo (compatibilidad). */}
-      <div className="flex items-center justify-center rounded-[10px] shrink-0" style={{ width: 32, height: 32, background: grad || pastel || ACCENT_PASTEL, color: grad ? '#FFF' : (color || ACCENT_DARK), fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1 }}>
+      <div className="flex items-center justify-center rounded-[10px] shrink-0" style={{
+        width: 32, height: 32,
+        background: grad || pastel || ACCENT_PASTEL,
+        color: grad ? '#FFF' : (color || ACCENT_DARK),
+        fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1,
+        // Sobre el chip teñido, la insignia necesita despegarse: brillo
+        // interior arriba y sombra de su propio color abajo.
+        boxShadow: grad ? `0 1px 0 rgba(255,255,255,0.35) inset, 0 3px 8px ${t}59` : 'none',
+      }}>
         {icon}
       </div>
       <div className="text-[12px] font-medium leading-tight text-left" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{label}</div>
@@ -6072,7 +6184,152 @@ function DaySeparator({ date }) {
   );
 }
 
-const MessageBubble = memo(function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature, onOpenLearning }) {
+// Botón "ir al Recetario" — el mismo en la tarjeta de recetas y en los pies
+// de las propuestas de proporciones, para que el camino al recetario se vea
+// SIEMPRE igual y el cliente lo reconozca.
+function BotonRecetario({ label, onClick, tono = ACCENT_DARK }) {
+  return (
+    <button onClick={onClick}
+      className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold active:scale-95 transition"
+      style={{ background: tono, color: '#FFF', boxShadow: '0 4px 12px rgba(60,70,50,0.18)' }}>
+      <BookOpen size={13} strokeWidth={2.3} /> {label}
+    </button>
+  );
+}
+
+// Query para el buscador del Recetario a partir de los alimentos que se
+// acaban de proponer: "pechuga de pollo", "arroz"… El buscador ya descarta
+// palabras vacías, así que se le pasan los nombres tal cual.
+function queryDeItems(options = []) {
+  const nombres = [];
+  for (const o of options) {
+    for (const it of (o.items || [])) {
+      const n = String(it.name || '').trim().toLowerCase();
+      if (n && !nombres.includes(n)) nombres.push(n);
+    }
+  }
+  return nombres.slice(0, 3).join(' ');
+}
+
+// ── LA ACLARATORIA ────────────────────────────────────────────────────────
+// Va al pie de TODA propuesta armada con los ingredientes favoritos del
+// cliente (proporciones). Deja claro de dónde salen esas opciones y que el
+// Recetario es otra cosa y sigue estando ahí — con esos mismos ingredientes
+// o con otros. Sin esto, el cliente cree que la app solo sabe combinar su
+// lista y nunca vuelve a abrir el recetario.
+function NotaRecetario({ onAbrir, query = '' }) {
+  if (typeof onAbrir !== 'function') return null;
+  return (
+    <div className="mt-3 p-3 rounded-[16px]" style={{
+      background: `linear-gradient(135deg, ${ACCENT_PASTEL}50, rgba(255,255,255,0.25))`,
+      border: '1px solid rgba(255,255,255,0.6)',
+    }}>
+      <div className="text-[11.5px]" style={{ color: TEXT, lineHeight: 1.55 }}>
+        Esto son <strong>proporciones con tus ingredientes registrados</strong> — lo que ya comes, en las cantidades que cuadran tu meta.
+        Aparte, está el <strong>Recetario</strong>: platos completos con su paso a paso, algunos con estos mismos ingredientes y otros con ingredientes distintos.
+      </div>
+      <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+        {query && <BotonRecetario label="Recetas con esto" onClick={() => onAbrir({ query })} />}
+        <button onClick={() => onAbrir({})}
+          className="px-3 py-1.5 rounded-full text-[11.5px] font-semibold active:scale-95 transition"
+          style={{ background: 'rgba(255,255,255,0.85)', color: TEXT, boxShadow: '0 2px 8px rgba(60,70,50,0.10)' }}>
+          Ver todo el recetario
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const MessageBubble = memo(function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature, onOpenLearning, onOpenRecetario }) {
+  // ── PROPUESTAS DEL RECETARIO ─────────────────────────────────────────
+  // Tarjetas TOCABLES, no un párrafo de texto: cada receta abre su ficha
+  // completa en el Recetario (pasos, porción ajustada, registrar). El chat
+  // propone; el Recetario es donde se gestiona.
+  if (message.isRecipeIdeas && message.data) {
+    const { ask, entrada, slotLabel, slotKey, consulta = '', recetas = [], total = 0, totalRecetario } = message.data;
+    const abrir = (arg) => onOpenRecetario?.(arg);
+    const nMas = Math.max(0, total - recetas.length);
+    return (
+      <div className="flex justify-start fade-up">
+        <div className="max-w-[92%] w-full p-4 rounded-[22px] rounded-bl-lg" style={{
+          background: `linear-gradient(135deg, ${ACCENT_PASTEL}55, rgba(255,255,255,0.35)), rgba(255,255,255,0.96)`,
+          border: '1px solid rgba(255,255,255,0.7)',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 8px 24px rgba(96,102,72,0.14), 0 1px 4px rgba(0,0,0,0.05)',
+        }}>
+          <div className="flex items-center gap-2 mb-2.5">
+            <div className="flex items-center justify-center rounded-[9px]" style={{ width: 22, height: 22, background: `linear-gradient(135deg, #A9B87B, #6E7B45)` }}>
+              <BookOpen size={12} strokeWidth={2.3} style={{ color: '#FFF' }} />
+            </div>
+            <span className="text-[10.5px] uppercase tracking-[0.05em] font-bold" style={{ color: ACCENT_DARK }}>
+              Recetario
+            </span>
+          </div>
+
+          {ask ? (
+            <>
+              <div className="text-[13.5px] mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>
+                Dime uno o dos ingredientes que tengas a mano — "pollo y arroz", "huevos", "salmón" — y te muestro las recetas que encajan con tu meta.
+              </div>
+              <div className="text-[11.5px] mb-3" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+                O ábrelo y míralas todas{totalRecetario ? ` (${totalRecetario})` : ''}: puedes buscar por receta o por ingrediente, filtrar por comida y ver el paso a paso.
+              </div>
+              <BotonRecetario label={totalRecetario ? `Ver las ${totalRecetario} recetas` : 'Abrir el Recetario'} onClick={() => abrir({})} />
+            </>
+          ) : recetas.length === 0 ? (
+            <>
+              <div className="text-[13.5px] mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>
+                No encontré ninguna receta con <strong>{entrada}</strong>. Prueba con otro ingrediente, o ábrelo y busca directamente{totalRecetario ? ` entre las ${totalRecetario}` : ''}.
+              </div>
+              <BotonRecetario label="Abrir el Recetario" onClick={() => abrir({})} />
+            </>
+          ) : (
+            <>
+              <div className="text-[12px] mb-2.5" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+                {entrada
+                  ? <>Con <strong style={{ color: TEXT }}>{entrada}</strong>, del recetario te sirven {recetas.length === 1 ? 'esta' : 'estas'}.</>
+                  : <>Del recetario, {slotLabel ? <>para <strong style={{ color: TEXT }}>{String(slotLabel).toLowerCase()}</strong></> : 'estas'} — las más rápidas primero.</>}
+                {' '}Toca la que te guste y la abro completa.
+              </div>
+              <div className="space-y-2">
+                {recetas.map(r => (
+                  <button key={r.id} onClick={() => abrir({ id: r.id, query: consulta, slot: slotKey })}
+                    className="w-full text-left p-3 rounded-[18px] flex items-center gap-3 active:scale-[0.98] transition"
+                    style={{ background: '#FFFFFF', boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 4px 14px rgba(96,102,72,0.12)' }}>
+                    <span className="flex items-center justify-center rounded-[13px] flex-shrink-0" style={{ width: 42, height: 42, background: ACCENT_PASTEL + '70', fontSize: 21 }}>{r.icon}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-[13.5px] font-bold truncate" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{r.name}</span>
+                      <span className="block text-[10.5px] mt-0.5" style={{ color: TEXT_LIGHT }}>{r.slot} · {r.time}</span>
+                      <span className="block text-[11px] mt-1 num" style={{ color: TEXT_MUTED }}>
+                        {r.kcal} kcal · <span style={{ color: C_PROTEIN }}>P{r.p}</span> <span style={{ color: C_CARBS }}>C{r.c}</span> <span style={{ color: C_FAT }}>G{r.g}</span>
+                      </span>
+                      <span className="block text-[10.5px] mt-1 truncate" style={{ color: TEXT_LIGHT }}>
+                        Lleva: {r.ing.join(', ')}{r.nIng > r.ing.length ? '…' : ''}
+                      </span>
+                    </span>
+                    <ChevronRight size={17} style={{ color: TEXT_LIGHT, flexShrink: 0 }} />
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <BotonRecetario
+                  label={nMas > 0 ? `Ver las otras ${nMas}` : (totalRecetario ? `Ver las ${totalRecetario} recetas` : 'Abrir el Recetario')}
+                  onClick={() => abrir(nMas > 0 ? { query: consulta, slot: slotKey } : {})} />
+                {nMas > 0 && totalRecetario && (
+                  <button onClick={() => abrir({})} className="text-[11.5px] font-semibold underline underline-offset-2" style={{ color: TEXT_MUTED }}>
+                    o las {totalRecetario} completas
+                  </button>
+                )}
+              </div>
+              <div className="mt-3 pt-2.5 text-[10.5px]" style={{ borderTop: `1px solid ${BORDER_SOFT}`, color: TEXT_LIGHT, lineHeight: 1.5 }}>
+                Son ideas, no las registré. Cada receta viene con su paso a paso y su porción ajustada a tu meta — desde ahí la registras con un toque. O dímelo por aquí y la anoto.
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (message.isAutoFavoriteSuggestion && message.suggestedKey) {
     const alreadyAdded = favoriteIngredients.includes(message.suggestedKey);
     return (
@@ -6687,6 +6944,8 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </>
           )}
 
+          <NotaRecetario onAbrir={onOpenRecetario} query={queryDeItems(options)} />
+
           <div className="mt-3 pt-3 border-t text-[10px] italic" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
             Esto es solo cálculo organizativo basado en los ingredientes que registraste como habituales. No constituye consejo nutricional. Para criterio personalizado, consulta con tu coach.
           </div>
@@ -6754,6 +7013,8 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               </div>
             </>
           )}
+
+          <NotaRecetario onAbrir={onOpenRecetario} query={queryDeItems(options)} />
 
           <div className="mt-3 pt-3 border-t text-[10px] italic" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
             Esto es solo cálculo organizativo. No constituye consejo nutricional ni reemplaza la valoración de un profesional.
@@ -8794,7 +9055,7 @@ function PlannerLoading() {
   );
 }
 
-function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister, onSaveFavorite, onEditIngredients, onClose }) {
+function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister, onSaveFavorite, onEditIngredients, onOpenRecetario, onClose }) {
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-lg">
       <ModalHeader accent={ACCENT_DARK} label="Planificador" title="Arma mi día" onClose={onClose} />
@@ -8867,6 +9128,10 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
               {proposal.warning}
             </div>
           )}
+
+          <div className="mb-4">
+            <NotaRecetario onAbrir={onOpenRecetario} query={queryDeItems(proposal.meals)} />
+          </div>
 
           <div className="space-y-2">
             <button onClick={onRegister}

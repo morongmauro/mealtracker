@@ -1309,19 +1309,62 @@ function quitarComida(dia, slot, g) {
 
 // ── Búsqueda de recetas para el chat ─────────────────────────────────────
 // El chat NO debe inventar recetas: si alguien pide ideas, las saca de aquí.
-// Esta función es la única puerta — devuelve recetas REALES del recetario,
-// con su porción ya ajustada a la meta, así que es imposible que aparezca
-// un plato que no existe o unos macros inventados.
-const _STOP = new Set(['con','de','del','la','el','los','las','un','una','unos','unas','y','o','que','para','me','mi','tengo','quiero','algo','ideas','idea','receta','recetas','hacer','puedo','dame','dime','tienes','hay','en','a','al','por','sin','solo','como','usando','base','tambien']);
+// `resumenRecetasPorIngredientes` es la única puerta — devuelve recetas
+// REALES del recetario, con su porción ya ajustada a la meta, así que es
+// imposible que aparezca un plato que no existe o unos macros inventados.
+//
+// Palabras que NO son ingredientes. Sin esta lista, "dame ideas de comida"
+// buscaba "comida" y pegaba con la etiqueta "Comida simple" de media docena
+// de recetas: el chat respondía como si el cliente hubiera pedido algo con
+// ese ingrediente. Los nombres de comida (desayuno, cena…) tampoco son
+// ingredientes — se detectan aparte, como FILTRO de momento del día.
+const _STOP = new Set(['con','de','del','la','el','los','las','un','una','unos','unas','y','o','que','para','me','mi','tengo','quiero','algo','ideas','idea','receta','recetas','hacer','puedo','dame','dime','tienes','hay','en','a','al','por','sin','solo','como','usando','base','tambien',
+  'comida','comidas','comer','cocinar','preparar','plato','platos','opcion','opciones','sugerencia','sugerencias','muestrame','muestra','ver','tener','mano','casa','hoy','manana','noche','tarde','rico','rica','sano','sana','saludable','ligero','rapido','rapida','facil','favor','pues','esta','este','estos','estas','mas','menos','poco','mucho','cual','cuales','cuanto','tipo','otra','otro','otras','otros',
+  'desayuno','desayunar','almuerzo','almorzar','cena','cenar','snack','snacks','merienda','postre']);
 
-export function buscarRecetasPorIngredientes(texto, opts = {}) {
-  const g = opts.goals || { kcal: 2000, p: 150 };
+// Momento del día mencionado en el mensaje → filtro de slot. "Recetas para la
+// cena" no trae ingredientes, pero sí dice CUÁLES mostrar.
+const SLOT_PALABRAS = [
+  { slot: 'desayuno', re: /\bdesayun/ },
+  { slot: 'snack', re: /\b(snack|merienda|postre)/ },
+  { slot: 'cena', re: /\b(cena|cenar)/ },
+  { slot: 'almuerzo', re: /\b(almuerz|almorzar)/ },
+];
+export function detectarSlot(texto) {
+  const x = norm(texto || '');
+  return (SLOT_PALABRAS.find(s => s.re.test(x)) || {}).slot || null;
+}
+export const ETIQUETA_SLOT = (slot) => displaySlot(slot) || '';
+
+// Número total de recetas del catálogo. Lo usa el chat para decir "hay N"
+// sin tener que importar RECIPES entero ni contar a mano.
+export const TOTAL_RECETAS = RECIPES.length;
+
+// Todas las coincidencias, ordenadas. Se devuelven COMPLETAS (no recortadas)
+// porque el chat muestra unas pocas pero necesita saber cuántas hay para
+// ofrecer "y otras N en el recetario".
+function _coincidencias(texto, opts = {}) {
   const terminos = norm(texto || '')
     .replace(/[^a-z0-9ñ\s]/g, ' ')
     .split(/\s+/)
     .map(t => t.trim())
     .filter(t => t.length >= 3 && !_STOP.has(t));
-  if (!terminos.length) return [];
+
+  const slotPedido = opts.slot && SLOT_ORDER.includes(opts.slot) ? opts.slot : null;
+  const deSlot = (r) => !slotPedido || (slotPedido === 'almuerzo' || slotPedido === 'cena'
+    ? (r.slot === 'almuerzo' || r.slot === 'cena')
+    : r.slot === slotPedido);
+
+  // Sin ingredientes pero con momento del día ("recetas para la cena"): se
+  // listan las de esa comida, las más rápidas primero. Sin ninguna de las
+  // dos cosas no hay nada que buscar y el chat vuelve a preguntar.
+  if (!terminos.length) {
+    if (!slotPedido) return { terminos, candidatas: [], porSlot: false };
+    const candidatas = RECIPES.filter(deSlot)
+      .sort((a, b) => (META[a.id]?.min || 99) - (META[b.id]?.min || 99))
+      .map(r => ({ r, pts: 0 }));
+    return { terminos, candidatas, porSlot: true };
+  }
 
   const puntuar = (r) => {
     const heno = norm([r.name, ...r.main.map(i => i.n), ...(r.season || []), ...(r.tags || [])].join(' '));
@@ -1339,33 +1382,66 @@ export function buscarRecetasPorIngredientes(texto, opts = {}) {
     return pts;
   };
 
-  const slot = opts.slot && SLOT_ORDER.includes(opts.slot) ? opts.slot : null;
   const candidatas = RECIPES
-    .filter(r => !slot || (slot === 'almuerzo' || slot === 'cena' ? (r.slot === 'almuerzo' || r.slot === 'cena') : r.slot === slot))
+    .filter(deSlot)
     .map(r => ({ r, pts: puntuar(r) }))
     .filter(x => x.pts > 0)
     // Más ingredientes en común primero; a igualdad, la más rápida.
     .sort((a, b) => b.pts - a.pts || (META[a.r.id]?.min || 99) - (META[b.r.id]?.min || 99));
 
-  return candidatas.slice(0, opts.max || 3).map(({ r, pts }) => ({
-    recipe: r,
-    coincidencias: pts,
-    sc: scale(r, g.p * (SPLIT[r.slot] || 0.3)),
-  }));
+  return { terminos, candidatas, porSlot: false };
 }
 
-// Texto listo para el chat. Se escribe aquí para que el modelo no tenga que
-// redactar (ni pueda adornar) los números de una receta.
-export function textoPropuestaRecetas(props, entrada) {
-  if (!props.length) {
-    return `No encontré ninguna receta del recetario con ${entrada}. Prueba con otro ingrediente — o ábrelo y busca directamente, que hay ${RECIPES.length}.`;
-  }
-  const linea = ({ recipe, sc }) => {
-    const ing = recipe.main.slice(0, 4).map(i => i.n.toLowerCase()).join(', ');
-    return `${recipe.icon} *${recipe.name}* · ${displaySlot(recipe.slot)} · ${recipe.time}\n   ${r0(sc.totals.kcal)} kcal · P${r0(sc.totals.p)} C${r0(sc.totals.c)} G${r0(sc.totals.g)}\n   Lleva: ${ing}${recipe.main.length > 4 ? '…' : ''}`;
+// Versión COMPACTA y serializable para las tarjetas del chat: solo lo que se
+// pinta, más el id para abrir la receta en el Recetario de un toque. Las
+// burbujas del chat se guardan en storage — meter la receta entera (pasos,
+// ingredientes, alérgenos) ahí sería basura persistida en cada propuesta.
+export function resumenRecetasPorIngredientes(texto, opts = {}) {
+  const g = opts.goals || { kcal: 2000, p: 150 };
+  const max = opts.max || 4;
+  const { terminos, candidatas, porSlot } = _coincidencias(texto, opts);
+  const recetas = candidatas.slice(0, max).map(({ r, pts }) => {
+    const sc = scale(r, g.p * (SPLIT[r.slot] || 0.3));
+    return {
+      id: r.id,
+      name: r.name,
+      icon: r.icon,
+      slot: displaySlot(r.slot),
+      time: r.time,
+      kcal: r0(sc.totals.kcal),
+      p: r0(sc.totals.p),
+      c: r0(sc.totals.c),
+      g: r0(sc.totals.g),
+      // Los ingredientes que HICIERON match van primero: así el cliente ve de
+      // una por qué le proponemos ese plato.
+      ing: [...r.main].sort((a, b) => _relevancia(b.n, terminos) - _relevancia(a.n, terminos)).slice(0, 3).map(i => i.n.toLowerCase()),
+      nIng: r.main.length,
+    };
+  });
+  // sinTerminos: el mensaje no traía ni ingrediente ni momento del día ("dame
+  // ideas de recetas"). No es lo mismo que "busqué y no hay nada", y el chat
+  // debe responder distinto: volver a pedir ingredientes, no decir que no
+  // encontró. porSlot: la lista salió del momento del día, no de ingredientes.
+  return {
+    recetas,
+    total: candidatas.length,
+    totalRecetario: RECIPES.length,
+    porSlot: !!porSlot,
+    sinTerminos: !terminos.length && !porSlot,
+    // Lo que hay que escribir en el buscador del Recetario para reproducir
+    // esta búsqueda: SOLO los ingredientes, sin el "¿qué puedo hacer con…?".
+    consulta: terminos.join(' '),
   };
-  return `Con ${entrada}, del recetario te sirven estas:\n\n${props.map(linea).join('\n\n')}\n\nSon ideas, no las registré. Si te comes alguna, dímelo y la anoto. Y en el Recetario están completas, con el paso a paso.`;
 }
+
+const _relevancia = (nombre, terminos) => {
+  const h = norm(nombre);
+  return terminos.reduce((acc, t) => {
+    const raiz = t.replace(/(es|s)$/, '');
+    if (raiz.length < 3) return acc;
+    return acc + (new RegExp(`(^|[^a-z0-9ñ])${raiz.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(h) ? 1 : 0);
+  }, 0);
+};
 
 // ── Diccionario de compra ─────────────────────────────────────────────────
 // Las recetas nombran los ingredientes como se cocinan ("zanahoria rallada",
@@ -1770,7 +1846,7 @@ function SlotPicker({ slot, g, opts, onElegir, onCerrar }) {
   );
 }
 
-export default function Recetario({ goals, consumed, onClose, onRegister, onChangeGoal, scrollSignal }) {
+export default function Recetario({ goals, consumed, onClose, onRegister, onChangeGoal, scrollSignal, abrir }) {
   // El modo global "Ajustar recetas a mi día" se eliminó: confundía ("¿no
   // deberían venir TODAS ajustadas al día?"). Ahora toda receta llega
   // ajustada a su comida dentro de la meta, y DENTRO del detalle aparece la
@@ -1808,6 +1884,28 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     const el = detailRef.current || rootRef.current;
     el?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [scrollSignal]);
+
+  // ── Entrada DIRIGIDA desde el chat ────────────────────────────────────
+  // El chat propone recetas en tarjetas; al tocar una hay que caer en ESA
+  // receta abierta, y al tocar "ver todas" en la lista ya filtrada por los
+  // ingredientes que el cliente dijo. `abrir.ts` cambia en cada petición,
+  // así que dos toques seguidos a la misma receta vuelven a abrirla.
+  useEffect(() => {
+    if (!abrir) return;
+    setVista('recetas');
+    setQuery(abrir.query || '');
+    // Cuando el chat filtró por momento del día ("recetas para la cena"), la
+    // lista abre con esa pestaña marcada — no con "Todas".
+    setFilterSlot(abrir.slot ? (abrir.slot === 'almuerzo' || abrir.slot === 'cena' ? 'principal' : abrir.slot) : 'todas');
+    setOpenId(abrir.id || null);
+    setManualK(null);
+    setFitRemaining(false);
+    // El detalle y la lista comparten scroller: si venías de una receta
+    // abierta y ahora toca la lista, hay que subir.
+    requestAnimationFrame(() => {
+      (detailRef.current || rootRef.current)?.scrollTo({ top: 0 });
+    });
+  }, [abrir?.ts]);
 
   // Cierra el overlay del Recetario INSTANTÁNEO: oculta el contenedor por
   // mutación directa de DOM antes de que el padre desmonte el componente.
@@ -1851,8 +1949,16 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const list = useMemo(() => {
     let recs = RECIPES;
     if (searching) {
-      const q = norm(query);
-      recs = RECIPES.filter(r => norm(r.name).includes(q) || r.main.some(i => norm(i.n).includes(q)) || r.season.some(s => norm(s).includes(q)));
+      // Búsqueda por VARIAS palabras: "pollo arroz" trae las recetas que
+      // llevan las dos. Antes se comparaba la frase entera como subcadena y
+      // cualquier búsqueda de dos ingredientes daba cero — justo lo que el
+      // chat manda cuando propone recetas por ingredientes.
+      const partes = norm(query).split(/\s+/).filter(Boolean);
+      const enReceta = (r, q) => norm(r.name).includes(q) || r.main.some(i => norm(i.n).includes(q)) || r.season.some(s => norm(s).includes(q));
+      recs = RECIPES.filter(r => partes.every(q => enReceta(r, q)));
+      // Si juntas no dan nada, se afloja a "cualquiera de ellas" antes que
+      // dejar la pantalla vacía.
+      if (!recs.length && partes.length > 1) recs = RECIPES.filter(r => partes.some(q => enReceta(r, q)));
     } else if (filterSlot !== 'todas') {
       recs = RECIPES.filter(r => slotMatches(r.slot, filterSlot));
     }
