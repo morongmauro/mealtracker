@@ -353,9 +353,6 @@ export default function MealTracker() {
   const [editingEntry, setEditingEntry] = useState(null);
   const [recording, setRecording] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
-  // Hay texto escrito sin enviar: basta para congelar el chat.
-  const [hayBorrador, setHayBorrador] = useState(false);
-  const hayBorradorRef = useRef(false);
   // Espejo en ref para listeners de touch (no re-suscriben por render)
   const keyboardOpenRef = useRef(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
@@ -504,6 +501,8 @@ export default function MealTracker() {
   // header/tarjeta/barra dejan de vibrar al scrollear escribiendo.
   const chatScrollRef = useRef(null);
   const chatBandRef = useRef(null);
+  const colocarRef = useRef(null);
+  const headerHRef = useRef(0);
 
   // Closes the actions sheet INSTANTLY via direct DOM mutation + paint flush,
   // before letting React run its expensive re-render. On mobile the parent
@@ -1440,81 +1439,111 @@ export default function MealTracker() {
     return () => ro.disconnect();
   }, [view]);
 
-  // Keyboard detection (mobile) + iOS visualViewport tracking.
-  // Cuando se abre el teclado en iOS Safari, el "layout viewport" no cambia,
-  // pero el "visual viewport" se hace más chico y se desplaza. Los elementos
-  // `position: fixed` quedan anclados al layout viewport (fuera de la pantalla
-  // visible). Para que el header y la barra de macros se queden VISIBLES,
-  // les aplicamos transform: translateY(offsetTop) en cada movimiento del
-  // visual viewport. Y también pegamos el inputBar al borde inferior del
-  // visual viewport para que no quede oculto detrás del teclado.
+  // ═══════════════════════════════════════════════════════════════════
+  // ANCLAJE AL VIEWPORT VISIBLE — una sola fuente de coordenadas
+  // ═══════════════════════════════════════════════════════════════════
+  // El problema de raíz: en iOS el teclado NO encoge el "layout viewport",
+  // solo el "visual". Los elementos position:fixed siguen anclados al
+  // layout, así que se van detrás del teclado o quedan fuera de la parte
+  // visible. La versión anterior lo compensaba moviendo CADA pieza por su
+  // cuenta — la píldora y la tarjeta con translateY(+offsetTop), la barra de
+  // escribir con translateY(-fromBottom) — y ahí estaba el desastre: dos
+  // fórmulas distintas, aplicadas en momentos distintos, con el navegador
+  // reposicionando por su cuenta en medio. Cualquier desfase entre ellas y
+  // las piezas salían volando cada una para su lado.
+  //
+  // Ahora TODAS se colocan con los MISMOS dos números, calculados una vez
+  // por frame: `arriba` (borde superior de lo visible) y `abajo` (cuánto
+  // tapa el teclado). Se escriben como top/bottom, no como transform: un
+  // transform crea un contexto de apilamiento que cambia a qué se anclan los
+  // hijos fixed, y eso era otra fuente de saltos.
+  //
+  // La garantía no es que el navegador nunca llegue tarde — es que cuando
+  // llegue tarde, TODAS las piezas lleguen tarde JUNTAS. La pantalla podrá
+  // moverse un frame, pero nunca se despedaza.
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
+    if (typeof window === 'undefined') return;
     const vv = window.visualViewport;
-    const updateFixed = () => {
-      const offsetTop = vv.offsetTop || 0;
-      const heightDiff = window.innerHeight - vv.height;
-      const kbOpen = heightDiff > 100;
+
+    const colocar = () => {
+      const arriba = vv ? (vv.offsetTop || 0) : 0;
+      const alto = vv ? vv.height : window.innerHeight;
+      const abajo = Math.max(0, Math.round(window.innerHeight - (arriba + alto)));
+      const arribaPx = Math.round(arriba);
+      const kbOpen = (window.innerHeight - alto) > 100;
       keyboardOpenRef.current = kbOpen;
       setKeyboardOpen(kbOpen);
-      const t = `translate3d(0, ${offsetTop}px, 0)`;
-      if (headerRef.current) headerRef.current.style.transform = t;
-      if (goalsCardRef.current) goalsCardRef.current.style.transform = t;
-      if (chatBandRef.current) chatBandRef.current.style.transform = t;
-      const fromBottom = window.innerHeight - (offsetTop + vv.height);
-      // El SCROLLER se encoge por encima del teclado: así el final de la
-      // conversación queda visible sobre la barra, y scrollear con el
-      // teclado abierto es scroll nativo del contenedor (cero persecución).
+
+      // ── Pegadas al borde SUPERIOR de lo visible ──
+      for (const r of [headerRef, chatBandRef]) {
+        if (r.current) { r.current.style.transform = ''; r.current.style.top = `${arribaPx}px`; }
+      }
+      if (goalsCardRef.current) {
+        goalsCardRef.current.style.transform = '';
+        goalsCardRef.current.style.top = `${arribaPx + headerHRef.current + 6}px`;
+      }
+
+      // ── Pegadas al borde INFERIOR de lo visible ──
+      if (inputBarRef.current) {
+        inputBarRef.current.style.transform = '';
+        inputBarRef.current.style.bottom = `${abajo}px`;
+        // Colchón bajo el campo: iOS dibuja su pastilla de AutoFill y el
+        // botón de teclado flotando pegados al borde visible, y sin este
+        // hueco tapan el texto. Con el teclado cerrado el colchón es el de
+        // la barra de navegación.
+        inputBarRef.current.style.paddingBottom = kbOpen
+          ? '52px'
+          : 'calc(90px + env(safe-area-inset-bottom, 0px))';
+      }
+      if (navBarRef.current) {
+        navBarRef.current.style.transform = '';
+        navBarRef.current.style.bottom = `${abajo}px`;
+        // Con el teclado abierto la barra de navegación estorba: el input
+        // baja a pegarse al teclado y se solaparían.
+        navBarRef.current.style.visibility = kbOpen ? 'hidden' : '';
+      }
+
+      // ── El scroller ocupa exactamente lo que queda visible ──
       if (chatScrollRef.current) {
         const sc = chatScrollRef.current;
-        sc.style.bottom = fromBottom > 0 ? `${fromBottom}px` : '';
+        sc.style.top = `${arribaPx}px`;
+        sc.style.bottom = `${abajo}px`;
         if (kbOpen && !keyboardOpenRef.current_prev) {
           requestAnimationFrame(() => sc.scrollTo({ top: sc.scrollHeight, behavior: 'auto' }));
         }
       }
       keyboardOpenRef.current_prev = kbOpen;
-      if (inputBarRef.current) {
-        // Mover el input bar arriba para que quede sobre el teclado
-        inputBarRef.current.style.transform = `translate3d(0, -${fromBottom}px, 0)`;
-        // COLCHÓN anti-superposición: iOS dibuja su pastilla de AutoFill
-        // (llave/tarjeta/ubicación) y el botón de teclado flotando PEGADOS
-        // al borde del área visible. Si la barra queda al ras del teclado,
-        // esos íconos del sistema la tapan. Con el teclado abierto dejamos
-        // ~52px de fondo sólido bajo el campo: los íconos flotan sobre ese
-        // espacio vacío y el texto queda siempre visible y clickeable.
-        // OJO: con el teclado CERRADO este valor debe incluir el colchón de
-        // la barra de navegación inferior (20 + liftPx=70 en el render — si
-        // cambia uno deben cambiar AMBOS). Antes se escribía solo 20px y
-        // pisaba el padding de React → la barra de chat caía ENCIMA de la
-        // barra de opciones y los taps en "Herram." morían en el padding.
-        inputBarRef.current.style.paddingBottom = kbOpen
-          ? '52px'
-          : 'calc(90px + env(safe-area-inset-bottom, 0px))';
-      }
-      // Con el teclado abierto la barra de navegación estorba (el input baja
-      // a pegarse al teclado); se oculta y reaparece al cerrarlo.
-      if (navBarRef.current) {
-        navBarRef.current.style.visibility = kbOpen ? 'hidden' : '';
-      }
+    };
 
-    };
-    // rAF-throttle: los eventos del visual viewport llegan en ráfaga durante
-    // el scroll y aplicar transforms en cada uno producía la vibración —
-    // como máximo un reposicionamiento por frame de pintura.
+    // Un reposicionamiento por frame como mucho: los eventos del visual
+    // viewport llegan en ráfaga y aplicarlos todos producía vibración.
     let raf = 0;
-    const requestUpdate = () => {
+    const pedir = () => {
       if (raf) return;
-      raf = requestAnimationFrame(() => { raf = 0; updateFixed(); });
+      raf = requestAnimationFrame(() => { raf = 0; colocar(); });
     };
-    vv.addEventListener('resize', requestUpdate);
-    vv.addEventListener('scroll', requestUpdate);
-    updateFixed();
+    colocarRef.current = colocar;
+    if (vv) {
+      vv.addEventListener('resize', pedir);
+      vv.addEventListener('scroll', pedir);
+    }
+    window.addEventListener('resize', pedir);
+    window.addEventListener('orientationchange', pedir);
+    colocar();
     return () => {
       if (raf) cancelAnimationFrame(raf);
-      vv.removeEventListener('resize', requestUpdate);
-      vv.removeEventListener('scroll', requestUpdate);
+      if (vv) {
+        vv.removeEventListener('resize', pedir);
+        vv.removeEventListener('scroll', pedir);
+      }
+      window.removeEventListener('resize', pedir);
+      window.removeEventListener('orientationchange', pedir);
     };
   }, []);
+
+  // La altura del header cambia (safe-area, píldora): al cambiar hay que
+  // recolocar, porque la tarjeta de metas cuelga de ella.
+  useEffect(() => { headerHRef.current = headerH; colocarRef.current?.(); }, [headerH]);
 
   // TECLADO ABIERTO = PANTALLA CONGELADA.
   // En iOS, con el teclado arriba, arrastrar mueve el "visual viewport"
@@ -1534,8 +1563,11 @@ export default function MealTracker() {
     const dentroDelInput = (target) =>
       inputBarRef.current && target && inputBarRef.current.contains(target);
 
+    const enElChat = () => tabRef.current === 'chat' && !showRecetarioRef.current && !showLearningRef.current;
     const onTouchMove = (e) => {
-      if (!keyboardOpenRef.current && !hayBorradorRef.current) return;
+      // Solo en el chat: es la única pantalla con la barra de escribir. En
+      // Recetario, Hoy o Aprendizaje el scroll no se toca jamás.
+      if (!keyboardOpenRef.current || !enElChat()) return;
       // Dentro de la barra sí se permite (seleccionar texto, mover cursor).
       if (dentroDelInput(e.target)) return;
       if (e.cancelable) e.preventDefault();
@@ -1549,7 +1581,7 @@ export default function MealTracker() {
     };
     const onTouchEnd = (e) => {
       const p0 = ini; ini = null;
-      if ((!keyboardOpenRef.current && !hayBorradorRef.current) || !p0) return;
+      if (!keyboardOpenRef.current || !p0 || !enElChat()) return;
       if (dentroDelInput(e.target)) return;
       const t = e.changedTouches && e.changedTouches[0];
       if (!t) return;
@@ -4564,8 +4596,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         // Con el teclado abierto el scroller se bloquea desde el ESTADO, no
         // por JS: los re-renders que dispara el teclado pisaban el valor
         // puesto a mano y el scroll volvía solo.
-        overflowY: (keyboardOpen || hayBorrador) ? 'hidden' : 'auto',
-        overscrollBehavior: (keyboardOpen || hayBorrador) ? 'none' : 'contain',
+        overflowY: keyboardOpen ? 'hidden' : 'auto',
+        overscrollBehavior: keyboardOpen ? 'none' : 'contain',
       }}>
         {/* Fondo del chat: las mismas manchas de la marca pero repartidas en
             OTRO orden que en Hoy — el durazno arriba a la derecha y el verde
@@ -4596,28 +4628,33 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             la tarjeta de metas: antes vivía dentro del scroller y el velo de
             esa tarjeta la tapaba entera. */}
         <div ref={chatBandRef} className="fixed left-0 right-0 top-0 pointer-events-none" style={{
+          // Debajo de la tarjeta de metas (z-30) y de la píldora (z-50), pero
+          // ENCIMA del scroller: los degradados se ven, y de paso hacen de
+          // diluido para el contenido que pasa por detrás.
           zIndex: 25,
-          height: `calc(${headerH}px + 132px)`,
+          height: `calc(${headerH}px + ${cardCompact ? 108 : 210}px)`,
           background: `radial-gradient(80% 82% at 4% 2%, #F3C2A8 0%, rgba(243,194,168,0) 72%),
             radial-gradient(84% 78% at 96% 10%, #A9D8C6 0%, rgba(169,216,198,0) 70%),
             radial-gradient(62% 58% at 52% 0%, #F7E3AE 0%, rgba(247,227,174,0) 74%),
-            linear-gradient(180deg, #E9EADE 0%, #EDECE5 62%, rgba(237,236,229,0) 100%)`,
+            linear-gradient(180deg, #E9EADE 0%, #EBEADF 58%, #EDECE5 84%, rgba(237,236,229,0) 100%)`,
+          transition: 'height 0.25s cubic-bezier(0.2, 0, 0, 1)',
         }} />
 
         {/* Goals card — FIXED + visualViewport tracking. top = altura real
             del header + separación, para que NUNCA quede debajo de él. */}
+        {/* Sin `top` aquí: lo escribe el posicionador del viewport visible.
+            Si React también lo escribiera, cada re-render lo devolvería al
+            sitio del layout viewport y la tarjeta daría un salto. */}
         <div ref={goalsCardRef} className="fixed left-0 right-0" style={{
-          top: `${headerH + 6}px`,
           // 16px como la barra de texto: la tarjeta queda del MISMO ancho
           // que la barra de escribir (antes 20px la dejaba más angosta).
           paddingLeft: '16px', paddingRight: '16px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
-          // El diluido del contenido que pasa por detrás. Va con alfa BAJO a
-          // propósito: encima está la franja de color, y un velo opaco la
-          // borraba. Y no depende de cardCompact — al enfocar el input la
-          // tarjeta se compacta y el diluido se perdía de golpe.
-          background: 'linear-gradient(180deg, rgba(237,236,229,0.55) 0%, rgba(237,236,229,0.42) 78%, rgba(237,236,229,0) 100%)',
+          // SIN fondo: el diluido lo pone la franja de color de abajo, que
+          // llega hasta aquí. Antes este velo cremoso iba ENCIMA y tapaba
+          // los degradados — por eso no se veían.
+          background: 'transparent',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)',
           transform: 'translate3d(0, 0, 0)',
           zIndex: 30,
@@ -4916,10 +4953,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               marginTop: `calc(-${headerH + 10}px - 6px)`,
               paddingTop: `calc(${headerH + 10}px + 14px)`,
               paddingLeft: '20px', paddingRight: '20px', paddingBottom: '26px',
-              // Curva ovalada de verdad: el radio elíptico (50% de ancho ×
-              // 58px de alto) dibuja un arco continuo de lado a lado, no dos
-              // esquinas redondeadas con una recta en medio.
-              borderRadius: '0 0 50% 50% / 0 0 58px 58px',
+              // Recto en el centro y redondeado en las puntas. El arco
+              // elíptico de lado a lado quedaba exagerado.
+              borderRadius: '0 0 38px 38px',
               background: `radial-gradient(78% 62% at 88% 6%, #A9D8C6 0%, rgba(169,216,198,0) 72%),
                 radial-gradient(72% 58% at 2% 30%, #F3C2A8 0%, rgba(243,194,168,0) 74%),
                 radial-gradient(64% 52% at 46% 0%, #F7E3AE 0%, rgba(247,227,174,0) 74%),
@@ -5406,7 +5442,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         onStartVoice={stableStartVoice}
         onStopVoice={stableStopVoice}
         onFocusInput={stableFocusInput}
-        onDraftChange={(v) => { hayBorradorRef.current = v; setHayBorrador(v); }}
       />
 
       {/* Deshacer — visible 6s después de registrar. Un tap revierte la(s)
@@ -5646,7 +5681,7 @@ function composeDayOpening(name, yesterday, goals, opts = {}) {
 // vía `apiRef` (getText/setText/appendText/clear).
 const InputBar = memo(function InputBar({
   barRef, apiRef, hidden, recording, transcribing, loading, predictedMeal,
-  onSend, onStartVoice, onStopVoice, onFocusInput, onDraftChange, liftPx = 0,
+  onSend, onStartVoice, onStopVoice, onFocusInput, liftPx = 0,
 }) {
   const [text, setText] = useState('');
   const divRef = useRef(null);
@@ -5679,21 +5714,16 @@ const InputBar = memo(function InputBar({
         const prev = (divRef.current?.textContent || '').trim();
         const next = prev ? `${prev} ${value}` : value;
         writeDom(next); setText(next);
-        onDraftRef.current?.(next.trim().length > 0);
       },
-      clear: () => { writeDom(''); setText(''); onDraftRef.current?.(false); },
+      clear: () => { writeDom(''); setText(''); },
     };
     return () => { apiRef.current = null; };
   }, [apiRef, writeDom]);
-
-  const onDraftRef = useRef(onDraftChange);
-  onDraftRef.current = onDraftChange;
 
   const send = () => {
     const value = (divRef.current?.textContent || '').trim();
     if (!value) return;
     writeDom(''); setText('');
-    onDraftChange?.(false);
     onSend(value);
   };
 
@@ -5762,7 +5792,7 @@ const InputBar = memo(function InputBar({
             contentEditable={!recording && !transcribing}
             suppressContentEditableWarning={true}
             data-placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Dicta o escribe lo que comiste…'}
-            onInput={(e) => { const v = e.currentTarget.textContent || ''; setText(v); onDraftChange?.(v.trim().length > 0); }}
+            onInput={(e) => setText(e.currentTarget.textContent || '')}
             onFocus={onFocusInput}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
