@@ -2556,6 +2556,54 @@ SCHEMA:
   }, []);
 
   // Repeat last meal from yesterday matching predicted meal type
+  // ── IDEAS DE RECETAS ────────────────────────────────────────────────
+  // Las propuestas salen SIEMPRE del recetario, nunca del modelo: se buscan
+  // por código en el catálogo real y el texto se arma aquí. Así es imposible
+  // que el chat invente un plato que no existe o unos macros que no son.
+  // El recetario se importa en el momento (ya viene en su propio chunk), así
+  // que no engorda el arranque de la app.
+  const pedirIdeasRecetas = () => {
+    haptic(8);
+    goToChat();
+    closeActionsSheet();
+    setMessages(m => [...m, {
+      role: 'assistant',
+      content: 'Dime uno o dos ingredientes que tengas a mano — "pollo y arroz", "huevos", "salmón" — y te propongo recetas del recetario que encajen con tu meta.',
+      ts: Date.now(),
+    }]);
+    pendingActionRef.current = {
+      type: 'recipe_ideas',
+      asked: '¿qué ingredientes tienes a mano?',
+      expiresAt: Date.now() + 5 * 60 * 1000,
+    };
+  };
+
+  const responderIdeasRecetas = async (texto) => {
+    try {
+      const mod = await import('./Recetario.jsx');
+      const props = mod.buscarRecetasPorIngredientes(texto, { goals, max: 3 });
+      setMessages(m => [...m, {
+        role: 'assistant',
+        content: mod.textoPropuestaRecetas(props, `"${texto.trim()}"`),
+        ts: Date.now(),
+      }]);
+    } catch (e) {
+      setMessages(m => [...m, {
+        role: 'assistant',
+        content: 'No pude abrir el recetario ahora mismo. Inténtalo de nuevo en un momento.',
+        ts: Date.now(),
+      }]);
+    }
+  };
+
+  // ¿El mensaje pide ideas de recetas? Se resuelve por código, sin modelo.
+  const pideIdeasRecetas = (t) => {
+    const x = (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!/receta|que cocino|que puedo cocinar|que hago de (comer|almuerzo|cena|desayuno)|ideas? de comida|que preparo/.test(x)) return false;
+    // "registra la receta que comí" NO es pedir ideas.
+    return !/registra|anota|apunta|me comi|comi |desayune|almorce|cene/.test(x);
+  };
+
   const repeatYesterday = () => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -3009,6 +3057,20 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           : 'indica los alimentos disponibles → command="proportion"';
         pendingHint = `\n\n[NOTA DEL SISTEMA — NO LA ESCRIBIÓ EL CLIENTE, NO LA MENCIONES: la app le acaba de preguntar "${pending.asked}". Este mensaje es su RESPUESTA a esa pregunta; si encaja, ${guia}. Si el mensaje claramente cambia de tema (p.ej. registra comida nueva), ignora esta nota.]`;
       }
+    }
+
+    // ¿Está respondiendo a "¿qué ingredientes tienes?" — o pidiendo ideas de
+    // recetas por su cuenta? Se responde desde el catálogo, sin pasar por el
+    // modelo: es la única forma de garantizar que no invente recetas.
+    if (pending && pending.type === 'recipe_ideas') {
+      await responderIdeasRecetas(userMsg);
+      voiceInputRef.current = false;
+      return;
+    }
+    if (!pending && pideIdeasRecetas(userMsg)) {
+      await responderIdeasRecetas(userMsg);
+      voiceInputRef.current = false;
+      return;
     }
 
     // Camino rápido: alimento repetido conocido → registro inmediato sin LLM.
@@ -4500,14 +4562,25 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         overflowY: keyboardOpen ? 'hidden' : 'auto',
         overscrollBehavior: keyboardOpen ? 'none' : 'contain',
       }}>
-        {/* Mismo degradado orgánico de Hoy y Recetario en el fondo del chat
-            (capa fixed aparte — iOS ignora background-attachment en
-            scrollers). Las burbujas blancas flotan encima. Con .thinking
-            (mientras el modelo responde) las manchas derivan suavemente. */}
+        {/* Fondo del chat: las mismas manchas de la marca pero repartidas en
+            OTRO orden que en Hoy — el durazno arriba a la derecha y el verde
+            agua a la izquierda, al revés. Cada pantalla se reconoce por su
+            mezcla sin dejar de ser la misma app. Capa fixed aparte porque iOS
+            ignora background-attachment dentro de scrollers. */}
         <div className={`fixed pointer-events-none bg-stains-chat${loading ? ' thinking' : ''}`} style={{
           top: '-16%', left: '-16%', right: '-16%', bottom: '-16%',
           background: BG_STAINS,
           willChange: loading ? 'transform' : 'auto',
+        }} />
+        {/* Franja de color del borde superior: llega hasta el extremo de la
+            pantalla, por detrás de la píldora de marca, sin difuminarse. */}
+        <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
+          zIndex: 0,
+          height: `calc(${headerH}px + 96px)`,
+          background: `radial-gradient(74% 76% at 6% 4%, #F3C2A8 0%, rgba(243,194,168,0) 74%),
+            radial-gradient(78% 72% at 94% 12%, #A9D8C6 0%, rgba(169,216,198,0) 72%),
+            radial-gradient(60% 56% at 54% 0%, #F7E3AE 0%, rgba(247,227,174,0) 76%),
+            linear-gradient(180deg, #E9EADE 0%, rgba(237,236,229,0) 100%)`,
         }} />
         {/* Capas de pensando (cálida + fría) — siempre montadas con opacity
             0 para que el encendido/apagado sea un fade y no un salto. */}
@@ -4864,7 +4937,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
             {/* Aviso de pago también en Hoy (mismo componente que el chat):
                 es la pantalla de aterrizaje, no puede pasar desapercibido. */}
-            {paymentDue && <PaymentNotice info={paymentDue} style={{ marginTop: '-14px', position: 'relative', zIndex: 2 }} />}
+            {paymentDue && <PaymentNotice info={paymentDue} style={{ marginTop: '16px', position: 'relative', zIndex: 2 }} />}
 
             {/* Estado del día. Antes ocupaba muchísimo alto: un aro grande de
                 86px con su bloque de texto al lado, y DEBAJO otra fila con los
@@ -4872,10 +4945,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 y el texto encima — misma información, casi la mitad de alto,
                 y los cuatro se leen de una pasada en vez de en dos zonas. */}
             <div className="relative overflow-hidden" style={{
-              // Sube hasta MORDER el borde curvo de la portada: en vez de dos
-              // bloques separados por aire, la tarjeta queda encajada en la
-              // curva y las dos piezas se leen como una sola entrada.
-              marginTop: '-26px', zIndex: 2,
+              // Separada de la portada: encajarla en la curva tapaba el
+              // remate del hero y las dos piezas se peleaban.
+              marginTop: '18px', position: 'relative', zIndex: 2,
               borderRadius: '28px', padding: '16px 14px 14px',
               background: 'rgba(255,255,255,0.93)',
               boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 10px 30px rgba(96,102,72,0.11), 0 2px 6px rgba(96,102,72,0.06)',
@@ -5265,6 +5337,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     onClick={() => { haptic(8); setActiveModal('favorites'); }} />
                   <ActionChipMini icon={<ShoppingBasket size={15} strokeWidth={2.2} />} label="Mis ingredientes" grad="linear-gradient(135deg, #E09479, #C05E44)"
                     onClick={() => { haptic(8); setShowIngredientsModal(true); }} />
+                  <ActionChipMini icon={<BookOpen size={15} strokeWidth={2.2} />} label="Ideas de recetas" grad="linear-gradient(135deg, #A9B87B, #6E7B45)"
+                    onClick={pedirIdeasRecetas} />
                   <ActionChipMini icon={<Pin size={15} strokeWidth={2.2} />} label="Guardar día como favorito" grad="linear-gradient(135deg, #74AECB, #3F81A6)"
                     onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); }} />
                 </div>

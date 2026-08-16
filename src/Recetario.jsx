@@ -1307,6 +1307,66 @@ function quitarComida(dia, slot, g) {
   return { ...dia, comidas, totals, desvio: desvioDe(totals, g) };
 }
 
+// ── Búsqueda de recetas para el chat ─────────────────────────────────────
+// El chat NO debe inventar recetas: si alguien pide ideas, las saca de aquí.
+// Esta función es la única puerta — devuelve recetas REALES del recetario,
+// con su porción ya ajustada a la meta, así que es imposible que aparezca
+// un plato que no existe o unos macros inventados.
+const _STOP = new Set(['con','de','del','la','el','los','las','un','una','unos','unas','y','o','que','para','me','mi','tengo','quiero','algo','ideas','idea','receta','recetas','hacer','puedo','dame','dime','tienes','hay','en','a','al','por','sin','solo','como','usando','base','tambien']);
+
+export function buscarRecetasPorIngredientes(texto, opts = {}) {
+  const g = opts.goals || { kcal: 2000, p: 150 };
+  const terminos = norm(texto || '')
+    .replace(/[^a-z0-9ñ\s]/g, ' ')
+    .split(/\s+/)
+    .map(t => t.trim())
+    .filter(t => t.length >= 3 && !_STOP.has(t));
+  if (!terminos.length) return [];
+
+  const puntuar = (r) => {
+    const heno = norm([r.name, ...r.main.map(i => i.n), ...(r.season || []), ...(r.tags || [])].join(' '));
+    let pts = 0;
+    for (const t of terminos) {
+      // Coincidencia por raíz ("pollo"/"pollos", "huevo"/"huevos") pero
+      // SIEMPRE desde el principio de una palabra: buscar "pollo" como
+      // subcadena suelta acierta con "rePOLLO morado", y salían recetas de
+      // repollo cuando el cliente pedía pollo.
+      const raiz = t.replace(/(es|s)$/, '');
+      if (raiz.length < 3) continue;
+      const alInicioDePalabra = new RegExp(`(^|[^a-z0-9ñ])${raiz.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+      if (alInicioDePalabra.test(heno)) pts += 1;
+    }
+    return pts;
+  };
+
+  const slot = opts.slot && SLOT_ORDER.includes(opts.slot) ? opts.slot : null;
+  const candidatas = RECIPES
+    .filter(r => !slot || (slot === 'almuerzo' || slot === 'cena' ? (r.slot === 'almuerzo' || r.slot === 'cena') : r.slot === slot))
+    .map(r => ({ r, pts: puntuar(r) }))
+    .filter(x => x.pts > 0)
+    // Más ingredientes en común primero; a igualdad, la más rápida.
+    .sort((a, b) => b.pts - a.pts || (META[a.r.id]?.min || 99) - (META[b.r.id]?.min || 99));
+
+  return candidatas.slice(0, opts.max || 3).map(({ r, pts }) => ({
+    recipe: r,
+    coincidencias: pts,
+    sc: scale(r, g.p * (SPLIT[r.slot] || 0.3)),
+  }));
+}
+
+// Texto listo para el chat. Se escribe aquí para que el modelo no tenga que
+// redactar (ni pueda adornar) los números de una receta.
+export function textoPropuestaRecetas(props, entrada) {
+  if (!props.length) {
+    return `No encontré ninguna receta del recetario con ${entrada}. Prueba con otro ingrediente — o ábrelo y busca directamente, que hay ${RECIPES.length}.`;
+  }
+  const linea = ({ recipe, sc }) => {
+    const ing = recipe.main.slice(0, 4).map(i => i.n.toLowerCase()).join(', ');
+    return `${recipe.icon} *${recipe.name}* · ${displaySlot(recipe.slot)} · ${recipe.time}\n   ${r0(sc.totals.kcal)} kcal · P${r0(sc.totals.p)} C${r0(sc.totals.c)} G${r0(sc.totals.g)}\n   Lleva: ${ing}${recipe.main.length > 4 ? '…' : ''}`;
+  };
+  return `Con ${entrada}, del recetario te sirven estas:\n\n${props.map(linea).join('\n\n')}\n\nSon ideas, no las registré. Si te comes alguna, dímelo y la anoto. Y en el Recetario están completas, con el paso a paso.`;
+}
+
 // ── Diccionario de compra ─────────────────────────────────────────────────
 // Las recetas nombran los ingredientes como se cocinan ("zanahoria rallada",
 // "pechuga de pollo cocida", "yogur griego natural sin grasa") y los miden
@@ -2563,9 +2623,32 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         </div>
       </div>
 
+      {/* Atrás — botón circular flotante, el mismo de las subpantallas de
+          Aprendizaje y del detalle de receta. Antes era un enlace de texto
+          suelto que además empujaba el contenido hacia abajo. */}
+      {vista !== 'inicio' && (
+        <button
+          onClick={() => { haptic(6); setVista('inicio'); }}
+          aria-label="Volver al recetario"
+          className="fixed rounded-full flex items-center justify-center active:scale-90 transition"
+          style={{
+            zIndex: 10,
+            top: 'calc(env(safe-area-inset-top, 0px) + 10px)', right: '16px',
+            width: '38px', height: '38px',
+            background: 'rgba(255,255,255,0.88)',
+            backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 6px 18px rgba(60,70,50,0.16)',
+          }}>
+          <ChevronLeft size={20} style={{ color: TEXT }} />
+        </button>
+      )}
+
       <div className="relative max-w-xl mx-auto px-4 space-y-3.5" style={{
-        zIndex: 1,
-        paddingTop: '16px',
+        // El primer bloque MUERDE el borde de la portada: la píldora de la
+        // meta (o lo primero de cada subvista) queda encajada en el hero en
+        // vez de flotar separada por aire.
+        zIndex: 3,
+        marginTop: '-26px',
         paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))',
       }}>
         {/* Meta nutricional — píldora compacta de UNA fila (la meta la
@@ -2615,14 +2698,6 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               Puedes moverte entre las dos cuando quieras.
             </div>
           </>
-        )}
-
-        {vista !== 'inicio' && (
-          <button onClick={() => { haptic(5); setVista('inicio'); }}
-            className="flex items-center gap-1 text-[12.5px] font-semibold active:scale-95 transition self-start"
-            style={{ color: TEXT_MUTED }}>
-            <ChevronLeft size={15} /> Recetario
-          </button>
         )}
 
         {vista === 'menus' && vistaMenus}
