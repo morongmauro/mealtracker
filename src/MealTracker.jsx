@@ -353,6 +353,9 @@ export default function MealTracker() {
   const [editingEntry, setEditingEntry] = useState(null);
   const [recording, setRecording] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  // Hay texto escrito sin enviar: basta para congelar el chat.
+  const [hayBorrador, setHayBorrador] = useState(false);
+  const hayBorradorRef = useRef(false);
   // Espejo en ref para listeners de touch (no re-suscriben por render)
   const keyboardOpenRef = useRef(false);
   const [actionsExpanded, setActionsExpanded] = useState(false);
@@ -500,6 +503,7 @@ export default function MealTracker() {
   // el teclado de iOS ya no tiene un layout viewport que desplazar y el
   // header/tarjeta/barra dejan de vibrar al scrollear escribiendo.
   const chatScrollRef = useRef(null);
+  const chatBandRef = useRef(null);
 
   // Closes the actions sheet INSTANTLY via direct DOM mutation + paint flush,
   // before letting React run its expensive re-render. On mobile the parent
@@ -1456,6 +1460,7 @@ export default function MealTracker() {
       const t = `translate3d(0, ${offsetTop}px, 0)`;
       if (headerRef.current) headerRef.current.style.transform = t;
       if (goalsCardRef.current) goalsCardRef.current.style.transform = t;
+      if (chatBandRef.current) chatBandRef.current.style.transform = t;
       const fromBottom = window.innerHeight - (offsetTop + vv.height);
       // El SCROLLER se encoge por encima del teclado: así el final de la
       // conversación queda visible sobre la barra, y scrollear con el
@@ -1530,7 +1535,7 @@ export default function MealTracker() {
       inputBarRef.current && target && inputBarRef.current.contains(target);
 
     const onTouchMove = (e) => {
-      if (!keyboardOpenRef.current) return;
+      if (!keyboardOpenRef.current && !hayBorradorRef.current) return;
       // Dentro de la barra sí se permite (seleccionar texto, mover cursor).
       if (dentroDelInput(e.target)) return;
       if (e.cancelable) e.preventDefault();
@@ -1544,7 +1549,7 @@ export default function MealTracker() {
     };
     const onTouchEnd = (e) => {
       const p0 = ini; ini = null;
-      if (!keyboardOpenRef.current || !p0) return;
+      if ((!keyboardOpenRef.current && !hayBorradorRef.current) || !p0) return;
       if (dentroDelInput(e.target)) return;
       const t = e.changedTouches && e.changedTouches[0];
       if (!t) return;
@@ -4559,8 +4564,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         // Con el teclado abierto el scroller se bloquea desde el ESTADO, no
         // por JS: los re-renders que dispara el teclado pisaban el valor
         // puesto a mano y el scroll volvía solo.
-        overflowY: keyboardOpen ? 'hidden' : 'auto',
-        overscrollBehavior: keyboardOpen ? 'none' : 'contain',
+        overflowY: (keyboardOpen || hayBorrador) ? 'hidden' : 'auto',
+        overscrollBehavior: (keyboardOpen || hayBorrador) ? 'none' : 'contain',
       }}>
         {/* Fondo del chat: las mismas manchas de la marca pero repartidas en
             OTRO orden que en Hoy — el durazno arriba a la derecha y el verde
@@ -4572,16 +4577,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           background: BG_STAINS,
           willChange: loading ? 'transform' : 'auto',
         }} />
-        {/* Franja de color del borde superior: llega hasta el extremo de la
-            pantalla, por detrás de la píldora de marca, sin difuminarse. */}
-        <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
-          zIndex: 0,
-          height: `calc(${headerH}px + 96px)`,
-          background: `radial-gradient(74% 76% at 6% 4%, #F3C2A8 0%, rgba(243,194,168,0) 74%),
-            radial-gradient(78% 72% at 94% 12%, #A9D8C6 0%, rgba(169,216,198,0) 72%),
-            radial-gradient(60% 56% at 54% 0%, #F7E3AE 0%, rgba(247,227,174,0) 76%),
-            linear-gradient(180deg, #E9EADE 0%, rgba(237,236,229,0) 100%)`,
-        }} />
+
         {/* Capas de pensando (cálida + fría) — siempre montadas con opacity
             0 para que el encendido/apagado sea un fade y no un salto. */}
         <div className={`fixed pointer-events-none bg-stains-extra warm${loading ? ' on' : ''}`} style={{
@@ -4593,6 +4589,21 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           background: BG_STAINS_COOL,
         }} />
 
+        {/* Franja de color del chat — el mismo tratamiento que la portada de
+            Hoy, con los colores en otro orden (durazno a la izquierda, verde
+            agua a la derecha) para que cada pantalla se reconozca. Llega al
+            extremo superior y va POR ENCIMA del scroller pero por debajo de
+            la tarjeta de metas: antes vivía dentro del scroller y el velo de
+            esa tarjeta la tapaba entera. */}
+        <div ref={chatBandRef} className="fixed left-0 right-0 top-0 pointer-events-none" style={{
+          zIndex: 25,
+          height: `calc(${headerH}px + 132px)`,
+          background: `radial-gradient(80% 82% at 4% 2%, #F3C2A8 0%, rgba(243,194,168,0) 72%),
+            radial-gradient(84% 78% at 96% 10%, #A9D8C6 0%, rgba(169,216,198,0) 70%),
+            radial-gradient(62% 58% at 52% 0%, #F7E3AE 0%, rgba(247,227,174,0) 74%),
+            linear-gradient(180deg, #E9EADE 0%, #EDECE5 62%, rgba(237,236,229,0) 100%)`,
+        }} />
+
         {/* Goals card — FIXED + visualViewport tracking. top = altura real
             del header + separación, para que NUNCA quede debajo de él. */}
         <div ref={goalsCardRef} className="fixed left-0 right-0" style={{
@@ -4602,7 +4613,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           paddingLeft: '16px', paddingRight: '16px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
-          background: 'linear-gradient(180deg, rgba(237,236,229,0.88) 0%, rgba(237,236,229,0.78) 80%, rgba(237,236,229,0.5) 100%)',
+          // El diluido del contenido que pasa por detrás. Va con alfa BAJO a
+          // propósito: encima está la franja de color, y un velo opaco la
+          // borraba. Y no depende de cardCompact — al enfocar el input la
+          // tarjeta se compacta y el diluido se perdía de golpe.
+          background: 'linear-gradient(180deg, rgba(237,236,229,0.55) 0%, rgba(237,236,229,0.42) 78%, rgba(237,236,229,0) 100%)',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)',
           transform: 'translate3d(0, 0, 0)',
           zIndex: 30,
@@ -4901,7 +4916,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               marginTop: `calc(-${headerH + 10}px - 6px)`,
               paddingTop: `calc(${headerH + 10}px + 14px)`,
               paddingLeft: '20px', paddingRight: '20px', paddingBottom: '26px',
-              borderBottomLeftRadius: '40px', borderBottomRightRadius: '40px',
+              // Curva ovalada de verdad: el radio elíptico (50% de ancho ×
+              // 58px de alto) dibuja un arco continuo de lado a lado, no dos
+              // esquinas redondeadas con una recta en medio.
+              borderRadius: '0 0 50% 50% / 0 0 58px 58px',
               background: `radial-gradient(78% 62% at 88% 6%, #A9D8C6 0%, rgba(169,216,198,0) 72%),
                 radial-gradient(72% 58% at 2% 30%, #F3C2A8 0%, rgba(243,194,168,0) 74%),
                 radial-gradient(64% 52% at 46% 0%, #F7E3AE 0%, rgba(247,227,174,0) 74%),
@@ -5388,6 +5406,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         onStartVoice={stableStartVoice}
         onStopVoice={stableStopVoice}
         onFocusInput={stableFocusInput}
+        onDraftChange={(v) => { hayBorradorRef.current = v; setHayBorrador(v); }}
       />
 
       {/* Deshacer — visible 6s después de registrar. Un tap revierte la(s)
@@ -5627,7 +5646,7 @@ function composeDayOpening(name, yesterday, goals, opts = {}) {
 // vía `apiRef` (getText/setText/appendText/clear).
 const InputBar = memo(function InputBar({
   barRef, apiRef, hidden, recording, transcribing, loading, predictedMeal,
-  onSend, onStartVoice, onStopVoice, onFocusInput, liftPx = 0,
+  onSend, onStartVoice, onStopVoice, onFocusInput, onDraftChange, liftPx = 0,
 }) {
   const [text, setText] = useState('');
   const divRef = useRef(null);
@@ -5660,16 +5679,21 @@ const InputBar = memo(function InputBar({
         const prev = (divRef.current?.textContent || '').trim();
         const next = prev ? `${prev} ${value}` : value;
         writeDom(next); setText(next);
+        onDraftRef.current?.(next.trim().length > 0);
       },
-      clear: () => { writeDom(''); setText(''); },
+      clear: () => { writeDom(''); setText(''); onDraftRef.current?.(false); },
     };
     return () => { apiRef.current = null; };
   }, [apiRef, writeDom]);
+
+  const onDraftRef = useRef(onDraftChange);
+  onDraftRef.current = onDraftChange;
 
   const send = () => {
     const value = (divRef.current?.textContent || '').trim();
     if (!value) return;
     writeDom(''); setText('');
+    onDraftChange?.(false);
     onSend(value);
   };
 
@@ -5738,7 +5762,7 @@ const InputBar = memo(function InputBar({
             contentEditable={!recording && !transcribing}
             suppressContentEditableWarning={true}
             data-placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Dicta o escribe lo que comiste…'}
-            onInput={(e) => setText(e.currentTarget.textContent || '')}
+            onInput={(e) => { const v = e.currentTarget.textContent || ''; setText(v); onDraftChange?.(v.trim().length > 0); }}
             onFocus={onFocusInput}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {

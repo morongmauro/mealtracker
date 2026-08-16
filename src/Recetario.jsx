@@ -1631,10 +1631,10 @@ function MacroLegend({ totals }) {
 // Sin backdrop-filter: el blur en vivo sobre muchas cards congela el render al
 // abrir/cerrar y al entrar a una receta. Fondo semi-sólido + sombra = mismo look
 // premium, sin costo de GPU.
-const cardStyle = { background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.85)', boxShadow: SHADOW_CARD };
+const cardStyle = { background: '#FFFFFF', border: '1px solid rgba(255,255,255,0.85)', boxShadow: SHADOW_CARD };
 // Sin bordes sólidos: tarjeta blanca con sombra suave y brillo interior
 // (mismo lenguaje que las burbujas del chat del MealTracker).
-const plainCard = { background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(60,70,50,0.09), 0 2px 6px rgba(60,70,50,0.05)' };
+const plainCard = { background: '#FFFFFF', boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(60,70,50,0.09), 0 2px 6px rgba(60,70,50,0.05)' };
 
 // Semáforo del día: qué tan cerca quedó de la meta.
 // Entrada para el tracker a partir de una receta ya escalada. La comparten el
@@ -2127,22 +2127,15 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   // todo lo demás vive en una ventana aparte.
   const nFiltros = evitar.length + (maxMin ? 1 : 0) + (priorizar ? 1 : 0);
   const barraFiltros = (
-    <div className="flex items-center gap-2 px-1">
-      <button onClick={() => { haptic(5); setFiltrosAbiertos(true); }}
-        className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold active:scale-95 transition"
-        style={{
-          background: nFiltros ? TEXT : 'rgba(255,255,255,0.92)',
-          color: nFiltros ? '#fff' : TEXT_MUTED,
-          boxShadow: nFiltros ? 'none' : '0 1px 4px rgba(60,70,50,0.08)',
-        }}>
-        <Sliders size={13} /> Filtrar{nFiltros ? ` · ${nFiltros}` : ''}
-      </button>
-      {nFiltros > 0 && (
-        <button onClick={() => { haptic(4); setEvitar([]); setMaxMin(0); setPriorizar(''); }}
-          className="text-[11.5px] font-semibold active:scale-95 transition"
-          style={{ color: TEXT_LIGHT }}>Quitar filtros</button>
-      )}
-    </div>
+    <button onClick={() => { haptic(5); setFiltrosAbiertos(true); }}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold active:scale-95 transition"
+      style={{
+        background: nFiltros ? TEXT : '#FFFFFF',
+        color: nFiltros ? '#fff' : TEXT_MUTED,
+        boxShadow: nFiltros ? 'none' : '0 1px 4px rgba(60,70,50,0.10)',
+      }}>
+      <Sliders size={12} /> Filtrar{nFiltros ? ` · ${nFiltros}` : ''}
+    </button>
   );
 
   // Ventana de filtros: qué QUITAR y qué PRIORIZAR, separado, porque son dos
@@ -2240,16 +2233,20 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         </div>
       </div>
 
-      <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
-        {[['dia', 'Un día'], ['semana', 'La semana'], ['mios', `Mis menús${misMenus.length ? ` (${misMenus.length})` : ''}`]].map(([k, l], i) => (
-          <React.Fragment key={k}>
-            {i > 0 && <span style={{ width: 1, height: 12, background: BORDER, margin: '0 9px', flexShrink: 0 }} />}
-            {tabBtn(k, l, menuTab === k, setMenuTab)}
-          </React.Fragment>
-        ))}
+      {/* Pestañas y "Filtrar" en la MISMA fila: el filtro ocupaba un renglón
+          entero y empujaba las propuestas fuera de la primera pantalla, que
+          es justo lo que se viene a ver. */}
+      <div className="flex items-center px-1" style={{ rowGap: '6px' }}>
+        <div className="flex items-center flex-wrap" style={{ rowGap: '6px' }}>
+          {[['dia', 'Un día'], ['semana', 'La semana'], ['mios', `Mis menús${misMenus.length ? ` (${misMenus.length})` : ''}`]].map(([k, l], i) => (
+            <React.Fragment key={k}>
+              {i > 0 && <span style={{ width: 1, height: 12, background: BORDER, margin: '0 9px', flexShrink: 0 }} />}
+              {tabBtn(k, l, menuTab === k, setMenuTab)}
+            </React.Fragment>
+          ))}
+        </div>
+        {menuTab !== 'mios' && <div className="ml-auto flex-shrink-0">{barraFiltros}</div>}
       </div>
-
-      {menuTab !== 'mios' && barraFiltros}
 
       {/* ── UN DÍA ── */}
       {menuTab === 'dia' && (
