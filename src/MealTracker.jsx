@@ -188,8 +188,15 @@ function urlBase64ToUint8Array(base64String) {
 // Deja text: '' para no mostrar nada.
 // ─────────────────────────────────────────────────────────────────────────
 const APP_UPDATE_ANNOUNCEMENT = {
-  id: '2026-07-21-mi-semana',
-  text: '📊 Nueva sección: Mi Semana. Toca el botón de arriba (el calendario con el ✓) y mira cómo te fue la semana pasada: tus entrenos cumplidos, tus días de registro y qué tan alineado quedaste con tu meta — todo resumido en tu nivel de la semana. Las gráficas de desempeño de siempre ahora viven ahí mismo, en las pestañas de al lado.',
+  id: '2026-08-16-recetario-en-el-chat',
+  // Los saltos de línea SÍ se respetan en la burbuja de aviso: escribe en
+  // párrafos cortos. `cta: 'recetario'` agrega el botón que lo abre.
+  cta: 'recetario',
+  text: `📖 El Recetario ya no vive solo en su pestaña: ahora también lo consultas desde el chat. Dime uno o dos ingredientes que tengas a mano — "pollo y arroz", "huevos", "salmón" — y te muestro las recetas que encajan con tu meta. Tocas la que te guste y se abre completa, con su paso a paso y la porción ya ajustada para ti.
+
+Y no son solo recetas sueltas: dentro del Recetario puedes armar tu día o tu semana entera con ellas y llevarte la lista de mercado.
+
+Ojo con algo, para que le saques provecho: el Recetario es APARTE de tus menús favoritos y de tus ingredientes favoritos. Tus menús favoritos son los combos que tú guardas para repetirlos con un toque. Tus ingredientes favoritos son con los que te calculo proporciones y te armo el día a tu medida. Y el Recetario son platos ya resueltos, con su preparación. Las tres cosas conviven en tu MealTracker: usa la que quieras, cuando quieras — o las tres en la misma semana.`,
 };
 
 // ─── GANCHOS DE APRENDIZAJE (los edita el coach, como _clients.js) ───────
@@ -2166,7 +2173,7 @@ export default function MealTracker() {
   // saludo del día.
   useEffect(() => {
     if (view !== 'main') return;
-    const { id, text } = APP_UPDATE_ANNOUNCEMENT || {};
+    const { id, text, cta } = APP_UPDATE_ANNOUNCEMENT || {};
     if (!id || !text) return;
     let acked = null;
     try { acked = localStorage.getItem('updateAnnouncementAck'); } catch (e) {}
@@ -2175,6 +2182,7 @@ export default function MealTracker() {
       try { localStorage.setItem('updateAnnouncementAck', id); } catch (e) {}
       setMessages(m => [...m, {
         role: 'assistant', isAnnouncement: true, tag: 'La app mejoró',
+        showRecetarioButton: cta === 'recetario',
         content: text, ts: Date.now(),
       }]);
     }, 4000);
@@ -5415,14 +5423,17 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div
             className={`w-full max-w-md rounded-t-3xl px-4 pt-2 ${visible ? 'sheet-up' : ''}`}
             style={{
-              // Fondo DEGRADADO con las mismas manchas de color de la app
-              // (oliva, terracota, azul) en vez del crema plano: al abrir,
-              // la hoja se siente parte de la pantalla y no una caja gris
-              // pegada encima. Los degradados son estáticos (no animan) y
-              // solo se pintan mientras la hoja está visible.
-              background: `radial-gradient(120% 62% at 8% 0%, rgba(169,184,123,0.42), transparent 64%),
-                radial-gradient(110% 56% at 98% 2%, rgba(224,148,121,0.28), transparent 62%),
-                radial-gradient(120% 60% at 50% 104%, rgba(116,174,203,0.22), transparent 66%),
+              // EL DEGRADADO VIVE AQUÍ: en la tarjeta de fondo de la hoja,
+              // detrás de los botones (que se quedan blancos). Son las
+              // mismas manchas de color de la app — oliva arriba-izquierda,
+              // terracota arriba-derecha, miel al medio y azul abajo —
+              // sobre el crema. Estáticas (no animan) y solo se pintan
+              // mientras la hoja está abierta.
+              background: `radial-gradient(130% 68% at 4% -4%, rgba(154,175,104,0.72), transparent 62%),
+                radial-gradient(120% 62% at 100% -2%, rgba(224,148,121,0.55), transparent 60%),
+                radial-gradient(105% 55% at 62% 34%, rgba(246,218,156,0.42), transparent 66%),
+                radial-gradient(130% 66% at 30% 108%, rgba(116,174,203,0.45), transparent 64%),
+                radial-gradient(110% 58% at 96% 92%, rgba(169,184,123,0.34), transparent 66%),
                 ${BG}`,
               boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
               paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
@@ -6107,21 +6118,12 @@ function PaymentNotice({ info, style }) {
   );
 }
 
-// El color base de un chip = el primer color de su degradado. Así el lavado
-// del fondo, el borde y la sombra salen SOLOS del mismo tono de la insignia,
-// sin repetir el hex en cada llamada.
-const tintDe = (grad, fallback = ACCENT) => {
-  const m = typeof grad === 'string' ? grad.match(/#[0-9a-fA-F]{6}/) : null;
-  return m ? m[0] : fallback;
-};
-
-function ActionChipMini({ icon, label, color, pastel, grad, tint, onClick }) {
+function ActionChipMini({ icon, label, color, pastel, grad, onClick }) {
   // Chip compacto + tap instantáneo: usa onPointerDown para disparar al
   // primer touchstart sin esperar el click sintético de iOS. Llevamos un
   // ref del punto de inicio para descartar el tap si el dedo se movió
   // (evita falsos positivos cuando la hoja se scrollea).
   const startRef = useRef(null);
-  const t = tint || tintDe(grad);
   return (
     <button
       onPointerDown={(e) => {
@@ -6140,13 +6142,13 @@ function ActionChipMini({ icon, label, color, pastel, grad, tint, onClick }) {
       onClick={(e) => e.preventDefault()}
       className="flex items-center gap-2.5 px-3 py-2.5 rounded-[22px] active:scale-[0.97]"
       style={{
-        // El chip entero se tiñe del color de su insignia: degradado suave
-        // desde el tono (arriba-izquierda) hasta blanco (abajo-derecha). La
-        // hoja deja de ser una rejilla de tarjetas blancas iguales — cada
-        // herramienta se reconoce por su color antes de leer la etiqueta.
-        background: `linear-gradient(135deg, ${t}30 0%, ${t}14 46%, #FFFFFF 100%)`,
-        border: `1px solid ${t}33`,
-        boxShadow: `0 1px 0 rgba(255,255,255,0.75) inset, 0 3px 12px ${t}2B, 0 1px 2px rgba(60,70,50,0.05)`,
+        // El chip se queda BLANCO: el color de la hoja vive en el fondo
+        // degradado de atrás, y los botones blancos recortados encima son
+        // los que lo hacen ver premium. Teñirlos también ensuciaba la
+        // rejilla.
+        background: '#FFFFFF',
+        border: '1px solid rgba(60,70,50,0.07)',
+        boxShadow: '0 2px 10px rgba(60,70,50,0.07), 0 1px 2px rgba(60,70,50,0.04)',
         transition: 'transform 0.08s ease-out',
         touchAction: 'manipulation',
         WebkitTapHighlightColor: 'transparent'
@@ -6154,15 +6156,7 @@ function ActionChipMini({ icon, label, color, pastel, grad, tint, onClick }) {
       {/* Insignia en "squircle" con el MISMO lenguaje que las herramientas
           de la vista Hoy: degradado de color + icono de línea BLANCO. Si no
           llega `grad` cae al pastel viejo (compatibilidad). */}
-      <div className="flex items-center justify-center rounded-[10px] shrink-0" style={{
-        width: 32, height: 32,
-        background: grad || pastel || ACCENT_PASTEL,
-        color: grad ? '#FFF' : (color || ACCENT_DARK),
-        fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1,
-        // Sobre el chip teñido, la insignia necesita despegarse: brillo
-        // interior arriba y sombra de su propio color abajo.
-        boxShadow: grad ? `0 1px 0 rgba(255,255,255,0.35) inset, 0 3px 8px ${t}59` : 'none',
-      }}>
+      <div className="flex items-center justify-center rounded-[10px] shrink-0" style={{ width: 32, height: 32, background: grad || pastel || ACCENT_PASTEL, color: grad ? '#FFF' : (color || ACCENT_DARK), fontSize: typeof icon === 'string' ? 16 : undefined, lineHeight: 1 }}>
         {icon}
       </div>
       <div className="text-[12px] font-medium leading-tight text-left" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{label}</div>
@@ -6444,7 +6438,16 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               {message.tag || 'Aviso'}
             </span>
           </div>
-          <div style={{ color: TEXT, fontWeight: 500 }}>{message.content}</div>
+          {/* whitespace-pre-line: los avisos largos se escriben en párrafos
+              y hay que respetarlos (un muro de texto no se lee). */}
+          <div className="whitespace-pre-line" style={{ color: TEXT, fontWeight: 500 }}>{message.content}</div>
+          {message.showRecetarioButton && typeof onOpenRecetario === 'function' && (
+            <button onClick={() => onOpenRecetario({})}
+              className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
+              style={{ background: ACCENT_DARK, color: '#fff' }}>
+              <BookOpen size={13} /> Abrir el Recetario
+            </button>
+          )}
           {message.showLearnButton && typeof onOpenLearning === 'function' && (
             <button onClick={onOpenLearning}
               className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
