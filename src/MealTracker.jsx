@@ -1269,6 +1269,19 @@ export default function MealTracker() {
               // segundo dispositivo sin la marca no la borra).
               pwa_installed_at: (() => { try { return localStorage.getItem('mt:pwaInstalledAt') || undefined; } catch (e) { return undefined; } })(),
               push_enabled_at: (() => { try { return localStorage.getItem('mt:pushEnabledAt') || undefined; } catch (e) { return undefined; } })(),
+              // Menús armados en el Recetario. Viven en localStorage (no
+              // necesitan cuenta), pero el coach no podía verlos desde el CRM.
+              // Se mandan tal cual (son IDs de receta, pesan nada) y el
+              // servidor conserva los del server si un dispositivo sincroniza
+              // sin ellos — mismo patrón que las señales de dispositivo.
+              recetario_menus: (() => {
+                try {
+                  const raw = localStorage.getItem('mt:menus_guardados');
+                  if (!raw) return undefined;
+                  const arr = JSON.parse(raw);
+                  return Array.isArray(arr) && arr.length ? arr.slice(0, 60) : undefined;
+                } catch (e) { return undefined; }
+              })(),
               // Versión de la meta que este dispositivo conoce; el server la
               // compara y NO deja que un push viejo pise una meta más nueva
               // (p.ej. recién cambiada por el coach).
@@ -8068,7 +8081,10 @@ const nivelSemana = (pct) => (pct == null ? null : NIVELES_SEMANA.find(n => pct 
 // `goalsHistory` (opcional) hace que cada día se compare con SU meta vigente.
 function computeWeekReview(history, goals, training, todayKey, goalsHistory) {
   const dates = prevWeekDates(todayKey);
-  const logged = dates.filter(d => history[d] && history[d].kcal > 0);
+  // Un día cuenta como registrado si la fecha existe — mismo criterio que
+  // el panel del coach y que el resto de la app. Pedir kcal > 0 dejaba fuera
+  // días que sí se registraron.
+  const logged = dates.filter(d => !!history[d]);
   const registro = logged.length;
   const scores = logged.map(d => dayGoalScoreCliente(history[d], goalsVigentes(goalsHistory, goals, d))).filter(s => s != null);
   const alineacion = registro >= 3 && scores.length > 0
@@ -8161,15 +8177,59 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     return arr;
   };
 
-  const week = daysBack(7);
+  // ── TU SEMANA = LUNES A DOMINGO ───────────────────────────────────────
+  // Antes esto era una ventana móvil de 7 días (hoy hacia atrás). El CRM de
+  // tu coach mide la semana de lunes a domingo, y con dos ventanas distintas
+  // los números NUNCA podían cuadrar: si tu coach te mandaba el resumen un
+  // martes, él estaba mirando lunes-martes y tú los 7 días anteriores. Ahora
+  // las dos pantallas hablan exactamente de los mismos días.
+  const semanaDeLunes = (base) => {
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    const dow = d.getDay() || 7;                 // domingo = 7
+    d.setDate(d.getDate() - (dow - 1));          // retrocede hasta el lunes
+    const arr = [];
+    for (let i = 0; i < 7; i++) {
+      const x = new Date(d);
+      x.setDate(d.getDate() + i);
+      const key = getLocalDate(x);
+      arr.push({ date: key, jsDate: x, data: combinedHistory[key] || null });
+    }
+    return arr;
+  };
+  const week = semanaDeLunes(new Date());
+  const _lunesPasado = new Date();
+  _lunesPasado.setDate(_lunesPasado.getDate() - 7);
+  const weekPrev = semanaDeLunes(_lunesPasado);
+
+  // Un día cuenta como REGISTRADO si tiene datos — el mismo criterio del CRM.
+  // Pedir kcal > 0 dejaba fuera días que sí registraste.
+  const reg = (d) => !!(d && d.data);
+
   const month = daysBack(30);
+
+  // El MES DEL CALENDARIO (no los últimos 30 días): la grilla se lee mejor
+  // cuando las columnas son días de la semana de verdad.
+  const hoyJs = new Date();
+  const mesGrid = (() => {
+    const y = hoyJs.getFullYear(), m = hoyJs.getMonth();
+    const primero = new Date(y, m, 1);
+    const dias = new Date(y, m + 1, 0).getDate();
+    const offset = (primero.getDay() + 6) % 7;   // lunes = 0
+    const celdas = [];
+    for (let i = 0; i < offset; i++) celdas.push(null);
+    for (let d = 1; d <= dias; d++) {
+      const key = getLocalDate(new Date(y, m, d));
+      celdas.push({ dia: d, date: key, data: combinedHistory[key] || null });
+    }
+    return { celdas, nombre: primero.toLocaleDateString('es', { month: 'long', year: 'numeric' }), dias };
+  })();
 
   // Trend: group last 12 weeks by week
   const trendDays = daysBack(84);
   const weeks = [];
   for (let i = 0; i < 12; i++) {
     const chunk = trendDays.slice(i * 7, i * 7 + 7);
-    const recorded = chunk.filter(d => d.data && d.data.kcal > 0);
+    const recorded = chunk.filter(reg);
     const avg = (key) => recorded.length > 0
       ? recorded.reduce((s, d) => s + (d.data[key] || 0), 0) / recorded.length
       : 0;
@@ -8185,7 +8245,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
   }
 
   const stats = (days, key) => {
-    const recorded = days.filter(d => d.data && d.data.kcal > 0);
+    const recorded = days.filter(reg);
     if (recorded.length === 0) return { avg: 0, pct: 0, inGoal: 0 };
     const avg = recorded.reduce((s, d) => s + (d.data[key] || 0), 0) / recorded.length;
     // Trazabilidad: el "% de la meta" y los días "en meta" se evalúan contra
@@ -8214,9 +8274,11 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   // ─── BEHAVIOR METRICS (process-focused, not goal-binary) ───
   // 1. Adherencia: días registrados últimos 7 vs 7 anteriores
-  const prev7 = daysBack(14).slice(0, 7);
-  const recordedLast7 = week.filter(d => d.data && d.data.kcal > 0).length;
-  const recordedPrev7 = prev7.filter(d => d.data && d.data.kcal > 0).length;
+  // La comparación es contra la SEMANA PASADA completa (lunes a domingo),
+  // no contra los 7 días anteriores a hoy.
+  const prev7 = weekPrev;
+  const recordedLast7 = week.filter(reg).length;
+  const recordedPrev7 = prev7.filter(reg).length;
   const adherenceDelta = recordedLast7 - recordedPrev7;
 
   // 2. Hora promedio del primer registro (cuándo arranca el día)
@@ -8239,10 +8301,10 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   // 3. Tendencia de proteína (últimos 7 vs 7 anteriores)
   const protLast7 = recordedLast7 > 0
-    ? Math.round(week.filter(d => d.data && d.data.kcal > 0).reduce((s, d) => s + (d.data.p || 0), 0) / recordedLast7)
+    ? Math.round(week.filter(reg).reduce((s, d) => s + (d.data.p || 0), 0) / recordedLast7)
     : 0;
   const protPrev7 = recordedPrev7 > 0
-    ? Math.round(prev7.filter(d => d.data && d.data.kcal > 0).reduce((s, d) => s + (d.data.p || 0), 0) / recordedPrev7)
+    ? Math.round(prev7.filter(reg).reduce((s, d) => s + (d.data.p || 0), 0) / recordedPrev7)
     : 0;
   const protDelta = protLast7 - protPrev7;
 
@@ -8274,6 +8336,54 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     omega3: microSum.omega3 / microDays,
     sugar: microSum.sugar / microDays,
   } : null;
+
+  // ── TUS ALIMENTOS DE LA SEMANA ────────────────────────────────────────
+  // Agrupa por nombre todo lo que registraste de lunes a domingo. No es una
+  // calificación de tu comida: es tu dieta real puesta en orden, para que
+  // veas de dónde salen de verdad tus calorías y tu proteína. La base son las
+  // calorías que vienen desglosadas en alimentos — un día que registraste
+  // solo el total no cuenta acá, y por eso se dice cuántos días la sostienen.
+  const alimentosSemana = (() => {
+    const mapa = new Map();
+    let kcalDetalle = 0, azucarTotal = 0, diasConDetalle = 0;
+    for (const d of week) {
+      const det = combinedDetail[d.date];
+      if (!det || !det.length) continue;
+      diasConDetalle++;
+      for (const e of det) {
+        for (const it of (e.items || [])) {
+          const nombre = String(it.name || '').trim();
+          if (!nombre) continue;
+          const clave = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          const micro = estimateMicros([it]);
+          const f = mapa.get(clave) || { nombre, veces: 0, kcal: 0, p: 0, azucar: 0 };
+          f.veces++;
+          f.kcal += Number(it.kcal) || 0;
+          f.p += Number(it.p) || 0;
+          f.azucar += micro.sugar;
+          mapa.set(clave, f);
+          kcalDetalle += Number(it.kcal) || 0;
+          azucarTotal += micro.sugar;
+        }
+      }
+    }
+    const lista = [...mapa.values()].map(f => ({
+      nombre: f.nombre,
+      veces: f.veces,
+      kcal: Math.round(f.kcal),
+      p: Math.round(f.p * 10) / 10,
+      azucar: Math.round(f.azucar * 10) / 10,
+      pct: kcalDetalle > 0 ? Math.round((f.kcal / kcalDetalle) * 100) : 0,
+    }));
+    return {
+      diasConDetalle,
+      azucarDia: diasConDetalle ? Math.round((azucarTotal / diasConDetalle) * 10) / 10 : null,
+      topKcal: [...lista].sort((a, b) => b.kcal - a.kcal).slice(0, 5),
+      topVeces: [...lista].sort((a, b) => b.veces - a.veces).slice(0, 5),
+      topProte: lista.filter(f => f.p >= 3).sort((a, b) => b.p - a.p).slice(0, 5),
+      topAzucar: lista.filter(f => f.azucar >= 1).sort((a, b) => b.azucar - a.azucar).slice(0, 3),
+    };
+  })();
 
   const dayShort = (date) => {
     const [y, m, dd] = date.split('-').map(Number);
@@ -8355,7 +8465,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   const StatBlock = ({ label, color, goal, unit, data, statKey }) => {
     const s = stats(data, statKey);
-    const recorded = data.filter(d => d.data && d.data.kcal > 0).length;
+    const recorded = data.filter(reg).length;
     return (
       <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 12px 10px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="flex justify-between items-end mb-2">
@@ -8389,6 +8499,111 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
             Aún sin registros en este periodo.
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Lista de alimentos con barra proporcional. Se usa para "los que más
+  // calorías te aportaron", "los que más repites" y "de dónde sale tu
+  // proteína": las tres son descriptivas, ninguna señala culpables.
+  const ListaAlimentos = ({ titulo, nota, items, valor, unidad, color, sufijo }) => {
+    if (!items || items.length === 0) return null;
+    const max = Math.max(1, ...items.map(valor));
+    return (
+      <div className="mb-3" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+        <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color }}>{titulo}</div>
+        <div className="text-[10px] mb-2 mt-0.5" style={{ color: TEXT_LIGHT }}>{nota}</div>
+        {items.map((f, i) => (
+          <div key={i} className="py-1.5" style={{ borderBottom: i < items.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-[13px] font-semibold truncate" style={{ color: TEXT }}>{f.nombre}</span>
+              <span className="text-[13px] font-bold num whitespace-nowrap" style={{ color }}>{valor(f)}{unidad}</span>
+            </div>
+            <div className="h-1.5 rounded-full mt-1 overflow-hidden" style={{ background: SURFACE_2 }}>
+              <div style={{ width: `${(valor(f) / max) * 100}%`, height: '100%', background: color, borderRadius: '999px' }} />
+            </div>
+            <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>
+              {f.veces}{f.veces === 1 ? ' vez' : ' veces'} esta semana{sufijo ? ` · ${sufijo(f)}` : ''}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Calendario del mes. Cada día se pinta contra la meta que regía ESE día
+  // (goalsVigentes), igual que en el panel de tu coach: cambiar la meta hoy
+  // no reescribe cómo te fue el mes pasado.
+  const colorDelDia = (celda) => {
+    if (!celda || !celda.data) return null;
+    const g = goalsVigentes(goalsHistory, goals, celda.date) || goals;
+    if (!g || !g.kcal) return { bg: '#94a3b8', pct: null };
+    const pct = Math.round(((celda.data.kcal || 0) / g.kcal) * 100);
+    if (pct >= 90 && pct <= 110) return { bg: SUCCESS, pct };
+    if (pct >= 80 && pct <= 120) return { bg: WARN, pct };
+    if (pct > 120) return { bg: '#ef4444', pct };
+    return { bg: '#3b82f6', pct };
+  };
+
+  const Calendario = () => {
+    const conDatos = mesGrid.celdas.filter(c => c && c.data);
+    const registrados = conDatos.length;
+    const promKcal = registrados ? Math.round(conDatos.reduce((a, c) => a + (c.data.kcal || 0), 0) / registrados) : 0;
+    const enMeta = conDatos.filter(c => { const r = colorDelDia(c); return r && r.pct != null && r.pct >= 90 && r.pct <= 110; }).length;
+    return (
+      <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+        <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color: ACCENT_DARK }}>Tu mes</div>
+        <div className="text-[10px] mb-3 mt-0.5 capitalize" style={{ color: TEXT_LIGHT }}>{mesGrid.nombre}</div>
+
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="text-center">
+            <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{registrados}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/{mesGrid.dias}</span></div>
+            <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>días registrados</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{promKcal || '—'}</div>
+            <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>kcal promedio</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[17px] font-bold num" style={{ color: enMeta > 0 ? SUCCESS : TEXT }}>{enMeta}</div>
+            <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>días en meta</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 mb-1">
+          {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
+            <div key={i} className="text-center text-[9px] font-bold uppercase" style={{ color: TEXT_LIGHT }}>{d}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {mesGrid.celdas.map((c, i) => {
+            if (!c) return <div key={i} />;
+            const col = colorDelDia(c);
+            const esHoy = c.date === today;
+            return (
+              <div key={i}
+                className="rounded-lg flex flex-col items-center justify-center"
+                style={{
+                  aspectRatio: '1', background: col ? col.bg : SURFACE_2,
+                  color: col ? '#fff' : TEXT_LIGHT,
+                  border: esHoy ? `2px solid ${TEXT}` : 'none',
+                  opacity: col ? 1 : 0.7,
+                }}
+                title={`${c.date}${col && col.pct != null ? ` · ${Math.round(c.data.kcal || 0)} kcal (${col.pct}% de tu meta)` : col ? ` · ${Math.round(c.data.kcal || 0)} kcal` : ' · sin registro'}`}>
+                <div className="text-[10px] font-bold leading-none">{c.dia}</div>
+                {col && <div className="text-[8px] leading-none mt-0.5 opacity-90 num">{Math.round((c.data.kcal || 0) / 100) / 10}k</div>}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[9px]" style={{ color: TEXT_MUTED }}>
+          {[[SUCCESS, 'En tu meta'], [WARN, 'Cerca'], ['#ef4444', 'Por encima'], ['#3b82f6', 'Por debajo'], [SURFACE_2, 'Sin registro']].map(([c, l], i) => (
+            <span key={i} className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm" style={{ background: c }} />{l}
+            </span>
+          ))}
+        </div>
       </div>
     );
   };
@@ -8549,7 +8764,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
         const semanaCurso = Array.from({ length: dowHoy + 1 }, (_, i) => {
           const dd = new Date(hoyDate); dd.setDate(hoyDate.getDate() - dowHoy + i); return getLocalDate(dd);
         });
-        const registroCurso = semanaCurso.filter(d => combinedHistory[d] && combinedHistory[d].kcal > 0).length;
+        const registroCurso = semanaCurso.filter(d => !!combinedHistory[d]).length;
         // Alineación a meta de la semana EN CURSO — misma regla que la
         // pasada: solo con 3+ días registrados (con menos, el % engaña).
         const scoresCurso = semanaCurso
@@ -8680,7 +8895,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                     <>
                       <Ring pct={Math.round((r.registro / 7) * 100)} color={C_PROTEIN}
                         center={`${r.registro}/7`} sub="días" size={80} />
-                      <Dots on={r.dates.map(d => !!(combinedHistory[d] && combinedHistory[d].kcal > 0))} color={C_PROTEIN} />
+                      <Dots on={r.dates.map(d => !!combinedHistory[d])} color={C_PROTEIN} />
                       <MetaMini pct={r.alineacion} />
                     </>
                   ) : (
@@ -8736,6 +8951,14 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
           {alimTab === 'semana' && (
           <div>
+          {/* Qué días son EXACTAMENTE: lunes a domingo, los mismos que mira tu
+              coach. Sin esto, "esta semana" se presta a que cada uno entienda
+              días distintos. */}
+          <div className="text-[10px] mb-3" style={{ color: TEXT_LIGHT }}>
+            Semana de <span style={{ color: TEXT_MUTED, fontWeight: 600 }}>
+              {week[0].jsDate.toLocaleDateString('es', { day: 'numeric', month: 'short' })} a {week[6].jsDate.toLocaleDateString('es', { day: 'numeric', month: 'short' })}
+            </span> · lunes a domingo
+          </div>
           <StatBlock label="Calorías" color={ACCENT} goal={goals.kcal} unit="" data={week} statKey="kcal" />
           <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={week} statKey="p" />
           <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={week} statKey="c" />
@@ -8821,12 +9044,88 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               </div>
             </div>
           )}
+          {/* ── TUS ALIMENTOS ──────────────────────────────────────────────
+              Lo mismo que ve tu coach en su panel, en la parte que te sirve a
+              ti: de dónde salen tus calorías, qué repites y de dónde sacas la
+              proteína. Sin rankings de "lo peor": esto es para decidir, no
+              para sentirte mal. */}
+          {alimentosSemana.diasConDetalle > 0 && (
+            <div className="mb-5">
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: ACCENT_DARK }}>Tus alimentos esta semana</div>
+              <div className="text-[10px] mb-3" style={{ color: TEXT_LIGHT }}>
+                Sobre {alimentosSemana.diasConDetalle} {alimentosSemana.diasConDetalle === 1 ? 'día' : 'días'} en que registraste qué comiste, no solo el total.
+              </div>
+
+              <ListaAlimentos
+                titulo="De aquí salieron tus calorías"
+                nota="Los cinco que más aportaron. Suelen explicar la semana entera."
+                items={alimentosSemana.topKcal}
+                valor={(f) => f.kcal}
+                unidad=" kcal"
+                color={ACCENT}
+                sufijo={(f) => `${f.pct}% de lo que registraste`} />
+
+              <ListaAlimentos
+                titulo="Lo que más repites"
+                nota="Tu dieta real. Un cambio acá pesa más que cualquier alimento nuevo."
+                items={alimentosSemana.topVeces}
+                valor={(f) => f.veces}
+                unidad="×"
+                color={TEXT}
+                sufijo={(f) => `${f.kcal} kcal en total`} />
+
+              <ListaAlimentos
+                titulo="De dónde sale tu proteína"
+                nota="Si tu proteína queda corta, es acá donde se arregla."
+                items={alimentosSemana.topProte}
+                valor={(f) => f.p}
+                unidad=" g"
+                color={C_PROTEIN}
+                sufijo={(f) => `${f.kcal} kcal`} />
+
+              {/* Azúcar añadida: el único dato "duro" que sí vale la pena que
+                  veas, porque es la palanca más concreta que puedes mover tú
+                  solo. NO cuenta el azúcar de la fruta entera ni del lácteo. */}
+              {alimentosSemana.azucarDia != null && (
+                <div className="mb-3" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color: C_CARBS }}>Azúcar añadida</div>
+                      <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>Promedio por día · referencia OMS: menos de 25 g</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[18px] font-bold num leading-tight" style={{ color: TEXT }}>
+                        {alimentosSemana.azucarDia}<span className="text-[11px]" style={{ color: TEXT_MUTED }}>g</span>
+                      </div>
+                      <div className="text-[10px] num" style={{ color: alimentosSemana.azucarDia <= 25 ? SUCCESS : WARN }}>
+                        {alimentosSemana.azucarDia <= 25 ? 'dentro de la referencia' : `${Math.round((alimentosSemana.azucarDia / 25) * 100)}% de la referencia`}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: SURFACE_2 }}>
+                    <div style={{ width: `${Math.min(100, (alimentosSemana.azucarDia / 25) * 100)}%`, height: '100%', background: alimentosSemana.azucarDia <= 25 ? SUCCESS : WARN, borderRadius: '999px' }} />
+                  </div>
+                  {alimentosSemana.topAzucar.length > 0 && (
+                    <div className="text-[10px] mt-2" style={{ color: TEXT_LIGHT }}>
+                      Viene sobre todo de: <span style={{ color: TEXT_MUTED, fontWeight: 600 }}>{alimentosSemana.topAzucar.map(f => f.nombre).join(' · ')}</span>
+                    </div>
+                  )}
+                  <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>
+                    Solo cuenta el azúcar añadida (gaseosa, dulces, postres, salsas). La de la fruta entera, el lácteo y la verdura no entra.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           </div>
           )}
 
           {alimTab === 'mes' && (
           <div>
-            <StatBlock label="Calorías" color={ACCENT} goal={goals.kcal} unit="" data={month} statKey="kcal" />
+            {/* El calendario reemplaza a la gráfica de 30 barras de calorías:
+                cuenta la misma historia y además se ve la racha. Los macros
+                siguen abajo en barras, que ahí sí se leen mejor. */}
+            <Calendario />
             <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={month} statKey="p" />
             <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={month} statKey="c" />
             <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={month} statKey="g" />

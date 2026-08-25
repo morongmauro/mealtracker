@@ -122,7 +122,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,recetario_menus:data->recetario_menus`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -140,6 +140,14 @@ export default async function handler(req, res) {
         if (existing) {
           if (existing.pwa_installed_at && !dataToWrite.pwa_installed_at) dataToWrite.pwa_installed_at = existing.pwa_installed_at;
           if (existing.push_enabled_at && !dataToWrite.push_enabled_at) dataToWrite.push_enabled_at = existing.push_enabled_at;
+          // Menús del Recetario: los guarda UN dispositivo en su localStorage.
+          // Si otro sincroniza sin ellos, se conservan los del server (mismo
+          // criterio que las señales de arriba) — si no, el segundo teléfono
+          // los borraba del CRM.
+          if (Array.isArray(existing.recetario_menus) && existing.recetario_menus.length
+              && !(Array.isArray(dataToWrite.recetario_menus) && dataToWrite.recetario_menus.length)) {
+            dataToWrite.recetario_menus = existing.recetario_menus;
+          }
         }
 
         // Anti-pisado de RECORDATORIOS del coach: si el server tiene una

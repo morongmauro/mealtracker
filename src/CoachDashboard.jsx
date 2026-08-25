@@ -341,6 +341,12 @@ function mergeClientRows(rows) {
   const mergedFavorites = Array.from(favMap.values());
   const mergedFavoriteIngredients = Array.from(favIngSet);
 
+  // BORRADOS DEL CLIENTE. Al fusionar gana "la primera sesión que tenga esa
+  // fecha", así que un día que el cliente borró en su teléfono nuevo REVIVÍA
+  // desde la sesión vieja que todavía lo traía. Se aplican las lápidas de
+  // todas las sesiones con la misma regla que usa la app al sincronizar.
+  aplicarBorrados(sorted, mergedHistory, mergedHistoryDetail);
+
   // Goals + name: del row más reciente
   const primaryData = primary.data || {};
 
@@ -358,6 +364,54 @@ function mergeClientRows(rows) {
     _merged_from: rows.length,
     _merged_user_ids: rows.map(r => r.user_id),
   };
+}
+
+// Quita del historial fusionado lo que el cliente borró en su app. Espejo de
+// la fusión de MealTracker.jsx y de aplicarBorradosMT() del CRM: si cambias
+// una, cambia las tres.
+//   · historyDayOps = { fecha: { op:'del'|'add', at } } — la bitácora manda:
+//     entre borrado y re-registro gana la acción más reciente.
+//   · historyDeleted = ['fecha', 'fecha#idComida', …] — las lápidas.
+// Muta los objetos que recibe (los acaba de construir mergeClientRows).
+function aplicarBorrados(rows, history, historyDetail) {
+  const ops = {};
+  for (const r of rows) {
+    const o = (r.data && r.data.historyDayOps && typeof r.data.historyDayOps === 'object') ? r.data.historyDayOps : {};
+    for (const [dia, op] of Object.entries(o)) {
+      if (!op || !op.at) continue;
+      if (!ops[dia] || String(op.at) > String(ops[dia].at || '')) ops[dia] = op;
+    }
+  }
+  const crudas = new Set();
+  for (const r of rows) {
+    for (const t of (Array.isArray(r.data && r.data.historyDeleted) ? r.data.historyDeleted : [])) crudas.add(t);
+  }
+  const muertas = new Set();
+  for (const t of crudas) {
+    if (String(t).includes('#')) { muertas.add(t); continue; }
+    if (!(ops[t] && ops[t].op === 'add')) muertas.add(t);
+  }
+  for (const [dia, op] of Object.entries(ops)) if (op && op.op === 'del') muertas.add(dia);
+  if (!muertas.size) return;
+
+  for (const t of muertas) if (!String(t).includes('#')) { delete history[t]; delete historyDetail[t]; }
+
+  // Si cae una comida suelta, los totales del día se recalculan con la misma
+  // fórmula de la app (kcal al entero, macros a un decimal) — si no, el día
+  // sumaría calorías de una comida que ya no aparece en su detalle.
+  const r1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
+  for (const [dia, arr] of Object.entries(historyDetail)) {
+    if (!Array.isArray(arr) || !arr.length) continue;
+    const quedan = arr.filter(e => !muertas.has(`${dia}#${e && e.id}`));
+    if (quedan.length === arr.length) continue;
+    if (!quedan.length) { delete history[dia]; delete historyDetail[dia]; continue; }
+    historyDetail[dia] = quedan;
+    const t = quedan.reduce((a, e) => ({
+      kcal: a.kcal + (Number(e.kcal) || 0), p: a.p + (Number(e.p) || 0),
+      c: a.c + (Number(e.c) || 0), g: a.g + (Number(e.g) || 0),
+    }), { kcal: 0, p: 0, c: 0, g: 0 });
+    history[dia] = { kcal: Math.round(t.kcal), p: r1(t.p), c: r1(t.c), g: r1(t.g), water: (history[dia] && history[dia].water) || 0 };
+  }
 }
 
 // ─── LISTA DE CLIENTES ────────────────────────────────────────────────────
@@ -1377,20 +1431,55 @@ function MacroBars({ days, goal, color, statKey, unit = '', onSelectDay, goalFor
   );
 }
 
+// ─── Ventana de la semana ─────────────────────────────────────────────────
+// El CRM (sección Nutrición) mide SEMANAS ISO: lunes a domingo, la misma
+// unidad con la que se registra el seguimiento semanal. Este panel medía los
+// últimos 7 días móviles, así que un martes "esta semana" eran dos conjuntos
+// de días distintos y los dos tableros NUNCA podían dar el mismo número.
+// Ahora manda la semana ISO; la ventana móvil sigue disponible pero rotulada
+// como lo que es, para que no se confunda con "la semana".
+function lunesDeLaSemana(base = new Date()) {
+  const d = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  const dow = d.getDay() || 7;          // domingo = 7
+  d.setDate(d.getDate() - (dow - 1));
+  return d;
+}
+function claveFecha(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+// Un día cuenta como registrado si la fecha EXISTE en history — el mismo
+// criterio que usa el CRM (diaRegistradoMT). Pedir kcal > 0 dejaba fuera los
+// días en que el cliente registró y luego borró una comida.
+function diaRegistrado(data) {
+  return !!data && typeof data === 'object';
+}
+
 function TabSemana({ goals, goalsHistory, history, onSelectDay }) {
-  const last7 = useMemo(() => {
+  const [ventana, setVentana] = useState('iso');   // iso | movil7
+
+  const dias = useMemo(() => {
     const out = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      out.push({ key, date: d, data: history[key] });
+    if (ventana === 'iso') {
+      const lunes = lunesDeLaSemana();
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(lunes);
+        d.setDate(lunes.getDate() + i);
+        const key = claveFecha(d);
+        out.push({ key, date: d, data: history[key] });
+      }
+    } else {
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = claveFecha(d);
+        out.push({ key, date: d, data: history[key] });
+      }
     }
     return out;
-  }, [history]);
+  }, [history, ventana]);
 
   const totalsAvg = useMemo(() => {
-    const valid = last7.filter(x => x.data);
+    const valid = dias.filter(x => diaRegistrado(x.data));
     if (valid.length === 0) return { kcal: 0, p: 0, c: 0, g: 0 };
     return {
       kcal: valid.reduce((s, x) => s + (x.data.kcal || 0), 0) / valid.length,
@@ -1398,15 +1487,34 @@ function TabSemana({ goals, goalsHistory, history, onSelectDay }) {
       c: valid.reduce((s, x) => s + (x.data.c || 0), 0) / valid.length,
       g: valid.reduce((s, x) => s + (x.data.g || 0), 0) / valid.length,
     };
-  }, [last7]);
-  const daysLogged = last7.filter(x => x.data).length;
+  }, [dias]);
+  const daysLogged = dias.filter(x => diaRegistrado(x.data)).length;
+  const last7 = dias;
+
+  const rango = ventana === 'iso'
+    ? `${dias[0].date.toLocaleDateString('es', { day: 'numeric', month: 'short' })} – ${dias[6].date.toLocaleDateString('es', { day: 'numeric', month: 'short' })}`
+    : 'ventana móvil';
 
   const dayShort = (d) => d.toLocaleDateString('es', { weekday: 'short' }).slice(0, 3);
 
   return (
     <div className="space-y-3">
       <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
-        <div className="text-[13px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Esta semana (últimos 7 días)</div>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div className="text-[13px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>
+            {ventana === 'iso' ? 'Semana en curso (lun–dom)' : 'Últimos 7 días (ventana móvil)'}
+            <span className="ml-2 normal-case tracking-normal font-normal" style={{ color: TEXT_LIGHT }}>{rango}</span>
+          </div>
+          <div className="flex gap-1.5">
+            {[['iso', 'Lun–dom'], ['movil7', 'Últimos 7 días']].map(([k, label]) => (
+              <button key={k} onClick={() => setVentana(k)}
+                className="text-[12px] px-2.5 py-1 rounded-full font-medium"
+                style={{ background: ventana === k ? TEXT : SURFACE_2, color: ventana === k ? '#fff' : TEXT_MUTED }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-4 gap-3 mb-3">
           <Stat label="kcal prom" val={totalsAvg.kcal} goal={goals.kcal} color={ACCENT} />
           <Stat label="P prom" val={totalsAvg.p} goal={goals.p} color={C_PROTEIN} unit="g" />
@@ -1415,6 +1523,10 @@ function TabSemana({ goals, goalsHistory, history, onSelectDay }) {
         </div>
         <div className="text-[14px]" style={{ color: TEXT_MUTED }}>
           Adherencia: <strong style={{ color: TEXT }}>{daysLogged}/7 días</strong> registrados
+        </div>
+        <div className="text-[12px] mt-1" style={{ color: TEXT_LIGHT }}>
+          Promedios sobre los {daysLogged} día(s) registrados, no sobre 7 — así menos registro no se lee como "comió menos".
+          {ventana === 'iso' ? ' Misma ventana que la sección Nutrición del CRM.' : ' Esta ventana NO coincide con la del CRM.'}
         </div>
       </div>
 
@@ -1552,8 +1664,13 @@ function TabTendencia({ history }) {
   }, [history]);
 
   // Promedios semanales (4 semanas)
+  // last28 va de más viejo (índice 0) a hoy (índice 27). w = 0 debe ser la
+  // semana MÁS RECIENTE, que son los últimos 7 elementos — antes se tomaban
+  // los primeros y el panel mostraba la semana más vieja rotulada como la
+  // más reciente.
   const weeks = [0, 1, 2, 3].map(w => {
-    const slice = last28.slice(w * 7, w * 7 + 7).filter(x => x.data);
+    const fin = 28 - w * 7;
+    const slice = last28.slice(fin - 7, fin).filter(x => diaRegistrado(x.data));
     if (slice.length === 0) return null;
     return {
       kcal: slice.reduce((s, x) => s + x.data.kcal, 0) / slice.length,
@@ -1588,69 +1705,170 @@ function TabTendencia({ history }) {
 }
 
 function TabMicros({ historyDetail }) {
-  // Aproximación simple — promedio de los últimos 7 días si están registrados
-  // (la app real estima micros desde los items; replicamos el cálculo aproximado)
-  const last7Items = useMemo(() => {
+  // MICROS — misma regla que la sección Nutrición del CRM, para que los dos
+  // tableros digan lo mismo:
+  //   · Si el registro del item trae fiber / omega3 / sugar (los estima el
+  //     modelo al registrar la comida), se usan TAL CUAL.
+  //   · Si es un registro viejo sin esos campos, se estiman por palabra clave
+  //     sobre los gramos declarados del item.
+  //
+  // Se quitaron calcio, hierro y vitamina D: no se registran en ninguna parte
+  // y se estaban fabricando con un regex sobre el nombre del alimento y un
+  // parseFloat del texto de cantidad (para "1 taza" daba 1). Un número
+  // inventado es peor que un dato ausente — sobre esos números se tomaban
+  // decisiones. Cuando el registro capture micros de verdad, vuelven.
+  const dias = useMemo(() => {
+    const lunes = lunesDeLaSemana();
     const out = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const entries = historyDetail[key] || [];
-      entries.forEach(e => (e.items || []).forEach(it => out.push(it)));
+      const d = new Date(lunes);
+      d.setDate(lunes.getDate() + i);
+      out.push(claveFecha(d));
     }
     return out;
-  }, [historyDetail]);
+  }, []);
 
-  // Densidades USDA muy rough (g por 100g de alimento). Cruda aproximación.
-  // Si tu cliente quiere micros más exactos, podemos consumir el módulo del MealTracker
-  // que ya los calcula. Por ahora damos una estimación.
-  const totals = { fiber: 0, calcium: 0, iron: 0, vitD: 0, omega3: 0 };
-  last7Items.forEach(it => {
-    const txt = (it.name || '').toLowerCase();
-    const g = parseFloat(it.amount) || 100;
-    if (/avena|frijol|legum|lenteja|garbanzo|frut|verdur|brocoli|espinaca|hojas|integral/.test(txt)) totals.fiber += g * 0.05;
-    if (/leche|queso|yogur|sardina|brocoli|sesamo/.test(txt)) totals.calcium += g * 1.2;
-    if (/carne|res|higado|espinaca|lenteja|frijol|huevo/.test(txt)) totals.iron += g * 0.025;
-    if (/pescado|salmon|atun|huevo|leche fort/.test(txt)) totals.vitD += g * 0.05;
-    if (/salmon|sardina|atun|chia|lin|nuez/.test(txt)) totals.omega3 += g * 0.01;
-  });
-  const microAvg = {
-    fiber: totals.fiber / 7,
-    calcium: totals.calcium / 7,
-    iron: totals.iron / 7,
-    vitD: totals.vitD / 7,
-    omega3: totals.omega3 / 7,
-  };
-  const GOAL = { fiber: 28, calcium: 1000, iron: 15, vitD: 15, omega3: 1.6 };
+  const { avg, diasConDetalle } = useMemo(() => {
+    let nDias = 0;
+    const tot = { fiber: 0, omega3: 0, sugar: 0 };
+    for (const key of dias) {
+      const entries = historyDetail[key] || [];
+      if (!entries.length) continue;
+      nDias++;
+      for (const e of entries) {
+        for (const it of (e.items || [])) {
+          const m = microsDeItem(it);
+          tot.fiber += m.fiber; tot.omega3 += m.omega3; tot.sugar += m.sugar;
+        }
+      }
+    }
+    // Se promedia sobre los días CON desglose, no sobre 7: promediar sobre 7
+    // diluía los micros a la mitad y hacía leer "casi no come fibra" donde en
+    // realidad faltaba el detalle de esos días.
+    if (!nDias) return { avg: { fiber: 0, omega3: 0, sugar: 0 }, diasConDetalle: 0 };
+    return {
+      avg: { fiber: tot.fiber / nDias, omega3: tot.omega3 / nDias, sugar: tot.sugar / nDias },
+      diasConDetalle: nDias,
+    };
+  }, [historyDetail, dias]);
+
+  // Referencias: fibra 25-30 g/día (OMS); omega-3 EPA+DHA+ALA ~1.6 g/día
+  // (Adequate Intake, IOM); azúcar AÑADIDA por debajo de 25 g/día (OMS, meta
+  // del 5% de las kcal en una dieta de 2.000).
+  const GOAL = { fiber: 28, omega3: 1.6, sugar: 25 };
 
   return (
     <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
-      <div className="text-[13px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Micros — promedio últimos 7 días (aprox)</div>
-      <div className="space-y-2.5">
-        <MicroRow label="Fibra" value={microAvg.fiber} goal={GOAL.fiber} unit="g" />
-        <MicroRow label="Calcio" value={microAvg.calcium} goal={GOAL.calcium} unit="mg" />
-        <MicroRow label="Hierro" value={microAvg.iron} goal={GOAL.iron} unit="mg" />
-        <MicroRow label="Vitamina D" value={microAvg.vitD} goal={GOAL.vitD} unit="μg" />
-        <MicroRow label="Omega-3" value={microAvg.omega3} goal={GOAL.omega3} unit="g" />
+      <div className="text-[13px] uppercase tracking-wider font-semibold mb-1" style={{ color: TEXT_MUTED }}>
+        Micros · promedio de la semana en curso (lun–dom)
       </div>
-      <div className="text-[12px] mt-4 italic" style={{ color: TEXT_LIGHT }}>
-        Estimación a partir de los items registrados. Es referencial — no reemplaza análisis clínico.
+      <div className="text-[12px] mb-3" style={{ color: TEXT_LIGHT }}>
+        Sobre {diasConDetalle} día(s) con desglose de alimentos.
+      </div>
+      {diasConDetalle === 0 ? (
+        <div className="text-[14px] text-center py-6" style={{ color: TEXT_LIGHT }}>
+          Esta semana no hay comidas con desglose de alimentos.
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          <MicroRow label="Fibra" value={avg.fiber} goal={GOAL.fiber} unit="g" />
+          <MicroRow label="Omega-3" value={avg.omega3} goal={GOAL.omega3} unit="g" />
+          <MicroRow label="Azúcar añadida" value={avg.sugar} goal={GOAL.sugar} unit="g" invertido />
+        </div>
+      )}
+      <div className="text-[12px] mt-4" style={{ color: TEXT_LIGHT }}>
+        Fibra, omega-3 y azúcar añadida los estima el modelo al registrar cada comida (o, en registros
+        antiguos, una tabla por alimento). Son orientativos: no reemplazan un análisis clínico.
+        El azúcar añadida NO cuenta el azúcar natural de fruta entera, lácteos ni verduras — ahí menos es mejor.
       </div>
     </div>
   );
 }
 
-function MicroRow({ label, value, goal, unit }) {
-  const pct = goal ? Math.min(150, Math.round((value / goal) * 100)) : 0;
+// Micros de un item: los del registro si existen, si no una estimación por
+// palabra clave sobre los gramos. Valores por 1 g de alimento. Es la misma
+// tabla que usa el CRM: si cambias una, cambia la otra.
+const MICRO_DB = {
+  arroz: { fiber: 0.004, omega3: 0, sugar: 0 },
+  pollo: { fiber: 0, omega3: 0.0001, sugar: 0 },
+  pechuga: { fiber: 0, omega3: 0.0001, sugar: 0 },
+  pescado: { fiber: 0, omega3: 0.012, sugar: 0 },
+  salmon: { fiber: 0, omega3: 0.022, sugar: 0 },
+  atun: { fiber: 0, omega3: 0.013, sugar: 0 },
+  sardina: { fiber: 0, omega3: 0.015, sugar: 0 },
+  huevo: { fiber: 0, omega3: 0.001, sugar: 0 },
+  avena: { fiber: 0.1, omega3: 0.0014, sugar: 0 },
+  banana: { fiber: 0.026, omega3: 0, sugar: 0 },
+  platano: { fiber: 0.026, omega3: 0, sugar: 0 },
+  manzana: { fiber: 0.024, omega3: 0, sugar: 0 },
+  palta: { fiber: 0.067, omega3: 0.0011, sugar: 0 },
+  aguacate: { fiber: 0.067, omega3: 0.0011, sugar: 0 },
+  arepa: { fiber: 0.03, omega3: 0, sugar: 0 },
+  pan: { fiber: 0.07, omega3: 0, sugar: 0 },
+  queso: { fiber: 0, omega3: 0.001, sugar: 0 },
+  almendra: { fiber: 0.13, omega3: 0.0001, sugar: 0 },
+  espinaca: { fiber: 0.022, omega3: 0.0014, sugar: 0 },
+  brocoli: { fiber: 0.026, omega3: 0.001, sugar: 0 },
+  lenteja: { fiber: 0.079, omega3: 0.001, sugar: 0 },
+  frijol: { fiber: 0.06, omega3: 0.001, sugar: 0 },
+  tomate: { fiber: 0.012, omega3: 0, sugar: 0 },
+  nuez: { fiber: 0.067, omega3: 0.09, sugar: 0 },
+  nueces: { fiber: 0.067, omega3: 0.09, sugar: 0 },
+  chia: { fiber: 0.34, omega3: 0.178, sugar: 0 },
+  linaza: { fiber: 0.27, omega3: 0.228, sugar: 0 },
+  gaseosa: { fiber: 0, omega3: 0, sugar: 0.106 },
+  refresco: { fiber: 0, omega3: 0, sugar: 0.106 },
+  jugo: { fiber: 0.002, omega3: 0, sugar: 0.09 },
+  chocolate: { fiber: 0.07, omega3: 0, sugar: 0.47 },
+  galleta: { fiber: 0.02, omega3: 0, sugar: 0.30 },
+  helado: { fiber: 0, omega3: 0, sugar: 0.21 },
+  postre: { fiber: 0.01, omega3: 0, sugar: 0.30 },
+  torta: { fiber: 0.01, omega3: 0, sugar: 0.35 },
+  dulce: { fiber: 0, omega3: 0, sugar: 0.55 },
+  miel: { fiber: 0, omega3: 0, sugar: 0.82 },
+};
+
+// Gramos del item: del texto de cantidad si lo declara, si no aproximados por
+// calorías (1,5 kcal/g de mezcla).
+function gramosDeItem(it) {
+  const amt = String(it.amount || '').toLowerCase();
+  const m = amt.match(/(\d+(?:[.,]\d+)?)\s*g\b/);
+  if (m) return parseFloat(m[1].replace(',', '.'));
+  const kcal = Number(it.kcal) || 0;
+  return kcal > 0 ? kcal / 1.5 : 0;
+}
+
+function microsDeItem(it) {
+  if (it.fiber != null || it.omega3 != null || it.sugar != null) {
+    return {
+      fiber: Number(it.fiber) > 0 ? Number(it.fiber) : 0,
+      omega3: Number(it.omega3) > 0 ? Number(it.omega3) : 0,
+      sugar: Number(it.sugar) > 0 ? Number(it.sugar) : 0,
+    };
+  }
+  const n = normalize(it.name || '');
+  const key = Object.keys(MICRO_DB).find(k => n.includes(k));
+  const grams = gramosDeItem(it);
+  if (!key || grams <= 0) return { fiber: 0, omega3: 0, sugar: 0 };
+  const db = MICRO_DB[key];
+  return { fiber: db.fiber * grams, omega3: db.omega3 * grams, sugar: db.sugar * grams };
+}
+
+// `invertido` = métrica donde MENOS es mejor (azúcar añadida): el semáforo se
+// da vuelta y el rótulo dice "tope" en vez de "meta".
+function MicroRow({ label, value, goal, unit, invertido = false }) {
+  const pct = goal ? Math.min(200, Math.round((value / goal) * 100)) : 0;
+  const color = invertido
+    ? (pct <= 100 ? SUCCESS : pct <= 150 ? WARN : DANGER)
+    : (pct >= 80 ? SUCCESS : pct >= 50 ? INFO : WARN);
   return (
     <div>
       <div className="flex justify-between text-[14px] mb-1">
         <span style={{ color: TEXT }}>{label}</span>
-        <span className="num" style={{ color: TEXT_LIGHT }}>{fmt1(value)} {unit} / {goal} {unit} · <strong>{pct}%</strong></span>
+        <span className="num" style={{ color: TEXT_LIGHT }}>{fmt1(value)} {unit} / {invertido ? 'tope' : 'meta'} {goal} {unit} · <strong>{pct}%</strong></span>
       </div>
       <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: SURFACE_2 }}>
-        <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct >= 80 ? SUCCESS : pct >= 50 ? INFO : WARN }} />
+        <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: color }} />
       </div>
     </div>
   );
