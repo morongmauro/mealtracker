@@ -5834,11 +5834,16 @@ function NovedadesModal({ items, onTerminar }) {
   // avanzando hasta el final. Es la única forma de asegurar que el cliente
   // vea todas las novedades, que es el motivo de que exista esta ventana.
   return (
-    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.66)' }} role="dialog" aria-modal="true" aria-label="Novedades">
-      {/* Tarjeta con el vidrio de la marca: el brillo interior arriba y la
-          sombra larga y verdosa son los mismos de las tarjetas de la app
-          (SHADOW_CARD), y el borde es el crema cálido, no un gris frío. */}
+    // El fondo se difumina en vez de solo oscurecerse: la app sigue ahí
+    // detrás, insinuada, y la tarjeta flota encima. Es el mismo recurso de
+    // vidrio que usa el resto de la app, no una cortina negra.
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-6"
+      style={{
+        background: 'rgba(18,19,14,.52)',
+        backdropFilter: 'blur(14px) saturate(115%)',
+        WebkitBackdropFilter: 'blur(14px) saturate(115%)',
+      }}
+      role="dialog" aria-modal="true" aria-label="Novedades">
       <style>{`
         @keyframes novLatido {
           0%, 100% { transform: scale(1); opacity: 1; }
@@ -5847,21 +5852,27 @@ function NovedadesModal({ items, onTerminar }) {
         .nov-chispa svg { animation: novLatido 2.4s ease-in-out infinite; transform-origin: center; }
         @media (prefers-reduced-motion: reduce) { .nov-chispa svg { animation: none; } }
       `}</style>
-      <div className="w-full max-w-md overflow-hidden"
+
+      {/* TARJETA — vidrio, sin borde sólido. El filo claro es un reflejo
+          interior (inset), no una línea dibujada; lo que la separa del fondo
+          es la sombra larga. Ancho contenido: se ve una tarjeta puesta
+          encima de la app, no otra pantalla. */}
+      <div className="w-full overflow-hidden"
         style={{
-          background: SURFACE, borderRadius: 26, fontFamily: FONT_UI,
-          border: `1px solid ${BORDER}`,
-          boxShadow: '0 1px 0 rgba(255,255,255,.92) inset, 0 24px 64px rgba(20,22,14,.46), 0 4px 12px rgba(20,22,14,.22)',
+          maxWidth: 352,
+          background: 'rgba(255,255,255,.74)',
+          backdropFilter: 'blur(26px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(26px) saturate(150%)',
+          borderRadius: 30, fontFamily: FONT_UI,
+          boxShadow: '0 1px 0 rgba(255,255,255,.9) inset, 0 0 0 1px rgba(255,255,255,.34) inset, 0 30px 74px rgba(16,18,12,.44), 0 8px 20px rgba(16,18,12,.20)',
         }}>
 
         {/* BANDA OSCURA — la misma cara que tus cápsulas informativas: el
             cliente ya reconoce ese formato, así que el anuncio se lee como
             parte del material, no como un pop-up cualquiera. */}
         <div style={{
-          // Mismo negro de marca del Centro de Recursos (#141414) con un
-          // punto de verde: es el degradado de la banda de tus cápsulas.
-          background: 'linear-gradient(158deg, #23251B 0%, #141414 100%)',
-          padding: '18px 22px 20px',
+          background: 'linear-gradient(158deg, rgba(35,37,27,.96) 0%, rgba(20,20,20,.98) 100%)',
+          padding: '20px 24px 22px',
           position: 'relative', overflow: 'hidden',
         }}>
           {/* Mancha oliva difuminada, para que la banda no sea un rectángulo plano */}
@@ -5876,83 +5887,96 @@ function NovedadesModal({ items, onTerminar }) {
                 "algo nuevo para ti" sí hacen que el cliente se detenga.
                 Es el único elemento con movimiento de toda la ventana:
                 si todo se moviera, no destacaría nada. */}
-            <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center justify-between mb-4">
               <span className="nov-chispa" style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '5px 11px 5px 8px', borderRadius: 999,
+                padding: '5px 12px 5px 9px', borderRadius: 999,
                 background: 'rgba(138,149,88,.20)',
-                border: '1px solid rgba(169,180,120,.38)',
+                boxShadow: '0 0 0 1px rgba(169,180,120,.34) inset',
               }}>
                 <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true" style={{ display: 'block', flex: 'none' }}>
                   <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z" fill="#C4D19A" />
                 </svg>
                 <span style={{
-                  fontSize: 9, fontWeight: 800, letterSpacing: '.14em',
+                  fontSize: 9.5, fontWeight: 800, letterSpacing: '.14em',
                   textTransform: 'uppercase', color: '#C4D19A', whiteSpace: 'nowrap',
                 }}>Algo nuevo para ti</span>
               </span>
               {total > 1 && (
-                <span className="num" style={{ fontSize: 10.5, color: 'rgba(255,255,255,.45)' }}>{i + 1} / {total}</span>
+                <span className="num" style={{ fontSize: 11, color: 'rgba(255,255,255,.45)' }}>{i + 1} / {total}</span>
               )}
             </div>
 
             <div className="flex items-start gap-3">
-              {n.icono && <div style={{ fontSize: 30, lineHeight: 1, marginTop: 1 }}>{n.icono}</div>}
+              {n.icono && <div style={{ fontSize: 32, lineHeight: 1, marginTop: 1 }}>{n.icono}</div>}
               <div className="min-w-0">
+                {/* Bebas, la tipografía de los títulos de la marca */}
                 <div style={{
                   fontFamily: FONT_DISPLAY, fontWeight: 400,
-                  fontSize: 30, lineHeight: .96, letterSpacing: '.02em',
+                  fontSize: 35, lineHeight: .94, letterSpacing: '.02em',
                   color: '#FFF', textTransform: 'uppercase',
                 }}>{n.titulo}</div>
-                <div style={{ width: 34, height: 2, background: ACCENT, borderRadius: 2, margin: '9px 0 8px' }} />
-                <div style={{ fontSize: 12.5, lineHeight: 1.35, color: 'rgba(255,255,255,.62)' }}>{n.bajada}</div>
+                <div style={{ width: 34, height: 2, background: ACCENT, borderRadius: 2, margin: '10px 0 9px' }} />
+                <div style={{ fontSize: 14.5, lineHeight: 1.38, color: 'rgba(255,255,255,.68)' }}>{n.bajada}</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* CUERPO — tres líneas, una idea cada una. Se escanean de un vistazo;
-            un párrafo largo aquí no lo lee nadie. */}
-        <div style={{ padding: '18px 22px 20px', background: SURFACE }}>
-          <div className="flex flex-col gap-2.5 mb-5">
+        {/* CUERPO — tres líneas, una idea cada una, en texto grande: se lee
+            de corrido sin esfuerzo. Cada línea es una lámina de vidrio
+            (reflejo arriba, sombrita abajo), no una caja con borde. */}
+        <div style={{ padding: '20px 24px 22px' }}>
+          <div className="flex flex-col gap-2.5 mb-6">
             {(n.puntos || []).map((p, k) => (
-              <div key={k} className="flex items-start gap-2.5" style={{
-                background: 'rgba(241,243,229,.55)',
-                border: `1px solid ${BORDER_SOFT}`,
-                borderRadius: 14, padding: '9px 11px',
+              <div key={k} className="flex items-start gap-3" style={{
+                background: 'rgba(255,255,255,.58)',
+                borderRadius: 16, padding: '11px 13px',
+                boxShadow: '0 1px 0 rgba(255,255,255,.85) inset, 0 2px 6px rgba(20,22,14,.055)',
               }}>
                 <span aria-hidden="true" style={{
-                  flex: 'none', width: 17, height: 17, borderRadius: '50%',
-                  background: ACCENT_LIGHT, color: ACCENT_DARK, marginTop: 1,
+                  flex: 'none', width: 19, height: 19, borderRadius: '50%',
+                  background: ACCENT_LIGHT, color: ACCENT_DARK, marginTop: 2,
                   display: 'grid', placeContent: 'center',
                 }}>
-                  <svg viewBox="0 0 24 24" width="9" height="9" fill="none">
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none">
                     <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
-                <span style={{ fontSize: 13.5, lineHeight: 1.45, color: TEXT }}>{p}</span>
+                <span style={{ fontSize: 15.5, lineHeight: 1.44, color: TEXT }}>{p}</span>
               </div>
             ))}
           </div>
 
           {total > 1 && (
-            <div className="flex justify-center gap-1.5 mb-3.5">
+            <div className="flex justify-center gap-1.5 mb-4">
               {items.map((_, k) => (
                 <div key={k} style={{
                   width: k === i ? 18 : 6, height: 6, borderRadius: 999,
-                  background: k === i ? ACCENT : BORDER,
+                  background: k === i ? ACCENT : 'rgba(20,22,14,.16)',
                   transition: 'width .25s ease, background .25s ease',
                 }} />
               ))}
             </div>
           )}
 
-          <button type="button"
-            onClick={() => { haptic(10); if (ultima) onTerminar(); else setI(i + 1); }}
-            className="w-full py-3.5 rounded-full text-[14px] font-semibold active:scale-[0.98] transition"
-            style={{ background: TEXT, color: '#fff', border: 'none', boxShadow: '0 4px 14px rgba(0,0,0,.18)' }}>
-            {ultima ? (total > 1 ? 'Listo, ya lo vi' : 'Entendido') : 'Siguiente'}
-          </button>
+          {/* BOTÓN — centrado y del ancho de su texto, no una barra de lado a
+              lado. Negro de marca con Bebas, nunca oliva: el oliva en esta
+              app es el color del dato (barras, anillos), no el de los botones. */}
+          <div className="flex justify-center">
+            <button type="button"
+              onClick={() => { haptic(10); if (ultima) onTerminar(); else setI(i + 1); }}
+              className="active:scale-[0.97] transition"
+              style={{
+                minWidth: 176, padding: '13px 34px 11px', borderRadius: 999,
+                background: '#141414', color: '#fff', border: 'none',
+                fontFamily: FONT_DISPLAY, fontSize: 20, lineHeight: 1, letterSpacing: '.07em',
+                textTransform: 'uppercase',
+                boxShadow: '0 1px 0 rgba(255,255,255,.16) inset, 0 10px 24px rgba(16,18,12,.30)',
+              }}>
+              {ultima ? (total > 1 ? 'Listo, ya lo vi' : 'Entendido') : 'Siguiente'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
