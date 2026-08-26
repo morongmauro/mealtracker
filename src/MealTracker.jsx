@@ -249,7 +249,7 @@ const NOVEDADES = {
       bajada: 'aprende algo nuevo en un minuto',
       puntos: [
         '11 infografías de entrenamiento, nutrición y descanso',
-        'Podcast que escogí uno por uno, de los mejores del mundo',
+        'Podcast escogidos uno por uno, de los de mayor respaldo científico',
         'Están en Aprende, el botón de abajo a la derecha',
       ],
     },
@@ -269,23 +269,102 @@ const NOVEDADES = {
 // ─── GANCHOS DE APRENDIZAJE (los edita el coach, como _clients.js) ───────
 // UN anuncio informativo por semana (para no saturar). En vez de "lee esto
 // que te falta", capta la atención con un dato útil y cierra apuntando a la
-// guía. Rotan solos en orden, una por semana; con esta lista hay para ~3
-// meses sin repetir. Agrega, quita o edita libremente — cada string es un
-// anuncio completo.
+// pieza concreta que lo desarrolla.
+//
+// Cada anuncio APUNTA A ALGO REAL del centro de recursos y su botón abre
+// esa pieza directamente — no la portada, donde el cliente tendría que
+// buscarla. El campo `ir` es la dirección:
+//
+//     'cap:<id>'  → una infografía de capsulas/capsulas.js
+//     'pod:<id>'  → un episodio de podcast/podcasts.js
+//     (sin `ir`)  → abre el centro en su portada, como antes
+//
+// El id se copia TAL CUAL del campo id de esos dos archivos. Si te
+// equivocas de id, el centro abre la pestaña correcta y ya: nadie ve un
+// error, simplemente no salta a la pieza.
+//
+// Rotan solos en orden, uno por semana; con esta lista hay para unos cinco
+// meses sin repetir. Agrega, quita o edita libremente.
+//
+// Ojo al escribir: el texto se mete después del nombre del cliente
+// ("Mauro, diez a veinte series…"), así que NO empieces con una sigla —
+// 'RIR, RPE…' quedaría como 'rIR, RPE…'.
 const LEARNING_HOOKS = [
-  '¿Sabías que la proteína no es solo para el gimnasio? Construye y repara tejidos, piel, hormonas y defensas. En la Guía de alimentación ves cuánta necesitas tú y de dónde sacarla.',
-  'Los carbohidratos no engordan por sí solos: son la gasolina de tu entreno y de tu cerebro. Lo que manda es el total del día — en la Guía de alimentación está explicado fácil.',
-  'La grasa no es el enemigo: sin ella no produces hormonas ni absorbes varias vitaminas. La clave está en la cantidad y la fuente — profundiza en la Guía de alimentación.',
-  '¿Sabías que dormir poco aumenta el hambre del día siguiente? El apetito también se gestiona. Dale 5 minutos al material de Aprendizaje.',
-  'El músculo no crece entrenando: crece recuperando. La comida y el descanso hacen la mitad del trabajo — en Aprendizaje está el porqué.',
-  'Un "día perfecto" no existe; existe la semana consistente. Repasa cómo gestionar tus días reales en la Guía de alimentación.',
-  '¿Sabías que la fibra alimenta a las bacterias buenas de tu intestino? Frutas, verduras y granos enteros hacen más que "llenar". Más en la Guía de alimentación.',
-  'El agua también cuenta en tus resultados: hasta una deshidratación leve baja tu rendimiento y se confunde con hambre. Regístrala en la app y revisa el tema en Aprendizaje.',
-  'Comer más despacio le da tiempo a tu cerebro de registrar saciedad (~20 minutos). Un truco simple que suma — en la Guía de alimentación hay más como este.',
-  'La báscula miente de un día a otro: agua, sal y hormonas la mueven hasta 2 kg sin que cambie tu grasa. Aprende a leer la tendencia en Aprendizaje.',
-  '¿Sabías que la vitamina D se comporta más como una hormona? Sol, pescado graso y huevo son tus fuentes. Dale una mirada al material de Aprendizaje.',
-  'Ningún alimento engorda o adelgaza por sí solo: manda el balance de la semana. Por eso registrar lo cambia todo — repásalo en la Guía de alimentación.',
+  { texto: 'Diez a veinte series por músculo a la semana: esa es la dosis que hace crecer el músculo, no la hora extra de gimnasio ni la serie suelta al fallo.',
+    ir: 'cap:ent-02-crece-musculo' },
+
+  { texto: '¿Sabías que casi nada de lo que se repite sobre perder grasa aguanta una revisión seria? Este episodio deja solo lo que sí tiene evidencia detrás.',
+    ir: 'pod:hub-esencial-grasa' },
+
+  { texto: 'Tu meta de proteína, grasa y carbohidrato no salió de un sombrero: son gramos por cada kilo de tu peso. Aquí ves de dónde sale cada número.',
+    ir: 'cap:nut-07-cada-macro' },
+
+  { texto: 'No todos necesitamos las mismas horas de sueño. Matt Walker explica cómo saber cuántas te tocan a ti y qué se rompe cuando te quedas corto.',
+    ir: 'pod:hub-walker-sueno' },
+
+  { texto: 'Si tu plan trae RIR, RPE o ROM y las pasas de largo, estás entrenando a ciegas. Son cuatro siglas y se entienden en un minuto.',
+    ir: 'cap:ent-06-entiende-rutina' },
+
+  { texto: 'El azúcar añadido no es solo calorías de más. Robert Lustig explica qué le hace de verdad a tu hígado y a tu apetito.',
+    ir: 'pod:hub-lustig-azucar' },
+
+  { texto: 'Caminar no es cardio extra: es el gasto invisible del día, y en la mayoría de la gente pesa más que la sesión de gimnasio.',
+    ir: 'cap:bie-11-muevete-fuera' },
+
+  { texto: 'Si sientes que nunca te llenas, no es falta de carácter: hay una hormona detrás. Este episodio explica cuál y qué se puede hacer.',
+    ir: 'pod:hormona-hambre' },
+
+  { texto: 'Para los días en que comes fuera y no pesas nada tienes dos métodos que funcionan: el plato y tu propia mano.',
+    ir: 'cap:nut-09-comer-sin-pesar' },
+
+  { texto: 'Layne Norton es doctor en nutrición y levanta en serio. Aquí explica cómo comer para perder grasa sin perder músculo por el camino.',
+    ir: 'pod:hub-norton-comer' },
+
+  { texto: 'Subir el peso cada semana no es progresar. Primero suben las repeticiones; el peso viene después, y hay una señal para saber cuándo.',
+    ir: 'cap:ent-04-subir-peso' },
+
+  { texto: 'Para los días en que no quieres ir a entrenar y vas igual: David Goggins hizo un método de esa incomodidad.',
+    ir: 'pod:hub-goggins-fuerza' },
+
+  { texto: 'Dormir mejor casi nunca empieza con un suplemento: empieza con la luz, la hora y la temperatura. Esas son las palancas que sí puedes mover hoy.',
+    ir: 'cap:bie-10-dormir-mejor' },
+
+  { texto: 'Lo que grita el frente del envase casi nunca es lo que dice el reverso. Aprende a leer el reverso antes de que el producto llegue al carrito.',
+    ir: 'pod:etiquetas-leer-1' },
+
+  { texto: 'El orden de los ejercicios es parte de la dosis: los compuestos van primero, cuando todavía tienes fuerza que gastar.',
+    ir: 'cap:ent-05-orden-sesion' },
+
+  { texto: '¿Sabías que una sola sesión de ejercicio ya te mejora la atención ese mismo día? Una neurocientífica lo explica sin adornos.',
+    ir: 'pod:hub-suzuki-memoria' },
+
+  { texto: 'Déficit, recomposición o superávit no son tres modas: son tres momentos distintos. Cuál te toca a ti y qué puedes esperar de cada uno.',
+    ir: 'cap:nut-08-grasa-y-musculo' },
+
+  { texto: 'Calambres, insomnio y antojo de dulce pueden estar apuntando al mismo sitio. Un episodio corto para descartarlo.',
+    ir: 'pod:suple-magnesio-senales' },
+
+  { texto: 'Fuerza, movilidad, resistencia, potencia y coordinación: casi siempre hay una que te frena. Esta te ayuda a ver cuál es la tuya.',
+    ir: 'cap:ent-01-capacidades' },
+
+  { texto: 'La música que te activa antes de entrenar no es la misma que te ayuda a concentrarte. Cuál poner y cuándo, con evidencia.',
+    ir: 'pod:hub-musica-animo' },
+
+  { texto: 'Carga, volumen, densidad y tempo son las cuatro perillas de tu entreno. Mover una sin saberlo te cambia el resultado de la semana.',
+    ir: 'cap:ent-03-lenguaje-rutina' },
+
+  { texto: 'Por qué tu rutina está armada así y no de otra forma: frecuencia, técnica y progresión, en el orden que de verdad importa.',
+    ir: 'pod:hub-cavaliere-plan' },
 ];
+
+// Texto del botón según a dónde lleva el aviso. El cliente sabe qué le
+// espera antes de tocarlo: no es lo mismo abrir una lámina que un episodio
+// de una hora.
+function learnHookBoton(ir) {
+  if (typeof ir === 'string' && ir.indexOf('pod:') === 0) return 'Escuchar el episodio';
+  if (typeof ir === 'string' && ir.indexOf('cap:') === 0) return 'Ver la infografía';
+  return 'Abrir Aprendizaje';
+}
 
 // ─── CALENDARIO DE REFUERZO DEL RETO (lo edita el coach) ─────────────────
 // Durante el reto (hasta el 9 de agosto) los anuncios de Aprendizaje suben
@@ -2274,16 +2353,32 @@ export default function MealTracker() {
   // persona en ambos lados, sin segundo login — y conserva su avance de
   // lectura. Si el link es Notion/Drive, los parámetros simplemente se
   // ignoran y no molestan.
-  const openLearning = useCallback(() => {
+  //
+  // `destino` es opcional y dice DÓNDE abrirlo, no solo que se abra:
+  //   'cap:<id>'  → la infografía con ese id, ya desplegada
+  //   'pod:<id>'  → el episodio con ese id, en su pestaña
+  //   'capsulas' / 'podcast' → la pestaña, sin abrir nada
+  // El centro lo lee de ?mt_go y ?mt_id. Si el id no existe allá, abre la
+  // pestaña y no pasa nada más: el cliente nunca ve un error.
+  const openLearning = useCallback((destino) => {
     if (!learningUrl) return;
     haptic(8);
     let uid = cloudUserIdRef.current;
     if (!uid) { try { uid = localStorage.getItem('cloudUserId'); } catch (e) {} }
     let url = learningUrl;
+    // Los botones pasan su onClick directo, así que aquí puede llegar un
+    // evento de clic en vez de un destino. Solo se acepta texto.
+    const ir = typeof destino === 'string' ? destino : '';
+    let go = '', goId = '';
+    if (ir.indexOf('pod:') === 0) { go = 'podcast'; goId = ir.slice(4); }
+    else if (ir.indexOf('cap:') === 0) { go = 'capsulas'; goId = ir.slice(4); }
+    else if (ir === 'podcast' || ir === 'capsulas') { go = ir; }
     try {
       const u = new URL(learningUrl);
       if (uid) u.searchParams.set('mt_user', uid);
       if (name) u.searchParams.set('mt_name', name);
+      if (go) u.searchParams.set('mt_go', go);
+      if (goId) u.searchParams.set('mt_id', goId);
       url = u.toString();
     } catch (e) { /* URL inválida: se abre tal cual */ }
     // Overlay interno (iframe), no window.open: así no aparece la barra de
@@ -2328,12 +2423,18 @@ export default function MealTracker() {
       const now = new Date();
       const firstName = name ? name.split(' ')[0] : '';
       const emit = (hook) => {
+        // Los avisos viejos eran un string suelto; los de ahora traen a
+        // dónde llevan. Se aceptan los dos para no perder nada escrito antes.
+        const texto = typeof hook === 'string' ? hook : (hook && hook.texto) || '';
+        const ir = typeof hook === 'string' ? null : (hook && hook.ir) || null;
+        if (!texto) return;
         // Minúscula en la primera LETRA (saltando ¿ o ¡) al anteponer el nombre
-        const hookLower = hook.replace(/^([¿¡]?)(\p{L})/u, (m, signo, letra) => signo + letra.toLowerCase());
-        const text = firstName ? `${firstName}, ${hookLower}` : hook;
+        const hookLower = texto.replace(/^([¿¡]?)(\p{L})/u, (m, signo, letra) => signo + letra.toLowerCase());
+        const text = firstName ? `${firstName}, ${hookLower}` : texto;
         setMessages(m => [...m, {
           role: 'assistant', isAnnouncement: true, tag: 'Aprendizaje',
-          content: text, showLearnButton: true, ts: Date.now(),
+          content: text, showLearnButton: true, learnTarget: ir,
+          learnLabel: learnHookBoton(ir), ts: Date.now(),
         }]);
       };
 
@@ -6739,10 +6840,10 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </button>
           )}
           {message.showLearnButton && typeof onOpenLearning === 'function' && (
-            <button onClick={onOpenLearning}
+            <button onClick={() => onOpenLearning(message.learnTarget)}
               className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
               style={{ background: C_FAT, color: '#fff' }}>
-              <GraduationCap size={13} /> Abrir Aprendizaje
+              <GraduationCap size={13} /> {message.learnLabel || 'Abrir Aprendizaje'}
             </button>
           )}
         </div>
