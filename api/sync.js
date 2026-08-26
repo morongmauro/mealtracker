@@ -122,7 +122,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,recetario_menus:data->recetario_menus`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,recetario_menus:data->recetario_menus,novedades_vistas:data->novedades_vistas`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -147,6 +147,16 @@ export default async function handler(req, res) {
           if (Array.isArray(existing.recetario_menus) && existing.recetario_menus.length
               && !(Array.isArray(dataToWrite.recetario_menus) && dataToWrite.recetario_menus.length)) {
             dataToWrite.recetario_menus = existing.recetario_menus;
+          }
+          // Novedades ya vistas: UNIÓN entre lo que hay y lo que llega. Nunca
+          // se quita nada — si se perdiera un "ya visto", al cliente le
+          // volvería a salir una ventana que ya cerró.
+          {
+            const va = Array.isArray(existing.novedades_vistas) ? existing.novedades_vistas : [];
+            const vb = Array.isArray(dataToWrite.novedades_vistas) ? dataToWrite.novedades_vistas : [];
+            if (va.length || vb.length) {
+              dataToWrite.novedades_vistas = Array.from(new Set([...va, ...vb])).slice(-50);
+            }
           }
         }
 

@@ -199,6 +199,61 @@ Y no son solo recetas sueltas: dentro del Recetario puedes armar tu día o tu se
 Ojo con algo, para que le saques provecho: el Recetario es APARTE de tus menús favoritos y de tus ingredientes favoritos. Tus menús favoritos son los combos que tú guardas para repetirlos con un toque. Tus ingredientes favoritos son con los que te calculo proporciones y te armo el día a tu medida. Y el Recetario son platos ya resueltos, con su preparación. Las tres cosas conviven en tu MealTracker: usa la que quieras, cuando quieras — o las tres en la misma semana.`,
 };
 
+// ═════════════════════════════════════════════════════════════════════════
+// NOVEDADES · la ventana que anuncia lo nuevo (la edita el coach)
+// ═════════════════════════════════════════════════════════════════════════
+// Una ventana por encima de todo, con UNA novedad por pantalla. El cliente
+// avanza con "Siguiente" hasta terminar; no se cierra tocando fuera ni con
+// Atrás — es a propósito: si se pudiera esquivar, nadie se enteraría de lo
+// que se agregó.
+//
+// Se muestra UNA SOLA VEZ por cliente. Al terminar queda sellada la versión
+// como vista, en el teléfono Y en la nube: si entra desde otro dispositivo
+// tampoco le vuelve a salir.
+//
+// ─── EL INTERRUPTOR ─────────────────────────────────────────────────────
+//        activo: false  →  NADIE la ve. La app se comporta como si no
+//                          existiera.
+//        activo: true   →  se publica a todos los clientes.
+//
+// Está en false a propósito: se enciende cuando el coach lo diga.
+//
+// ─── PARA ANUNCIAR ALGO NUEVO MÁS ADELANTE ──────────────────────────────
+//   1. Cambia `version` por una nueva (usa la fecha: '2026-09-15').
+//      Es la llave del "ya lo vi": con una versión nueva, la ventana vuelve
+//      a salir una vez a todos, incluso a quien ya vio la anterior.
+//   2. Reemplaza los bloques de `items` por las novedades de ESA entrega.
+//   3. Pon `activo: true` cuando quieras que salga.
+//
+// Campos de cada novedad:
+//   icono  · un emoji. Se ve grande arriba de la tarjeta.
+//   tag    · etiqueta corta ('Nuevo en Aprendizaje').
+//   titulo · una línea, concreta.
+//   texto  · dos o tres frases. Los saltos de línea se respetan.
+// ═════════════════════════════════════════════════════════════════════════
+const NOVEDADES = {
+  activo: false,
+  version: '2026-08-26-aprendizaje-y-recetas',
+  items: [
+    {
+      icono: '📚',
+      tag: 'Nuevo en Aprendizaje',
+      titulo: 'Cápsulas informativas y podcast',
+      texto: `Ya tienes cápsulas informativas: infografías cortas sobre lo que de verdad mueve tus resultados — cómo entrenar, cómo comer, cómo gestionar tu peso. Una idea clara por lámina, en un minuto.
+
+Y hay una sección de podcast con episodios que filtré y seleccioné para ti, de los mejores expertos del mundo, para aprender de temas diversos mientras caminas o cocinas.`,
+    },
+    {
+      icono: '🍽️',
+      tag: 'Nuevo en el Recetario',
+      titulo: 'Recetas, tu semana y la lista de mercado',
+      texto: `Se agregaron recetas al Recetario, ya ajustadas a tu meta.
+
+Puedes armar con ellas tu semana completa y llevarte la lista de mercado de todo lo que necesitas comprar. Se acabó el "no sé qué cocinar" y el mercado a ojo.`,
+    },
+  ],
+};
+
 // ─── GANCHOS DE APRENDIZAJE (los edita el coach, como _clients.js) ───────
 // UN anuncio informativo por semana (para no saturar). En vez de "lee esto
 // que te falta", capta la atención con un dato útil y cierra apuntando a la
@@ -421,6 +476,12 @@ export default function MealTracker() {
   const [pendingFavoriteEntry, setPendingFavoriteEntry] = useState(null);
   const [renamingFavoriteId, setRenamingFavoriteId] = useState(null);
   const [cloudConsent, setCloudConsent] = useState(null); // null = no decidido, 'accepted' | 'declined'
+  // Versiones de NOVEDADES que este cliente ya vio. Vive en el teléfono y
+  // viaja a la nube: si entra desde otro dispositivo, tampoco le vuelve a
+  // salir la misma ventana.
+  const [novedadesVistas, setNovedadesVistas] = useState([]);
+  const novedadesVistasRef = useRef([]);
+  const [novedadesListo, setNovedadesListo] = useState(false); // ya se leyó el storage
   // Acceso suspendido desde el CRM ('pausa' | 'finalizado' | null). No borra
   // nada: solo bloquea la pantalla hasta que el coach reactive el plan.
   const [accessBlocked, setAccessBlocked] = useState(null);
@@ -565,7 +626,7 @@ export default function MealTracker() {
   useEffect(() => {
     (async () => {
       try {
-        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes, histDelRes, coachRemRes, remMetaRes, dayOpsRes] = await Promise.all([
+        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes, histDelRes, coachRemRes, remMetaRes, dayOpsRes, novedadesRes] = await Promise.all([
           window.storage.get('goals').catch(() => null),
           window.storage.get('name').catch(() => null),
           window.storage.get('lastDay').catch(() => null),
@@ -583,6 +644,7 @@ export default function MealTracker() {
           window.storage.get('coachReminders').catch(() => null),
           window.storage.get('remindersMeta').catch(() => null),
           window.storage.get('historyDayOps').catch(() => null),
+          window.storage.get('novedadesVistas').catch(() => null),
         ]);
 
         if (favDelRes?.value) {
@@ -598,6 +660,14 @@ export default function MealTracker() {
             if (Array.isArray(dels)) { historyDeletedRef.current = dels; setHistoryDeleted(dels); }
           } catch (e) {}
         }
+
+        if (novedadesRes?.value) {
+          try {
+            const v = JSON.parse(novedadesRes.value);
+            if (Array.isArray(v)) { novedadesVistasRef.current = v; setNovedadesVistas(v); }
+          } catch (e) {}
+        }
+        setNovedadesListo(true);
 
         if (dayOpsRes?.value) {
           try {
@@ -868,6 +938,9 @@ export default function MealTracker() {
             }
             return Array.from(byId.values());
           });
+        }
+        if (Array.isArray(d.novedades_vistas) && d.novedades_vistas.length > 0) {
+          setNovedadesVistas(local => Array.from(new Set([...(local || []), ...d.novedades_vistas])));
         }
         if (Array.isArray(d.favoriteIngredients) && d.favoriteIngredients.length > 0) {
           setFavoriteIngredients(local => Array.from(new Set([...(local || []), ...d.favoriteIngredients])));
@@ -1274,6 +1347,9 @@ export default function MealTracker() {
               // Se mandan tal cual (son IDs de receta, pesan nada) y el
               // servidor conserva los del server si un dispositivo sincroniza
               // sin ellos — mismo patrón que las señales de dispositivo.
+              // Versiones de novedades ya vistas: así la ventana no reaparece
+              // al entrar desde otro teléfono.
+              novedades_vistas: novedadesVistasRef.current.length ? novedadesVistasRef.current : undefined,
               recetario_menus: (() => {
                 try {
                   const raw = localStorage.getItem('mt:menus_guardados');
@@ -1309,6 +1385,25 @@ export default function MealTracker() {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
     schedulePushToCloud();
   }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, historyDayOps, coachReminders, frequentItems, wellbeing, goals, name, entries, water, messages, cloudConsent, schedulePushToCloud]);
+
+  // ── ¿Se muestra la ventana de novedades? ──────────────────────────────
+  // Todas las condiciones tienen que darse. La primera es el interruptor:
+  // con NOVEDADES.activo en false esto es siempre false y la app se
+  // comporta como si la ventana no existiera.
+  const mostrarNovedades = (
+    NOVEDADES.activo === true &&
+    Array.isArray(NOVEDADES.items) && NOVEDADES.items.length > 0 &&
+    view === 'main' &&                       // ya está dentro de la app
+    cloudConsent !== null &&                 // no se apila sobre el consentimiento
+    novedadesListo &&                        // ya se leyó lo que tenía guardado
+    novedadesVistas.indexOf(NOVEDADES.version) === -1
+  );
+
+  // Al terminar de pasar las novedades se sella la versión. A partir de
+  // aquí no vuelve a salir, ni en este teléfono ni en otro.
+  const marcarNovedadesVistas = useCallback(() => {
+    setNovedadesVistas(prev => (prev.indexOf(NOVEDADES.version) !== -1 ? prev : [...prev, NOVEDADES.version]));
+  }, []);
 
   const acceptCloudConsent = useCallback(() => {
     try { localStorage.setItem('cloudConsent', 'accepted'); } catch (e) {}
@@ -1708,6 +1803,11 @@ export default function MealTracker() {
     if (!initialLoadDone.current) return;
     window.storage.set('historyDeleted', JSON.stringify(historyDeleted)).catch(() => {});
   }, [historyDeleted]);
+  useEffect(() => {
+    novedadesVistasRef.current = novedadesVistas;
+    if (!novedadesListo) return;   // no pisar el storage antes de leerlo
+    window.storage.set('novedadesVistas', JSON.stringify(novedadesVistas)).catch(() => {});
+  }, [novedadesVistas, novedadesListo]);
   useEffect(() => {
     historyDayOpsRef.current = historyDayOps;
     if (!initialLoadDone.current) return;
@@ -5702,6 +5802,72 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {view === 'main' && cloudConsent === null && (
         <CloudConsentModal onAccept={acceptCloudConsent} onDecline={declineCloudConsent} />
       )}
+
+      {/* NOVEDADES · solo si el interruptor está encendido y este cliente no
+          la ha visto. Se espera a que el storage esté leído (si no, saldría
+          un instante a quien ya la vio) y a que el consentimiento de nube
+          esté resuelto, para no apilar dos ventanas. */}
+      {mostrarNovedades && (
+        <NovedadesModal items={NOVEDADES.items} onTerminar={marcarNovedadesVistas} />
+      )}
+    </div>
+  );
+}
+
+function NovedadesModal({ items, onTerminar }) {
+  const [i, setI] = React.useState(0);
+  const total = items.length;
+  const n = items[i] || {};
+  const ultima = i >= total - 1;
+
+  // A propósito NO se cierra tocando fuera ni con la tecla Atrás: se sale
+  // avanzando hasta el final. Es la única forma de asegurar que el cliente
+  // vea todas las novedades, que es el motivo de que exista esta ventana.
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.62)' }} role="dialog" aria-modal="true" aria-label="Novedades">
+      <div className="w-full max-w-md p-6 rounded-3xl"
+        style={{ background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI, boxShadow: SHADOW_RAISED }}>
+
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[11px] tracking-[0.06em] uppercase font-bold" style={{ color: ACCENT }}>Novedades</div>
+          {total > 1 && (
+            <div className="text-[11px] num" style={{ color: TEXT_LIGHT }}>{i + 1} de {total}</div>
+          )}
+        </div>
+
+        {n.icono && <div className="text-[34px] leading-none mb-3">{n.icono}</div>}
+        {n.tag && (
+          <div className="inline-block px-2.5 py-1 rounded-full mb-2 text-[10px] font-bold uppercase tracking-[0.04em]"
+            style={{ background: ACCENT_LIGHT, color: ACCENT_DARK }}>{n.tag}</div>
+        )}
+        <div className="text-[19px] font-bold mb-2.5" style={{ color: TEXT, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+          {n.titulo}
+        </div>
+        <div className="text-[13.5px] mb-5 whitespace-pre-line" style={{ color: TEXT_MUTED, lineHeight: 1.6 }}>
+          {n.texto}
+        </div>
+
+        {/* Puntitos: cuántas novedades faltan. Con una sola no aparecen. */}
+        {total > 1 && (
+          <div className="flex justify-center gap-1.5 mb-4">
+            {items.map((_, k) => (
+              <div key={k} style={{
+                width: k === i ? 18 : 6, height: 6, borderRadius: 999,
+                background: k === i ? ACCENT : BORDER,
+                transition: 'width .25s ease, background .25s ease',
+              }} />
+            ))}
+          </div>
+        )}
+
+        <button type="button"
+          onClick={() => { haptic(10); if (ultima) onTerminar(); else setI(i + 1); }}
+          className="w-full py-3.5 rounded-full text-[14px] font-semibold active:scale-[0.98] transition"
+          style={{ background: TEXT, color: '#fff', border: 'none', boxShadow: '0 4px 14px rgba(0,0,0,.18)' }}>
+          {ultima ? (total > 1 ? 'Listo, ya lo vi' : 'Entendido') : 'Siguiente'}
+        </button>
+      </div>
     </div>
   );
 }
