@@ -199,6 +199,73 @@ Y no son solo recetas sueltas: dentro del Recetario puedes armar tu día o tu se
 Ojo con algo, para que le saques provecho: el Recetario es APARTE de tus menús favoritos y de tus ingredientes favoritos. Tus menús favoritos son los combos que tú guardas para repetirlos con un toque. Tus ingredientes favoritos son con los que te calculo proporciones y te armo el día a tu medida. Y el Recetario son platos ya resueltos, con su preparación. Las tres cosas conviven en tu MealTracker: usa la que quieras, cuando quieras — o las tres en la misma semana.`,
 };
 
+// ═════════════════════════════════════════════════════════════════════════
+// NOVEDADES · la ventana que anuncia lo nuevo (la edita el coach)
+// ═════════════════════════════════════════════════════════════════════════
+// Una ventana por encima de todo, con UNA novedad por pantalla. El cliente
+// avanza con "Siguiente" hasta terminar; no se cierra tocando fuera ni con
+// Atrás — es a propósito: si se pudiera esquivar, nadie se enteraría de lo
+// que se agregó.
+//
+// Se muestra UNA SOLA VEZ por cliente. Al terminar queda sellada la versión
+// como vista, en el teléfono Y en la nube: si entra desde otro dispositivo
+// tampoco le vuelve a salir.
+//
+// ─── EL INTERRUPTOR ─────────────────────────────────────────────────────
+//        activo: false  →  NADIE la ve. La app se comporta como si no
+//                          existiera.
+//        activo: true   →  se publica a todos los clientes.
+//
+// Está en false a propósito: se enciende cuando el coach lo diga.
+//
+// ─── PARA ANUNCIAR ALGO NUEVO MÁS ADELANTE ──────────────────────────────
+//   1. Cambia `version` por una nueva (usa la fecha: '2026-09-15').
+//      Es la llave del "ya lo vi": con una versión nueva, la ventana vuelve
+//      a salir una vez a todos, incluso a quien ya vio la anterior.
+//   2. Reemplaza los bloques de `items` por las novedades de ESA entrega.
+//   3. Pon `activo: true` cuando quieras que salga.
+//
+// ─── CÓMO SE VE ─────────────────────────────────────────────────────────
+// Misma cara que tus cápsulas informativas: banda oscura arriba con el
+// título en Bebas, y debajo tres líneas cortas con su palomita. No es
+// casualidad — el cliente ya reconoce ese formato, y un párrafo largo en
+// un modal no lo lee nadie.
+//
+// Campos de cada novedad:
+//   icono  · un emoji. Va en la banda, junto al título.
+//   titulo · DOS O TRES PALABRAS. Se pinta grande y en mayúsculas.
+//   bajada · una frase corta en minúsculas, bajo el título. El gancho.
+//   puntos · TRES como mucho, de una línea cada uno. Beneficio concreto,
+//            no explicación. Si necesitas un párrafo, es que no está
+//            decidido qué quieres que el cliente se lleve.
+// ═════════════════════════════════════════════════════════════════════════
+const NOVEDADES = {
+  activo: true,
+  version: '2026-08-26-aprendizaje-y-recetas',
+  items: [
+    {
+      icono: '📚',
+      titulo: 'Cápsulas y podcast',
+      bajada: 'aprende algo nuevo en un minuto',
+      puntos: [
+        '11 infografías de entrenamiento, nutrición y descanso',
+        'Podcast que escogí uno por uno, de los mejores del mundo',
+        'Están en Aprende, el botón de abajo a la derecha',
+      ],
+    },
+    {
+      icono: '🍽️',
+      titulo: 'Recetas y mercado',
+      bajada: 'se acabó el "no sé qué cocinar"',
+      puntos: [
+        'Recetas nuevas, ya ajustadas a tu meta',
+        'Arma tu semana completa con ellas',
+        'Llévate la lista de mercado hecha',
+      ],
+    },
+  ],
+};
+
 // ─── GANCHOS DE APRENDIZAJE (los edita el coach, como _clients.js) ───────
 // UN anuncio informativo por semana (para no saturar). En vez de "lee esto
 // que te falta", capta la atención con un dato útil y cierra apuntando a la
@@ -421,6 +488,12 @@ export default function MealTracker() {
   const [pendingFavoriteEntry, setPendingFavoriteEntry] = useState(null);
   const [renamingFavoriteId, setRenamingFavoriteId] = useState(null);
   const [cloudConsent, setCloudConsent] = useState(null); // null = no decidido, 'accepted' | 'declined'
+  // Versiones de NOVEDADES que este cliente ya vio. Vive en el teléfono y
+  // viaja a la nube: si entra desde otro dispositivo, tampoco le vuelve a
+  // salir la misma ventana.
+  const [novedadesVistas, setNovedadesVistas] = useState([]);
+  const novedadesVistasRef = useRef([]);
+  const [novedadesListo, setNovedadesListo] = useState(false); // ya se leyó el storage
   // Acceso suspendido desde el CRM ('pausa' | 'finalizado' | null). No borra
   // nada: solo bloquea la pantalla hasta que el coach reactive el plan.
   const [accessBlocked, setAccessBlocked] = useState(null);
@@ -565,7 +638,7 @@ export default function MealTracker() {
   useEffect(() => {
     (async () => {
       try {
-        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes, histDelRes, coachRemRes, remMetaRes, dayOpsRes] = await Promise.all([
+        const [goalsRes, nameRes, lastDayRes, histRes, histDetailRes, favRes, msgsRes, perfectRes, freqRes, wellRes, favIngRes, goalsUpdRes, favDelRes, histDelRes, coachRemRes, remMetaRes, dayOpsRes, novedadesRes] = await Promise.all([
           window.storage.get('goals').catch(() => null),
           window.storage.get('name').catch(() => null),
           window.storage.get('lastDay').catch(() => null),
@@ -583,6 +656,7 @@ export default function MealTracker() {
           window.storage.get('coachReminders').catch(() => null),
           window.storage.get('remindersMeta').catch(() => null),
           window.storage.get('historyDayOps').catch(() => null),
+          window.storage.get('novedadesVistas').catch(() => null),
         ]);
 
         if (favDelRes?.value) {
@@ -598,6 +672,14 @@ export default function MealTracker() {
             if (Array.isArray(dels)) { historyDeletedRef.current = dels; setHistoryDeleted(dels); }
           } catch (e) {}
         }
+
+        if (novedadesRes?.value) {
+          try {
+            const v = JSON.parse(novedadesRes.value);
+            if (Array.isArray(v)) { novedadesVistasRef.current = v; setNovedadesVistas(v); }
+          } catch (e) {}
+        }
+        setNovedadesListo(true);
 
         if (dayOpsRes?.value) {
           try {
@@ -868,6 +950,9 @@ export default function MealTracker() {
             }
             return Array.from(byId.values());
           });
+        }
+        if (Array.isArray(d.novedades_vistas) && d.novedades_vistas.length > 0) {
+          setNovedadesVistas(local => Array.from(new Set([...(local || []), ...d.novedades_vistas])));
         }
         if (Array.isArray(d.favoriteIngredients) && d.favoriteIngredients.length > 0) {
           setFavoriteIngredients(local => Array.from(new Set([...(local || []), ...d.favoriteIngredients])));
@@ -1274,6 +1359,9 @@ export default function MealTracker() {
               // Se mandan tal cual (son IDs de receta, pesan nada) y el
               // servidor conserva los del server si un dispositivo sincroniza
               // sin ellos — mismo patrón que las señales de dispositivo.
+              // Versiones de novedades ya vistas: así la ventana no reaparece
+              // al entrar desde otro teléfono.
+              novedades_vistas: novedadesVistasRef.current.length ? novedadesVistasRef.current : undefined,
               recetario_menus: (() => {
                 try {
                   const raw = localStorage.getItem('mt:menus_guardados');
@@ -1309,6 +1397,25 @@ export default function MealTracker() {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
     schedulePushToCloud();
   }, [favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted, historyDayOps, coachReminders, frequentItems, wellbeing, goals, name, entries, water, messages, cloudConsent, schedulePushToCloud]);
+
+  // ── ¿Se muestra la ventana de novedades? ──────────────────────────────
+  // Todas las condiciones tienen que darse. La primera es el interruptor:
+  // con NOVEDADES.activo en false esto es siempre false y la app se
+  // comporta como si la ventana no existiera.
+  const mostrarNovedades = (
+    NOVEDADES.activo === true &&
+    Array.isArray(NOVEDADES.items) && NOVEDADES.items.length > 0 &&
+    view === 'main' &&                       // ya está dentro de la app
+    cloudConsent !== null &&                 // no se apila sobre el consentimiento
+    novedadesListo &&                        // ya se leyó lo que tenía guardado
+    novedadesVistas.indexOf(NOVEDADES.version) === -1
+  );
+
+  // Al terminar de pasar las novedades se sella la versión. A partir de
+  // aquí no vuelve a salir, ni en este teléfono ni en otro.
+  const marcarNovedadesVistas = useCallback(() => {
+    setNovedadesVistas(prev => (prev.indexOf(NOVEDADES.version) !== -1 ? prev : [...prev, NOVEDADES.version]));
+  }, []);
 
   const acceptCloudConsent = useCallback(() => {
     try { localStorage.setItem('cloudConsent', 'accepted'); } catch (e) {}
@@ -1708,6 +1815,11 @@ export default function MealTracker() {
     if (!initialLoadDone.current) return;
     window.storage.set('historyDeleted', JSON.stringify(historyDeleted)).catch(() => {});
   }, [historyDeleted]);
+  useEffect(() => {
+    novedadesVistasRef.current = novedadesVistas;
+    if (!novedadesListo) return;   // no pisar el storage antes de leerlo
+    window.storage.set('novedadesVistas', JSON.stringify(novedadesVistas)).catch(() => {});
+  }, [novedadesVistas, novedadesListo]);
   useEffect(() => {
     historyDayOpsRef.current = historyDayOps;
     if (!initialLoadDone.current) return;
@@ -5269,14 +5381,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {showLearning && (
         <div className="fixed inset-0" style={{ zIndex: 37, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
-          {/* Difuminado superior: el contenido del centro se diluye bajo la
-              píldora "Aprendizaje" hasta el borde del teléfono (pointer-
-              events none: los toques atraviesan hacia el iframe). */}
-          <div className="fixed left-0 right-0 top-0 pointer-events-none" style={{
-            zIndex: 2,
-            height: 'calc(env(safe-area-inset-top, 0px) + 46px)',
-            background: 'linear-gradient(180deg, rgba(237,236,229,0.42) 0%, rgba(237,236,229,0.22) 55%, rgba(237,236,229,0) 100%)',
-          }} />
+          {/* El difuminado SUPERIOR ya no se dibuja aquí: se pintaba encima
+              del iframe y por tanto también sobre el botón de "volver" del
+              centro, que quedaba lavado. Ahora lo dibuja la propia página
+              del centro (.em-top-fade), que sí puede dejar ese botón por
+              encima. El de abajo sí se queda: ahí no hay nada que tapar. */
+          }
           {/* Y el mismo difuminado abajo: el final del centro se apaga por
               detrás de la barra en vez de cortarse contra ella. */}
           <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
@@ -5702,6 +5812,149 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {view === 'main' && cloudConsent === null && (
         <CloudConsentModal onAccept={acceptCloudConsent} onDecline={declineCloudConsent} />
       )}
+
+      {/* NOVEDADES · solo si el interruptor está encendido y este cliente no
+          la ha visto. Se espera a que el storage esté leído (si no, saldría
+          un instante a quien ya la vio) y a que el consentimiento de nube
+          esté resuelto, para no apilar dos ventanas. */}
+      {mostrarNovedades && (
+        <NovedadesModal items={NOVEDADES.items} onTerminar={marcarNovedadesVistas} />
+      )}
+    </div>
+  );
+}
+
+function NovedadesModal({ items, onTerminar }) {
+  const [i, setI] = React.useState(0);
+  const total = items.length;
+  const n = items[i] || {};
+  const ultima = i >= total - 1;
+
+  // A propósito NO se cierra tocando fuera ni con la tecla Atrás: se sale
+  // avanzando hasta el final. Es la única forma de asegurar que el cliente
+  // vea todas las novedades, que es el motivo de que exista esta ventana.
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.66)' }} role="dialog" aria-modal="true" aria-label="Novedades">
+      {/* Tarjeta con el vidrio de la marca: el brillo interior arriba y la
+          sombra larga y verdosa son los mismos de las tarjetas de la app
+          (SHADOW_CARD), y el borde es el crema cálido, no un gris frío. */}
+      <style>{`
+        @keyframes novLatido {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50%      { transform: scale(1.06); opacity: .86; }
+        }
+        .nov-chispa svg { animation: novLatido 2.4s ease-in-out infinite; transform-origin: center; }
+        @media (prefers-reduced-motion: reduce) { .nov-chispa svg { animation: none; } }
+      `}</style>
+      <div className="w-full max-w-md overflow-hidden"
+        style={{
+          background: SURFACE, borderRadius: 26, fontFamily: FONT_UI,
+          border: `1px solid ${BORDER}`,
+          boxShadow: '0 1px 0 rgba(255,255,255,.92) inset, 0 24px 64px rgba(20,22,14,.46), 0 4px 12px rgba(20,22,14,.22)',
+        }}>
+
+        {/* BANDA OSCURA — la misma cara que tus cápsulas informativas: el
+            cliente ya reconoce ese formato, así que el anuncio se lee como
+            parte del material, no como un pop-up cualquiera. */}
+        <div style={{
+          // Mismo negro de marca del Centro de Recursos (#141414) con un
+          // punto de verde: es el degradado de la banda de tus cápsulas.
+          background: 'linear-gradient(158deg, #23251B 0%, #141414 100%)',
+          padding: '18px 22px 20px',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          {/* Mancha oliva difuminada, para que la banda no sea un rectángulo plano */}
+          <div aria-hidden="true" style={{
+            position: 'absolute', top: -70, right: -50, width: 190, height: 190,
+            borderRadius: '50%', pointerEvents: 'none',
+            background: 'radial-gradient(circle, rgba(138,149,88,.52) 0%, rgba(138,149,88,0) 70%)',
+          }} />
+          <div style={{ position: 'relative' }}>
+            {/* DISTINTIVO — la razón para leer. Un rótulo gris que diga
+                "Novedades" no invita a nada; una chispa que late y un
+                "algo nuevo para ti" sí hacen que el cliente se detenga.
+                Es el único elemento con movimiento de toda la ventana:
+                si todo se moviera, no destacaría nada. */}
+            <div className="flex items-center justify-between mb-3.5">
+              <span className="nov-chispa" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '5px 11px 5px 8px', borderRadius: 999,
+                background: 'rgba(138,149,88,.20)',
+                border: '1px solid rgba(169,180,120,.38)',
+              }}>
+                <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true" style={{ display: 'block', flex: 'none' }}>
+                  <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z" fill="#C4D19A" />
+                </svg>
+                <span style={{
+                  fontSize: 9, fontWeight: 800, letterSpacing: '.14em',
+                  textTransform: 'uppercase', color: '#C4D19A', whiteSpace: 'nowrap',
+                }}>Algo nuevo para ti</span>
+              </span>
+              {total > 1 && (
+                <span className="num" style={{ fontSize: 10.5, color: 'rgba(255,255,255,.45)' }}>{i + 1} / {total}</span>
+              )}
+            </div>
+
+            <div className="flex items-start gap-3">
+              {n.icono && <div style={{ fontSize: 30, lineHeight: 1, marginTop: 1 }}>{n.icono}</div>}
+              <div className="min-w-0">
+                <div style={{
+                  fontFamily: FONT_DISPLAY, fontWeight: 400,
+                  fontSize: 30, lineHeight: .96, letterSpacing: '.02em',
+                  color: '#FFF', textTransform: 'uppercase',
+                }}>{n.titulo}</div>
+                <div style={{ width: 34, height: 2, background: ACCENT, borderRadius: 2, margin: '9px 0 8px' }} />
+                <div style={{ fontSize: 12.5, lineHeight: 1.35, color: 'rgba(255,255,255,.62)' }}>{n.bajada}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CUERPO — tres líneas, una idea cada una. Se escanean de un vistazo;
+            un párrafo largo aquí no lo lee nadie. */}
+        <div style={{ padding: '18px 22px 20px', background: SURFACE }}>
+          <div className="flex flex-col gap-2.5 mb-5">
+            {(n.puntos || []).map((p, k) => (
+              <div key={k} className="flex items-start gap-2.5" style={{
+                background: 'rgba(241,243,229,.55)',
+                border: `1px solid ${BORDER_SOFT}`,
+                borderRadius: 14, padding: '9px 11px',
+              }}>
+                <span aria-hidden="true" style={{
+                  flex: 'none', width: 17, height: 17, borderRadius: '50%',
+                  background: ACCENT_LIGHT, color: ACCENT_DARK, marginTop: 1,
+                  display: 'grid', placeContent: 'center',
+                }}>
+                  <svg viewBox="0 0 24 24" width="9" height="9" fill="none">
+                    <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <span style={{ fontSize: 13.5, lineHeight: 1.45, color: TEXT }}>{p}</span>
+              </div>
+            ))}
+          </div>
+
+          {total > 1 && (
+            <div className="flex justify-center gap-1.5 mb-3.5">
+              {items.map((_, k) => (
+                <div key={k} style={{
+                  width: k === i ? 18 : 6, height: 6, borderRadius: 999,
+                  background: k === i ? ACCENT : BORDER,
+                  transition: 'width .25s ease, background .25s ease',
+                }} />
+              ))}
+            </div>
+          )}
+
+          <button type="button"
+            onClick={() => { haptic(10); if (ultima) onTerminar(); else setI(i + 1); }}
+            className="w-full py-3.5 rounded-full text-[14px] font-semibold active:scale-[0.98] transition"
+            style={{ background: TEXT, color: '#fff', border: 'none', boxShadow: '0 4px 14px rgba(0,0,0,.18)' }}>
+            {ultima ? (total > 1 ? 'Listo, ya lo vi' : 'Entendido') : 'Siguiente'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
