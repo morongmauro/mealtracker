@@ -1,7 +1,7 @@
 {
-  "name": "Entrena con Método — Meal Tracker",
+  "name": "Entrena con Método",
   "short_name": "Entrena con Método",
-  "description": "Registra tus comidas conversando y mantén tus macros en meta.",
+  "description": "Tu entrenamiento y tu alimentación, en un solo lugar.",
   "lang": "es",
   "start_url": "/",
   "scope": "/",

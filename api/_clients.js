@@ -56,3 +56,25 @@ export const CLIENT_RESOURCES = {
   // Ejemplo:
   // 'Mauro Morón': 'https://notion.so/centro-de-recursos-mauro',
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// MÓDULO DE ENTRENAMIENTO ("Entrena")  ·  EN PRUEBA
+//
+// El tercer módulo del ecosistema: el cliente ve su calendario de entrenos,
+// abre la rutina del día y marca reps y pesos. Todavía se está armando, así
+// que NO se le muestra a todo el mundo: solo a quien esté en la lista de
+// abajo. El resto de clientes no ve el botón ni sabe que existe — y ni
+// siquiera descarga el código del módulo.
+//
+// TRAINING_BETA: quiénes lo ven. Un nombre por línea, igual que la lista de
+// clientes de arriba (mayúsculas y tildes no importan al comparar). Para
+// apagarlo del todo, deja la lista vacía: [].
+//
+// PARA ABRIRLO A TODOS más adelante: pon TRAINING_PARA_TODOS en true.
+// ─────────────────────────────────────────────────────────────────────────
+
+export const TRAINING_PARA_TODOS = false;
+
+export const TRAINING_BETA = [
+  'Mauro Morón',
+];

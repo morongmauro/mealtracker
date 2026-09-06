@@ -4,10 +4,18 @@
 // servidor — así los nombres y links de tus clientes no viajan dentro del
 // JS público.
 //
-// POST { name } → { url } (url = '' si el cliente no tiene recursos)
+// POST { name } → { url, training }
+//   url      = '' si el cliente no tiene centro de recursos
+//   training = true solo si el cliente está en la prueba del módulo de
+//              entrenamiento (ver TRAINING_BETA en _clients.js). Se decide
+//              AQUÍ, en el servidor: así el JS público que descarga
+//              cualquiera no lleva la lista de quién está en la prueba.
 
 import { guard } from './_guard.js';
-import { CLIENT_RESOURCES, DEFAULT_RESOURCES_URL } from './_clients.js';
+import {
+  CLIENT_RESOURCES, DEFAULT_RESOURCES_URL,
+  TRAINING_BETA, TRAINING_PARA_TODOS,
+} from './_clients.js';
 
 const normalizeName = (str) => String(str || '')
   .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -31,5 +39,10 @@ export default async function handler(req, res) {
   if (!url && typeof DEFAULT_RESOURCES_URL === 'string' && DEFAULT_RESOURCES_URL.startsWith('http')) {
     url = DEFAULT_RESOURCES_URL;
   }
-  return res.status(200).json({ url });
+
+  // Módulo de entrenamiento: solo para quien esté en la prueba.
+  const training = TRAINING_PARA_TODOS === true
+    || (Array.isArray(TRAINING_BETA) && TRAINING_BETA.some(c => normalizeName(c) === normalized));
+
+  return res.status(200).json({ url, training });
 }

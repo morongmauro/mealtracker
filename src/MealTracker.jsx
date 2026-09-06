@@ -4,13 +4,16 @@ import {
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
   SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
   GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale, CalendarCheck, LayoutGrid, Bell,
-  Home, MessageCircle
+  Home, MessageCircle, Dumbbell
 } from 'lucide-react';
 import { canonicalizeItem } from './foods.js';
 
 // Chunk aparte: el Recetario (~30KB de recetas + UI) solo se descarga la
 // primera vez que el cliente lo abre, no en el arranque de la app.
 const Recetario = lazy(() => import('./Recetario.jsx'));
+// Chunk aparte también: el módulo de entrenamiento está en prueba y solo lo
+// ve quien esté en la lista, así que el resto de clientes ni lo descarga.
+const Entrenamiento = lazy(() => import('./Entrenamiento.jsx'));
 
 // Paleta y tipografía: única fuente de verdad en src/theme.js.
 import {
@@ -196,7 +199,7 @@ const APP_UPDATE_ANNOUNCEMENT = {
 
 Y no son solo recetas sueltas: dentro del Recetario puedes armar tu día o tu semana entera con ellas y llevarte la lista de mercado.
 
-Ojo con algo, para que le saques provecho: el Recetario es APARTE de tus menús favoritos y de tus ingredientes favoritos. Tus menús favoritos son los combos que tú guardas para repetirlos con un toque. Tus ingredientes favoritos son con los que te calculo proporciones y te armo el día a tu medida. Y el Recetario son platos ya resueltos, con su preparación. Las tres cosas conviven en tu MealTracker: usa la que quieras, cuando quieras — o las tres en la misma semana.`,
+Ojo con algo, para que le saques provecho: el Recetario es APARTE de tus menús favoritos y de tus ingredientes favoritos. Tus menús favoritos son los combos que tú guardas para repetirlos con un toque. Tus ingredientes favoritos son con los que te calculo proporciones y te armo el día a tu medida. Y el Recetario son platos ya resueltos, con su preparación. Las tres cosas conviven en tu app: usa la que quieras, cuando quieras — o las tres en la misma semana.`,
 };
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -604,6 +607,15 @@ export default function MealTracker() {
   const [learningPend, setLearningPend] = useState(() => {
     try { return Number(localStorage.getItem('learningPend') || 0) || 0; } catch (e) { return 0; }
   });
+  // Módulo de entrenamiento (calendario de entrenos y rutina del día). Está
+  // EN PRUEBA: el servidor solo devuelve el link a quien esté en la lista de
+  // la prueba (TRAINING_BETA en api/_clients.js). Vacío = el botón no existe,
+  // que es lo que ve el resto de clientes.
+  const [trainingOn, setTrainingOn] = useState(() => {
+    try { return localStorage.getItem('trainingOn') === '1'; } catch (e) { return false; }
+  });
+  const [showTraining, setShowTraining] = useState(false);
+  useEffect(() => { showTrainingRef.current = showTraining; }, [showTraining]);
   const initialLoadDone = useRef(false);
   // Copia viva de favoritesDeleted para closures async (pull del server).
   const favoritesDeletedRef = useRef([]);
@@ -663,6 +675,7 @@ export default function MealTracker() {
   const tabRef = useRef(null);
   const showRecetarioRef = useRef(false);
   const showLearningRef = useRef(false);
+  const showTrainingRef = useRef(false);
   const headerRef = useRef(null);
   const goalsCardRef = useRef(null);
   // El SCROLLER del chat: la página NO scrollea (body congelado); solo este
@@ -684,7 +697,7 @@ export default function MealTracker() {
     // La barra de entrada solo vuelve si estamos en la pestaña CHAT — en Hoy
     // el input no existe y forzar display:block lo hacía aparecer encima de
     // la vista (el DOM directo debe respetar la pestaña activa).
-    if (inputBarRef.current) inputBarRef.current.style.display = (tabRef.current === 'chat' && !showRecetarioRef.current && !showLearningRef.current) ? 'block' : 'none';
+    if (inputBarRef.current) inputBarRef.current.style.display = (tabRef.current === 'chat' && !showRecetarioRef.current && !showLearningRef.current && !showTrainingRef.current) ? 'block' : 'none';
     if (navBarRef.current) navBarRef.current.style.display = '';
     // El sync de estado va en startTransition: React 18 lo marca como no
     // urgente y cede al paint, así el tap se siente instantáneo.
@@ -706,9 +719,11 @@ export default function MealTracker() {
   const goToChat = useCallback(() => {
     showRecetarioRef.current = false;
     showLearningRef.current = false;
+    showTrainingRef.current = false;
     tabRef.current = 'chat';
     setShowRecetario(false);
     setShowLearning(false);
+    setShowTraining(false);
     setTab('chat');
   }, []);
 
@@ -1780,7 +1795,7 @@ export default function MealTracker() {
     const dentroDelInput = (target) =>
       inputBarRef.current && target && inputBarRef.current.contains(target);
 
-    const enElChat = () => tabRef.current === 'chat' && !showRecetarioRef.current && !showLearningRef.current;
+    const enElChat = () => tabRef.current === 'chat' && !showRecetarioRef.current && !showLearningRef.current && !showTrainingRef.current;
     const onTouchMove = (e) => {
       // Solo en el chat: es la única pantalla con la barra de escribir. En
       // Recetario, Hoy o Aprendizaje el scroll no se toca jamás.
@@ -2179,6 +2194,11 @@ export default function MealTracker() {
         const url = typeof data.url === 'string' ? data.url : '';
         setLearningUrl(url);
         try { localStorage.setItem('learningUrl', url); } catch (e) {}
+        const tOn = data.training === true;
+        setTrainingOn(tOn);
+        try { localStorage.setItem('trainingOn', tOn ? '1' : '0'); } catch (e) {}
+        // Si te sacan de la prueba con el módulo abierto, se cierra solo.
+        if (!tOn) setShowTraining(false);
       } catch (e) { /* sin red: se usa el cache local */ }
     };
     fetchResources();
@@ -2418,6 +2438,17 @@ export default function MealTracker() {
     }, 8000);
     return () => clearTimeout(t);
   }, [view, learningUrl, name]);
+
+  // Abre el módulo de entrenamiento. Mismo contrato de identidad que el
+  // centro de recursos —?mt_user=&mt_name=—, que es exactamente lo que ese
+  // módulo espera (ver src/identity.js allá): no hay segundo login.
+  const openTraining = useCallback(() => {
+    if (!trainingOn) return;
+    haptic(8);
+    setShowRecetario(false);
+    setShowLearning(false);
+    setShowTraining(true);
+  }, [trainingOn]);
 
   const openLearning = useCallback((destino) => {
     if (!learningUrl) return;
@@ -4923,7 +4954,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               textTransform: 'uppercase',
               whiteSpace: 'nowrap'
             }}>
-              {showLearning ? 'Aprendizaje' : 'Meal Tracker'}
+              {showTraining ? 'Entrenamiento' : showLearning ? 'Aprendizaje' : 'Entrena con Método'}
             </span>
             <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '8px', letterSpacing: '0.09em', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
               Entrena con Método
@@ -5545,6 +5576,23 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           style={{ position: 'fixed', width: 1, height: 1, left: -9999, top: -9999, border: 0, opacity: 0, pointerEvents: 'none' }} />
       )}
 
+      {/* MÓDULO DE ENTRENAMIENTO — mismo tratamiento que el centro de
+          recursos: overlay con iframe, no window.open, para que no aparezca
+          la barra de URL del navegador y se sienta una sección más. */}
+      {showTraining && (
+        <div data-view="entrena" className="fixed inset-0 overflow-y-auto" style={{ zIndex: 37, background: BG }}>
+          <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
+          <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
+            zIndex: 2,
+            height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(0deg, rgba(237,236,229,0.96) 0%, rgba(237,236,229,0.72) 42%, rgba(237,236,229,0.3) 72%, rgba(237,236,229,0) 100%)',
+          }} />
+          <Suspense fallback={null}>
+            <Entrenamiento name={name} userId={cloudUserIdRef.current || (() => { try { return localStorage.getItem('cloudUserId'); } catch (e) { return null; } })()} />
+          </Suspense>
+        </div>
+      )}
+
       {showLearning && (
         <div className="fixed inset-0" style={{ zIndex: 37, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
@@ -5602,9 +5650,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               // al mensaje más reciente y Recetario sube al inicio. (El
               // re-tap de Aprendizaje recarga el centro; su botón está
               // fuera de esta barra.)
-              { key: 'hoy', label: 'Hoy', icon: Home, active: tab === 'hoy' && !showRecetario && !showLearning, onClick: () => { haptic(6); if (tab === 'hoy' && !showRecetario && !showLearning) { hoyScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); return; } setShowRecetario(false); setShowLearning(false); setTab('hoy'); } },
-              { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat' && !showRecetario && !showLearning, onClick: () => { haptic(6); if (tab === 'chat' && !showRecetario && !showLearning) { const sc = chatScrollRef.current; if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' }); return; } setShowRecetario(false); setShowLearning(false); setTab('chat'); } },
-              { key: 'recetario', label: 'Recetario', icon: BookOpen, active: showRecetario, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } if (showRecetario) { setRecetarioScrollSig(x => x + 1); return; } setShowLearning(false); setRecetarioAbrir(null); setShowRecetario(true); } },
+              { key: 'hoy', label: 'Hoy', icon: Home, active: tab === 'hoy' && !showRecetario && !showLearning && !showTraining, onClick: () => { haptic(6); if (tab === 'hoy' && !showRecetario && !showLearning && !showTraining) { hoyScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); return; } setShowRecetario(false); setShowLearning(false); setShowTraining(false); setTab('hoy'); } },
+              { key: 'chat', label: 'Chat', icon: MessageCircle, active: tab === 'chat' && !showRecetario && !showLearning && !showTraining, onClick: () => { haptic(6); if (tab === 'chat' && !showRecetario && !showLearning && !showTraining) { const sc = chatScrollRef.current; if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' }); return; } setShowRecetario(false); setShowLearning(false); setShowTraining(false); setTab('chat'); } },
+              { key: 'recetario', label: trainingOn ? 'Recetas' : 'Recetario', icon: BookOpen, active: showRecetario, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } if (showRecetario) { setRecetarioScrollSig(x => x + 1); return; } setShowLearning(false); setShowTraining(false); setRecetarioAbrir(null); setShowRecetario(true); } },
+              // "Entrena" solo existe para quien está en la prueba: sin link
+              // del servidor, este item no se pinta y la barra queda igual
+              // que siempre para el resto.
+              ...(trainingOn ? [{ key: 'entrena', label: 'Entrena', icon: Dumbbell, active: showTraining, onClick: () => { if (showTraining) return; openTraining(); } }] : []),
               // openActionsSheet (DOM directo) y NO setActionsExpanded: el
               // sheet aparece en el mismo frame del tap; con solo estado, el
               // re-render del árbol gigante tardaba 1-2s en móvil y el botón
@@ -5615,7 +5667,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 className="flex-1 flex flex-col items-center gap-1 py-1 active:scale-95 transition"
                 style={{ color: n.active ? ACCENT_DARK : '#9A988C', WebkitTapHighlightColor: 'transparent' }}>
                 <n.icon size={22} strokeWidth={n.active ? 2.4 : 2} />
-                <span className="text-[10.5px] font-bold" style={{ letterSpacing: '0.01em' }}>{n.label}</span>
+                <span className="font-bold" style={{
+                  fontSize: trainingOn ? '9.5px' : '10.5px',
+                  letterSpacing: trainingOn ? '-0.01em' : '0.01em',
+                  whiteSpace: 'nowrap',
+                }}>{n.label}</span>
               </button>
             ))}
           </div>
@@ -5626,7 +5682,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               porque es otro producto. */}
           {learningUrl && (
             <button
-              onClick={() => { if (showLearning) { haptic(6); setLearningKey(k => k + 1); return; } openLearning(); }}
+              onClick={() => { if (showLearning) { haptic(6); setLearningKey(k => k + 1); return; } setShowTraining(false); openLearning(); }}
               title="Aprendizaje"
               className="flex-none flex flex-col items-center justify-center gap-1 rounded-full active:scale-95 transition"
               style={{
@@ -5679,7 +5735,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           pendientes desaparece y no estorba. */}
       {/* Solo en el chat: en Hoy ya existe el icono de Recordatorios entre
           las herramientas — la píldora ahí redundaba. */}
-      {tab === 'chat' && !showRecetario && !showLearning && coachReminders.some(r => !r.done_at) && (
+      {tab === 'chat' && !showRecetario && !showLearning && !showTraining && coachReminders.some(r => !r.done_at) && (
         <button
           onPointerDown={(e) => { e.preventDefault(); haptic(8); setActiveModal('reminders'); }}
           onClick={(e) => e.preventDefault()}
@@ -5839,7 +5895,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       <InputBar
         barRef={inputBarRef}
         apiRef={inputApiRef}
-        hidden={actionsExpanded || tab !== 'chat' || showRecetario || showLearning}
+        hidden={actionsExpanded || tab !== 'chat' || showRecetario || showLearning || showTraining}
         liftPx={keyboardOpen ? 0 : 70}
         recording={recording}
         transcribing={transcribing}
@@ -10288,12 +10344,12 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
             textTransform: 'uppercase',
             color: TEXT
           }}>
-            Meal<br />Tracker
+            Entrena<br />con Método
           </div>
           {/* Línea Maestra — gesto visual único */}
           <div className="h-[2px] w-14 mt-5 rounded-full" style={{ background: ACCENT }} />
           <div className="text-[19px] font-bold mt-4" style={{ color: ACCENT_DARK, letterSpacing: '0.005em' }}>
-            Entrena con Método
+            Entrenamiento y alimentación
           </div>
         </div>
 
@@ -10544,7 +10600,7 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
               </div>
               <div className="h-[2px] w-12 mt-1 mb-4 rounded-full" style={{ background: ACCENT }} />
               <div className="text-[15px] mb-5 leading-relaxed" style={{ color: TEXT_MUTED }}>
-                Soy tu Meal Tracker. Antes de arrancar, dime tu <strong style={{ color: TEXT }}>nombre y apellido</strong>.
+                Soy tu app de Entrena con Método. Antes de arrancar, dime tu <strong style={{ color: TEXT }}>nombre y apellido</strong>.
               </div>
               <input value={name}
                 onChange={e => { setName(e.target.value); setNameError(''); }}
