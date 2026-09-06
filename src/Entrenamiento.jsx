@@ -136,7 +136,7 @@ function VistaSemana({ plan, onAbrir }) {
             borderRadius: 18, padding: 18, marginBottom: 14, boxShadow: SHADOW_CARD,
           }}>
             <div style={{
-              fontSize: 10.5, letterSpacing: '0.09em', textTransform: 'uppercase', fontWeight: 800,
+              fontSize: 11.5, fontWeight: 700,
               color: hoy.hecha ? TEXT_LIGHT : ACCENT_PASTEL, marginBottom: 6,
             }}>{hoy.hecha ? 'Hoy · ya entrenaste' : hoy.en_curso ? 'Hoy · a medias' : 'Hoy te toca'}</div>
             <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
@@ -157,7 +157,7 @@ function VistaSemana({ plan, onAbrir }) {
       )}
 
       <div style={{
-        fontSize: 10.5, letterSpacing: '0.09em', textTransform: 'uppercase',
+        fontSize: 11.5,
         fontWeight: 800, color: TEXT_LIGHT, margin: '18px 2px 8px',
       }}>Tu semana</div>
 
@@ -170,7 +170,7 @@ function VistaSemana({ plan, onAbrir }) {
       {plan.sueltas && plan.sueltas.length > 0 && (
         <>
           <div style={{
-            fontSize: 10.5, letterSpacing: '0.09em', textTransform: 'uppercase',
+            fontSize: 11.5,
             fontWeight: 800, color: TEXT_LIGHT, margin: '18px 2px 8px',
           }}>También en tu fase</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -417,7 +417,7 @@ function CabeceraBloque({ b }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, margin: '16px 2px 8px',
-      fontSize: 10.5, letterSpacing: '0.09em', textTransform: 'uppercase', fontWeight: 800, color: ACCENT_DARK,
+      fontSize: 11.5, fontWeight: 700, color: ACCENT_DARK,
     }}>
       {b.nombre ? b.nombre + (nombreTipo ? ' · ' : '') : ''}{nombreTipo}
       {b.vueltas ? ` · ${b.vueltas} vueltas` : ''}
@@ -617,7 +617,7 @@ function HojaCierre({ hechas, total, onCerrar, onCancelar, guardando }) {
         </div>
 
         <div style={{
-          fontSize: 10.5, letterSpacing: '0.09em', textTransform: 'uppercase',
+          fontSize: 11.5,
           fontWeight: 800, color: TEXT_LIGHT, margin: '20px 0 9px',
         }}>¿Qué tan duro se sintió?</div>
 
@@ -702,7 +702,7 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px' }}>
         <Timer size={17} style={{ flexShrink: 0, opacity: 0.9 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 800, opacity: 0.72 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.78 }}>
             {listo ? 'Listo' : 'Descanso'}
           </div>
           <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}>

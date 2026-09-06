@@ -1740,7 +1740,7 @@ function MenuTotales({ dia, g, chico = false }) {
       <span className="num font-bold" style={{ color: C_PROTEIN, fontSize: chico ? 11 : 12 }}>P{r0(dia.totals.p)}</span>
       <span className="num font-bold" style={{ color: C_CARBS, fontSize: chico ? 11 : 12 }}>C{r0(dia.totals.c)}</span>
       <span className="num font-bold" style={{ color: C_FAT, fontSize: chico ? 11 : 12 }}>G{r0(dia.totals.g)}</span>
-      <span className="px-2 py-0.5 rounded-full font-bold tracking-[0.03em] uppercase"
+      <span className="px-2 py-0.5 rounded-full font-bold"
         style={{ background: `${col}1A`, color: col, fontSize: 9 }}>
         {d.kcal > 0 ? '+' : ''}{d.kcal}% {chico ? '' : `· ${NIVEL_TEXTO[d.nivel]}`}
       </span>
@@ -1758,7 +1758,7 @@ function MenuComida({ c, onAbrir, onCambiar, onRegistrar, onQuitar, registrada }
         <span className="flex items-center justify-center rounded-xl flex-shrink-0"
           style={{ width: 38, height: 38, background: '#fff', fontSize: 20 }}>{c.recipe.icon}</span>
         <span className="flex-1 min-w-0">
-          <span className="block text-[9.5px] font-bold tracking-[0.05em] uppercase" style={{ color: ACCENT }}>{SLOT_LABELS[c.slot]}</span>
+          <span className="block text-[9.5px] font-bold" style={{ color: ACCENT }}>{SLOT_LABELS[c.slot]}</span>
           <span className="block font-bold text-[13px] truncate" style={{ color: TEXT }}>{c.recipe.name}</span>
           <span className="flex items-center gap-2 text-[10.5px] num font-semibold mt-0.5">
             <span style={{ color: TEXT_MUTED }}>{r0(c.sc.totals.kcal)} kcal</span>
@@ -1805,7 +1805,7 @@ function SlotPicker({ slot, g, opts, onElegir, onCerrar }) {
     <div className="fixed inset-0 z-[41] flex flex-col" style={{ background: BG, fontFamily: FONT_UI }}>
       <div className="flex items-center gap-2 px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 62px)', paddingBottom: 10 }}>
         <div className="flex-1">
-          <div className="text-[9.5px] font-bold tracking-[0.06em] uppercase" style={{ color: ACCENT }}>Elegir para</div>
+          <div className="text-[9.5px] font-bold" style={{ color: ACCENT }}>Elegir para</div>
           <div className="font-bold text-[17px]" style={{ color: TEXT }}>{SLOT_LABELS[slot]}</div>
         </div>
         <button onClick={onCerrar} aria-label="Cerrar"
@@ -2039,7 +2039,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const diaVacio = () => ({ comidas: [], totals: { kcal: 0, p: 0, c: 0, g: 0 }, desvio: desvioDe({ kcal: 0, p: 0, c: 0, g: 0 }, g) });
   const abrirArmador = (base) => { haptic(8); setArmando(base || diaVacio()); };
 
-  const sectionLabel = (t) => <div className="text-[11px] tracking-[0.04em] uppercase font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
+  const sectionLabel = (t) => <div className="text-[11.5px] font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
 
   // ───────────────────────── DETALLE (overlay sobre la lista) ─────────────────────────
   // Sin header negro: vive BAJO la píldora de marca y la barra de navegación
@@ -2083,7 +2083,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center rounded-2xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24 }}>{open.icon}</div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] tracking-[0.04em] uppercase font-bold px-2.5 py-1 rounded-full" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>{displaySlot(open.slot)}</span>
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>{displaySlot(open.slot)}</span>
               <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}><Clock size={11} /> {open.time}</span>
               <span className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}><CostTag cost={META[open.id].cost} /> {COST_LABELS[META[open.id].cost]}</span>
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}>{META[open.id].diff}</span>
@@ -2256,7 +2256,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       }}>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <div className="text-[9.5px] font-bold tracking-[0.06em] uppercase" style={{ color: ACCENT }}>Menús</div>
+            <div className="text-[9.5px] font-bold" style={{ color: ACCENT }}>Menús</div>
             <div className="font-bold text-[19px]" style={{ color: TEXT }}>Filtrar</div>
           </div>
           <button onClick={() => setFiltrosAbiertos(false)} aria-label="Cerrar"
@@ -2359,7 +2359,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         <div className="rounded-[22px] p-3.5 space-y-3" style={cardStyle}>
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-[9.5px] font-bold tracking-[0.06em] uppercase" style={{ color: ACCENT }}>Propuesta del día</div>
+              <div className="text-[9.5px] font-bold" style={{ color: ACCENT }}>Propuesta del día</div>
               <div className="mt-1"><MenuTotales dia={diaActivo} g={g} /></div>
               <div className="text-[10.5px] mt-1" style={{ color: TEXT_LIGHT }}>Tu meta: {g.kcal} kcal · P{g.p} C{g.c} G{g.g}</div>
             </div>
@@ -2545,7 +2545,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         }}>
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-[9.5px] font-bold tracking-[0.06em] uppercase" style={{ color: ACCENT }}>Lista de mercado</div>
+              <div className="text-[9.5px] font-bold" style={{ color: ACCENT }}>Lista de mercado</div>
               <div className="font-bold text-[19px] leading-tight" style={{ color: TEXT }}>{mercado.titulo}</div>
               <div className="text-[11.5px] mt-0.5" style={{ color: TEXT_MUTED }}>
                 {L.items.length} ingrediente{L.items.length === 1 ? '' : 's'} · cantidades ya sumadas de todas las comidas
@@ -2564,7 +2564,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           </button>
 
           <div className="rounded-[20px] p-3.5 space-y-1.5" style={cardStyle}>
-            <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1" style={{ color: ACCENT }}>Para comprar</div>
+            <div className="text-[11px] font-bold mb-1" style={{ color: ACCENT }}>Para comprar</div>
             {L.items.map(i => (
               <div key={i.n + i.u} className="flex items-baseline gap-2 py-1" style={{ borderBottom: `1px solid ${BORDER}` }}>
                 <span className="flex-1 min-w-0 text-[13px]" style={{ color: TEXT }}>{i.n}</span>
@@ -2576,7 +2576,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
           {L.despensa.length > 0 && (
             <div className="rounded-[20px] p-3.5" style={plainCard}>
-              <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1.5" style={{ color: TEXT_MUTED }}>De despensa · revisa si te queda</div>
+              <div className="text-[11px] font-bold mb-1.5" style={{ color: TEXT_MUTED }}>De despensa · revisa si te queda</div>
               <div className="text-[12px] leading-[1.6]" style={{ color: TEXT_MUTED }}>{L.despensa.join(' · ')}</div>
             </div>
           )}
@@ -2600,7 +2600,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       }}>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <div className="text-[9.5px] font-bold tracking-[0.06em] uppercase" style={{ color: ACCENT }}>Armar menú</div>
+            <div className="text-[9.5px] font-bold" style={{ color: ACCENT }}>Armar menú</div>
             <div className="font-bold text-[19px]" style={{ color: TEXT }}>Tu día, a tu manera</div>
           </div>
           <button onClick={() => setArmando(null)} aria-label="Cerrar"
@@ -2629,7 +2629,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               <button key={slot} onClick={() => { haptic(6); setPickerSlot(slot); }}
                 className="w-full rounded-2xl px-3.5 py-3 text-left active:scale-[0.99] transition flex items-center gap-2"
                 style={{ background: 'rgba(255,255,255,0.55)', border: `1.5px dashed ${BORDER}` }}>
-                <span className="text-[9.5px] font-bold tracking-[0.05em] uppercase" style={{ color: ACCENT }}>{SLOT_LABELS[slot]}</span>
+                <span className="text-[9.5px] font-bold" style={{ color: ACCENT }}>{SLOT_LABELS[slot]}</span>
                 <span className="text-[12.5px] font-semibold ml-auto" style={{ color: TEXT_MUTED }}>+ Elegir receta</span>
               </button>
             );
@@ -2716,7 +2716,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             un difuminado de borde: oscurece igual de arriba a abajo. */}
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(18,18,17,0.38)' }} />
         <div className="relative max-w-xl mx-auto px-4 h-full flex flex-col justify-end" style={{ paddingBottom: '46px' }}>
-          <div className="text-[10.5px] font-bold uppercase" style={{ color: '#DCE2C4', letterSpacing: '0.16em', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>Entrena con Método</div>
+          <div className="text-[12px] font-bold" style={{ color: '#DCE2C4', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>Entrena con Método</div>
           <div style={{
             color: '#FFFFFF', fontFamily: FONT_DISPLAY, fontWeight: 400,
             fontSize: '40px', letterSpacing: '0.02em', marginTop: '4px', lineHeight: 0.96,
@@ -2757,7 +2757,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {/* Meta nutricional — píldora compacta de UNA fila (la meta la
             administra el coach desde el CRM; aquí solo se consulta). */}
         <div className="rounded-full px-4 py-2.5 flex items-center gap-2" style={cardStyle}>
-          <span className="text-[9.5px] tracking-[0.05em] uppercase font-bold flex-shrink-0" style={{ color: ACCENT }}>Tu meta de hoy</span>
+          <span className="text-[9.5px] font-bold flex-shrink-0" style={{ color: ACCENT }}>Tu meta de hoy</span>
           <div className="ml-auto flex items-center gap-2.5 num text-[12px] font-bold whitespace-nowrap">
             <span style={{ color: TEXT }}>{g.kcal}<span className="text-[9px] font-semibold" style={{ color: TEXT_LIGHT }}> kcal</span></span>
             <span style={{ color: C_PROTEIN }}>P{g.p}</span>
@@ -2825,7 +2825,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {!searching && (
           <>
             <div>
-              <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Filtrar según tipo de comida</div>
+              <div className="text-[11px] font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Filtrar según tipo de comida</div>
               <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
                 {SLOT_FILTERS.map((f, i) => (
                   <React.Fragment key={f.key}>
@@ -2843,7 +2843,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               </div>
             </div>
             <div>
-              <div className="text-[10px] tracking-[0.05em] uppercase font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Ordenar según</div>
+              <div className="text-[11px] font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Ordenar según</div>
               <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
                 {[{ k: 'reco', l: 'Recomendadas' }, { k: 'rapidos', l: 'Rápidas' }, { k: 'economicos', l: 'Económicas' }, { k: 'proteina', l: 'Alta proteína' }].map((o, i) => (
                   <React.Fragment key={o.k}>
@@ -2882,7 +2882,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{recipe.name}</div>
                 <div className="flex items-center gap-2 text-[10.5px] mt-1" style={{ color: TEXT_MUTED }}>
-                  <span className="px-2 py-0.5 rounded-full font-bold tracking-[0.03em] uppercase" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 10 }}>{displaySlot(recipe.slot)}</span>
+                  <span className="px-2 py-0.5 rounded-full font-bold" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 10 }}>{displaySlot(recipe.slot)}</span>
                   <span className="flex items-center gap-1"><Clock size={10} /> {recipe.time}</span>
                   <CostTag cost={META[recipe.id].cost} />
                   {isHighProtein(recipe) && <span className="font-semibold" style={{ color: C_PROTEIN, fontSize: 10 }}>· Alta proteína</span>}

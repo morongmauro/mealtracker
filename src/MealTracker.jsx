@@ -4941,7 +4941,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             }}>
               {showTraining ? 'Entrenamiento' : showLearning ? 'Aprendizaje' : 'Entrena con Método'}
             </span>
-            <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '8px', letterSpacing: '0.09em', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
+            <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '10px', whiteSpace: 'nowrap' }}>
               Entrena con Método
             </span>
           </div>
@@ -5072,7 +5072,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               actualiza, llega el anuncio al chat automáticamente. */}
           {!cardCompact && (
             <div className="text-center mb-3">
-              <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: TEXT_LIGHT }}>
+              <div className="text-[11.5px] font-semibold" style={{ color: TEXT_LIGHT }}>
                 Hoy · <span className="capitalize" style={{ color: TEXT_MUTED }}>{formatDate(today)}</span>
                 {streak >= 2 && (
                   <>
@@ -5457,7 +5457,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                           </div>
                         </RingGauge>
                         <div className="text-center leading-tight">
-                          <div className="text-[9px] font-bold uppercase" style={{ color: '#8B8878', letterSpacing: '0.08em' }}>{mch.k}</div>
+                          <div className="text-[10.5px] font-bold" style={{ color: '#8B8878', letterSpacing: '0.08em' }}>{mch.k}</div>
                           <div className="num text-[9.5px]" style={{ color: TEXT_LIGHT, fontWeight: 600, marginTop: '1px' }}>
                             {mch.grad ? `${fmt0(mch.v)}/${fmt0(mch.g)}` : `de ${fmt0(mch.g)} ${mch.u}`}
                           </div>
@@ -5516,7 +5516,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 {entries.map(e => (
                   <div key={e.id} className="rounded-[28px] px-4 py-3.5" style={{ background: 'rgba(255,255,255,0.93)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 10px 30px rgba(96,102,72,0.11), 0 2px 6px rgba(96,102,72,0.06)' }}>
                     <div className="flex items-baseline justify-between">
-                      <span className="text-[12px] font-extrabold uppercase" style={{ color: ACCENT_DARK, letterSpacing: '0.06em' }}>{e.meal || 'comida'}{e.time ? <span style={{ color: TEXT_LIGHT, fontWeight: 600, marginLeft: '6px', textTransform: 'none', letterSpacing: 0 }}>{e.time}</span> : null}</span>
+                      <span className="text-[12.5px] font-extrabold" style={{ color: ACCENT_DARK, letterSpacing: '0.06em' }}>{e.meal || 'comida'}{e.time ? <span style={{ color: TEXT_LIGHT, fontWeight: 600, marginLeft: '6px', textTransform: 'none', letterSpacing: 0 }}>{e.time}</span> : null}</span>
                       <span className="num text-[14px] font-extrabold" style={{ color: TEXT }}>{Math.round(e.kcal)} <span className="text-[10px] font-semibold" style={{ color: TEXT_LIGHT }}>kcal</span></span>
                     </div>
                     <div className="mt-2 space-y-1">
@@ -5797,7 +5797,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </div>
             <div className="flex items-center justify-between mb-3 px-1">
               <div>
-                <div className="text-[10px] tracking-[0.05em] uppercase font-semibold" style={{ color: ACCENT }}>Acciones</div>
+                <div className="text-[11px] font-semibold" style={{ color: ACCENT }}>Acciones</div>
                 <div className="text-[15px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
               </div>
               {/* Cierre: X usando onPointerDown (touchstart inmediato) + feedback visual
@@ -5824,7 +5824,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             <div className="space-y-2.5">
               <div>
                 <div className="flex items-center gap-2 mb-1.5 px-1">
-                  <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Día a día</span>
+                  <span className="text-[11px] font-bold" style={{ color: TEXT_MUTED }}>Día a día</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <ActionChipMini icon={<ChefHat size={15} strokeWidth={2.2} />} label="Arma mi día" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
@@ -5844,7 +5844,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
               <div>
                 <div className="flex items-center gap-2 mb-1.5 px-1">
-                  <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Tu progreso</span>
+                  <span className="text-[11px] font-bold" style={{ color: TEXT_MUTED }}>Tu progreso</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mis gráficas" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
@@ -5860,7 +5860,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
               <div>
                 <div className="flex items-center gap-2 mb-1.5 px-1">
-                  <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Ajustes</span>
+                  <span className="text-[11px] font-bold" style={{ color: TEXT_MUTED }}>Ajustes</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <ActionChipMini icon={<Bell size={15} strokeWidth={2.2} />}
@@ -6135,8 +6135,7 @@ function NovedadesModal({ items, onTerminar }) {
                   <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z" fill="#C4D19A" />
                 </svg>
                 <span style={{
-                  fontSize: 9.5, fontWeight: 800, letterSpacing: '.14em',
-                  textTransform: 'uppercase', color: '#C4D19A', whiteSpace: 'nowrap',
+                  fontSize: 11, fontWeight: 700, color: '#C4D19A', whiteSpace: 'nowrap',
                 }}>Algo nuevo para ti</span>
               </span>
               {total > 1 && (
@@ -6224,7 +6223,7 @@ function CloudConsentModal({ onAccept, onDecline }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
       <div className="w-full max-w-md p-6 rounded-3xl" style={{ background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI }}>
-        <div className="text-[11px] tracking-[0.05em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>Tu progreso a salvo</div>
+        <div className="text-[11.5px] font-semibold mb-2" style={{ color: ACCENT }}>Tu progreso a salvo</div>
         <div className="text-[18px] font-bold mb-3" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
           Guardá tu progreso en la nube
         </div>
@@ -6562,7 +6561,7 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
         <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 20, fill: goal > 0 && val > goal * 1.05 ? DANGER_SOFT : TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
         <text x={center} y={center + 13} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10.5, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
       </svg>
-      <div className="text-[10px] uppercase tracking-wider mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.03em' }}>
+      <div className="text-[11px] mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.03em' }}>
         {label}
       </div>
     </div>
@@ -6695,7 +6694,7 @@ function DaySeparator({ date }) {
   return (
     <div className="flex items-center gap-3 my-5">
       <div className="flex-1 h-px" style={{ background: BORDER }} />
-      <div className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold uppercase tracking-wider capitalize" style={{
+      <div className="px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold capitalize" style={{
         background: ACCENT_PASTEL + '60', color: ACCENT_DARK, letterSpacing: '0.05em'
       }}>
         {formatDate(date)}
@@ -6781,7 +6780,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="flex items-center justify-center rounded-[9px]" style={{ width: 22, height: 22, background: `linear-gradient(135deg, #A9B87B, #6E7B45)` }}>
               <BookOpen size={12} strokeWidth={2.3} style={{ color: '#FFF' }} />
             </div>
-            <span className="text-[10.5px] uppercase tracking-[0.05em] font-bold" style={{ color: ACCENT_DARK }}>
+            <span className="text-[11.5px] font-bold" style={{ color: ACCENT_DARK }}>
               Recetario
             </span>
           </div>
@@ -6861,7 +6860,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Star size={14} style={{ color: ACCENT_DARK }} />
-            <span className="text-[10px] uppercase tracking-[0.04em] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
+            <span className="text-[11px] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
           </div>
           {alreadyAdded ? (
             <div className="text-[13px]" style={{ color: TEXT, lineHeight: 1.5 }}>
@@ -6900,7 +6899,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-2 mb-2">
             <ChefHat size={14} style={{ color: ACCENT_DARK }} />
-            <span className="text-[10px] uppercase tracking-[0.04em] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
+            <span className="text-[11px] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
           </div>
           <div className="text-[13px] mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>{message.content}</div>
           <div className="flex gap-2">
@@ -6961,7 +6960,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-1.5 mb-1.5">
             <Megaphone size={13} strokeWidth={2.2} style={{ color: tone.icon }} />
-            <span className="text-[10px] uppercase tracking-[0.06em] font-bold" style={{ color: tone.ink }}>
+            <span className="text-[11px] font-bold" style={{ color: tone.ink }}>
               {message.tag || 'Aviso'}
             </span>
           </div>
@@ -6999,7 +6998,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-1.5 mb-2">
             <Star size={13} strokeWidth={2.2} style={{ color: C_CARBS, fill: C_CARBS }} />
-            <span className="text-[10px] uppercase tracking-[0.06em] font-bold" style={{ color: C_CARBS }}>
+            <span className="text-[11px] font-bold" style={{ color: C_CARBS }}>
               Guardado en favoritos · no cuenta en tu día
             </span>
           </div>
@@ -7064,7 +7063,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Info size={12} style={{ color: ACCENT }} />
-            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT }}>Consulta nutricional</span>
+            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT }}>Consulta nutricional</span>
           </div>
           <div className="text-base font-semibold mb-1" style={{ color: TEXT }}>{d.food}</div>
           <div className="text-xs num mb-2" style={{ color: TEXT_LIGHT }}>{d.amount}</div>
@@ -7094,7 +7093,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={12} style={{ color: ACCENT }} />
-            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT }}>Análisis y ajuste sugerido</span>
+            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT }}>Análisis y ajuste sugerido</span>
           </div>
           {d.summary && (
             <div className="text-[13px] mb-3 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
@@ -7118,7 +7117,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               };
               return (
                 <div key={idx} className="p-3 rounded-xl" style={{ background: SURFACE_2, boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 3px 12px rgba(60,70,50,0.08)' }}>
-                  <div className="text-[11px] uppercase tracking-[0.03em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>{a.meal || 'comida'}</div>
+                  <div className="text-[11.5px] font-semibold mb-1" style={{ color: TEXT_MUTED }}>{a.meal || 'comida'}</div>
                   {a.original_summary && (
                     <div className="text-[11px] mb-1.5" style={{ color: TEXT_LIGHT }}>Original: {a.original_summary}</div>
                   )}
@@ -7150,7 +7149,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
           </div>
           {(after.kcal || after.p || after.c || after.g) && (
             <div className="mt-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
-              <div className="text-[10px] uppercase tracking-[0.04em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Quedarías hoy en</div>
+              <div className="text-[11px] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Quedarías hoy en</div>
               <div className="flex gap-3 text-[11px] num">
                 <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(after.kcal)} kcal</span>
                 <span style={{ color: C_PROTEIN }}>P {fmt1(after.p)}</span>
@@ -7187,7 +7186,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Star size={12} style={{ color: C_CARBS }} />
-            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: C_CARBS }}>Ajuste de tus favoritos</span>
+            <span className="text-[11.5px] font-semibold" style={{ color: C_CARBS }}>Ajuste de tus favoritos</span>
           </div>
           {d.summary && (
             <div className="text-[13px] mb-2 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
@@ -7201,11 +7200,11 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="mb-3 p-2.5 rounded-lg" style={{ background: SURFACE_2, boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 3px 12px rgba(60,70,50,0.08)' }}>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_LIGHT }}>Suma actual</div>
+                  <div className="text-[11px]" style={{ color: TEXT_LIGHT }}>Suma actual</div>
                   <div className="num" style={{ color: TEXT }}>{fmt0(current.kcal)} kcal · P{fmt1(current.p)} C{fmt1(current.c)} G{fmt1(current.g)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_LIGHT }}>Meta</div>
+                  <div className="text-[11px]" style={{ color: TEXT_LIGHT }}>Meta</div>
                   <div className="num" style={{ color: TEXT }}>{fmt0(goal.kcal)} kcal · P{fmt1(goal.p)} C{fmt1(goal.c)} G{fmt1(goal.g)}</div>
                 </div>
               </div>
@@ -7265,7 +7264,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
           </div>
           {(after.kcal || after.p || after.c || after.g) && (
             <div className="mt-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
-              <div className="text-[10px] uppercase tracking-[0.04em] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Suma ajustada</div>
+              <div className="text-[11px] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Suma ajustada</div>
               <div className="flex gap-3 text-[11px] num">
                 <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(after.kcal)} kcal</span>
                 <span style={{ color: C_PROTEIN }}>P {fmt1(after.p)}</span>
@@ -7320,7 +7319,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
                 <CheckCircle2 size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
               </div>
-              <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
+              <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
               <span className="text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
             </div>
             <div className="flex gap-1">
@@ -7429,7 +7428,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <ChefHat size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>{mealLabel} · opciones</span>
+            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>{mealLabel} · opciones</span>
           </div>
 
           {missingFavorites ? (
@@ -7451,7 +7450,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               <div className="space-y-2.5">
                 {options.map((opt, i) => (
                   <div key={i} className="p-3 rounded-xl" style={{ background: ACCENT_PASTEL + '30', boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 3px 12px rgba(96,102,72,0.10)' }}>
-                    <div className="text-[10px] uppercase tracking-wider font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
+                    <div className="text-[11px] font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
                     <div className="space-y-0.5">
                       {opt.items.map((it, j) => (
                         <div key={j} className="text-[12.5px] flex justify-between gap-3">
@@ -7497,7 +7496,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <PieChart size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>Lo que falta hoy</span>
+            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>Lo que falta hoy</span>
           </div>
 
           <div className="space-y-1 mb-3">
@@ -7515,13 +7514,13 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </div>
           ) : options.length > 0 && (
             <>
-              <div className="text-[10px] uppercase tracking-wider font-semibold mb-2 mt-1" style={{ color: TEXT_LIGHT }}>
+              <div className="text-[11px] font-semibold mb-2 mt-1" style={{ color: TEXT_LIGHT }}>
                 De tus ingredientes, equivalencias para cubrirlo
               </div>
               <div className="space-y-2.5">
                 {options.map((opt, i) => (
                   <div key={i} className="p-3 rounded-xl" style={{ background: ACCENT_PASTEL + '30', boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 3px 12px rgba(96,102,72,0.10)' }}>
-                    <div className="text-[10px] uppercase tracking-wider font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
+                    <div className="text-[11px] font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
                     <div className="space-y-0.5">
                       {opt.items.map((it, j) => (
                         <div key={j} className="text-[12px] flex justify-between gap-3">
@@ -7570,7 +7569,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
                 <CheckCircle2 size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
               </div>
-              <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal} actualizado</span>
+              <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal} actualizado</span>
               <span className="text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
             </div>
             <div className="flex gap-1">
@@ -7605,7 +7604,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </div>
           )}
 
-          <div className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: ACCENT_DARK }}>
+          <div className="text-[11px] font-semibold mb-1.5" style={{ color: ACCENT_DARK }}>
             Sumé estos {added.length === 1 ? 'ítem' : 'ítems'}
           </div>
           <div className="space-y-1 mb-3 p-2.5 rounded-xl" style={{ background: ACCENT_PASTEL + '30' }}>
@@ -7617,7 +7616,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             ))}
           </div>
 
-          <div className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: TEXT_LIGHT }}>
+          <div className="text-[11px] font-semibold mb-1.5" style={{ color: TEXT_LIGHT }}>
             Comida completa
           </div>
           <div className="space-y-1 mb-3">
@@ -7673,7 +7672,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <Sparkles size={11} style={{ color: ACCENT }} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>Proporciones</span>
+            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>Proporciones</span>
           </div>
           <div className="space-y-2 mb-3">
             {d.proportions?.map((p, i) => (
@@ -7711,7 +7710,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <LineChart size={11} style={{ color: ACCENT_DARK }} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>Detalle del día</span>
+            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>Detalle del día</span>
           </div>
           {dayEntries.length === 0 ? (
             <div className="text-xs italic py-2" style={{ color: TEXT_LIGHT }}>Sin comidas registradas hoy.</div>
@@ -7720,7 +7719,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               {dayEntries.map((e, i) => (
                 <div key={i} className="pb-3" style={{ borderBottom: i < dayEntries.length - 1 ? `1px solid ${BORDER_SOFT}` : 'none' }}>
                   <div className="flex justify-between items-baseline mb-1.5">
-                    <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
+                    <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
                     <span className="text-[10px] num" style={{ color: TEXT_LIGHT }}>{e.time}</span>
                   </div>
                   <div className="space-y-0.5 mb-1.5">
@@ -7743,7 +7742,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
                 </div>
               ))}
               <div className="pt-2">
-                <div className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: TEXT_LIGHT }}>Total acumulado</div>
+                <div className="text-[11px] font-semibold mb-2" style={{ color: TEXT_LIGHT }}>Total acumulado</div>
                 <div className="space-y-1.5 text-xs">
                   <Row label="Calorías" val={`${fmt0(message.totals.kcal)} / ${fmt0(goals.kcal)}`} diff={goals.kcal - message.totals.kcal} unit="kcal" color={ACCENT} />
                   <Row label="Proteína" val={`${fmt1(message.totals.p)} / ${fmt1(goals.p)}`} diff={goals.p - message.totals.p} unit="g" color={C_PROTEIN} />
@@ -7776,7 +7775,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <LineChart size={11} style={{ color: ACCENT_DARK }} />
             </div>
-            <span className="text-[11px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>Resumen del día</span>
+            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>Resumen del día</span>
           </div>
           <div className="space-y-2 text-xs">
             <Row label="Calorías" val={`${fmt0(totals.kcal)} / ${fmt0(goals.kcal)}`} diff={goals.kcal - totals.kcal} unit="kcal" color={ACCENT} />
@@ -7916,7 +7915,7 @@ function ModalHeader({ accent, label, title, onClose }) {
   return (
     <div className="flex items-start justify-between mb-5">
       <div>
-        <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: accent }}>{label}</div>
+        <div className="text-[11.5px] font-semibold" style={{ color: accent }}>{label}</div>
         <div className="text-xl font-bold tracking-tight mt-0.5" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
       </div>
       <button
@@ -8019,7 +8018,7 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
 
       {/* Recordatorios que el COACH dejó para este cliente. Tocar = marcar
           cumplido (el coach lo ve ✓ en su CRM en el próximo refresco). */}
-      <div className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: TEXT_LIGHT }}>
+      <div className="text-[11px] font-semibold mb-2" style={{ color: TEXT_LIGHT }}>
         De tu coach
       </div>
       {coachReminders.length === 0 ? (
@@ -8096,7 +8095,7 @@ function Stat({ label, val, goal, color, unit = '' }) {
   const fmt = unit ? fmt1 : fmt0;
   return (
     <div className="text-center p-2 rounded-xl" style={{ background: SURFACE_2 }}>
-      <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
+      <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
       <div className="text-sm font-medium num mt-0.5" style={{ color }}>{fmt(val)}{unit}</div>
       <div className="text-[10px] num" style={{ color: TEXT_LIGHT }}>de {fmt0(goal)}{unit}</div>
     </div>
@@ -8141,7 +8140,7 @@ function FavoritesModal({ favorites, onUse, onDelete, onRename, onClose }) {
                   <div className="flex items-center gap-1.5">
                     <div className="text-sm font-medium truncate" style={{ color: TEXT }}>{f.name}</div>
                     {f.type === 'day' && (
-                      <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
                         día · {Array.isArray(f.days) ? f.days.length : 0} comidas
                       </span>
@@ -8638,7 +8637,6 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Goal line — horizontal dashed at goal level */}
           <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 1 }}>
             <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: SUCCESS, opacity: 0.6 }} />
-            <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: SUCCESS, background: SURFACE_2 + 'F0' }}>meta {goal}{unit}</span>
           </div>
           {/* Bars */}
           <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
@@ -8700,7 +8698,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
       <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 12px 10px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="flex justify-between items-end mb-2">
           <div>
-            <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color }}>{label}</div>
+            <div className="text-[12.5px] font-bold" style={{ color }}>{label}</div>
             <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>
               Promedio diario · meta {goal}{unit}
             </div>
@@ -8741,7 +8739,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     const max = Math.max(1, ...items.map(valor));
     return (
       <div className="mb-3" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-        <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color }}>{titulo}</div>
+        <div className="text-[12.5px] font-bold" style={{ color }}>{titulo}</div>
         <div className="text-[10px] mb-2 mt-0.5" style={{ color: TEXT_LIGHT }}>{nota}</div>
         {items.map((f, i) => (
           <div key={i} className="py-1.5" style={{ borderBottom: i < items.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
@@ -8784,7 +8782,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     return (
       <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="flex items-baseline justify-between gap-2">
-          <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color: ACCENT_DARK }}>{titulo}</div>
+          <div className="text-[12.5px] font-bold" style={{ color: ACCENT_DARK }}>{titulo}</div>
           {ayuda && <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Toca un día para verlo</div>}
         </div>
         <div className="text-[10px] mb-3 mt-0.5 capitalize" style={{ color: TEXT_LIGHT }}>{g.nombre}</div>
@@ -8792,21 +8790,21 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="text-center">
             <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{registrados}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/{g.dias}</span></div>
-            <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>días registrados</div>
+            <div className="text-[10.5px] font-semibold" style={{ color: TEXT_LIGHT }}>días registrados</div>
           </div>
           <div className="text-center">
             <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{promKcal || '—'}</div>
-            <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>kcal promedio</div>
+            <div className="text-[10.5px] font-semibold" style={{ color: TEXT_LIGHT }}>kcal promedio</div>
           </div>
           <div className="text-center">
             <div className="text-[17px] font-bold num" style={{ color: enMeta > 0 ? SUCCESS : TEXT }}>{enMeta}</div>
-            <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>días en meta</div>
+            <div className="text-[10.5px] font-semibold" style={{ color: TEXT_LIGHT }}>días en meta</div>
           </div>
         </div>
 
         <div className="grid grid-cols-7 gap-1 mb-1">
           {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
-            <div key={i} className="text-center text-[9px] font-bold uppercase" style={{ color: TEXT_LIGHT }}>{d}</div>
+            <div key={i} className="text-center text-[10.5px] font-bold" style={{ color: TEXT_LIGHT }}>{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -8859,7 +8857,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
       <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 12px 10px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="flex justify-between items-baseline mb-2">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color }}>{label}</span>
+            <span className="text-[11.5px] font-semibold" style={{ color }}>{label}</span>
             <span className="text-[10px] num" style={{ color: TEXT_LIGHT }}>meta {goal}{unit}</span>
           </div>
           <div className="text-right">
@@ -8871,7 +8869,6 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Goal line — horizontal dashed at goal level */}
           <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 1 }}>
             <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: SUCCESS, opacity: 0.6 }} />
-            <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: SUCCESS, background: SURFACE_2 + 'F0' }}>meta {goal}{unit}</span>
           </div>
           {/* Bars — one per week */}
           <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
@@ -8998,7 +8995,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Behavior metrics — process-focused, celebrate the habit, not just the goal */}
           {recordedLast7 > 0 && (
             <div className="mb-5">
-              <div className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: ACCENT_DARK }}>Tu comportamiento esta semana</div>
+              <div className="text-[11.5px] font-semibold mb-3" style={{ color: ACCENT_DARK }}>Tu comportamiento esta semana</div>
               {/* Tarjetas al estilo de marca: blanco + sombra de tarjeta de la
                   app (antes: beige plano con borde, se veía de otra app). Los
                   números grandes van TODOS en grafito — el color semántico
@@ -9006,7 +9003,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                   macro proteína se leía como alerta roja. */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-                  <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Adherencia</div>
+                  <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>Adherencia</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{recordedLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/7 días</span></div>
                   <div className="text-[10px] mt-0.5 num" style={{ color: adherenceDelta > 0 ? SUCCESS : adherenceDelta < 0 ? WARN : TEXT_LIGHT }}>
                     {adherenceDelta > 0 ? `+${adherenceDelta} vs semana anterior` : adherenceDelta < 0 ? `${adherenceDelta} vs semana anterior` : 'igual que la semana anterior'}
@@ -9014,13 +9011,13 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 </div>
 
                 <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-                  <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Inicio del día</div>
+                  <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>Inicio del día</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{fmtHour(avgFirstHour)}</div>
                   <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>hora del primer registro en promedio</div>
                 </div>
 
                 <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-                  <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Proteína · tendencia</div>
+                  <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>Proteína · tendencia</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{protLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>g/día</span></div>
                   <div className="text-[10px] mt-0.5 num" style={{ color: protDelta > 0 ? SUCCESS : protDelta < 0 ? WARN : TEXT_LIGHT }}>
                     {protDelta > 0 ? `+${protDelta}g vs semana anterior` : protDelta < 0 ? `${protDelta}g vs semana anterior` : 'igual que la semana anterior'}
@@ -9028,7 +9025,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 </div>
 
                 <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-                  <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Detalle del registro</div>
+                  <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>Detalle del registro</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{avgItemsPerDay}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}> items/día</span></div>
                   <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>promedio de alimentos registrados por día</div>
                 </div>
@@ -9039,7 +9036,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Wellbeing */}
           {wbAvg && (
             <div className="mb-5 p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-              <div className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: ACCENT_DARK }}>Bienestar promedio</div>
+              <div className="text-[11.5px] font-semibold mb-2" style={{ color: ACCENT_DARK }}>Bienestar promedio</div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
                   <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Energía</div>
@@ -9061,7 +9058,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Micronutrients */}
           {microAvg && (
             <div className="mb-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: ACCENT_DARK }}>Calidad de tu semana (promedio diario)</div>
+              <div className="text-[11.5px] font-semibold mb-2" style={{ color: ACCENT_DARK }}>Calidad de tu semana (promedio diario)</div>
               <div>
                 <MicroRow label="Fibra" value={microAvg.fiber} goal={DAILY_MICRO_GOALS.fiber} unit="g" hint="digestión, saciedad"
                   suggestion="avena, legumbres, verduras, fruta entera" />
@@ -9082,7 +9079,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               para sentirte mal. */}
           {alimentosSemana.diasConDetalle > 0 && (
             <div className="mb-5">
-              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: ACCENT_DARK }}>Tus alimentos esta semana</div>
+              <div className="text-[11.5px] font-semibold mb-1" style={{ color: ACCENT_DARK }}>Tus alimentos esta semana</div>
               <div className="text-[10px] mb-3" style={{ color: TEXT_LIGHT }}>
                 Sobre {alimentosSemana.diasConDetalle} {alimentosSemana.diasConDetalle === 1 ? 'día' : 'días'} en que registraste qué comiste, no solo el total.
               </div>
@@ -9121,7 +9118,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 <div className="mb-3" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
                   <div className="flex justify-between items-end">
                     <div>
-                      <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color: C_CARBS }}>Azúcar añadida</div>
+                      <div className="text-[12.5px] font-bold" style={{ color: C_CARBS }}>Azúcar añadida</div>
                       <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>Promedio por día · referencia OMS: menos de 25 g</div>
                     </div>
                     <div className="text-right">
@@ -9295,13 +9292,13 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
 
           {comidas.length > 0 ? (
             <div className="space-y-2">
-              <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>
+              <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>
                 Lo que comiste
               </div>
               {comidas.map((e, i) => (
                 <div key={e.id ?? i} className="text-xs p-3 rounded-xl" style={{ background: SURFACE_2 }}>
                   <div className="flex justify-between items-center mb-1.5 gap-2">
-                    <span className="uppercase text-[10px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>
+                    <span className="text-[11px] font-semibold" style={{ color: ACCENT_DARK }}>
                       {e.meal}{e.time ? ` · ${e.time}` : ''}
                     </span>
                     <span className="flex items-center gap-1.5 flex-shrink-0">
@@ -9383,7 +9380,7 @@ function CapabilitiesModal({ onClose }) {
         <div className="p-1.5 rounded-lg" style={{ background: (accent || ACCENT) + '20', color: accent || ACCENT_DARK }}>
           {icon}
         </div>
-        <div className="text-[13px] font-bold uppercase tracking-[0.03em]" style={{ color: TEXT }}>{title}</div>
+        <div className="text-[13px] font-bold" style={{ color: TEXT }}>{title}</div>
       </div>
       <ul className="space-y-1.5 text-[13px]" style={{ color: TEXT_MUTED, lineHeight: 1.55 }}>
         {items.map((it, i) => (
@@ -9612,7 +9609,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
           {proposal.meals.map((m, i) => (
             <div key={i} className="mb-4 p-3 rounded-2xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
               <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="text-[11px] uppercase tracking-[0.04em] font-bold" style={{ color: ACCENT_DARK }}>{m.meal}</div>
+                <div className="text-[11.5px] font-bold" style={{ color: ACCENT_DARK }}>{m.meal}</div>
                 {m.from_favorite && (
                   <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: C_CARBS_PASTEL, color: C_CARBS }}>
                     <Star size={9} strokeWidth={2.2} />
@@ -9641,7 +9638,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
 
           {proposal.total && (
             <div className="p-3 rounded-2xl mb-4" style={{ background: ACCENT_PASTEL + '40', border: `1px solid ${ACCENT_PASTEL}` }}>
-              <div className="text-[11px] uppercase tracking-[0.04em] font-bold mb-1" style={{ color: ACCENT_DARK }}>Total del día</div>
+              <div className="text-[11.5px] font-bold mb-1" style={{ color: ACCENT_DARK }}>Total del día</div>
               <div className="text-[14px] font-bold num" style={{ color: TEXT }}>
                 {proposal.total.kcal} kcal · P {proposal.total.p}g · C {proposal.total.c}g · G {proposal.total.g}g
               </div>
@@ -9761,7 +9758,7 @@ function PerfectDayModal({ name, totals, goals, onClose }) {
         <div className="inline-flex p-4 rounded-full mb-5 pulse-ring" style={{ background: ACCENT_PASTEL + '60' }}>
           <Trophy size={30} style={{ color: ACCENT_DARK }} />
         </div>
-        <div className="text-[10px] tracking-[0.05em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>
+        <div className="text-[11px] font-semibold mb-2" style={{ color: ACCENT }}>
           Día con precisión
         </div>
         <div className="text-2xl font-bold mb-3 tracking-tight" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
@@ -9781,7 +9778,7 @@ function PerfectDayModal({ name, totals, goals, onClose }) {
                 { l: 'G', v: `${totals.g}g`, c: C_FAT },
               ].map((s, i) => (
                 <div key={i} className="p-2 rounded-xl" style={{ background: SURFACE_2 }}>
-                  <div className="text-[10px] uppercase font-semibold" style={{ color: TEXT_LIGHT }}>{s.l}</div>
+                  <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>{s.l}</div>
                   <div className="text-sm font-semibold num" style={{ color: s.c }}>{s.v}</div>
                 </div>
               ))}
@@ -9897,7 +9894,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
         <div className="flex gap-1">
           {['desayuno', 'almuerzo', 'cena', 'snack'].map(m => (
             <button key={m} onClick={() => setMeal(m)}
-              className="flex-1 py-2 rounded-full text-[10px] font-medium uppercase tracking-wider transition"
+              className="flex-1 py-2 rounded-full text-[11px] font-medium transition"
               style={meal === m ? { background: ACCENT, color: '#fff' } : { background: SURFACE_2, color: TEXT_MUTED }}>
               {m}
             </button>
@@ -9920,7 +9917,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
             </div>
 
             <div className="mb-3">
-              <label className="text-[10px] uppercase tracking-wider font-semibold block mb-1.5" style={{ color: it.needs_quantity ? WARN : TEXT_MUTED }}>
+              <label className="text-[11px] font-semibold block mb-1.5" style={{ color: it.needs_quantity ? WARN : TEXT_MUTED }}>
                 {it.needs_quantity ? '⚠ Cantidad — escríbela aquí' : 'Cantidad'}
               </label>
               <div className="flex gap-2 items-center">
@@ -9971,7 +9968,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
 function ReadOnlyStat({ label, val, color }) {
   return (
     <div className="text-center p-2 rounded-lg" style={{ background: '#fff' }}>
-      <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
+      <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
       <div className="text-xs font-semibold num mt-0.5" style={{ color }}>{val}</div>
     </div>
   );
@@ -10030,7 +10027,7 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
         {/* Top: subtle progress indicator */}
         <div className="max-w-md w-full mx-auto pt-2 fade-up-1">
           <div className="flex items-center gap-2 mb-2">
-            <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: TEXT_MUTED }}>Paso 1 de 3</div>
+            <div className="text-[11.5px] font-semibold" style={{ color: TEXT_MUTED }}>Paso 1 de 3</div>
             <div className="flex-1 flex gap-1">
               <div className="flex-1 h-1 rounded-full" style={{ background: TEXT }} />
               <div className="flex-1 h-1 rounded-full" style={{ background: BORDER }} />
@@ -10123,7 +10120,7 @@ function TutorialModal({ onClose }) {
     <ModalShell onClose={onClose}>
       <div className="mb-5">
         <div className="flex items-center gap-2 mb-3">
-          <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: TEXT_MUTED }}>
+          <div className="text-[11.5px] font-semibold" style={{ color: TEXT_MUTED }}>
             {step + 1} de {steps.length}
           </div>
           <div className="flex-1 flex gap-1">
@@ -10184,7 +10181,7 @@ function ExampleCard({ num, emoji, title, example, className, onClick }) {
         {emoji}
       </div>
       <div className="min-w-0 flex-1">
-        {num && <div className="text-[10px] tracking-[0.05em] font-semibold uppercase mb-1" style={{ color: ACCENT }}>{num}</div>}
+        {num && <div className="text-[11px] font-semibold mb-1" style={{ color: ACCENT }}>{num}</div>}
         <div className="text-[15px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
         <div className="text-[13px] mt-1" style={{ color: TEXT_MUTED, lineHeight: 1.4 }}>{example}</div>
       </div>
@@ -10268,7 +10265,7 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
 
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-2">
-            <div className="text-[11px] tracking-[0.05em] uppercase font-semibold" style={{ color: TEXT_MUTED }}>Paso {step === 0 ? '2' : '3'} de 3</div>
+            <div className="text-[11.5px] font-semibold" style={{ color: TEXT_MUTED }}>Paso {step === 0 ? '2' : '3'} de 3</div>
             <div className="flex-1 flex gap-1">
               <div className="flex-1 h-1 rounded-full" style={{ background: TEXT }} />
               <div className="flex-1 h-1 rounded-full" style={{ background: TEXT }} />
@@ -10345,7 +10342,7 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
               <div className="h-[2px] w-12 mt-1 mb-5 rounded-full" style={{ background: ACCENT }} />
 
               <div className="mb-7">
-                <div className="text-[12px] mb-2 font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED }}>Calorías diarias</div>
+                <div className="text-[12.5px] mb-2 font-semibold" style={{ color: TEXT_MUTED }}>Calorías diarias</div>
                 <div className="flex items-baseline gap-2">
                   <input type="number" value={kcal} onChange={e => setKcal(e.target.value)}
                     className="display outline-none w-32 num bg-transparent" style={{ color: TEXT, letterSpacing: '0.02em', fontSize: '40px' }} />
@@ -10355,7 +10352,7 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
               </div>
 
               <div className="mb-2">
-                <div className="text-[12px] mb-1 font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED }}>Distribución de macros</div>
+                <div className="text-[12.5px] mb-1 font-semibold" style={{ color: TEXT_MUTED }}>Distribución de macros</div>
                 <div className="text-[12px] mb-5" style={{ color: TEXT_LIGHT }}>Ajusta cada macro a tu gusto. Los tres deben sumar 100%.</div>
               </div>
 

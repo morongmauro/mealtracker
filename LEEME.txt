@@ -1,0 +1,35 @@
+Mealtracker · Tipografía y la meta que tapaba el último día
+===========================================================
+
+Sube estos 3 archivos a la carpeta src/ del repo morongmauro/mealtracker
+(reemplazando los que están):
+
+  src/MealTracker.jsx
+  src/Entrenamiento.jsx
+  src/Recetario.jsx
+
+Nada más. No borres ningún archivo.
+
+QUÉ TRAE
+--------
+1. Fuera los títulos en MAYÚSCULA SOSTENIDA con las letras separadas
+   ("MI ALIMENTACIÓN", "PROTEÍNA", "PROMEDIO DIARIO"). Ahora van en mayúscula
+   y minúscula normales, un punto más grandes para que no queden diminutos.
+   Son 76 rótulos en la app, 17 en el recetario y 6 en entrenamiento.
+
+   Los que siguen en mayúscula son los de Bebas Neue. Lo medí en el navegador:
+   esa fuente NO tiene minúsculas — "Proteína" y "PROTEÍNA" ocupan exactamente
+   lo mismo. Ahí la mayúscula no es estilo, es la única forma que existe.
+   Si quieres que esos también bajen a minúscula, hay que cambiar de fuente
+   (no de estilo); dime y te propongo dos o tres.
+
+2. En "Mis gráficas", la etiqueta "meta 2100" se pintaba sobre la línea
+   punteada, pegada al borde derecho, justo encima del número del último día
+   de la semana — lo dejaba tachado. La meta ya está escrita en la cabecera de
+   cada tarjeta ("Promedio diario · meta 2100"), así que la de adentro sobraba.
+   Se quita la etiqueta y se deja la línea punteada.
+
+NOTA BUENA
+----------
+Revisé lo que hay hoy en GitHub: api/adherence.js ya no está y quedaron
+12 funciones, que es el tope de Vercel. El deploy ya no debería fallar.
