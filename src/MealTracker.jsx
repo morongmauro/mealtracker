@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, memo, startTr
 import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic, CreditCard,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
-  SlidersHorizontal as Sliders, PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
+  PieChart, Utensils, Download, Droplet, CheckCircle2, Pencil, LineChart, ChefHat, BookOpen,
   GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale, CalendarCheck, LayoutGrid, Bell,
   Home, MessageCircle, Dumbbell
 } from 'lucide-react';
@@ -559,7 +559,7 @@ export default function MealTracker() {
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [showCapabilitiesModal, setShowCapabilitiesModal] = useState(false);
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
-  // Con qué ventana abrir "Mi comida": quien viene del calendario espera el
+  // Con qué ventana abrir "Mis gráficas": quien viene del calendario espera
   // mes; quien viene del chip de progreso, la semana.
   const [perfVentana, setPerfVentana] = useState('semana');
   // Anillo tocado → línea explicando ese macro (null = sin explicación abierta)
@@ -3689,7 +3689,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           // — clave para fechas viejas: nunca debe parecer un límite o error.
           if (parsed.message) setMessages(m => [...m, { role: 'assistant', content: parsed.message, ts: Date.now() }]);
           // El calendario ya no es una pantalla aparte: es la ventana "Mes"
-          // de Mi comida. Se abre ahí, que es donde el cliente lo espera.
+          // de "Mis gráficas". Se abre ahí, que es donde el cliente lo espera.
           setPerfVentana('mes');
           setShowPerformanceModal(true);
         }
@@ -5477,11 +5477,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               {[
                 // "Mi semana" y "Calendario" eran dos botones que contaban lo
                 // mismo con distinta forma. Ahora son una sola sección con
-                // sus tres ventanas: Mes, Semana y Día.
-                { label: 'Mi comida', icon: CalendarCheck, grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); } },
+                // sus tres ventanas: Mes, Semana y Día. El hueco que quedó NO
+                // se rellena: tres herramientas se leen mejor que cuatro.
+                { label: 'Mis gráficas', icon: CalendarCheck, grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); } },
                 { label: 'Reto', icon: Mountain, grad: 'linear-gradient(135deg, #E09479, #C05E44)', onClick: () => { haptic(8); window.location.href = '/ranking'; } },
                 { label: 'Recordat.', icon: Bell, ink: '#6B4E05', grad: 'linear-gradient(135deg, #FFD95C, #F0AE22)', badge: coachReminders.filter(r => !r.done_at).length, onClick: () => { haptic(8); setActiveModal('reminders'); } },
-                { label: 'Bienestar', icon: Sliders, grad: 'linear-gradient(135deg, #C77BA8, #8B4A78)', onClick: () => { haptic(8); setShowWellbeingModal(true); } },
               ].map(tl => (
                 <button key={tl.label} onClick={tl.onClick}
                   className="flex-1 rounded-[26px] py-3.5 px-1 text-center active:scale-95 transition relative"
@@ -5849,7 +5849,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Tu progreso</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mi comida" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
+                  <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mis gráficas" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
                     onClick={() => { haptic(8); setPerfVentana('semana'); setShowPerformanceModal(true); }} />
                   <ActionChipMini icon={<FileText size={15} strokeWidth={2.2} />} label="Resumen del día" grad="linear-gradient(135deg, #7C8CA3, #4E5D74)"
                     onClick={() => { haptic(8); goToChat(); closeActionsSheet(); handleSend('ver resumen diario'); }} />
@@ -8335,6 +8335,21 @@ function estimateMicros(items) {
   return result;
 }
 
+// Meta VIGENTE en una fecha dada (misma lógica que el server): cada día del
+// histórico se evalúa contra la meta que regía ESE día. Sin historial se usa
+// la meta actual; fechas anteriores a la primera entrada usan la primera.
+//
+// Vivía en el bloque de Panorama y se fue con él por error, pero las gráficas
+// de Semana y Mes lo usan para pintar cada día contra SU meta.
+function goalsVigentes(goalsHistory, currentGoals, date) {
+  if (!Array.isArray(goalsHistory) || goalsHistory.length === 0) return currentGoals || null;
+  let g = null;
+  for (const h of goalsHistory) {
+    if (h.since <= date) g = h; else break;
+  }
+  return g || goalsHistory[0] || currentGoals || null;
+}
+
 function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, goalsHistory, onClose,
                            ventanaInicial, onBorrarComida, onBorrarDia, onEditarComida, onAgregarComida }) {
   // El día que se está mirando en la pestaña "Día". Arranca en hoy.
@@ -8930,7 +8945,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-xl">
-      <ModalHeader accent={ACCENT_DARK} label="Mi alimentación" title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
+      <ModalHeader accent={ACCENT_DARK} label="Mis gráficas" title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
 
       {/* UNA sola sección, tres ventanas de tiempo. Antes esto vivía partido
           en dos botones —"Mi semana" y "Calendario"— que contaban lo mismo
