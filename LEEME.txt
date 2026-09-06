@@ -1,35 +1,83 @@
-Mealtracker · Tipografía y la meta que tapaba el último día
-===========================================================
+Mealtracker · Mis gráficas rediseñadas (+ tipografía)
+======================================================
 
-Sube estos 3 archivos a la carpeta src/ del repo morongmauro/mealtracker
-(reemplazando los que están):
+Sube estos 3 archivos a la carpeta src/ del repo morongmauro/mealtracker,
+reemplazando los que están:
 
   src/MealTracker.jsx
   src/Entrenamiento.jsx
   src/Recetario.jsx
 
-Nada más. No borres ningún archivo.
+No borres ningún archivo.
 
-QUÉ TRAE
---------
-1. Fuera los títulos en MAYÚSCULA SOSTENIDA con las letras separadas
-   ("MI ALIMENTACIÓN", "PROTEÍNA", "PROMEDIO DIARIO"). Ahora van en mayúscula
-   y minúscula normales, un punto más grandes para que no queden diminutos.
-   Son 76 rótulos en la app, 17 en el recetario y 6 en entrenamiento.
 
-   Los que siguen en mayúscula son los de Bebas Neue. Lo medí en el navegador:
-   esa fuente NO tiene minúsculas — "Proteína" y "PROTEÍNA" ocupan exactamente
-   lo mismo. Ahí la mayúscula no es estilo, es la única forma que existe.
-   Si quieres que esos también bajen a minúscula, hay que cambiar de fuente
-   (no de estilo); dime y te propongo dos o tres.
+1. POR QUÉ NO HABÍA ARMONÍA
+---------------------------
+Lo encontré en el código y estaba escrito ahí mismo: el panel "Mis gráficas"
+SOMBREABA los colores de tu marca con los del CRM (pizarra + esmeralda) para
+parecerse al reporte del coach. Por eso la proteína es terracota en "Hoy" y
+salía azul aquí, el fondo pasaba de crema a gris pizarra, y el calendario —que
+sí usaba los colores de la app— chocaba con todo lo demás. Eso es exactamente
+lo que sentías: una parte parecía el tablero del coach. Se quitó. El cliente no
+está leyendo el CRM: está en su app.
 
-2. En "Mis gráficas", la etiqueta "meta 2100" se pintaba sobre la línea
-   punteada, pegada al borde derecho, justo encima del número del último día
-   de la semana — lo dejaba tachado. La meta ya está escrita en la cabecera de
-   cada tarjeta ("Promedio diario · meta 2100"), así que la de adentro sobraba.
-   Se quita la etiqueta y se deja la línea punteada.
 
-NOTA BUENA
-----------
-Revisé lo que hay hoy en GitHub: api/adherence.js ya no está y quedaron
-12 funciones, que es el tope de Vercel. El deploy ya no debería fallar.
+2. QUÉ ESTILO RECOMIENDO PARA LAS GRÁFICAS
+------------------------------------------
+Esto es lo que apliqué, y el porqué:
+
+· BARRAS DE UN SOLO COLOR. Antes cada barra se pintaba verde, ámbar o azul
+  según su valor. Eso es gastar el color repitiendo lo que la altura de la
+  barra ya está diciendo, y deja cuatro colores discutiendo en cada tarjeta.
+  Quien dice si te pasaste es la LÍNEA DE LA META, que ahora va por encima de
+  las barras (antes iba debajo: justo las barras que la cruzan, las que
+  importan, la tapaban).
+
+· EL COLOR SOLO DONDE HACE FALTA. En el calendario no hay altura que leer, así
+  que ahí el color sí trabaja: tres estados —por debajo, en tu meta, por
+  encima— y nada más. "Cerca" se fue: nadie sabía distinguirlo de "en tu meta",
+  que ya es ±10%.
+
+· TEXTO EN TINTA, NUNCA DEL COLOR DE LA SERIE. Los títulos ("Calorías",
+  "Proteína") iban del color de su barra y hacían que cada tarjeta gritara un
+  color distinto. El color se reserva para las marcas; las letras van en negro
+  grafito y gris.
+
+· POCAS ETIQUETAS. Antes había un número sobre cada una de las siete barras.
+  Ahora se rotulan tres: el día más alto, el más bajo y hoy. Y si uno cae sobre
+  la línea de la meta, se sube para no quedar tachado.
+
+· NADA DE OLIVA EN LOS TABLEROS, como pediste. El oliva es el color de tu
+  marca y de las confirmaciones; si además pinta datos, todo grita lo mismo y
+  nada destaca.
+
+Los tres colores de estado no los elegí a ojo. Los pasé por un validador que
+mide luminosidad, saturación, contraste y separación bajo daltonismo:
+  en tu meta   #00704E  verde pino    contraste 6.1:1
+  por encima   #CE806B  terracota     3.0:1 como relleno (como texto, #A4523A)
+  por debajo   #1C62A9  azul acero    6.2:1
+El peor par se distingue con ΔE 12.1 bajo daltonismo (el mínimo recomendado es
+8) y 15.2 con visión normal. Y por si alguien no distingue colores, cada día
+del calendario lleva además una barrita abajo y el número en su propio tono.
+
+
+3. EL CALENDARIO: FLECHAS
+-------------------------
+Tenías razón. Ahora se ve UN mes y se cambia con ‹ ›, y hay un "volver a este
+mes" cuando te alejas. Antes se apilaban dos calendarios, que era el doble de
+scroll y un techo de dos meses. Las barras de macros de abajo ahora hablan del
+mes que estás viendo, no de "los últimos 30 días", así que los números cuadran
+con el calendario de arriba.
+
+Además, las casillas ya no son bloques de color saturado con el número en
+blanco: son tinte claro con el número en negro y una barrita del color abajo.
+Sobre el terracota, el blanco se quedaba en 3:1 y las cifras chiquitas no se
+leían.
+
+
+4. TAMBIÉN VA AQUÍ (de la entrega anterior)
+-------------------------------------------
+· Fuera los títulos en MAYÚSCULA SOSTENIDA con las letras separadas. Los que
+  siguen en mayúscula son los de Bebas Neue: esa fuente NO tiene minúsculas
+  (lo medí — "Proteína" y "PROTEÍNA" ocupan exactamente lo mismo).
+· La etiqueta "meta 2100" ya no se pinta encima del número del último día.

@@ -8353,18 +8353,45 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
   // semanas casi nadie la entendía y el mes ya cuenta esa historia.
   const [alimTab, setAlimTab] = useState(ventanaInicial || 'semana'); // mes | semana | dia
   const [diaSel, setDiaSel] = useState(today);
+  // Qué mes se está viendo en la pestaña Mes. 0 = el actual, 1 = el anterior…
+  const [mesAtras, setMesAtras] = useState(0);
   const irAlDia = (fecha) => { haptic(8); setDiaSel(fecha); setAlimTab('dia'); };
 
-  // Estilo "reporte del coach": este panel usa la MISMA paleta del dashboard
-  // del coach / CRM (slate + esmeralda + serie azul/ámbar/violeta de las
-  // gráficas, ver coachTheme.js) para que el cliente vea el mismo lenguaje
-  // visual de los reportes de su coach. Se SOMBREAN los tokens del tema
-  // oliva/crema del cliente solo dentro de este modal — el resto de la app
-  // no cambia.
-  const SURFACE_2 = '#f1f5f9', TEXT = '#0f172a', TEXT_MUTED = '#64748b',
-        TEXT_LIGHT = '#94a3b8', SUCCESS = '#10b981', WARN = '#f59e0b',
-        ACCENT = '#10b981', ACCENT_DARK = '#065f46',
-        C_PROTEIN = '#3b82f6', C_CARBS = '#f59e0b', C_FAT = '#8b5cf6';
+  // ── La paleta de este panel ─────────────────────────────────────────
+  // Antes este modal SOMBREABA los tokens de la app con la paleta del CRM
+  // (pizarra + esmeralda de Tailwind) para que se viera como el reporte del
+  // coach. El efecto real era que la app se partía en dos: la proteína es
+  // terracota en "Hoy" y aquí era azul, el fondo pasaba de crema a pizarra, y
+  // el calendario —que sí usaba los tokens de la app— chocaba con el resto.
+  // El cliente no está leyendo el CRM: está en su app.
+  //
+  // Ahora el panel usa las superficies y la tinta de la app, y para los datos
+  // una sola escala de estado de tres colores, verificada con el validador de
+  // paletas (banda de luminosidad, piso de croma, separación bajo daltonismo
+  // y contraste sobre blanco):
+  //
+  //   EN META    #00704E  verde pino    L0.48 C0.10 · 6.1:1
+  //   POR ENCIMA #CE806B  terracota     L0.68 C0.10 · 3.0:1 (marca, no texto)
+  //   POR DEBAJO #1C62A9  azul acero    L0.49 C0.12 · 6.2:1
+  //
+  // Peor par bajo protanopia/deuteranopia ΔE 12.1 (objetivo ≥ 8) y ΔE 15.2 con
+  // visión normal (piso 15). El terracota no llega al 4.5:1 que pide un texto
+  // pequeño, así que como TEXTO se usa su paso oscuro (#A4523A, 5.5:1) y el
+  // claro queda solo para rellenos.
+  //
+  // El oliva de la marca NO entra aquí: es color de marca y de confirmación,
+  // no de dato. Un tablero con el color de la marca hace que todo grite lo
+  // mismo y nada destaque.
+  const EN_META = '#00704E', POR_ENCIMA = '#CE806B', POR_DEBAJO = '#1C62A9';
+  const EN_META_T = '#E3F0EA', POR_ENCIMA_T = '#F8E8E1', POR_DEBAJO_T = '#E3EBF5';
+  const ENCIMA_TINTA = '#A4523A';
+  // Las barras van TODAS del mismo color. El que dice si te pasaste o te
+  // quedaste corto es la línea punteada de la meta, no el color: pintar cada
+  // barra según su valor gasta el color en repetir lo que la altura ya dice, y
+  // deja la pantalla con cuatro colores discutiendo entre ellos.
+  const DATO = '#0E8060';   // paso claro del verde meta: el relleno no debe
+                            // pesar más que la línea que lo cruza
+  const NEUTRO = '#DAD6CB';   // sin registro
 
   // Combined history including today
   const combinedHistory = { ...history };
@@ -8442,16 +8469,13 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     }
     return { celdas, nombre: base.toLocaleDateString('es', { month: 'long', year: 'numeric' }), dias };
   };
-  const mesGrid = gridDeMes(0);
-  const mesAnterior = gridDeMes(1);
-  // Las barras de macros de la pestaña Mes cubren los dos meses que se ven
-  // arriba, no 30 días: si el calendario muestra dos, el promedio de abajo
-  // tiene que hablar de lo mismo o los números no cuadran con lo que se ve.
-  const dosMeses = (() => {
-    const desde = new Date(hoyJs.getFullYear(), hoyJs.getMonth() - 1, 1);
-    const n = Math.round((hoyJs - desde) / 86400000) + 1;
-    return daysBack(n);
-  })();
+  const mesGrid = gridDeMes(mesAtras);
+  // Las barras de macros de la pestaña Mes hablan del MES QUE SE ESTÁ VIENDO,
+  // no de los últimos 30 días: si arriba se ve agosto, el promedio de abajo
+  // tiene que ser el de agosto o los números no cuadran con el calendario.
+  // Del mes en curso se cortan los días que aún no han pasado.
+  const diasDelMes = mesGrid.celdas.filter(c => c && c.date <= today)
+    .map(c => ({ date: c.date, jsDate: new Date(c.date + 'T00:00:00'), data: c.data }));
 
   // Trend: group last 12 weeks by week
   const trendDays = daysBack(84);
@@ -8624,19 +8648,36 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     return dd;
   };
 
-  const Chart = ({ days, color, goal, label, unit, showLabels = false, type = 'day' }) => {
+  const Chart = ({ days, goal, label, unit, showLabels = false, type = 'day' }) => {
     if (!goal || goal <= 0) return null;
     // Scale top = max(140% of goal, max recorded value with some padding)
     const maxRecorded = Math.max(0, ...days.map(d => (d.data ? (d.data[label] || 0) : 0)));
     const maxScale = Math.max(goal * 1.4, maxRecorded * 1.1, goal * 1.1);
     const goalPct = (goal / maxScale) * 100; // % from bottom where the goal line sits
-    const showBarValues = type === 'day'; // weekly view has room for values
+    // Etiquetas SELECTIVAS, no un número sobre cada barra. Siete cifras
+    // apretadas se leen como ruido y encima chocaban con la línea de la meta —
+    // el mismo problema que tenía el rótulo "meta 2100". Se rotulan el día más
+    // alto, el más bajo y hoy: los tres que uno busca. El resto se ve tocando
+    // la barra.
+    const valores = days.map(d => (d.data ? (d.data[label] || 0) : 0));
+    const conDato = valores.filter(v => v > 0);
+    const rotulados = new Set();
+    if (type === 'day' && conDato.length) {
+      const vMax = Math.max(...conDato), vMin = Math.min(...conDato);
+      rotulados.add(valores.indexOf(vMax));
+      if (vMin !== vMax) rotulados.add(valores.indexOf(vMin));
+      const iHoy = days.findIndex(d => d.date === today);
+      if (iHoy >= 0 && valores[iHoy] > 0) rotulados.add(iHoy);
+    }
     return (
       <div>
         <div className="relative w-full" style={{ height: '110px', background: SURFACE_2 + '60', borderRadius: '8px', padding: '8px 6px' }}>
-          {/* Goal line — horizontal dashed at goal level */}
-          <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 1 }}>
-            <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: SUCCESS, opacity: 0.6 }} />
+          {/* La línea de la meta va ENCIMA de las barras (zIndex 3, no 1). Si
+              queda debajo, las barras que la cruzan —justo las que interesan—
+              la tapan, y con las barras de un solo color la línea es lo único
+              que dice si te pasaste. */}
+          <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 3, pointerEvents: 'none' }}>
+            <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: TEXT, opacity: 0.8 }} />
           </div>
           {/* Bars */}
           <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
@@ -8644,14 +8685,29 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               const val = d.data ? (d.data[label] || 0) : 0;
               const pct = goal > 0 ? val / goal : 0;
               const heightPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
-              const inGoal = val > 0 && pct >= 0.9 && pct <= 1.1;
-              const over = val > goal * 1.1;
-              const fillColor = val === 0 ? '#cbd5e1' : (inGoal ? SUCCESS : over ? WARN : color);
+              // Un solo color para todas las barras: la altura ya dice cuánto
+              // fue y la línea punteada dice contra qué. Pintarlas de verde,
+              // ámbar y azul según el valor era repetir en color lo que la
+              // barra ya contaba, y dejaba tres o cuatro colores peleándose la
+              // atención en cada tarjeta.
+              const fillColor = val === 0 ? NEUTRO : DATO;
               const isToday = d.date === today;
+              // Si la barra termina justo por debajo de la meta, su rótulo cae
+              // encima de la línea punteada y queda tachado: en ese caso se
+              // sube hasta pasarla.
+              // Ojo: un margen en % se calcula contra el ANCHO del contenedor,
+              // no contra su alto, así que aquí el desplazamiento va en píxeles
+              // sobre el alto real de la caja (110 px menos 16 de padding).
+              const chocaConMeta = heightPct < goalPct && goalPct - heightPct < 16;
+              const subir = chocaConMeta ? Math.round((goalPct - heightPct) * 0.94) + 7 : 2;
               return (
                 <div key={i} className="flex-1 h-full flex flex-col justify-end items-center" style={{ minWidth: 0 }}>
-                  {showBarValues && val > 0 && (
-                    <div className="text-[10px] font-bold mb-0.5 num" style={{ color: fillColor }}>
+                  {rotulados.has(i) && val > 0 && (
+                    <div className="text-[10px] font-bold num" style={{
+                      color: TEXT_MUTED,
+                      marginBottom: `${subir}px`,
+                      textShadow: '0 0 3px #fff, 0 0 2px #fff',
+                    }}>
                       {Math.round(val)}
                     </div>
                   )}
@@ -8691,14 +8747,17 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     );
   };
 
-  const StatBlock = ({ label, color, goal, unit, data, statKey }) => {
+  const StatBlock = ({ label, goal, unit, data, statKey }) => {
     const s = stats(data, statKey);
     const recorded = data.filter(reg).length;
     return (
-      <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 12px 10px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+      <div className="mb-4" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, borderRadius: '14px', padding: '12px 12px 10px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="flex justify-between items-end mb-2">
           <div>
-            <div className="text-[12.5px] font-bold" style={{ color }}>{label}</div>
+            {/* El título va en tinta. Ponerlo del color de la barra hacía que
+                cada tarjeta gritara un color distinto y que el texto pareciera
+                un dato más; el color se reserva para las marcas. */}
+            <div className="text-[12.5px] font-bold" style={{ color: TEXT }}>{label}</div>
             <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>
               Promedio diario · meta {goal}{unit}
             </div>
@@ -8707,12 +8766,12 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
             <div className="text-[18px] font-bold num leading-tight" style={{ color: TEXT }}>
               {s.avg}<span className="text-[11px] num" style={{ color: TEXT_MUTED }}>{unit}</span>
             </div>
-            <div className="text-[10px] num" style={{ color: s.pct >= 90 && s.pct <= 110 ? SUCCESS : TEXT_LIGHT }}>
+            <div className="text-[10px] num" style={{ color: s.pct >= 90 && s.pct <= 110 ? EN_META : s.pct > 110 ? ENCIMA_TINTA : TEXT_LIGHT }}>
               {s.pct}% de meta
             </div>
           </div>
         </div>
-        <Chart days={data} color={color} goal={goal} label={statKey} unit={unit} showLabels={true} type={data.length > 14 ? 'month' : 'day'} />
+        <Chart days={data} goal={goal} label={statKey} unit={unit} showLabels={true} type={data.length > 14 ? 'month' : 'day'} />
         {recorded > 0 && (
           <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>
             {recorded === 1 && s.inGoal === 0
@@ -8734,21 +8793,21 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
   // Lista de alimentos con barra proporcional. Se usa para "los que más
   // calorías te aportaron", "los que más repites" y "de dónde sale tu
   // proteína": las tres son descriptivas, ninguna señala culpables.
-  const ListaAlimentos = ({ titulo, nota, items, valor, unidad, color, sufijo }) => {
+  const ListaAlimentos = ({ titulo, nota, items, valor, unidad, sufijo }) => {
     if (!items || items.length === 0) return null;
     const max = Math.max(1, ...items.map(valor));
     return (
-      <div className="mb-3" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-        <div className="text-[12.5px] font-bold" style={{ color }}>{titulo}</div>
+      <div className="mb-3" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+        <div className="text-[12.5px] font-bold" style={{ color: TEXT }}>{titulo}</div>
         <div className="text-[10px] mb-2 mt-0.5" style={{ color: TEXT_LIGHT }}>{nota}</div>
         {items.map((f, i) => (
-          <div key={i} className="py-1.5" style={{ borderBottom: i < items.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+          <div key={i} className="py-1.5" style={{ borderBottom: i < items.length - 1 ? `1px solid ${BORDER_SOFT}` : 'none' }}>
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-[13px] font-semibold truncate" style={{ color: TEXT }}>{f.nombre}</span>
-              <span className="text-[13px] font-bold num whitespace-nowrap" style={{ color }}>{valor(f)}{unidad}</span>
+              <span className="text-[13px] font-bold num whitespace-nowrap" style={{ color: TEXT }}>{valor(f)}{unidad}</span>
             </div>
             <div className="h-1.5 rounded-full mt-1 overflow-hidden" style={{ background: SURFACE_2 }}>
-              <div style={{ width: `${(valor(f) / max) * 100}%`, height: '100%', background: color, borderRadius: '999px' }} />
+              <div style={{ width: `${(valor(f) / max) * 100}%`, height: '100%', background: DATO, borderRadius: '999px' }} />
             </div>
             <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>
               {f.veces}{f.veces === 1 ? ' vez' : ' veces'} esta semana{sufijo ? ` · ${sufijo(f)}` : ''}
@@ -8762,30 +8821,60 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
   // Calendario del mes. Cada día se pinta contra la meta que regía ESE día
   // (goalsVigentes), igual que en el panel de tu coach: cambiar la meta hoy
   // no reescribe cómo te fue el mes pasado.
-  const colorDelDia = (celda) => {
+  // Tres estados, no cuatro. "Cerca" era un cuarto color que nadie sabía
+  // distinguir de "en tu meta" —¿cerca de qué, si en meta ya es ±10%?— y
+  // metía una cuarta tonalidad en una rejilla de 31 casillas.
+  const ESTADOS = {
+    meta:   { marca: EN_META,    tinte: EN_META_T,    tinta: EN_META,      label: 'En tu meta' },
+    encima: { marca: POR_ENCIMA, tinte: POR_ENCIMA_T, tinta: ENCIMA_TINTA, label: 'Por encima' },
+    debajo: { marca: POR_DEBAJO, tinte: POR_DEBAJO_T, tinta: POR_DEBAJO,   label: 'Por debajo' },
+  };
+  const estadoDelDia = (celda) => {
     if (!celda || !celda.data) return null;
     const g = goalsVigentes(goalsHistory, goals, celda.date) || goals;
-    if (!g || !g.kcal) return { bg: '#94a3b8', pct: null };
+    if (!g || !g.kcal) return { clave: null, pct: null };
     const pct = Math.round(((celda.data.kcal || 0) / g.kcal) * 100);
-    if (pct >= 90 && pct <= 110) return { bg: SUCCESS, pct };
-    if (pct >= 80 && pct <= 120) return { bg: WARN, pct };
-    if (pct > 120) return { bg: '#ef4444', pct };
-    return { bg: '#3b82f6', pct };
+    if (pct >= 90 && pct <= 110) return { clave: 'meta', pct };
+    return { clave: pct > 110 ? 'encima' : 'debajo', pct };
   };
 
-  const Calendario = ({ grid, titulo = 'Este mes', ayuda = true }) => {
-    const g = grid || mesGrid;
+  const Calendario = () => {
+    const g = mesGrid;
     const conDatos = g.celdas.filter(c => c && c.data);
     const registrados = conDatos.length;
     const promKcal = registrados ? Math.round(conDatos.reduce((a, c) => a + (c.data.kcal || 0), 0) / registrados) : 0;
-    const enMeta = conDatos.filter(c => { const r = colorDelDia(c); return r && r.pct != null && r.pct >= 90 && r.pct <= 110; }).length;
+    const enMeta = conDatos.filter(c => estadoDelDia(c)?.clave === 'meta').length;
     return (
-      <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-        <div className="flex items-baseline justify-between gap-2">
-          <div className="text-[12.5px] font-bold" style={{ color: ACCENT_DARK }}>{titulo}</div>
-          {ayuda && <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Toca un día para verlo</div>}
+      <div className="mb-4" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+        {/* Se cambia de mes con las flechas, no apilando calendarios. Antes se
+            pintaban DOS meses uno debajo del otro para que los primeros días
+            de un mes nuevo no dejaran la pantalla vacía; el precio era el
+            doble de scroll y un techo de dos meses. Con las flechas se llega
+            a cualquier mes y solo se ve uno. */}
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <button onClick={() => { haptic(6); setMesAtras(m => m + 1); }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition"
+            style={{ background: SURFACE_2, color: TEXT_MUTED, border: `1px solid ${BORDER_SOFT}` }}
+            aria-label="Mes anterior">
+            <ChevronLeft size={16} strokeWidth={2.4} />
+          </button>
+          <div className="text-center min-w-0">
+            <div className="text-[13px] font-bold capitalize truncate" style={{ color: TEXT }}>{g.nombre}</div>
+            {mesAtras > 0 && (
+              <button onClick={() => { haptic(6); setMesAtras(0); }} className="text-[9.5px] underline" style={{ color: TEXT_LIGHT }}>
+                volver a este mes
+              </button>
+            )}
+          </div>
+          <button onClick={() => { haptic(6); setMesAtras(m => Math.max(0, m - 1)); }}
+            disabled={mesAtras === 0}
+            className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition"
+            style={{ background: SURFACE_2, color: TEXT_MUTED, border: `1px solid ${BORDER_SOFT}`, opacity: mesAtras === 0 ? 0.35 : 1 }}
+            aria-label="Mes siguiente">
+            <ChevronRight size={16} strokeWidth={2.4} />
+          </button>
         </div>
-        <div className="text-[10px] mb-3 mt-0.5 capitalize" style={{ color: TEXT_LIGHT }}>{g.nombre}</div>
+        <div className="text-[10px] text-center mb-3" style={{ color: TEXT_LIGHT }}>Toca un día para verlo</div>
 
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="text-center">
@@ -8797,7 +8886,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
             <div className="text-[10.5px] font-semibold" style={{ color: TEXT_LIGHT }}>kcal promedio</div>
           </div>
           <div className="text-center">
-            <div className="text-[17px] font-bold num" style={{ color: enMeta > 0 ? SUCCESS : TEXT }}>{enMeta}</div>
+            <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{enMeta}</div>
             <div className="text-[10.5px] font-semibold" style={{ color: TEXT_LIGHT }}>días en meta</div>
           </div>
         </div>
@@ -8810,107 +8899,57 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
         <div className="grid grid-cols-7 gap-1">
           {g.celdas.map((c, i) => {
             if (!c) return <div key={i} />;
-            const col = colorDelDia(c);
+            const est = estadoDelDia(c);
+            const e = est && est.clave ? ESTADOS[est.clave] : null;
             const esHoy = c.date === today;
             // Se toca y se abre ESE día. Los futuros no: no hay nada que ver.
             const futuro = c.date > today;
             return (
               <button key={i} disabled={futuro} onClick={() => irAlDia(c.date)}
-                className="rounded-lg flex flex-col items-center justify-center active:scale-95 transition"
+                className="rounded-lg flex flex-col items-center justify-center active:scale-95 transition relative overflow-hidden"
                 style={{
-                  aspectRatio: '1', background: col ? col.bg : SURFACE_2,
-                  color: col ? '#fff' : TEXT_LIGHT,
-                  border: esHoy ? `2px solid ${TEXT}` : 'none',
-                  opacity: futuro ? 0.35 : col ? 1 : 0.7,
+                  // Tinte claro con el número en tinta, no bloque saturado con
+                  // número blanco: sobre el terracota el blanco se quedaba en
+                  // 3:1 y las cifras chiquitas no se leían. El color del estado
+                  // sigue estando —en la barrita de abajo y en las kcal— pero
+                  // ya no compite con el número.
+                  aspectRatio: '1', background: e ? e.tinte : SURFACE_2,
+                  color: TEXT,
+                  border: esHoy ? `2px solid ${TEXT}` : `1px solid ${e ? e.tinte : BORDER_SOFT}`,
+                  opacity: futuro ? 0.4 : 1,
                   padding: 0, cursor: futuro ? 'default' : 'pointer',
                 }}
-                title={`${c.date}${col && col.pct != null ? ` · ${Math.round(c.data.kcal || 0)} kcal (${col.pct}% de tu meta)` : col ? ` · ${Math.round(c.data.kcal || 0)} kcal` : ' · sin registro'}`}>
-                <div className="text-[10px] font-bold leading-none">{c.dia}</div>
-                {col && <div className="text-[8px] leading-none mt-0.5 opacity-90 num">{Math.round((c.data.kcal || 0) / 100) / 10}k</div>}
+                title={`${c.date}${e ? ` · ${Math.round(c.data.kcal || 0)} kcal (${est.pct}% de tu meta) · ${e.label}` : ' · sin registro'}`}>
+                <div className="text-[10px] font-bold leading-none" style={{ color: e ? TEXT : TEXT_LIGHT }}>{c.dia}</div>
+                {e && <div className="text-[8px] leading-none mt-0.5 num font-semibold" style={{ color: e.tinta }}>{Math.round((c.data.kcal || 0) / 100) / 10}k</div>}
+                {/* Barrita inferior: el estado se lee también sin color */}
+                {e && <div className="absolute bottom-0 left-0 right-0" style={{ height: '3px', background: e.marca }} />}
               </button>
             );
           })}
         </div>
 
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[9px]" style={{ color: TEXT_MUTED }}>
-          {[[SUCCESS, 'En tu meta'], [WARN, 'Cerca'], ['#ef4444', 'Por encima'], ['#3b82f6', 'Por debajo'], [SURFACE_2, 'Sin registro']].map(([c, l], i) => (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[9.5px]" style={{ color: TEXT_MUTED }}>
+          {[ESTADOS.debajo, ESTADOS.meta, ESTADOS.encima].map((e, i) => (
             <span key={i} className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm" style={{ background: c }} />{l}
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: e.tinte, borderBottom: `2px solid ${e.marca}` }} />{e.label}
             </span>
           ))}
+          <span className="inline-flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-sm" style={{ background: SURFACE_2, border: `1px solid ${BORDER_SOFT}` }} />Sin registro
+          </span>
         </div>
       </div>
     );
   };
 
-  // Barras semanales — mismo lenguaje visual que las gráficas de Semana/Mes
-  // (antes era la única gráfica de línea del panel).
-  const TrendBlock = ({ label, color, goal, unit, statKey }) => {
-    const recorded = weeks.filter(w => w.registered > 0);
-    if (recorded.length === 0) return null;
-    const avg = Math.round(recorded.reduce((s, w) => s + w[statKey], 0) / recorded.length);
-    const pct = Math.round((avg / goal) * 100);
-    const maxRecorded = Math.max(0, ...weeks.map(w => w[statKey] || 0));
-    const maxScale = Math.max(goal * 1.4, maxRecorded * 1.1, goal * 1.1);
-    const goalPct = (goal / maxScale) * 100;
-    return (
-      <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px 12px 10px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-        <div className="flex justify-between items-baseline mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-[11.5px] font-semibold" style={{ color }}>{label}</span>
-            <span className="text-[10px] num" style={{ color: TEXT_LIGHT }}>meta {goal}{unit}</span>
-          </div>
-          <div className="text-right">
-            <span className="text-[14px] font-bold num" style={{ color: TEXT }}>{avg}{unit}</span>
-            <span className="text-[10px] num ml-1" style={{ color: TEXT_LIGHT }}>· {pct}% promedio</span>
-          </div>
-        </div>
-        <div className="relative w-full" style={{ height: '90px', background: SURFACE_2 + '60', borderRadius: '8px', padding: '8px 6px' }}>
-          {/* Goal line — horizontal dashed at goal level */}
-          <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 1 }}>
-            <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: SUCCESS, opacity: 0.6 }} />
-          </div>
-          {/* Bars — one per week */}
-          <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
-            {weeks.map((w, i) => {
-              const val = w.registered > 0 ? (w[statKey] || 0) : 0;
-              const ratio = goal > 0 ? val / goal : 0;
-              const heightPct = val > 0 ? Math.min((val / maxScale) * 100, 100) : 0;
-              const inGoal = val > 0 && ratio >= 0.9 && ratio <= 1.1;
-              const over = val > goal * 1.1;
-              const fillColor = val === 0 ? '#cbd5e1' : (inGoal ? SUCCESS : over ? WARN : color);
-              return (
-                <div key={i} className="flex-1 h-full flex flex-col justify-end items-center" style={{ minWidth: 0 }}>
-                  <div
-                    className="w-full"
-                    style={{
-                      height: val > 0 ? `${heightPct}%` : '2px',
-                      background: fillColor,
-                      opacity: val === 0 ? 0.45 : 1,
-                      borderRadius: '3px 3px 1px 1px',
-                      minHeight: val > 0 ? '4px' : '2px',
-                      transition: 'height 0.4s cubic-bezier(0.2, 0, 0, 1)',
-                    }}
-                    title={`Semana desde ${w.startDate}: ${Math.round(val)}${unit} promedio (${Math.round(ratio * 100)}% de la meta)`}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <div className="flex justify-between text-[10px] mt-1" style={{ color: TEXT_LIGHT }}>
-          <span>hace 12 sem</span>
-          <span>esta semana</span>
-        </div>
-      </div>
-    );
-  };
 
   // Tono sin alarmas: esto es información educativa, no un diagnóstico. Un
   // valor por debajo de la referencia NO es "deficiencia" — casi siempre solo
   // significa que esa semana se registraron pocas fuentes. Por eso: nada de
   // "⚠ bajo"; cuando falta, se sugiere QUÉ comida sumar. La única señal en
-  // WARN es pasarse del techo de azúcar añadida (dirección inversa: menos es
+  // La única señal en terracota es pasarse del techo de azúcar añadida
+  // (dirección inversa: menos es
   // mejor), y aun ahí el texto es neutro.
   const MicroRow = ({ label, value, goal, unit, hint, suggestion, direction = 'more' }) => {
     const pct = goal > 0 ? value / goal : 0;
@@ -8919,8 +8958,8 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     const status = direction === 'more'
       ? (covered ? '✓ bien cubierto' : 'puedes sumar fuentes')
       : (covered ? '✓ dentro de la referencia' : 'por encima de la referencia');
-    const statusColor = covered ? SUCCESS : (direction === 'less' ? WARN : TEXT_MUTED);
-    const barColor = covered ? SUCCESS : (direction === 'less' ? WARN : ACCENT);
+    const statusColor = covered ? EN_META : (direction === 'less' ? ENCIMA_TINTA : TEXT_MUTED);
+    const barColor = covered ? EN_META : (direction === 'less' ? POR_ENCIMA : DATO);
     return (
       <div className="py-2" style={{ borderBottom: `1px solid ${BORDER_SOFT}` }}>
         <div className="flex justify-between items-baseline mb-1.5">
@@ -8954,7 +8993,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-xl">
-      <ModalHeader accent={ACCENT_DARK} label="Mis gráficas" title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
+      <ModalHeader accent={TEXT_MUTED} label="Mis gráficas" title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
 
       {/* UNA sola sección, tres ventanas de tiempo. Antes esto vivía partido
           en dos botones —"Mi semana" y "Calendario"— que contaban lo mismo
@@ -8969,7 +9008,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               <button key={t.key} onClick={() => { haptic(6); setAlimTab(t.key); }}
                 className="flex-1 py-2 rounded-lg text-[12px] font-semibold transition active:scale-[0.98]"
                 style={{
-                  background: alimTab === t.key ? '#0f172a' : 'transparent',
+                  background: alimTab === t.key ? TEXT : 'transparent',
                   color: alimTab === t.key ? '#fff' : TEXT_MUTED,
                 }}>
                 {t.label}
@@ -8987,15 +9026,15 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               {week[0].jsDate.toLocaleDateString('es', { day: 'numeric', month: 'short' })} a {week[6].jsDate.toLocaleDateString('es', { day: 'numeric', month: 'short' })}
             </span> · lunes a domingo
           </div>
-          <StatBlock label="Calorías" color={ACCENT} goal={goals.kcal} unit="" data={week} statKey="kcal" />
-          <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={week} statKey="p" />
-          <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={week} statKey="c" />
-          <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={week} statKey="g" />
+          <StatBlock label="Calorías" goal={goals.kcal} unit="" data={week} statKey="kcal" />
+          <StatBlock label="Proteína" goal={goals.p} unit="g" data={week} statKey="p" />
+          <StatBlock label="Carbohidratos" goal={goals.c} unit="g" data={week} statKey="c" />
+          <StatBlock label="Grasas" goal={goals.g} unit="g" data={week} statKey="g" />
 
           {/* Behavior metrics — process-focused, celebrate the habit, not just the goal */}
           {recordedLast7 > 0 && (
             <div className="mb-5">
-              <div className="text-[11.5px] font-semibold mb-3" style={{ color: ACCENT_DARK }}>Tu comportamiento esta semana</div>
+              <div className="text-[11.5px] font-semibold mb-3" style={{ color: TEXT }}>Tu comportamiento esta semana</div>
               {/* Tarjetas al estilo de marca: blanco + sombra de tarjeta de la
                   app (antes: beige plano con borde, se veía de otra app). Los
                   números grandes van TODOS en grafito — el color semántico
@@ -9005,7 +9044,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
                   <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>Adherencia</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{recordedLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/7 días</span></div>
-                  <div className="text-[10px] mt-0.5 num" style={{ color: adherenceDelta > 0 ? SUCCESS : adherenceDelta < 0 ? WARN : TEXT_LIGHT }}>
+                  <div className="text-[10px] mt-0.5 num" style={{ color: adherenceDelta > 0 ? EN_META : adherenceDelta < 0 ? ENCIMA_TINTA : TEXT_LIGHT }}>
                     {adherenceDelta > 0 ? `+${adherenceDelta} vs semana anterior` : adherenceDelta < 0 ? `${adherenceDelta} vs semana anterior` : 'igual que la semana anterior'}
                   </div>
                 </div>
@@ -9019,7 +9058,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
                   <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>Proteína · tendencia</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{protLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>g/día</span></div>
-                  <div className="text-[10px] mt-0.5 num" style={{ color: protDelta > 0 ? SUCCESS : protDelta < 0 ? WARN : TEXT_LIGHT }}>
+                  <div className="text-[10px] mt-0.5 num" style={{ color: protDelta > 0 ? EN_META : protDelta < 0 ? ENCIMA_TINTA : TEXT_LIGHT }}>
                     {protDelta > 0 ? `+${protDelta}g vs semana anterior` : protDelta < 0 ? `${protDelta}g vs semana anterior` : 'igual que la semana anterior'}
                   </div>
                 </div>
@@ -9036,7 +9075,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Wellbeing */}
           {wbAvg && (
             <div className="mb-5 p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-              <div className="text-[11.5px] font-semibold mb-2" style={{ color: ACCENT_DARK }}>Bienestar promedio</div>
+              <div className="text-[11.5px] font-semibold mb-2" style={{ color: TEXT }}>Bienestar promedio</div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
                   <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Energía</div>
@@ -9058,7 +9097,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Micronutrients */}
           {microAvg && (
             <div className="mb-3">
-              <div className="text-[11.5px] font-semibold mb-2" style={{ color: ACCENT_DARK }}>Calidad de tu semana (promedio diario)</div>
+              <div className="text-[11.5px] font-semibold mb-2" style={{ color: TEXT }}>Calidad de tu semana (promedio diario)</div>
               <div>
                 <MicroRow label="Fibra" value={microAvg.fiber} goal={DAILY_MICRO_GOALS.fiber} unit="g" hint="digestión, saciedad"
                   suggestion="avena, legumbres, verduras, fruta entera" />
@@ -9079,7 +9118,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               para sentirte mal. */}
           {alimentosSemana.diasConDetalle > 0 && (
             <div className="mb-5">
-              <div className="text-[11.5px] font-semibold mb-1" style={{ color: ACCENT_DARK }}>Tus alimentos esta semana</div>
+              <div className="text-[11.5px] font-semibold mb-1" style={{ color: TEXT }}>Tus alimentos esta semana</div>
               <div className="text-[10px] mb-3" style={{ color: TEXT_LIGHT }}>
                 Sobre {alimentosSemana.diasConDetalle} {alimentosSemana.diasConDetalle === 1 ? 'día' : 'días'} en que registraste qué comiste, no solo el total.
               </div>
@@ -9090,7 +9129,6 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 items={alimentosSemana.topKcal}
                 valor={(f) => f.kcal}
                 unidad=" kcal"
-                color={ACCENT}
                 sufijo={(f) => `${f.pct}% de lo que registraste`} />
 
               <ListaAlimentos
@@ -9099,7 +9137,6 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 items={alimentosSemana.topVeces}
                 valor={(f) => f.veces}
                 unidad="×"
-                color={TEXT}
                 sufijo={(f) => `${f.kcal} kcal en total`} />
 
               <ListaAlimentos
@@ -9108,30 +9145,29 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 items={alimentosSemana.topProte}
                 valor={(f) => f.p}
                 unidad=" g"
-                color={C_PROTEIN}
                 sufijo={(f) => `${f.kcal} kcal`} />
 
               {/* Azúcar añadida: el único dato "duro" que sí vale la pena que
                   veas, porque es la palanca más concreta que puedes mover tú
                   solo. NO cuenta el azúcar de la fruta entera ni del lácteo. */}
               {alimentosSemana.azucarDia != null && (
-                <div className="mb-3" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+                <div className="mb-3" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
                   <div className="flex justify-between items-end">
                     <div>
-                      <div className="text-[12.5px] font-bold" style={{ color: C_CARBS }}>Azúcar añadida</div>
+                      <div className="text-[12.5px] font-bold" style={{ color: TEXT }}>Azúcar añadida</div>
                       <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>Promedio por día · referencia OMS: menos de 25 g</div>
                     </div>
                     <div className="text-right">
                       <div className="text-[18px] font-bold num leading-tight" style={{ color: TEXT }}>
                         {alimentosSemana.azucarDia}<span className="text-[11px]" style={{ color: TEXT_MUTED }}>g</span>
                       </div>
-                      <div className="text-[10px] num" style={{ color: alimentosSemana.azucarDia <= 25 ? SUCCESS : WARN }}>
+                      <div className="text-[10px] num" style={{ color: alimentosSemana.azucarDia <= 25 ? EN_META : ENCIMA_TINTA }}>
                         {alimentosSemana.azucarDia <= 25 ? 'dentro de la referencia' : `${Math.round((alimentosSemana.azucarDia / 25) * 100)}% de la referencia`}
                       </div>
                     </div>
                   </div>
                   <div className="h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: SURFACE_2 }}>
-                    <div style={{ width: `${Math.min(100, (alimentosSemana.azucarDia / 25) * 100)}%`, height: '100%', background: alimentosSemana.azucarDia <= 25 ? SUCCESS : WARN, borderRadius: '999px' }} />
+                    <div style={{ width: `${Math.min(100, (alimentosSemana.azucarDia / 25) * 100)}%`, height: '100%', background: alimentosSemana.azucarDia <= 25 ? EN_META : POR_ENCIMA, borderRadius: '999px' }} />
                   </div>
                   {alimentosSemana.topAzucar.length > 0 && (
                     <div className="text-[10px] mt-2" style={{ color: TEXT_LIGHT }}>
@@ -9159,35 +9195,28 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
           {alimTab === 'mes' && (
           <div>
-            {/* DOS meses, no uno. Con un solo mes, los primeros días de un mes
-                nuevo dejaban la pantalla casi vacía justo cuando lo
-                interesante era el mes que acababa de cerrar. El calendario
-                reemplaza a la gráfica de barras de calorías: cuenta la misma
-                historia y además se ve la racha. Los macros van abajo en
-                barras, que ahí sí se leen mejor. */}
+            {/* El calendario reemplaza a la gráfica de barras de calorías:
+                cuenta la misma historia y además se ve la racha. Los macros
+                van abajo en barras, que ahí sí se leen mejor. */}
             <Calendario />
-            <Calendario grid={mesAnterior} titulo="Mes pasado" ayuda={false} />
-            <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={dosMeses} statKey="p" />
-            <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={dosMeses} statKey="c" />
-            <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={dosMeses} statKey="g" />
+            <StatBlock label="Proteína" goal={goals.p} unit="g" data={diasDelMes} statKey="p" />
+            <StatBlock label="Carbohidratos" goal={goals.c} unit="g" data={diasDelMes} statKey="c" />
+            <StatBlock label="Grasas" goal={goals.g} unit="g" data={diasDelMes} statKey="g" />
           </div>
           )}
       </div>
 
-      {/* Leyenda de las gráficas. En la ventana "Día" no hay gráficas, así
-          que ahí sobra: hablaba de colores que en esa pantalla no existen. */}
+      {/* Con las barras de un solo color, la leyenda vieja —verde "en meta",
+          verde "con registro", gris "sin registro"— hablaba de tres colores
+          que ya no existen. Lo único que hay que explicar es la línea. */}
       <div className="flex items-center justify-center gap-4 mt-4 pt-3 text-[10px]"
         style={{ color: TEXT_MUTED, borderTop: `1px solid ${BORDER_SOFT}`, display: alimTab === 'dia' ? 'none' : 'flex' }}>
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-sm" style={{ background: SUCCESS }} />
-          <span>En meta ±10%</span>
+          <div className="w-5 border-t-[1.5px] border-dashed" style={{ borderColor: TEXT, opacity: 0.45 }} />
+          <span>La línea punteada es tu meta</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-sm" style={{ background: ACCENT }} />
-          <span>Con registro</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-sm" style={{ background: '#cbd5e1', opacity: 0.6 }} />
+          <div className="w-2 h-2 rounded-sm" style={{ background: NEUTRO }} />
           <span>Sin registro</span>
         </div>
       </div>
