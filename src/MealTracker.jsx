@@ -597,6 +597,13 @@ export default function MealTracker() {
   const [learningUrl, setLearningUrl] = useState(() => {
     try { return localStorage.getItem('learningUrl') || ''; } catch (e) { return ''; }
   });
+  // Cuánto le falta por leer en el centro de recursos. El centro vive en
+  // otro dominio, así que esta app NO puede leer su progreso: se lo cuenta
+  // él por postMessage cada vez que se abre. Se guarda para que el punto de
+  // novedad esté ahí desde el arranque, sin tener que entrar primero.
+  const [learningPend, setLearningPend] = useState(() => {
+    try { return Number(localStorage.getItem('learningPend') || 0) || 0; } catch (e) { return 0; }
+  });
   const initialLoadDone = useRef(false);
   // Copia viva de favoritesDeleted para closures async (pull del server).
   const favoritesDeletedRef = useRef([]);
@@ -2360,6 +2367,58 @@ export default function MealTracker() {
   //   'capsulas' / 'podcast' → la pestaña, sin abrir nada
   // El centro lo lee de ?mt_go y ?mt_id. Si el id no existe allá, abre la
   // pestaña y no pasa nada más: el cliente nunca ve un error.
+  // El centro de recursos avisa cuánto queda pendiente. Llega cuando se
+  // abre el centro y cada vez que el cliente lee algo estando dentro, así
+  // que el punto de novedad se apaga en el momento en que termina de leer
+  // lo último, sin esperar a que cierre y vuelva a entrar.
+  useEffect(() => {
+    const alLlegar = (ev) => {
+      const d = ev && ev.data;
+      if (!d || d.tipo !== 'em-centro-pendientes') return;
+      const n = Number(d.pendientes);
+      if (!Number.isFinite(n) || n < 0) return;
+      setLearningPend(n);
+      try { localStorage.setItem('learningPend', String(n)); } catch (e) {}
+    };
+    window.addEventListener('message', alLlegar);
+    return () => window.removeEventListener('message', alLlegar);
+  }, []);
+
+  // Consulta silenciosa: si Mauro publicó una cápsula nueva, el punto tiene
+  // que encenderse sin que el cliente entre primero al centro. Se monta un
+  // iframe invisible que carga el centro, contesta cuánto falta y se
+  // desmonta. Cuesta una carga de página, así que va como mucho una vez
+  // cada 12 horas, 8 segundos después de abrir la app (para no competir con
+  // lo que el cliente vino a hacer) y solo si ya usó el centro alguna vez.
+  const [learningPing, setLearningPing] = useState('');
+  useEffect(() => {
+    if (view !== 'main' || !learningUrl) return;
+    let ultima = 0;
+    try { ultima = Number(localStorage.getItem('learningPendAt') || 0) || 0; } catch (e) {}
+    let visto = false;
+    try { visto = localStorage.getItem('learningPend') !== null; } catch (e) {}
+    if (!visto) return;
+    if (Date.now() - ultima < 12 * 3600 * 1000) return;
+    const t = setTimeout(() => {
+      let uid = cloudUserIdRef.current;
+      if (!uid) { try { uid = localStorage.getItem('cloudUserId'); } catch (e) {} }
+      let url = learningUrl;
+      try {
+        const u = new URL(learningUrl);
+        if (uid) u.searchParams.set('mt_user', uid);
+        if (name) u.searchParams.set('mt_name', name);
+        u.searchParams.set('mt_solo_conteo', '1');
+        url = u.toString();
+      } catch (e) {}
+      try { localStorage.setItem('learningPendAt', String(Date.now())); } catch (e) {}
+      setLearningPing(url);
+      // Se quita pase lo que pase: si el centro no contesta, no se queda
+      // un iframe colgado consumiendo memoria.
+      setTimeout(() => setLearningPing(''), 20000);
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [view, learningUrl, name]);
+
   const openLearning = useCallback((destino) => {
     if (!learningUrl) return;
     haptic(8);
@@ -5479,6 +5538,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           navegación (z-37 < 45): cambiar de pestaña lo cierra. El alto deja
           libre la franja de la barra para que el final del contenido del
           centro nunca quede tapado. */}
+      {/* Iframe invisible de la consulta silenciosa (ver arriba). No se ve,
+          no se toca y se desmonta solo. */}
+      {learningPing && !showLearning && (
+        <iframe title="" aria-hidden="true" tabIndex={-1} src={learningPing}
+          style={{ position: 'fixed', width: 1, height: 1, left: -9999, top: -9999, border: 0, opacity: 0, pointerEvents: 'none' }} />
+      )}
+
       {showLearning && (
         <div className="fixed inset-0" style={{ zIndex: 37, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
@@ -5573,8 +5639,24 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 12px 34px rgba(60,66,42,0.16), 0 2px 8px rgba(60,66,42,0.08)',
                 WebkitTapHighlightColor: 'transparent',
               }}>
-              <GraduationCap size={22} strokeWidth={showLearning ? 2.4 : 2} />
+              <span style={{ position: 'relative', display: 'block', lineHeight: 0 }}>
+                <GraduationCap size={22} strokeWidth={showLearning ? 2.4 : 2} />
+                {/* Punto de novedad: SIN número. Aquí solo dice "hay algo
+                    nuevo"; el número de cuánto falta y de qué sección está
+                    adentro, en cada tarjeta del centro. Se esconde mientras
+                    el centro está abierto: ahí ya lo está viendo. */}
+                {learningPend > 0 && !showLearning && (
+                  <span aria-hidden="true" style={{
+                    position: 'absolute', top: '-3px', right: '-4px',
+                    width: '9px', height: '9px', borderRadius: '999px',
+                    background: DANGER, boxShadow: '0 0 0 2px rgba(255,255,255,0.92)',
+                  }} />
+                )}
+              </span>
               <span className="text-[10.5px] font-bold" style={{ letterSpacing: '0.01em' }}>Aprende</span>
+              {learningPend > 0 && !showLearning && (
+                <span className="sr-only">{learningPend} sin leer</span>
+              )}
             </button>
           )}
           </div>
