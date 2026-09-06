@@ -5824,7 +5824,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             <div className="space-y-2.5">
               <div>
                 <div className="flex items-center gap-2 mb-1.5 px-1">
-                  <span className="rounded-full" style={{ width: 14, height: 3, background: 'linear-gradient(90deg, #98A465, #C9D19B)' }} />
                   <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Día a día</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -5845,7 +5844,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
               <div>
                 <div className="flex items-center gap-2 mb-1.5 px-1">
-                  <span className="rounded-full" style={{ width: 14, height: 3, background: 'linear-gradient(90deg, #74AECB, #B7D8E7)' }} />
                   <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Tu progreso</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -5862,7 +5860,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
               <div>
                 <div className="flex items-center gap-2 mb-1.5 px-1">
-                  <span className="rounded-full" style={{ width: 14, height: 3, background: 'linear-gradient(90deg, #C4A353, #E4D2A5)' }} />
                   <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Ajustes</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -8429,18 +8426,32 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
   // El MES DEL CALENDARIO (no los últimos 30 días): la grilla se lee mejor
   // cuando las columnas son días de la semana de verdad.
   const hoyJs = new Date();
-  const mesGrid = (() => {
-    const y = hoyJs.getFullYear(), m = hoyJs.getMonth();
-    const primero = new Date(y, m, 1);
+  // La rejilla de UN mes. `atras` = 0 es el mes en curso, 1 el anterior, etc.
+  // Antes esto era un solo mes fijo y no había forma de ver el anterior: en
+  // los primeros días de un mes nuevo, la pantalla quedaba casi vacía justo
+  // cuando lo interesante era el mes que acababa de cerrar.
+  const gridDeMes = (atras) => {
+    const base = new Date(hoyJs.getFullYear(), hoyJs.getMonth() - atras, 1);
+    const y = base.getFullYear(), m = base.getMonth();
     const dias = new Date(y, m + 1, 0).getDate();
-    const offset = (primero.getDay() + 6) % 7;   // lunes = 0
+    const offset = (base.getDay() + 6) % 7;   // lunes = 0
     const celdas = [];
     for (let i = 0; i < offset; i++) celdas.push(null);
     for (let d = 1; d <= dias; d++) {
       const key = getLocalDate(new Date(y, m, d));
       celdas.push({ dia: d, date: key, data: combinedHistory[key] || null });
     }
-    return { celdas, nombre: primero.toLocaleDateString('es', { month: 'long', year: 'numeric' }), dias };
+    return { celdas, nombre: base.toLocaleDateString('es', { month: 'long', year: 'numeric' }), dias };
+  };
+  const mesGrid = gridDeMes(0);
+  const mesAnterior = gridDeMes(1);
+  // Las barras de macros de la pestaña Mes cubren los dos meses que se ven
+  // arriba, no 30 días: si el calendario muestra dos, el promedio de abajo
+  // tiene que hablar de lo mismo o los números no cuadran con lo que se ve.
+  const dosMeses = (() => {
+    const desde = new Date(hoyJs.getFullYear(), hoyJs.getMonth() - 1, 1);
+    const n = Math.round((hoyJs - desde) / 86400000) + 1;
+    return daysBack(n);
   })();
 
   // Trend: group last 12 weeks by week
@@ -8764,22 +8775,23 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     return { bg: '#3b82f6', pct };
   };
 
-  const Calendario = () => {
-    const conDatos = mesGrid.celdas.filter(c => c && c.data);
+  const Calendario = ({ grid, titulo = 'Este mes', ayuda = true }) => {
+    const g = grid || mesGrid;
+    const conDatos = g.celdas.filter(c => c && c.data);
     const registrados = conDatos.length;
     const promKcal = registrados ? Math.round(conDatos.reduce((a, c) => a + (c.data.kcal || 0), 0) / registrados) : 0;
     const enMeta = conDatos.filter(c => { const r = colorDelDia(c); return r && r.pct != null && r.pct >= 90 && r.pct <= 110; }).length;
     return (
       <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="flex items-baseline justify-between gap-2">
-          <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color: ACCENT_DARK }}>Tu mes</div>
-          <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Toca un día para verlo</div>
+          <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color: ACCENT_DARK }}>{titulo}</div>
+          {ayuda && <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Toca un día para verlo</div>}
         </div>
-        <div className="text-[10px] mb-3 mt-0.5 capitalize" style={{ color: TEXT_LIGHT }}>{mesGrid.nombre}</div>
+        <div className="text-[10px] mb-3 mt-0.5 capitalize" style={{ color: TEXT_LIGHT }}>{g.nombre}</div>
 
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="text-center">
-            <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{registrados}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/{mesGrid.dias}</span></div>
+            <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{registrados}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/{g.dias}</span></div>
             <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>días registrados</div>
           </div>
           <div className="text-center">
@@ -8798,7 +8810,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
-          {mesGrid.celdas.map((c, i) => {
+          {g.celdas.map((c, i) => {
             if (!c) return <div key={i} />;
             const col = colorDelDia(c);
             const esHoy = c.date === today;
@@ -9150,13 +9162,17 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
           {alimTab === 'mes' && (
           <div>
-            {/* El calendario reemplaza a la gráfica de 30 barras de calorías:
-                cuenta la misma historia y además se ve la racha. Los macros
-                siguen abajo en barras, que ahí sí se leen mejor. */}
+            {/* DOS meses, no uno. Con un solo mes, los primeros días de un mes
+                nuevo dejaban la pantalla casi vacía justo cuando lo
+                interesante era el mes que acababa de cerrar. El calendario
+                reemplaza a la gráfica de barras de calorías: cuenta la misma
+                historia y además se ve la racha. Los macros van abajo en
+                barras, que ahí sí se leen mejor. */}
             <Calendario />
-            <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={month} statKey="p" />
-            <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={month} statKey="c" />
-            <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={month} statKey="g" />
+            <Calendario grid={mesAnterior} titulo="Mes pasado" ayuda={false} />
+            <StatBlock label="Proteína" color={C_PROTEIN} goal={goals.p} unit="g" data={dosMeses} statKey="p" />
+            <StatBlock label="Carbohidratos" color={C_CARBS} goal={goals.c} unit="g" data={dosMeses} statKey="c" />
+            <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={dosMeses} statKey="g" />
           </div>
           )}
       </div>
