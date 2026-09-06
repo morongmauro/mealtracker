@@ -594,10 +594,6 @@ export default function MealTracker() {
   // Modal prominente de recordatorios: SOLO la primera apertura desde la app
   // instalada (homescreen). Después, si no activó, queda el banner de arriba.
   const [pushIntro, setPushIntro] = useState(false);
-  // Adherencia de ENTRENAMIENTO de la semana pasada (viene del CRM vía
-  // /api/adherence: seguimientos.dias_planeados/asistidos). null = aún sin
-  // respuesta o sin datos; la parte de alimentación se calcula local.
-  const [trainingWeek, setTrainingWeek] = useState(null);
   // Link al centro de recursos DEL CLIENTE (viene de /api/resources según su
   // nombre; los links se administran en api/_clients.js). Vacío = sin botón.
   const [learningUrl, setLearningUrl] = useState(() => {
@@ -2359,23 +2355,6 @@ export default function MealTracker() {
     setPushPrompt(false);
     try { localStorage.setItem('pushPromptDismissedAt', String(Date.now())); } catch (e) {}
   }, []);
-
-  // Adherencia de entreno de la semana pasada, para el tablero "Mi Semana" y
-  // el chip de nivel en la tarjeta del día. Una consulta por apertura basta:
-  // el seguimiento lo carga el coach una vez por semana, no cambia en vivo.
-  useEffect(() => {
-    if (view !== 'main' || !name) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await fetch(`/api/adherence?name=${encodeURIComponent(name)}`);
-        if (!r.ok) return;
-        const d = await r.json();
-        if (!cancelled && d && d.ok) setTrainingWeek(d.entreno || null);
-      } catch (e) { /* sin red: el tablero muestra solo alimentación */ }
-    })();
-    return () => { cancelled = true; };
-  }, [view, name]);
 
   // Abre el centro de recursos (Aprendizaje) pasando la identidad del cliente
   // en la URL (mt_user = UUID del tracker, mt_name = nombre). Así el centro,
@@ -6032,7 +6011,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           today={today}
           name={name}
           wellbeing={wellbeing}
-          training={trainingWeek}
           goalsHistory={goalsHistory}
           ventanaInicial={perfVentana}
           onClose={() => setShowPerformanceModal(false)}
@@ -8357,128 +8335,7 @@ function estimateMicros(items) {
   return result;
 }
 
-// ─── MI SEMANA: adherencia de la semana pasada (lunes a domingo) ─────────
-// Combina el entreno (seguimiento del coach en el CRM, vía /api/adherence)
-// con la alimentación calculada localmente (history + goals). Dos reglas de
-// psicología del cliente, deliberadas:
-//   1. NUNCA convertir "sin registro" en 0% — no anotar no es fallar, y
-//      confundirlos es lo que hace que la gente deje de abrir la app.
-//   2. La alineación con la meta solo se muestra con 3+ días registrados;
-//      con menos, el empujón correcto es "registra más", no un % engañoso.
-
-const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-
-// Fechas (YYYY-MM-DD locales) del lunes al domingo de la semana PASADA.
-function prevWeekDates(todayKey) {
-  const [y, m, d] = todayKey.split('-').map(Number);
-  const t = new Date(y, m - 1, d);
-  const dow = (t.getDay() + 6) % 7; // 0 = lunes
-  const monday = new Date(t);
-  monday.setDate(t.getDate() - dow - 7);
-  return Array.from({ length: 7 }, (_, i) => {
-    const dd = new Date(monday);
-    dd.setDate(monday.getDate() + i);
-    return getLocalDate(dd);
-  });
-}
-
-// Meta VIGENTE en una fecha dada (misma lógica que el server): cada día del
-// histórico se evalúa contra la meta que regía ESE día. Sin historial se usa
-// la meta actual; fechas anteriores a la primera entrada usan la primera.
-function goalsVigentes(goalsHistory, currentGoals, date) {
-  if (!Array.isArray(goalsHistory) || goalsHistory.length === 0) return currentGoals || null;
-  let g = null;
-  for (const h of goalsHistory) {
-    if (h.since <= date) g = h; else break;
-  }
-  return g || goalsHistory[0] || currentGoals || null;
-}
-
-// Cercanía del día a la meta, 0–100 — MISMA fórmula que el coach usa en
-// /api/coach-data.js (dayGoalScore): el cliente y el coach ven el mismo número.
-function dayGoalScoreCliente(totals, goals) {
-  if (!goals || !totals) return null;
-  let sum = 0, n = 0;
-  for (const key of ['kcal', 'p', 'c', 'g']) {
-    const goal = Number(goals[key]);
-    if (!goal || goal <= 0) continue;
-    const val = Number(totals[key]) || 0;
-    sum += Math.max(0, 1 - Math.abs(val - goal) / goal);
-    n++;
-  }
-  return n === 0 ? null : Math.round((sum / n) * 100);
-}
-
-// Niveles con nombre en vez de nota de examen. El último tramo es neutro a
-// propósito: gris, sin "mal/bajo" y sin rojo — una semana floja no se castiga,
-// se reinicia.
-const NIVELES_SEMANA = [
-  { min: 90, label: 'Imparable', emoji: '🔥', color: '#10b981' },
-  { min: 70, label: 'En ritmo', emoji: '💪', color: '#3b82f6' },
-  { min: 50, label: 'Construyendo', emoji: '🌱', color: '#f59e0b' },
-  { min: 0, label: 'Semana de reinicio', emoji: '🌤', color: '#64748b' },
-];
-const nivelSemana = (pct) => (pct == null ? null : NIVELES_SEMANA.find(n => pct >= n.min));
-
-// Resumen de la semana pasada. `training` es la respuesta de /api/adherence
-// ({cerrado, planeados, asistidos, dias} | {cerrado:false, plan} | null).
-// `goalsHistory` (opcional) hace que cada día se compare con SU meta vigente.
-function computeWeekReview(history, goals, training, todayKey, goalsHistory) {
-  const dates = prevWeekDates(todayKey);
-  // Un día cuenta como registrado si la fecha existe — mismo criterio que
-  // el panel del coach y que el resto de la app. Pedir kcal > 0 dejaba fuera
-  // días que sí se registraron.
-  const logged = dates.filter(d => !!history[d]);
-  const registro = logged.length;
-  const scores = logged.map(d => dayGoalScoreCliente(history[d], goalsVigentes(goalsHistory, goals, d))).filter(s => s != null);
-  const alineacion = registro >= 3 && scores.length > 0
-    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-    : null;
-
-  const entrenoPct = training && training.cerrado && training.planeados > 0
-    ? Math.min(100, Math.round((training.asistidos / training.planeados) * 100))
-    : null;
-
-  // Nivel global = promedio de los pilares que SÍ tienen datos. Sin ningún
-  // dato no hay nivel (la UI dice "sin registro", jamás un 0%).
-  const parts = [];
-  if (entrenoPct != null) parts.push(entrenoPct);
-  if (registro > 0) parts.push(Math.round((registro / 7) * 100));
-  if (alineacion != null) parts.push(alineacion);
-  const overall = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
-
-  return {
-    dates, registro, alineacion, entrenoPct,
-    entreno: training || null,
-    overall,
-    nivel: nivelSemana(overall),
-  };
-}
-
-// El mensaje del coach: UNO solo, en positivo, y siempre apuntando a la
-// acción de ESTA semana. Nunca sermonea la semana que ya pasó.
-function mensajeSemana(r) {
-  const e = r.entreno;
-  const tieneEntreno = e && e.cerrado && e.planeados > 0;
-  if (r.registro === 0 && !tieneEntreno) {
-    return 'La semana pasada quedó sin registro — pasa, y no borra nada de lo construido. Esta semana el objetivo es simple: anota tu primer día y ya estás de vuelta.';
-  }
-  const pedazos = [];
-  if (tieneEntreno) {
-    if (e.asistidos >= e.planeados) pedazos.push(`cumpliste tus ${e.planeados} entrenos`);
-    else if (e.asistidos > 0) pedazos.push(`${e.asistidos} de ${e.planeados} entrenos`);
-  }
-  if (r.registro > 0) pedazos.push(`${r.registro} ${r.registro === 1 ? 'día' : 'días'} de registro`);
-  const resumen = pedazos.join(' y ');
-  const ov = r.overall ?? 0;
-  if (ov >= 90) return `Semana redonda: ${resumen}. Esto ya no es motivación, es hábito — y los hábitos son los que transforman. 🔥`;
-  if (ov >= 70) return `${resumen.charAt(0).toUpperCase() + resumen.slice(1)}. Así se construye: no con semanas perfectas, con semanas constantes. 💪`;
-  if (ov >= 50) return `${resumen.charAt(0).toUpperCase() + resumen.slice(1)}. La base está — esta semana súmale un día más y la curva cambia. 🌱`;
-  if (tieneEntreno && e.asistidos === 0) return 'La semana pasada no salieron los entrenos — a todos nos pasa. Esta semana la meta es una sola: el primer entreno. Del resto nos encargamos después.';
-  return `${resumen ? resumen.charAt(0).toUpperCase() + resumen.slice(1) + '. ' : ''}Semana de reinicio: cero drama y un solo foco — arrancar. Tu primer registro o tu primer entreno de esta semana lo cambia todo.`;
-}
-
-function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, training, goalsHistory, onClose,
+function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, goalsHistory, onClose,
                            ventanaInicial, onBorrarComida, onBorrarDia, onEditarComida, onAgregarComida }) {
   // El día que se está mirando en la pestaña "Día". Arranca en hoy.
   // Dentro de Alimentación: ventana de tiempo. "Tendencia" se quitó — a 12

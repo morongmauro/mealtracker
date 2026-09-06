@@ -2,6 +2,20 @@
 // Protecciones compartidas para los endpoints (el prefijo "_" evita que
 // Vercel lo exponga como función).
 //
+// ⚠ ANTES DE AGREGAR UN ARCHIVO NUEVO A api/ ⚠
+// El plan Hobby de Vercel permite COMO MÁXIMO 12 funciones serverless por
+// deploy. Cada .js de esta carpeta SIN guion bajo al principio cuenta como
+// una. Pasarse de 12 no da un error de código: el deploy falla en ~13
+// segundos y Vercel deja publicada la versión anterior — la app se ve
+// "congelada" sin que nada parezca roto. Y `vite build` NO lo detecta:
+// compila src/, no cuenta esta carpeta. Para contarlas:
+//
+//     ls api/*.js | grep -v '/_' | wc -l
+//
+// Si ya hay 12, no agregues otra: mete la acción nueva dentro de un endpoint
+// existente (como training.js, que enruta por `accion`) o pon el prefijo "_"
+// a lo que sea código compartido y no un endpoint.
+//
 // 1) checkOrigin: el navegador manda Origin/Referer; exigimos que coincida
 //    con el host de la app (o con ALLOWED_ORIGINS, separados por coma).
 //    Detiene el abuso casual de las keys (Anthropic/OpenAI) desde scripts o
