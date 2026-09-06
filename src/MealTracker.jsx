@@ -559,6 +559,9 @@ export default function MealTracker() {
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [showCapabilitiesModal, setShowCapabilitiesModal] = useState(false);
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
+  // Con qué ventana abrir "Mi comida": quien viene del calendario espera el
+  // mes; quien viene del chip de progreso, la semana.
+  const [perfVentana, setPerfVentana] = useState('semana');
   // Anillo tocado → línea explicando ese macro (null = sin explicación abierta)
   const [macroTip, setMacroTip] = useState(null);
   useEffect(() => {
@@ -3706,7 +3709,10 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
           // calendario, te lo abro 👇"), se muestra ANTES de abrir el calendario
           // — clave para fechas viejas: nunca debe parecer un límite o error.
           if (parsed.message) setMessages(m => [...m, { role: 'assistant', content: parsed.message, ts: Date.now() }]);
-          setActiveModal('calendar');
+          // El calendario ya no es una pantalla aparte: es la ventana "Mes"
+          // de Mi comida. Se abre ahí, que es donde el cliente lo espera.
+          setPerfVentana('mes');
+          setShowPerformanceModal(true);
         }
         else if (parsed.command === 'favorites') setActiveModal('favorites');
         else if (parsed.command === 'manage_favorites') {
@@ -5490,10 +5496,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </div>
             <div className="flex gap-2.5">
               {[
-                { label: 'Mi semana', icon: CalendarCheck, grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); } },
+                // "Mi semana" y "Calendario" eran dos botones que contaban lo
+                // mismo con distinta forma. Ahora son una sola sección con
+                // sus tres ventanas: Mes, Semana y Día.
+                { label: 'Mi comida', icon: CalendarCheck, grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); } },
                 { label: 'Reto', icon: Mountain, grad: 'linear-gradient(135deg, #E09479, #C05E44)', onClick: () => { haptic(8); window.location.href = '/ranking'; } },
                 { label: 'Recordat.', icon: Bell, ink: '#6B4E05', grad: 'linear-gradient(135deg, #FFD95C, #F0AE22)', badge: coachReminders.filter(r => !r.done_at).length, onClick: () => { haptic(8); setActiveModal('reminders'); } },
-                { label: 'Calendario', icon: Calendar, grad: 'linear-gradient(135deg, #74AECB, #3F81A6)', onClick: () => { haptic(8); setActiveModal('calendar'); } },
+                { label: 'Bienestar', icon: Sliders, grad: 'linear-gradient(135deg, #C77BA8, #8B4A78)', onClick: () => { haptic(8); setShowWellbeingModal(true); } },
               ].map(tl => (
                 <button key={tl.label} onClick={tl.onClick}
                   className="flex-1 rounded-[26px] py-3.5 px-1 text-center active:scale-95 transition relative"
@@ -5588,7 +5597,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             background: 'linear-gradient(0deg, rgba(237,236,229,0.96) 0%, rgba(237,236,229,0.72) 42%, rgba(237,236,229,0.3) 72%, rgba(237,236,229,0) 100%)',
           }} />
           <Suspense fallback={null}>
-            <Entrenamiento name={name} userId={cloudUserIdRef.current || (() => { try { return localStorage.getItem('cloudUserId'); } catch (e) { return null; } })()} />
+            <Entrenamiento name={name} />
           </Suspense>
         </div>
       )}
@@ -5861,12 +5870,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <span className="text-[10px] tracking-[0.04em] uppercase font-bold" style={{ color: TEXT_MUTED }}>Tu progreso</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mi Semana" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
-                    onClick={() => { haptic(8); setShowPerformanceModal(true); }} />
+                  <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mi comida" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
+                    onClick={() => { haptic(8); setPerfVentana('semana'); setShowPerformanceModal(true); }} />
                   <ActionChipMini icon={<FileText size={15} strokeWidth={2.2} />} label="Resumen del día" grad="linear-gradient(135deg, #7C8CA3, #4E5D74)"
                     onClick={() => { haptic(8); goToChat(); closeActionsSheet(); handleSend('ver resumen diario'); }} />
-                  <ActionChipMini icon={<Calendar size={15} strokeWidth={2.2} />} label="Calendario" grad="linear-gradient(135deg, #74AECB, #3F81A6)"
-                    onClick={() => { haptic(8); setActiveModal('calendar'); }} />
+                  <ActionChipMini icon={<Calendar size={15} strokeWidth={2.2} />} label="Mi mes" grad="linear-gradient(135deg, #74AECB, #3F81A6)"
+                    onClick={() => { haptic(8); setPerfVentana('mes'); setShowPerformanceModal(true); }} />
                   <ActionChipMini icon={<Scale size={15} strokeWidth={2.2} />} label="Ayuda con proporciones" grad="linear-gradient(135deg, #E09479, #C05E44)"
                     onClick={() => { haptic(8); goToChat(); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); }} />
                 </div>
@@ -5937,21 +5946,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
       {activeModal === 'weekly' && (
         <WeeklyModal history={history} goals={goals} onClose={() => setActiveModal(null)} />
-      )}
-
-      {activeModal === 'calendar' && (
-        <CalendarModal
-          history={history} historyDetail={historyDetail} goals={goals}
-          today={today} todayEntries={entries} todayWater={water}
-          onClose={() => setActiveModal(null)}
-          onDeleteEntry={(dateStr, entryId) => {
-            if (dateStr === today) deleteEntry(entryId);
-            else removeEntryFromDate(dateStr, entryId);
-          }}
-          onDeleteDay={(dateStr) => {
-            if (dateStr === today) setActiveModal('reset'); // confirmación existente
-            else removeDayFromHistory(dateStr);
-          }} />
       )}
 
       {activeModal === 'reminders' && (
@@ -6040,7 +6034,36 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           wellbeing={wellbeing}
           training={trainingWeek}
           goalsHistory={goalsHistory}
-          onClose={() => setShowPerformanceModal(false)} />
+          ventanaInicial={perfVentana}
+          onClose={() => setShowPerformanceModal(false)}
+          onBorrarComida={(dateStr, entryId) => {
+            haptic(10);
+            if (dateStr === today) deleteEntry(entryId);
+            else removeEntryFromDate(dateStr, entryId);
+          }}
+          onBorrarDia={(dateStr) => {
+            haptic(12);
+            if (dateStr === today) { setShowPerformanceModal(false); setActiveModal('reset'); }
+            else removeDayFromHistory(dateStr);
+          }}
+          onEditarComida={(dateStr, entryId) => {
+            // Hoy tiene su editor de siempre. Para un día pasado no hay
+            // editor: se corrige por el chat, que YA entiende "cámbiale la
+            // cantidad al almuerzo del lunes". Hacer un segundo editor peor
+            // que el chat, solo para días pasados, no valía la pena.
+            setShowPerformanceModal(false);
+            if (dateStr === today) { handleEditEntry(entryId); return; }
+            goToChat();
+            inputApiRef.current?.setText(`Corrige lo que comí el ${fraseFecha(dateStr, today)}: `);
+          }}
+          onAgregarComida={(dateStr) => {
+            // Igual: registrar pasa por el chat, que es donde vive todo el
+            // reconocimiento de alimentos. Se deja la frase empezada con el
+            // día ya puesto para que no tenga que explicarlo.
+            setShowPerformanceModal(false);
+            goToChat();
+            inputApiRef.current?.setText(dateStr === today ? '' : `El ${fraseFecha(dateStr, today)} comí `);
+          }} />
       )}
 
       {showCapabilitiesModal && (
@@ -8094,201 +8117,6 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
   );
 }
 
-function CalendarModal({ history, historyDetail, goals, today, todayEntries, todayWater, onClose, onDeleteEntry, onDeleteDay }) {
-  const [viewDate, setViewDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(today);
-  // Confirmación en dos toques para borrar (sin modal extra): el primer tap
-  // "arma" el botón (se pone rojo con la pregunta), el segundo ejecuta.
-  // Se desarma solo a los 3.5s o al cambiar de día.
-  const [armedDelete, setArmedDelete] = useState(null); // 'day' | entryId
-  const armTimerRef = useRef(null);
-  const armDelete = (key) => {
-    setArmedDelete(key);
-    if (armTimerRef.current) clearTimeout(armTimerRef.current);
-    armTimerRef.current = setTimeout(() => setArmedDelete(null), 3500);
-  };
-  useEffect(() => () => { if (armTimerRef.current) clearTimeout(armTimerRef.current); }, []);
-  useEffect(() => { setArmedDelete(null); }, [selectedDate]);
-
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const monthName = viewDate.toLocaleDateString('es', { month: 'long', year: 'numeric' });
-
-  const allHistory = { ...history };
-  if (todayEntries.length > 0) {
-    const totals = todayEntries.reduce((acc, e) => ({
-      kcal: acc.kcal + e.kcal, p: acc.p + e.p, c: acc.c + e.c, g: acc.g + e.g
-    }), { kcal: 0, p: 0, c: 0, g: 0 });
-    allHistory[today] = { ...totals, water: todayWater };
-  }
-  const allHistoryDetail = { ...historyDetail };
-  if (todayEntries.length > 0) allHistoryDetail[today] = todayEntries;
-
-  const cells = [];
-  for (let i = 0; i < firstDay; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    cells.push({ day: d, dateStr, data: allHistory[dateStr] });
-  }
-
-  const selectedData = allHistory[selectedDate];
-  const selectedEntries = allHistoryDetail[selectedDate] || [];
-
-  return (
-    <ModalShell onClose={onClose} maxWidth="max-w-lg">
-      <ModalHeader accent={ACCENT} label="Calendario" title={monthName.charAt(0).toUpperCase() + monthName.slice(1)} onClose={onClose} />
-
-      <div className="flex justify-between mb-3">
-        <button onClick={() => setViewDate(new Date(year, month - 1, 1))} className="p-2 rounded-full hover:bg-black/5">
-          <ChevronLeft size={16} style={{ color: TEXT_MUTED }} />
-        </button>
-        <button onClick={() => setViewDate(new Date(year, month + 1, 1))} className="p-2 rounded-full hover:bg-black/5">
-          <ChevronRight size={16} style={{ color: TEXT_MUTED }} />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 mb-3">
-        {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (
-          <div key={i} className="text-center text-[10px] font-semibold uppercase" style={{ color: TEXT_LIGHT }}>{d}</div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 mb-5">
-        {cells.map((cell, i) => {
-          if (!cell) return <div key={i} />;
-          const isSelected = cell.dateStr === selectedDate;
-          const isToday = cell.dateStr === today;
-          const hasData = !!cell.data;
-          const goalPct = hasData ? cell.data.kcal / goals.kcal : 0;
-          const inGoal = hasData && goalPct >= 0.90 && goalPct <= 1.10;
-          const isFuture = cell.dateStr > today;
-          const dotColor = !hasData
-            ? (isFuture ? 'transparent' : '#D0CFC6')   // gris para días pasados sin registro
-            : inGoal ? SUCCESS : ACCENT;
-          return (
-            <button key={i} onClick={() => setSelectedDate(cell.dateStr)}
-              className="aspect-square rounded-xl flex flex-col items-center justify-center text-xs transition relative"
-              style={{
-                background: isSelected ? ACCENT : (hasData ? ACCENT_PASTEL + '40' : 'transparent'),
-                color: isSelected ? '#fff' : (isFuture ? TEXT_LIGHT : TEXT),
-                border: isToday && !isSelected ? `1.5px solid ${ACCENT}` : 'none',
-                fontWeight: isToday || isSelected ? 600 : 400
-              }}>
-              <span>{cell.day}</span>
-              {!isSelected && dotColor !== 'transparent' && (
-                <div className="w-1.5 h-1.5 rounded-full mt-0.5" style={{
-                  background: dotColor,
-                  opacity: !hasData ? 0.5 : 1
-                }} />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 mb-4 text-[10px]" style={{ color: TEXT_MUTED }}>
-        <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: SUCCESS }} />
-          <span>En meta</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
-          <span>Con registro</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#D0CFC6', opacity: 0.5 }} />
-          <span>Sin registro</span>
-        </div>
-      </div>
-
-      <div className="pt-4 border-t" style={{ borderColor: BORDER_SOFT }}>
-        <div className="text-xs font-semibold mb-3 capitalize" style={{ color: TEXT }}>
-          {formatDate(selectedDate)}
-        </div>
-        {selectedData ? (
-          <>
-            <div className="grid grid-cols-4 gap-2 mb-3">
-              <Stat label="kcal" val={selectedData.kcal} goal={goals.kcal} color={ACCENT} />
-              <Stat label="P" val={selectedData.p} goal={goals.p} color={C_PROTEIN} unit="g" />
-              <Stat label="C" val={selectedData.c} goal={goals.c} color={C_CARBS} unit="g" />
-              <Stat label="G" val={selectedData.g} goal={goals.g} color={C_FAT} unit="g" />
-            </div>
-            {selectedEntries.length > 0 && (
-              <div className="space-y-2">
-                <div className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: TEXT_LIGHT }}>
-                  Comidas del día
-                </div>
-                {selectedEntries.map((e, i) => (
-                  <div key={i} className="text-xs p-3 rounded-xl" style={{ background: SURFACE_2 }}>
-                    <div className="flex justify-between items-center mb-1.5">
-                      <span className="uppercase text-[10px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>{e.meal}</span>
-                      <span className="flex items-center gap-2">
-                        <span className="num text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
-                        {typeof onDeleteEntry === 'function' && e.id != null && (
-                          armedDelete === e.id ? (
-                            <button onClick={() => { setArmedDelete(null); onDeleteEntry(selectedDate, e.id); }}
-                              className="px-2 py-0.5 rounded-full text-[10px] font-semibold active:scale-95 transition"
-                              style={{ background: DANGER, color: '#fff' }}>
-                              ¿Borrar?
-                            </button>
-                          ) : (
-                            <button onClick={() => armDelete(e.id)} aria-label={`Borrar ${e.meal}`}
-                              className="p-1 -m-1 rounded-full active:scale-90 transition">
-                              <Trash2 size={13} style={{ color: TEXT_LIGHT }} />
-                            </button>
-                          )
-                        )}
-                      </span>
-                    </div>
-                    <div className="space-y-0.5">
-                      {e.items.map((it, j) => (
-                        <div key={j} className="flex justify-between text-[11px]">
-                          <span style={{ color: TEXT }}>{it.name}{it.amount ? ` · ${it.amount}` : ''}</span>
-                          <span className="num" style={{ color: TEXT_LIGHT }}>{it.kcal} kcal</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-[10px] num mt-1.5 pt-1.5 border-t flex gap-3" style={{ borderColor: BORDER_SOFT }}>
-                      <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{Math.round(e.kcal ?? 0)} kcal</span>
-                      <span style={{ color: C_PROTEIN }}>P{Math.round((e.p ?? 0) * 10) / 10}</span>
-                      <span style={{ color: C_CARBS }}>C{Math.round((e.c ?? 0) * 10) / 10}</span>
-                      <span style={{ color: C_FAT }}>G{Math.round((e.g ?? 0) * 10) / 10}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {typeof onDeleteDay === 'function' && (
-              <div className="mt-3 flex justify-center">
-                {armedDelete === 'day' ? (
-                  <button onClick={() => { setArmedDelete(null); onDeleteDay(selectedDate); }}
-                    className="px-4 py-1.5 rounded-full text-[11px] font-semibold active:scale-95 transition"
-                    style={{ background: DANGER, color: '#fff' }}>
-                    ¿Seguro? Toca de nuevo para borrar todo el día
-                  </button>
-                ) : (
-                  <button onClick={() => armDelete('day')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium active:scale-95 transition"
-                    style={{ color: DANGER, background: `${DANGER}12` }}>
-                    <Trash2 size={12} /> Borrar todo el día
-                  </button>
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="text-xs text-center py-4" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
-            Este día quedó sin registro.<br />Pasa. Lo importante es lo que viene.
-          </div>
-        )}
-      </div>
-    </ModalShell>
-  );
-}
-
 function Stat({ label, val, goal, color, unit = '' }) {
   const fmt = unit ? fmt1 : fmt0;
   return (
@@ -8650,11 +8478,14 @@ function mensajeSemana(r) {
   return `${resumen ? resumen.charAt(0).toUpperCase() + resumen.slice(1) + '. ' : ''}Semana de reinicio: cero drama y un solo foco — arrancar. Tu primer registro o tu primer entreno de esta semana lo cambia todo.`;
 }
 
-function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, training, goalsHistory, onClose }) {
-  const [tab, setTab] = useState('panorama'); // panorama | alimentacion
+function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, training, goalsHistory, onClose,
+                           ventanaInicial, onBorrarComida, onBorrarDia, onEditarComida, onAgregarComida }) {
+  // El día que se está mirando en la pestaña "Día". Arranca en hoy.
   // Dentro de Alimentación: ventana de tiempo. "Tendencia" se quitó — a 12
   // semanas casi nadie la entendía y el mes ya cuenta esa historia.
-  const [alimTab, setAlimTab] = useState('semana'); // semana | mes
+  const [alimTab, setAlimTab] = useState(ventanaInicial || 'semana'); // mes | semana | dia
+  const [diaSel, setDiaSel] = useState(today);
+  const irAlDia = (fecha) => { haptic(8); setDiaSel(fecha); setAlimTab('dia'); };
 
   // Estilo "reporte del coach": este panel usa la MISMA paleta del dashboard
   // del coach / CRM (slate + esmeralda + serie azul/ámbar/violeta de las
@@ -9068,7 +8899,10 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     const enMeta = conDatos.filter(c => { const r = colorDelDia(c); return r && r.pct != null && r.pct >= 90 && r.pct <= 110; }).length;
     return (
       <div className="mb-4" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-        <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color: ACCENT_DARK }}>Tu mes</div>
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="text-[12px] font-bold uppercase tracking-wider" style={{ color: ACCENT_DARK }}>Tu mes</div>
+          <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Toca un día para verlo</div>
+        </div>
         <div className="text-[10px] mb-3 mt-0.5 capitalize" style={{ color: TEXT_LIGHT }}>{mesGrid.nombre}</div>
 
         <div className="grid grid-cols-3 gap-2 mb-3">
@@ -9096,19 +8930,22 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
             if (!c) return <div key={i} />;
             const col = colorDelDia(c);
             const esHoy = c.date === today;
+            // Se toca y se abre ESE día. Los futuros no: no hay nada que ver.
+            const futuro = c.date > today;
             return (
-              <div key={i}
-                className="rounded-lg flex flex-col items-center justify-center"
+              <button key={i} disabled={futuro} onClick={() => irAlDia(c.date)}
+                className="rounded-lg flex flex-col items-center justify-center active:scale-95 transition"
                 style={{
                   aspectRatio: '1', background: col ? col.bg : SURFACE_2,
                   color: col ? '#fff' : TEXT_LIGHT,
                   border: esHoy ? `2px solid ${TEXT}` : 'none',
-                  opacity: col ? 1 : 0.7,
+                  opacity: futuro ? 0.35 : col ? 1 : 0.7,
+                  padding: 0, cursor: futuro ? 'default' : 'pointer',
                 }}
                 title={`${c.date}${col && col.pct != null ? ` · ${Math.round(c.data.kcal || 0)} kcal (${col.pct}% de tu meta)` : col ? ` · ${Math.round(c.data.kcal || 0)} kcal` : ' · sin registro'}`}>
                 <div className="text-[10px] font-bold leading-none">{c.dia}</div>
                 {col && <div className="text-[8px] leading-none mt-0.5 opacity-90 num">{Math.round((c.data.kcal || 0) / 100) / 10}k</div>}
-              </div>
+              </button>
             );
           })}
         </div>
@@ -9236,228 +9073,22 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-xl">
-      <ModalHeader accent={ACCENT_DARK} label="Mi Semana" title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
+      <ModalHeader accent={ACCENT_DARK} label="Mi alimentación" title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
 
-      {/* Tabs — "Resumen" es la portada: la adherencia de la semana CERRADA
-          (entreno + alimentación en la misma ventana de tiempo). Las gráficas
-          de siempre viven detrás, en las otras pestañas. */}
-      <div className="flex gap-1 p-1 rounded-xl mb-5" style={{ background: SURFACE_2 }}>
-        {[
-          { key: 'panorama', label: 'Panorama' },
-          { key: 'alimentacion', label: 'Alimentación' },
-        ].map(t => (
-          <button key={t.key} onClick={() => { haptic(6); setTab(t.key); }}
-            className="flex-1 py-2 rounded-lg text-[12px] font-semibold transition active:scale-[0.98]"
-            style={{
-              // Chip activo pizarra, como los tabs del CRM/dashboard del coach
-              background: tab === t.key ? '#0f172a' : 'transparent',
-              color: tab === t.key ? '#fff' : TEXT_MUTED,
-            }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'panorama' && (() => {
-        const r = computeWeekReview(combinedHistory, goals, training, today, goalsHistory);
-        const e = r.entreno;
-        const entrenoCerrado = !!(e && e.cerrado && e.planeados > 0);
-        const cardShadow = { background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' };
-
-        // Rango legible "14–20 de julio" (o "28 jul – 3 de agosto" si cruza mes)
-        const fdate = (k, opts) => { const [y, m, dd] = k.split('-').map(Number); return new Date(y, m - 1, dd).toLocaleDateString('es', opts); };
-        const rango = r.dates[0].slice(0, 7) === r.dates[6].slice(0, 7)
-          ? `${Number(r.dates[0].slice(8))}–${fdate(r.dates[6], { day: 'numeric', month: 'long' })}`
-          : `${fdate(r.dates[0], { day: 'numeric', month: 'short' })} – ${fdate(r.dates[6], { day: 'numeric', month: 'long' })}`;
-
-        // Semana EN CURSO (en vivo): la alimentación sí es tiempo real — se
-        // aprovecha aquí. El entreno en vivo aún no existe (llegará con la
-        // integración de la app de entrenamiento); mientras tanto se dice
-        // explícitamente cuándo se suma, para que el desfase no confunda.
-        const [cy, cm, cd] = today.split('-').map(Number);
-        const hoyDate = new Date(cy, cm - 1, cd);
-        const dowHoy = (hoyDate.getDay() + 6) % 7; // 0 = lunes
-        const semanaCurso = Array.from({ length: dowHoy + 1 }, (_, i) => {
-          const dd = new Date(hoyDate); dd.setDate(hoyDate.getDate() - dowHoy + i); return getLocalDate(dd);
-        });
-        const registroCurso = semanaCurso.filter(d => !!combinedHistory[d]).length;
-        // Alineación a meta de la semana EN CURSO — misma regla que la
-        // pasada: solo con 3+ días registrados (con menos, el % engaña).
-        const scoresCurso = semanaCurso
-          .filter(d => combinedHistory[d] && combinedHistory[d].kcal > 0)
-          .map(d => dayGoalScoreCliente(combinedHistory[d], goals))
-          .filter(s => s != null);
-        const alineacionCurso = registroCurso >= 3 && scoresCurso.length > 0
-          ? Math.round(scoresCurso.reduce((a, b) => a + b, 0) / scoresCurso.length)
-          : null;
-
-        // Mini indicador "Meta nutricional" — vive DENTRO de cada columna de
-        // alimentación para que registro y alineación se lean juntos.
-        const MetaMini = ({ pct }) => pct != null ? (
-          <div className="mt-2.5 px-1 text-left">
-            <div className="flex justify-between items-baseline mb-1">
-              <span className="text-[9px]" style={{ color: TEXT_MUTED }}>Meta nutricional</span>
-              <strong className="text-[10.5px] num" style={{ color: TEXT }}>{pct}%</strong>
-            </div>
-            <div className="relative h-1 rounded-full overflow-hidden" style={{ background: SURFACE_2 }}>
-              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 70 ? SUCCESS : C_CARBS }} />
-            </div>
-          </div>
-        ) : (
-          <div className="text-[8.5px] mt-2.5" style={{ color: TEXT_LIGHT }}>Meta: visible con 3+ días de registro</div>
-        );
-
-        const Ring = ({ pct, color, center, sub, size = 86 }) => {
-          const rr = (size - 12) / 2;
-          const circ = 2 * Math.PI * rr;
-          const p = pct == null ? 0 : Math.max(0, Math.min(1, pct / 100));
-          return (
-            <div className="relative mx-auto" style={{ width: size, height: size }}>
-              <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx={size / 2} cy={size / 2} r={rr} fill="none" stroke={SURFACE_2} strokeWidth="9" />
-                <circle cx={size / 2} cy={size / 2} r={rr} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
-                  strokeDasharray={`${circ * p} ${circ}`} style={{ transition: 'stroke-dasharray 0.6s cubic-bezier(0.2,0,0,1)' }} />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="text-[17px] font-bold num leading-none" style={{ color: TEXT }}>{center}</div>
-                {sub && <div className="text-[9px] mt-0.5" style={{ color: TEXT_LIGHT }}>{sub}</div>}
-              </div>
-            </div>
-          );
-        };
-
-        // Fila L-M-X-J-V-S-D: círculo lleno = día cumplido. La visual más
-        // intuitiva para "3 de 4" — y dispara el instinto de completar la fila.
-        const Dots = ({ on, color, align = 'center' }) => (
-          <div className={`flex ${align === 'left' ? 'justify-start' : 'justify-center'} gap-1 mt-2.5`}>
-            {DIAS_SEMANA.map((l, i) => (
-              <div key={l} className="flex items-center justify-center rounded-full text-[8px] font-bold"
-                style={{
-                  width: 17, height: 17,
-                  background: on[i] ? color : SURFACE_2,
-                  color: on[i] ? '#fff' : TEXT_LIGHT,
-                }}>{l}</div>
-            ))}
-          </div>
-        );
-
-        return (
-          <div>
-            {/* Nivel de la semana — nombre antes que número: el % existe pero
-                chiquito. Nada de rojos ni "bajo": el peor caso es neutro. */}
-            <div className="p-4 rounded-2xl mb-2.5 text-center" style={cardShadow}>
-              <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>
-                Semana pasada · {rango}
-              </div>
-              {r.nivel ? (
-                <>
-                  <div className="text-[30px] leading-none mt-2.5">{r.nivel.emoji}</div>
-                  <div className="text-[21px] font-bold mt-1.5" style={{ color: r.nivel.color }}>{r.nivel.label}</div>
-                  <div className="text-[11px] num mt-1" style={{ color: TEXT_LIGHT }}>{r.overall}% de adherencia</div>
-                </>
-              ) : (
-                <>
-                  <div className="text-[15px] font-semibold mt-2.5" style={{ color: TEXT }}>Semana sin registro</div>
-                  <div className="text-[11px] mt-1" style={{ color: TEXT_MUTED }}>No pasa nada — la de ahora es la que cuenta.</div>
-                </>
-              )}
-            </div>
-
-            {/* Entrenamiento — MISMO protagonismo que alimentación siempre:
-                cuando el seguimiento aún no está cargado, el anillo muestra
-                el plan en tono neutro y el estado es "en revisión" — nunca
-                un hueco ni un "el coach va atrasado". */}
-            <div className="p-3.5 rounded-xl mb-2.5" style={cardShadow}>
-              <div className="flex items-center gap-4">
-                <div className="flex-shrink-0">
-                  {entrenoCerrado ? (
-                    <Ring pct={r.entrenoPct} color={e.asistidos > 0 ? SUCCESS : TEXT_LIGHT}
-                      center={`${e.asistidos}/${e.planeados}`} sub="entrenos" size={92} />
-                  ) : (
-                    <Ring pct={0} color={TEXT_LIGHT}
-                      center={e && e.plan ? `${e.plan}d` : '—'} sub={e && e.plan ? 'tu plan' : 'por definir'} size={92} />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>Entrenamiento · semana pasada</div>
-                  {entrenoCerrado ? (
-                    <>
-                      <div className="text-[13.5px] font-semibold mt-1 num" style={{ color: TEXT }}>{r.entrenoPct}% de tu plan cumplido</div>
-                      {Array.isArray(e.dias) && e.dias.length > 0 && (
-                        <Dots on={DIAS_SEMANA.map(l => e.dias.includes(l))} color={SUCCESS} align="left" />
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-[13.5px] font-semibold mt-1" style={{ color: TEXT }}>En revisión con tu coach</div>
-                      <div className="text-[10px] mt-1" style={{ color: TEXT_LIGHT, lineHeight: 1.45 }}>
-                        Tus entrenos entran aquí con el seguimiento semanal. La semana en curso también va por ese camino.
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Alimentación — dos ventanas con IGUAL relevancia: la semana
-                pasada (cerrada, comparable con entreno) y la semana en curso
-                (en vivo, porque el registro de comida sí es tiempo real). */}
-            <div className="p-3.5 rounded-xl mb-2.5" style={cardShadow}>
-              <div className="text-[10px] uppercase tracking-wider font-semibold mb-2.5" style={{ color: TEXT_LIGHT }}>Alimentación · días con registro</div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="text-center">
-                  <div className="text-[10px] font-semibold mb-2" style={{ color: TEXT_MUTED }}>Semana pasada</div>
-                  {r.registro > 0 ? (
-                    <>
-                      <Ring pct={Math.round((r.registro / 7) * 100)} color={C_PROTEIN}
-                        center={`${r.registro}/7`} sub="días" size={80} />
-                      <Dots on={r.dates.map(d => !!combinedHistory[d])} color={C_PROTEIN} />
-                      <MetaMini pct={r.alineacion} />
-                    </>
-                  ) : (
-                    <>
-                      <Ring pct={0} color={TEXT_LIGHT} center="—" sub="sin registro" size={80} />
-                      <div className="text-[9.5px] mt-2" style={{ color: TEXT_LIGHT }}>Cada día anotado suma aquí</div>
-                    </>
-                  )}
-                </div>
-                <div className="text-center">
-                  <div className="text-[10px] font-semibold mb-2 flex items-center justify-center gap-1.5" style={{ color: TEXT_MUTED }}>
-                    Esta semana
-                    <span className="inline-block rounded-full" style={{ width: 6, height: 6, background: SUCCESS, boxShadow: `0 0 0 2.5px ${SUCCESS}30` }} />
-                  </div>
-                  <Ring pct={Math.round((registroCurso / semanaCurso.length) * 100)} color={SUCCESS}
-                    center={`${registroCurso}/${semanaCurso.length}`} sub="hasta hoy" size={80} />
-                  <MetaMini pct={alineacionCurso} />
-                </div>
-              </div>
-              <div className="text-[9px] mt-2.5 text-center" style={{ color: TEXT_LIGHT }}>
-                Meta nutricional = qué tan cerca de tu meta quedaron los días que registraste. Esta semana va en vivo.
-              </div>
-            </div>
-
-            {/* El mensaje del coach: uno solo, en positivo, mirando a ESTA semana */}
-            <div className="p-3.5 rounded-xl mb-2.5 flex items-start gap-2.5" style={cardShadow}>
-              <div className="text-[16px] leading-none mt-0.5">💬</div>
-              <div>
-                <div className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: ACCENT_DARK }}>De tu coach</div>
-                <div className="text-[12px]" style={{ color: TEXT, lineHeight: 1.55 }}>{mensajeSemana(r)}</div>
-              </div>
-            </div>
-
-          </div>
-        );
-      })()}
-
-      {tab === 'alimentacion' && (
-        <div>
-          {/* Sub-pestañas de ventana de tiempo, chiquitas y discretas */}
-          <div className="flex gap-1.5 mb-4">
-            {[{ key: 'semana', label: 'Semana' }, { key: 'mes', label: 'Mes' }].map(t => (
+      {/* UNA sola sección, tres ventanas de tiempo. Antes esto vivía partido
+          en dos botones —"Mi semana" y "Calendario"— que contaban lo mismo
+          con distinta forma: el calendario te mostraba el mes y te dejaba
+          entrar a un día, y Mi semana te daba las gráficas. Tener que
+          adivinar cuál de los dos abrir para ver lo del martes pasado no
+          tenía sentido. Ahora es Mes → Semana → Día, de lo general a lo
+          concreto, y desde el mes o la semana se entra al día tocándolo. */}
+      <div>
+          <div className="flex gap-1 p-1 rounded-xl mb-4" style={{ background: SURFACE_2 }}>
+            {[{ key: 'mes', label: 'Mes' }, { key: 'semana', label: 'Semana' }, { key: 'dia', label: 'Día' }].map(t => (
               <button key={t.key} onClick={() => { haptic(6); setAlimTab(t.key); }}
-                className="px-3.5 py-1.5 rounded-full text-[11px] font-semibold transition active:scale-[0.97]"
+                className="flex-1 py-2 rounded-lg text-[12px] font-semibold transition active:scale-[0.98]"
                 style={{
-                  background: alimTab === t.key ? '#0f172a' : SURFACE_2,
+                  background: alimTab === t.key ? '#0f172a' : 'transparent',
                   color: alimTab === t.key ? '#fff' : TEXT_MUTED,
                 }}>
                 {t.label}
@@ -9636,6 +9267,15 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           </div>
           )}
 
+          {alimTab === 'dia' && (
+            <VistaDia
+              fecha={diaSel} setFecha={setDiaSel} hoy={today}
+              historia={combinedHistory} detalle={combinedDetail} goals={goals}
+              onBorrarComida={onBorrarComida} onBorrarDia={onBorrarDia}
+              onEditar={onEditarComida} onAgregar={onAgregarComida}
+            />
+          )}
+
           {alimTab === 'mes' && (
           <div>
             {/* El calendario reemplaza a la gráfica de 30 barras de calorías:
@@ -9647,11 +9287,12 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
             <StatBlock label="Grasas" color={C_FAT} goal={goals.g} unit="g" data={month} statKey="g" />
           </div>
           )}
-        </div>
-      )}
+      </div>
 
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 mt-4 pt-3 text-[10px]" style={{ color: TEXT_MUTED, borderTop: `1px solid ${BORDER_SOFT}` }}>
+      {/* Leyenda de las gráficas. En la ventana "Día" no hay gráficas, así
+          que ahí sobra: hablaba de colores que en esa pantalla no existen. */}
+      <div className="flex items-center justify-center gap-4 mt-4 pt-3 text-[10px]"
+        style={{ color: TEXT_MUTED, borderTop: `1px solid ${BORDER_SOFT}`, display: alimTab === 'dia' ? 'none' : 'flex' }}>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-sm" style={{ background: SUCCESS }} />
           <span>En meta ±10%</span>
@@ -9666,6 +9307,184 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
         </div>
       </div>
     </ModalShell>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// UN DÍA · lo que comió, con sus macros, y se puede corregir
+// ═══════════════════════════════════════════════════════════════════════
+// Esto era el botón "Calendario", que vivía aparte. Ahora es la tercera
+// ventana de la misma sección: mes → semana → día. Se llega tocando un día
+// del mes o una barra de la semana, y desde aquí se navega con ◀ ▶.
+//
+// Borrar pide DOS toques (el primero arma el botón, el segundo ejecuta) y se
+// desarma solo a los 3,5s. Es un borrado sin deshacer: un modal de
+// confirmación se cierra en automático a la tercera vez, dos toques no.
+// Cómo nombrar un día para el chat. Se usa la forma que el parser resuelve
+// mejor y que además es como habla la gente: "ayer", "el miércoles", y para
+// lo más viejo la fecha con día y mes.
+function fraseFecha(fecha, hoy) {
+  const dif = Math.round((Date.parse(hoy + 'T00:00:00') - Date.parse(fecha + 'T00:00:00')) / 86400000);
+  if (dif === 1) return 'ayer';
+  if (dif === 2) return 'antier';
+  const [y, m, d] = fecha.split('-').map(Number);
+  const js = new Date(y, m - 1, d);
+  if (dif > 2 && dif <= 6) return js.toLocaleDateString('es', { weekday: 'long' });
+  return js.toLocaleDateString('es', { day: 'numeric', month: 'long' });
+}
+
+function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComida, onBorrarDia, onEditar, onAgregar }) {
+  const [armado, setArmado] = useState(null);   // 'dia' | id de la comida
+  const temporizador = useRef(null);
+  const armar = (k) => {
+    setArmado(k);
+    if (temporizador.current) clearTimeout(temporizador.current);
+    temporizador.current = setTimeout(() => setArmado(null), 3500);
+  };
+  useEffect(() => () => { if (temporizador.current) clearTimeout(temporizador.current); }, []);
+  useEffect(() => { setArmado(null); }, [fecha]);
+
+  const mover = (d) => {
+    const [y, m, dd] = fecha.split('-').map(Number);
+    const t = new Date(y, m - 1, dd + d);
+    const k = getLocalDate(t);
+    if (k > hoy) return;              // el futuro no tiene nada que mostrar
+    haptic(6);
+    setFecha(k);
+  };
+
+  const datos = historia[fecha] || null;
+  const comidas = detalle[fecha] || [];
+  const esHoy = fecha === hoy;
+  const pct = datos && goals?.kcal ? Math.round((datos.kcal / goals.kcal) * 100) : null;
+
+  return (
+    <div>
+      {/* Navegación entre días: el ▶ se apaga en hoy, no hay mañana que ver */}
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={() => mover(-1)} className="p-2 rounded-full active:scale-90 transition"
+          aria-label="Día anterior" style={{ background: SURFACE_2 }}>
+          <ChevronLeft size={16} style={{ color: TEXT_MUTED }} />
+        </button>
+        <div className="text-center">
+          <div className="text-[13.5px] font-bold capitalize" style={{ color: TEXT }}>
+            {esHoy ? 'Hoy' : formatDate(fecha)}
+          </div>
+          {esHoy && <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>{formatDate(fecha)}</div>}
+        </div>
+        <button onClick={() => mover(1)} disabled={esHoy}
+          className="p-2 rounded-full active:scale-90 transition" aria-label="Día siguiente"
+          style={{ background: SURFACE_2, opacity: esHoy ? 0.3 : 1 }}>
+          <ChevronRight size={16} style={{ color: TEXT_MUTED }} />
+        </button>
+      </div>
+
+      {!datos ? (
+        <div className="text-center py-10 rounded-2xl" style={{ background: SURFACE_2 }}>
+          <div className="text-[14px] font-semibold" style={{ color: TEXT_MUTED }}>Sin registro este día</div>
+          {typeof onAgregar === 'function' && (
+            <button onClick={() => onAgregar(fecha)}
+              className="mt-3 px-4 py-2 rounded-full text-[13px] font-semibold active:scale-95 transition"
+              style={{ background: ACCENT_DARK, color: '#fff' }}>
+              Agregar lo que comí
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            <Stat label="kcal" val={datos.kcal} goal={goals?.kcal} color={ACCENT} />
+            <Stat label="P" val={datos.p} goal={goals?.p} color={C_PROTEIN} unit="g" />
+            <Stat label="C" val={datos.c} goal={goals?.c} color={C_CARBS} unit="g" />
+            <Stat label="G" val={datos.g} goal={goals?.g} color={C_FAT} unit="g" />
+          </div>
+          {pct != null && (
+            <div className="text-[11px] mb-3" style={{ color: TEXT_LIGHT }}>
+              {pct}% de tu meta de calorías
+              {datos.water ? ` · 💧 ${datos.water} ml` : ''}
+            </div>
+          )}
+
+          {comidas.length > 0 ? (
+            <div className="space-y-2">
+              <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_LIGHT }}>
+                Lo que comiste
+              </div>
+              {comidas.map((e, i) => (
+                <div key={e.id ?? i} className="text-xs p-3 rounded-xl" style={{ background: SURFACE_2 }}>
+                  <div className="flex justify-between items-center mb-1.5 gap-2">
+                    <span className="uppercase text-[10px] font-semibold tracking-wider" style={{ color: ACCENT_DARK }}>
+                      {e.meal}{e.time ? ` · ${e.time}` : ''}
+                    </span>
+                    <span className="flex items-center gap-1.5 flex-shrink-0">
+                      {typeof onEditar === 'function' && e.id != null && (
+                        <button onClick={() => onEditar(fecha, e.id)} aria-label={`Editar ${e.meal}`}
+                          className="p-1.5 -m-0.5 rounded-full active:scale-90 transition">
+                          <Pencil size={13} style={{ color: TEXT_LIGHT }} />
+                        </button>
+                      )}
+                      {typeof onBorrarComida === 'function' && e.id != null && (
+                        armado === e.id ? (
+                          <button onClick={() => { setArmado(null); onBorrarComida(fecha, e.id); }}
+                            className="px-2 py-0.5 rounded-full text-[10px] font-semibold active:scale-95 transition"
+                            style={{ background: DANGER, color: '#fff' }}>¿Borrar?</button>
+                        ) : (
+                          <button onClick={() => armar(e.id)} aria-label={`Borrar ${e.meal}`}
+                            className="p-1.5 -m-0.5 rounded-full active:scale-90 transition">
+                            <Trash2 size={13} style={{ color: TEXT_LIGHT }} />
+                          </button>
+                        )
+                      )}
+                    </span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {(e.items || []).map((it, j) => (
+                      <div key={j} className="flex justify-between text-[11px] gap-2">
+                        <span style={{ color: TEXT }}>{it.name}{it.amount ? ` · ${it.amount}` : ''}</span>
+                        <span className="num flex-shrink-0" style={{ color: TEXT_LIGHT }}>{Math.round(it.kcal || 0)} kcal</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[10px] num mt-1.5 pt-1.5 border-t flex gap-3" style={{ borderColor: BORDER_SOFT }}>
+                    <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{Math.round(e.kcal ?? 0)} kcal</span>
+                    <span style={{ color: C_PROTEIN }}>P{Math.round((e.p ?? 0) * 10) / 10}</span>
+                    <span style={{ color: C_CARBS }}>C{Math.round((e.c ?? 0) * 10) / 10}</span>
+                    <span style={{ color: C_FAT }}>G{Math.round((e.g ?? 0) * 10) / 10}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[12px] p-3 rounded-xl" style={{ background: SURFACE_2, color: TEXT_MUTED }}>
+              Ese día quedaron los totales, pero no el detalle de cada comida.
+            </div>
+          )}
+
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {typeof onAgregar === 'function' && (
+              <button onClick={() => onAgregar(fecha)}
+                className="px-3.5 py-1.5 rounded-full text-[11.5px] font-semibold active:scale-95 transition"
+                style={{ background: SURFACE_2, color: TEXT }}>+ Agregar comida</button>
+            )}
+            {typeof onBorrarDia === 'function' && (
+              armado === 'dia' ? (
+                <button onClick={() => { setArmado(null); onBorrarDia(fecha); }}
+                  className="px-4 py-1.5 rounded-full text-[11px] font-semibold active:scale-95 transition"
+                  style={{ background: DANGER, color: '#fff' }}>
+                  ¿Seguro? Toca otra vez para borrar todo el día
+                </button>
+              ) : (
+                <button onClick={() => armar('dia')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium active:scale-95 transition"
+                  style={{ color: DANGER, background: `${DANGER}12` }}>
+                  <Trash2 size={12} /> Borrar todo el día
+                </button>
+              )
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
