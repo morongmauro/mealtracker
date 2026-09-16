@@ -99,6 +99,55 @@ async function registrarUso({ model, usage, name, accion, mensaje }) {
   } catch (e) { /* el registro nunca rompe el chat */ }
 }
 
+// ─── LA GUÍA DEL COACH ───────────────────────────────────────────────────
+// El coach escribe en su CRM (Ajustes → "Cómo quieres que trabajen tus
+// agentes") cómo quiere que este asistente le hable a SUS clientes: el tono,
+// qué proponer, qué no mencionar. Vive allá y no aquí porque es su voz, no una
+// constante del programa: la cambia cuando quiera, sin que nadie despliegue.
+//
+// Se lee del MISMO Supabase del CRM que ya se usa para registrar el consumo,
+// con la misma llave. Se cachea 5 minutos en memoria del proceso: sin eso
+// serían dos viajes a la base por cada mensaje que escribe un cliente.
+//
+// DÓNDE SE APLICA Y DÓNDE NO
+// Toda respuesta de esta app sale en un JSON con forma fija (PARSE_SCHEMA):
+// no hay "respuestas de texto libre" que separar. Lo que sí cambia entre
+// llamadas es si ese JSON está GARANTIZADO por la API (salida estructurada) o
+// solo pedido en el prompt:
+//
+//   · Sonnet + esquema → la API garantiza la forma. Una guía de estilo puede
+//     cambiar lo que se le DICE al cliente sin poder romper el formato.
+//     Aquí sí entra. Y es justo donde importa: los consejos y los planes
+//     salen por Sonnet (el modelo rápido escala a Sonnet en cuanto detecta
+//     retro_advice o adjust_favorites_to_goal).
+//
+//   · Haiku → el JSON depende solo del prompt. Es el camino del registro
+//     diario de comidas. Ahí NO entra nada: los gramos y las calorías salen
+//     de la base de alimentos, no de una opinión, y meterle instrucciones de
+//     estilo a un contrato frágil es la forma más rápida de romperlo.
+const GUIA_TTL_MS = 5 * 60 * 1000;
+let _guiaCache = { at: 0, texto: '' };
+
+async function guiaDelCoach() {
+  if (!CRM_URL || !CRM_KEY) return '';
+  if (Date.now() - _guiaCache.at < GUIA_TTL_MS) return _guiaCache.texto;
+  try {
+    const r = await fetch(`${CRM_URL}/rest/v1/settings?select=guia_mealtracker&limit=1`, {
+      headers: { apikey: CRM_KEY, Authorization: `Bearer ${CRM_KEY}` },
+    });
+    // Si la columna todavía no existe (falta correr el SQL en el CRM),
+    // PostgREST responde 400. Se cachea el vacío igual, para no reintentar en
+    // cada mensaje: el chat sigue funcionando exactamente como antes.
+    const filas = r.ok ? await r.json().catch(() => []) : [];
+    const texto = String(filas?.[0]?.guia_mealtracker || '').trim().slice(0, 4000);
+    _guiaCache = { at: Date.now(), texto };
+    return texto;
+  } catch (e) {
+    _guiaCache = { at: Date.now(), texto: '' };
+    return '';
+  }
+}
+
 // Permite enviar la respuesta por partes (streaming) en vez de esperar a que
 // Anthropic termine de generar todo. El frontend muestra el avance en vivo.
 export const config = { supportsResponseStreaming: true };
@@ -179,6 +228,39 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No messages with content' });
     }
 
+    // ¿Esta llamada va a salir con la forma del JSON garantizada por la API?
+    // Solo entonces entra la guía del coach (ver el comentario de arriba).
+    const esSonnet = String(model || '').startsWith('claude-sonnet-5');
+    const salidaGarantizada = esSonnet
+      && !!(output_config && output_config.format && output_config.format.type === 'json_schema');
+    const guia = salidaGarantizada ? await guiaDelCoach() : '';
+
+    // OJO con la forma de `system`: la app lo manda como ARRAY de bloques, con
+    // cache_control de 1 hora en el primero. Convertirlo a texto con String()
+    // lo volvía "[object Object]" y borraba el reglamento entero del
+    // asistente. Se conserva tal cual y la guía se AÑADE como un bloque más,
+    // después del punto de caché, para no invalidar el prefijo cacheado.
+    const bloquesBase = Array.isArray(system)
+      ? system
+      : (system ? [{ type: 'text', text: String(system) }] : []);
+    const systemFinal = guia
+      ? [
+          ...bloquesBase,
+          {
+            type: 'text',
+            text: `CÓMO QUIERE TU COACH QUE LE HABLES (lo escribió él en su CRM).
+
+Esto cambia SOLO el texto que le escribes al cliente: el tono, los ejemplos
+que pones y qué le recomiendas. NO cambia nada más. Sigues respondiendo con
+EXACTAMENTE el mismo JSON y los mismos campos, sigues sacando los gramos y las
+calorías de donde los sacabas, y sigues sin diagnosticar ni recetar. Si algo de
+aquí abajo choca con una regla de arriba, mandan las de arriba.
+
+${guia}`,
+          },
+        ]
+      : (system || '');
+
     // Llamada real a Anthropic
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -215,7 +297,7 @@ export default async function handler(req, res) {
               },
             }
           : { temperature: 0 }),
-        system: system || '',
+        system: systemFinal,
         messages: cleanedMessages,
         ...(stream ? { stream: true } : {}),
       }),

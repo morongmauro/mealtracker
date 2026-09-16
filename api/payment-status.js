@@ -77,6 +77,112 @@ function mesesHasta(anio, mesNum, cuantos) {
   return out;
 }
 
+// ─── EL NÚCLEO ───────────────────────────────────────────────────────────
+// La regla vive UNA sola vez. La consulta del cliente y el listado que ve el
+// coach en su CRM llaman a esto mismo: si algún día se afinara la regla en un
+// lado y no en el otro, el coach vería una cosa y su cliente otra — que es
+// exactamente el problema que este tablero existe para evitar.
+
+// Lee de una vez lo que sirve para todos: la tabla de clientes y la fecha.
+async function leerContexto(headers) {
+  const rc = await fetch(
+    `${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago,monto,moneda,fecha_inicio,aviso_pago_visto_at`,
+    { headers }
+  );
+  if (!rc.ok) {
+    // Si `aviso_pago_visto_at` todavía no existe (falta el SQL), PostgREST
+    // responde 400. Se reintenta sin esa columna: el aviso al cliente no puede
+    // depender de una mejora del tablero del coach.
+    const r2 = await fetch(
+      `${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago,monto,moneda,fecha_inicio`,
+      { headers }
+    );
+    if (!r2.ok) return { error: `no pude leer la tabla clientes del CRM (HTTP ${rc.status})`, clientes: [] };
+    const cs = await r2.json();
+    const t = todayInBogota();
+    return { clientes: Array.isArray(cs) ? cs : [], ...t, hoyYmd: t.ymd, sinColumnaVisto: true };
+  }
+  const cs = await rc.json();
+  const t = todayInBogota();
+  return { clientes: Array.isArray(cs) ? cs : [], ...t, hoyYmd: t.ymd };
+}
+
+// El veredicto de UN cliente, con su traza mes a mes.
+async function evaluarCliente(nombre, ctx, headers) {
+  const n = normalizeName(nombre);
+  const cliente = ctx.clientes.find(c => normalizeName(c.nombre) === n);
+  if (!cliente) return { due: false, motivo: 'no está en el CRM con ese nombre' };
+
+  const estado = String(cliente.estado || 'activo').toLowerCase();
+  const diaPago = Number(cliente.dia_pago);
+  const visto = cliente.aviso_pago_visto_at || null;
+  if (estado !== 'activo') return { due: false, motivo: `está en estado "${estado}", no "activo"`, visto };
+  if (!Number.isFinite(diaPago) || diaPago < 1 || diaPago > 31) {
+    return { due: false, motivo: 'no tiene "día de pago" (fecha de corte) en su ficha del CRM — es el motivo más común', visto };
+  }
+
+  const ventana = mesesHasta(ctx.anio, ctx.mesNum, 12);
+  const vencidos = ventana
+    .map(m => ({ ...m, corte: fechaCorte(m.anio, m.mesNum, diaPago) }))
+    .filter(m => m.corte < ctx.hoyYmd);
+  if (!vencidos.length) {
+    return { due: false, dia_corte: diaPago, visto, motivo: `todavía no hay ningún mes con la fecha de corte cumplida (corte el ${diaPago}; el aviso empieza al día SIGUIENTE)` };
+  }
+
+  const desde = vencidos[0].mes;
+  const rp = await fetch(
+    `${CRM_URL}/rest/v1/pagos?select=mes,pagado,monto&cliente_id=eq.${cliente.id}&mes=gte.${desde}&mes=lte.${ctx.mes}`,
+    { headers }
+  );
+  const pagos = rp.ok ? await rp.json() : [];
+  const porMes = new Map();
+  if (Array.isArray(pagos)) for (const p of pagos) {
+    if (!porMes.has(p.mes)) porMes.set(p.mes, []);
+    porMes.get(p.mes).push(p);
+  }
+
+  const inicioYmd = String(cliente.fecha_inicio || '').slice(0, 10);
+  const montoMensual = (cliente.monto != null && Number(cliente.monto) > 0) ? Number(cliente.monto) : 0;
+  const deuda = [];
+  const detalle = [];
+  for (const m of vencidos) {
+    const filas = porMes.get(m.mes) || [];
+    if (filas.length) {
+      const anyPaid = filas.some(p => p.pagado === true);
+      const maxMonto = Math.max(0, ...filas.map(p => Number(p.monto) || 0));
+      if (anyPaid) { detalle.push({ mes: m.mes, cuenta: false, motivo: 'marcado como PAGADO en la tabla pagos' }); continue; }
+      if (maxMonto === 0) { detalle.push({ mes: m.mes, cuenta: false, motivo: 'registro(s) en $0 → se interpreta como mes de cortesía' }); continue; }
+      deuda.push({ mes: m.mes, corte: m.corte, monto: maxMonto });
+      detalle.push({ mes: m.mes, cuenta: true, monto: maxMonto, motivo: 'registro PENDIENTE en la tabla pagos (existe la fila pero sin marcar pagado)' });
+    } else if (inicioYmd && m.corte < inicioYmd) {
+      detalle.push({ mes: m.mes, cuenta: false, motivo: `sin registro y el corte (${m.corte}) es anterior a su fecha de inicio (${inicioYmd})` });
+    } else {
+      deuda.push({ mes: m.mes, corte: m.corte, monto: montoMensual });
+      detalle.push({ mes: m.mes, cuenta: true, monto: montoMensual, motivo: 'NO hay ninguna fila de ese mes en la tabla pagos → se cobra el monto de su ficha' });
+    }
+  }
+
+  const base = {
+    dia_corte: diaPago, visto, detalle,
+    meses_evaluados: vencidos.map(v => v.mes),
+    moneda: cliente.moneda || 'COP',
+  };
+  if (!deuda.length) {
+    return { ...base, due: false, motivo: `todos los meses vencidos (${vencidos.map(v => v.mes).join(', ')}) figuran cubiertos en la tabla pagos` };
+  }
+  const montoTotal = deuda.reduce((s, d) => s + (Number(d.monto) || 0), 0);
+  return {
+    ...base,
+    due: true,
+    dias_vencido: diasEntre(deuda[0].corte, ctx.hoyYmd),
+    meses_deuda: deuda.length,
+    meses: deuda.map(d => d.mes),
+    monto: montoMensual || null,
+    monto_total: montoTotal > 0 ? montoTotal : null,
+    motivo: `debe ${deuda.length} mes(es): ${deuda.map(d => d.mes).join(', ')}`,
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'method not allowed' });
@@ -126,127 +232,82 @@ export default async function handler(req, res) {
     }
   }
 
+  const headers = { 'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}` };
+
+  // ── "LO VIO" ─────────────────────────────────────────────────────────
+  // La app avisa cuando el banner de pago se le PINTÓ en pantalla al cliente.
+  // Se guarda la hora en clientes.aviso_pago_visto_at del CRM, para que el
+  // coach pueda ver en su tablero si el recordatorio llegó a los ojos del
+  // cliente o si está reclamando algo que nunca vio.
+  //
+  // Solo marca la hora: ni un dato más. Y si la columna todavía no existe
+  // (falta correr el SQL), no pasa nada — la app nunca se entera.
+  if (req.method === 'POST' && req.body?.visto === true) {
+    const n = normalizeName(req.body?.name);
+    if (!n) return res.status(200).json({ ok: false });
+    try {
+      const rc = await fetch(`${CRM_URL}/rest/v1/clientes?select=id,nombre`, { headers });
+      const cs = rc.ok ? await rc.json() : [];
+      const c = Array.isArray(cs) ? cs.find(x => normalizeName(x.nombre) === n) : null;
+      if (c) {
+        await fetch(`${CRM_URL}/rest/v1/clientes?id=eq.${c.id}`, {
+          method: 'PATCH',
+          headers: { ...headers, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ aviso_pago_visto_at: new Date().toISOString() }),
+        });
+      }
+    } catch (e) { /* nunca rompe la app del cliente */ }
+    return res.status(200).json({ ok: true });
+  }
+
+  // ── MODO LOTE (para el CRM) ──────────────────────────────────────────
+  // El coach necesita ver de un vistazo a QUIÉN le está apareciendo el aviso.
+  // Preguntar cliente por cliente serían 30 viajes; con `names` va uno solo.
+  // Corre EXACTAMENTE el mismo cálculo que ve el cliente — no una copia de la
+  // regla en el CRM, que tarde o temprano se despegaría de esta.
+  if (req.method === 'POST' && Array.isArray(req.body?.names)) {
+    const nombres = req.body.names.slice(0, 200).map(x => String(x || ''));
+    const salida = {};
+    try {
+      const ctx = await leerContexto(headers);
+      for (const nom of nombres) salida[nom] = await evaluarCliente(nom, ctx, headers);
+    } catch (e) {
+      return res.status(200).json({ error: 'no pude leer el CRM', clientes: {} });
+    }
+    return res.status(200).json({ clientes: salida });
+  }
+
   const rawName = req.method === 'POST' ? req.body?.name : req.query.name;
   const normalized = normalizeName(rawName);
   if (!normalized) return out({ due: false }, 'nombre vacío en la petición');
 
-  const headers = { 'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}` };
-
   try {
-    // 1) Buscar al cliente en el CRM por nombre normalizado.
-    const rc = await fetch(
-      `${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago,monto,moneda,fecha_inicio`,
-      { headers }
-    );
-    if (!rc.ok) return out({ due: false }, `no pude leer la tabla clientes del CRM (HTTP ${rc.status})`);
-    const clientes = await rc.json();
-    if (!Array.isArray(clientes)) return out({ due: false }, 'respuesta inesperada de clientes');
-    const cliente = clientes.find(c => normalizeName(c.nombre) === normalized);
+    const ctx = await leerContexto(headers);
+    if (ctx.error) return out({ due: false }, ctx.error);
+    const cliente = ctx.clientes.find(c => normalizeName(c.nombre) === normalized);
     if (!cliente) return out({ due: false }, `ningún cliente del CRM coincide con el nombre "${rawName}" (revisa que el nombre en la app sea igual al del CRM)`);
 
-    // Solo clientes activos con día de pago válido reciben recordatorio.
-    const estado = String(cliente.estado || 'activo').toLowerCase();
-    const diaPago = Number(cliente.dia_pago);
-    if (estado !== 'activo') {
-      return out({ due: false }, `el cliente está en estado "${estado}", no "activo"`);
-    }
-    if (!Number.isFinite(diaPago) || diaPago < 1 || diaPago > 31) {
-      return out({ due: false }, `el cliente NO tiene "día de pago" (fecha de corte) configurado en el CRM — este es el motivo más común. Ábrele la ficha en el CRM y ponle su día de corte.`);
-    }
+    const v = await evaluarCliente(cliente.nombre, ctx, headers);
+    if (!v.due) return out({ due: false, dia_corte: v.dia_corte, detalle: v.detalle }, v.motivo);
 
-    // 2) Ventana de meses a revisar: los últimos 12 hasta el actual, recortados
-    //    al mes de inicio del cliente (nunca se le cobra un mes anterior a su
-    //    fecha_inicio). Antes solo se miraba el mes en curso — por eso un
-    //    cliente con meses vencidos no veía nada si hoy aún no llegaba a su
-    //    día de corte.
-    const { mes: mesActual, ymd: hoyYmd, anio, mesNum } = todayInBogota();
-    const inicioYmd = String(cliente.fecha_inicio || '').slice(0, 10); // 'YYYY-MM-DD' o ''
-    // La ventana NO se recorta por fecha_inicio: si el coach registró un mes
-    // como pendiente en el CRM, ese registro manda aunque sea anterior a la
-    // fecha de inicio de la ficha (pasa cuando el cliente venía de antes y se
-    // cargó al CRM después). fecha_inicio solo protege los meses SIN registro,
-    // para no inventarle deuda de cuando todavía no era cliente.
-    const ventana = mesesHasta(anio, mesNum, 12);
-
-    // Meses cuya fecha de corte YA pasó (el aviso empieza al día SIGUIENTE del
-    // corte: en el día mismo todavía no se molesta).
-    const vencidos = ventana
-      .map(m => ({ ...m, corte: fechaCorte(m.anio, m.mesNum, diaPago) }))
-      .filter(m => m.corte < hoyYmd);
-
-    if (!vencidos.length) {
-      return out({ due: false, dia_corte: diaPago }, `todavía no hay ningún mes con la fecha de corte cumplida (corte el ${diaPago}; el aviso empieza al día SIGUIENTE)`);
-    }
-
-    // 3) Pagos registrados en esa ventana, en UNA sola consulta.
-    const desde = vencidos[0].mes;
-    const rp = await fetch(
-      `${CRM_URL}/rest/v1/pagos?select=mes,pagado,monto&cliente_id=eq.${cliente.id}&mes=gte.${desde}&mes=lte.${mesActual}`,
-      { headers }
-    );
-    const pagos = rp.ok ? await rp.json() : [];
-    const porMes = new Map();
-    if (Array.isArray(pagos)) {
-      for (const p of pagos) {
-        if (!porMes.has(p.mes)) porMes.set(p.mes, []);
-        porMes.get(p.mes).push(p);
-      }
-    }
-
-    // Cubierto SOLO si: hay un pago marcado como pagado, O el mes ENTERO es sin
-    // cobro (TODOS los registros en 0 → cortesía/premio). Que UN registro esté
-    // en 0 no basta: un placeholder en $0 junto al cobro real dejaba sin aviso
-    // a un cliente en deuda.
-    const montoMensual = (cliente.monto != null && Number(cliente.monto) > 0) ? Number(cliente.monto) : 0;
-    const deuda = [];
-    // Traza mes a mes para el modo ?debug=1: qué se contó, qué se descartó y
-    // por qué. Sin esto, un total que no cuadra obliga a adivinar.
-    const detalle = [];
-    for (const m of vencidos) {
-      const filas = porMes.get(m.mes) || [];
-      if (filas.length) {
-        const anyPaid = filas.some(p => p.pagado === true);
-        const maxMonto = Math.max(0, ...filas.map(p => Number(p.monto) || 0));
-        if (anyPaid) { detalle.push({ mes: m.mes, cuenta: false, motivo: 'marcado como PAGADO en la tabla pagos' }); continue; }
-        if (maxMonto === 0) { detalle.push({ mes: m.mes, cuenta: false, motivo: 'registro(s) en $0 → se interpreta como mes de cortesía' }); continue; }
-        deuda.push({ mes: m.mes, corte: m.corte, monto: maxMonto });
-        detalle.push({ mes: m.mes, cuenta: true, monto: maxMonto, motivo: 'registro pendiente en la tabla pagos' });
-      } else if (inicioYmd && m.corte < inicioYmd) {
-        // Sin registro Y con el corte anterior a su fecha de inicio: no era
-        // cliente todavía, no se le inventa deuda.
-        detalle.push({ mes: m.mes, cuenta: false, motivo: `sin registro y el corte (${m.corte}) es anterior a su fecha de inicio (${inicioYmd})` });
-      } else {
-        // Sin registro en `pagos` = el coach no ha marcado nada para ese mes.
-        deuda.push({ mes: m.mes, corte: m.corte, monto: montoMensual });
-        detalle.push({ mes: m.mes, cuenta: true, monto: montoMensual, motivo: 'sin registro en pagos → se cobra el monto de su ficha' });
-      }
-    }
-
-    if (!deuda.length) {
-      return out({ due: false, dia_corte: diaPago, detalle }, `todos los meses vencidos (${vencidos.map(v => v.mes).join(', ')}) figuran CUBIERTOS en la tabla pagos. Si crees que debe, revisa si hay un pago marcado por error.`);
-    }
-
-    // Debe. Los días de vencimiento se cuentan desde el corte MÁS ANTIGUO sin
-    // pagar, y el total suma todos los meses pendientes.
-    const montoTotal = deuda.reduce((s, d) => s + (Number(d.monto) || 0), 0);
     const payload = {
       due: true,
-      dia_corte: diaPago,
-      dias_vencido: diasEntre(deuda[0].corte, hoyYmd),
-      meses_deuda: deuda.length,
-      meses: deuda.map(d => d.mes),
-      monto: montoMensual || null,                    // mensualidad
-      monto_total: montoTotal > 0 ? montoTotal : null, // deuda acumulada
-      moneda: cliente.moneda || 'COP',
+      dia_corte: v.dia_corte,
+      dias_vencido: v.dias_vencido,
+      meses_deuda: v.meses_deuda,
+      meses: v.meses,
+      monto: v.monto,
+      monto_total: v.monto_total,
+      moneda: v.moneda,
     };
     if (debug) {
       payload.debug = {
         crm_host: crmHost,
-        cliente: { nombre: cliente.nombre, monto_ficha: cliente.monto, dia_pago: diaPago, fecha_inicio: cliente.fecha_inicio || null },
-        hoy: hoyYmd,
-        meses_evaluados: vencidos.map(v => v.mes),
-        detalle,
-        suma: montoTotal,
+        cliente: { nombre: cliente.nombre, monto_ficha: cliente.monto, dia_pago: v.dia_corte, fecha_inicio: cliente.fecha_inicio || null },
+        hoy: ctx.hoyYmd,
+        meses_evaluados: v.meses_evaluados,
+        detalle: v.detalle,
+        suma: v.monto_total,
       };
     }
     return res.status(200).json(payload);

@@ -2241,11 +2241,25 @@ export default function MealTracker() {
         if (!r.ok) return;
         const d = await r.json();
         if (cancelled) return;
+        // Si le vamos a mostrar el aviso, se le avisa al CRM. Así el coach
+        // sabe si el recordatorio llegó a los ojos del cliente — o si está
+        // reclamando por algo que nunca vio. Solo se manda la hora; si falla,
+        // el cliente ni se entera.
+        if (d && d.due) {
+          fetch('/api/payment-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, visto: true }),
+          }).catch(() => {});
+        }
         setPaymentDue(d && d.due ? {
           dia_corte: d.dia_corte, dias_vencido: d.dias_vencido || 0, monto: d.monto, moneda: d.moneda,
           // Deuda TOTAL cuando arrastra varios meses (el aviso debe decir la
           // suma completa, no solo la mensualidad del último mes).
           meses_deuda: d.meses_deuda || 1, monto_total: d.monto_total || null,
+          // De QUÉ meses habla el aviso. Sin esto el texto tenía que adivinar
+          // el mes y se inventaba fechas que no existen (ver PaymentNotice).
+          meses: Array.isArray(d.meses) ? d.meses : [],
         } : null);
       } catch (e) { /* sin red: no mostramos recordatorio */ }
     };
@@ -6605,6 +6619,30 @@ function RingGauge({ size = 78, stroke = 6, pct = 0, color = ACCENT, track = 'rg
 // bordes sólidos, glass con tinte miel (o terracota suave si lleva meses),
 // la SUMA de la deuda destacada y una línea que informa sin regañar. Nunca
 // bloquea la app ni cambia a rojo de alarma.
+// El texto del corte, dicho con el mes de verdad.
+//
+// Antes esto era: "Tu fecha de corte fue el {dia_corte} de {mes de HOY}". Dos
+// errores en una línea. Uno: el mes que se debe casi nunca es el de hoy — a un
+// cliente con corte el 31 se le debe AGOSTO y el texto le decía septiembre.
+// Dos: pegar el día del corte con el mes actual fabrica fechas que no existen;
+// un cliente vio literalmente "el 31 de septiembre".
+//
+// Ahora el mes sale de `meses[0]` (el que el servidor marcó como vencido) y el
+// día se recorta al último día de ESE mes, que es justo lo que el servidor
+// cobra: quien paga el 31 y el mes tiene 30, su corte fue el 30.
+function textoCorte(info) {
+  const mes = Array.isArray(info.meses) && info.meses[0] ? info.meses[0] : null;
+  if (!mes || !info.dia_corte) return 'Tienes una mensualidad pendiente.';
+  const [anio, m] = mes.split('-').map(Number);
+  if (!anio || !m) return 'Tienes una mensualidad pendiente.';
+  const ultimoDia = new Date(Date.UTC(anio, m, 0)).getUTCDate();
+  const dia = Math.min(Number(info.dia_corte), ultimoDia);
+  const nombreMes = new Date(Date.UTC(anio, m - 1, 1))
+    .toLocaleDateString('es', { month: 'long', timeZone: 'UTC' });
+  const esteAnio = new Date().getFullYear() === anio;
+  return `Tu fecha de corte fue el ${dia} de ${nombreMes}${esteAnio ? '' : ` de ${anio}`}.`;
+}
+
 function PaymentNotice({ info, style }) {
   if (!info) return null;
   const meses = info.meses_deuda || 1;
@@ -6638,7 +6676,7 @@ function PaymentNotice({ info, style }) {
       <div className="text-[11.5px]" style={{ color: TEXT_MUTED, lineHeight: 1.45, marginTop: total ? '3px' : 0 }}>
         {meses > 1
           ? <>Es el total acumulado de tu programa. Cuando lo pongas al día, este aviso desaparece solo.</>
-          : <>Tu fecha de corte fue el {info.dia_corte} de {new Date().toLocaleDateString('es', { month: 'long' })}. Al registrar el pago, este aviso desaparece solo.</>}
+          : <>{textoCorte(info)} Al registrar el pago, este aviso desaparece solo.</>}
       </div>
     </div>
   );
