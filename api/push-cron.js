@@ -43,6 +43,8 @@
 import webpush from 'web-push';
 import { verifyCoachToken } from './coach-auth.js';
 import { checkOrigin } from './_guard.js';
+// La regla de cobro, compartida con el banner de la app. Ver _pagos.js.
+import { leerContexto, evaluarCliente, normalizeName as normPagos, crmHeaders } from './_pagos.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -108,29 +110,29 @@ function localNow(tz) {
 }
 
 // Devuelve la LISTA de clientes EN DEUDA hoy con su nombre real y días de
-// vencimiento (misma regla que el banner de payment-status). Compartida por
-// el cron, la prueba y el envío masivo para que no se desincronicen.
+// vencimiento.
+//
+// La regla NO vive aquí: vive en _pagos.js, la misma que usa el banner dentro
+// de la app. Estaba duplicada, y las copias se separaron — el banner se
+// arregló y esto siguió con la versión vieja, que trataba un mes SIN cobro
+// registrado como deuda. Resultado: una notificación push DIARIA a las 5:30pm
+// a clientes que no debían nada, por meses en los que ni tuvieron coaching.
+// Un criterio que le reclama plata a una persona no puede estar escrito en dos
+// archivos.
 //   → [{ id, nombre, nombreNorm, dia_pago, dias_vencido }]
 async function fetchDeudores() {
   if (!CRM_URL || !CRM_KEY) return [];
-  const rc = await fetch(`${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago`, { headers: sbHeaders(CRM_KEY) });
-  const clientes = rc.ok ? await rc.json() : [];
-  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
-  const mes = ymd.slice(0, 7);
-  const diaHoy = Number(ymd.slice(8));
-  const candidatos = (clientes || []).filter(c =>
-    String(c.estado || 'activo').toLowerCase() === 'activo' &&
-    Number.isFinite(Number(c.dia_pago)) && Number(c.dia_pago) >= 1 && Number(c.dia_pago) <= 31 &&
-    diaHoy > Number(c.dia_pago)
-  );
+  const ctx = await leerContexto(crmHeaders());
+  if (ctx.error) return [];
   const lista = [];
-  for (const c of candidatos) {
-    const rp = await fetch(`${CRM_URL}/rest/v1/pagos?select=pagado,monto&cliente_id=eq.${c.id}&mes=eq.${mes}`, { headers: sbHeaders(CRM_KEY) });
-    const pagos = rp.ok ? await rp.json() : [];
-    const cubierto = Array.isArray(pagos) && pagos.length > 0 &&
-      (pagos.some(p => p.pagado === true) ||
-       Math.max(0, ...pagos.map(p => Number(p.monto) || 0)) === 0);
-    if (!cubierto) lista.push({ id: c.id, nombre: c.nombre, nombreNorm: normalizeName(c.nombre), dia_pago: Number(c.dia_pago), dias_vencido: diaHoy - Number(c.dia_pago) });
+  for (const c of ctx.clientes) {
+    if (String(c.estado || 'activo').toLowerCase() !== 'activo') continue;
+    const v = await evaluarCliente(c.nombre, ctx, crmHeaders());
+    if (!v.due) continue;
+    lista.push({
+      id: c.id, nombre: c.nombre, nombreNorm: normPagos(c.nombre),
+      dia_pago: v.dia_corte, dias_vencido: v.dias_vencido,
+    });
   }
   return lista;
 }

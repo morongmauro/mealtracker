@@ -28,162 +28,36 @@
 //   → { due: bool, dia_corte?, dias_vencido?, meses_deuda?, monto?,
 //       monto_total?, moneda?, meses? }
 
-import { guard } from './_guard.js';
+import { guard, checkOrigin } from './_guard.js';
+// La regla de cobro vive en _pagos.js, compartida con push-cron.js: el banner
+// de la app y el recordatorio push tienen que decirle LO MISMO al cliente.
+import { normalizeName, leerContexto, evaluarCliente } from './_pagos.js';
 
 const CRM_URL = (process.env.CRM_SUPABASE_URL || '').replace(/\/+$/, ''); // sin barra final: '...supabase.co/' rompia la URL (doble // -> 404)
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
 
-// Igual que en authorize.js: ignora mayúsculas, tildes y espacios de más.
-const normalizeName = (str) => String(str || '')
-  .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .replace(/\s+/g, ' ').trim();
-
-// Fecha de HOY en hora de Colombia. Los servidores de Vercel corren en UTC
-// (5 horas adelante de Bogotá): sin esto, desde las ~7pm hora local el server
-// ya cree que es "mañana" y el recordatorio aparecería la noche del MISMO día
-// de corte (debe empezar al día siguiente), y el cambio de mes se adelantaría
-// 5 horas. en-CA da el formato YYYY-MM-DD directo; Colombia no tiene horario
-// de verano, así que la zona es estable todo el año.
-function todayInBogota() {
-  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' })
-    .format(new Date()); // "YYYY-MM-DD"
-  const [y, m, d] = ymd.split('-');
-  return { mes: `${y}-${m}`, dia: Number(d), ymd, anio: Number(y), mesNum: Number(m) };
-}
-
-// Fecha de corte REAL de un mes: si el cliente paga el 31 y el mes tiene 30
-// días, el corte es el último día de ese mes (nunca una fecha inexistente).
-function fechaCorte(anio, mesNum, diaPago) {
-  const ultimoDia = new Date(Date.UTC(anio, mesNum, 0)).getUTCDate();
-  const dia = Math.min(diaPago, ultimoDia);
-  return `${anio}-${String(mesNum).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-}
-
-// Días transcurridos entre dos fechas 'YYYY-MM-DD' (ambas a mediodía UTC para
-// que ningún horario de verano ajeno mueva el resultado).
-function diasEntre(desdeYmd, hastaYmd) {
-  const a = Date.parse(`${desdeYmd}T12:00:00Z`);
-  const b = Date.parse(`${hastaYmd}T12:00:00Z`);
-  return Math.round((b - a) / 86400000);
-}
-
-// Los N meses (YYYY-MM) hasta el actual, del más viejo al más nuevo.
-function mesesHasta(anio, mesNum, cuantos) {
-  const out = [];
-  for (let i = cuantos - 1; i >= 0; i--) {
-    const d = new Date(Date.UTC(anio, mesNum - 1 - i, 1));
-    out.push({ mes: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`, anio: d.getUTCFullYear(), mesNum: d.getUTCMonth() + 1 });
-  }
-  return out;
-}
-
-// ─── EL NÚCLEO ───────────────────────────────────────────────────────────
-// La regla vive UNA sola vez. La consulta del cliente y el listado que ve el
-// coach en su CRM llaman a esto mismo: si algún día se afinara la regla en un
-// lado y no en el otro, el coach vería una cosa y su cliente otra — que es
-// exactamente el problema que este tablero existe para evitar.
-
-// Lee de una vez lo que sirve para todos: la tabla de clientes y la fecha.
-async function leerContexto(headers) {
-  const rc = await fetch(
-    `${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago,monto,moneda,fecha_inicio,aviso_pago_visto_at`,
-    { headers }
-  );
-  if (!rc.ok) {
-    // Si `aviso_pago_visto_at` todavía no existe (falta el SQL), PostgREST
-    // responde 400. Se reintenta sin esa columna: el aviso al cliente no puede
-    // depender de una mejora del tablero del coach.
-    const r2 = await fetch(
-      `${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago,monto,moneda,fecha_inicio`,
-      { headers }
-    );
-    if (!r2.ok) return { error: `no pude leer la tabla clientes del CRM (HTTP ${rc.status})`, clientes: [] };
-    const cs = await r2.json();
-    const t = todayInBogota();
-    return { clientes: Array.isArray(cs) ? cs : [], ...t, hoyYmd: t.ymd, sinColumnaVisto: true };
-  }
-  const cs = await rc.json();
-  const t = todayInBogota();
-  return { clientes: Array.isArray(cs) ? cs : [], ...t, hoyYmd: t.ymd };
-}
-
-// El veredicto de UN cliente, con su traza mes a mes.
-async function evaluarCliente(nombre, ctx, headers) {
-  const n = normalizeName(nombre);
-  const cliente = ctx.clientes.find(c => normalizeName(c.nombre) === n);
-  if (!cliente) return { due: false, motivo: 'no está en el CRM con ese nombre' };
-
-  const estado = String(cliente.estado || 'activo').toLowerCase();
-  const diaPago = Number(cliente.dia_pago);
-  const visto = cliente.aviso_pago_visto_at || null;
-  if (estado !== 'activo') return { due: false, motivo: `está en estado "${estado}", no "activo"`, visto };
-  if (!Number.isFinite(diaPago) || diaPago < 1 || diaPago > 31) {
-    return { due: false, motivo: 'no tiene "día de pago" (fecha de corte) en su ficha del CRM — es el motivo más común', visto };
-  }
-
-  const ventana = mesesHasta(ctx.anio, ctx.mesNum, 12);
-  const vencidos = ventana
-    .map(m => ({ ...m, corte: fechaCorte(m.anio, m.mesNum, diaPago) }))
-    .filter(m => m.corte < ctx.hoyYmd);
-  if (!vencidos.length) {
-    return { due: false, dia_corte: diaPago, visto, motivo: `todavía no hay ningún mes con la fecha de corte cumplida (corte el ${diaPago}; el aviso empieza al día SIGUIENTE)` };
-  }
-
-  const desde = vencidos[0].mes;
-  const rp = await fetch(
-    `${CRM_URL}/rest/v1/pagos?select=mes,pagado,monto&cliente_id=eq.${cliente.id}&mes=gte.${desde}&mes=lte.${ctx.mes}`,
-    { headers }
-  );
-  const pagos = rp.ok ? await rp.json() : [];
-  const porMes = new Map();
-  if (Array.isArray(pagos)) for (const p of pagos) {
-    if (!porMes.has(p.mes)) porMes.set(p.mes, []);
-    porMes.get(p.mes).push(p);
-  }
-
-  const inicioYmd = String(cliente.fecha_inicio || '').slice(0, 10);
-  const montoMensual = (cliente.monto != null && Number(cliente.monto) > 0) ? Number(cliente.monto) : 0;
-  const deuda = [];
-  const detalle = [];
-  for (const m of vencidos) {
-    const filas = porMes.get(m.mes) || [];
-    if (filas.length) {
-      const anyPaid = filas.some(p => p.pagado === true);
-      const maxMonto = Math.max(0, ...filas.map(p => Number(p.monto) || 0));
-      if (anyPaid) { detalle.push({ mes: m.mes, cuenta: false, motivo: 'marcado como PAGADO en la tabla pagos' }); continue; }
-      if (maxMonto === 0) { detalle.push({ mes: m.mes, cuenta: false, motivo: 'registro(s) en $0 → se interpreta como mes de cortesía' }); continue; }
-      deuda.push({ mes: m.mes, corte: m.corte, monto: maxMonto });
-      detalle.push({ mes: m.mes, cuenta: true, monto: maxMonto, motivo: 'registro PENDIENTE en la tabla pagos (existe la fila pero sin marcar pagado)' });
-    } else if (inicioYmd && m.corte < inicioYmd) {
-      detalle.push({ mes: m.mes, cuenta: false, motivo: `sin registro y el corte (${m.corte}) es anterior a su fecha de inicio (${inicioYmd})` });
-    } else {
-      deuda.push({ mes: m.mes, corte: m.corte, monto: montoMensual });
-      detalle.push({ mes: m.mes, cuenta: true, monto: montoMensual, motivo: 'NO hay ninguna fila de ese mes en la tabla pagos → se cobra el monto de su ficha' });
-    }
-  }
-
-  const base = {
-    dia_corte: diaPago, visto, detalle,
-    meses_evaluados: vencidos.map(v => v.mes),
-    moneda: cliente.moneda || 'COP',
-  };
-  if (!deuda.length) {
-    return { ...base, due: false, motivo: `todos los meses vencidos (${vencidos.map(v => v.mes).join(', ')}) figuran cubiertos en la tabla pagos` };
-  }
-  const montoTotal = deuda.reduce((s, d) => s + (Number(d.monto) || 0), 0);
-  return {
-    ...base,
-    due: true,
-    dias_vencido: diasEntre(deuda[0].corte, ctx.hoyYmd),
-    meses_deuda: deuda.length,
-    meses: deuda.map(d => d.mes),
-    monto: montoMensual || null,
-    monto_total: montoTotal > 0 ? montoTotal : null,
-    motivo: `debe ${deuda.length} mes(es): ${deuda.map(d => d.mes).join(', ')}`,
-  };
+// CORS. Hasta ahora este endpoint solo lo llamaba la app del cliente, que vive
+// en el MISMO dominio, así que no hacía falta. Ahora también lo llama el CRM
+// —otro dominio— para la columna "En su app" de la tabla de pagos, y sin estas
+// cabeceras el navegador ni siquiera llega a preguntar: manda un OPTIONS de
+// permiso, este archivo respondía 405, y el CRM solo veía "Failed to fetch".
+//
+// El Origin se refleja SOLO si checkOrigin lo aprueba (el dominio propio, más
+// lo que haya en ALLOWED_ORIGINS de Vercel). Mismo patrón que coach-auth.js y
+// coach-data.js, que es como el CRM ya lee los datos de la app.
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (!origin || !checkOrigin(req)) return;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
 }
 
 export default async function handler(req, res) {
+  applyCors(req, res);
+  if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'method not allowed' });
   }
