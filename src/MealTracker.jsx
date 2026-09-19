@@ -6,7 +6,7 @@ import {
   GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale, CalendarCheck, LayoutGrid, Bell,
   Home, MessageCircle, Dumbbell
 } from 'lucide-react';
-import { canonicalizeItem } from './foods.js';
+import { canonicalizeItem, azucarAnadidaDeItem } from './foods.js';
 
 // Chunk aparte: el Recetario (~30KB de recetas + UI) solo se descarga la
 // primera vez que el cliente lo abre, no en el arranque de la app.
@@ -3264,6 +3264,7 @@ ${dateTable}${pastDaysBlock}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}
         if (!Number.isFinite(v) || v < 0) return 0;
         return Math.min(v, max);
       };
+      const azucarDeterminista = azucarAnadidaDeItem(it);
       return {
         ...it,
         kcal: Math.round(safe(kcal, 5000)),
@@ -3276,7 +3277,14 @@ ${dateTable}${pastDaysBlock}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}
         // por palabra clave.
         ...(it.fiber != null ? { fiber: round1(safe(it.fiber, 150)) } : {}),
         ...(it.omega3 != null ? { omega3: round1(safe(it.omega3, 50)) } : {}),
-        ...(it.sugar != null ? { sugar: round1(safe(it.sugar, 500)) } : {}),
+        // El azúcar AÑADIDA no se guarda tal cual viene del modelo: pasa por
+        // la capa determinística de foods.js. Si el alimento es comida
+        // entera (fruta, verdura, lácteo natural…), su azúcar añadida es 0
+        // aunque el modelo haya contado la fructosa del banano. Sin esto,
+        // la fruta terminaba encabezando "de aquí viene tu azúcar".
+        // (se mantiene la regla de solo incluir el campo si el modelo lo mandó:
+        //  su presencia es lo que marca el registro como "ya estimado").
+        ...(it.sugar != null ? { sugar: round1(safe(azucarDeterminista, 500)) } : {}),
         needs_quantity: false,
       };
     });
@@ -8306,6 +8314,33 @@ const MICRO_DB = {
   'nueces':      { fiber: 0.067, omega3: 0.09,   sugar: 0 },
   'chia':        { fiber: 0.34,  omega3: 0.178,  sugar: 0 },
   'linaza':      { fiber: 0.27,  omega3: 0.228,  sugar: 0 },
+  // Más fruta y verdura, para que el fallback les acredite su FIBRA. Todas
+  // con azúcar añadida 0: la fructosa de la fruta entera no es azúcar
+  // añadida, y la capa determinística de foods.js lo sostiene aunque el
+  // registro viejo traiga otro número.
+  'mango':       { fiber: 0.016, omega3: 0,      sugar: 0 },
+  'papaya':      { fiber: 0.017, omega3: 0,      sugar: 0 },
+  'pina':        { fiber: 0.014, omega3: 0,      sugar: 0 },
+  'sandia':      { fiber: 0.004, omega3: 0,      sugar: 0 },
+  'melon':       { fiber: 0.009, omega3: 0,      sugar: 0 },
+  'uva':         { fiber: 0.009, omega3: 0,      sugar: 0 },
+  'fresa':       { fiber: 0.02,  omega3: 0,      sugar: 0 },
+  'mora':        { fiber: 0.053, omega3: 0,      sugar: 0 },
+  'arandano':    { fiber: 0.024, omega3: 0,      sugar: 0 },
+  'naranja':     { fiber: 0.024, omega3: 0,      sugar: 0 },
+  'mandarina':   { fiber: 0.018, omega3: 0,      sugar: 0 },
+  'pera':        { fiber: 0.031, omega3: 0,      sugar: 0 },
+  'kiwi':        { fiber: 0.03,  omega3: 0.0004, sugar: 0 },
+  'durazno':     { fiber: 0.015, omega3: 0,      sugar: 0 },
+  'guayaba':     { fiber: 0.054, omega3: 0,      sugar: 0 },
+  'zanahoria':   { fiber: 0.028, omega3: 0,      sugar: 0 },
+  'lechuga':     { fiber: 0.013, omega3: 0.0001, sugar: 0 },
+  'pepino':      { fiber: 0.005, omega3: 0,      sugar: 0 },
+  'ahuyama':     { fiber: 0.011, omega3: 0,      sugar: 0 },
+  'papa':        { fiber: 0.018, omega3: 0,      sugar: 0 },
+  'yuca':        { fiber: 0.018, omega3: 0,      sugar: 0 },
+  'garbanzo':    { fiber: 0.076, omega3: 0.001,  sugar: 0 },
+  'quinua':      { fiber: 0.028, omega3: 0.0009, sugar: 0 },
   // Fuentes de azúcar añadida (para que el fallback también la detecte)
   'gaseosa':     { fiber: 0,     omega3: 0,      sugar: 0.106 },
   'refresco':    { fiber: 0,     omega3: 0,      sugar: 0.106 },
@@ -8328,24 +8363,42 @@ const MICRO_DB = {
 // referencia (~AHA hombres 36g; OMS <10% kcal). Menos es mejor.
 const DAILY_MICRO_GOALS = { fiber: 28, omega3: 1.6, sugar: 36 };
 
+// Normaliza para comparar: minúsculas, sin tildes y sin puntuación. Antes
+// se comparaba con `name.toLowerCase()` a secas, así que "azúcar" no
+// matcheaba la llave 'azucar' y en cambio "café sin azucar" sí — el
+// fallback le sumaba 1 g de azúcar por gramo a un café sin azúcar.
+const normMicro = (s) => String(s || '')
+  .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9ñ ]/g, ' ').replace(/\s+/g, ' ').trim();
+
 function matchMicroKey(name) {
-  if (!name) return null;
-  const n = name.toLowerCase();
-  for (const key of Object.keys(MICRO_DB)) {
-    if (n.includes(key)) return key;
+  const n = normMicro(name);
+  if (!n) return null;
+  // Se recorre de llave más larga a más corta para que "mantequilla mani"
+  // gane sobre "mani", y se exige que la llave calce en LÍMITE DE PALABRA:
+  // sin eso "coca" matcheaba "cocado" y "dulce" matcheaba "maíz dulce".
+  for (const key of MICRO_KEYS) {
+    if (new RegExp(`(^| )${key}( |$)`).test(n)) return key;
   }
   return null;
 }
+const MICRO_KEYS = Object.keys(MICRO_DB).map(normMicro)
+  .sort((a, b) => b.length - a.length);
 
 function estimateMicros(items) {
   const result = { fiber: 0, omega3: 0, sugar: 0 };
   for (const it of items) {
+    // La azúcar AÑADIDA se recalcula SIEMPRE con la capa determinística, no
+    // solo al registrar: las semanas que ya están guardadas traen el número
+    // viejo del modelo (un banano con 14 g), y esas son justamente las que
+    // el cliente está mirando cuando dice que la app le acusa la fruta.
+    const azucarOk = azucarAnadidaDeItem(it);
     // Vía preferida: el LLM ya estimó los micros de este item al registrarlo
     // (los campos solo existen cuando vinieron en su respuesta).
     if (it.fiber != null || it.omega3 != null || it.sugar != null) {
       result.fiber += Number(it.fiber) > 0 ? Number(it.fiber) : 0;
       result.omega3 += Number(it.omega3) > 0 ? Number(it.omega3) : 0;
-      result.sugar += Number(it.sugar) > 0 ? Number(it.sugar) : 0;
+      result.sugar += Number(azucarOk) > 0 ? Number(azucarOk) : 0;
       continue;
     }
     // Fallback para registros viejos: tabla por palabra clave
@@ -8364,7 +8417,8 @@ function estimateMicros(items) {
     const db = MICRO_DB[key];
     result.fiber += db.fiber * grams;
     result.omega3 += db.omega3 * grams;
-    result.sugar += db.sugar * grams;
+    // Misma regla que arriba: si es comida entera, cero, pase lo que pase.
+    result.sugar += azucarOk === 0 ? 0 : db.sugar * grams;
   }
   return result;
 }
@@ -9213,7 +9267,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                     </div>
                   )}
                   <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>
-                    Solo cuenta el azúcar añadida (gaseosa, dulces, postres, salsas). La de la fruta entera, el lácteo y la verdura no entra.
+                    Solo cuenta el azúcar que alguien <em>le agregó</em> a la comida: gaseosa, dulces, postres, salsas. <strong>La fruta entera nunca suma aquí</strong> — su azúcar viene con fibra y agua, y ninguna guía la cuenta. Tampoco el lácteo natural ni la verdura.
                   </div>
                 </div>
               )}

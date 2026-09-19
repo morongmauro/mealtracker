@@ -156,3 +156,168 @@ export function canonicalizeItem(it) {
     return it;
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// AZÚCAR AÑADIDA — la capa determinística que protege a la fruta
+//
+// El problema que resuelve: el campo `sugar` de cada item debe ser SOLO
+// azúcar AÑADIDA (la que alguien le echó al alimento), nunca el azúcar
+// propia de la fruta entera, la verdura o el lácteo natural. El prompt ya
+// lo pide, pero el modelo se equivoca: devolvía 14 g para un banano y 23 g
+// para un mango, y entonces el banano aparecía en "de aquí viene tu azúcar"
+// como si fuera una gaseosa. El cliente lee eso y entiende que la fruta es
+// el enemigo — justo lo contrario de lo que queremos que entienda.
+//
+// La fructosa de la fruta entera NO es azúcar añadida: viene con fibra,
+// agua y volumen, se absorbe despacio y ninguna guía (OMS, AHA) la cuenta
+// en el techo de azúcares libres. Lo que sí cuenta es el azúcar que se le
+// agrega a algo: la gaseosa, el jugo endulzado, el postre, la mermelada
+// — y también la fruta EN ALMÍBAR o confitada, que ya no es fruta entera.
+//
+// Por eso esta capa no le pide nada al modelo: si el alimento está en la
+// lista de comida entera y su nombre no trae ninguna marca de azúcar
+// agregada, su azúcar añadida es CERO, diga lo que diga la estimación.
+// ─────────────────────────────────────────────────────────────────────────
+
+// Marcas en el nombre que sí delatan azúcar agregada. Si alguna aparece, el
+// alimento deja de estar protegido aunque su base sea fruta ("piña en
+// almíbar", "yogur azucarado", "fresas con leche condensada").
+const MARCAS_AZUCAR_ANADIDA = [
+  'con azucar', 'azucarad', 'endulzad', 'almibar', 'confitad', 'cristalizad',
+  'caramelizad', 'acaramelad', 'glasead', 'con miel', 'con panela', 'con arequipe',
+  'con leche condensada', 'leche condensada', 'sirope', 'jarabe', 'melao', 'melaza',
+  'con mermelada', 'con chocolate', 'con nutella', 'con crema chantilly', 'con dulce',
+  'en compota azucarada', 'con helado',
+];
+
+// Lo contrario: marcas que confirman que NO lleva azúcar agregada. Van antes
+// que las de arriba porque "café sin azúcar" contiene "azucar" como texto.
+const MARCAS_SIN_AZUCAR = [
+  'sin azucar', 'sin azucares', 'sin endulzar', 'sin azúcar', 'zero', 'cero azucar',
+  'light sin azucar', 'natural sin azucar',
+];
+
+// Comida entera: fruta, verdura, tubérculo, grano, legumbre, proteína, fruto
+// seco y lácteo natural. Nada de esto lleva azúcar añadida por definición.
+// Se compara por PALABRA, no por "contiene": así "pie de manzana" no se
+// cuela por decir manzana, y "batata dulce" no se toma por un dulce.
+const ALIMENTOS_ENTEROS = [
+  // Frutas
+  'banano', 'banana', 'bananos', 'guineo', 'platano', 'maduro', 'manzana', 'manzanas',
+  'pera', 'peras', 'naranja', 'naranjas', 'mandarina', 'mandarinas', 'limon', 'lima',
+  'toronja', 'pomelo', 'mango', 'mangos', 'papaya', 'pina', 'piña', 'sandia', 'melon',
+  'uva', 'uvas', 'fresa', 'fresas', 'frutilla', 'frutillas', 'mora', 'moras',
+  'arandano', 'arandanos', 'frambuesa', 'frambuesas', 'kiwi', 'kiwis', 'durazno',
+  'duraznos', 'melocoton', 'ciruela', 'ciruelas', 'cereza', 'cerezas', 'granadilla',
+  'maracuya', 'lulo', 'guayaba', 'guanabana', 'curuba', 'feijoa', 'tomate de arbol',
+  'mamey', 'nispero', 'chirimoya', 'higo', 'higos', 'datil', 'datiles', 'coco',
+  'aguacate', 'palta', 'fruta', 'frutas', 'ensalada de frutas', 'macedonia',
+  // Verduras y hortalizas
+  'tomate', 'tomates', 'lechuga', 'espinaca', 'espinacas', 'acelga', 'kale', 'rucula',
+  'brocoli', 'coliflor', 'repollo', 'col', 'zanahoria', 'zanahorias', 'pepino',
+  'calabacin', 'zapallo', 'ahuyama', 'auyama', 'calabaza', 'berenjena', 'pimenton',
+  'pimiento', 'cebolla', 'ajo', 'apio', 'esparragos', 'habichuela', 'habichuelas',
+  'arveja', 'arvejas', 'champinon', 'champinones', 'hongos', 'remolacha', 'rabano',
+  'verdura', 'verduras', 'vegetales', 'ensalada', 'hojas verdes', 'mix de hojas verdes',
+  // Tubérculos y granos
+  'papa', 'papas', 'papa criolla', 'papas criollas', 'yuca', 'batata', 'camote',
+  'name', 'arracacha', 'arroz', 'arroz integral', 'quinua', 'quinoa', 'avena',
+  'maiz', 'mazorca', 'pasta', 'espagueti', 'fideos', 'macarrones', 'cuscus', 'bulgur',
+  // Legumbres
+  'frijol', 'frijoles', 'lenteja', 'lentejas', 'garbanzo', 'garbanzos', 'haba', 'habas',
+  'soya', 'edamame',
+  // Proteína animal
+  'pollo', 'pechuga', 'muslo', 'pierna de pollo', 'pavo', 'carne', 'res', 'lomo',
+  'cerdo', 'pescado', 'salmon', 'atun', 'tilapia', 'mojarra', 'trucha', 'sardina',
+  'camaron', 'camarones', 'huevo', 'huevos', 'clara', 'claras',
+  // Frutos secos y semillas (naturales)
+  'almendra', 'almendras', 'nuez', 'nueces', 'mani', 'cacahuate', 'marañon', 'maranon',
+  'pistacho', 'pistachos', 'avellana', 'avellanas', 'chia', 'linaza', 'ajonjoli',
+  'semillas', 'girasol', 'auyamas',
+  // Lácteos naturales
+  'leche', 'yogur', 'yogurt', 'kefir', 'queso', 'quesito', 'cuajada', 'requeson',
+  'yogur griego', 'yogurt griego', 'yogur natural', 'yogurt natural',
+  // Grasas y básicos
+  'aceite', 'aceite de oliva', 'mantequilla', 'ghee', 'agua', 'cafe', 'tinto', 'te',
+  'aromatica', 'infusion',
+];
+
+// Palabras y frases que, si aparecen, cancelan la protección: son productos
+// donde el azúcar añadida es la regla, aunque el nombre mencione una fruta
+// ("jugo de mango", "torta de banano", "yogur de fresa").
+const VETO_PALABRAS = new Set([
+  'jugo', 'zumo', 'batido', 'smoothie', 'malteada', 'gaseosa', 'refresco', 'soda',
+  'coca', 'pepsi', 'limonada', 'torta', 'pastel', 'ponque', 'galleta', 'galletas',
+  'helado', 'postre', 'dulce', 'dulces', 'bombon', 'chocolatina', 'chocolate',
+  'mermelada', 'arequipe', 'manjar', 'compota', 'nectar', 'cereal', 'granola',
+  'barra', 'barrita', 'panela', 'azucar', 'miel', 'flan', 'gelatina', 'brownie',
+  'muffin', 'donut', 'dona', 'churro', 'bocadillo', 'obleas', 'ketchup', 'salsa',
+].map(norm));
+
+// Frases (dos o más palabras) que vetan por coincidencia de texto.
+const VETO_FRASES = [
+  'empanada dulce', 'avena en leche', 'arroz con leche', 'leche condensada',
+  'fruta en almibar', 'cereal de caja', 'leche saborizada', 'leche de sabor',
+].map(norm);
+
+// Un yogur "de algo" casi siempre viene endulzado ("yogur de fresa"), salvo
+// cuando el "de" indica el origen de la leche. El yogur natural y el griego
+// no entran aquí: no llevan la preposición.
+const VETO_REGEX = [
+  /\byogur(?:t)?\s+de\s+(?!cabra|oveja|bufala|vaca)/,
+  /\bleche\s+de\s+sabor/,
+];
+
+// Excepciones: llevan una palabra vetada pero son comida entera. El "dulce"
+// de "maíz dulce" o "batata dulce" es la variedad, no azúcar agregada.
+const ENTEROS_PESE_AL_VETO = [
+  'maiz dulce', 'mazorca dulce', 'batata dulce', 'papa dulce', 'camote dulce',
+  'aji dulce', 'pimenton dulce', 'pimiento dulce', 'platano dulce', 'limon dulce',
+  // Un jugo exprimido en casa no lleva azúcar agregada. Es lo que dice la
+  // propia app ("gaseosas, jugos ENDULZADOS"): el jugo de caja o con azúcar
+  // sí cuenta, el que alguien exprimió no. Sin esta excepción, "jugo natural
+  // de naranja" entraba como azúcar añadida por la palabra "jugo".
+  'jugo natural', 'zumo natural', 'jugo exprimido', 'jugo recien exprimido',
+  'jugo en agua sin azucar', 'jugo de limon',
+].map(norm);
+
+let _INDEX_ENTEROS = null;
+function indiceEnteros() {
+  if (!_INDEX_ENTEROS) _INDEX_ENTEROS = new Set(ALIMENTOS_ENTEROS.map(norm));
+  return _INDEX_ENTEROS;
+}
+
+// ¿El nombre de este alimento es comida entera sin azúcar agregada?
+// Devuelve true solo cuando estamos SEGUROS: ante la duda, false y se
+// respeta lo que haya estimado el modelo.
+export function esComidaEnteraSinAzucarAnadida(nombre) {
+  const n = norm(nombre);
+  if (!n) return false;
+  // "sin azúcar" / "zero" protege cualquier cosa, sea entera o no.
+  if (MARCAS_SIN_AZUCAR.some(m => n.includes(norm(m)))) return true;
+  // Una marca de azúcar agregada rompe la protección aunque la base sea fruta.
+  if (MARCAS_AZUCAR_ANADIDA.some(m => n.includes(norm(m)))) return false;
+  if (ENTEROS_PESE_AL_VETO.some(f => n.includes(f))) return true;
+  const set = indiceEnteros();
+  // Nombre completo ("banano", "pechuga de pollo a la plancha" → se parte)
+  if (set.has(n)) return true;
+  // Por palabras: basta con que UNA palabra significativa sea comida entera
+  // y ninguna palabra delate un producto azucarado. Así "banano maduro" y
+  // "mango en trozos" pasan, y "torta de banano" no (torta está vetada).
+  if (VETO_FRASES.some(f => n.includes(f))) return false;
+  if (VETO_REGEX.some(re => re.test(n))) return false;
+  const palabras = n.split(' ').filter(Boolean);
+  if (!palabras.length) return false;
+  if (palabras.some(p => VETO_PALABRAS.has(p))) return false;
+  return palabras.some(p => set.has(p));
+}
+
+
+// El número final de azúcar añadida de un item. Si es comida entera, CERO;
+// si no, lo que venga estimado (o null si no vino nada).
+export function azucarAnadidaDeItem(it) {
+  const declarada = Number(it && it.sugar);
+  const hay = it && it.sugar != null && Number.isFinite(declarada);
+  if (esComidaEnteraSinAzucarAnadida(it && it.name)) return 0;
+  return hay ? Math.max(0, declarada) : null;
+}
