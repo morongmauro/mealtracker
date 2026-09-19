@@ -16,6 +16,9 @@ import {
   SUCCESS, WARN, DANGER, DANGER_DARK, DANGER_BG,
   FONT_UI, SHADOW_CARD, SHADOW_BTN, GRADIENT_BRAND,
 } from './coachTheme.js';
+// La capa determinística del azúcar añadida: la fruta entera nunca cuenta
+// como azúcar añadida, aunque el registro guardado diga lo contrario.
+import { azucarAnadidaDeItem } from './foods.js';
 
 const TOKEN_KEY = 'coachToken';
 const TOKEN_EXP_KEY = 'coachTokenExp';
@@ -1839,19 +1842,30 @@ function gramosDeItem(it) {
 }
 
 function microsDeItem(it) {
+  // El azúcar AÑADIDA se recalcula siempre: si el alimento es comida entera
+  // (fruta, verdura, lácteo natural) es 0, diga lo que diga el registro.
+  const azucarOk = azucarAnadidaDeItem(it);
   if (it.fiber != null || it.omega3 != null || it.sugar != null) {
     return {
       fiber: Number(it.fiber) > 0 ? Number(it.fiber) : 0,
       omega3: Number(it.omega3) > 0 ? Number(it.omega3) : 0,
-      sugar: Number(it.sugar) > 0 ? Number(it.sugar) : 0,
+      sugar: Number(azucarOk) > 0 ? Number(azucarOk) : 0,
     };
   }
-  const n = normalize(it.name || '');
-  const key = Object.keys(MICRO_DB).find(k => n.includes(k));
+  const n = normalize(it.name || '').replace(/[^a-z0-9ñ ]/g, ' ').replace(/\s+/g, ' ').trim();
+  // Límite de palabra: sin esto "maíz dulce" caía en la llave 'dulce' y
+  // "café sin azucar" en 'azucar'.
+  const key = Object.keys(MICRO_DB)
+    .sort((a, b) => b.length - a.length)
+    .find(k => new RegExp(`(^| )${k}( |$)`).test(n));
   const grams = gramosDeItem(it);
   if (!key || grams <= 0) return { fiber: 0, omega3: 0, sugar: 0 };
   const db = MICRO_DB[key];
-  return { fiber: db.fiber * grams, omega3: db.omega3 * grams, sugar: db.sugar * grams };
+  return {
+    fiber: db.fiber * grams,
+    omega3: db.omega3 * grams,
+    sugar: azucarOk === 0 ? 0 : db.sugar * grams,
+  };
 }
 
 // `invertido` = métrica donde MENOS es mejor (azúcar añadida): el semáforo se
