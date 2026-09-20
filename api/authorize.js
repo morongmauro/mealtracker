@@ -14,6 +14,11 @@
 // el CRM pero sí en la lista también pasa (transición suave mientras
 // migras a todos al CRM).
 //
+// Nombres: se compara normalizado (sin tildes ni mayúsculas) contra
+// `clientes.nombre` Y contra `clientes.nombres_alternos` — los nombres que
+// el cliente tuvo antes de que el coach se lo corrigiera en el CRM. Sin
+// esto, arreglar una errata en el nombre dejaba al cliente fuera de su app.
+//
 // POST { name } → { authorized: true|false, status: 'activo'|'pausa'|'finalizado'|'not_found'|'list' }
 
 import { guard, checkOrigin } from './_guard.js';
@@ -41,7 +46,7 @@ async function fetchCrmClients() {
   const now = Date.now();
   if (crmCache.rows && now - crmCache.at < CRM_CACHE_MS) return crmCache.rows;
   try {
-    const r = await fetch(`${CRM_URL}/rest/v1/clientes?select=nombre,estado`, {
+    const r = await fetch(`${CRM_URL}/rest/v1/clientes?select=nombre,estado,nombres_alternos`, {
       headers: { 'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}` },
     });
     if (!r.ok) return crmCache.rows; // usa caché vieja si la hay
@@ -88,7 +93,13 @@ export default async function handler(req, res) {
 
   const crmRows = await fetchCrmClients();
   if (crmRows) {
-    const match = crmRows.find(c => normalizeName(c.nombre) === normalized);
+    // Se acepta el nombre ACTUAL o cualquiera de los anteriores. Si el coach
+    // corrige un apellido mal escrito en el CRM, el cliente sigue entrando
+    // con el nombre que siempre ha tecleado: renombrar es cambiar una
+    // etiqueta, no echar a alguien de su propia app.
+    const match = crmRows.find(c => normalizeName(c.nombre) === normalized
+      || (Array.isArray(c.nombres_alternos)
+          && c.nombres_alternos.some(a => normalizeName(a) === normalized)));
     if (match) {
       // El CRM manda: activo pasa; pausa/finalizado bloquea (aunque el
       // nombre siga en la lista vieja del archivo).

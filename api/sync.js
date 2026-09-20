@@ -7,12 +7,68 @@
 // GET  /api/sync?user_id=xxx&goals_only=1 → solo { goals, goals_updated } (payload
 //                                           mínimo; la app lo sondea para detectar
 //                                           cambios de meta hechos por el coach)
+// GET  /api/sync?identity_for=<nombre>   → el user_id EXISTENTE de esa persona,
+//                                           buscando también por los nombres que
+//                                           tuvo antes (clientes.nombres_alternos
+//                                           del CRM). Sin eso, corregir un nombre
+//                                           en el CRM le abría una cuenta vacía.
 // POST /api/sync                          → upsert con { user_id, name, data }
 
 import { guard } from './_guard.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+// El CRM es la fuente de verdad de quién es quién (las mismas variables que
+// usa authorize.js). Aquí solo se lee, y solo para saber con qué OTROS
+// nombres pudo registrarse este cliente.
+const CRM_URL = process.env.CRM_SUPABASE_URL;
+const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
+
+const normalizeName = (str) => String(str || '')
+  .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/\s+/g, ' ').trim();
+
+// Todos los nombres válidos de la persona que teclea `tecleado`: el actual
+// del CRM y todos los que tuvo antes. Si el CRM no está configurado o no
+// responde, devuelve solo el tecleado — el comportamiento de siempre.
+//
+// POR QUÉ EXISTE: la cuenta del cliente vive en `user_data` con su user_id,
+// pero cuando entra desde un teléfono nuevo (o instala la PWA, que en iOS
+// tiene almacén aparte) la app no tiene ese id y lo busca POR NOMBRE. Si el
+// coach le corrigió el nombre en el CRM, esa búsqueda fallaba y la app le
+// abría una cuenta nueva y vacía: el clásico "se me borró todo". Buscando
+// también por los nombres anteriores, la cuenta aparece igual.
+let crmAliasCache = { at: 0, rows: null };
+const CRM_ALIAS_CACHE_MS = 3 * 60 * 1000;
+async function nombresEquivalentes(tecleado) {
+  const base = normalizeName(tecleado);
+  if (!base || !CRM_URL || !CRM_KEY) return base ? [base] : [];
+  try {
+    const now = Date.now();
+    let rows = crmAliasCache.rows;
+    if (!rows || now - crmAliasCache.at >= CRM_ALIAS_CACHE_MS) {
+      const r = await fetch(`${CRM_URL}/rest/v1/clientes?select=nombre,nombres_alternos`, {
+        headers: { 'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}` },
+      });
+      if (r.ok) {
+        const j = await r.json();
+        if (Array.isArray(j)) { rows = j; crmAliasCache = { at: now, rows }; }
+      }
+    }
+    if (!Array.isArray(rows)) return [base];
+    const c = rows.find(x => normalizeName(x.nombre) === base
+      || (Array.isArray(x.nombres_alternos)
+          && x.nombres_alternos.some(a => normalizeName(a) === base)));
+    if (!c) return [base];
+    return [...new Set([
+      normalizeName(c.nombre),
+      ...(Array.isArray(c.nombres_alternos) ? c.nombres_alternos.map(normalizeName) : []),
+    ].filter(Boolean))];
+  } catch (e) {
+    return [base];   // sin CRM, como antes
+  }
+}
 
 function isUuid(s) {
   return typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
@@ -43,11 +99,12 @@ export default async function handler(req, res) {
     // ignorando cuentas marcadas como duplicadas y prefiriendo la más
     // recientemente actualizada. { user_id } o { user_id: null }.
     if (req.query.identity_for) {
-      const normalizeName = (str) => String(str || '')
-        .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-        .replace(/\s+/g, ' ').trim();
       const buscado = normalizeName(req.query.identity_for);
       if (!buscado) return res.status(200).json({ user_id: null });
+      // El nombre tecleado más los que tuvo antes de que el coach se lo
+      // corrigiera en el CRM.
+      const validos = await nombresEquivalentes(buscado);
+      const esSuyo = (n) => validos.includes(normalizeName(n));
       try {
         const r = await fetch(
           `${SUPABASE_URL}/rest/v1/user_data?select=user_id,name,updated_at,coach_notes`,
@@ -56,7 +113,7 @@ export default async function handler(req, res) {
         const rows = await r.json();
         if (!Array.isArray(rows)) return res.status(200).json({ user_id: null });
         const match = rows
-          .filter(x => normalizeName(x.name) === buscado)
+          .filter(x => esSuyo(x.name))
           .filter(x => !(x.coach_notes && x.coach_notes.duplicate_of))
           .sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')))[0];
         return res.status(200).json({ user_id: match ? match.user_id : null });
