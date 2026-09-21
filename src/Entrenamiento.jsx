@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import EntrenoMes from './EntrenoMes.jsx';
+import EntrenoRutinas from './EntrenoRutinas.jsx';
+import EntrenoResumen from './EntrenoResumen.jsx';
+import EntrenoActividad, { ChipActividad } from './EntrenoActividad.jsx';
+import EntrenoFicha from './EntrenoFicha.jsx';
+import { api as entrenoApi, miniatura, hoyLocal } from './entrenoDatos.js';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer } from 'lucide-react';
 import {
   SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
@@ -39,10 +45,21 @@ const api = async (body) => {
   return r.json();
 };
 
+// Las cuatro secciones. La navegación va ARRIBA y no abajo: el módulo se
+// pinta dentro de la app, cuyo barra ovalada inferior taparía cualquier cosa
+// que pusiéramos ahí.
+const SECCIONES = [
+  ['hoy', 'Hoy'],
+  ['mes', 'Mes'],
+  ['rutinas', 'Rutinas'],
+  ['resumen', 'Resumen'],
+];
+
 export default function Entrenamiento({ name }) {
   const [plan, setPlan] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [rutinaId, setRutinaId] = useState(null);
+  const [seccion, setSeccion] = useState('hoy');
 
   const cargarPlan = useCallback(async () => {
     setCargando(true);
@@ -52,6 +69,10 @@ export default function Entrenamiento({ name }) {
   }, [name]);
 
   useEffect(() => { cargarPlan(); }, [cargarPlan]);
+
+  // Al cambiar de sección se sube. Sin esto, saltar de un Mes largo a Hoy te
+  // deja a media página en un sitio que ya no existe.
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [seccion, rutinaId]);
 
   const Envoltorio = ({ children }) => (
     <div style={{
@@ -72,25 +93,133 @@ export default function Entrenamiento({ name }) {
     );
   }
 
+  const Nav = () => (
+    <nav style={{
+      display: 'flex', gap: 3, background: 'rgba(255,255,255,0.72)',
+      backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+      border: `1px solid ${BORDER}`, borderRadius: 999, padding: 3,
+      marginBottom: 18, position: 'sticky', top: 8, zIndex: 30,
+    }}>
+      {SECCIONES.map(([id, lab]) => (
+        <button key={id} onClick={() => setSeccion(id)} style={{
+          flex: 1, border: 'none', borderRadius: 999, padding: '9px 6px',
+          background: seccion === id ? ACCENT : 'transparent',
+          color: seccion === id ? '#fff' : TEXT_MUTED,
+          fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+        }}>{lab}</button>
+      ))}
+    </nav>
+  );
+
   if (cargando) {
     return <Envoltorio><Centrado><Loader2 size={20} className="animate-spin" color={TEXT_LIGHT} /></Centrado></Envoltorio>;
+  }
+
+  // El Mes, las Rutinas y el Resumen se pintan aunque no haya plan activo:
+  // cada uno sabe decir que está vacío, y el Mes sigue sirviendo para
+  // registrar cardio de días pasados aunque el coach no haya enviado nada.
+  if (seccion !== 'hoy') {
+    return (
+      <Envoltorio>
+        <Nav />
+        {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={setRutinaId} />}
+        {seccion === 'rutinas' && <EntrenoRutinas nombre={name} alEntrenar={setRutinaId} />}
+        {seccion === 'resumen' && <EntrenoResumen nombre={name} />}
+      </Envoltorio>
+    );
   }
 
   if (!plan || !plan.ok) {
     return (
       <Envoltorio>
+        <Nav />
         <Tarjeta>
           <Fila icono={<Info size={18} color={TEXT_LIGHT} />} titulo="Todavía no hay nada aquí" />
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
         </Tarjeta>
+        <BloqueActividad name={name} />
       </Envoltorio>
     );
   }
 
   return (
     <Envoltorio>
+      <Nav />
       <VistaSemana plan={plan} onAbrir={setRutinaId} />
+      <BloqueActividad name={name} />
     </Envoltorio>
+  );
+}
+
+// ── ADEMÁS DE LA FUERZA ───────────────────────────────────────────────────
+// Va DEBAJO de la semana y en gris a propósito. El cliente abre esto para
+// saber qué le toca entrenar; si el cardio compite por la atención, entra a
+// marcar la caminata y se le olvida el Push.
+function BloqueActividad({ name }) {
+  const [hoyMes, setHoyMes] = useState(null);
+  const [registrando, setRegistrando] = useState(false);
+
+  const cargar = useCallback(async () => {
+    const hoy = hoyLocal();
+    const r = await entrenoApi.mes(name, hoy.slice(0, 7));
+    if (r && r.ok) setHoyMes((r.dias || []).find(d => d.fecha === hoy) || null);
+  }, [name]);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const actividades = hoyMes?.actividades || [];
+  const eventos = hoyMes?.eventos || [];
+
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        gap: 8, marginBottom: 10,
+      }}>
+        <h2 style={{
+          fontSize: 12, fontWeight: 800, letterSpacing: '.08em',
+          textTransform: 'uppercase', color: TEXT_LIGHT, margin: 0,
+        }}>Además de la fuerza</h2>
+        <button onClick={() => setRegistrando(true)} style={{
+          border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
+          fontSize: 12.5, fontWeight: 700, color: ACCENT_DARK, fontFamily: 'inherit',
+        }}>+ Registrar</button>
+      </div>
+
+      {eventos.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+          {eventos.map(ev => (
+            <div key={ev.id} style={{
+              border: `1px dashed ${BORDER}`, borderRadius: 12, padding: '9px 12px',
+              fontSize: 12.5, color: TEXT_MUTED,
+            }}>
+              {ev.hora ? `${String(ev.hora).slice(0, 5)} · ` : ''}{ev.titulo}
+              <span style={{ color: TEXT_LIGHT, marginLeft: 6 }}>· de tu coach</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {actividades.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {actividades.map(a => <ChipActividad key={a.id} actividad={a} />)}
+        </div>
+      ) : (
+        <button onClick={() => setRegistrando(true)} style={{
+          width: '100%', border: `1px dashed ${BORDER}`, background: 'transparent',
+          borderRadius: 14, padding: '14px 16px', cursor: 'pointer',
+          color: TEXT_LIGHT, fontSize: 13, fontFamily: 'inherit', textAlign: 'left',
+        }}>
+          ¿Caminaste, nadaste, hiciste cardio? Márcalo aquí.
+        </button>
+      )}
+
+      <EntrenoActividad
+        abierta={registrando}
+        nombre={name}
+        alCerrar={() => setRegistrando(false)}
+        alGuardar={() => { setRegistrando(false); cargar(); }}
+      />
+    </div>
   );
 }
 
@@ -232,6 +361,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const [cargando, setCargando] = useState(true);
   const [cerrando, setCerrando] = useState(false);
   const [cerrandoHoja, setCerrandoHoja] = useState(false);
+  const [remate, setRemate] = useState(false);   // ofrecer cardio al cerrar
   // Descanso: { segundos, fin } — `fin` es un instante absoluto, no un
   // contador que se va restando. Con un contador, minimizar la app o apagar
   // la pantalla congela el intervalo y al volver marca de menos; con un
@@ -401,10 +531,26 @@ function VistaRutina({ name, rutinaId, onVolver }) {
             if (cerrando) return;
             setCerrando(true);
             await api({ accion: 'cerrar', name, sesion_id: sesion.id, rpe, notas: nota });
-            onVolver();
+            setCerrandoHoja(false);
+            setCerrando(false);
+            // Justo al terminar la fuerza es cuando se hace la caminadora.
+            // Se ofrece AQUÍ porque es el único momento en que la persona lo
+            // tiene en la mano; buscarlo después en otra pantalla no lo hace
+            // nadie. Se puede decir que no y salir.
+            setRemate(true);
           }}
         />
       )}
+
+      <EntrenoActividad
+        abierta={remate}
+        nombre={name}
+        sesionId={sesion?.id}
+        soloRemate
+        titulo="¿Hiciste algo de cardio al terminar?"
+        alCerrar={() => { setRemate(false); onVolver(); }}
+        alGuardar={() => { setRemate(false); onVolver(); }}
+      />
     </>
   );
 }
@@ -428,18 +574,42 @@ function CabeceraBloque({ b }) {
 
 function Ejercicio({ re, marcadas, onMarcar, onDesmarcar }) {
   const e = re.ejercicio;
-  const [abierto, setAbierto] = useState(false);
+  // La ficha completa (video, cómo se hace, qué músculos trabaja, las
+  // características) vive en una hoja aparte. Antes se desplegaba aquí
+  // dentro y el iframe de YouTube se montaba en medio de la lista: con diez
+  // ejercicios el teléfono se arrastraba y perdías el sitio al cerrarlo.
+  const [ficha, setFicha] = useState(false);
   const series = Array.from({ length: Math.max(1, re.series || 1) }, (_, i) => i + 1);
   const ultima = re.ultima_vez;
   // El peso sugerido es el de la última vez: es lo que hace que marcar una
   // serie sea un toque y no teclear cada número otra vez.
   const pesoSugerido = ultima && ultima.mejor_peso ? String(ultima.mejor_peso) : '';
+  const thumb = miniatura(e);
 
   return (
     <div style={{
       background: SURFACE, borderRadius: 16, padding: 15, marginBottom: 12, boxShadow: SHADOW_CARD,
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
+        {/* La miniatura ES el botón: es lo que la gente toca cuando no se
+            acuerda de un ejercicio. Sin video queda la pesa, que abre lo
+            mismo — la descripción y los músculos también están ahí. */}
+        <button onClick={() => setFicha(true)} aria-label={`Ver ${e.nombre}`} style={{
+          flexShrink: 0, width: 72, height: 52, borderRadius: 10, overflow: 'hidden',
+          border: 'none', padding: 0, cursor: 'pointer', background: SURFACE_2,
+          position: 'relative', display: 'block',
+        }}>
+          {thumb
+            ? <img src={thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <span style={{ fontSize: 19, lineHeight: '52px', display: 'block', opacity: .45 }}>🏋️</span>}
+          {thumb && (
+            <span style={{
+              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(31,31,31,0.22)', color: '#fff', fontSize: 14,
+            }}><Play size={15} fill="#fff" /></span>
+          )}
+        </button>
+
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15.5, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em' }}>{e.nombre}</div>
           <div style={{ fontSize: 12.5, color: ACCENT_DARK, fontWeight: 600, marginTop: 3 }}>
@@ -451,15 +621,15 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar }) {
             {re.tempo ? `Tempo ${re.tempo} · ` : ''}
             {re.descanso_seg ? `Descanso ${re.descanso_seg}s` : ''}
           </div>
+          <button onClick={() => setFicha(true)} style={{
+            marginTop: 7, border: `1px solid ${BORDER}`, background: 'transparent',
+            borderRadius: 999, padding: '3px 11px', fontSize: 11.5, fontWeight: 700,
+            color: TEXT_MUTED, cursor: 'pointer', fontFamily: 'inherit',
+          }}>Características</button>
         </div>
-        {(e.descripcion || (e.claves_tecnicas || []).length || e.video_ref || e.video_url) && (
-          <button onClick={() => setAbierto(v => !v)} aria-label="Cómo se hace" style={{
-            flexShrink: 0, width: 32, height: 32, borderRadius: 10, border: `1px solid ${BORDER}`,
-            background: abierto ? SURFACE_2 : 'transparent', cursor: 'pointer',
-            display: 'grid', placeContent: 'center', color: TEXT_MUTED,
-          }}><Info size={15} /></button>
-        )}
       </div>
+
+      <EntrenoFicha item={re} abierto={ficha} alCerrar={() => setFicha(false)} />
 
       {/* LO QUE LEVANTÓ LA ÚLTIMA VEZ. Va aquí arriba, pegado, no en un
           historial aparte: es lo que se mira antes de cargar la barra. */}
@@ -471,30 +641,6 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar }) {
           <strong style={{ color: TEXT }}>La última vez</strong>{' '}
           ({fechaCorta(ultima.fecha)}):{' '}
           {ultima.series.map(s => `${s.reps ?? '—'}×${s.peso ?? '—'}${s.unidad || 'kg'}`).join(' · ')}
-        </div>
-      )}
-
-      {abierto && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER_SOFT}` }}>
-          {e.descripcion && (
-            <p style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.55, margin: '0 0 8px' }}>{e.descripcion}</p>
-          )}
-          {(e.claves_tecnicas || []).length > 0 && (
-            <ul style={{ margin: '0 0 8px', paddingLeft: 16, fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.6 }}>
-              {e.claves_tecnicas.map((c, i) => <li key={i}>{c}</li>)}
-            </ul>
-          )}
-          {e.video_fuente === 'youtube' && e.video_ref && (
-            <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
-              <iframe
-                title={e.nombre}
-                src={`https://www.youtube-nocookie.com/embed/${e.video_ref}${e.video_inicio_seg ? `?start=${e.video_inicio_seg}` : ''}`}
-                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
-              />
-            </div>
-          )}
         </div>
       )}
 

@@ -57,6 +57,33 @@ export function rateLimit(req, key, { limit = 30, windowMs = 60000 } = {}) {
   return b.count <= limit;
 }
 
+// CORS para los módulos que viven en OTRO dominio y llaman a esta API.
+//
+// El módulo de entrenamiento se despliega aparte (entrenamientoecm) y se
+// embebe en un iframe, así que sus peticiones salen con el Origin de ese
+// dominio. `checkOrigin` ya decide si vale; esto solo le dice al NAVEGADOR
+// que la respuesta es para él — sin la cabecera, el fetch se bloquea aunque
+// el servidor haya respondido 200 y el módulo se ve vacío sin más pista que
+// un error de CORS en la consola.
+//
+// Se refleja el Origin concreto (no `*`) a propósito: `*` abriría la API a
+// cualquier página, y aquí la lista de dominios permitidos es corta y sale
+// de ALLOWED_ORIGINS.
+export function cors(req, res, { allowNoOrigin = false } = {}) {
+  const source = req.headers.origin;
+  if (source && checkOrigin(req, { allowNoOrigin })) {
+    res.setHeader('Access-Control-Allow-Origin', source);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  }
+  // El navegador manda OPTIONS antes de un POST con JSON. Hay que
+  // contestarlo sin cuerpo o el POST de verdad no llega a salir.
+  if (req.method === 'OPTIONS') { res.status(204).end(); return true; }
+  return false;
+}
+
 // true = pasa; false = ya respondió 403/429.
 export function guard(req, res, { key = 'api', limit = 30, allowNoOrigin = false } = {}) {
   if (!checkOrigin(req, { allowNoOrigin })) {
