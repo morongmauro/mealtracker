@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import EntrenoMes from './EntrenoMes.jsx';
 import EntrenoRutinas from './EntrenoRutinas.jsx';
 import EntrenoResumen from './EntrenoResumen.jsx';
+import EntrenoFotos from './EntrenoFotos.jsx';
 import EntrenoActividad, { ChipActividad } from './EntrenoActividad.jsx';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { api as entrenoApi, miniatura, hoyLocal } from './entrenoDatos.js';
@@ -53,6 +54,7 @@ const SECCIONES = [
   ['mes', 'Mes'],
   ['rutinas', 'Rutinas'],
   ['resumen', 'Resumen'],
+  ['fotos', 'Fotos'],
 ];
 
 export default function Entrenamiento({ name }) {
@@ -125,6 +127,7 @@ export default function Entrenamiento({ name }) {
         {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={setRutinaId} />}
         {seccion === 'rutinas' && <EntrenoRutinas nombre={name} alEntrenar={setRutinaId} />}
         {seccion === 'resumen' && <EntrenoResumen nombre={name} />}
+        {seccion === 'fotos' && <EntrenoFotos name={name} />}
       </Envoltorio>
     );
   }
@@ -362,6 +365,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const [cerrando, setCerrando] = useState(false);
   const [cerrandoHoja, setCerrandoHoja] = useState(false);
   const [remate, setRemate] = useState(false);   // ofrecer cardio al cerrar
+  const [records, setRecords] = useState(null);  // lo que batió hoy, si batió algo
   // Descanso: { segundos, fin } — `fin` es un instante absoluto, no un
   // contador que se va restando. Con un contador, minimizar la app o apagar
   // la pantalla congela el intervalo y al volver marca de menos; con un
@@ -489,17 +493,35 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         <Tarjeta><Vacio texto="Esta rutina todavía no tiene ejercicios." /></Tarjeta>
       )}
 
-      {datos.ejercicios.map((re, i) => {
-        const b = re.bloque_id ? bloqueDe[re.bloque_id] : null;
-        const anterior = i > 0 ? datos.ejercicios[i - 1] : null;
-        const abreBloque = b && (!anterior || anterior.bloque_id !== re.bloque_id);
-        return (
-          <React.Fragment key={re.id}>
-            {abreBloque && <CabeceraBloque b={b} />}
-            <Ejercicio re={re} marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />
-          </React.Fragment>
-        );
-      })}
+      {/* Un circuito de 3 vueltas se recorre A→B→A→B→A→B, no A tres veces y
+          luego B tres veces. Por eso las vueltas se pintan como secciones:
+          antes el bloque salía con UNA fila por ejercicio y no había dónde
+          marcar la segunda vuelta ni la tercera. */}
+      {agruparEnTramos(datos.ejercicios, bloqueDe).map((tramo, ti) => (
+        <React.Fragment key={tramo.clave}>
+          {tramo.bloque && <CabeceraBloque b={tramo.bloque} />}
+          {tramo.vueltas.map((vuelta, vi) => (
+            <React.Fragment key={vi}>
+              {tramo.vueltas.length > 1 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8, margin: '12px 2px 6px',
+                  fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase',
+                  color: TEXT_LIGHT,
+                }}>
+                  Vuelta {vi + 1}
+                  <div style={{ flex: 1, height: 1, background: BORDER }} />
+                </div>
+              )}
+              {vuelta.map(re => (
+                <Ejercicio key={`${re.id}:v${vi + 1}`} re={re}
+                  serieUnica={tramo.vueltas.length > 1 ? vi + 1 : null}
+                  compacto={vi > 0}
+                  marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />
+              ))}
+            </React.Fragment>
+          ))}
+        </React.Fragment>
+      ))}
 
       {descanso && (
         <BarraDescanso
@@ -530,9 +552,13 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           onCerrar={async (rpe, nota) => {
             if (cerrando) return;
             setCerrando(true);
-            await api({ accion: 'cerrar', name, sesion_id: sesion.id, rpe, notas: nota });
+            const r = await api({ accion: 'cerrar', name, sesion_id: sesion.id, rpe, notas: nota });
             setCerrandoHoja(false);
             setCerrando(false);
+            // Si batió algo, se le dice. Es lo único de toda la sesión que
+            // celebra un número, y es lo que hace que la próxima vez intente
+            // subirlo. Va antes del cardio porque es la noticia buena.
+            if (r?.ok && r.records?.length) setRecords(r.records);
             // Justo al terminar la fuerza es cuando se hace la caminadora.
             // Se ofrece AQUÍ porque es el único momento en que la persona lo
             // tiene en la mano; buscarlo después en otra pantalla no lo hace
@@ -541,6 +567,8 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           }}
         />
       )}
+
+      {records && <HojaRecords records={records} alCerrar={() => setRecords(null)} />}
 
       <EntrenoActividad
         abierta={remate}
@@ -552,6 +580,83 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         alGuardar={() => { setRemate(false); onVolver(); }}
       />
     </>
+  );
+}
+
+// Parte la lista de ejercicios en tramos: cada bloque es un tramo, y los
+// ejercicios sueltos se van juntando en otro. Un tramo con `vueltas > 1`
+// devuelve sus ejercicios repetidos una vez por vuelta, que es como se
+// entrena de verdad un circuito.
+export function agruparEnTramos(ejercicios, bloqueDe) {
+  const tramos = [];
+  ejercicios.forEach(re => {
+    const b = re.bloque_id ? bloqueDe[re.bloque_id] : null;
+    const ultimo = tramos[tramos.length - 1];
+    if (ultimo && ultimo.bloqueId === (re.bloque_id || null)) { ultimo.lista.push(re); return; }
+    tramos.push({ bloqueId: re.bloque_id || null, bloque: b, lista: [re] });
+  });
+  return tramos.map((t, i) => {
+    // Solo los bloques con más de una vuelta se expanden. Un ejercicio suelto
+    // con 4 series sigue siendo una tarjeta con 4 filas: repetir la tarjeta
+    // cuatro veces sería absurdo.
+    const n = t.bloque && t.bloque.vueltas > 1 ? t.bloque.vueltas : 1;
+    return {
+      clave: t.bloqueId || `sueltos-${i}`,
+      bloque: t.bloque,
+      vueltas: Array.from({ length: n }, () => t.lista),
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// LO QUE BATIÓ HOY
+//
+// Sale una sola vez, al terminar, y se cierra con un toque. No es una
+// pantalla que haya que leer: es el número más alto que ha levantado nunca
+// en ese ejercicio, puesto delante de sus ojos el día que lo consigue.
+// ─────────────────────────────────────────────────────────────────────────
+function HojaRecords({ records, alCerrar }) {
+  const marca = (r) => r.peso ? `${r.peso} ${r.unidad || 'kg'} × ${r.reps}` : `${r.reps} repeticiones`;
+  return (
+    <div onClick={alCerrar} style={{
+      position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(31,31,31,0.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: SURFACE, borderRadius: 20, padding: '24px 20px', maxWidth: 360, width: '100%',
+        boxShadow: '0 12px 40px rgba(0,0,0,.22)', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 40, lineHeight: 1 }}>🏆</div>
+        <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, marginTop: 10, letterSpacing: '-0.01em' }}>
+          {records.length === 1 ? 'Récord nuevo' : `${records.length} récords nuevos`}
+        </div>
+        <div style={{ marginTop: 14, textAlign: 'left' }}>
+          {records.map(r => (
+            <div key={r.ejercicio_id} style={{
+              padding: '9px 0', borderTop: `1px solid ${BORDER}`,
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>{r.nombre}</div>
+              <div style={{ fontSize: 14, color: ACCENT_DARK, fontWeight: 700, marginTop: 2 }}>
+                {marca(r)}
+                {r.antes && (
+                  <span style={{ color: TEXT_LIGHT, fontWeight: 500, fontSize: 12.5 }}>
+                    {'  '}antes {r.antes.peso ? `${r.antes.peso}kg × ${r.antes.reps}` : `${r.antes.reps} reps`}
+                  </span>
+                )}
+                {r.primera_vez && (
+                  <span style={{ color: TEXT_LIGHT, fontWeight: 500, fontSize: 12.5 }}>{'  '}primera vez</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={alCerrar} style={{
+          width: '100%', marginTop: 18, padding: '13px 18px', borderRadius: 14, border: 0,
+          background: ACCENT_DARK, color: '#fff', fontSize: 15, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>Seguir</button>
+      </div>
+    </div>
   );
 }
 
@@ -572,19 +677,58 @@ function CabeceraBloque({ b }) {
   );
 }
 
-function Ejercicio({ re, marcadas, onMarcar, onDesmarcar }) {
+function Ejercicio({ re, marcadas, onMarcar, onDesmarcar , serieUnica = null, compacto = false }) {
   const e = re.ejercicio;
   // La ficha completa (video, cómo se hace, qué músculos trabaja, las
   // características) vive en una hoja aparte. Antes se desplegaba aquí
   // dentro y el iframe de YouTube se montaba en medio de la lista: con diez
   // ejercicios el teléfono se arrastraba y perdías el sitio al cerrarlo.
   const [ficha, setFicha] = useState(false);
-  const series = Array.from({ length: Math.max(1, re.series || 1) }, (_, i) => i + 1);
+  // En un circuito, cada VUELTA es una serie de ese ejercicio: la vuelta 2 es
+  // la serie 2. Así el circuito se marca igual que todo lo demás y no hace
+  // falta una tabla aparte para las vueltas.
+  const series = serieUnica != null
+    ? [serieUnica]
+    : Array.from({ length: Math.max(1, re.series || 1) }, (_, i) => i + 1);
   const ultima = re.ultima_vez;
   // El peso sugerido es el de la última vez: es lo que hace que marcar una
   // serie sea un toque y no teclear cada número otra vez.
   const pesoSugerido = ultima && ultima.mejor_peso ? String(ultima.mejor_peso) : '';
   const thumb = miniatura(e);
+
+  const filas = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      {series.map(n => (
+        <SerieFila
+          key={n} n={n} re={re}
+          marcada={marcadas[`${re.id}:${n}`]}
+          previa={(ultima?.series || []).find(x => x.serie === n) || null}
+          pesoSugerido={pesoSugerido}
+          repsSugeridas={String(re.reps || '').match(/^\d+/) ? String(re.reps).match(/^\d+/)[0] : ''}
+          onMarcar={onMarcar} onDesmarcar={onDesmarcar}
+        />
+      ))}
+    </div>
+  );
+
+  // Vuelta 2 en adelante de un circuito: solo el nombre y la fila. Repetir la
+  // miniatura, el récord y las características en cada vuelta convierte un
+  // circuito de tres vueltas en tres pantallas de scroll para marcar tres
+  // números.
+  if (compacto) {
+    return (
+      <div style={{
+        background: SURFACE, borderRadius: 13, padding: '11px 13px', marginBottom: 8,
+        boxShadow: SHADOW_CARD,
+      }}>
+        <div style={{
+          fontSize: 13.5, fontWeight: 700, color: TEXT, marginBottom: 7,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{e.nombre}</div>
+        {filas}
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -638,6 +782,15 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar }) {
           marginTop: 10, padding: '8px 11px', borderRadius: 10, background: SURFACE_2,
           fontSize: 11.5, color: TEXT_MUTED, lineHeight: 1.5,
         }}>
+          {ultima.record && (
+            <div style={{ marginBottom: 3 }}>
+              🏆 <strong style={{ color: ACCENT_DARK }}>Tu récord</strong>{' '}
+              {ultima.record.peso
+                ? `${ultima.record.peso}${ultima.record.unidad || 'kg'} × ${ultima.record.reps}`
+                : `${ultima.record.reps} reps`}
+              {' '}<span style={{ opacity: .7 }}>({fechaCorta(ultima.record.fecha)})</span>
+            </div>
+          )}
           <strong style={{ color: TEXT }}>La última vez</strong>{' '}
           ({fechaCorta(ultima.fecha)}):{' '}
           {ultima.series.map(s => `${s.reps ?? '—'}×${s.peso ?? '—'}${s.unidad || 'kg'}`).join(' · ')}
@@ -651,22 +804,27 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar }) {
         }}>{re.notas}</div>
       )}
 
-      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
-        {series.map(n => (
-          <SerieFila
-            key={n} n={n} re={re}
-            marcada={marcadas[`${re.id}:${n}`]}
-            pesoSugerido={pesoSugerido}
-            repsSugeridas={String(re.reps || '').match(/^\d+/) ? String(re.reps).match(/^\d+/)[0] : ''}
-            onMarcar={onMarcar} onDesmarcar={onDesmarcar}
-          />
-        ))}
+      {/* Encabezado de columnas. Sin él, la cifra gris de la izquierda no se
+          entiende: parece un número suelto en vez de "lo que hiciste". */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 2,
+        fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase',
+        color: TEXT_LIGHT,
+      }}>
+        <div style={{ width: 24, flexShrink: 0 }} />
+        <div style={{ width: 52, flexShrink: 0, textAlign: 'right' }}>Antes</div>
+        <div style={{ flex: 1, textAlign: 'center' }}>Reps</div>
+        <div style={{ width: 8, flexShrink: 0 }} />
+        <div style={{ flex: 1, textAlign: 'center' }}>Kg</div>
+        <div style={{ width: 38, flexShrink: 0 }} />
       </div>
+
+      {filas}
     </div>
   );
 }
 
-function SerieFila({ n, re, marcada, pesoSugerido, repsSugeridas, onMarcar, onDesmarcar }) {
+function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, onMarcar, onDesmarcar }) {
   const [reps, setReps] = useState(marcada?.reps != null ? String(marcada.reps) : repsSugeridas);
   const [peso, setPeso] = useState(marcada?.peso != null ? String(marcada.peso) : pesoSugerido);
   const hecha = !!marcada;
@@ -696,6 +854,20 @@ function SerieFila({ n, re, marcada, pesoSugerido, repsSugeridas, onMarcar, onDe
         width: 24, flexShrink: 0, textAlign: 'center',
         fontSize: 12, fontWeight: 800, color: hecha ? ACCENT_DARK : TEXT_LIGHT,
       }}>{n}</div>
+      {/* LO QUE HIZO EN ESTA MISMA SERIE LA VEZ PASADA.
+          Va al lado del campo y no en un cartel arriba a propósito: es el
+          dato que se mira quince veces por sesión, una por serie, y tenerlo
+          como marca de agua del campo no sirve — desaparece en cuanto tocas
+          el teclado, que es justo cuando lo necesitas. */}
+      <div style={{
+        width: 52, flexShrink: 0, textAlign: 'right',
+        fontSize: 11.5, color: TEXT_LIGHT, fontVariantNumeric: 'tabular-nums',
+        lineHeight: 1.15,
+      }} title={previa ? 'Lo que hiciste en esta serie la última vez' : 'Es la primera vez que haces esta serie'}>
+        {previa
+          ? `${previa.reps ?? '—'}${previa.peso ? `×${previa.peso}` : ''}`
+          : <span style={{ opacity: .4 }}>—</span>}
+      </div>
       <div style={{ flex: 1 }}>
         <input inputMode="numeric" value={reps} onChange={e => setReps(e.target.value)}
           placeholder="reps" aria-label={`Repeticiones serie ${n}`} style={campo} disabled={hecha} />

@@ -155,16 +155,97 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
         </div>
       )}
 
-      {/* ── Lo que levantaste la última vez ── */}
-      {item.ultima_vez && (
-        <Card style={{ marginTop: 16, padding: 13 }}>
-          <Rotulo style={{ marginBottom: 6 }}>La última vez · {fechaLarga(item.ultima_vez.fecha)}</Rotulo>
-          <div style={{ fontSize: 14, color: TEXT }}>
-            {item.ultima_vez.series.map(s => `${s.peso ?? '—'}${s.unidad || 'kg'} × ${s.reps ?? '—'}`).join('  ·  ')}
-          </div>
-        </Card>
-      )}
+      {/* ── Lo que has levantado: el récord y el historial ── */}
+      <TuHistorial item={item} />
     </Hoja>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// TU HISTORIAL EN ESTE EJERCICIO
+//
+// El récord va primero y grande: es lo único de esta pantalla que hace que
+// alguien cargue más. Debajo, la última vez (lo que se mira de reojo entre
+// serie y serie) y, plegado, todo lo demás.
+//
+// El historial va plegado a propósito: doce sesiones desplegadas empujan la
+// figura de músculos y las características fuera de la pantalla, y el que
+// quiere ver su progresión la busca; el que no, no.
+// ─────────────────────────────────────────────────────────────────────────
+function TuHistorial({ item }) {
+  const [verTodo, setVerTodo] = useState(false);
+  const u = item.ultima_vez;
+  if (!u) {
+    return (
+      <Card style={{ marginTop: 16, padding: 13 }}>
+        <div style={{ fontSize: 13.5, color: TEXT_LIGHT }}>
+          Todavía no has registrado este ejercicio. Lo que marques hoy será tu primera marca.
+        </div>
+      </Card>
+    );
+  }
+
+  const r = u.record;
+  const serie = (s) => `${s.peso ? `${s.peso}${s.unidad || 'kg'} × ` : ''}${s.reps ?? '—'}`;
+  const resto = (u.historial || []).slice(1);
+
+  return (
+    <Card style={{ marginTop: 16, padding: 13 }}>
+      {r && (
+        <div style={{
+          display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap',
+          paddingBottom: 10, marginBottom: 10, borderBottom: `1px solid ${BORDER_SOFT}`,
+        }}>
+          <span style={{ fontSize: 15 }}>🏆</span>
+          <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+            <Rotulo style={{ marginBottom: 2 }}>Tu récord</Rotulo>
+            <div style={{ fontSize: 17, fontWeight: 800, color: ACCENT_DARK, lineHeight: 1.2 }}>
+              {r.peso ? `${r.peso} ${r.unidad || 'kg'} × ${r.reps}` : `${r.reps} repeticiones`}
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: TEXT_LIGHT, whiteSpace: 'nowrap' }}>
+            {fechaLarga(r.fecha)}
+          </div>
+        </div>
+      )}
+
+      <Rotulo style={{ marginBottom: 6 }}>La última vez · {fechaLarga(u.fecha)}</Rotulo>
+      <div style={{ fontSize: 14, color: TEXT }}>
+        {u.series.map(serie).join('  ·  ')}
+      </div>
+
+      {resto.length > 0 && (
+        <>
+          <button onClick={() => setVerTodo(v => !v)} style={{
+            border: 'none', background: 'transparent', padding: '10px 0 0', cursor: 'pointer',
+            fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
+            color: TEXT_LIGHT, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit',
+          }}>
+            {verTodo ? 'Ocultar' : `Las ${resto.length} anteriores`}
+            <span style={{ transform: verTodo ? 'rotate(90deg)' : 'none', transition: 'transform .16s' }}>›</span>
+          </button>
+          {verTodo && (
+            <div style={{ marginTop: 8 }}>
+              {resto.map(h => (
+                <div key={h.fecha} style={{
+                  display: 'flex', gap: 10, padding: '7px 0',
+                  borderTop: `1px solid ${BORDER_SOFT}`, fontSize: 13.5,
+                }}>
+                  <span style={{ color: TEXT_LIGHT, flex: '0 0 74px' }}>{fechaLarga(h.fecha)}</span>
+                  <span style={{ color: TEXT, minWidth: 0 }}>{h.series.map(serie).join('  ·  ')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {u.veces > 1 && (
+        <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 10 }}>
+          Lo has hecho {u.veces} veces.
+        </div>
+      )}
+    </Card>
   );
 }
 

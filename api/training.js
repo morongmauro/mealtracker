@@ -72,14 +72,29 @@ function semanaDeFase(fase, hoy) {
 // Reparto de rutinas por día — EL MISMO criterio que el calendario del CRM
 // (entRepartirRutinas). Si aquí difiere, el cliente ve su semana ordenada de
 // una forma y el coach de otra.
+// Una rutina puede caer en VARIOS días: media lista entrena A-B-A-B, dos
+// rutinas repartidas en cuatro días. Por eso manda `dias_semana` (lista) y
+// no el viejo `dia_semana` (un solo día), que se sigue leyendo solo para las
+// rutinas que aún no han pasado por la migración.
+const diasDeRutina = (r) => {
+  if (Array.isArray(r?.dias_semana) && r.dias_semana.length) return r.dias_semana;
+  return r?.dia_semana ? [r.dia_semana] : [];
+};
+
 function repartirPorDia(fase, rutinas) {
   const porDia = {};
   DIAS.forEach(d => { porDia[d] = null; });
-  rutinas.filter(r => r.dia_semana).forEach(r => {
-    if (porDia[r.dia_semana] === null) porDia[r.dia_semana] = r;
+
+  // 1. Las que declaran sus días mandan, en orden de `dia_orden` para que un
+  //    empate entre dos rutinas sobre el mismo día se resuelva siempre igual.
+  const porOrden = rutinas.slice().sort((a, b) => (a.dia_orden || 0) - (b.dia_orden || 0));
+  porOrden.filter(r => diasDeRutina(r).length).forEach(r => {
+    diasDeRutina(r).forEach(d => { if (porDia[d] === null) porDia[d] = r; });
   });
-  const libres = rutinas.filter(r => !r.dia_semana)
-    .slice().sort((a, b) => (a.dia_orden || 0) - (b.dia_orden || 0));
+
+  // 2. Las que no declaran nada se reparten sobre los días que quedan libres
+  //    de los que la fase declaró.
+  const libres = porOrden.filter(r => !diasDeRutina(r).length);
   const huecos = (fase?.dias_semana || []).filter(d => porDia[d] === null);
   libres.forEach((r, i) => { if (huecos[i]) porDia[huecos[i]] = r; });
   return porDia;
@@ -97,7 +112,7 @@ const sb = async (path, opts = {}) => {
 async function buscarCliente(nombre) {
   const buscado = normalizeName(nombre);
   if (!buscado) return null;
-  const cl = await sb('clientes?select=id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno');
+  const cl = await sb('clientes?select=id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno');
   return (Array.isArray(cl) ? cl : []).find(c => normalizeName(c.nombre) === buscado) || null;
 }
 
@@ -137,6 +152,10 @@ export default async function handler(req, res) {
     if (!esGet && accion === 'cerrar') return res.status(200).json(await cerrarSesion(cliente, cuerpo));
     if (!esGet && accion === 'actividad') return res.status(200).json(await guardarActividad(cliente, cuerpo, hoy));
     if (!esGet && accion === 'borrar_actividad') return res.status(200).json(await borrarActividad(cliente, cuerpo));
+    if (accion === 'fotos') return res.status(200).json(await verFotos(cliente));
+    if (!esGet && accion === 'foto_subir') return res.status(200).json(await pedirSubidaFoto(cliente, cuerpo, hoy));
+    if (!esGet && accion === 'foto_guardar') return res.status(200).json(await guardarFoto(cliente, cuerpo, hoy));
+    if (!esGet && accion === 'foto_borrar') return res.status(200).json(await borrarFoto(cliente, cuerpo));
     return res.status(200).json({ ok: false, motivo: 'accion_desconocida' });
   } catch (e) {
     return res.status(200).json({ ok: false, motivo: 'error' });
@@ -168,7 +187,7 @@ async function verPlan(cliente, hoy) {
   const fase = Array.isArray(fases) ? fases[0] : null;
   if (!fase) return { ok: true, cliente: cliente.nombre, fase: null, dias: [], hoy };
 
-  const rutinas = await sb(`rutinas?select=id,nombre,descripcion,dia_orden,dia_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
+  const rutinas = await sb(`rutinas?select=id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
     + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
   const lista = (Array.isArray(rutinas) ? rutinas : []).filter(r => rutinaVisible(r, fase));
 
@@ -284,31 +303,246 @@ function limpiarRutina(r) {
   return { id: r.id, nombre: r.nombre, descripcion: r.descripcion, tipo: r.tipo_sesion, minutos: r.duracion_estimada_min };
 }
 
-async function ultimasSeries(clienteId, ejercicioIds) {
+// ── LO QUE YA HA LEVANTADO EN CADA EJERCICIO ────────────────────────────
+// Tres cosas distintas, y las tres hacen falta:
+//
+//   · `ultima_vez`  — la sesión más reciente. Es lo que prerrellena los
+//     campos y lo que se mira de reojo entre serie y serie.
+//   · `record`      — lo máximo que ha levantado NUNCA en ese ejercicio.
+//     Sin esto no hay nada que batir, y batir algo es lo que hace que la
+//     gente cargue más.
+//   · `historial`   — las últimas sesiones, serie a serie, para ver la
+//     progresión y no una foto suelta.
+//
+// Son DOS consultas pase lo que pase, no una por ejercicio: primero las
+// fechas de sus sesiones y luego todas las series de esos ejercicios. El
+// tope de 400 sesiones son más de dos años entrenando cinco días por
+// semana; pasado eso el récord se calcula sobre lo reciente, que es lo que
+// importa, y la consulta no crece sin freno.
+const TOPE_SESIONES = 400;
+const TOPE_HISTORIAL = 12;
+
+async function ultimasSeries(clienteId, ejercicioIds, { excluirSesion = null } = {}) {
   if (!ejercicioIds.length) return {};
-  const ses = await sb(`sesiones?select=id,fecha&cliente_id=eq.${clienteId}&order=fecha.desc&limit=30`);
-  const lista = Array.isArray(ses) ? ses : [];
+  const ses = await sb(`sesiones?select=id,fecha&cliente_id=eq.${clienteId}`
+    + `&order=fecha.desc&limit=${TOPE_SESIONES}`);
+  // Al cerrar hace falta saber cómo estaba el récord ANTES de hoy: con la
+  // sesión de hoy dentro, todo lo de hoy sería siempre el récord.
+  const lista = (Array.isArray(ses) ? ses : []).filter(x => x.id !== excluirSesion);
   if (!lista.length) return {};
+
   const fechaDe = {};
   lista.forEach(s => { fechaDe[s.id] = s.fecha; });
+
   const logs = await sb(`series_log?select=ejercicio_id,sesion_id,serie_num,reps,peso,unidad`
     + `&sesion_id=in.(${lista.map(s => s.id).join(',')})&ejercicio_id=in.(${ejercicioIds.join(',')})`
     + `&completada=is.true`);
-  const out = {};
+
+  // Primero se agrupa por ejercicio y fecha: una sesión del mismo día es una
+  // entrada del historial.
+  const porEjercicio = {};
   (Array.isArray(logs) ? logs : []).forEach(l => {
-    const f = fechaDe[l.sesion_id];
-    if (!f) return;
-    const prev = out[l.ejercicio_id];
-    if (!prev || f > prev.fecha) out[l.ejercicio_id] = { fecha: f, series: [] };
-    if (out[l.ejercicio_id].fecha === f) out[l.ejercicio_id].series.push(l);
+    const fecha = fechaDe[l.sesion_id];
+    if (!fecha) return;
+    const dias = porEjercicio[l.ejercicio_id] || (porEjercicio[l.ejercicio_id] = {});
+    (dias[fecha] || (dias[fecha] = [])).push(l);
   });
-  Object.values(out).forEach(v => {
-    v.series.sort((a, b) => a.serie_num - b.serie_num);
-    v.series = v.series.map(s => ({ serie: s.serie_num, reps: s.reps, peso: s.peso, unidad: s.unidad }));
-    const pesos = v.series.map(s => Number(s.peso)).filter(n => Number.isFinite(n) && n > 0);
-    v.mejor_peso = pesos.length ? Math.max(...pesos) : null;
+
+  const out = {};
+  Object.entries(porEjercicio).forEach(([ejercicioId, dias]) => {
+    const fechas = Object.keys(dias).sort().reverse();   // la más nueva primero
+    const sesion = (f) => ({
+      fecha: f,
+      series: dias[f]
+        .slice().sort((a, b) => a.serie_num - b.serie_num)
+        .map(s => ({ serie: s.serie_num, reps: s.reps, peso: s.peso, unidad: s.unidad })),
+    });
+
+    const ultima = sesion(fechas[0]);
+    // `mejor_peso` de la última sesión: es lo que prerrellena el campo. No es
+    // el récord — se llamaba así y confundía.
+    const pesosUltima = ultima.series.map(s => Number(s.peso)).filter(n => Number.isFinite(n) && n > 0);
+    ultima.mejor_peso = pesosUltima.length ? Math.max(...pesosUltima) : null;
+
+    // El récord: el peso más alto de toda su historia y, con ESE peso, las
+    // reps más altas. Así "60 kg × 8" es una marca real y no el peso de un
+    // día mezclado con las reps de otro.
+    let record = null;
+    fechas.forEach(f => {
+      dias[f].forEach(s => {
+        const peso = Number(s.peso), reps = Number(s.reps);
+        if (!Number.isFinite(reps) || reps <= 0) return;
+        const conPeso = Number.isFinite(peso) && peso > 0;
+        if (!record) { record = { peso: conPeso ? peso : null, reps, fecha: f, unidad: s.unidad || 'kg' }; return; }
+        const mejorPeso = conPeso && (record.peso == null || peso > record.peso);
+        const mismoPeso = conPeso ? peso === record.peso : record.peso == null;
+        if (mejorPeso || (mismoPeso && reps > record.reps)) {
+          record = { peso: conPeso ? peso : null, reps, fecha: f, unidad: s.unidad || 'kg' };
+        }
+      });
+    });
+
+    out[ejercicioId] = {
+      ...ultima,
+      record,
+      // Cuántas veces lo ha hecho en total, aunque solo se manden las últimas.
+      veces: fechas.length,
+      historial: fechas.slice(0, TOPE_HISTORIAL).map(sesion),
+    };
   });
   return out;
+}
+
+// ¿La sesión que se acaba de cerrar batió algún récord? Se calcula DESPUÉS
+// de guardar las series, comparando lo de hoy contra lo de antes de hoy.
+// Es lo que convierte "terminaste" en "levantaste más que nunca".
+function recordsBatidos(antes, series) {
+  const mejorDeHoy = {};
+  series.forEach(s => {
+    const peso = Number(s.peso), reps = Number(s.reps);
+    if (!Number.isFinite(reps) || reps <= 0) return;
+    const conPeso = Number.isFinite(peso) && peso > 0;
+    const m = mejorDeHoy[s.ejercicio_id];
+    if (!m || (conPeso && (m.peso == null || peso > m.peso))
+           || (conPeso && peso === m.peso && reps > m.reps)
+           || (!conPeso && m.peso == null && reps > m.reps)) {
+      mejorDeHoy[s.ejercicio_id] = { peso: conPeso ? peso : null, reps, unidad: s.unidad || 'kg' };
+    }
+  });
+  const batidos = [];
+  Object.entries(mejorDeHoy).forEach(([id, hoy]) => {
+    const previo = antes[id];
+    if (!previo) { batidos.push({ ejercicio_id: id, ...hoy, primera_vez: true }); return; }
+    const mejorPeso = hoy.peso != null && (previo.peso == null || hoy.peso > previo.peso);
+    const masReps = hoy.peso === previo.peso && hoy.reps > previo.reps;
+    if (mejorPeso || masReps) {
+      batidos.push({ ejercicio_id: id, ...hoy, antes: { peso: previo.peso, reps: previo.reps } });
+    }
+  });
+  return batidos;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// FOTOS DE PROGRESO
+// ═══════════════════════════════════════════════════════════════════════
+// Las fotos viven en un bucket PRIVADO. Nunca sale de aquí una URL que
+// funcione sola: cada enlace se firma con service_role y caduca. El archivo
+// no pasa por esta función — el navegador lo sube directo al storage con un
+// enlace de subida firmado, así que una foto de 8 MB no se come el límite de
+// cuerpo de la función ni su tiempo de ejecución.
+//
+// Todo va acotado al `cliente_id` de quien pregunta, igual que el resto del
+// endpoint. No hay ninguna acción que devuelva la foto de otro.
+
+const FOTOS_BUCKET = 'progreso';
+// Cinco minutos: suficiente para verlas y demasiado poco para que un enlace
+// reenviado siga abriendo mañana.
+const FOTO_VER_SEG = 300;
+const FOTO_POSES = ['frente', 'lado', 'espalda', 'otra'];
+const FOTO_TIPOS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic' };
+
+// El storage de Supabase no está bajo /rest/v1, así que no sirve `sb()`.
+async function storage(ruta, opts = {}) {
+  const r = await fetch(`${CRM_URL}/storage/v1/${ruta}`, {
+    ...opts,
+    headers: { apikey: CRM_KEY, Authorization: `Bearer ${CRM_KEY}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+  });
+  if (!r.ok) throw new Error(`storage ${r.status}`);
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+
+const firmarVer = async (ruta) => {
+  const r = await storage(`object/sign/${FOTOS_BUCKET}/${ruta}`, {
+    method: 'POST', body: JSON.stringify({ expiresIn: FOTO_VER_SEG }),
+  });
+  // Supabase devuelve la ruta relativa; el cliente necesita la absoluta.
+  return r?.signedURL ? `${CRM_URL}/storage/v1${r.signedURL}` : null;
+};
+
+async function verFotos(cliente) {
+  const filas = await sb(`fotos_progreso?select=id,fecha,pose,ruta,peso_kg,nota`
+    + `&cliente_id=eq.${cliente.id}&order=fecha.desc,created_at.desc&limit=200`);
+  const lista = Array.isArray(filas) ? filas : [];
+  // Las URLs se firman en paralelo: con veinte fotos, en serie son veinte
+  // idas y vueltas y la pantalla tarda segundos en aparecer.
+  const urls = await Promise.all(lista.map(f => firmarVer(f.ruta).catch(() => null)));
+  return {
+    ok: true,
+    // `ruta` no sale: al cliente no le sirve de nada y es lo único que
+    // permitiría pedir un enlace de otra foto.
+    fotos: lista.map((f, i) => ({
+      id: f.id, fecha: f.fecha, pose: f.pose,
+      peso_kg: f.peso_kg, nota: f.nota, url: urls[i],
+    })).filter(f => f.url),
+    caducan_en_seg: FOTO_VER_SEG,
+  };
+}
+
+// Paso 1 de subir: el navegador pide permiso y recibe un enlace firmado.
+async function pedirSubidaFoto(cliente, cuerpo, hoy) {
+  const ext = FOTO_TIPOS[String(cuerpo.tipo || '').toLowerCase()];
+  if (!ext) return { ok: false, motivo: 'tipo_no_permitido' };
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(cuerpo.fecha || '') ? cuerpo.fecha : hoy;
+  if (fecha > hoy) return { ok: false, motivo: 'fecha_futura' };
+  const pose = FOTO_POSES.includes(cuerpo.pose) ? cuerpo.pose : 'frente';
+
+  // La ruta lleva el id del cliente delante: aunque algún día se abran
+  // políticas sobre el bucket, "lo mío empieza por mi id" es una regla que
+  // se puede escribir. El sufijo aleatorio evita que subir dos veces el
+  // mismo día pise la anterior.
+  const azar = Math.random().toString(36).slice(2, 10);
+  const ruta = `${cliente.id}/${fecha}-${pose}-${azar}.${ext}`;
+  const firma = await storage(`object/upload/sign/${FOTOS_BUCKET}/${ruta}`, { method: 'POST' });
+  if (!firma?.url) return { ok: false, motivo: 'sin_firma' };
+  return { ok: true, ruta, url: `${CRM_URL}/storage/v1${firma.url}`, fecha, pose };
+}
+
+// Paso 2: el archivo ya está arriba, se registra la fila.
+async function guardarFoto(cliente, cuerpo, hoy) {
+  const ruta = String(cuerpo.ruta || '');
+  // Que la ruta sea suya. Sin esto, cualquiera podría registrar como propia
+  // una foto de otro pasando su ruta.
+  if (!ruta.startsWith(`${cliente.id}/`)) return { ok: false, motivo: 'ruta_ajena' };
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(cuerpo.fecha || '') ? cuerpo.fecha : hoy;
+  if (fecha > hoy) return { ok: false, motivo: 'fecha_futura' };
+
+  const peso = Number(cuerpo.peso_kg);
+  const fila = await sb('fotos_progreso', {
+    method: 'POST', headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      user_id: cliente.user_id || undefined,
+      cliente_id: cliente.id,
+      fecha,
+      pose: FOTO_POSES.includes(cuerpo.pose) ? cuerpo.pose : 'frente',
+      ruta,
+      peso_kg: Number.isFinite(peso) && peso > 0 ? peso : null,
+      nota: cuerpo.nota ? String(cuerpo.nota).slice(0, 300) : null,
+    }),
+  });
+  const f = Array.isArray(fila) ? fila[0] : fila;
+  if (!f) return { ok: false, motivo: 'no_se_guardo' };
+  return { ok: true, foto: { id: f.id, fecha: f.fecha, pose: f.pose, peso_kg: f.peso_kg, nota: f.nota, url: await firmarVer(f.ruta).catch(() => null) } };
+}
+
+// Borrar de verdad: la fila Y el archivo. Dejar el archivo sería decirle al
+// cliente que la borró cuando sigue ahí.
+async function borrarFoto(cliente, cuerpo) {
+  const id = String(cuerpo.id || '');
+  if (!id) return { ok: false, motivo: 'sin_id' };
+  const suyas = await sb(`fotos_progreso?select=id,ruta&id=eq.${encodeURIComponent(id)}`
+    + `&cliente_id=eq.${cliente.id}&limit=1`);
+  const f = Array.isArray(suyas) ? suyas[0] : null;
+  if (!f) return { ok: false, motivo: 'no_es_suya' };
+
+  await sb(`fotos_progreso?id=eq.${f.id}`, { method: 'DELETE' });
+  try {
+    await storage(`object/${FOTOS_BUCKET}/${f.ruta}`, { method: 'DELETE' });
+  } catch (e) {
+    // La fila ya no está, así que para el cliente la foto desapareció. El
+    // archivo huérfano sale en la consulta del final de migracion-fotos.sql.
+  }
+  return { ok: true };
 }
 
 // ── ESCRITURAS ────────────────────────────────────────────────────────────
@@ -348,6 +582,10 @@ async function abrirSesion(cliente, cuerpo, hoy) {
       user_id: cuerpo.user_id_coach || undefined,
       cliente_id: cliente.id, rutina_id: rutina.id, fase_id: rutina.fase_id,
       fecha: hoy, semana_iso: semanaISO(hoy), estado: 'en_curso',
+      // Quién generó esta fila. Sin esto el CRM no distingue una sesión que
+      // el cliente marcó de una que trajo la importación de Trainerize, y
+      // acaba diciéndote "lo marcó en su app" sobre historial importado.
+      origen: 'cliente',
     }),
   });
   const sesion = Array.isArray(creada) ? creada[0] : creada;
@@ -411,6 +649,34 @@ async function cerrarSesion(cliente, cuerpo) {
     + `&order=created_at.asc&limit=1`);
   const inicio = Array.isArray(primeras) && primeras[0] ? primeras[0].created_at : null;
   if (inicio) dur = Math.max(0, Math.round((ahora - new Date(inicio)) / 1000));
+  // Qué récords batió hoy. Se mira ANTES de marcar la sesión como cerrada
+  // porque da igual el estado: lo que cuenta son las series que dejó.
+  let records = [];
+  if (cuerpo.estado !== 'saltada') {
+    try {
+      const hoy = await sb(`series_log?select=ejercicio_id,reps,peso,unidad`
+        + `&sesion_id=eq.${sesion.id}&completada=is.true`);
+      const series = Array.isArray(hoy) ? hoy : [];
+      const ids = [...new Set(series.map(x => x.ejercicio_id))];
+      if (ids.length) {
+        const antes = await ultimasSeries(cliente.id, ids, { excluirSesion: sesion.id });
+        const previos = {};
+        Object.entries(antes).forEach(([id, v]) => { if (v.record) previos[id] = v.record; });
+        records = recordsBatidos(previos, series);
+        // El nombre, para poder enseñárselo. Sin esto es un id.
+        if (records.length) {
+          const ej = await sb(`ejercicios?select=id,nombre&id=in.(${records.map(r => r.ejercicio_id).join(',')})`);
+          const nombre = Object.fromEntries((Array.isArray(ej) ? ej : []).map(e => [e.id, e.nombre]));
+          records = records.map(r => ({ ...r, nombre: nombre[r.ejercicio_id] || 'Ejercicio' }));
+        }
+      }
+    } catch (e) {
+      // Un récord no calculado no puede impedir cerrar la sesión: lo que el
+      // cliente acaba de entrenar ya está guardado y eso es lo que importa.
+      records = [];
+    }
+  }
+
   const upd = await sb(`sesiones?id=eq.${sesion.id}`, {
     method: 'PATCH', headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
@@ -424,7 +690,7 @@ async function cerrarSesion(cliente, cuerpo) {
       notas_cliente: cuerpo.notas ? String(cuerpo.notas).slice(0, 500) : null,
     }),
   });
-  return { ok: true, sesion: Array.isArray(upd) ? upd[0] : upd };
+  return { ok: true, sesion: Array.isArray(upd) ? upd[0] : upd, records };
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -450,7 +716,7 @@ async function verMes(cliente, ym, hoy) {
 
   let porDia = {}, rutinas = [];
   if (fase) {
-    const rr = await sb(`rutinas?select=id,nombre,dia_orden,dia_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
+    const rr = await sb(`rutinas?select=id,nombre,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
       + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
     rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
     porDia = repartirPorDia(fase, rutinas);
@@ -548,7 +814,7 @@ async function verRutinas(cliente) {
   const fase = Array.isArray(fases) ? fases[0] : null;
   if (!fase) return { ok: true, fase: null, rutinas: [] };
 
-  const rr = await sb(`rutinas?select=id,nombre,descripcion,dia_orden,dia_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
+  const rr = await sb(`rutinas?select=id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
     + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
   const rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
   if (!rutinas.length) return { ok: true, fase: { nombre: fase.nombre, objetivo: fase.objetivo }, rutinas: [] };

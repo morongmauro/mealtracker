@@ -39,6 +39,15 @@ export const api = {
   cerrar: (name, datos)     => pedir({ accion: 'cerrar', name, ...datos }),
   actividad:       (name, datos) => pedir({ accion: 'actividad', name, ...datos }),
   borrarActividad: (name, id)    => pedir({ accion: 'borrar_actividad', name, id }),
+
+  // Fotos de progreso. Subir son DOS pasos a propósito: `fotoSubir` pide un
+  // enlace firmado y el navegador manda el archivo directo al storage, sin
+  // pasar por la función serverless. Una foto de 8 MB por ahí se comería el
+  // límite de cuerpo de la petición.
+  fotos:       (name)        => pedir({ accion: 'fotos', name }),
+  fotoSubir:   (name, datos) => pedir({ accion: 'foto_subir', name, ...datos }),
+  fotoGuardar: (name, datos) => pedir({ accion: 'foto_guardar', name, ...datos }),
+  fotoBorrar:  (name, id)    => pedir({ accion: 'foto_borrar', name, id }),
 };
 
 // ─────────────────────────────────────────────────────────────────────────
