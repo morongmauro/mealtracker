@@ -5,7 +5,9 @@ import EntrenoResumen from './EntrenoResumen.jsx';
 import EntrenoFotos from './EntrenoFotos.jsx';
 import EntrenoActividad, { ChipActividad } from './EntrenoActividad.jsx';
 import EntrenoFicha from './EntrenoFicha.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito } from './entrenoDatos.js';
+import { HojaMedida } from './EntrenoMedidas.jsx';
+import HojaNota from './EntrenoNota.jsx';
+import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
@@ -74,7 +76,8 @@ const SECCIONES = [
   ['mes', 'Mes'],
   ['rutinas', 'Rutinas'],
   ['resumen', 'Resumen'],
-  ['fotos', 'Fotos'],
+  // 'Fotos' se quitó a propósito: por ahora las fotos llegan por WhatsApp.
+  // Para volver a mostrarla: ['fotos', 'Fotos'] aquí y FOTOS_ACTIVAS en la API.
 ];
 
 // FUERA del componente a propósito. Definidos dentro, cada render de la app
@@ -198,6 +201,10 @@ function BloqueActividad({ name }) {
 
   const actividades = hoyMes?.actividades || [];
   const eventos = hoyMes?.eventos || [];
+  // Día de medición (lo pone el coach en el calendario): el botón para
+  // registrarla va aquí mismo, donde el cliente mira qué le toca hoy.
+  const hayMedicion = eventos.some(ev => ev.tipo === 'medicion');
+  const [midiendo, setMidiendo] = useState(false);
 
   return (
     <div style={{ marginTop: 22 }}>
@@ -214,6 +221,18 @@ function BloqueActividad({ name }) {
           fontSize: 12.5, fontWeight: 700, color: ACCENT_DARK, fontFamily: 'inherit',
         }}>+ Registrar</button>
       </div>
+
+      {hayMedicion && (
+        <button onClick={() => setMidiendo(true)} style={{
+          width: '100%', textAlign: 'left', border: `1px solid ${BORDER}`, background: SURFACE,
+          borderRadius: 14, padding: '13px 14px', marginBottom: 8, cursor: 'pointer',
+          fontFamily: 'inherit', boxShadow: SHADOW_CARD,
+        }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: TEXT }}>Hoy toca medirte</div>
+          <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2 }}>Registra tu peso y % de grasa · o mándale el pantallazo a tu coach</div>
+        </button>
+      )}
+      <HojaMedida abierta={midiendo} nombre={name} alCerrar={() => setMidiendo(false)} alGuardar={() => setMidiendo(false)} />
 
       {eventos.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
@@ -398,6 +417,22 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const [remate, setRemate] = useState(false);   // ofrecer cardio al cerrar
   const [records, setRecords] = useState(null);  // lo que batió hoy, si batió algo
   const [pendientes, setPendientes] = useState(0);
+  const [nota, setNota] = useState(null);          // { titulo, rutina_id, rutina_ejercicio_id? }
+  // kg o lb, POR EJERCICIO: las mancuernas de un gimnasio van en libras y las
+  // máquinas del otro en kilos. Se recuerda en el teléfono; si no hay nada,
+  // la unidad de la última vez; si no, kg.
+  const [unidades, setUnidades] = useState({});
+  const unidadDe = useCallback((re) => {
+    const id = re.ejercicio.id;
+    if (unidades[id]) return unidades[id];
+    try { const u = almacen.getItem(`entreno:unidad:${id}`); if (u === 'kg' || u === 'lb') return u; } catch (e) {}
+    return re.ultima_vez?.unidad === 'lb' ? 'lb' : 'kg';
+  }, [unidades]);
+  const cambiarUnidad = useCallback((re) => {
+    const nueva = unidadDe(re) === 'kg' ? 'lb' : 'kg';
+    setUnidades(u => ({ ...u, [re.ejercicio.id]: nueva }));
+    try { almacen.setItem(`entreno:unidad:${re.ejercicio.id}`, nueva); } catch (e) {}
+  }, [unidadDe]);
   // El aviso de "guardado en el teléfono" sale solo si la serie lleva un rato
   // sin subir. Con buena señal sube en medio segundo, y un cartel que aparece
   // y desaparece en cada serie asusta más de lo que informa.
@@ -472,7 +507,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         if (s.sesion) setSesion(s.sesion);
         (s.series || []).forEach(x => {
           if (x.rutina_ejercicio_id && x.completada !== false) {
-            m[`${x.rutina_ejercicio_id}:${x.serie_num}`] = { reps: x.reps, peso: x.peso };
+            m[`${x.rutina_ejercicio_id}:${x.serie_num}`] = { reps: x.reps, peso: x.peso, unidad: x.unidad || 'kg' };
           }
         });
       }
@@ -480,7 +515,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       cola.pendientes(deEsta).forEach(x => {
         const k = `${x.datos.rutina_ejercicio_id}:${x.datos.serie_num}`;
         if (x.datos.completada === false) delete m[k];
-        else m[k] = { reps: x.datos.reps, peso: x.datos.peso };
+        else m[k] = { reps: x.datos.reps, peso: x.datos.peso, unidad: x.datos.unidad || 'kg' };
       });
       setMarcadas(m);
       setCargando(false);
@@ -507,9 +542,9 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     cola.vaciar();
   }, [asegurarSesion, name, rutinaId, fecha]);
 
-  const marcar = useCallback((re, serie, reps, peso, descansoSeg) => {
+  const marcar = useCallback((re, serie, reps, peso, descansoSeg, unidad = 'kg') => {
     const clave = `${re.id}:${serie}`;
-    setMarcadas(m => ({ ...m, [clave]: { reps, peso } }));   // optimista: el check no espera a la red
+    setMarcadas(m => ({ ...m, [clave]: { reps, peso, unidad } }));   // optimista: el check no espera a la red
     // El descanso lo decide quien pinta la fila: entre series de un ejercicio
     // el del ejercicio; en un circuito, el corto entre estaciones o el largo
     // al terminar la vuelta.
@@ -517,7 +552,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     if (Number.isFinite(seg) && seg > 0) setDescanso({ segundos: seg, fin: Date.now() + seg * 1000 });
     escribirSerie({
       rutina_ejercicio_id: re.id, ejercicio_id: re.ejercicio.id,
-      serie_num: serie, reps, peso, completada: true,
+      serie_num: serie, reps, peso, unidad, completada: true,
     });
   }, [escribirSerie]);
 
@@ -610,6 +645,10 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         {datos.descripcion && (
           <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 7, lineHeight: 1.5 }}>{datos.descripcion}</div>
         )}
+        <button onClick={() => setNota({ titulo: datos.nombre, rutina_id: rutinaId })} style={{
+          marginTop: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
+          fontSize: 12.5, fontWeight: 700, color: ACCENT_DARK, fontFamily: 'inherit',
+        }}>Escribirle a tu coach sobre esta rutina</button>
         {totalSeries > 0 && (
           <div style={{ marginTop: 11 }}>
             <div style={{ height: 5, borderRadius: 99, background: SURFACE_2, overflow: 'hidden' }}>
@@ -655,6 +694,8 @@ function VistaRutina({ name, rutinaId, onVolver }) {
                     ? descansoEnCircuito(tramo.bloque, k, vuelta.length, vi, tramo.vueltas.length)
                     : undefined}
                   compacto={vi > 0}
+                  unidad={unidadDe(re)} onUnidad={() => cambiarUnidad(re)}
+                  onNota={() => setNota({ titulo: re.ejercicio.nombre, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })}
                   marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />
               ))}
             </React.Fragment>
@@ -692,6 +733,8 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           onSaltar={(nota) => cerrar('saltada', null, nota)}
         />
       )}
+
+      <HojaNota abierta={!!nota} nombre={name} contexto={nota} alCerrar={() => setNota(null)} />
 
       {records && <HojaRecords records={records} alCerrar={() => { setRecords(null); setRemate(true); }} />}
 
@@ -766,7 +809,7 @@ function HojaRecords({ records, alCerrar }) {
                 {marca(r)}
                 {r.antes && (
                   <span style={{ color: TEXT_LIGHT, fontWeight: 500, fontSize: 12.5 }}>
-                    {'  '}antes {r.antes.peso ? `${r.antes.peso}kg × ${r.antes.reps}` : `${r.antes.reps} reps`}
+                    {'  '}antes {r.antes.peso ? `${r.antes.peso} ${r.antes.unidad || 'kg'} × ${r.antes.reps}` : `${r.antes.reps} reps`}
                   </span>
                 )}
                 {r.primera_vez && (
@@ -803,7 +846,8 @@ function CabeceraBloque({ b }) {
   );
 }
 
-function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, compacto = false, descansoCircuito }) {
+function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, compacto = false, descansoCircuito,
+                    unidad = 'kg', onUnidad, onNota }) {
   const e = re.ejercicio;
   // La ficha completa (video, cómo se hace, qué músculos trabaja, las
   // características) vive en una hoja aparte. Antes se desplegaba aquí
@@ -819,7 +863,9 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
   const ultima = re.ultima_vez;
   // El peso sugerido es el de la última vez: es lo que hace que marcar una
   // serie sea un toque y no teclear cada número otra vez.
-  const pesoSugerido = ultima && ultima.mejor_peso ? String(ultima.mejor_peso) : '';
+  // Si hoy está en otra unidad que la última vez (otro gimnasio), se convierte.
+  const pesoSugerido = ultima && ultima.mejor_peso
+    ? String(convertir(ultima.mejor_peso, ultima.unidad || 'kg', unidad)) : '';
   const thumb = miniatura(e);
 
   const filas = (
@@ -829,7 +875,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
           key={n} n={n} re={re}
           marcada={marcadas[`${re.id}:${n}`]}
           previa={(ultima?.series || []).find(x => x.serie === n) || null}
-          pesoSugerido={pesoSugerido}
+          pesoSugerido={pesoSugerido} unidad={unidad}
           repsSugeridas={String(re.reps || '').match(/^\d+/) ? String(re.reps).match(/^\d+/)[0] : ''}
           // Fuera de un circuito: el descanso del ejercicio entre series, y
           // ninguno tras la última (ahí ya se pasa al siguiente ejercicio).
@@ -896,11 +942,10 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
             {re.tempo ? `Tempo ${re.tempo} · ` : ''}
             {re.descanso_seg ? `Descanso ${re.descanso_seg}s` : ''}
           </div>
-          <button onClick={() => setFicha(true)} style={{
-            marginTop: 7, border: `1px solid ${BORDER}`, background: 'transparent',
-            borderRadius: 999, padding: '3px 11px', fontSize: 11.5, fontWeight: 700,
-            color: TEXT_MUTED, cursor: 'pointer', fontFamily: 'inherit',
-          }}>Características</button>
+          <div style={{ display: 'flex', gap: 6, marginTop: 7, flexWrap: 'wrap' }}>
+            <button onClick={() => setFicha(true)} style={pildora}>Características</button>
+            {onNota && <button onClick={onNota} style={pildora}>Nota al coach</button>}
+          </div>
         </div>
       </div>
 
@@ -946,7 +991,14 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
         <div style={{ width: 52, flexShrink: 0, textAlign: 'right' }}>Antes</div>
         <div style={{ flex: 1, textAlign: 'center' }}>Reps</div>
         <div style={{ width: 8, flexShrink: 0 }} />
-        <div style={{ flex: 1, textAlign: 'center' }}>Kg</div>
+        {/* La columna del peso ES el interruptor: kg ⇄ lb para este ejercicio. */}
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
+            border: `1px solid ${BORDER}`, background: 'transparent', borderRadius: 999,
+            padding: '1px 8px', fontSize: 10, fontWeight: 800, letterSpacing: '.06em',
+            textTransform: 'uppercase', color: ACCENT_DARK, cursor: 'pointer', fontFamily: 'inherit',
+          }}>{unidad} ⇄</button>
+        </div>
         <div style={{ width: 38, flexShrink: 0 }} />
       </div>
 
@@ -955,7 +1007,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
   );
 }
 
-function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descansoSeg, onMarcar, onDesmarcar }) {
+function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descansoSeg, unidad = 'kg', onMarcar, onDesmarcar }) {
   const [reps, setReps] = useState(marcada?.reps != null ? String(marcada.reps) : repsSugeridas);
   const [peso, setPeso] = useState(marcada?.peso != null ? String(marcada.peso) : pesoSugerido);
   const hecha = !!marcada;
@@ -966,6 +1018,15 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descan
       setPeso(marcada.peso != null ? String(marcada.peso) : '');
     }
   }, [marcada]);
+
+  // Al pasar de kg a lb, el peso sugerido se convierte. Solo si el campo aún
+  // tiene la sugerencia: lo que el cliente tecleó a mano no se toca.
+  const sugerenciaPrevia = useRef(pesoSugerido);
+  useEffect(() => {
+    if (!marcada && peso === sugerenciaPrevia.current) setPeso(pesoSugerido);
+    sugerenciaPrevia.current = pesoSugerido;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pesoSugerido]);
 
   const campo = {
     width: '100%', padding: '9px 8px', borderRadius: 9, textAlign: 'center',
@@ -996,7 +1057,7 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descan
         lineHeight: 1.15,
       }} title={previa ? 'Lo que hiciste en esta serie la última vez' : 'Es la primera vez que haces esta serie'}>
         {previa
-          ? `${previa.reps ?? '—'}${previa.peso ? `×${previa.peso}` : ''}`
+          ? `${previa.reps ?? '—'}${previa.peso ? `×${previa.peso}` : ''}${previa.peso && (previa.unidad || 'kg') !== unidad ? (previa.unidad || 'kg') : ''}`
           : <span style={{ opacity: .4 }}>—</span>}
       </div>
       <div style={{ flex: 1 }}>
@@ -1006,12 +1067,12 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descan
       <div style={{ fontSize: 12, color: TEXT_LIGHT, flexShrink: 0 }}>×</div>
       <div style={{ flex: 1 }}>
         <input inputMode="decimal" value={peso} onChange={e => setPeso(e.target.value)}
-          placeholder="kg" aria-label={`Peso serie ${n}`} style={campo} disabled={hecha} />
+          placeholder={unidad} aria-label={`Peso serie ${n}`} style={campo} disabled={hecha} />
       </div>
       <button
         onClick={() => hecha
           ? onDesmarcar(re, n)
-          : onMarcar(re, n, numero(reps), numero(peso), descansoSeg)}
+          : onMarcar(re, n, numero(reps), numero(peso), descansoSeg, unidad)}
         aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`}
         style={{
           flexShrink: 0, width: 38, height: 38, borderRadius: 11, cursor: 'pointer',
@@ -1200,6 +1261,12 @@ const btnDescanso = {
   color: '#fff', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
 };
 
+
+const pildora = {
+  border: `1px solid ${BORDER}`, background: 'transparent',
+  borderRadius: 999, padding: '3px 11px', fontSize: 11.5, fontWeight: 700,
+  color: TEXT_MUTED, cursor: 'pointer', fontFamily: 'inherit',
+};
 
 // ── piezas ────────────────────────────────────────────────────────────────
 const fechaCorta = (ymd) => {

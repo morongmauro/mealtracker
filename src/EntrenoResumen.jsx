@@ -13,6 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { api, fechaLarga, CATALOGO_MINIMO } from './entrenoDatos.js';
+import { MisMedidas } from './EntrenoMedidas.jsx';
 import { Card, Chip, Titulo, Seccion, Cargando, Fallo, Barra,
          ACCENT, ACCENT_DARK, ACCENT_LIGHT, SURFACE_2, BORDER_SOFT,
          TEXT, TEXT_MUTED, TEXT_LIGHT, SUCCESS } from './entrenoUI.jsx';
@@ -155,6 +156,9 @@ export default function Resumen({ nombre }) {
       <div style={{ fontSize: 12, color: TEXT_LIGHT, textAlign: 'center', margin: '20px 0 0', lineHeight: 1.6 }}>
         Los números de arriba son los mismos que ve tu coach.
       </div>
+
+      {/* Peso y % de grasa: se registran aquí (y el día de medición, desde Hoy). */}
+      <MisMedidas nombre={nombre} />
     </div>
   );
 }

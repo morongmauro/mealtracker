@@ -42,6 +42,13 @@ export const api = {
   actividad:       (name, datos) => pedir({ accion: 'actividad', name, ...datos }),
   borrarActividad: (name, id)    => pedir({ accion: 'borrar_actividad', name, id }),
 
+  // Peso y % de grasa que registra el propio cliente (van a la misma tabla
+  // que las mediciones del coach en el CRM).
+  medidas: (name)        => pedir({ accion: 'medidas', name }),
+  medida:  (name, datos) => pedir({ accion: 'medida', name, ...datos }),
+  // Nota para el coach, sobre la rutina o sobre un ejercicio.
+  nota:    (name, datos) => pedir({ accion: 'nota', name, ...datos }),
+
   // Fotos de progreso. Subir son DOS pasos a propósito: `fotoSubir` pide un
   // enlace firmado y el navegador manda el archivo directo al storage, sin
   // pasar por la función serverless. Una foto de 8 MB por ahí se comería el
@@ -154,4 +161,14 @@ export function descansoEnCircuito(bloque, estacion, estaciones, vuelta, vueltas
   if (estacion < estaciones - 1) return Number(bloque.descanso_entre_seg) > 0 ? Number(bloque.descanso_entre_seg) : null;
   if (vuelta < vueltas - 1) return Number(bloque.descanso_seg) > 0 ? Number(bloque.descanso_seg) : null;
   return null;
+}
+
+// kg ⇄ lb, redondeado a lo que de verdad se puede cargar: medio kilo, o una
+// libra. 50 lb → 22.5 kg; 20 kg → 44 lb.
+export function convertir(peso, de, a) {
+  const n = Number(peso);
+  if (!Number.isFinite(n) || de === a) return peso;
+  if (de === 'lb' && a === 'kg') return Math.round(n * 0.45359237 * 2) / 2;
+  if (de === 'kg' && a === 'lb') return Math.round(n / 0.45359237);
+  return peso;
 }

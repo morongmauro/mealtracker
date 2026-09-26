@@ -32,82 +32,15 @@
 // su estado vacío. Nunca rompe la pantalla.
 
 import { guard, cors } from './_guard.js';
+import {
+  normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
+  diasDeRutina, repartirPorDia, FASE_VISIBLE, rutinaVisible, finDeFase,
+  expandirEventos, sumarDiasISO, lunesDe, aKg,
+} from './_entreno.js';
+import { alertarCoach } from './_alerta.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
-
-const normalizeName = (str) => String(str || '')
-  .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .replace(/\s+/g, ' ').trim();
-
-const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-
-// "22,5" → 22.5. El teclado decimal en español pone coma, y Number('22,5')
-// es NaN: la serie se guardaba sin peso. La app ya lo convierte; esto es por
-// si llega una versión vieja de la app.
-const aNumero = (v) => {
-  if (v === '' || v == null) return null;
-  const n = Number(String(v).trim().replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
-};
-
-// "Hoy" en hora de Colombia: Vercel corre en UTC y a partir de las 7pm ya
-// sería el día siguiente — la rutina de hoy cambiaría a media tarde.
-function hoyBogota() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
-}
-function letraDeHoy() {
-  const [y, m, d] = hoyBogota().split('-').map(Number);
-  return DIAS[(new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7];
-}
-function semanaISO(ymd) {
-  const [y, m, d] = ymd.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  const day = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
-  return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
-}
-// En qué semana de la fase estamos (1..N), o null si aún no arranca o ya pasó.
-function semanaDeFase(fase, hoy) {
-  if (!fase?.fecha_inicio || !fase?.semanas) return null;
-  const dias = Math.floor((Date.parse(hoy + 'T00:00:00Z') - Date.parse(fase.fecha_inicio + 'T00:00:00Z')) / 86400000);
-  if (dias < 0) return null;
-  const s = Math.floor(dias / 7) + 1;
-  return s > fase.semanas ? null : s;
-}
-
-// Reparto de rutinas por día — EL MISMO criterio que el calendario del CRM
-// (entRepartirRutinas). Si aquí difiere, el cliente ve su semana ordenada de
-// una forma y el coach de otra.
-// Una rutina puede caer en VARIOS días: media lista entrena A-B-A-B, dos
-// rutinas repartidas en cuatro días. Por eso manda `dias_semana` (lista) y
-// no el viejo `dia_semana` (un solo día), que se sigue leyendo solo para las
-// rutinas que aún no han pasado por la migración.
-const diasDeRutina = (r) => {
-  if (Array.isArray(r?.dias_semana) && r.dias_semana.length) return r.dias_semana;
-  return r?.dia_semana ? [r.dia_semana] : [];
-};
-
-function repartirPorDia(fase, rutinas) {
-  const porDia = {};
-  DIAS.forEach(d => { porDia[d] = null; });
-
-  // 1. Las que declaran sus días mandan, en orden de `dia_orden` para que un
-  //    empate entre dos rutinas sobre el mismo día se resuelva siempre igual.
-  const porOrden = rutinas.slice().sort((a, b) => (a.dia_orden || 0) - (b.dia_orden || 0));
-  porOrden.filter(r => diasDeRutina(r).length).forEach(r => {
-    diasDeRutina(r).forEach(d => { if (porDia[d] === null) porDia[d] = r; });
-  });
-
-  // 2. Las que no declaran nada se reparten sobre los días que quedan libres
-  //    de los que la fase declaró.
-  const libres = porOrden.filter(r => !diasDeRutina(r).length);
-  const huecos = (fase?.dias_semana || []).filter(d => porDia[d] === null);
-  libres.forEach((r, i) => { if (huecos[i]) porDia[huecos[i]] = r; });
-  return porDia;
-}
 
 const H = () => ({ 'apikey': CRM_KEY, 'Authorization': `Bearer ${CRM_KEY}`, 'Content-Type': 'application/json' });
 const sb = async (path, opts = {}) => {
@@ -161,32 +94,25 @@ export default async function handler(req, res) {
     if (!esGet && accion === 'cerrar') return res.status(200).json(await cerrarSesion(cliente, cuerpo));
     if (!esGet && accion === 'actividad') return res.status(200).json(await guardarActividad(cliente, cuerpo, hoy));
     if (!esGet && accion === 'borrar_actividad') return res.status(200).json(await borrarActividad(cliente, cuerpo));
-    if (accion === 'fotos') return res.status(200).json(await verFotos(cliente));
-    if (!esGet && accion === 'foto_subir') return res.status(200).json(await pedirSubidaFoto(cliente, cuerpo, hoy));
-    if (!esGet && accion === 'foto_guardar') return res.status(200).json(await guardarFoto(cliente, cuerpo, hoy));
-    if (!esGet && accion === 'foto_borrar') return res.status(200).json(await borrarFoto(cliente, cuerpo));
+    if (accion === 'medidas') return res.status(200).json(await verMedidas(cliente));
+    if (!esGet && accion === 'medida') return res.status(200).json(await guardarMedida(cliente, cuerpo, hoy));
+    if (!esGet && accion === 'nota') return res.status(200).json(await guardarNota(cliente, cuerpo, hoy));
+    // Fotos de progreso: APAGADAS por decisión del coach (por ahora llegan por
+    // WhatsApp). El código se queda para retomarlo; con esto en false nadie
+    // puede ver, subir ni borrar fotos por esta puerta.
+    if (FOTOS_ACTIVAS) {
+      if (accion === 'fotos') return res.status(200).json(await verFotos(cliente));
+      if (!esGet && accion === 'foto_subir') return res.status(200).json(await pedirSubidaFoto(cliente, cuerpo, hoy));
+      if (!esGet && accion === 'foto_guardar') return res.status(200).json(await guardarFoto(cliente, cuerpo, hoy));
+      if (!esGet && accion === 'foto_borrar') return res.status(200).json(await borrarFoto(cliente, cuerpo));
+    } else if (accion.startsWith('foto')) {
+      return res.status(200).json({ ok: false, motivo: 'desactivado' });
+    }
     return res.status(200).json({ ok: false, motivo: 'accion_desconocida' });
   } catch (e) {
     return res.status(200).json({ ok: false, motivo: 'error' });
   }
 }
-
-// La fase que el cliente puede ver: activa Y ENVIADA.
-//
-// `estado` y `visible_cliente` son dos cosas distintas y las dos tienen que
-// cumplirse. `estado='activa'` es el estado de trabajo del coach; el que
-// decide si el cliente la ve es `visible_cliente`, que pone el botón "enviar
-// al cliente" del CRM. Sin esta segunda condición ese botón no servía de
-// nada: bastaba marcar la fase como activa —que es lo natural mientras se
-// arma— para que al cliente le apareciera media rutina a medio hacer.
-const FASE_VISIBLE = 'estado=eq.activa&visible_cliente=is.true';
-
-// Una rutina hereda la visibilidad de su fase salvo que diga lo contrario.
-// `false` la esconde dentro de una fase ya enviada (el día que aún estás
-// armando); `true` la muestra aunque la fase no lo esté.
-const rutinaVisible = (r, fase) => r.visible_cliente == null
-  ? !!fase?.visible_cliente
-  : !!r.visible_cliente;
 
 // ── EL PLAN ───────────────────────────────────────────────────────────────
 async function verPlan(cliente, hoy) {
@@ -421,25 +347,25 @@ async function ultimasSeries(clienteId, ejercicioIds, { excluirSesion = null } =
 
     const ultima = sesion(fechas[0]);
     // `mejor_peso` de la última sesión: es lo que prerrellena el campo. No es
-    // el récord — se llamaba así y confundía.
-    const pesosUltima = ultima.series.map(s => Number(s.peso)).filter(n => Number.isFinite(n) && n > 0);
-    ultima.mejor_peso = pesosUltima.length ? Math.max(...pesosUltima) : null;
+    // el récord — se llamaba así y confundía. Va con SU unidad: si la última
+    // vez fue en libras, la app lo sabe y abre el ejercicio en libras.
+    let mejor = null;
+    ultima.series.forEach(s => {
+      const kg = aKg(s.peso, s.unidad);
+      if (kg != null && kg > 0 && (!mejor || kg > mejor.kg)) mejor = { kg, peso: Number(s.peso), unidad: s.unidad || 'kg' };
+    });
+    ultima.mejor_peso = mejor ? mejor.peso : null;
+    ultima.unidad = mejor ? mejor.unidad : ((ultima.series[0] && ultima.series[0].unidad) || 'kg');
 
     // El récord: el peso más alto de toda su historia y, con ESE peso, las
     // reps más altas. Así "60 kg × 8" es una marca real y no el peso de un
-    // día mezclado con las reps de otro.
+    // día mezclado con las reps de otro. Se compara en kg: 50 lb no le gana
+    // a 40 kg aunque el número sea más grande.
     let record = null;
     fechas.forEach(f => {
       dias[f].forEach(s => {
-        const peso = Number(s.peso), reps = Number(s.reps);
-        if (!Number.isFinite(reps) || reps <= 0) return;
-        const conPeso = Number.isFinite(peso) && peso > 0;
-        if (!record) { record = { peso: conPeso ? peso : null, reps, fecha: f, unidad: s.unidad || 'kg' }; return; }
-        const mejorPeso = conPeso && (record.peso == null || peso > record.peso);
-        const mismoPeso = conPeso ? peso === record.peso : record.peso == null;
-        if (mejorPeso || (mismoPeso && reps > record.reps)) {
-          record = { peso: conPeso ? peso : null, reps, fecha: f, unidad: s.unidad || 'kg' };
-        }
+        const cand = marcaDe(s, f);
+        if (cand && superaMarca(cand, record)) record = cand;
       });
     });
 
@@ -457,27 +383,37 @@ async function ultimasSeries(clienteId, ejercicioIds, { excluirSesion = null } =
 // ¿La sesión que se acaba de cerrar batió algún récord? Se calcula DESPUÉS
 // de guardar las series, comparando lo de hoy contra lo de antes de hoy.
 // Es lo que convierte "terminaste" en "levantaste más que nunca".
-function recordsBatidos(antes, series) {
+// Una marca: peso (en su unidad), reps y el peso pasado a kg para comparar.
+function marcaDe(s, fecha = null) {
+  const reps = Number(s.reps);
+  if (!Number.isFinite(reps) || reps <= 0) return null;
+  const kg = aKg(s.peso, s.unidad);
+  const conPeso = kg != null && kg > 0;
+  return { peso: conPeso ? Number(s.peso) : null, reps, unidad: s.unidad || 'kg', kg: conPeso ? kg : null, ...(fecha ? { fecha } : {}) };
+}
+// ¿`a` supera a `b`? Más peso gana; con el mismo peso (±10 g, por el redondeo
+// de lb a kg), más reps. Sin peso (dominadas, planchas): más reps.
+export function superaMarca(a, b) {
+  if (!b) return true;
+  if (a.kg != null && (b.kg == null || a.kg > b.kg + 0.01)) return true;
+  const mismoPeso = a.kg != null ? (b.kg != null && Math.abs(a.kg - b.kg) <= 0.01) : b.kg == null;
+  return mismoPeso && a.reps > b.reps;
+}
+
+export function recordsBatidos(antes, series) {
   const mejorDeHoy = {};
   series.forEach(s => {
-    const peso = Number(s.peso), reps = Number(s.reps);
-    if (!Number.isFinite(reps) || reps <= 0) return;
-    const conPeso = Number.isFinite(peso) && peso > 0;
-    const m = mejorDeHoy[s.ejercicio_id];
-    if (!m || (conPeso && (m.peso == null || peso > m.peso))
-           || (conPeso && peso === m.peso && reps > m.reps)
-           || (!conPeso && m.peso == null && reps > m.reps)) {
-      mejorDeHoy[s.ejercicio_id] = { peso: conPeso ? peso : null, reps, unidad: s.unidad || 'kg' };
-    }
+    const m = marcaDe(s);
+    if (m && superaMarca(m, mejorDeHoy[s.ejercicio_id])) mejorDeHoy[s.ejercicio_id] = m;
   });
   const batidos = [];
   Object.entries(mejorDeHoy).forEach(([id, hoy]) => {
     const previo = antes[id];
-    if (!previo) { batidos.push({ ejercicio_id: id, ...hoy, primera_vez: true }); return; }
-    const mejorPeso = hoy.peso != null && (previo.peso == null || hoy.peso > previo.peso);
-    const masReps = hoy.peso === previo.peso && hoy.reps > previo.reps;
-    if (mejorPeso || masReps) {
-      batidos.push({ ejercicio_id: id, ...hoy, antes: { peso: previo.peso, reps: previo.reps } });
+    const { kg, ...marca } = hoy;
+    if (!previo) { batidos.push({ ejercicio_id: id, ...marca, primera_vez: true }); return; }
+    const prev = previo.kg !== undefined ? previo : marcaDe(previo);
+    if (prev && superaMarca(hoy, prev)) {
+      batidos.push({ ejercicio_id: id, ...marca, antes: { peso: previo.peso, reps: previo.reps, unidad: previo.unidad || 'kg' } });
     }
   });
   return batidos;
@@ -495,6 +431,7 @@ function recordsBatidos(antes, series) {
 // Todo va acotado al `cliente_id` de quien pregunta, igual que el resto del
 // endpoint. No hay ninguna acción que devuelva la foto de otro.
 
+const FOTOS_ACTIVAS = false;
 const FOTOS_BUCKET = 'progreso';
 // Cinco minutos: suficiente para verlas y demasiado poco para que un enlace
 // reenviado siga abriendo mañana.
@@ -656,7 +593,10 @@ async function abrirSesion(cliente, cuerpo, hoy) {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
-      user_id: cuerpo.user_id_coach || undefined,
+      // El coach dueño. Es obligatorio en la base y la API escribe con la
+      // service_role, que no tiene usuario: sin esto el insert fallaba SIEMPRE
+      // y ningún cliente podía guardar un entreno (probado en Postgres).
+      user_id: cliente.user_id,
       cliente_id: cliente.id, rutina_id: rutina.id, fase_id: rutina.fase_id,
       fecha, semana_iso: semanaISO(fecha), estado: 'en_curso',
       // Quién generó esta fila. Sin esto el CRM no distingue una sesión que
@@ -762,19 +702,33 @@ async function cerrarSesion(cliente, cuerpo) {
     }
   }
 
+  const cierre = {
+    estado: cuerpo.estado === 'saltada' ? 'saltada' : 'completada',
+    finalizada_en: ahora.toISOString(),
+    duracion_seg: dur,
+    rpe: (() => {
+      const n = Number(cuerpo.rpe);
+      return Number.isFinite(n) && n >= 1 && n <= 10 ? Math.round(n) : null;
+    })(),
+    notas_cliente: cuerpo.notas ? String(cuerpo.notas).slice(0, 500) : null,
+  };
+  // Los récords se guardan con la sesión para que la Bandeja del CRM los
+  // enseñe sin recalcular el historial de todos los clientes. La columna
+  // llega con carga/migracion-bandeja.sql; sin ella se cierra igual.
+  const conRecords = records.length ? { ...cierre, records } : cierre;
   const upd = await sb(`sesiones?id=eq.${sesion.id}`, {
-    method: 'PATCH', headers: { Prefer: 'return=representation' },
-    body: JSON.stringify({
-      estado: cuerpo.estado === 'saltada' ? 'saltada' : 'completada',
-      finalizada_en: ahora.toISOString(),
-      duracion_seg: dur,
-      rpe: (() => {
-        const n = Number(cuerpo.rpe);
-        return Number.isFinite(n) && n >= 1 && n <= 10 ? Math.round(n) : null;
-      })(),
-      notas_cliente: cuerpo.notas ? String(cuerpo.notas).slice(0, 500) : null,
-    }),
-  });
+    method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(conRecords),
+  }).catch(() => sb(`sesiones?id=eq.${sesion.id}`, {
+    method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(cierre),
+  }));
+  // Una nota al cerrar ("me molestó el hombro") es de las que el coach tiene
+  // que ver hoy, no el domingo: le llega al teléfono.
+  if (cierre.notas_cliente) {
+    await alertarCoach({
+      title: `${cliente.nombre} · ${cierre.estado === 'saltada' ? 'no pudo entrenar' : 'terminó su rutina'}`,
+      body: cierre.notas_cliente,
+    });
+  }
   return { ok: true, sesion: Array.isArray(upd) ? upd[0] : upd, records };
 }
 
@@ -865,13 +819,6 @@ async function verMes(cliente, ym, hoy) {
   };
 }
 
-function finDeFase(f) {
-  if (!f?.fecha_inicio || !f?.semanas) return '9999-12-31';
-  const t = new Date(Date.parse(f.fecha_inicio + 'T00:00:00Z'));
-  t.setUTCDate(t.getUTCDate() + f.semanas * 7 - 1);
-  return t.toISOString().slice(0, 10);
-}
-
 // Los eventos que el coach le programó Y decidió mostrarle. La tabla puede
 // no existir todavía (si no se corrió la migración), y eso no debe tumbar el
 // calendario: se devuelve vacío.
@@ -881,31 +828,6 @@ async function eventosDelCliente(clienteId) {
       + `&cliente_id=eq.${clienteId}`);
     return Array.isArray(e) ? e : [];
   } catch (err) { return []; }
-}
-
-// Espejo de evtFechasDe() en el CRM y de evento_fechas() en SQL. Las tres
-// tienen que dar los mismos días o el cliente ve la natación un día y el
-// coach otro.
-function expandirEventos(eventos, fase) {
-  const out = {};
-  (eventos || []).forEach(ev => {
-    const visible = ev.visible_cliente == null ? !!fase?.visible_cliente : !!ev.visible_cliente;
-    if (!visible) return;
-    const meta = { id: ev.id, tipo: ev.tipo, titulo: ev.titulo, detalle: ev.detalle, hora: ev.hora };
-    if (ev.fecha) { (out[String(ev.fecha).slice(0, 10)] ||= []).push(meta); return; }
-    if (!fase?.fecha_inicio || !fase?.semanas || ev.fase_id !== fase.id) return;
-    for (let semana = 1; semana <= fase.semanas; semana++) {
-      if (Array.isArray(ev.semanas) && ev.semanas.length && !ev.semanas.includes(semana)) continue;
-      (ev.dias_semana || []).forEach(codigo => {
-        const off = DIAS.indexOf(codigo);
-        if (off < 0) return;
-        const t = new Date(Date.parse(fase.fecha_inicio + 'T00:00:00Z'));
-        t.setUTCDate(t.getUTCDate() + (semana - 1) * 7 + off);
-        (out[t.toISOString().slice(0, 10)] ||= []).push(meta);
-      });
-    }
-  });
-  return out;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -982,6 +904,7 @@ async function guardarActividad(cliente, cuerpo, hoy) {
     return n != null && n > 0 ? Math.min(n, max) : null;
   };
   const fila = {
+    user_id: cliente.user_id,          // obligatorio en la base (ver abrirSesion)
     cliente_id: cliente.id,
     fecha,
     tipo,
@@ -1081,19 +1004,6 @@ async function verResumen(cliente, hoy) {
   };
 }
 
-function sumarDiasISO(ymd, n) {
-  const t = new Date(Date.parse(ymd + 'T00:00:00Z'));
-  t.setUTCDate(t.getUTCDate() + n);
-  return t.toISOString().slice(0, 10);
-}
-
-function lunesDe(ymd) {
-  const [y, m, d] = ymd.split('-').map(Number);
-  const t = new Date(Date.UTC(y, m - 1, d));
-  t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7));
-  return t.toISOString().slice(0, 10);
-}
-
 // La mitad de alimentación sale de `user_data`, que es de ESTA app, no del
 // CRM. `history[fecha]` ya trae el total del día calculado por el
 // mealtracker: aquí solo se promedia, para no tener una segunda forma de
@@ -1134,4 +1044,115 @@ async function resumenAlimentacion(nombre, lunes, domingo) {
   } catch (e) {
     return null;
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// MIS MEDIDAS  ·  peso y % de grasa que registra el propio cliente
+// ══════════════════════════════════════════════════════════════════════════
+// Van a la MISMA tabla que las mediciones que registra el coach en el CRM
+// (mediciones_corporales), así la gráfica de Composición y el aviso de "la
+// meta quedó vieja" las usan sin cambiar nada. Se marcan `origen='cliente'`
+// para distinguirlas; lo importado o lo del coach no lleva esa marca.
+//
+// Nunca se da por buena para cambiar la meta: el CRM la enseña y el coach
+// decide, como con cualquier medición.
+const MEDIDA_LIMITES = { peso: [25, 350], grasa: [2, 70] };
+
+async function verMedidas(cliente) {
+  const filas = await sb(`mediciones_corporales?select=id,fecha,peso,grasa_pct`
+    + `&cliente_id=eq.${cliente.id}&order=fecha.desc&limit=24`).catch(() => null);
+  if (!Array.isArray(filas)) return { ok: false, motivo: 'sin_tabla' };
+  return { ok: true, medidas: filas.map(m => ({ id: m.id, fecha: m.fecha, peso: m.peso, grasa_pct: m.grasa_pct })) };
+}
+
+async function guardarMedida(cliente, cuerpo, hoy) {
+  const peso = aNumero(cuerpo.peso);
+  const grasa = aNumero(cuerpo.grasa_pct);
+  const [pMin, pMax] = MEDIDA_LIMITES.peso, [gMin, gMax] = MEDIDA_LIMITES.grasa;
+  if (peso == null && grasa == null) return { ok: false, motivo: 'vacia' };
+  if (peso != null && (peso < pMin || peso > pMax)) return { ok: false, motivo: 'peso_fuera_de_rango' };
+  if (grasa != null && (grasa < gMin || grasa > gMax)) return { ok: false, motivo: 'grasa_fuera_de_rango' };
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || '')) ? String(cuerpo.fecha) : hoy;
+  if (fecha > hoy) return { ok: false, motivo: 'fecha_futura' };
+
+  // La anterior, para decirle al coach cuánto cambió.
+  const previas = await sb(`mediciones_corporales?select=fecha,peso,grasa_pct&cliente_id=eq.${cliente.id}`
+    + `&fecha=lte.${fecha}&order=fecha.desc&limit=1`).catch(() => []);
+  const previa = Array.isArray(previas) ? previas[0] : null;
+
+  const fila = {
+    user_id: cliente.user_id,
+    cliente_id: cliente.id,
+    fecha,
+    peso,
+    grasa_pct: grasa,
+    notas: cuerpo.nota ? String(cuerpo.nota).slice(0, 300) : null,
+  };
+  const ins = await sb('mediciones_corporales', {
+    method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ ...fila, origen: 'cliente' }),
+  }).catch(() => sb('mediciones_corporales', {   // sin la columna `origen` todavía
+    method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(fila),
+  }));
+  const m = Array.isArray(ins) ? ins[0] : ins;
+  if (!m) return { ok: false, motivo: 'no_se_guardo' };
+
+  const dif = (a, b, u) => (a != null && b != null ? ` (${a - b > 0 ? '+' : ''}${(a - b).toFixed(1)} ${u})` : '');
+  const partes = [
+    peso != null ? `${peso} kg${dif(peso, previa ? Number(previa.peso) : null, 'kg')}` : null,
+    grasa != null ? `${grasa}% grasa${dif(grasa, previa && previa.grasa_pct != null ? Number(previa.grasa_pct) : null, 'pts')}` : null,
+  ].filter(Boolean);
+  await alertarCoach({ title: `${cliente.nombre} registró su medida`, body: partes.join(' · '), tag: 'ecm-medida' });
+  return { ok: true, medida: { id: m.id, fecha: m.fecha, peso: m.peso, grasa_pct: m.grasa_pct } };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// NOTAS PARA EL COACH  ·  sobre la rutina entera o sobre un ejercicio
+// ══════════════════════════════════════════════════════════════════════════
+// «El press me molesta en el hombro», «la rutina del jueves me queda larga».
+// Llegan a la Bandeja del CRM y al teléfono del coach. La tabla
+// `notas_entreno` llega con carga/migracion-bandeja.sql.
+async function guardarNota(cliente, cuerpo, hoy) {
+  const texto = String(cuerpo.texto || '').trim().slice(0, 600);
+  if (!texto) return { ok: false, motivo: 'vacia' };
+
+  // Todo lo que se referencia tiene que ser SUYO.
+  let rutina = null, ejercicioNombre = null;
+  if (cuerpo.rutina_id) {
+    const rr = await sb(`rutinas?select=id,nombre&id=eq.${encodeURIComponent(cuerpo.rutina_id)}&cliente_id=eq.${cliente.id}&limit=1`);
+    rutina = Array.isArray(rr) ? rr[0] : null;
+    if (!rutina) return { ok: false, motivo: 'no_es_suya' };
+  }
+  let reId = null, ejId = null;
+  if (cuerpo.rutina_ejercicio_id && rutina) {
+    const re = await sb(`rutina_ejercicios?select=id,ejercicio_id&id=eq.${encodeURIComponent(cuerpo.rutina_ejercicio_id)}&rutina_id=eq.${rutina.id}&limit=1`);
+    const x = Array.isArray(re) ? re[0] : null;
+    if (x) {
+      reId = x.id; ejId = x.ejercicio_id;
+      const ej = await sb(`ejercicios?select=nombre&id=eq.${ejId}&limit=1`).catch(() => []);
+      ejercicioNombre = Array.isArray(ej) && ej[0] ? ej[0].nombre : null;
+    }
+  }
+  let sesionId = null;
+  if (cuerpo.sesion_id) {
+    const s = await sb(`sesiones?select=id&id=eq.${encodeURIComponent(cuerpo.sesion_id)}&cliente_id=eq.${cliente.id}&limit=1`);
+    sesionId = Array.isArray(s) && s[0] ? s[0].id : null;
+  }
+
+  let ins;
+  try {
+    ins = await sb('notas_entreno', {
+      method: 'POST', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        user_id: cliente.user_id, cliente_id: cliente.id, fecha: hoy,
+        rutina_id: rutina ? rutina.id : null, rutina_ejercicio_id: reId, ejercicio_id: ejId,
+        sesion_id: sesionId, texto,
+      }),
+    });
+  } catch (e) {
+    return { ok: false, motivo: 'sin_tabla' };
+  }
+  const sobre = ejercicioNombre || (rutina ? rutina.nombre : null);
+  await alertarCoach({ title: `${cliente.nombre}${sobre ? ` · ${sobre}` : ''}`, body: texto, tag: 'ecm-nota' });
+  const n = Array.isArray(ins) ? ins[0] : ins;
+  return { ok: true, nota: { id: n && n.id, texto } };
 }

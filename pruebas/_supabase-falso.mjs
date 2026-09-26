@@ -7,7 +7,11 @@
 
 import { randomUUID } from 'node:crypto';
 
-export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {} } = {}) {
+// `obligatorias`: columnas NOT NULL sin valor por defecto que sirva desde la
+// API. `user_id` en sesiones y actividades es el caso real: su default es
+// auth.uid(), que con la service_role vale null.
+export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {},
+  obligatorias = { sesiones: ['user_id'], actividades: ['user_id'], mediciones_corporales: ['user_id'], notas_entreno: ['user_id'] } } = {}) {
   const db = {};
   for (const [t, filas] of Object.entries(tablas)) db[t] = filas.map(f => ({ ...f }));
   const log = [];
@@ -29,6 +33,8 @@ export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}
       case 'in': return arg.replace(/^\(|\)$/g, '').split(',').includes(s);
       case 'gte': return s != null && s >= arg;
       case 'lte': return s != null && s <= arg;
+      case 'lt': return s != null && s < arg;
+      case 'gt': return s != null && s > arg;
       default: throw new Error('op no soportada: ' + op);
     }
   };
@@ -80,6 +86,8 @@ export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}
         id: randomUUID(), created_at: new Date().toISOString(), ...(porDefecto[tabla] || {}), ...f,
       }));
       for (const f of nuevas) {
+        const falta = (obligatorias[tabla] || []).find(c => f[c] == null);
+        if (falta) return respuesta(400, { message: `null value in column "${falta}" of relation "${tabla}" violates not-null constraint` });
         // El índice único de sesiones: cliente + rutina + fecha.
         if (tabla === 'sesiones' && f.rutina_id
             && filas.some(x => x.cliente_id === f.cliente_id && x.rutina_id === f.rutina_id && x.fecha === f.fecha)) {

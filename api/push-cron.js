@@ -45,6 +45,8 @@ import { verifyCoachToken } from './coach-auth.js';
 import { checkOrigin } from './_guard.js';
 // La regla de cobro, compartida con el banner de la app. Ver _pagos.js.
 import { leerContexto, evaluarCliente, normalizeName as normPagos, crmHeaders } from './_pagos.js';
+import { agendaDeHoy, cerrarOlvidadas, hoyBogota } from './_entreno.js';
+import { TRAINING_PARA_TODOS, TRAINING_BETA } from './_clients.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -91,6 +93,31 @@ const MSGS = {
     'Recordatorio amable: tu pago mensual está pendiente. Ponerte al día toma un momento y así no frenamos tu avance 🙌',
     'Tu mensualidad sigue pendiente. Realiza el pago cuando puedas y seguimos con tu proceso sin pausas. ¡Gracias! 🤝',
   ],
+};
+
+// ── Entrenamiento ──
+// «Hoy te toca»: solo a quien tiene el módulo de entrenamiento (la beta), y
+// solo si la rutina de hoy no la hizo ya esta semana. {rutina} = su nombre.
+MSGS.entreno = [
+  'Hoy te toca {rutina} 💪 Abre tu rutina y marca cada serie: así vemos tu progreso real.',
+  '{rutina} en tu agenda de hoy. Cuando entrenes, registra pesos y reps en la app 🏋️',
+  'Tu entreno de hoy: {rutina}. Lo que registras es lo que nos deja ajustar el plan con datos 💪',
+];
+// Día de medición (evento «medicion» que pone el coach en el calendario).
+MSGS.medicion = [
+  'Hoy toca registrar tu peso y % de grasa 📏 Hazlo en la app (Entrena → Resumen) o mándame el pantallazo de la medida.',
+  'Día de medición 📏 Anota tu peso y % de grasa en la app, o envíame la foto de la báscula.',
+];
+MSGS.medicionSinApp = [
+  'Hoy toca registrar tu peso y % de grasa 📏 Mándame el pantallazo de la medida por WhatsApp.',
+];
+const enBetaEntreno = (nombre) => TRAINING_PARA_TODOS === true
+  || TRAINING_BETA.some(n => normalizeName(n) === normalizeName(nombre));
+const sbCrm = async (path, opts = {}) => {
+  const r = await fetch(`${CRM_URL}/rest/v1/${path}`, { ...opts, headers: { ...sbHeaders(CRM_KEY), ...(opts.headers || {}) } });
+  if (!r.ok) throw new Error(`crm ${r.status}`);
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
 };
 
 const dayOfYear = () => Math.floor((Date.now() - Date.UTC(new Date().getUTCFullYear(), 0, 0)) / 86400000);
@@ -325,11 +352,19 @@ export default async function handler(req, res) {
   }
   webpush.setVapidDetails('mailto:morongmauro@gmail.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
 
+  // 0) Sesiones olvidadas: se cierran solas guardando lo que se marcó. Va
+  //    antes de los push y por su cuenta: si falla, los recordatorios salen
+  //    igual.
+  let olvidadas = null;
+  if (CRM_URL && CRM_KEY) {
+    try { olvidadas = await cerrarOlvidadas(sbCrm, hoyBogota()); } catch (e) { olvidadas = { error: String(e).slice(0, 80) }; }
+  }
+
   try {
     // 1) Todas las suscripciones (last_slot = marca anti-duplicado por turno)
     const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,user_id,name,tz,sub,last_slot`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
     const subs = rs.ok ? await rs.json() : [];
-    if (!Array.isArray(subs) || subs.length === 0) return res.status(200).json({ ok: true, sent: 0, subs: 0 });
+    if (!Array.isArray(subs) || subs.length === 0) return res.status(200).json({ ok: true, sent: 0, subs: 0, olvidadas });
 
     // 2) Actividad de HOY por cliente (para no molestar a quien ya registró)
     //    + meta de kcal y total consumido (para el cierre del día por %).
@@ -349,6 +384,14 @@ export default async function handler(req, res) {
     // 3) Deudores (solo se consulta si alguna suscripción está en su turno de
     //    pago). Usa la función compartida fetchDeudores (misma que el modo
     //    de prueba del coach), con caché por invocación.
+    // Agenda de entrenamiento de hoy (rutina + medición), solo si alguna
+    // suscripción está en su turno de mañana. Una sola pasada por el CRM.
+    let agenda = null;
+    const cargarAgenda = async () => {
+      if (agenda || !CRM_URL || !CRM_KEY) return;
+      try { agenda = await agendaDeHoy(sbCrm, hoyBogota()); } catch (e) { agenda = new Map(); }
+    };
+
     let deudores = null; // Set de nombres normalizados
     const cargarDeudores = async () => {
       if (deudores) return;
@@ -387,6 +430,18 @@ export default async function handler(req, res) {
       if (slot === 'm') {
         // Mañana (10am): solo a quien no ha registrado nada aún
         if (registrosHoy < 1) payloads.push({ title: 'Tu coach', body: pick(MSGS.morning), tag: 'ecm-m' });
+        // Entreno y medición de hoy. Tags propios: no se pisan con el de comida.
+        if (s.name) {
+          await cargarAgenda();
+          const hoyEs = agenda && agenda.get(normalizeName(s.name));
+          const beta = enBetaEntreno(s.name);
+          if (hoyEs && hoyEs.rutina && beta) {
+            payloads.push({ title: 'Tu coach', body: pick(MSGS.entreno).replace('{rutina}', hoyEs.rutina), tag: 'ecm-t' });
+          }
+          if (hoyEs && hoyEs.medicion) {
+            payloads.push({ title: 'Tu coach', body: pick(beta ? MSGS.medicion : MSGS.medicionSinApp), tag: 'ecm-med' });
+          }
+        }
       } else if (slot === 'p') {
         // Pago (5:30pm): DIARIO mientras dure la deuda (copys rotan por
         // día). Desaparece solo al marcar el pago en el CRM.
@@ -441,7 +496,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true, subs: subs.length, sent, removed });
+    return res.status(200).json({ ok: true, subs: subs.length, sent, removed, olvidadas });
   } catch (e) {
     return res.status(500).json({ error: 'cron failed', detail: String(e) });
   }

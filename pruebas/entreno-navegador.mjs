@@ -28,22 +28,24 @@ const lunes = (() => { const t = new Date(Date.parse(hoy + 'T00:00:00Z')); retur
 const sb = crearSupabaseFalso({
   porDefecto: { sesiones: { estado: 'en_curso' }, series_log: { completada: true } },
   tablas: {
-    clientes: [{ id: 'c1', nombre: 'Mauro Morón', estado: 'activo' }],
+    clientes: [{ id: 'c1', user_id: 'coach-1', nombre: 'Mauro Morón', estado: 'activo' }],
     fases: [{ id: 'f1', cliente_id: 'c1', nombre: 'Fase 1', estado: 'activa', visible_cliente: true, orden: 1,
       fecha_inicio: mas(lunes, -14), semanas: 8, dias_semana: ['L', 'M', 'J', 'V'] }],
     rutinas: [
       { id: 'r1', cliente_id: 'c1', fase_id: 'f1', nombre: 'Push', dia_orden: 1, dias_semana: ['L', 'J'], archivada: false },
       { id: 'r2', cliente_id: 'c1', fase_id: 'f1', nombre: 'Lower', dia_orden: 2, dias_semana: ['M', 'V'], archivada: false },
+      { id: 'r3', cliente_id: 'c1', fase_id: 'f1', nombre: 'Pull', dia_orden: 3, dias_semana: ['X'], archivada: false },
     ],
     rutina_bloques: [],
     rutina_ejercicios: [
       { id: 're1', rutina_id: 'r1', ejercicio_id: 'e1', orden: 1, series: 3, reps: '8', descanso_seg: 120 },
       { id: 're2', rutina_id: 'r2', ejercicio_id: 'e2', orden: 1, series: 3, reps: '10' },
+      { id: 're3', rutina_id: 'r3', ejercicio_id: 'e3', orden: 1, series: 2, reps: '12' },
     ],
-    ejercicios: [{ id: 'e1', nombre: 'Press banca' }, { id: 'e2', nombre: 'Sentadilla' }],
+    ejercicios: [{ id: 'e1', nombre: 'Press banca' }, { id: 'e2', nombre: 'Sentadilla' }, { id: 'e3', nombre: 'Remo con mancuerna' }],
     sesiones: [{ id: 's0', cliente_id: 'c1', rutina_id: 'r1', fase_id: 'f1', fecha: mas(lunes, -7), estado: 'completada' }],
     series_log: [{ id: 'l0', sesion_id: 's0', rutina_ejercicio_id: 're1', ejercicio_id: 'e1', serie_num: 1, reps: 8, peso: 60, unidad: 'kg', completada: true }],
-    actividades: [], actividades_catalogo: [], eventos: [],
+    actividades: [], actividades_catalogo: [], eventos: [], mediciones_corporales: [], notas_entreno: [],
   },
 });
 globalThis.fetch = sb.fetch;
@@ -125,6 +127,33 @@ try {
   await p.getByText('Tu semana').waitFor({ timeout: 5000 });
   ok('«No pude entrenar hoy» deja el día como saltado', sesionesDe('r2')[0]?.estado === 'saltada',
     JSON.stringify(sesionesDe('r2')));
+
+  // 6. kg ⇄ lb, nota al coach y medida
+  ok('la pestaña Fotos ya no está', !(await p.getByRole('button', { name: 'Fotos', exact: true }).count()));
+  await p.getByRole('button', { name: /Pull/ }).first().click();
+  await p.getByText('Remo con mancuerna').first().waitFor();
+  await p.getByRole('button', { name: 'Cambiar a libras' }).click();
+  await p.getByLabel('Peso serie 1').fill('50');
+  await p.getByLabel('Marcar serie 1').click();
+  await espera(800);
+  const enLb = sb.db.series_log.find(l => l.rutina_ejercicio_id === 're3');
+  ok('la serie se guarda en libras', enLb && enLb.unidad === 'lb' && enLb.peso === 50, JSON.stringify(enLb));
+  await p.getByRole('button', { name: 'Nota al coach' }).click();
+  await p.getByRole('button', { name: 'No tengo esta máquina' }).click();
+  await p.getByRole('button', { name: 'Enviar a mi coach' }).click();
+  await p.getByRole('button', { name: 'Enviada ✓' }).waitFor({ timeout: 5000 });
+  const nota = (sb.db.notas_entreno || [])[0];
+  ok('la nota llega pegada al ejercicio', nota && nota.rutina_ejercicio_id === 're3' && /máquina/.test(nota.texto), JSON.stringify(nota));
+  await espera(1200);
+  await p.getByRole('button', { name: /Mi semana/ }).click();
+  await p.getByRole('button', { name: 'Resumen', exact: true }).click();
+  await p.getByText('Mis medidas').waitFor({ timeout: 10000 });
+  await p.getByRole('button', { name: '+ Registrar' }).last().click();
+  await p.getByLabel(/Peso \(kg\)/).fill('80,4');
+  await p.getByRole('button', { name: 'Guardar y enviar a mi coach' }).click();
+  await p.getByText('80,4 kg').waitFor({ timeout: 5000 });
+  const med = (sb.db.mediciones_corporales || [])[0];
+  ok('la medida llega al CRM y se ve en su resumen', med && med.peso === 80.4 && med.origen === 'cliente', JSON.stringify(med));
 
   ok('sin errores de JavaScript en la página', errores.length === 0, errores.join(' | '));
 } catch (e) {

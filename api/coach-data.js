@@ -138,9 +138,29 @@ function summarize(row) {
     }
   }
 
+  // recent_days: los últimos 14 días con registro, con lo comido y la meta de
+  // ESE día. Lo usa la Bandeja del CRM para decir "cumplió su meta" o "le
+  // faltó proteína" sin bajar el historial completo de cada cliente.
+  const recentDays = {};
+  {
+    const cutoff = new Date(todayStr + 'T00:00:00');
+    cutoff.setDate(cutoff.getDate() - 14);
+    const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+    for (const date of Object.keys(history)) {
+      if (date < cutoffKey || date > todayStr) continue;
+      const h = history[date] || {};
+      const g = goalsForDate(data, date) || {};
+      recentDays[date] = {
+        kcal: Math.round(Number(h.kcal) || 0), p: Math.round(Number(h.p) || 0),
+        goal_kcal: Number(g.kcal) || null, goal_p: Number(g.p) || null,
+      };
+    }
+  }
+
   return {
     user_id: row.user_id,
     name: row.name || '(sin nombre)',
+    recent_days: recentDays,
     updated_at: row.updated_at,
     last_active: lastActive,
     status,
