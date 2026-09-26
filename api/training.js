@@ -42,6 +42,15 @@ const normalizeName = (str) => String(str || '')
 
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
+// "22,5" → 22.5. El teclado decimal en español pone coma, y Number('22,5')
+// es NaN: la serie se guardaba sin peso. La app ya lo convierte; esto es por
+// si llega una versión vieja de la app.
+const aNumero = (v) => {
+  if (v === '' || v == null) return null;
+  const n = Number(String(v).trim().replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+};
+
 // "Hoy" en hora de Colombia: Vercel corre en UTC y a partir de las 7pm ya
 // sería el día siguiente — la rutina de hoy cambiaría a media tarde.
 function hoyBogota() {
@@ -212,13 +221,15 @@ async function verPlan(cliente, hoy) {
 
   const porDia = repartirPorDia(fase, lista);
   const letraHoy = letraDeHoy();
+  const huecos = DIAS.map((d, i) => {
+    const t = new Date(Date.parse(lunes + 'T00:00:00Z')); t.setUTCDate(t.getUTCDate() + i);
+    return { fecha: t.toISOString().slice(0, 10), rutinaId: porDia[d] ? porDia[d].id : null };
+  });
+  const asignadas = asignarSesiones(huecos, sesiones);
   const dias = DIAS.map((d, i) => {
     const r = porDia[d];
-    const fecha = (() => {
-      const t = new Date(Date.parse(lunes + 'T00:00:00Z')); t.setUTCDate(t.getUTCDate() + i);
-      return t.toISOString().slice(0, 10);
-    })();
-    const s = sesiones.find(x => x.fecha === fecha && (!r || x.rutina_id === r.id));
+    const fecha = huecos[i].fecha;
+    const s = asignadas[i];
     return {
       dia: d, fecha, es_hoy: d === letraHoy,
       descanso: !r,
@@ -229,6 +240,10 @@ async function verPlan(cliente, hoy) {
       } : null,
       hecha: !!(s && s.estado === 'completada'),
       en_curso: !!(s && s.estado === 'en_curso'),
+      saltada: !!(s && s.estado === 'saltada'),
+      // Si la hizo otro día de la semana, cuál. La gente mueve los días: el
+      // Push del lunes hecho el martes cuenta, y la app lo dice.
+      hecha_el: s && s.fecha !== fecha ? s.fecha : null,
     };
   });
 
@@ -248,6 +263,37 @@ async function verPlan(cliente, hoy) {
   };
 }
 
+// Qué sesión de la semana cuenta para cada día del plan.
+//
+// Antes se buscaba por FECHA: una sesión contaba solo si caía el mismo día que
+// su rutina. Pero la gente mueve los días. Si el Push del lunes se hacía el
+// martes, el lunes salía sin hacer y el martes (que tocaba Lower) también: la
+// semana decía cero cuando había entrenado. Ahora:
+//   1. primero, cada día se queda con la sesión de SU rutina en SU fecha;
+//   2. lo que sobra se reparte, por rutina, en el primer día de esa rutina que
+//      siga libre. Con A-B-A-B, la segunda A de la semana va a la segunda A.
+// Una sesión sin rutina de la semana (una rutina suelta, un extra) no ocupa
+// ningún día: no es la que tocaba.
+export function asignarSesiones(huecos, sesiones) {
+  const out = huecos.map(() => null);
+  const usadas = new Set();
+  const peso = (s) => (s.estado === 'completada' ? 0 : s.estado === 'en_curso' ? 1 : 2);
+  const ordenadas = (sesiones || []).slice()
+    .sort((a, b) => peso(a) - peso(b) || String(a.fecha).localeCompare(String(b.fecha)));
+
+  huecos.forEach((h, i) => {
+    if (!h.rutinaId) return;
+    const s = ordenadas.find(x => !usadas.has(x.id) && x.rutina_id === h.rutinaId && x.fecha === h.fecha);
+    if (s) { out[i] = s; usadas.add(s.id); }
+  });
+  ordenadas.forEach(s => {
+    if (usadas.has(s.id) || !s.rutina_id) return;
+    const i = huecos.findIndex((h, j) => !out[j] && h.rutinaId === s.rutina_id);
+    if (i >= 0) { out[i] = s; usadas.add(s.id); }
+  });
+  return out;
+}
+
 // ── UNA RUTINA ────────────────────────────────────────────────────────────
 async function verRutina(cliente, rutinaId, hoy) {
   if (!rutinaId) return { ok: false, motivo: 'sin_id' };
@@ -261,8 +307,14 @@ async function verRutina(cliente, rutinaId, hoy) {
   // podría abrir una rutina que el coach todavía está armando.
   if (!(await rutinaEnviada(rutina))) return { ok: false, motivo: 'no_enviada' };
 
-  const bloques = await sb(`rutina_bloques?select=id,nombre,tipo,vueltas,descanso_seg,orden,notas`
-    + `&rutina_id=eq.${rutina.id}&order=orden.asc`);
+  // `descanso_entre_seg` (el descanso corto entre estaciones de un circuito)
+  // llegó con una migración. Si la base aún no la tiene, PostgREST rechaza la
+  // consulta entera; en ese caso se pide sin ella en vez de dejar al cliente
+  // sin rutina.
+  const bloques = await sb(`rutina_bloques?select=id,nombre,tipo,vueltas,descanso_seg,descanso_entre_seg,orden,notas`
+    + `&rutina_id=eq.${rutina.id}&order=orden.asc`)
+    .catch(() => sb(`rutina_bloques?select=id,nombre,tipo,vueltas,descanso_seg,orden,notas`
+      + `&rutina_id=eq.${rutina.id}&order=orden.asc`));
   const res = await sb(`rutina_ejercicios?select=id,bloque_id,ejercicio_id,orden,series,reps,peso_objetivo,rir,tempo,descanso_seg,notas`
     + `&rutina_id=eq.${rutina.id}&order=orden.asc`);
   const lista = Array.isArray(res) ? res : [];
@@ -277,7 +329,15 @@ async function verRutina(cliente, rutinaId, hoy) {
 
   // Lo último que levantó en cada ejercicio: es lo que de verdad se mira
   // antes de cargar la barra. Se lee de SUS sesiones, no de las de nadie más.
-  const ultimas = await ultimasSeries(cliente.id, [...new Set(lista.map(x => x.ejercicio_id))]);
+  //
+  // Sin contar la sesión de HOY de esta misma rutina. Si se cerró la app a
+  // mitad del entreno y se vuelve a entrar, "la última vez" era lo que acababa
+  // de marcar hace diez minutos: la columna «Antes» se copiaba a sí misma y
+  // el peso sugerido era el de hoy, no el de la semana pasada.
+  const deHoy = await sb(`sesiones?select=id&cliente_id=eq.${cliente.id}`
+    + `&rutina_id=eq.${rutina.id}&fecha=eq.${hoy}&limit=1`);
+  const ultimas = await ultimasSeries(cliente.id, [...new Set(lista.map(x => x.ejercicio_id))],
+    { excluirSesion: Array.isArray(deHoy) && deHoy[0] ? deHoy[0].id : null });
 
   return {
     ok: true, hoy,
@@ -285,7 +345,8 @@ async function verRutina(cliente, rutinaId, hoy) {
       ...limpiarRutina(rutina),
       bloques: (Array.isArray(bloques) ? bloques : []).map(b => ({
         id: b.id, nombre: b.nombre, tipo: b.tipo, vueltas: b.vueltas,
-        descanso_seg: b.descanso_seg, notas: b.notas,
+        descanso_seg: b.descanso_seg, descanso_entre_seg: b.descanso_entre_seg ?? null,
+        notas: b.notas,
       })),
       ejercicios: lista.map(x => ({
         id: x.id, bloque_id: x.bloque_id, orden: x.orden,
@@ -507,7 +568,7 @@ async function guardarFoto(cliente, cuerpo, hoy) {
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(cuerpo.fecha || '') ? cuerpo.fecha : hoy;
   if (fecha > hoy) return { ok: false, motivo: 'fecha_futura' };
 
-  const peso = Number(cuerpo.peso_kg);
+  const peso = aNumero(cuerpo.peso_kg);
   const fila = await sb('fotos_progreso', {
     method: 'POST', headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
@@ -516,7 +577,7 @@ async function guardarFoto(cliente, cuerpo, hoy) {
       fecha,
       pose: FOTO_POSES.includes(cuerpo.pose) ? cuerpo.pose : 'frente',
       ruta,
-      peso_kg: Number.isFinite(peso) && peso > 0 ? peso : null,
+      peso_kg: peso != null && peso > 0 ? peso : null,
       nota: cuerpo.nota ? String(cuerpo.nota).slice(0, 300) : null,
     }),
   });
@@ -568,12 +629,28 @@ async function abrirSesion(cliente, cuerpo, hoy) {
 
   // El schema garantiza una sola sesión por cliente/rutina/fecha: si vuelve a
   // entrar, retoma la que ya tenía en vez de abrir otra.
+  // La fecha es la de HOY, salvo que la app mande la de ayer: son series que
+  // se marcaron sin señal y suben después de medianoche. Más atrás no, y
+  // nunca en el futuro.
+  const fecha = (/^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || ''))
+    && cuerpo.fecha <= hoy && cuerpo.fecha >= sumarDiasISO(hoy, -1)) ? cuerpo.fecha : hoy;
+
   const ya = await sb(`sesiones?select=id,estado,rpe,notas_cliente&cliente_id=eq.${cliente.id}`
-    + `&rutina_id=eq.${rutina.id}&fecha=eq.${hoy}&limit=1`);
+    + `&rutina_id=eq.${rutina.id}&fecha=eq.${fecha}&limit=1`);
   if (Array.isArray(ya) && ya[0]) {
-    const series = await sb(`series_log?select=id,rutina_ejercicio_id,ejercicio_id,serie_num,reps,peso,unidad,completada&sesion_id=eq.${ya[0].id}`);
+    // Solo las series que siguen marcadas. Una serie desmarcada se queda en la
+    // tabla con completada=false; devolverla hacía que al volver a entrar
+    // apareciera otra vez con el check puesto y sin números.
+    const series = await sb(`series_log?select=id,rutina_ejercicio_id,ejercicio_id,serie_num,reps,peso,unidad,completada&sesion_id=eq.${ya[0].id}`
+      + `&completada=is.true`);
     return { ok: true, sesion: ya[0], series: Array.isArray(series) ? series : [], retomada: true };
   }
+
+  // Mirar no es entrenar. La app abre la rutina con `crear:false` y solo crea
+  // la sesión cuando se marca la primera serie. Antes, curiosear el jueves
+  // desde el lunes dejaba una sesión «a medias» del jueves fechada el lunes,
+  // que nunca se cerraba y ensuciaba la semana del cliente y el CRM.
+  if (cuerpo.crear === false) return { ok: true, sesion: null, series: [], retomada: false };
 
   const creada = await sb('sesiones', {
     method: 'POST',
@@ -581,7 +658,7 @@ async function abrirSesion(cliente, cuerpo, hoy) {
     body: JSON.stringify({
       user_id: cuerpo.user_id_coach || undefined,
       cliente_id: cliente.id, rutina_id: rutina.id, fase_id: rutina.fase_id,
-      fecha: hoy, semana_iso: semanaISO(hoy), estado: 'en_curso',
+      fecha, semana_iso: semanaISO(fecha), estado: 'en_curso',
       // Quién generó esta fila. Sin esto el CRM no distingue una sesión que
       // el cliente marcó de una que trajo la importación de Trainerize, y
       // acaba diciéndote "lo marcó en su app" sobre historial importado.
@@ -610,8 +687,8 @@ async function guardarSerie(cliente, cuerpo) {
     rutina_ejercicio_id: cuerpo.rutina_ejercicio_id || null,
     ejercicio_id: cuerpo.ejercicio_id,
     serie_num: num,
-    reps: cuerpo.reps === '' || cuerpo.reps == null ? null : Number(cuerpo.reps),
-    peso: cuerpo.peso === '' || cuerpo.peso == null ? null : Number(cuerpo.peso),
+    reps: aNumero(cuerpo.reps),
+    peso: aNumero(cuerpo.peso),
     unidad: cuerpo.unidad === 'lb' ? 'lb' : 'kg',
     rir: cuerpo.rir == null || cuerpo.rir === '' ? null : Number(cuerpo.rir),
     completada: cuerpo.completada !== false,
@@ -620,8 +697,16 @@ async function guardarSerie(cliente, cuerpo) {
 
   // Marcar la misma serie dos veces la ACTUALIZA, no la duplica: el cliente
   // corrige el peso que puso mal sin que queden dos filas peleando.
+  //
+  // La serie se identifica por su LÍNEA de la rutina (rutina_ejercicio_id), no
+  // por el ejercicio: si el mismo ejercicio sale dos veces en la rutina (press
+  // al principio y otra vez de remate), la serie 1 del segundo pisaba la
+  // serie 1 del primero. Por ejercicio solo se busca cuando no hay línea.
+  const porLinea = fila.rutina_ejercicio_id
+    ? `rutina_ejercicio_id=eq.${encodeURIComponent(fila.rutina_ejercicio_id)}`
+    : `ejercicio_id=eq.${encodeURIComponent(fila.ejercicio_id)}&rutina_ejercicio_id=is.null`;
   const previa = await sb(`series_log?select=id&sesion_id=eq.${sesion.id}`
-    + `&ejercicio_id=eq.${encodeURIComponent(fila.ejercicio_id)}&serie_num=eq.${num}&limit=1`);
+    + `&${porLinea}&serie_num=eq.${num}&limit=1`);
   if (Array.isArray(previa) && previa[0]) {
     const upd = await sb(`series_log?id=eq.${previa[0].id}`, {
       method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(fila),
@@ -735,6 +820,15 @@ async function verMes(cliente, ym, hoy) {
   const actividades = Array.isArray(act) ? act : [];
   const eventosPorFecha = expandirEventos(evs, fase);
 
+  // El nombre de lo que entrenó de verdad, aunque no fuera lo que tocaba ese
+  // día (o fuera de una fase anterior): el mes es el registro de lo que pasó.
+  const nombreRutina = Object.fromEntries(rutinas.map(r => [r.id, r.nombre]));
+  const faltan = [...new Set(sesiones.map(x => x.rutina_id).filter(id => id && !nombreRutina[id]))];
+  if (faltan.length) {
+    const otras = await sb(`rutinas?select=id,nombre&cliente_id=eq.${cliente.id}&id=in.(${faltan.join(',')})`).catch(() => []);
+    (Array.isArray(otras) ? otras : []).forEach(r => { nombreRutina[r.id] = r.nombre; });
+  }
+
   const dias = [];
   for (let d = new Date(Date.UTC(y, m - 1, 1)); d.getUTCMonth() === m - 1; d.setUTCDate(d.getUTCDate() + 1)) {
     const fecha = d.toISOString().slice(0, 10);
@@ -742,14 +836,23 @@ async function verMes(cliente, ym, hoy) {
     const dentro = !!fase?.fecha_inicio && fecha >= fase.fecha_inicio
       && fecha <= finDeFase(fase);
     const r = dentro ? porDia[letra] : null;
-    const s = sesiones.find(x => x.fecha === fecha && (!r || x.rutina_id === r.id))
-      || sesiones.find(x => x.fecha === fecha && !x.rutina_id);
+    const s = r
+      ? (sesiones.find(x => x.fecha === fecha && x.rutina_id === r.id)
+        || sesiones.find(x => x.fecha === fecha && !x.rutina_id))
+      : null;
+    // Entrenó OTRA rutina ese día (movió el Push al martes, o entrenó en su
+    // día de descanso). Antes no salía en ningún lado: el cliente entrenaba y
+    // su calendario decía que no.
+    const otra = (!s || s.estado !== 'completada')
+      ? sesiones.find(x => x.fecha === fecha && x.estado === 'completada' && x.rutina_id && x.rutina_id !== r?.id)
+      : null;
     dias.push({
       fecha, dia: letra, es_hoy: fecha === hoy,
       semana: dentro ? Math.floor((Date.parse(fecha) - Date.parse(fase.fecha_inicio)) / 86400000 / 7) + 1 : null,
       rutina: r ? { id: r.id, nombre: r.nombre, minutos: r.duracion_estimada_min || null } : null,
       estado: s ? s.estado : null,          // completada | saltada | en_curso | null
-      rpe: s ? s.rpe : null,
+      rpe: s ? s.rpe : (otra ? otra.rpe : null),
+      hecho: otra ? { id: otra.rutina_id, nombre: nombreRutina[otra.rutina_id] || 'Entreno' } : null,
       actividades: actividades.filter(a => a.fecha === fecha),
       eventos: (eventosPorFecha[fecha] || []),
     });
@@ -875,8 +978,8 @@ async function guardarActividad(cliente, cuerpo, hoy) {
   if (fecha > hoy) return { ok: false, motivo: 'fecha_futura' };
 
   const num = (v, max) => {
-    const n = Number(v);
-    return Number.isFinite(n) && n > 0 ? Math.min(n, max) : null;
+    const n = aNumero(v);
+    return n != null && n > 0 ? Math.min(n, max) : null;
   };
   const fila = {
     cliente_id: cliente.id,
@@ -976,6 +1079,12 @@ async function verResumen(cliente, hoy) {
     },
     alimentacion: await resumenAlimentacion(cliente.nombre, lunes, domingo),
   };
+}
+
+function sumarDiasISO(ymd, n) {
+  const t = new Date(Date.parse(ymd + 'T00:00:00Z'));
+  t.setUTCDate(t.getUTCDate() + n);
+  return t.toISOString().slice(0, 10);
 }
 
 function lunesDe(ymd) {

@@ -125,7 +125,12 @@ export default function Mes({ nombre, alEntrenar }) {
 // ── Una casilla ──────────────────────────────────────────────────────────
 function Celda({ dia, alTocar }) {
   const hayRutina = !!dia.rutina;
-  const marca = MARCAS[dia.estado];
+  // Si ese día entrenó otra rutina, la casilla enseña lo que HIZO: el mes es
+  // el registro de lo que pasó, no solo de lo que tocaba.
+  const bloque = dia.hecho
+    ? { nombre: dia.hecho.nombre, hecha: true }
+    : hayRutina ? { nombre: dia.rutina.nombre, hecha: dia.estado === 'completada' } : null;
+  const marca = MARCAS[dia.hecho ? 'completada' : dia.estado];
   // Los puntos: uno por actividad registrada, uno por evento programado.
   // Sin texto a propósito — el nombre está al tocar.
   const puntos = [
@@ -150,14 +155,14 @@ function Celda({ dia, alTocar }) {
       </div>
 
       {/* La fuerza: un bloque sólido, lo único con peso visual */}
-      {hayRutina && (
+      {bloque && (
         <div style={{
-          background: dia.estado === 'completada' ? ACCENT : ACCENT_PASTEL_SUAVE,
-          color: dia.estado === 'completada' ? '#fff' : ACCENT_DARK,
+          background: bloque.hecha ? ACCENT : ACCENT_PASTEL_SUAVE,
+          color: bloque.hecha ? '#fff' : ACCENT_DARK,
           borderRadius: 5, fontSize: 8.5, fontWeight: 800, lineHeight: 1.25,
           padding: '2px 3px', overflow: 'hidden', textOverflow: 'ellipsis',
           whiteSpace: 'nowrap', textAlign: 'left',
-        }}>{dia.rutina.nombre}</div>
+        }}>{bloque.nombre}</div>
       )}
 
       {/* Lo complementario: puntos, y nada más */}
@@ -223,9 +228,16 @@ function HojaDia({ dia, catalogo, alCerrar, alEntrenar, alRegistrar }) {
             </div>
           )}
         </Card>
-      ) : (
+      ) : !dia.hecho && (
         <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>
           Ese día no tienes rutina de fuerza.
+        </div>
+      )}
+
+      {dia.hecho && (
+        <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: dia.rutina ? 10 : 0 }}>
+          <Marca estado="completada" /> Ese día entrenaste <b style={{ color: TEXT }}>{dia.hecho.nombre}</b>
+          {dia.rutina ? ' en su lugar.' : '.'}
         </div>
       )}
 

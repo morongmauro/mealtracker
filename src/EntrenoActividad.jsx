@@ -18,7 +18,7 @@
 // endpoint lo rechaza y aquí el selector ni lo ofrece.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useState } from 'react';
-import { api, CATALOGO_MINIMO, hoyLocal, sumarDias, fechaLarga, DIAS_LARGO } from './entrenoDatos.js';
+import { api, CATALOGO_MINIMO, hoyLocal, sumarDias, fechaLarga, DIAS_LARGO, numero } from './entrenoDatos.js';
 import { Hoja, Boton, Chip, ACCENT, ACCENT_LIGHT, ACCENT_DARK, SURFACE, SURFACE_2,
          BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT } from './entrenoUI.jsx';
 
@@ -87,7 +87,7 @@ export default function Actividad({
       tipo, fecha,
       titulo: tipo === 'otro' ? otroNombre.trim() : null,
       duracion_min: duracion || null,
-      distancia_km: elegido?.pide_distancia ? (distancia || null) : null,
+      distancia_km: elegido?.pide_distancia ? numero(distancia) : null,
       intensidad,
       sesion_id: sesionId, evento_id: eventoId,
     });

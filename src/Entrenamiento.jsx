@@ -5,8 +5,9 @@ import EntrenoResumen from './EntrenoResumen.jsx';
 import EntrenoFotos from './EntrenoFotos.jsx';
 import EntrenoActividad, { ChipActividad } from './EntrenoActividad.jsx';
 import EntrenoFicha from './EntrenoFicha.jsx';
-import { api as entrenoApi, miniatura, hoyLocal } from './entrenoDatos.js';
-import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer } from 'lucide-react';
+import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito } from './entrenoDatos.js';
+import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
+import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
   SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
   ACCENT, ACCENT_DARK, ACCENT_PASTEL, SUCCESS, SHADOW_CARD, FONT_DISPLAY,
@@ -36,15 +37,34 @@ import {
 
 const FADE_TOP = 46;
 const FADE_BOTTOM = 96;
+const CODIGO_DE = (ymd) => { const [y, m, d] = ymd.split('-').map(Number); return 'DLMXJVS'[new Date(y, m - 1, d).getDay()]; };
 const DIAS_LARGO = { L: 'Lunes', M: 'Martes', X: 'Miércoles', J: 'Jueves', V: 'Viernes', S: 'Sábado', D: 'Domingo' };
 
+// Nunca lanza: sin red devuelve { ok:false } y la pantalla lo dice. Antes un
+// fallo de red dejaba la rutina con el spinner girando para siempre.
 const api = async (body) => {
-  const r = await fetch('/api/training', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  });
-  if (!r.ok) return { ok: false };
-  return r.json();
+  try {
+    const r = await fetch('/api/training', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!r.ok) return { ok: false, motivo: `http_${r.status}` };
+    return await r.json();
+  } catch (e) {
+    return { ok: false, motivo: 'sin_red' };
+  }
 };
+
+const almacen = (() => {
+  try { return window.localStorage; } catch (e) { return { getItem: () => null, setItem: () => {} }; }
+})();
+// Una sola cola para toda la app: las series marcadas sin señal esperan aquí.
+const cola = crearCola({ almacen, api: entrenoApi, hoy: hoyLocal });
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { cola.vaciar(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') cola.vaciar();
+  });
+}
 
 // Las cuatro secciones. La navegación va ARRIBA y no abajo: el módulo se
 // pinta dentro de la app, cuyo barra ovalada inferior taparía cualquier cosa
@@ -56,6 +76,36 @@ const SECCIONES = [
   ['resumen', 'Resumen'],
   ['fotos', 'Fotos'],
 ];
+
+// FUERA del componente a propósito. Definidos dentro, cada render de la app
+// (que sondea metas y recordatorios cada minuto) creaba un componente NUEVO y
+// React desmontaba la rutina abierta entera: se perdía el cronómetro de
+// descanso y lo tecleado sin marcar, a mitad del entreno.
+const Envoltorio = ({ children }) => (
+  <div style={{
+    position: 'relative', maxWidth: 560, margin: '0 auto', padding: '0 20px',
+    paddingTop: `calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`,
+    paddingBottom: `calc(${FADE_BOTTOM}px + env(safe-area-inset-bottom, 0px))`,
+  }}>{children}</div>
+);
+
+const Nav = ({ seccion, setSeccion }) => (
+  <nav style={{
+    display: 'flex', gap: 3, background: 'rgba(255,255,255,0.72)',
+    backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+    border: `1px solid ${BORDER}`, borderRadius: 999, padding: 3,
+    marginBottom: 18, position: 'sticky', top: 8, zIndex: 30,
+  }}>
+    {SECCIONES.map(([id, lab]) => (
+      <button key={id} onClick={() => setSeccion(id)} style={{
+        flex: 1, border: 'none', borderRadius: 999, padding: '9px 6px',
+        background: seccion === id ? ACCENT : 'transparent',
+        color: seccion === id ? '#fff' : TEXT_MUTED,
+        fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+      }}>{lab}</button>
+    ))}
+  </nav>
+);
 
 export default function Entrenamiento({ name }) {
   const [plan, setPlan] = useState(null);
@@ -71,18 +121,12 @@ export default function Entrenamiento({ name }) {
   }, [name]);
 
   useEffect(() => { cargarPlan(); }, [cargarPlan]);
+  // Lo que quedó sin subir de la última vez sube al entrar.
+  useEffect(() => { cola.vaciar(); }, []);
 
   // Al cambiar de sección se sube. Sin esto, saltar de un Mes largo a Hoy te
   // deja a media página en un sitio que ya no existe.
   useEffect(() => { window.scrollTo({ top: 0 }); }, [seccion, rutinaId]);
-
-  const Envoltorio = ({ children }) => (
-    <div style={{
-      position: 'relative', maxWidth: 560, margin: '0 auto', padding: '0 20px',
-      paddingTop: `calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`,
-      paddingBottom: `calc(${FADE_BOTTOM}px + env(safe-area-inset-bottom, 0px))`,
-    }}>{children}</div>
-  );
 
   if (rutinaId) {
     return (
@@ -95,23 +139,6 @@ export default function Entrenamiento({ name }) {
     );
   }
 
-  const Nav = () => (
-    <nav style={{
-      display: 'flex', gap: 3, background: 'rgba(255,255,255,0.72)',
-      backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-      border: `1px solid ${BORDER}`, borderRadius: 999, padding: 3,
-      marginBottom: 18, position: 'sticky', top: 8, zIndex: 30,
-    }}>
-      {SECCIONES.map(([id, lab]) => (
-        <button key={id} onClick={() => setSeccion(id)} style={{
-          flex: 1, border: 'none', borderRadius: 999, padding: '9px 6px',
-          background: seccion === id ? ACCENT : 'transparent',
-          color: seccion === id ? '#fff' : TEXT_MUTED,
-          fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-        }}>{lab}</button>
-      ))}
-    </nav>
-  );
 
   if (cargando) {
     return <Envoltorio><Centrado><Loader2 size={20} className="animate-spin" color={TEXT_LIGHT} /></Centrado></Envoltorio>;
@@ -123,7 +150,7 @@ export default function Entrenamiento({ name }) {
   if (seccion !== 'hoy') {
     return (
       <Envoltorio>
-        <Nav />
+        <Nav seccion={seccion} setSeccion={setSeccion} />
         {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={setRutinaId} />}
         {seccion === 'rutinas' && <EntrenoRutinas nombre={name} alEntrenar={setRutinaId} />}
         {seccion === 'resumen' && <EntrenoResumen nombre={name} />}
@@ -135,7 +162,7 @@ export default function Entrenamiento({ name }) {
   if (!plan || !plan.ok) {
     return (
       <Envoltorio>
-        <Nav />
+        <Nav seccion={seccion} setSeccion={setSeccion} />
         <Tarjeta>
           <Fila icono={<Info size={18} color={TEXT_LIGHT} />} titulo="Todavía no hay nada aquí" />
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
@@ -147,7 +174,7 @@ export default function Entrenamiento({ name }) {
 
   return (
     <Envoltorio>
-      <Nav />
+      <Nav seccion={seccion} setSeccion={setSeccion} />
       <VistaSemana plan={plan} onAbrir={setRutinaId} />
       <BloqueActividad name={name} />
     </Envoltorio>
@@ -270,7 +297,7 @@ function VistaSemana({ plan, onAbrir }) {
             <div style={{
               fontSize: 11.5, fontWeight: 700,
               color: hoy.hecha ? TEXT_LIGHT : ACCENT_PASTEL, marginBottom: 6,
-            }}>{hoy.hecha ? 'Hoy · ya entrenaste' : hoy.en_curso ? 'Hoy · a medias' : 'Hoy te toca'}</div>
+            }}>{hoy.hecha ? (hoy.hecha_el ? 'Hoy · ya la hiciste esta semana' : 'Hoy · ya entrenaste') : hoy.en_curso ? 'Hoy · a medias' : 'Hoy te toca'}</div>
             <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
               {hoy.rutina.nombre}
             </div>
@@ -348,6 +375,8 @@ function FilaDia({ d, onAbrir }) {
           {d.es_hoy ? ' · hoy' : ''}
           {!d.descanso && d.rutina.ejercicios ? ` · ${d.rutina.ejercicios} ejercicios` : ''}
           {d.en_curso && !d.hecha ? ' · a medias' : ''}
+          {d.saltada ? ' · no pudiste' : ''}
+          {d.hecha_el ? ` · la hiciste el ${DIAS_LARGO[CODIGO_DE(d.hecha_el)].toLowerCase()}` : ''}
         </div>
       </div>
     </>
@@ -359,13 +388,26 @@ function FilaDia({ d, onAbrir }) {
 // ── UNA RUTINA, Y SU EJECUCIÓN ────────────────────────────────────────────
 function VistaRutina({ name, rutinaId, onVolver }) {
   const [datos, setDatos] = useState(null);
+  const [sinRed, setSinRed] = useState(false);     // se abrió con la copia del teléfono
   const [sesion, setSesion] = useState(null);
   const [marcadas, setMarcadas] = useState({});   // "reId:serie" → { reps, peso }
   const [cargando, setCargando] = useState(true);
   const [cerrando, setCerrando] = useState(false);
   const [cerrandoHoja, setCerrandoHoja] = useState(false);
+  const [errorCierre, setErrorCierre] = useState(null);
   const [remate, setRemate] = useState(false);   // ofrecer cardio al cerrar
   const [records, setRecords] = useState(null);  // lo que batió hoy, si batió algo
+  const [pendientes, setPendientes] = useState(0);
+  // El aviso de "guardado en el teléfono" sale solo si la serie lleva un rato
+  // sin subir. Con buena señal sube en medio segundo, y un cartel que aparece
+  // y desaparece en cada serie asusta más de lo que informa.
+  const [avisarPendientes, setAvisarPendientes] = useState(false);
+  useEffect(() => {
+    if (!pendientes) { setAvisarPendientes(false); return; }
+    const id = setTimeout(() => setAvisarPendientes(true), 2500);
+    return () => clearTimeout(id);
+  }, [pendientes > 0]);
+  const fecha = useRef(hoyLocal()).current;       // el día en que se abrió, aunque pase medianoche
   // Descanso: { segundos, fin } — `fin` es un instante absoluto, no un
   // contador que se va restando. Con un contador, minimizar la app o apagar
   // la pantalla congela el intervalo y al volver marca de menos; con un
@@ -395,76 +437,170 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     }
   }, [restante, descanso]);
 
+  // Cuántas series de ESTA rutina siguen en el teléfono sin subir.
+  const deEsta = useCallback((x) => x.name === name && x.rutina_id === rutinaId && x.fecha === fecha, [name, rutinaId, fecha]);
+  useEffect(() => {
+    const contar = () => setPendientes(cola.pendientes(deEsta).length);
+    contar();
+    const quitar = cola.alCambiar(contar);
+    // Mientras quede algo, se reintenta cada 15 s aunque el teléfono no avise
+    // de que volvió la red (iOS no siempre lo hace).
+    const id = setInterval(() => { if (cola.pendientes(deEsta).length) cola.vaciar(); }, 15000);
+    return () => { quitar(); clearInterval(id); };
+  }, [deEsta]);
+
   useEffect(() => {
     let vivo = true;
     (async () => {
-      const r = await api({ accion: 'rutina', name, id: rutinaId });
+      let r = await api({ accion: 'rutina', name, id: rutinaId });
       if (!vivo) return;
-      setDatos(r && r.ok ? r.rutina : null);
-      // Abrir la sesión de una vez: si ya había una a medias, retoma esa y
-      // trae lo que ya estaba marcado.
-      const s = await api({ accion: 'abrir', name, rutina_id: rutinaId });
-      if (!vivo) return;
-      if (s && s.ok) {
-        setSesion(s.sesion);
-        const m = {};
-        (s.series || []).forEach(x => {
-          if (x.rutina_ejercicio_id) m[`${x.rutina_ejercicio_id}:${x.serie_num}`] = { reps: x.reps, peso: x.peso };
-        });
-        setMarcadas(m);
+      let rutina = r && r.ok ? r.rutina : null;
+      if (rutina) guardarRutinaLocal(almacen, rutina);
+      else if (r && r.motivo === 'sin_red') {
+        // Sin señal: la última copia que se guardó en el teléfono. Se puede
+        // entrenar igual; lo marcado sube cuando vuelva la red.
+        rutina = leerRutinaLocal(almacen, rutinaId);
+        if (rutina) setSinRed(true);
       }
+      setDatos(rutina);
+      // Mirar no es entrenar: se pregunta por la sesión de hoy SIN crearla.
+      // Se crea al marcar la primera serie (o al decir "no pude entrenar").
+      const s = rutina ? await entrenoApi.abrir(name, rutinaId, { crear: false }) : null;
+      if (!vivo) return;
+      const m = {};
+      if (s && s.ok) {
+        if (s.sesion) setSesion(s.sesion);
+        (s.series || []).forEach(x => {
+          if (x.rutina_ejercicio_id && x.completada !== false) {
+            m[`${x.rutina_ejercicio_id}:${x.serie_num}`] = { reps: x.reps, peso: x.peso };
+          }
+        });
+      }
+      // Lo que está en la cola manda sobre lo del servidor: es más nuevo.
+      cola.pendientes(deEsta).forEach(x => {
+        const k = `${x.datos.rutina_ejercicio_id}:${x.datos.serie_num}`;
+        if (x.datos.completada === false) delete m[k];
+        else m[k] = { reps: x.datos.reps, peso: x.datos.peso };
+      });
+      setMarcadas(m);
       setCargando(false);
     })();
     return () => { vivo = false; };
-  }, [name, rutinaId]);
+  }, [name, rutinaId, deEsta]);
 
-  const marcar = useCallback(async (re, serie, reps, peso) => {
+  // La sesión se crea UNA vez aunque se marquen tres series seguidas.
+  const creando = useRef(null);
+  const asegurarSesion = useCallback(async () => {
+    if (sesion) return sesion;
+    const yaAbierta = cola.sesionAbierta(name, rutinaId, fecha);
+    if (yaAbierta) { const s = { id: yaAbierta }; setSesion(s); return s; }
+    if (!creando.current) {
+      creando.current = entrenoApi.abrir(name, rutinaId, { crear: true, fecha })
+        .then(s => { creando.current = null; if (s && s.ok && s.sesion) { setSesion(s.sesion); return s.sesion; } return null; });
+    }
+    return creando.current;
+  }, [sesion, name, rutinaId, fecha]);
+
+  const escribirSerie = useCallback(async (datosSerie) => {
+    const s = await asegurarSesion();
+    cola.encolar({ name, rutina_id: rutinaId, sesion_id: s ? s.id : null, fecha, datos: datosSerie });
+    cola.vaciar();
+  }, [asegurarSesion, name, rutinaId, fecha]);
+
+  const marcar = useCallback((re, serie, reps, peso, descansoSeg) => {
     const clave = `${re.id}:${serie}`;
     setMarcadas(m => ({ ...m, [clave]: { reps, peso } }));   // optimista: el check no espera a la red
-    // Arranca el descanso que el coach prescribió para ESE ejercicio. En la
-    // última serie no: ahí ya se pasa al siguiente ejercicio, y una cuenta
-    // atrás que nadie va a esperar solo estorba.
-    const seg = Number(re.descanso_seg);
-    if (Number.isFinite(seg) && seg > 0 && serie < (re.series || 1)) {
-      setDescanso({ segundos: seg, fin: Date.now() + seg * 1000 });
-    }
-    if (!sesion) return;
-    await api({
-      accion: 'serie', name, sesion_id: sesion.id,
+    // El descanso lo decide quien pinta la fila: entre series de un ejercicio
+    // el del ejercicio; en un circuito, el corto entre estaciones o el largo
+    // al terminar la vuelta.
+    const seg = Number(descansoSeg);
+    if (Number.isFinite(seg) && seg > 0) setDescanso({ segundos: seg, fin: Date.now() + seg * 1000 });
+    escribirSerie({
       rutina_ejercicio_id: re.id, ejercicio_id: re.ejercicio.id,
-      serie_num: serie, reps, peso,
+      serie_num: serie, reps, peso, completada: true,
     });
-  }, [name, sesion]);
+  }, [escribirSerie]);
 
-  const desmarcar = useCallback(async (re, serie) => {
+  const desmarcar = useCallback((re, serie) => {
     const clave = `${re.id}:${serie}`;
     setMarcadas(m => { const n = { ...m }; delete n[clave]; return n; });
-    if (!sesion) return;
-    await api({
-      accion: 'serie', name, sesion_id: sesion.id,
+    escribirSerie({
       rutina_ejercicio_id: re.id, ejercicio_id: re.ejercicio.id,
       serie_num: serie, reps: null, peso: null, completada: false,
     });
-  }, [name, sesion]);
+  }, [escribirSerie]);
+
+  const cerrar = useCallback(async (estado, rpe, nota) => {
+    if (cerrando) return;
+    setCerrando(true);
+    setErrorCierre(null);
+    // Primero sube lo que quede en el teléfono: los récords y la duración se
+    // calculan con las series que YA están en el servidor.
+    const quedan = (await cola.vaciar(), cola.pendientes(deEsta).length);
+    const s = quedan ? null : await asegurarSesion();
+    const r = s ? await api({ accion: 'cerrar', name, sesion_id: s.id, rpe, notas: nota, estado }) : null;
+    setCerrando(false);
+    if (!r || !r.ok) {
+      // No se cierra la hoja ni se sale: decir "enviado" sin haberlo enviado
+      // es justo lo que hacía perder entrenos. Lo marcado sigue guardado.
+      setErrorCierre(quedan
+        ? 'Sin señal. Tus series están guardadas en el teléfono y suben solas; vuelve a intentarlo en un momento.'
+        : 'No se pudo enviar. Revisa la conexión e inténtalo otra vez.');
+      return;
+    }
+    setCerrandoHoja(false);
+    if (estado === 'saltada') { onVolver(); return; }
+    // Si batió algo, se le dice. Es lo único de toda la sesión que
+    // celebra un número, y es lo que hace que la próxima vez intente
+    // subirlo. Va antes del cardio porque es la noticia buena.
+    // Justo al terminar la fuerza es cuando se hace la caminadora.
+    // Se ofrece AQUÍ porque es el único momento en que la persona lo
+    // tiene en la mano; buscarlo después en otra pantalla no lo hace
+    // nadie. Se puede decir que no y salir.
+    // Si hay récord, el cardio espera a que cierre la celebración: abiertas
+    // las dos a la vez, la hoja del cardio tapaba el botón «Seguir».
+    if (r.records?.length) setRecords(r.records);
+    else setRemate(true);
+  }, [cerrando, deEsta, asegurarSesion, name, onVolver]);
 
   if (cargando) return <Centrado><Loader2 size={20} className="animate-spin" color={TEXT_LIGHT} /></Centrado>;
   if (!datos) {
     return (
       <>
         <Volver onClick={onVolver} />
-        <Tarjeta><Vacio texto="No pude abrir esta rutina." /></Tarjeta>
+        <Tarjeta><Vacio texto="No pude abrir esta rutina. Si estás sin señal, ábrela una vez con conexión y después funcionará también sin ella." /></Tarjeta>
       </>
     );
   }
 
-  const totalSeries = datos.ejercicios.reduce((s, e) => s + (e.series || 0), 0);
-  const hechas = Object.keys(marcadas).length;
   const bloqueDe = {};
   (datos.bloques || []).forEach(b => { bloqueDe[b.id] = b; });
+  const tramos = agruparEnTramos(datos.ejercicios, bloqueDe);
+  // En un circuito cada vuelta es UNA serie de cada ejercicio; fuera de un
+  // circuito, las series del ejercicio. Contar `series` a secas daba cosas
+  // como "5 de 3 series" en cuanto había un circuito.
+  const totalSeries = tramos.reduce((t, tr) => t + tr.vueltas.length
+    * tr.vueltas[0].reduce((a, re) => a + (tr.vueltas.length > 1 ? 1 : Math.max(1, re.series || 1)), 0), 0);
+  const hechas = Object.keys(marcadas).length;
 
   return (
     <>
       <Volver onClick={onVolver} />
+
+      {(sinRed || (pendientes > 0 && avisarPendientes)) && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
+          padding: '9px 12px', borderRadius: 12, background: SURFACE_2,
+          fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.4,
+        }}>
+          <CloudOff size={16} style={{ flexShrink: 0 }} />
+          <span>
+            {pendientes > 0 && avisarPendientes
+              ? `${pendientes} serie${pendientes === 1 ? '' : 's'} guardada${pendientes === 1 ? '' : 's'} en tu teléfono. Suben solas cuando vuelva la señal.`
+              : 'Sin señal. Puedes entrenar igual: lo que marques se guarda en tu teléfono.'}
+          </span>
+        </div>
+      )}
 
       <div style={{ marginBottom: 14 }}>
         <div style={{
@@ -483,7 +619,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
               }} />
             </div>
             <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 5 }}>
-              {hechas} de {totalSeries} series
+              {Math.min(hechas, totalSeries)} de {totalSeries} series
             </div>
           </div>
         )}
@@ -497,7 +633,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           luego B tres veces. Por eso las vueltas se pintan como secciones:
           antes el bloque salía con UNA fila por ejercicio y no había dónde
           marcar la segunda vuelta ni la tercera. */}
-      {agruparEnTramos(datos.ejercicios, bloqueDe).map((tramo, ti) => (
+      {tramos.map((tramo) => (
         <React.Fragment key={tramo.clave}>
           {tramo.bloque && <CabeceraBloque b={tramo.bloque} />}
           {tramo.vueltas.map((vuelta, vi) => (
@@ -512,9 +648,12 @@ function VistaRutina({ name, rutinaId, onVolver }) {
                   <div style={{ flex: 1, height: 1, background: BORDER }} />
                 </div>
               )}
-              {vuelta.map(re => (
+              {vuelta.map((re, k) => (
                 <Ejercicio key={`${re.id}:v${vi + 1}`} re={re}
                   serieUnica={tramo.vueltas.length > 1 ? vi + 1 : null}
+                  descansoCircuito={tramo.vueltas.length > 1
+                    ? descansoEnCircuito(tramo.bloque, k, vuelta.length, vi, tramo.vueltas.length)
+                    : undefined}
                   compacto={vi > 0}
                   marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />
               ))}
@@ -532,43 +671,29 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         />
       )}
 
-      {datos.ejercicios.length > 0 && sesion && (
+      {datos.ejercicios.length > 0 && (
         <button
-          onClick={() => { setDescanso(null); setCerrandoHoja(true); }}
+          onClick={() => { setDescanso(null); setErrorCierre(null); setCerrandoHoja(true); }}
           style={{
             width: '100%', marginTop: 6, padding: '15px 18px', borderRadius: 16, border: 0,
             background: hechas > 0 ? ACCENT_DARK : SURFACE_2,
             color: hechas > 0 ? '#fff' : TEXT_MUTED,
             fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
           }}>
-          Terminar entrenamiento
+          {hechas > 0 ? 'Terminar entrenamiento' : 'Terminar'}
         </button>
       )}
 
       {cerrandoHoja && (
         <HojaCierre
-          hechas={hechas} total={totalSeries} guardando={cerrando}
+          hechas={hechas} total={totalSeries} guardando={cerrando} error={errorCierre}
           onCancelar={() => { if (!cerrando) setCerrandoHoja(false); }}
-          onCerrar={async (rpe, nota) => {
-            if (cerrando) return;
-            setCerrando(true);
-            const r = await api({ accion: 'cerrar', name, sesion_id: sesion.id, rpe, notas: nota });
-            setCerrandoHoja(false);
-            setCerrando(false);
-            // Si batió algo, se le dice. Es lo único de toda la sesión que
-            // celebra un número, y es lo que hace que la próxima vez intente
-            // subirlo. Va antes del cardio porque es la noticia buena.
-            if (r?.ok && r.records?.length) setRecords(r.records);
-            // Justo al terminar la fuerza es cuando se hace la caminadora.
-            // Se ofrece AQUÍ porque es el único momento en que la persona lo
-            // tiene en la mano; buscarlo después en otra pantalla no lo hace
-            // nadie. Se puede decir que no y salir.
-            setRemate(true);
-          }}
+          onCerrar={(rpe, nota) => cerrar('completada', rpe, nota)}
+          onSaltar={(nota) => cerrar('saltada', null, nota)}
         />
       )}
 
-      {records && <HojaRecords records={records} alCerrar={() => setRecords(null)} />}
+      {records && <HojaRecords records={records} alCerrar={() => { setRecords(null); setRemate(true); }} />}
 
       <EntrenoActividad
         abierta={remate}
@@ -582,6 +707,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     </>
   );
 }
+
 
 // Parte la lista de ejercicios en tramos: cada bloque es un tramo, y los
 // ejercicios sueltos se van juntando en otro. Un tramo con `vueltas > 1`
@@ -677,7 +803,7 @@ function CabeceraBloque({ b }) {
   );
 }
 
-function Ejercicio({ re, marcadas, onMarcar, onDesmarcar , serieUnica = null, compacto = false }) {
+function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, compacto = false, descansoCircuito }) {
   const e = re.ejercicio;
   // La ficha completa (video, cómo se hace, qué músculos trabaja, las
   // características) vive en una hoja aparte. Antes se desplegaba aquí
@@ -705,6 +831,11 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar , serieUnica = null, co
           previa={(ultima?.series || []).find(x => x.serie === n) || null}
           pesoSugerido={pesoSugerido}
           repsSugeridas={String(re.reps || '').match(/^\d+/) ? String(re.reps).match(/^\d+/)[0] : ''}
+          // Fuera de un circuito: el descanso del ejercicio entre series, y
+          // ninguno tras la última (ahí ya se pasa al siguiente ejercicio).
+          descansoSeg={descansoCircuito !== undefined
+            ? descansoCircuito
+            : (n < (re.series || 1) ? re.descanso_seg : null)}
           onMarcar={onMarcar} onDesmarcar={onDesmarcar}
         />
       ))}
@@ -824,7 +955,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar , serieUnica = null, co
   );
 }
 
-function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, onMarcar, onDesmarcar }) {
+function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descansoSeg, onMarcar, onDesmarcar }) {
   const [reps, setReps] = useState(marcada?.reps != null ? String(marcada.reps) : repsSugeridas);
   const [peso, setPeso] = useState(marcada?.peso != null ? String(marcada.peso) : pesoSugerido);
   const hecha = !!marcada;
@@ -880,7 +1011,7 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, onMarc
       <button
         onClick={() => hecha
           ? onDesmarcar(re, n)
-          : onMarcar(re, n, reps === '' ? null : Number(reps), peso === '' ? null : Number(peso))}
+          : onMarcar(re, n, numero(reps), numero(peso), descansoSeg)}
         aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`}
         style={{
           flexShrink: 0, width: 38, height: 38, borderRadius: 11, cursor: 'pointer',
@@ -904,7 +1035,7 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, onMarc
 //
 // La nota va debajo y sin obligar. En la práctica "me molestó el hombro en la
 // última serie" le sirve al coach más que el número.
-function HojaCierre({ hechas, total, onCerrar, onCancelar, guardando }) {
+function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, error }) {
   const [rpe, setRpe] = useState(null);
   const [nota, setNota] = useState('');
 
@@ -928,12 +1059,15 @@ function HojaCierre({ hechas, total, onCerrar, onCancelar, guardando }) {
         }} />
 
         <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>
-          Terminaste
+          {hechas > 0 ? 'Terminaste' : 'Aún no marcas ninguna serie'}
         </div>
         <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 3 }}>
-          {hechas} de {total} series marcadas
+          {hechas > 0
+            ? `${Math.min(hechas, total)} de ${total} series marcadas${hechas < total ? '. No pasa nada si no completaste todo.' : ''}`
+            : 'Si hoy no pudiste entrenar, díselo a tu coach. Cuenta como día saltado, no como entreno.'}
         </div>
 
+        {hechas > 0 && <>
         <div style={{
           fontSize: 11.5,
           fontWeight: 800, color: TEXT_LIGHT, margin: '20px 0 9px',
@@ -961,24 +1095,49 @@ function HojaCierre({ hechas, total, onCerrar, onCancelar, guardando }) {
           <span style={{ fontSize: 11, color: TEXT_LIGHT }}>suave</span>
           <span style={{ fontSize: 11, color: TEXT_LIGHT }}>al límite</span>
         </div>
+        </>}
 
         <textarea
           value={nota} onChange={e => setNota(e.target.value)} rows={2}
-          placeholder="¿Algo que deba saber tu coach? (opcional)"
+          placeholder={hechas > 0 ? '¿Algo que deba saber tu coach? (opcional)' : '¿Qué pasó? (opcional)'}
           style={{
             width: '100%', marginTop: 16, padding: '11px 12px', borderRadius: 12,
             border: `1px solid ${BORDER}`, background: SURFACE_2,
             fontSize: 14, color: TEXT, fontFamily: 'inherit', resize: 'none', outline: 'none',
           }} />
 
-        <button
-          onClick={() => onCerrar(rpe, nota)} disabled={guardando}
-          style={{
-            width: '100%', marginTop: 14, padding: '15px 18px', borderRadius: 15, border: 0,
-            background: ACCENT_DARK, color: '#fff', fontSize: 15, fontWeight: 700,
-            cursor: guardando ? 'default' : 'pointer', opacity: guardando ? 0.7 : 1,
-            fontFamily: 'inherit',
-          }}>{guardando ? 'Guardando…' : 'Enviar a mi coach'}</button>
+        {error && (
+          <div role="alert" style={{
+            marginTop: 12, padding: '10px 12px', borderRadius: 12,
+            background: '#FBEDEA', color: '#8A3A2C', fontSize: 13, lineHeight: 1.45,
+          }}>{error}</div>
+        )}
+
+        {hechas > 0 && (
+          <button
+            onClick={() => onCerrar(rpe, nota)} disabled={guardando}
+            style={{
+              width: '100%', marginTop: 14, padding: '15px 18px', borderRadius: 15, border: 0,
+              background: ACCENT_DARK, color: '#fff', fontSize: 15, fontWeight: 700,
+              cursor: guardando ? 'default' : 'pointer', opacity: guardando ? 0.7 : 1,
+              fontFamily: 'inherit',
+            }}>{guardando ? 'Guardando…' : 'Enviar a mi coach'}</button>
+        )}
+
+        {/* "No pude entrenar hoy" existía en la primera versión del módulo y
+            se perdió al pasarlo a esta app. No es un "marcar como hecho": deja
+            el día como SALTADO, que es un dato que el coach necesita. Solo se
+            ofrece si no hay series: con series marcadas, entrenó. */}
+        {hechas === 0 && (
+          <button
+            onClick={() => onSaltar(nota)} disabled={guardando}
+            style={{
+              width: '100%', marginTop: 14, padding: '14px 18px', borderRadius: 15,
+              border: `1px solid ${BORDER}`, background: SURFACE, color: TEXT,
+              fontSize: 15, fontWeight: 700, cursor: guardando ? 'default' : 'pointer',
+              opacity: guardando ? 0.7 : 1, fontFamily: 'inherit',
+            }}>{guardando ? 'Guardando…' : 'No pude entrenar hoy'}</button>
+        )}
 
         <button onClick={onCancelar} disabled={guardando} style={{
           width: '100%', marginTop: 8, padding: '11px', borderRadius: 12,
@@ -1040,6 +1199,7 @@ const btnDescanso = {
   border: '1px solid rgba(255,255,255,0.28)', background: 'rgba(255,255,255,0.10)',
   color: '#fff', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
 };
+
 
 // ── piezas ────────────────────────────────────────────────────────────────
 const fechaCorta = (ymd) => {

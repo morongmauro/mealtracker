@@ -34,7 +34,9 @@ export const api = {
   resumen:  (name)     => pedir({ accion: 'resumen', name }),
   catalogo: (name)     => pedir({ accion: 'catalogo', name }),
 
-  abrir:  (name, rutina_id) => pedir({ accion: 'abrir', name, rutina_id }),
+  // `crear:false` solo consulta: devuelve la sesión de hoy si ya existe, sin
+  // crearla. Mirar una rutina no es entrenarla.
+  abrir:  (name, rutina_id, { crear = true, fecha } = {}) => pedir({ accion: 'abrir', name, rutina_id, crear, fecha }),
   serie:  (name, datos)     => pedir({ accion: 'serie', name, ...datos }),
   cerrar: (name, datos)     => pedir({ accion: 'cerrar', name, ...datos }),
   actividad:       (name, datos) => pedir({ accion: 'actividad', name, ...datos }),
@@ -130,3 +132,26 @@ export const MARCAS = {
   saltada:    { simbolo: '✕', color: '#C75A4A', titulo: 'La saltaste' },
   en_curso:   { simbolo: '◐', color: '#B8732B', titulo: 'La empezaste' },
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// AL MARCAR UNA SERIE
+// ─────────────────────────────────────────────────────────────────────────
+// "22,5" es como escribe el peso medio país: el teclado decimal en español
+// pone coma. Number('22,5') es NaN y la serie se guardaba sin peso.
+export const numero = (v) => {
+  const t = String(v ?? '').trim().replace(',', '.');
+  if (t === '') return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+};
+
+// En un circuito hay dos descansos: el corto entre una estación y la
+// siguiente (`descanso_entre_seg`) y el largo al terminar la vuelta
+// (`descanso_seg`). Tras la última estación de la última vuelta, ninguno.
+// Antes el coach los ponía en el CRM y la app no usaba ninguno de los dos.
+export function descansoEnCircuito(bloque, estacion, estaciones, vuelta, vueltas) {
+  if (!bloque) return null;
+  if (estacion < estaciones - 1) return Number(bloque.descanso_entre_seg) > 0 ? Number(bloque.descanso_entre_seg) : null;
+  if (vuelta < vueltas - 1) return Number(bloque.descanso_seg) > 0 ? Number(bloque.descanso_seg) : null;
+  return null;
+}
