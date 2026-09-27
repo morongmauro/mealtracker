@@ -18,6 +18,9 @@
 // endpoint lo rechaza y aquí el selector ni lo ofrece.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useState } from 'react';
+import { v2Activa } from './v2.js';
+import { SECCION } from './theme.js';
+import { IconoActividad } from './iconosEntreno.jsx';
 import { api, CATALOGO_MINIMO, hoyLocal, sumarDias, fechaLarga, DIAS_LARGO, numero } from './entrenoDatos.js';
 import { Hoja, Boton, Chip, ACCENT, ACCENT_LIGHT, ACCENT_DARK, SURFACE, SURFACE_2,
          BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT } from './entrenoUI.jsx';
@@ -128,14 +131,14 @@ export default function Actividad({
                   <button key={x.slug} onClick={() => setTipo(x.slug === tipo ? null : x.slug)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6,
-                      border: `1px solid ${x.slug === tipo ? ACCENT : BORDER}`,
-                      background: x.slug === tipo ? ACCENT_LIGHT : 'transparent',
-                      color: x.slug === tipo ? ACCENT_DARK : TEXT,
+                      border: `1px solid ${x.slug === tipo ? (v2Activa() ? SECCION.entreno.base : ACCENT) : BORDER}`,
+                      background: x.slug === tipo ? (v2Activa() ? SECCION.entreno.tint : ACCENT_LIGHT) : 'transparent',
+                      color: x.slug === tipo ? (v2Activa() ? SECCION.entreno.ink : ACCENT_DARK) : TEXT,
                       borderRadius: 999, padding: '7px 13px', fontSize: 13.5,
                       fontWeight: x.slug === tipo ? 700 : 500,
                       cursor: 'pointer', fontFamily: 'inherit',
                     }}>
-                    <span aria-hidden>{x.icono}</span>{x.nombre}
+                    {v2Activa() ? <IconoActividad slug={x.slug} categoria={x.categoria} size={17} /> : <span aria-hidden>{x.icono}</span>}{x.nombre}
                   </button>
                 ))}
               </div>
@@ -268,7 +271,9 @@ export function ChipActividad({ actividad, catalogo, onClick }) {
       borderRadius: 12, padding: '8px 11px', cursor: onClick ? 'pointer' : 'default',
       fontFamily: 'inherit', textAlign: 'left',
     }}>
-      <span aria-hidden style={{ fontSize: 15 }}>{c?.icono || '✨'}</span>
+      {v2Activa()
+        ? <span style={{ color: TEXT_MUTED, display: 'inline-flex' }}><IconoActividad slug={actividad.tipo} categoria={c?.categoria} size={17} /></span>
+        : <span aria-hidden style={{ fontSize: 15 }}>{c?.icono || '✨'}</span>}
       <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED, flex: 1, minWidth: 0 }}>{etiqueta}</span>
       {detalle && <span style={{ fontSize: 11.5, color: TEXT_LIGHT }}>{detalle}</span>}
     </button>

@@ -111,6 +111,17 @@ MSGS.medicion = [
 MSGS.medicionSinApp = [
   'Hoy toca registrar tu peso y % de grasa 📏 Mándame el pantallazo de la medida por WhatsApp.',
 ];
+// Medición corporal, peso y fotos por separado (lo que el coach puso en el
+// calendario). Con app de entreno se marca ahí; sin ella, por WhatsApp.
+const QUE_REGISTRA = { medidas: 'tu medición corporal', peso: 'pesarte', fotos: 'tu registro fotográfico' };
+function textoRegistro(tipos = [], beta) {
+  const partes = (tipos || []).map(t => QUE_REGISTRA[t]).filter(Boolean);
+  if (!partes.length) return pick(beta ? MSGS.medicion : MSGS.medicionSinApp);
+  const lista = partes.length > 1 ? `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}` : partes[0];
+  return beta
+    ? `Hoy toca ${lista} 📏 Márcalo en tu calendario de la app cuando lo hagas y me llega el aviso.`
+    : `Hoy toca ${lista} 📏 Mándamelo por WhatsApp cuando lo tengas.`;
+}
 const enBetaEntreno = (nombre) => TRAINING_PARA_TODOS === true
   || TRAINING_BETA.some(n => normalizeName(n) === normalizeName(nombre));
 const sbCrm = async (path, opts = {}) => {
@@ -439,7 +450,7 @@ export default async function handler(req, res) {
             payloads.push({ title: 'Tu coach', body: pick(MSGS.entreno).replace('{rutina}', hoyEs.rutina), tag: 'ecm-t' });
           }
           if (hoyEs && hoyEs.medicion) {
-            payloads.push({ title: 'Tu coach', body: pick(beta ? MSGS.medicion : MSGS.medicionSinApp), tag: 'ecm-med' });
+            payloads.push({ title: 'Tu coach', body: textoRegistro(hoyEs.registros, beta), tag: 'ecm-med' });
           }
         }
       } else if (slot === 'p') {

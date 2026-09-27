@@ -16,7 +16,9 @@ const FUENTES = `
   font-weight: 300 900; src: url(${figtreeUrl}) format('woff2-variations'); }
 @font-face { font-family: 'ECM Display'; font-style: normal; font-display: swap;
   font-weight: 800; src: url(${figtreeUrl}) format('woff2-variations'); }
-html[data-v2] { --f-ui: 'ECM Sans'; --f-display: 'ECM Display'; }
+html[data-v2] { --f-ui: 'ECM Sans'; --f-display: 'ECM Display';
+  --ent-accent: #3C7BD6; --ent-accent-dark: #1E58A6; --ent-accent-light: #E4EDF9; --ent-accent-pastel: #D5E3F6;
+  --ent-ok: #3C7BD6; --ent-boton: #1F1F1F; }
 `;
 
 // Enciende o apaga la visual nueva en el documento. Solo toca variables y un

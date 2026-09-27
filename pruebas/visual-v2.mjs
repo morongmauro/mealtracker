@@ -62,7 +62,7 @@ function base() {
         fecha_inicio: hace(9), semanas: 12, dias_semana: ['L', 'X', 'V'], objetivo: 'Subir la fuerza en los básicos.' }],
       rutinas: [
         { id: 'r1', cliente_id: 'c1', fase_id: 'f1', nombre: 'Push', dia_orden: 1, dias_semana: ['L'], archivada: false },
-        { id: 'r2', cliente_id: 'c1', fase_id: 'f1', nombre: 'Lower', dia_orden: 2, dias_semana: ['X'], archivada: false },
+        { id: 'r2', cliente_id: 'c1', fase_id: 'f1', nombre: 'Lower Body + Core Training', dia_orden: 2, dias_semana: ['X'], archivada: false },
         { id: 'r3', cliente_id: 'c1', fase_id: 'f1', nombre: 'Pull', dia_orden: 3, dias_semana: ['V'], archivada: false },
       ],
       rutina_bloques: [{ id: 'b1', rutina_id: 'r1', nombre: 'A', tipo: 'circuito', vueltas: 2, descanso_seg: 30, orden: 1 }],
@@ -90,7 +90,13 @@ function base() {
         musculos_secundarios: id === 'e2' ? ['isquiotibiales', 'aductores', 'erectores'] : [] })),
       sesiones, series_log,
       actividades: [{ id: 'a1', cliente_id: 'c1', user_id: 'coach', fecha: hace(0), tipo: 'cinta', duracion_min: 25 }],
-      actividades_catalogo: [], eventos: [], notas_entreno: [],
+      actividades_catalogo: [], notas_entreno: [],
+      // Lo que el coach puso para registrar: peso y fotos hoy, medición el miércoles.
+      eventos: [
+        { id: 'evp', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse en ayunas', fecha: hoy, visible_cliente: true },
+        { id: 'evf', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Fotos de progreso', detalle: 'Frente, perfil y espalda', fecha: hoy, visible_cliente: true },
+        { id: 'evm', cliente_id: 'c1', fase_id: null, tipo: 'medidas', titulo: 'Medición corporal', fecha: sumarDiasISO(hoy, 3), visible_cliente: true },
+      ],
       mediciones_corporales: [
         { id: 'm1', cliente_id: 'c1', user_id: 'coach', fecha: hace(9), peso: 84.6, grasa_pct: 21.4 },
         { id: 'm2', cliente_id: 'c1', user_id: 'coach', fecha: hace(6), peso: 83.9, grasa_pct: 20.6 },
@@ -133,10 +139,10 @@ let fallos = 0;
 const ok = (nombre, c, extra = '') => { if (!c) fallos++; console.log(`  ${c ? 'ok ' : 'MAL'}  ${nombre}${c ? '' : '  ' + extra}`); };
 const espera = (ms) => new Promise(r => setTimeout(r, ms));
 
-async function abrir(nombre, { ancho = 390 } = {}) {
+async function abrir(nombre, { ancho = 390, pago = null } = {}) {
   const db = base();
   globalThis.fetch = db.fetch;
-  const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota' });
   const p = await ctx.newPage();
   const errores = [];
   p.on('pageerror', e => errores.push(e.message));
@@ -146,6 +152,10 @@ async function abrir(nombre, { ancho = 390 } = {}) {
     if (u.pathname === '/api/training') {
       const r = await llamar(handler, JSON.parse(ruta.request().postData() || '{}'));
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(r) });
+    }
+    if (u.pathname === '/api/payment-status') {
+      const estado = typeof pago === 'function' ? pago() : pago;
+      return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(estado || { due: false }) });
     }
     if (u.pathname === '/api/resources') return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: 'https://centro.test/', training: true }) });
     if (u.pathname === '/api/authorize') return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authorized: true, status: 'activo' }) });
@@ -157,13 +167,13 @@ async function abrir(nombre, { ancho = 390 } = {}) {
   await p.route('https://centro.test/**', r => r.fulfill({ status: 200, contentType: 'text/html',
     body: `<body style="margin:0;font:600 20px sans-serif;background:#F4F1EA;color:#333;display:grid;place-items:center;height:100vh"><div id=t>Centro · ${'${location.search}'}</div><script>document.getElementById('t').textContent='Centro de aprendizaje · '+(new URLSearchParams(location.search).get('mt_go')||'inicio');addEventListener('message',e=>{if(e.data&&e.data.tipo==='em-ir')document.getElementById('t').textContent='Centro de aprendizaje · '+e.data.a})</script></body>` }));
   await p.goto('http://localhost:5198/');
-  return { p, ctx, errores };
+  return { p, ctx, errores, db };
 }
 const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.png') });
 
 try {
   // ── Mauro ──
-  const { p, ctx, errores } = await abrir('Mauro Morón');
+  const { p, ctx, errores, db } = await abrir('Mauro Morón');
   await p.getByText('Tu constancia').waitFor({ timeout: 25000 });
   ok('apertura fría: cae en el Dash', true);
   await p.getByText('Últimas 8 semanas').waitFor({ timeout: 10000 });
@@ -263,6 +273,50 @@ try {
   await p.getByRole('button', { name: 'Calendario' }).click();
   await espera(1500);
   await foto(p, '05-entreno-calendario');
+  const cal = p.locator('[data-view="entrena"]');
+  ok('calendario: «Lo que viene» con el nombre entero', await cal.getByText('Lower Body + Core Training').last().isVisible());
+  ok('calendario: sin oliva', await p.evaluate(() => {
+    const oliva = /rgb\((1[12]\d), (1[2-4]\d), (8\d|9\d)\)|rgb\(231, 235, 214\)/;
+    return ![...document.querySelectorAll('[data-view="entrena"] *')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor) || oliva.test(getComputedStyle(el).borderTopColor));
+  }));
+  await cal.locator('[data-fecha="' + hoy + '"]').click();
+  await p.getByText('Para registrar').waitFor({ timeout: 5000 });
+  await espera(300);
+  await foto(p, '05b-dia-registrar');
+  await p.getByRole('button', { name: 'Ya envié mis fotos' }).click();
+  await p.getByLabel('Tu peso en kg').fill('78,4');
+  await p.getByRole('button', { name: 'Guardar' }).click();
+  await espera(700);
+  ok('fotos y peso quedan registrados', db.db.evento_registros && db.db.evento_registros.length === 2
+    && Number(db.db.evento_registros.find(r => r.evento_id === 'evp').valor) === 78.4);
+  ok('…y la hoja lo dice', (await p.getByText(/Hecho\. Tu coach ya lo sabe/).count()) === 2);
+  await foto(p, '05c-dia-registrado');
+  await p.getByRole('button', { name: 'Cerrar' }).first().click();
+  await espera(400);
+  // Mover con el botón: el lunes (Push) al martes.
+  const lun = sumarDiasISO(hoy, 1), mar = sumarDiasISO(hoy, 2), mie = sumarDiasISO(hoy, 3);
+  await cal.locator('[data-fecha="' + lun + '"]').click();
+  await p.getByRole('button', { name: /Mover a otro día/ }).click();
+  await p.getByRole('button', { name: new RegExp('^Mar ' + Number(mar.slice(8))) }).click();
+  await espera(900);
+  ok('mover con el botón: el Push pasa al martes', (await cal.locator('[data-fecha="' + mar + '"]').innerText()).includes('Push')
+    && !(await cal.locator('[data-fecha="' + lun + '"]').innerText()).includes('Push'));
+  // Arrastrar: el Lower del miércoles al lunes (que quedó libre).
+  const de = await cal.locator('[data-fecha="' + mie + '"] div').filter({ hasText: 'Lower' }).first().boundingBox();
+  const aLun = await cal.locator('[data-fecha="' + lun + '"]').boundingBox();
+  await p.mouse.move(de.x + de.width / 2, de.y + de.height / 2);
+  await p.mouse.down();
+  await espera(500);
+  await p.mouse.move(aLun.x + aLun.width / 2, aLun.y + aLun.height / 2, { steps: 8 });
+  await espera(150);
+  await foto(p, '05d-arrastrando');
+  await p.mouse.up();
+  await espera(1000);
+  ok('arrastrar: el Lower pasa al lunes', (await cal.locator('[data-fecha="' + lun + '"]').innerText()).includes('Lower'));
+  ok('arrastrar: sin aviso de error', (await p.getByText('No se pudo mover').count()) === 0);
+  ok('arrastrar: se guardó una sola vez', db.db.rutina_movimientos.length === 2, String(db.db.rutina_movimientos.length));
+  ok('el plan del coach no cambia', JSON.stringify(db.db.rutinas.find(r => r.id === 'r2').dias_semana) === '["X"]');
+  await foto(p, '05e-movidas');
   await p.getByRole('button', { name: 'Galería' }).click();
   await p.getByText('Sentadilla con barra').first().waitFor({ timeout: 10000 });
   await espera(600);
@@ -317,6 +371,39 @@ try {
   await foto(n.p, '12-375-aprende');
   await n.ctx.close();
 
+  // ── Mensualidad pendiente: aviso los primeros 5 días, bloqueo después ──
+  const deuda = { due: true, dia_corte: 15, monto: 250000, moneda: 'COP', meses_deuda: 1, meses: [new Date().toISOString().slice(0, 7)] };
+  const a = await abrir('Mauro Morón', { pago: { ...deuda, dias_vencido: 3, bloqueo: false } });
+  await a.p.getByText('Últimas 8 semanas').waitFor({ timeout: 20000 });
+  await espera(900);
+  ok('mora día 3: el aviso sale en el Dash', await a.p.locator('[data-view="dash"]').getByText('Mensualidad pendiente').isVisible());
+  ok('mora día 3: la app no se bloquea', (await a.p.getByRole('alertdialog').count()) === 0);
+  await foto(a.p, '14-pago-aviso-dash');
+  await a.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
+  await espera(1200);
+  ok('mora día 3: el aviso sale en Hoy de entrenamiento', await a.p.locator('[data-view="entrena"]').getByText('Mensualidad pendiente').isVisible());
+  await a.ctx.close();
+
+  let pagado = false;
+  const k = await abrir('Mauro Morón', { pago: () => (pagado ? { due: false } : { ...deuda, dias_vencido: 8, bloqueo: true }) });
+  const bloqueo = k.p.getByRole('alertdialog', { name: 'Pago pendiente' });
+  await bloqueo.waitFor({ timeout: 20000 });
+  await espera(900);
+  await foto(k.p, '15-pago-bloqueo');
+  await k.p.keyboard.press('Escape');
+  await k.p.mouse.click(20, 20);
+  await espera(300);
+  ok('mora día 8: el bloqueo no se quita con Escape ni tocando fuera', await bloqueo.isVisible());
+  let tocoDetras = true;
+  try { await k.p.locator('[data-view="dash"]').getByRole('button', { name: 'Reto' }).click({ timeout: 1500 }); } catch (e) { tocoDetras = false; }
+  ok('mora día 8: lo de atrás no se puede tocar', !tocoDetras);
+  ok('mora día 8: lo de atrás va desenfocado', (await bloqueo.evaluate(el => getComputedStyle(el).backdropFilter)).includes('blur'));
+  pagado = true;                                  // el coach marca el pago en el CRM
+  await k.p.getByRole('button', { name: /Ya pagué/ }).click();
+  await espera(800);
+  ok('marcado pagado: la app se abre sola', (await bloqueo.count()) === 0);
+  await k.ctx.close();
+
   // ── Otra persona: todo como siempre ──
   const o = await abrir('Ana Pérez');
   await o.p.getByRole('button', { name: 'Herram.' }).waitFor({ timeout: 25000 });
@@ -327,6 +414,14 @@ try {
   await foto(o.p, '13-otra-persona');
   ok('sin errores de JavaScript (otra persona)', o.errores.length === 0, o.errores.join(' | '));
   await o.ctx.close();
+
+  // El bloqueo por mora es de todos, no solo de la visual nueva.
+  const ob = await abrir('Ana Pérez', { pago: { ...deuda, dias_vencido: 6, bloqueo: true } });
+  await ob.p.getByRole('alertdialog', { name: 'Pago pendiente' }).waitFor({ timeout: 25000 });
+  await espera(600);
+  await foto(ob.p, '16-pago-bloqueo-otra');
+  ok('otra persona con 6 días de mora también queda bloqueada', true);
+  await ob.ctx.close();
 } catch (e) {
   fallos++;
   console.log('  MAL  se cortó: ' + e.message.split('\n')[0]);

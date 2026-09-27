@@ -37,7 +37,7 @@ import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
   diasDeRutina, repartirPorDia, FASE_VISIBLE, rutinaVisible, finDeFase,
-  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe,
+  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, TIPOS_REGISTRO,
 } from './_entreno.js';
 import { alertarCoach } from './_alerta.js';
 
@@ -95,6 +95,7 @@ export default async function handler(req, res) {
     if (!esGet && accion === 'abrir') return res.status(200).json(await abrirSesion(cliente, cuerpo, hoy));
     if (!esGet && accion === 'serie') return res.status(200).json(await guardarSerie(cliente, cuerpo));
     if (!esGet && accion === 'cerrar') return res.status(200).json(await cerrarSesion(cliente, cuerpo));
+    if (!esGet && accion === 'registrar') return res.status(200).json(await registrarEvento(cliente, cuerpo, hoy));
     if (!esGet && accion === 'mover') return res.status(200).json(await moverRutina(cliente, cuerpo, hoy));
     if (!esGet && accion === 'actividad') return res.status(200).json(await guardarActividad(cliente, cuerpo, hoy));
     if (!esGet && accion === 'borrar_actividad') return res.status(200).json(await borrarActividad(cliente, cuerpo));
@@ -773,13 +774,16 @@ async function verMes(cliente, ym, hoy) {
 
   // Las tres cosas que pasaron, en paralelo: tres viajes encadenados por un
   // mes se notan en el teléfono.
-  const [ses, act, evs] = await Promise.all([
+  const [ses, act, evs, regs] = await Promise.all([
     sb(`sesiones?select=id,rutina_id,fecha,estado,rpe,duracion_seg`
       + `&cliente_id=eq.${cliente.id}&fecha=gte.${primero}&fecha=lte.${ultimo}`),
     sb(`actividades?select=id,fecha,tipo,titulo,duracion_min,distancia_km,intensidad`
       + `&cliente_id=eq.${cliente.id}&fecha=gte.${primero}&fecha=lte.${ultimo}`).catch(() => []),
     eventosDelCliente(cliente.id),
+    sb(`evento_registros?select=evento_id,fecha,estado,valor&cliente_id=eq.${cliente.id}&fecha=gte.${primero}&fecha=lte.${ultimo}`).catch(() => []),
   ]);
+  const hechoDe = {};
+  (Array.isArray(regs) ? regs : []).forEach(r => { hechoDe[`${r.evento_id}:${r.fecha}`] = r; });
   const sesiones = Array.isArray(ses) ? ses : [];
   const actividades = Array.isArray(act) ? act : [];
   const eventosPorFecha = expandirEventos(evs, fase);
@@ -819,7 +823,11 @@ async function verMes(cliente, ym, hoy) {
       rpe: s ? s.rpe : (otra ? otra.rpe : null),
       hecho: otra ? { id: otra.rutina_id, nombre: nombreRutina[otra.rutina_id] || 'Entreno' } : null,
       actividades: actividades.filter(a => a.fecha === fecha),
-      eventos: (eventosPorFecha[fecha] || []),
+      // Medición, peso y fotos llevan si ya lo marcó (y el peso que puso).
+      eventos: (eventosPorFecha[fecha] || []).map(ev => {
+        const r = hechoDe[`${ev.id}:${fecha}`];
+        return { ...ev, registra: TIPOS_REGISTRO.includes(ev.tipo), hecho: !!(r && r.estado === 'hecho'), valor: r ? r.valor : null };
+      }),
     });
   }
 
@@ -828,6 +836,64 @@ async function verMes(cliente, ym, hoy) {
     fase: fase ? { nombre: fase.nombre, semanas: fase.semanas, desde: fase.fecha_inicio, hasta: finDeFase(fase) } : null,
     dias,
   };
+}
+
+// ── MEDICIÓN, PESO Y FOTOS: «YA LO HICE» ──────────────────────────────────
+// El coach los pone en el calendario; el cliente los marca desde su día. Se
+// guarda en `evento_registros` (uno por fecha) y le llega un aviso al coach
+// al instante, además de salir en la Bandeja del CRM.
+const QUE_HIZO = {
+  medidas: 'hizo su medición corporal',
+  peso: 'se pesó',
+  fotos: 'envió su registro fotográfico',
+  medicion: 'hizo su medición',
+};
+async function registrarEvento(cliente, cuerpo, hoy) {
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || '')) ? String(cuerpo.fecha) : hoy;
+  if (fecha > sumarDiasISO(hoy, 1)) return { ok: false, motivo: 'fecha_futura' };
+  if (!cuerpo.evento_id) return { ok: false, motivo: 'sin_evento' };
+
+  // Que el evento sea SUYO, lo vea, y caiga ese día.
+  const evs = await eventosDelCliente(cliente.id);
+  const ev = evs.find(e => e.id === cuerpo.evento_id);
+  if (!ev) return { ok: false, motivo: 'no_es_suyo' };
+  if (!TIPOS_REGISTRO.includes(ev.tipo)) return { ok: false, motivo: 'no_se_registra' };
+  let fase = null;
+  if (ev.fase_id) {
+    const f = await sb(`fases?select=id,fecha_inicio,semanas,dias_semana,visible_cliente&id=eq.${ev.fase_id}&limit=1`);
+    fase = Array.isArray(f) ? f[0] : null;
+  }
+  if (!(expandirEventos([ev], fase)[fecha] || []).length) return { ok: false, motivo: 'no_cae_ese_dia' };
+
+  const deshacer = cuerpo.hecho === false;
+  const valor = ev.tipo === 'peso' ? aNumero(cuerpo.valor) : null;
+  if (valor != null && (valor < 25 || valor > 350)) return { ok: false, motivo: 'valor_raro' };
+  const fila = {
+    evento_id: ev.id, cliente_id: cliente.id, fecha,
+    estado: deshacer ? 'saltado' : 'hecho',
+    valor, nota: cuerpo.nota ? String(cuerpo.nota).slice(0, 300) : null,
+  };
+  try {
+    const ya = await sb(`evento_registros?select=id,estado&evento_id=eq.${ev.id}&fecha=eq.${fecha}&limit=1`);
+    const previo = Array.isArray(ya) ? ya[0] : null;
+    if (previo) {
+      await sb(`evento_registros?id=eq.${previo.id}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(fila) });
+    } else {
+      await sb('evento_registros', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(fila) });
+    }
+    // Un aviso por hecho: marcarlo dos veces (o corregir el peso) no te
+    // vuelve a sonar el teléfono.
+    if (!deshacer && !(previo && previo.estado === 'hecho') && !cuerpo.sin_alerta) {
+      await alertarCoach({
+        title: `${cliente.nombre} ${QUE_HIZO[ev.tipo] || 'registró algo'}`,
+        body: [ev.titulo, valor != null ? `${String(valor).replace('.', ',')} kg` : null, fila.nota].filter(Boolean).join(' · '),
+        tag: 'ecm-registro',
+      });
+    }
+  } catch (e) {
+    return { ok: false, motivo: 'error' };
+  }
+  return { ok: true, hecho: !deshacer, tipo: ev.tipo, fecha };
 }
 
 // ── MOVER UNA RUTINA DE DÍA ───────────────────────────────────────────────

@@ -2263,12 +2263,13 @@ export default function MealTracker() {
   // la app y cada vez que vuelve a primer plano, de modo que en cuanto el coach
   // marca el pago en el CRM, el banner desaparece la próxima vez que el cliente
   // ve la app. No toca el chat ni bloquea nada.
+  const revisarPagoRef = useRef(null);
   useEffect(() => {
     if (view !== 'main' || !name) return;
     let cancelled = false;
     const check = async () => {
       try {
-        const r = await fetch(`/api/payment-status?name=${encodeURIComponent(name)}`);
+        const r = await fetch(`/api/payment-status?name=${encodeURIComponent(name)}`, { cache: 'no-store' });
         if (!r.ok) return;
         const d = await r.json();
         if (cancelled) return;
@@ -2285,6 +2286,9 @@ export default function MealTracker() {
         }
         setPaymentDue(d && d.due ? {
           dia_corte: d.dia_corte, dias_vencido: d.dias_vencido || 0, monto: d.monto, moneda: d.moneda,
+          // Más de 5 días de mora: la app se bloquea hasta que el coach marque
+          // el pago (la regla vive en api/_pagos.js, no aquí).
+          bloqueo: !!d.bloqueo,
           // Deuda TOTAL cuando arrastra varios meses (el aviso debe decir la
           // suma completa, no solo la mensualidad del último mes).
           meses_deuda: d.meses_deuda || 1, monto_total: d.monto_total || null,
@@ -2295,6 +2299,7 @@ export default function MealTracker() {
       } catch (e) { /* sin red: no mostramos recordatorio */ }
     };
     check();
+    revisarPagoRef.current = check;
     const onVisible = () => { if (document.visibilityState === 'visible') check(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible); };
@@ -5273,7 +5278,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             fuera de pantalla: se renderizaba pero nadie lo veía.) Un SOLO
             aviso, con el mismo tono premium en todos los casos — antes a los
             5 días saltaba a rojo alarma con ⚠️, que se sentía un grito. */}
-        {paymentDue && <PaymentNotice info={paymentDue} style={{ marginTop: '6px' }} />}
+        {/* Visual nueva: el aviso vive en Dash, Hoy entreno y Hoy comida. */}
+        {paymentDue && !v2 && <PaymentNotice info={paymentDue} style={{ marginTop: '6px' }} />}
 
         {/* Invitación a activar recordatorios push — misma zona fija del
             banner de pago; si ambos aplican se apilan (el cliente en deuda
@@ -5720,6 +5726,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           }} />}
           <Suspense fallback={null}>
             <Entrenamiento name={name} seccionV2={v2 ? entrenoSub : null} alSeccionV2={setEntrenoSub}
+              avisoPago={v2 && paymentDue && !paymentDue.bloqueo ? <PaymentNotice info={paymentDue} style={{ marginBottom: '14px' }} /> : null}
               recordatorios={v2 ? { pendientes: coachReminders.filter(r => !r.done_at).length, abrir: () => { haptic(8); setActiveModal('reminders'); } } : null} />
           </Suspense>
         </div>
@@ -5731,6 +5738,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
           <Suspense fallback={null}>
             <Dash name={name} history={history} goals={goals}
+              avisoPago={paymentDue && !paymentDue.bloqueo ? <PaymentNotice info={paymentDue} style={{ marginTop: '16px' }} /> : null}
               alIr={(sec, op) => irSubV2(sec, op)} entrenoOn={trainingOn}
               racha={streak} pendientes={coachReminders.filter(r => !r.done_at).length}
               acciones={{
@@ -6095,6 +6103,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             setMessages(m => [...m, { role: 'assistant', content: 'Limpio. Empezamos de nuevo.', ts: Date.now() }]);
           }}
           onCancel={() => setActiveModal(null)} />
+      )}
+
+      {/* Más de 5 días de mora: encima de TODO y sin forma de cerrarlo. Se
+          quita solo cuando el coach marca el pago en el CRM (se revisa al
+          volver a la app y con el botón). */}
+      {paymentDue && paymentDue.bloqueo && (
+        <BloqueoPago info={paymentDue} alRevisar={() => revisarPagoRef.current && revisarPagoRef.current()} />
       )}
 
       {activeModal === 'weekly' && (
@@ -6806,6 +6821,57 @@ function textoCorte(info) {
     .toLocaleDateString('es', { month: 'long', timeZone: 'UTC' });
   const esteAnio = new Date().getFullYear() === anio;
   return `Tu fecha de corte fue el ${dia} de ${nombreMes}${esteAnio ? '' : ` de ${anio}`}.`;
+}
+
+function BloqueoPago({ info, alRevisar }) {
+  const [revisando, setRevisando] = useState(false);
+  // Mientras está puesto, nada de atrás se mueve ni se toca.
+  useEffect(() => {
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previo; };
+  }, []);
+  const total = info.monto_total || info.monto;
+  const revisar = async () => {
+    setRevisando(true);
+    try { await alRevisar(); } finally { setTimeout(() => setRevisando(false), 600); }
+  };
+  return (
+    <div role="alertdialog" aria-modal="true" aria-label="Pago pendiente"
+      onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000, display: 'grid', placeItems: 'center', padding: 24,
+        background: 'rgba(246,244,238,0.55)',
+        backdropFilter: 'blur(16px) saturate(0.9)', WebkitBackdropFilter: 'blur(16px) saturate(0.9)',
+        touchAction: 'none',
+      }}>
+      <div style={{
+        width: '100%', maxWidth: 380, background: '#fff', borderRadius: 28, padding: '28px 24px 22px',
+        boxShadow: '0 20px 60px rgba(40,40,30,0.22)', textAlign: 'center',
+      }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: 99, margin: '0 auto 14px', display: 'grid', placeItems: 'center',
+          background: 'rgba(224,171,158,0.28)', color: '#8A4A3C',
+        }}><CreditCard size={24} strokeWidth={2} /></div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+          Tu mensualidad está pendiente
+        </div>
+        {total ? (
+          <div className="num" style={{ fontSize: 26, fontWeight: 800, color: '#8A4A3C', marginTop: 10, letterSpacing: '-0.02em' }}>
+            {fmtMonto(total, info.moneda)}
+          </div>
+        ) : null}
+        <div style={{ fontSize: 15, color: TEXT_MUTED, lineHeight: 1.5, marginTop: 10 }}>
+          {textoCorte(info)} Pasaron {info.dias_vencido} días, así que la app queda en pausa hasta registrar el pago.
+          Cuando tu coach lo marque, se abre sola.
+        </div>
+        <button onClick={revisar} disabled={revisando} style={{
+          marginTop: 20, width: '100%', height: 50, borderRadius: 999, border: 'none', cursor: 'pointer',
+          background: TEXT, color: '#fff', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', opacity: revisando ? 0.6 : 1,
+        }}>{revisando ? 'Revisando…' : 'Ya pagué · revisar de nuevo'}</button>
+      </div>
+    </div>
+  );
 }
 
 function PaymentNotice({ info, style }) {

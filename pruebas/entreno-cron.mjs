@@ -104,9 +104,26 @@ await caso('cierra la olvidada con series, borra la vacía y no toca ni la de ay
 await caso('qué toca hoy: la rutina si no la hizo, y la medición', async () => {
   const db = base();
   const a = await agendaDeHoy(sbDe(db), hoy);
-  igual(a.get('mauro moron'), { rutina: 'Push', medicion: false }, 'Mauro');
-  igual(a.get('otra persona'), { rutina: 'Push', medicion: true }, 'Otra');
-  igual(a.get('ya entreno'), { rutina: null, medicion: false }, 'la hizo hoy: no se insiste');
+  igual(a.get('mauro moron'), { rutina: 'Push', medicion: false, registros: [] }, 'Mauro');
+  igual(a.get('otra persona'), { rutina: 'Push', medicion: true, registros: ['medicion'] }, 'Otra');
+  igual(a.get('ya entreno'), { rutina: null, medicion: false, registros: [] }, 'la hizo hoy: no se insiste');
+});
+
+await caso('peso y fotos el mismo día: el aviso dice las dos cosas', async () => {
+  const db = base();
+  db.db.eventos.push(
+    { id: 'ev2', cliente_id: 'c1', tipo: 'peso', titulo: 'Pesarse', fecha: hoy, visible_cliente: true },
+    { id: 'ev3', cliente_id: 'c1', tipo: 'fotos', titulo: 'Fotos', fecha: hoy, visible_cliente: true },
+    { id: 'ev4', cliente_id: 'c1', tipo: 'actividad', titulo: 'Natación', fecha: hoy, visible_cliente: true },
+  );
+  const a = await agendaDeHoy(sbDe(db), hoy);
+  igual(a.get('mauro moron').registros, ['peso', 'fotos'], 'lo que toca registrar (la natación no)');
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  await cron({ method: 'GET', query: { key: 'secreto' }, headers: {} },
+    { status() { return this; }, json() { return this; }, setHeader() {}, end() { return this; } });
+  const m = enviados.find(e => e.a === 'Mauro' && e.tag === 'ecm-med');
+  if (!m || !/pesarte y tu registro fotográfico/.test(m.body)) throw new Error('aviso: ' + (m && m.body));
 });
 
 await caso('el aviso «hoy te toca» sale solo a la beta; la medición a quien la tiene', async () => {

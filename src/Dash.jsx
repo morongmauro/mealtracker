@@ -374,7 +374,7 @@ const Marco = React.forwardRef(({ children }, ref) => (
 
 // ── La pantalla ───────────────────────────────────────────────────────────
 // `acciones`: { recordatorios, reto, calendarioComida } — las abre la app.
-export default function Dash({ name, history, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {} }) {
+export default function Dash({ name, history, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null }) {
   const hoy = hoyLocal();
   const [ent, setEnt] = useState(null);
   const [falloEnt, setFalloEnt] = useState(false);
@@ -430,6 +430,9 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
         <Pastilla icono={Mountains} color="#D9744A" onClick={() => setSinRetos(true)}>Reto</Pastilla>
         {wa && <Pastilla icono={WhatsappLogo} color="#25A35A" href={wa}>Escríbele a tu coach</Pastilla>}
       </div>
+
+      {/* Mensualidad pendiente (primeros 5 días de mora). */}
+      {avisoPago}
 
       {/* Reto: por ahora no hay ninguno. Solo el mensaje; un toque lo cierra. */}
       {sinRetos && (

@@ -17,9 +17,20 @@
 //   puede tocar, se puede registrar — pero no grita.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect } from 'react';
-import { ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT, SURFACE, SURFACE_2,
-         BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT, SUCCESS, WARN, DANGER,
+import { ACCENT as OLIVA, ACCENT_DARK as OLIVA_DARK, ACCENT_PASTEL as OLIVA_PASTEL, ACCENT_LIGHT as OLIVA_LIGHT,
+         SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT, SUCCESS as SUCCESS_OLIVA, WARN, DANGER,
          SHADOW_CARD, SHADOW_OVERLAY, FONT_DISPLAY } from './theme.js';
+
+// El acento de Entrenamiento sale de variables CSS: en la visual de siempre
+// valen el oliva de la marca; en la visual nueva (html[data-v2], ver
+// v2-fuentes.js) valen el azul de Entrenamiento, y los botones «marca» pasan
+// a grafito. Así ningún componente del módulo se queda en oliva por olvido.
+const ACCENT = `var(--ent-accent, ${OLIVA})`;
+const ACCENT_DARK = `var(--ent-accent-dark, ${OLIVA_DARK})`;
+const ACCENT_PASTEL = `var(--ent-accent-pastel, ${OLIVA_PASTEL})`;
+const ACCENT_LIGHT = `var(--ent-accent-light, ${OLIVA_LIGHT})`;
+const SUCCESS = `var(--ent-ok, ${SUCCESS_OLIVA})`;
+const BOTON_MARCA = `var(--ent-boton, ${OLIVA})`;
 
 // ── Tarjeta ───────────────────────────────────────────────────────────────
 export function Card({ children, style, onClick, apagada = false, ...resto }) {
@@ -63,7 +74,7 @@ export function Boton({ children, variante = 'principal', ancho = false, chico =
   };
   const skins = {
     principal: { background: TEXT, color: '#fff' },
-    marca:     { background: ACCENT, color: '#fff' },
+    marca:     { background: BOTON_MARCA, color: '#fff' },
     suave:     { background: 'transparent', color: TEXT, borderColor: BORDER },
     peligro:   { background: 'transparent', color: DANGER, borderColor: DANGER },
   };

@@ -121,6 +121,10 @@ export async function movimientosDe(sb, filtro) {
   } catch (e) { return []; }
 }
 
+// Los eventos del calendario que el cliente REGISTRA (y que avisan al coach
+// cuando los marca). `medicion` es el tipo de antes de separarlos.
+export const TIPOS_REGISTRO = ['medidas', 'peso', 'fotos', 'medicion'];
+
 // La fase que el cliente puede ver: activa Y ENVIADA.
 //
 // `estado` y `visible_cliente` son dos cosas distintas y las dos tienen que
@@ -260,7 +264,7 @@ export async function agendaDeHoy(sb, hoy) {
   const sesiones = await sb(`sesiones?select=cliente_id,rutina_id,fecha,estado&fecha=gte.${lunes}&fecha=lte.${hoy}`);
   const movs = ids.length ? await movimientosDe(sb, `fase_id=in.(${ids.join(',')})`) : [];
   let eventos = [];
-  try { eventos = await sb(`eventos?select=id,cliente_id,fase_id,tipo,titulo,fecha,dias_semana,semanas,visible_cliente&tipo=eq.medicion`); }
+  try { eventos = await sb(`eventos?select=id,cliente_id,fase_id,tipo,titulo,fecha,dias_semana,semanas,visible_cliente&tipo=in.(${TIPOS_REGISTRO.join(',')})`); }
   catch (e) { eventos = []; }
 
   for (const c of (Array.isArray(clientes) ? clientes : [])) {
@@ -276,8 +280,11 @@ export async function agendaDeHoy(sb, hoy) {
       if (r && !hecha) rutina = r.nombre;
     }
     const evs = (Array.isArray(eventos) ? eventos : []).filter(e => e.cliente_id === c.id);
-    const medicion = !!(expandirEventos(evs, fase)[hoy] || []).length;
-    const dato = { rutina, medicion };
+    const deHoy = expandirEventos(evs, fase)[hoy] || [];
+    const medicion = !!deHoy.length;
+    // Qué toca registrar hoy, para que el aviso diga «pesarte» o «tus fotos».
+    const registros = [...new Set(deHoy.map(e => e.tipo))];
+    const dato = { rutina, medicion, registros };
     [c.nombre, ...(Array.isArray(c.nombres_alternos) ? c.nombres_alternos : [])]
       .forEach(n => { const k = normalizeName(n); if (k) out.set(k, dato); });
   }

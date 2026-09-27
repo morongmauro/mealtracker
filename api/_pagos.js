@@ -107,6 +107,13 @@ export async function leerContexto(headers) {
   return { clientes: Array.isArray(cs) ? cs : [], ...t, hoyYmd: t.ymd };
 }
 
+// DÍAS DE GRACIA. Los primeros 5 días después del corte, el cliente ve un
+// aviso (Dash, Hoy y alimentación). Del día 6 en adelante la app se BLOQUEA:
+// sale el aviso encima de todo, con la app desenfocada detrás, y no se puede
+// cerrar hasta que el coach marque el pago en el CRM. Si algún día se quiere
+// apagar el bloqueo sin tocar el aviso: DIAS_GRACIA = Infinity.
+export const DIAS_GRACIA = 5;
+
 // El veredicto de UN cliente, con su traza mes a mes.
 export async function evaluarCliente(nombre, ctx, headers) {
   const n = normalizeName(nombre);
@@ -185,6 +192,7 @@ export async function evaluarCliente(nombre, ctx, headers) {
     ...base,
     due: true,
     dias_vencido: diasEntre(deuda[0].corte, ctx.hoyYmd),
+    bloqueo: diasEntre(deuda[0].corte, ctx.hoyYmd) > DIAS_GRACIA,
     meses_deuda: deuda.length,
     meses: deuda.map(d => d.mes),
     // La "mensualidad" que muestra el aviso: la del cobro más viejo sin pagar.

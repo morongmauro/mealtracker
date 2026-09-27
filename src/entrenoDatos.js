@@ -43,6 +43,10 @@ export const api = {
   cerrar: (name, datos)     => pedir({ accion: 'cerrar', name, ...datos }),
   actividad:       (name, datos) => pedir({ accion: 'actividad', name, ...datos }),
   borrarActividad: (name, id)    => pedir({ accion: 'borrar_actividad', name, id }),
+  // Mover una rutina a otro día (solo esa fecha; si el destino tenía rutina, se intercambian).
+  mover:     (name, datos) => pedir({ accion: 'mover', name, ...datos }),
+  // Medición corporal, peso y fotos que puso el coach: «ya lo hice».
+  registrar: (name, datos) => pedir({ accion: 'registrar', name, ...datos }),
 
   // Peso y % de grasa que registra el propio cliente (van a la misma tabla
   // que las mediciones del coach en el CRM).

@@ -287,5 +287,40 @@ await caso('mover de día: ni el pasado, ni lo que no está ese día, ni fuera d
   igual((sb.db.rutina_movimientos || []).length, 0, 'no se guardó nada');
 });
 
+await caso('peso en el calendario: se marca con su peso, sale hecho en el mes y no se duplica', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.eventos = [
+    { id: 'evp', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse', fecha: hoy, visible_cliente: true },
+    { id: 'evn', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Natación', fecha: hoy, visible_cliente: true },
+    { id: 'evo', cliente_id: 'c2', fase_id: null, tipo: 'fotos', titulo: 'Fotos', fecha: hoy, visible_cliente: true },
+  ];
+  const r = await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evp', fecha: hoy, valor: '78,4' });
+  igual([r.ok, r.tipo], [true, 'peso'], 'marcado');
+  await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evp', fecha: hoy, valor: '78,2' });
+  igual(sb.db.evento_registros.length, 1, 'corregir el peso no duplica');
+  igual(Number(sb.db.evento_registros[0].valor), 78.2, 'queda el último peso');
+  const m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
+  const ev = m.dias.find(d => d.fecha === hoy).eventos.find(e => e.id === 'evp');
+  igual([ev.registra, ev.hecho, Number(ev.valor)], [true, true, 78.2], 'en el mes');
+  igual(m.dias.find(d => d.fecha === hoy).eventos.find(e => e.id === 'evn').registra, false, 'la natación no se «registra»');
+});
+
+await caso('registrar: ni lo de otro cliente, ni una actividad, ni otro día, ni el futuro', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.eventos = [
+    { id: 'evf', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Fotos', fecha: hoy, visible_cliente: true },
+    { id: 'evn', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Natación', fecha: hoy, visible_cliente: true },
+    { id: 'evo', cliente_id: 'c2', fase_id: null, tipo: 'fotos', titulo: 'Fotos', fecha: hoy, visible_cliente: true },
+  ];
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evo', fecha: hoy })).motivo, 'no_es_suyo', 'de otro');
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evn', fecha: hoy })).motivo, 'no_se_registra', 'actividad');
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evf', fecha: mas(hoy, -1) })).motivo, 'no_cae_ese_dia', 'otro día');
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evf', fecha: mas(hoy, 5) })).motivo, 'fecha_futura', 'futuro');
+  igual((sb.db.evento_registros || []).length, 0, 'nada guardado');
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evf', fecha: hoy })).ok, true, 'fotos marcadas');
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evf', fecha: hoy, hecho: false })).hecho, false, 'y desmarcadas');
+  igual(sb.db.evento_registros[0].estado, 'saltado', 'desmarcar no borra: queda «saltado»');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

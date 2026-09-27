@@ -168,6 +168,7 @@ export default async function handler(req, res) {
       due: true,
       dia_corte: v.dia_corte,
       dias_vencido: v.dias_vencido,
+      bloqueo: !!v.bloqueo,
       meses_deuda: v.meses_deuda,
       meses: v.meses,
       monto: v.monto,

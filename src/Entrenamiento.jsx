@@ -18,8 +18,10 @@ import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
   SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
-  ACCENT, ACCENT_DARK, ACCENT_PASTEL, SUCCESS, SHADOW_CARD, FONT_DISPLAY, SECCION,
+  SHADOW_CARD, FONT_DISPLAY, SECCION,
 } from './theme.js';
+// El acento del módulo sale de entrenoUI: oliva de siempre, azul en la visual nueva.
+import { ACCENT, ACCENT_DARK, ACCENT_PASTEL, SUCCESS } from './entrenoUI.jsx';
 
 // ─────────────────────────────────────────────────────────────────────────
 // MÓDULO DE ENTRENAMIENTO
@@ -122,7 +124,7 @@ const SinNav = () => null;
 
 // `recordatorios` (visual nueva): { pendientes, abrir } — la píldora de
 // Recordatorios va arriba de Hoy, como en el Dash.
-export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, recordatorios = null }) {
+export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, recordatorios = null, avisoPago = null }) {
   const [plan, setPlan] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [rutinaId, setRutinaId] = useState(null);
@@ -185,6 +187,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
       <Envoltorio>
         <NavSi seccion={seccion} setSeccion={setSeccion} />
         {recordatorios && <PildoraRecordatorios {...recordatorios} />}
+      {avisoPago}
         <Tarjeta>
           <Fila icono={<Info size={18} color={TEXT_LIGHT} />} titulo="Todavía no hay nada aquí" />
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
@@ -198,6 +201,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     <Envoltorio>
       <NavSi seccion={seccion} setSeccion={setSeccion} />
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
+      {avisoPago}
       <VistaSemana plan={plan} onAbrir={setRutinaId} />
       <BloqueActividad name={name} />
     </Envoltorio>
@@ -1118,7 +1122,7 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descan
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
-      background: hecha ? ACCENT_PASTEL + '55' : 'transparent',
+      background: hecha ? `color-mix(in srgb, ${ACCENT_PASTEL} 33%, transparent)` : 'transparent',
       borderRadius: 11, padding: hecha ? '2px 4px' : 0,
     }}>
       <div style={{
