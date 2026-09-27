@@ -13,7 +13,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { api, miniatura } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import EntrenoFicha from './EntrenoFicha.jsx';
-import { nombreIngles } from './v2.js';
+import { nombresEj } from './v2.js';
 import { Titulo, Cargando, Fallo, Vacio,
          SURFACE, SURFACE_2, BORDER, TEXT, TEXT_MUTED, TEXT_LIGHT, SHADOW_CARD } from './entrenoUI.jsx';
 
@@ -119,8 +119,8 @@ export default function Galeria({ nombre }) {
                 )}
               </div>
               <div style={{ padding: '9px 10px 11px' }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT, lineHeight: 1.25 }}>{e.nombre}</div>
-                {nombreIngles(e) && <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 1, lineHeight: 1.25 }}>{nombreIngles(e)}</div>}
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT, lineHeight: 1.25 }}>{nombresEj(e).grande}</div>
+                {nombresEj(e).chico && <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 1, lineHeight: 1.25 }}>{nombresEj(e).chico}</div>}
                 {musculos.length > 0 && (
                   <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 3 }}>{musculos.slice(0, 2).join(' · ')}</div>
                 )}

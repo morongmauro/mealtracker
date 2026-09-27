@@ -65,10 +65,14 @@ function base() {
         { id: 'r2', cliente_id: 'c1', fase_id: 'f1', nombre: 'Lower', dia_orden: 2, dias_semana: ['X'], archivada: false },
         { id: 'r3', cliente_id: 'c1', fase_id: 'f1', nombre: 'Pull', dia_orden: 3, dias_semana: ['V'], archivada: false },
       ],
-      rutina_bloques: [],
+      rutina_bloques: [{ id: 'b1', rutina_id: 'r1', nombre: 'A', tipo: 'circuito', vueltas: 2, descanso_seg: 30, orden: 1 }],
       rutina_ejercicios: [
-        { id: 're-e1', rutina_id: 'r1', ejercicio_id: 'e1', orden: 1, series: 3, reps: '8', descanso_seg: 120 },
-        { id: 're-e4', rutina_id: 'r1', ejercicio_id: 'e4', orden: 2, series: 3, reps: '10', descanso_seg: 90 },
+        { id: 're-e7', rutina_id: 'r1', ejercicio_id: 'e7', orden: 1, series: 1, reps: '3 min suave', descanso_seg: null },
+        { id: 're-e8', rutina_id: 'r1', bloque_id: 'b1', ejercicio_id: 'e8', orden: 2, series: 1, reps: '5', descanso_seg: 30 },
+        { id: 're-e9', rutina_id: 'r1', bloque_id: 'b1', ejercicio_id: 'e9', orden: 3, series: 1, reps: '5 por lado', descanso_seg: 30 },
+        { id: 're-e1', rutina_id: 'r1', ejercicio_id: 'e1', orden: 4, series: 3, reps: '6-12', descanso_seg: 120 },
+        { id: 're-e4', rutina_id: 'r1', ejercicio_id: 'e4', orden: 5, series: 3, reps: '10-15', descanso_seg: 90 },
+        { id: 're-e10', rutina_id: 'r1', ejercicio_id: 'e10', orden: 6, series: 1, reps: '30 s', descanso_seg: null },
         { id: 're-e2', rutina_id: 'r2', ejercicio_id: 'e2', orden: 1, series: 3, reps: '6', descanso_seg: 150 },
         { id: 're-e5', rutina_id: 'r2', ejercicio_id: 'e5', orden: 2, series: 3, reps: '10' },
         { id: 're-e3', rutina_id: 'r3', ejercicio_id: 'e3', orden: 1, series: 3, reps: '10' },
@@ -78,8 +82,11 @@ function base() {
         ['e1', 'Press banca con barra', ['pectoral_mayor', 'triceps']], ['e2', 'Sentadilla con barra', ['cuadriceps', 'gluteo_mayor']],
         ['e3', 'Remo con mancuerna', ['dorsal_ancho']], ['e4', 'Elevación lateral', ['deltoides_lateral']],
         ['e5', 'Hip thrust a una pierna', ['gluteo_mayor']], ['e6', 'Jalón al pecho', ['dorsal_ancho', 'biceps']],
-      ].map(([id, nombre, mus], i) => ({ id, nombre, musculos_primarios: mus, video_fuente: 'youtube', video_ref: yt[i],
-        alias: { e1: 'Barbell Bench Press', e2: 'Barbell Back Squat', e3: 'Dumbbell Single Arm Row', e4: 'Dumbbell Lateral Raise', e5: 'Bench Single Leg Hip Thrust', e6: 'Wide Grip Lat Pulldown' }[id],
+        ['e7', 'Carrera continua', [], 'cardio'], ['e8', 'Dislocaciones de hombro con banda', ['deltoide_posterior'], 'movilidad'],
+        ['e9', 'Rotación torácica en cuadrupedia', [], 'movilidad'], ['e10', 'Postura del niño', [], 'estiramiento_pasivo'],
+      ].map(([id, nombre, mus, tipo], i) => ({ id, nombre, tipo: tipo || 'fuerza', musculos_primarios: mus, video_fuente: 'youtube', video_ref: yt[i % yt.length],
+        alias: { e1: 'Barbell Bench Press', e2: 'Barbell Back Squat', e3: 'Dumbbell Single Arm Row', e4: 'Dumbbell Lateral Raise', e5: 'Bench Single Leg Hip Thrust', e6: 'Wide Grip Lat Pulldown',
+          e7: 'Running', e8: 'SuperBand Dislocates', e9: 'Table Top Half Arm Thoracic Rotation', e10: "Child's Pose" }[id],
         musculos_secundarios: id === 'e2' ? ['isquiotibiales', 'aductores', 'erectores'] : [] })),
       sesiones, series_log,
       actividades: [{ id: 'a1', cliente_id: 'c1', user_id: 'coach', fecha: hace(0), tipo: 'cinta', duracion_min: 25 }],
@@ -162,8 +169,25 @@ try {
   await p.getByText('Últimas 8 semanas').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
-  ok('atajos de recordatorios y reto', (await p.getByRole('button', { name: /Recordatorios/ }).count()) === 1
-    && (await p.getByRole('button', { name: 'Reto' }).count()) === 1);
+  const dash = p.locator('[data-view="dash"]');
+  ok('atajos de recordatorios y reto', (await dash.getByRole('button', { name: /Recordatorios/ }).count()) === 1
+    && (await dash.getByRole('button', { name: 'Reto' }).count()) === 1);
+  await dash.getByRole('button', { name: 'Reto' }).click();
+  ok('Reto: solo «No hay retos actualmente»', (await p.getByRole('dialog', { name: 'Retos' }).innerText()).trim() === 'No hay retos actualmente');
+  await foto(p, '01b-reto');
+  await p.getByRole('dialog', { name: 'Retos' }).click();
+  ok('Reto: un toque lo cierra', (await p.getByRole('dialog', { name: 'Retos' }).count()) === 0);
+  await dash.getByRole('button', { name: /Recordatorios/ }).click();
+  await p.getByText('Mis recordatorios', { exact: true }).last().waitFor({ timeout: 5000 });
+  ok('Recordatorios sin oliva', await p.evaluate(() => {
+    const oliva = /rgb\((1[12]\d), (1[2-4]\d), (8\d|9\d)\)/;   // la familia #7A8B5A
+    const caja = [...document.querySelectorAll('.fixed.inset-0.z-50')].pop();
+    return ![...caja.querySelectorAll('*')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor));
+  }));
+  await espera(400);
+  await foto(p, '01c-recordatorios');
+  await p.getByRole('button', { name: 'Cerrar' }).first().click();
+  await espera(500);
   ok('la letra nueva está puesta', await p.evaluate(() => document.documentElement.hasAttribute('data-v2')));
   ok('la barra nueva está y la vieja no', (await p.locator('nav[aria-label="Secciones"]').count()) === 1
     && (await p.getByRole('button', { name: 'Herram.' }).count()) === 0);
@@ -203,6 +227,39 @@ try {
   ok('Entrenamiento abre en Hoy', (await p.getByRole('button', { name: 'Hoy', exact: true }).first().getAttribute('aria-current')) === 'page');
   ok('sin la navegación de arriba del módulo', (await p.getByRole('button', { name: 'Resumen', exact: true }).count()) === 0);
   await foto(p, '04-entreno-hoy');
+  // La rutina por dentro
+  await p.getByRole('button', { name: /Push/ }).first().click();
+  await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
+  ok('la rutina se parte en calentamiento, fuerza y enfriamiento',
+    (await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()) === 1 && (await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()) === 1,
+    `${await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()} / ${await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()} / ${await p.getByText('Enfriamiento').count()}`);
+  ok('el calentamiento no pide kilos', (await p.getByText('SuperBand Dislocates').first().locator('xpath=ancestor::div[3]').locator('input').count()) === 0);
+  ok('las reps van vacías con el rango de sugerencia', (await p.getByLabel('Repeticiones serie 1').first().getAttribute('placeholder')) === '6-12'
+    && (await p.getByLabel('Repeticiones serie 1').first().inputValue()) === '');
+  ok('la última vez se lee en claro', (await p.getByText(/Última vez/).count()) > 0);
+  await espera(500);
+  await foto(p, '04b-rutina-arriba');
+  const scRut = () => p.evaluate(() => document.querySelector('[data-view="entrena"]').scrollTop);
+  await p.getByText('Barbell Bench Press').first().scrollIntoViewIfNeeded();
+  await espera(300);
+  await foto(p, '04c-rutina-fuerza');
+  // Marcar sin reps no marca: lleva el dedo a la cajita
+  await p.getByLabel('Peso serie 1').first().locator('xpath=ancestor::div[2]').getByRole('button').click();
+  ok('sin reps no se marca la serie', (await p.locator('[aria-label="Deshacer serie 1"]').count()) === 0);
+  await p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
+  await espera(300);
+  ok('el calentamiento se marca con un toque y se pliega', (await p.getByText('1/5', { exact: true }).count()) === 1);
+  // Tu récord abre su hoja y el scroll no se va a la rutina de atrás
+  await p.getByRole('button', { name: /Tu récord/ }).first().click();
+  await p.getByText(/Tu récord ·/).waitFor({ timeout: 5000 });
+  const antesSc = await scRut();
+  await p.mouse.move(195, 700); await p.mouse.wheel(0, 600); await espera(300);
+  ok('con la hoja abierta la rutina de atrás no se mueve', (await scRut()) === antesSc, `${antesSc} → ${await scRut()}`);
+  await foto(p, '04d-tu-record');
+  await p.keyboard.press('Escape');
+  await espera(300);
+  await p.getByRole('button', { name: 'Hoy', exact: true }).first().click();
+  await espera(800);
   await p.getByRole('button', { name: 'Calendario' }).click();
   await espera(1500);
   await foto(p, '05-entreno-calendario');

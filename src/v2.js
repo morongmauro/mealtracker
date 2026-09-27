@@ -22,8 +22,14 @@ export const esV2 = (nombre) => VISUAL_V2_TODOS || VISUAL_V2.includes(normal(nom
 // encendida la visual nueva en este documento?
 export const v2Activa = () => typeof document !== 'undefined' && document.documentElement.hasAttribute('data-v2');
 
-// Nombre del ejercicio en inglés (el de Trainerize, en `alias`), para ponerlo
-// chico y en gris debajo del español: hay traducciones que suenan raras y el
-// original ayuda a reconocerlo. Solo con la visual nueva, y solo si dice algo
-// distinto al español.
-export const nombreIngles = (ej) => (v2Activa() && ej && ej.alias && normal(ej.alias) !== normal(ej.nombre)) ? ej.alias : null;
+// Los dos nombres del ejercicio. Con la visual nueva manda el INGLÉS (el
+// original de Trainerize, guardado en `alias`), grande y en negro, y el
+// español va chico y en gris debajo: hay traducciones que suenan raras y la
+// gente ya reconoce el ejercicio por su nombre original. Sin alias, o si dice
+// lo mismo, solo el que haya.
+export const nombresEj = (ej) => {
+  const es = (ej && ej.nombre) || 'Ejercicio';
+  const en = ej && ej.alias && String(ej.alias).trim();
+  if (!v2Activa() || !en || normal(en) === normal(es)) return { grande: es, chico: null };
+  return { grande: en, chico: es };
+};

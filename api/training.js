@@ -37,7 +37,7 @@ import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
   diasDeRutina, repartirPorDia, FASE_VISIBLE, rutinaVisible, finDeFase,
-  expandirEventos, sumarDiasISO, lunesDe, aKg,
+  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe,
 } from './_entreno.js';
 import { alertarCoach } from './_alerta.js';
 
@@ -95,6 +95,7 @@ export default async function handler(req, res) {
     if (!esGet && accion === 'abrir') return res.status(200).json(await abrirSesion(cliente, cuerpo, hoy));
     if (!esGet && accion === 'serie') return res.status(200).json(await guardarSerie(cliente, cuerpo));
     if (!esGet && accion === 'cerrar') return res.status(200).json(await cerrarSesion(cliente, cuerpo));
+    if (!esGet && accion === 'mover') return res.status(200).json(await moverRutina(cliente, cuerpo, hoy));
     if (!esGet && accion === 'actividad') return res.status(200).json(await guardarActividad(cliente, cuerpo, hoy));
     if (!esGet && accion === 'borrar_actividad') return res.status(200).json(await borrarActividad(cliente, cuerpo));
     if (accion === 'medidas') return res.status(200).json(await verMedidas(cliente));
@@ -149,14 +150,18 @@ async function verPlan(cliente, hoy) {
   const sesiones = Array.isArray(ses) ? ses : [];
 
   const porDia = repartirPorDia(fase, lista);
+  // Lo que el cliente movió de día pesa sobre el plan semanal.
+  const rutinaDe = rutinaPorFecha(fase, porDia, await movimientosDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`));
   const letraHoy = letraDeHoy();
   const huecos = DIAS.map((d, i) => {
     const t = new Date(Date.parse(lunes + 'T00:00:00Z')); t.setUTCDate(t.getUTCDate() + i);
-    return { fecha: t.toISOString().slice(0, 10), rutinaId: porDia[d] ? porDia[d].id : null };
+    const fecha = t.toISOString().slice(0, 10);
+    const r = rutinaDe(fecha);
+    return { fecha, rutinaId: r ? r.id : null, r };
   });
   const asignadas = asignarSesiones(huecos, sesiones);
   const dias = DIAS.map((d, i) => {
-    const r = porDia[d];
+    const r = huecos[i].r;
     const fecha = huecos[i].fecha;
     const s = asignadas[i];
     return {
@@ -173,6 +178,7 @@ async function verPlan(cliente, hoy) {
       // Si la hizo otro día de la semana, cuál. La gente mueve los días: el
       // Push del lunes hecho el martes cuenta, y la app lo dice.
       hecha_el: s && s.fecha !== fecha ? s.fecha : null,
+      movida: rutinaDe.movida(fecha),
     };
   });
 
@@ -756,12 +762,13 @@ async function verMes(cliente, ym, hoy) {
     + `&cliente_id=eq.${cliente.id}&${FASE_VISIBLE}&order=orden.desc&limit=1`);
   const fase = Array.isArray(fases) ? fases[0] : null;
 
-  let porDia = {}, rutinas = [];
+  let porDia = {}, rutinas = [], rutinaDe = () => null;
   if (fase) {
     const rr = await sb(`rutinas?select=id,nombre,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
       + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
     rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
     porDia = repartirPorDia(fase, rutinas);
+    rutinaDe = rutinaPorFecha(fase, porDia, await movimientosDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`));
   }
 
   // Las tres cosas que pasaron, en paralelo: tres viajes encadenados por un
@@ -792,7 +799,7 @@ async function verMes(cliente, ym, hoy) {
     const letra = DIAS[(d.getUTCDay() + 6) % 7];
     const dentro = !!fase?.fecha_inicio && fecha >= fase.fecha_inicio
       && fecha <= finDeFase(fase);
-    const r = dentro ? porDia[letra] : null;
+    const r = dentro ? rutinaDe(fecha) : null;
     const s = r
       ? (sesiones.find(x => x.fecha === fecha && x.rutina_id === r.id)
         || sesiones.find(x => x.fecha === fecha && !x.rutina_id))
@@ -807,6 +814,7 @@ async function verMes(cliente, ym, hoy) {
       fecha, dia: letra, es_hoy: fecha === hoy,
       semana: dentro ? Math.floor((Date.parse(fecha) - Date.parse(fase.fecha_inicio)) / 86400000 / 7) + 1 : null,
       rutina: r ? { id: r.id, nombre: r.nombre, minutos: r.duracion_estimada_min || null } : null,
+      movida: dentro && !!rutinaDe.movida && rutinaDe.movida(fecha),
       estado: s ? s.estado : null,          // completada | saltada | en_curso | null
       rpe: s ? s.rpe : (otra ? otra.rpe : null),
       hecho: otra ? { id: otra.rutina_id, nombre: nombreRutina[otra.rutina_id] || 'Entreno' } : null,
@@ -820,6 +828,53 @@ async function verMes(cliente, ym, hoy) {
     fase: fase ? { nombre: fase.nombre, semanas: fase.semanas, desde: fase.fecha_inicio, hasta: finDeFase(fase) } : null,
     dias,
   };
+}
+
+// ── MOVER UNA RUTINA DE DÍA ───────────────────────────────────────────────
+// El cliente arrastra la rutina en su calendario. Se guarda como un cambio
+// de UNA fecha (ver rutinaPorFecha); si el destino tenía rutina, se
+// intercambian. Reglas:
+//   · solo de hoy en adelante (con un día de margen por la hora del
+//     teléfono): el pasado es registro;
+//   · las dos fechas dentro de la fase;
+//   · la rutina tiene que estar de verdad ese día (lo que ve el cliente);
+//   · no se mueve lo ya entrenado.
+async function moverRutina(cliente, cuerpo, hoy) {
+  const fecha = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
+  const desde = fecha(cuerpo.desde), hasta = fecha(cuerpo.hasta);
+  if (!desde || !hasta || desde === hasta) return { ok: false, motivo: 'fechas' };
+  const ayer = sumarDiasISO(hoy, -1);
+  if (desde < ayer || hasta < ayer) return { ok: false, motivo: 'pasado' };
+
+  const fases = await sb(`fases?select=id,nombre,semanas,fecha_inicio,dias_semana,orden,visible_cliente`
+    + `&cliente_id=eq.${cliente.id}&${FASE_VISIBLE}&order=orden.desc&limit=1`);
+  const fase = Array.isArray(fases) ? fases[0] : null;
+  if (!fase) return { ok: false, motivo: 'sin_fase' };
+  const fin = finDeFase(fase);
+  if ([desde, hasta].some(f => f < fase.fecha_inicio || f > fin)) return { ok: false, motivo: 'fuera_de_fase' };
+
+  const rr = await sb(`rutinas?select=id,nombre,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
+    + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
+  const rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
+  const rutinaDe = rutinaPorFecha(fase, repartirPorDia(fase, rutinas), await movimientosDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`));
+  const r = rutinaDe(desde);
+  if (!r || (cuerpo.rutina_id && r.id !== cuerpo.rutina_id)) return { ok: false, motivo: 'no_esta_ese_dia' };
+
+  const hechas = await sb(`sesiones?select=id,fecha,rutina_id,estado&cliente_id=eq.${cliente.id}`
+    + `&fecha=in.(${desde},${hasta})&estado=eq.completada`);
+  if ((Array.isArray(hechas) ? hechas : []).length) return { ok: false, motivo: 'ya_entrenada' };
+
+  try {
+    const ins = await sb('rutina_movimientos', {
+      method: 'POST', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ user_id: cliente.user_id, cliente_id: cliente.id, fase_id: fase.id, rutina_id: r.id, desde, hasta, origen: 'cliente' }),
+    });
+    if (!Array.isArray(ins) || !ins[0]) return { ok: false, motivo: 'error' };
+  } catch (e) {
+    return { ok: false, motivo: 'sin_tabla' };
+  }
+  const otra = rutinaDe(hasta);
+  return { ok: true, movida: { id: r.id, nombre: r.nombre, desde, hasta }, intercambio: otra ? { id: otra.id, nombre: otra.nombre } : null };
 }
 
 // Los eventos que el coach le programó Y decidió mostrarle. La tabla puede

@@ -10,11 +10,15 @@ import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
 import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
-import { nombreIngles } from './v2.js';
+import { nombresEj, v2Activa } from './v2.js';
+import { Pastilla } from './PastillaV2.jsx';
+import { Bell } from '@phosphor-icons/react';
+import { EjercicioV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
+import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
   SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
-  ACCENT, ACCENT_DARK, ACCENT_PASTEL, SUCCESS, SHADOW_CARD, FONT_DISPLAY,
+  ACCENT, ACCENT_DARK, ACCENT_PASTEL, SUCCESS, SHADOW_CARD, FONT_DISPLAY, SECCION,
 } from './theme.js';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -116,7 +120,9 @@ const Nav = ({ seccion, setSeccion }) => (
 // la app (Hoy · Calendario · Galería) y la navegación de arriba no se pinta.
 const SinNav = () => null;
 
-export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2 }) {
+// `recordatorios` (visual nueva): { pendientes, abrir } — la píldora de
+// Recordatorios va arriba de Hoy, como en el Dash.
+export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, recordatorios = null }) {
   const [plan, setPlan] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [rutinaId, setRutinaId] = useState(null);
@@ -178,6 +184,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2 }) {
     return (
       <Envoltorio>
         <NavSi seccion={seccion} setSeccion={setSeccion} />
+        {recordatorios && <PildoraRecordatorios {...recordatorios} />}
         <Tarjeta>
           <Fila icono={<Info size={18} color={TEXT_LIGHT} />} titulo="Todavía no hay nada aquí" />
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
@@ -190,6 +197,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2 }) {
   return (
     <Envoltorio>
       <NavSi seccion={seccion} setSeccion={setSeccion} />
+      {recordatorios && <PildoraRecordatorios {...recordatorios} />}
       <VistaSemana plan={plan} onAbrir={setRutinaId} />
       <BloqueActividad name={name} />
     </Envoltorio>
@@ -606,7 +614,11 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     // nadie. Se puede decir que no y salir.
     // Si hay récord, el cardio espera a que cierre la celebración: abiertas
     // las dos a la vez, la hoja del cardio tapaba el botón «Seguir».
+    // Visual nueva: no se pregunta por el cardio al terminar. El coach ya lo
+    // receta dentro de la rutina, y lo que el cliente haga aparte lo agrega
+    // desde el calendario.
     if (r.records?.length) setRecords(r.records);
+    else if (v2Activa()) onVolver();
     else setRemate(true);
   }, [cerrando, deEsta, asegurarSesion, name, onVolver]);
 
@@ -622,13 +634,27 @@ function VistaRutina({ name, rutinaId, onVolver }) {
 
   const bloqueDe = {};
   (datos.bloques || []).forEach(b => { bloqueDe[b.id] = b; });
-  const tramos = agruparEnTramos(datos.ejercicios, bloqueDe);
+  const v2 = v2Activa();
+  const tramos = agruparEnTramos(datos.ejercicios, bloqueDe, v2 ? claseMomento : null);
   // En un circuito cada vuelta es UNA serie de cada ejercicio; fuera de un
   // circuito, las series del ejercicio. Contar `series` a secas daba cosas
   // como "5 de 3 series" en cuanto había un circuito.
   const totalSeries = tramos.reduce((t, tr) => t + tr.vueltas.length
     * tr.vueltas[0].reduce((a, re) => a + (tr.vueltas.length > 1 ? 1 : Math.max(1, re.series || 1)), 0), 0);
   const hechas = Object.keys(marcadas).length;
+  const EjercicioX = v2 ? EjercicioV2 : Ejercicio;
+  // Los tres momentos de la rutina y cuánto va hecho de cada uno.
+  const fases = v2 ? fasesDeTramos(tramos) : tramos.map(() => null);
+  const conteo = {};
+  tramos.forEach((tr, i) => {
+    const f = fases[i];
+    if (!f) return;
+    const c = conteo[f] || (conteo[f] = { hechos: 0, total: 0 });
+    tr.vueltas.forEach((vuelta, vi) => vuelta.forEach(re => {
+      const ns = tr.vueltas.length > 1 ? [vi + 1] : Array.from({ length: Math.max(1, re.series || 1) }, (_, k) => k + 1);
+      ns.forEach(n => { c.total++; if (marcadas[`${re.id}:${n}`]) c.hechos++; });
+    }));
+  });
 
   return (
     <>
@@ -650,7 +676,9 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       )}
 
       <div style={{ marginBottom: 14 }}>
-        <div style={{
+        <div style={v2 ? {
+          fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, color: TEXT,
+        } : {
           fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em',
           textTransform: 'uppercase', lineHeight: 1, color: TEXT,
         }}>{datos.nombre}</div>
@@ -659,9 +687,9 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         )}
         <button onClick={() => setNota({ titulo: datos.nombre, rutina_id: rutinaId })} style={{
           marginTop: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
-          fontSize: 12.5, fontWeight: 700, color: ACCENT_DARK, fontFamily: 'inherit',
+          fontSize: v2 ? 13.5 : 12.5, fontWeight: 700, color: v2 ? SECCION.entreno.ink : ACCENT_DARK, fontFamily: 'inherit',
         }}>Escribirle a tu coach sobre esta rutina</button>
-        {totalSeries > 0 && (
+        {totalSeries > 0 && !v2 && (
           <div style={{ marginTop: 11 }}>
             <div style={{ height: 5, borderRadius: 99, background: SURFACE_2, overflow: 'hidden' }}>
               <div style={{
@@ -676,6 +704,24 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         )}
       </div>
 
+      {/* Visual nueva: el avance se queda pegado arriba mientras se baja, para
+          saber siempre cuánto falta sin volver al principio. */}
+      {totalSeries > 0 && v2 && (
+        <div style={{
+          position: 'sticky', top: 'calc(58px + env(safe-area-inset-top, 0px))', zIndex: 20,
+          margin: '0 -4px 4px', padding: '8px 12px', borderRadius: 14,
+          background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+          boxShadow: '0 1px 2px rgba(40,40,30,0.05), 0 6px 16px rgba(60,60,40,0.06)',
+          display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5,
+        }}>
+          <span style={{ fontWeight: 650, color: TEXT, flex: 'none' }}>{Math.min(hechas, totalSeries)}/{totalSeries} series</span>
+          <div style={{ flex: 1, height: 6, borderRadius: 99, background: '#EEEAE1', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${Math.min(100, (hechas / totalSeries) * 100)}%`, background: SECCION.entreno.base, borderRadius: 99, transition: 'width .25s ease' }} />
+          </div>
+          <span style={{ color: TEXT_MUTED, flex: 'none' }}>{Math.round(Math.min(1, hechas / totalSeries) * 100)} %</span>
+        </div>
+      )}
+
       {datos.ejercicios.length === 0 && (
         <Tarjeta><Vacio texto="Esta rutina todavía no tiene ejercicios." /></Tarjeta>
       )}
@@ -684,9 +730,12 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           luego B tres veces. Por eso las vueltas se pintan como secciones:
           antes el bloque salía con UNA fila por ejercicio y no había dónde
           marcar la segunda vuelta ni la tercera. */}
-      {tramos.map((tramo) => (
+      {tramos.map((tramo, ti) => (
         <React.Fragment key={tramo.clave}>
-          {tramo.bloque && <CabeceraBloque b={tramo.bloque} />}
+          {fases[ti] && fases[ti] !== fases[ti - 1] && (
+            <SeparadorMomento fase={fases[ti]} hechos={conteo[fases[ti]]?.hechos || 0} total={conteo[fases[ti]]?.total || 0} />
+          )}
+          {tramo.bloque && <CabeceraBloque b={tramo.bloque} v2={v2} />}
           {tramo.vueltas.map((vuelta, vi) => (
             <React.Fragment key={vi}>
               {tramo.vueltas.length > 1 && (
@@ -700,7 +749,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
                 </div>
               )}
               {vuelta.map((re, k) => (
-                <Ejercicio key={`${re.id}:v${vi + 1}`} re={re}
+                <EjercicioX key={`${re.id}:v${vi + 1}`} re={re}
                   serieUnica={tramo.vueltas.length > 1 ? vi + 1 : null}
                   descansoCircuito={tramo.vueltas.length > 1
                     ? descansoEnCircuito(tramo.bloque, k, vuelta.length, vi, tramo.vueltas.length)
@@ -729,7 +778,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           onClick={() => { setDescanso(null); setErrorCierre(null); setCerrandoHoja(true); }}
           style={{
             width: '100%', marginTop: 6, padding: '15px 18px', borderRadius: 16, border: 0,
-            background: hechas > 0 ? ACCENT_DARK : SURFACE_2,
+            background: hechas > 0 ? (v2 ? TEXT : ACCENT_DARK) : SURFACE_2,
             color: hechas > 0 ? '#fff' : TEXT_MUTED,
             fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
           }}>
@@ -748,7 +797,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
 
       <HojaNota abierta={!!nota} nombre={name} contexto={nota} alCerrar={() => setNota(null)} />
 
-      {records && <HojaRecords records={records} alCerrar={() => { setRecords(null); setRemate(true); }} />}
+      {records && <HojaRecords records={records} alCerrar={() => { setRecords(null); if (v2) onVolver(); else setRemate(true); }} />}
 
       <EntrenoActividad
         abierta={remate}
@@ -764,17 +813,30 @@ function VistaRutina({ name, rutinaId, onVolver }) {
 }
 
 
+function PildoraRecordatorios({ pendientes = 0, abrir }) {
+  return (
+    <div style={{ margin: '0 0 14px' }}>
+      <Pastilla icono={Bell} color="#E0A21A" badge={pendientes} onClick={abrir}>Recordatorios</Pastilla>
+    </div>
+  );
+}
+
 // Parte la lista de ejercicios en tramos: cada bloque es un tramo, y los
 // ejercicios sueltos se van juntando en otro. Un tramo con `vueltas > 1`
 // devuelve sus ejercicios repetidos una vez por vuelta, que es como se
 // entrena de verdad un circuito.
-export function agruparEnTramos(ejercicios, bloqueDe) {
+//
+// `clase` (opcional) parte también los sueltos: en la visual nueva, el
+// calentamiento suelto y la fuerza suelta van en tramos distintos para poder
+// poner el separador entre ellos.
+export function agruparEnTramos(ejercicios, bloqueDe, clase = null) {
   const tramos = [];
   ejercicios.forEach(re => {
     const b = re.bloque_id ? bloqueDe[re.bloque_id] : null;
     const ultimo = tramos[tramos.length - 1];
-    if (ultimo && ultimo.bloqueId === (re.bloque_id || null)) { ultimo.lista.push(re); return; }
-    tramos.push({ bloqueId: re.bloque_id || null, bloque: b, lista: [re] });
+    const c = clase && !re.bloque_id ? clase(re) : null;
+    if (ultimo && ultimo.bloqueId === (re.bloque_id || null) && ultimo.clase === c) { ultimo.lista.push(re); return; }
+    tramos.push({ bloqueId: re.bloque_id || null, bloque: b, lista: [re], clase: c });
   });
   return tramos.map((t, i) => {
     // Solo los bloques con más de una vuelta se expanden. Un ejercicio suelto
@@ -807,7 +869,9 @@ function HojaRecords({ records, alCerrar }) {
         background: SURFACE, borderRadius: 20, padding: '24px 20px', maxWidth: 360, width: '100%',
         boxShadow: '0 12px 40px rgba(0,0,0,.22)', textAlign: 'center',
       }}>
-        <div style={{ fontSize: 40, lineHeight: 1 }}>🏆</div>
+        {v2Activa()
+          ? <div style={{ width: 58, height: 58, borderRadius: 99, margin: '0 auto', display: 'grid', placeItems: 'center', background: SECCION.entreno.tint, color: SECCION.entreno.ink }}><TrophyV2 size={30} weight="fill" /></div>
+          : <div style={{ fontSize: 40, lineHeight: 1 }}>🏆</div>}
         <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, marginTop: 10, letterSpacing: '-0.01em' }}>
           {records.length === 1 ? 'Récord nuevo' : `${records.length} récords nuevos`}
         </div>
@@ -833,7 +897,7 @@ function HojaRecords({ records, alCerrar }) {
         </div>
         <button onClick={alCerrar} style={{
           width: '100%', marginTop: 18, padding: '13px 18px', borderRadius: 14, border: 0,
-          background: ACCENT_DARK, color: '#fff', fontSize: 15, fontWeight: 700,
+          background: v2Activa() ? TEXT : ACCENT_DARK, color: '#fff', fontSize: 15, fontWeight: 700,
           cursor: 'pointer', fontFamily: 'inherit',
         }}>Seguir</button>
       </div>
@@ -841,7 +905,7 @@ function HojaRecords({ records, alCerrar }) {
   );
 }
 
-function CabeceraBloque({ b }) {
+function CabeceraBloque({ b, v2 = false }) {
   const nombreTipo = {
     superserie: 'Superserie', circuito: 'Circuito', emom: 'EMOM', amrap: 'AMRAP', normal: '',
   }[b.tipo] || '';
@@ -849,9 +913,11 @@ function CabeceraBloque({ b }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, margin: '16px 2px 8px',
-      fontSize: 11.5, fontWeight: 700, color: ACCENT_DARK,
+      fontSize: v2 ? 12.5 : 11.5, fontWeight: 700, color: v2 ? SECCION.entreno.ink : ACCENT_DARK,
     }}>
-      {b.nombre ? b.nombre + (nombreTipo ? ' · ' : '') : ''}{nombreTipo}
+      {/* Con la visual nueva no se repite la letra del bloque (A, B…): el
+          separador del momento ya dice dónde se está. */}
+      {b.nombre && !(v2 && /^[A-Z]$/.test(b.nombre)) ? b.nombre + (nombreTipo ? ' · ' : '') : ''}{nombreTipo}
       {b.vueltas ? ` · ${b.vueltas} vueltas` : ''}
       <div style={{ flex: 1, height: 1, background: BORDER }} />
     </div>
@@ -944,8 +1010,8 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
         </button>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15.5, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em' }}>{e.nombre}</div>
-          {nombreIngles(e) && <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 1 }}>{nombreIngles(e)}</div>}
+          <div style={{ fontSize: 15.5, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em' }}>{nombresEj(e).grande}</div>
+          {nombresEj(e).chico && <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 1 }}>{nombresEj(e).chico}</div>}
           <div style={{ fontSize: 12.5, color: ACCENT_DARK, fontWeight: 600, marginTop: 3 }}>
             {re.series} × {re.reps}
             {re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}

@@ -18,7 +18,9 @@ const Entrenamiento = lazy(() => import('./Entrenamiento.jsx'));
 // y Dash. El Dash va en su chunk: el resto de clientes no lo descarga.
 const Dash = lazy(() => import('./Dash.jsx'));
 import BarraV2, { NOMBRE_SECCION, SquaresFour } from './BarraV2.jsx';
-import { esV2 } from './v2.js';
+import { esV2, v2Activa } from './v2.js';
+import { Pastilla } from './PastillaV2.jsx';
+import { Bell as BellV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
 
 // Paleta y tipografía: única fuente de verdad en src/theme.js.
@@ -27,6 +29,7 @@ import {
   C_PROTEIN, C_PROTEIN_PASTEL, C_CARBS, C_CARBS_PASTEL, C_FAT, C_FAT_PASTEL, C_WATER,
   BG, BG_STAINS, BG_STAINS_WARM, BG_STAINS_COOL, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
   SUCCESS, WARN, DANGER, DANGER_SOFT, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
+  SECCION,
 } from './theme.js';
 import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
 
@@ -5458,6 +5461,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               <div style={{ margin: '6px 2px 0' }}>
                 <div style={{ fontSize: '15px', color: TEXT_MUTED, fontWeight: 500 }}>{capFirst(formatDate(today))}</div>
                 <div style={{ fontFamily: FONT_DISPLAY, fontSize: '28px', fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.1, marginTop: '2px' }}>Así va tu día</div>
+                <div style={{ marginTop: '12px' }}>
+                  <Pastilla icono={BellV2} color="#E0A21A" badge={coachReminders.filter(r => !r.done_at).length}
+                    onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</Pastilla>
+                </div>
               </div>
             ) : (
             <div style={{
@@ -5712,7 +5719,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             background: 'linear-gradient(0deg, rgba(237,236,229,0.96) 0%, rgba(237,236,229,0.72) 42%, rgba(237,236,229,0.3) 72%, rgba(237,236,229,0) 100%)',
           }} />}
           <Suspense fallback={null}>
-            <Entrenamiento name={name} seccionV2={v2 ? entrenoSub : null} alSeccionV2={setEntrenoSub} />
+            <Entrenamiento name={name} seccionV2={v2 ? entrenoSub : null} alSeccionV2={setEntrenoSub}
+              recordatorios={v2 ? { pendientes: coachReminders.filter(r => !r.done_at).length, abrir: () => { haptic(8); setActiveModal('reminders'); } } : null} />
           </Suspense>
         </div>
       )}
@@ -5728,7 +5736,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               acciones={{
                 // Los atajos que antes vivían en «Tus herramientas» de Hoy.
                 recordatorios: () => { haptic(8); setActiveModal('reminders'); },
-                reto: () => { haptic(8); window.location.href = '/ranking'; },
                 calendarioComida: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); },
               }} />
           </Suspense>
@@ -5892,7 +5899,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           pendientes desaparece y no estorba. */}
       {/* Solo en el chat: en Hoy ya existe el icono de Recordatorios entre
           las herramientas — la píldora ahí redundaba. */}
-      {tab === 'chat' && !showRecetario && !showLearning && !showTraining && !showDash && coachReminders.some(r => !r.done_at) && (
+      {/* Visual nueva: los recordatorios viven en el Dash y en los «Hoy», no en el chat. */}
+      {!v2 && tab === 'chat' && !showRecetario && !showLearning && !showTraining && !showDash && coachReminders.some(r => !r.done_at) && (
         <button
           onPointerDown={(e) => { e.preventDefault(); haptic(8); setActiveModal('reminders'); }}
           onClick={(e) => e.preventDefault()}
@@ -6548,7 +6556,9 @@ const InputBar = memo(function InputBar({
             ))}
           </div>
         )}
-        {text.trim() && !text.toLowerCase().match(/desayuno|almuerzo|cena|snack|reiniciar|cambiar|resumen|semanal|calendario|favoritos|proporciones|agua|cuántas|cuanto|cuánto/) && (
+        {/* Visual nueva: sin el aviso de «se registrará como…»; el chat ya
+            responde con la comida y se corrige ahí si hace falta. */}
+        {!v2Activa() && text.trim() && !text.toLowerCase().match(/desayuno|almuerzo|cena|snack|reiniciar|cambiar|resumen|semanal|calendario|favoritos|proporciones|agua|cuántas|cuanto|cuánto/) && (
           <div className="flex justify-center mb-2">
             <div className="text-[11px] px-3 py-1.5 rounded-full" style={{
               // Opaca y con sombra: antes iba al 37% de opacidad sobre la
@@ -8172,6 +8182,11 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
   // checking | unsupported | denied | inactive | active
   const [status, setStatus] = useState('checking');
   const [busy, setBusy] = useState(false);
+  // Visual nueva: amarillo del Dash y grafito, nada de oliva; letra más grande.
+  const v2 = v2Activa();
+  const acento = v2 ? SECCION.dash.ink : ACCENT;
+  const hecho = v2 ? TEXT : ACCENT;
+  const pendienteBg = v2 ? SECCION.dash.tint : '#FBEFCF';
 
   const refresh = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
@@ -8199,7 +8214,7 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
 
   const pill = {
     checking:    { txt: 'Verificando…',      bg: SURFACE_2, fg: TEXT_MUTED },
-    active:      { txt: '● Activos',         bg: `${ACCENT}1A`, fg: ACCENT_DARK },
+    active:      { txt: '● Activos',         bg: v2 ? SECCION.dash.tint : `${ACCENT}1A`, fg: v2 ? SECCION.dash.ink : ACCENT_DARK },
     inactive:    { txt: '○ Sin activar',     bg: '#FBEFCF', fg: '#8A6D16' },
     denied:      { txt: '✕ Bloqueados',      bg: `${DANGER}15`, fg: DANGER },
     unsupported: { txt: 'No disponible aquí', bg: SURFACE_2, fg: TEXT_MUTED },
@@ -8207,35 +8222,36 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
 
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-md">
-      <ModalHeader accent={ACCENT} label="Ajustes" title="Mis recordatorios" onClose={onClose} />
+      <ModalHeader accent={acento} label={v2 ? 'Recordatorios' : 'Ajustes'} title="Mis recordatorios" onClose={onClose} />
 
       {/* Recordatorios que el COACH dejó para este cliente. Tocar = marcar
           cumplido (el coach lo ve ✓ en su CRM en el próximo refresco). */}
-      <div className="text-[11px] font-semibold mb-2" style={{ color: TEXT_LIGHT }}>
+      <div className="font-semibold mb-2" style={{ color: TEXT_LIGHT, fontSize: v2 ? 13 : 11 }}>
         De tu coach
       </div>
       {coachReminders.length === 0 ? (
-        <p className="text-[12px] mb-4 p-3 rounded-xl text-center" style={{ background: SURFACE_2, color: TEXT_LIGHT }}>
-          Por ahora no tienes recordatorios de tu coach. ✓
+        <p className="mb-4 p-3 rounded-xl text-center" style={{ background: SURFACE_2, color: v2 ? TEXT_MUTED : TEXT_LIGHT, fontSize: v2 ? 15 : 12 }}>
+          Por ahora no tienes recordatorios de tu coach.{v2 ? '' : ' ✓'}
         </p>
       ) : (
         <div className="space-y-2 mb-4">
           {coachReminders.slice().sort((a, b) => (a.done_at ? 1 : 0) - (b.done_at ? 1 : 0)).map(r => (
             <button key={r.id} onClick={() => onToggleReminder && onToggleReminder(r.id)}
               className="w-full flex items-start gap-2.5 p-3 rounded-xl text-left active:scale-[0.98] transition"
-              style={{ background: r.done_at ? SURFACE_2 : '#FBEFCF' }}>
+              style={{ background: r.done_at ? SURFACE_2 : pendienteBg }}>
               <span className="flex-shrink-0 w-[18px] h-[18px] rounded-md flex items-center justify-center mt-0.5"
-                style={{ background: r.done_at ? ACCENT : '#FFF', border: r.done_at ? 'none' : `1.5px solid #D9C58A` }}>
+                style={{ background: r.done_at ? hecho : '#FFF', border: r.done_at ? 'none' : `1.5px solid ${v2 ? SECCION.dash.base : '#D9C58A'}` }}>
                 {r.done_at ? <Check size={12} strokeWidth={3} style={{ color: '#FFF' }} /> : null}
               </span>
               <span className="flex-1 min-w-0">
-                <span className="block text-[13px] font-medium" style={{
+                <span className="block font-medium" style={{
+                  fontSize: v2 ? 15.5 : 13,
                   color: r.done_at ? TEXT_LIGHT : TEXT,
                   textDecoration: r.done_at ? 'line-through' : 'none',
                   lineHeight: 1.35,
                 }}>{r.text}</span>
                 {r.done_at && (
-                  <span className="block text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>
+                  <span className="block mt-0.5" style={{ color: TEXT_LIGHT, fontSize: v2 ? 12.5 : 10 }}>
                     ✓ cumplido {r.done_by === 'coach' ? 'según tu coach' : ''} · toca para desmarcar
                   </span>
                 )}
@@ -8246,7 +8262,7 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
       )}
 
       <div className="flex items-center justify-between mb-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
-        <span className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>Notificaciones</span>
+        <span className="font-semibold" style={{ color: TEXT_MUTED, fontSize: v2 ? 14 : 12 }}>Notificaciones</span>
         <span className="px-3 py-1 rounded-full text-[11px] font-bold" style={{ background: pill.bg, color: pill.fg }}>{pill.txt}</span>
       </div>
 
@@ -8259,7 +8275,7 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
         <button onClick={activar} disabled={busy}
           className="w-full py-3 rounded-full text-[13px] font-semibold active:scale-95 transition"
           style={{ background: '#1F1F1F', color: '#FFF', opacity: busy ? 0.6 : 1 }}>
-          {busy ? 'Activando…' : '🔔 Activar recordatorios'}
+          {busy ? 'Activando…' : (v2 ? 'Activar recordatorios' : '🔔 Activar recordatorios')}
         </button>
       )}
       {status === 'active' && (

@@ -17,7 +17,7 @@
 import React, { useState } from 'react';
 import { Hoja, Chip, Card, TEXT, TEXT_MUTED, TEXT_LIGHT, SURFACE_2, BORDER_SOFT, ACCENT_DARK } from './entrenoUI.jsx';
 import FiguraMusculos from './FiguraMusculos.jsx';
-import { v2Activa, nombreIngles } from './v2.js';
+import { v2Activa, nombresEj } from './v2.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import { LABEL } from './taxonomia.js';
 import { miniatura, urlVideo, fechaLarga } from './entrenoDatos.js';
@@ -46,9 +46,9 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
   ].filter(([, v]) => v);
 
   return (
-    <Hoja abierta={abierto} alCerrar={alCerrar} titulo={e.nombre}>
-      {nombreIngles(e) && (
-        <div style={{ fontSize: 13, color: TEXT_LIGHT, margin: '-6px 0 12px' }}>{nombreIngles(e)}</div>
+    <Hoja abierta={abierto} alCerrar={alCerrar} titulo={nombresEj(e).grande}>
+      {nombresEj(e).chico && (
+        <div style={{ fontSize: 13, color: TEXT_LIGHT, margin: '-6px 0 12px' }}>{nombresEj(e).chico}</div>
       )}
       {/* ── 1. El video ── */}
       {video && !verVideo && (
@@ -103,7 +103,10 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
         </div>
       )}
 
-      {/* ── 2 y 3: cómo se hace, y qué trabaja al lado ── */}
+      {/* ── 2 y 3: cómo se hace, y qué trabaja al lado ──
+          Con la visual nueva no va el «cómo se hace»: el video ya lo enseña,
+          y el texto alargaba la ficha sin aportar. */}
+      {!v2Activa() && (
       <div style={{ display: 'flex', gap: 14, marginTop: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 180px', minWidth: 0 }}>
           <Rotulo>Cómo se hace</Rotulo>
@@ -134,6 +137,7 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
           </div>
         ) : null}
       </div>
+      )}
 
       {/* Visual nueva: el cuerpo va grande y a lo ancho. Es lo que más se
           mira después del video, y a 132 px no se distinguía un músculo. */}
@@ -174,7 +178,21 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
         </div>
       )}
 
-      {/* ── Lo que has levantado: el récord y el historial ── */}
+      {/* ── Lo que has levantado: el récord y el historial ──
+          Con la visual nueva vive en su propio botón («Tu récord»): quien
+          quiere verlo lo abre, y la ficha queda en el video y los músculos. */}
+      {!v2Activa() && <TuHistorial item={item} />}
+    </Hoja>
+  );
+}
+
+// «Tu récord» como hoja propia (visual nueva): el récord, la última vez y
+// el historial de ese ejercicio.
+export function HojaRecord({ item, abierto, alCerrar }) {
+  if (!item) return null;
+  const n = nombresEj(item.ejercicio);
+  return (
+    <Hoja abierta={abierto} alCerrar={alCerrar} titulo={`Tu récord · ${n.grande}`} alto="70vh">
       <TuHistorial item={item} />
     </Hoja>
   );

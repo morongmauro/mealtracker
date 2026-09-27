@@ -21,7 +21,8 @@ import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 're
 import { Bell, Mountains, WhatsappLogo, CaretRight, CaretLeft, CalendarBlank } from '@phosphor-icons/react';
 import { api, hoyLocal, sumarDias, aFecha } from './entrenoDatos.js';
 import { HojaMedida } from './EntrenoMedidas.jsx';
-import { WHATSAPP_COACH } from './v2.js';
+import { WHATSAPP_COACH, nombresEj } from './v2.js';
+import { Pastilla } from './PastillaV2.jsx';
 import {
   SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, DANGER,
   FONT_DISPLAY, C_PROTEIN, C_CARBS, C_FAT, SECCION,
@@ -158,28 +159,6 @@ function Dato({ etiqueta, valor, unidad, pie }) {
 }
 
 // Pastilla crema con ícono y texto en negrita: los atajos de arriba.
-function Pastilla({ icono: Icono, children, onClick, href, badge, color = TEXT }) {
-  const Tag = href ? 'a' : 'button';
-  return (
-    <Tag onClick={onClick} href={href} target={href ? '_blank' : undefined} rel={href ? 'noopener noreferrer' : undefined}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 8, height: 46, padding: '0 18px',
-        borderRadius: 999, background: 'rgba(255,255,255,0.88)', border: 'none', cursor: 'pointer', textDecoration: 'none',
-        boxShadow: '0 1px 2px rgba(40,40,30,0.05), 0 6px 16px rgba(60,60,40,0.06)',
-        fontFamily: 'inherit', fontSize: 15.5, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap',
-        position: 'relative', flex: 'none',
-      }}>
-      <Icono size={19} weight="fill" color={color} />
-      {children}
-      {badge > 0 && (
-        <span style={{
-          minWidth: 20, height: 20, padding: '0 6px', borderRadius: 99, background: DANGER, color: '#fff',
-          fontSize: 11.5, fontWeight: 700, display: 'grid', placeItems: 'center',
-        }}>{badge}</span>
-      )}
-    </Tag>
-  );
-}
 
 // Botón de «Profundiza»: toda la fila se toca.
 function Profundiza({ children, onClick, color }) {
@@ -401,6 +380,7 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
   const [falloEnt, setFalloEnt] = useState(false);
   const [midiendo, setMidiendo] = useState(false);
   const [vista, setVista] = useState('inicio');
+  const [sinRetos, setSinRetos] = useState(false);
   const raizRef = useRef(null);
 
   const cargar = async () => {
@@ -447,9 +427,22 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
       {/* Atajos */}
       <div style={{ display: 'flex', gap: 8, marginTop: 16, overflowX: 'auto', margin: '16px -16px 0', padding: '0 16px 2px', scrollbarWidth: 'none' }}>
         {acciones.recordatorios && <Pastilla icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
-        {acciones.reto && <Pastilla icono={Mountains} color="#D9744A" onClick={acciones.reto}>Reto</Pastilla>}
+        <Pastilla icono={Mountains} color="#D9744A" onClick={() => setSinRetos(true)}>Reto</Pastilla>
         {wa && <Pastilla icono={WhatsappLogo} color="#25A35A" href={wa}>Escríbele a tu coach</Pastilla>}
       </div>
+
+      {/* Reto: por ahora no hay ninguno. Solo el mensaje; un toque lo cierra. */}
+      {sinRetos && (
+        <div role="dialog" aria-label="Retos" onClick={() => setSinRetos(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(31,31,28,0.28)',
+          display: 'grid', placeItems: 'center', padding: 24,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 24, padding: '26px 28px', textAlign: 'center',
+            boxShadow: '0 12px 40px rgba(40,40,30,0.18)', fontSize: 17, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em',
+          }}>No hay retos actualmente</div>
+        </div>
+      )}
 
       <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '26px 2px 2px' }}>Tu constancia</h2>
 
@@ -569,9 +562,9 @@ function DetalleEntreno({ ent, falloEnt, cargar }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>
             {ent.ejercicios.map(e => (
               <div key={e.id} style={{ background: CREMA, borderRadius: 18, padding: '12px 13px 8px', minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.nombre}</div>
-                {e.alias && e.alias !== e.nombre && (
-                  <div style={{ fontSize: 11.5, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.alias}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).grande}</div>
+                {nombresEj(e).chico && (
+                  <div style={{ fontSize: 11.5, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).chico}</div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
                   <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{fmt(e.actual, 1)}</span>

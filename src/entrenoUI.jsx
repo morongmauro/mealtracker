@@ -170,13 +170,21 @@ export function Fallo({ motivo, alReintentar }) {
 export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh' }) {
   // Con la hoja abierta, el fondo no debe moverse: en el móvil el scroll se
   // "contagia" a la página de atrás y al cerrar apareces en otro sitio.
+  // Ojo: la página de atrás no es el <body> sino la capa de la sección
+  // (Entrenamiento y Dash scrollean dentro de su propio contenedor). Se
+  // congelan también esas capas; si no, deslizar dentro de la hoja movía la
+  // rutina de atrás en vez de la hoja.
   useEffect(() => {
     if (!abierta) return;
-    const previo = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const capas = [document.body, ...document.querySelectorAll('[data-view="entrena"], [data-view="dash"]')];
+    const previos = capas.map(el => el.style.overflow);
+    capas.forEach(el => { el.style.overflow = 'hidden'; });
     const esc = (e) => { if (e.key === 'Escape') alCerrar?.(); };
     window.addEventListener('keydown', esc);
-    return () => { document.body.style.overflow = previo; window.removeEventListener('keydown', esc); };
+    return () => {
+      capas.forEach((el, i) => { el.style.overflow = previos[i]; });
+      window.removeEventListener('keydown', esc);
+    };
   }, [abierta, alCerrar]);
 
   if (!abierta) return null;
@@ -184,7 +192,7 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh' }) {
     <div
       onClick={alCerrar}
       style={{
-        position: 'fixed', inset: 0, zIndex: 60,
+        position: 'fixed', inset: 0, zIndex: 60, overscrollBehavior: 'contain', touchAction: 'pan-y',
         background: 'rgba(31,31,31,0.38)',
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       }}>
@@ -214,7 +222,7 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh' }) {
         </div>
         <div style={{
           padding: '16px 18px calc(26px + env(safe-area-inset-bottom, 0px))',
-          overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+          overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain',
         }}>{children}</div>
       </div>
     </div>

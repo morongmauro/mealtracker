@@ -239,5 +239,53 @@ await caso('las fotos están apagadas', async () => {
   igual((await llamar(handler, { accion: 'foto_borrar', name: yo, id: 'x' })).motivo, 'desactivado', 'borrar');
 });
 
+await caso('mover de día: el Push del lunes que viene pasa al miércoles, y solo esa semana', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  const L = mas(lunes, 7), X = mas(lunes, 9);
+  const r = await llamar(handler, { accion: 'mover', name: yo, desde: L, hasta: X, rutina_id: 'r1' });
+  igual([r.ok, r.intercambio], [true, null], 'movida');
+  igual(sb.db.rutina_movimientos[0].user_id, 'coach-1', 'con el coach del cliente');
+  const dias = {};
+  for (const ym of new Set([L.slice(0, 7), mas(lunes, 16).slice(0, 7)])) {
+    (await llamar(handler, { accion: 'mes', name: yo, ym })).dias.forEach(d => { dias[d.fecha] = d; });
+  }
+  igual([dias[L].rutina, dias[X].rutina && dias[X].rutina.nombre, dias[X].movida], [null, 'Push', true], 'esa semana');
+  igual(dias[mas(lunes, 14)].rutina && dias[mas(lunes, 14)].rutina.nombre, 'Push', 'la semana siguiente vuelve al lunes');
+  igual(sb.db.rutinas.find(x => x.id === 'r1').dias_semana, ['L', 'J'], 'el plan del coach no se toca');
+});
+
+await caso('mover de día: si el destino tiene rutina, se intercambian', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  const M = mas(lunes, 8), J = mas(lunes, 10);
+  const r = await llamar(handler, { accion: 'mover', name: yo, desde: M, hasta: J });
+  igual([r.ok, r.intercambio && r.intercambio.nombre], [true, 'Push'], 'intercambio');
+  const dias = {};
+  for (const ym of new Set([M.slice(0, 7), J.slice(0, 7)])) {
+    (await llamar(handler, { accion: 'mes', name: yo, ym })).dias.forEach(d => { dias[d.fecha] = d; });
+  }
+  igual([dias[M].rutina.nombre, dias[J].rutina.nombre], ['Push', 'Lower'], 'martes y jueves');
+});
+
+await caso('mover de día: la semana de Hoy lo refleja', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  // Un día de esta semana que aún no pasó y que tenga rutina.
+  const libre = [0, 1, 3, 4].map(i => mas(lunes, i)).find(f => f >= hoy);
+  if (!libre) return;                                  // hoy es sábado o domingo: no hay a dónde mover
+  const destino = mas(lunes, 6);                       // domingo, descanso
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: libre, hasta: destino })).ok, true, 'movida');
+  const p = await llamar(handler, { accion: 'plan', name: yo });
+  const a = p.dias.find(d => d.fecha === libre), b = p.dias.find(d => d.fecha === destino);
+  igual([a.rutina, !!b.rutina, b.movida], [null, true, true], 'semana');
+});
+
+await caso('mover de día: ni el pasado, ni lo que no está ese día, ni fuera de la fase', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, -7), hasta: mas(lunes, 9) })).motivo, 'pasado', 'pasado');
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 9), hasta: mas(lunes, 11) })).motivo, 'no_esta_ese_dia', 'miércoles vacío');
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 7), hasta: mas(lunes, 9), rutina_id: 'r2' })).motivo, 'no_esta_ese_dia', 'otra rutina');
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 7), hasta: mas(lunes, 200) })).motivo, 'fuera_de_fase', 'fuera');
+  igual((sb.db.rutina_movimientos || []).length, 0, 'no se guardó nada');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

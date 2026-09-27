@@ -82,6 +82,45 @@ export function repartirPorDia(fase, rutinas) {
   return porDia;
 }
 
+// ── Cambios de día que hizo el cliente ────────────────────────────────────
+// «El martes no puedo, lo paso al jueves.» Cada movimiento cambia UNA fecha
+// (tabla `rutina_movimientos`); el plan semanal no se toca. Si el destino ya
+// tenía rutina, se intercambian. Se aplican en orden, así que mover dos veces
+// la misma rutina la deja donde quedó la última vez.
+//
+// Devuelve una función fecha → rutina (o null) que ya los tiene en cuenta.
+// La usan la semana, el mes y el aviso de la mañana: los tres dicen lo mismo.
+export function rutinaPorFecha(fase, porDia, movimientos = []) {
+  const fin = finDeFase(fase);
+  const base = (fecha) => {
+    if (!fase?.fecha_inicio || fecha < fase.fecha_inicio || fecha > fin) return null;
+    const [y, m, d] = fecha.split('-').map(Number);
+    return porDia[DIAS[(new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7]] || null;
+  };
+  const mapa = {};
+  const ver = (f) => (f in mapa ? mapa[f] : base(f));
+  (movimientos || []).slice()
+    .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')))
+    .forEach(mv => {
+      const r = ver(mv.desde);
+      if (!r || r.id !== mv.rutina_id || mv.desde === mv.hasta) return;   // ya no está ahí: no aplica
+      const otra = ver(mv.hasta);
+      mapa[mv.hasta] = r;
+      mapa[mv.desde] = otra;
+    });
+  const fn = (fecha) => ver(fecha);
+  fn.movida = (fecha) => fecha in mapa && (mapa[fecha]?.id || null) !== (base(fecha)?.id || null);
+  return fn;
+}
+
+// La tabla puede no existir (migración sin correr): entonces no hay cambios.
+export async function movimientosDe(sb, filtro) {
+  try {
+    const m = await sb(`rutina_movimientos?select=cliente_id,fase_id,rutina_id,desde,hasta,created_at&${filtro}&order=created_at.asc`);
+    return Array.isArray(m) ? m : [];
+  } catch (e) { return []; }
+}
+
 // La fase que el cliente puede ver: activa Y ENVIADA.
 //
 // `estado` y `visible_cliente` son dos cosas distintas y las dos tienen que
@@ -219,12 +258,10 @@ export async function agendaDeHoy(sb, hoy) {
     : [];
   const lunes = lunesDe(hoy);
   const sesiones = await sb(`sesiones?select=cliente_id,rutina_id,fecha,estado&fecha=gte.${lunes}&fecha=lte.${hoy}`);
+  const movs = ids.length ? await movimientosDe(sb, `fase_id=in.(${ids.join(',')})`) : [];
   let eventos = [];
   try { eventos = await sb(`eventos?select=id,cliente_id,fase_id,tipo,titulo,fecha,dias_semana,semanas,visible_cliente&tipo=eq.medicion`); }
   catch (e) { eventos = []; }
-
-  const [y, m, d] = hoy.split('-').map(Number);
-  const letra = DIAS[(new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7];
 
   for (const c of (Array.isArray(clientes) ? clientes : [])) {
     if (String(c.estado || 'activo').toLowerCase() !== 'activo') continue;
@@ -232,7 +269,7 @@ export async function agendaDeHoy(sb, hoy) {
     let rutina = null;
     if (fase && hoy >= (fase.fecha_inicio || '9999') && hoy <= finDeFase(fase)) {
       const suyas = (Array.isArray(rutinas) ? rutinas : []).filter(r => r.fase_id === fase.id && rutinaVisible(r, fase));
-      const r = repartirPorDia(fase, suyas)[letra];
+      const r = rutinaPorFecha(fase, repartirPorDia(fase, suyas), movs.filter(mv => mv.fase_id === fase.id))(hoy);
       // Si esa rutina ya está hecha esta semana (la adelantó), no se insiste.
       const hecha = r && (Array.isArray(sesiones) ? sesiones : [])
         .some(s => s.cliente_id === c.id && s.rutina_id === r.id && s.estado === 'completada');
