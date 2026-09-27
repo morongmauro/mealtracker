@@ -58,7 +58,7 @@ export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}
 
     const filtros = [];
     for (const [k, v] of u.searchParams.entries()) {
-      if (['select', 'order', 'limit', 'on_conflict'].includes(k)) continue;
+      if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) continue;
       filtros.push([k, v]);
     }
     const pasa = (f) => filtros.every(([k, v]) => cumple(f, k, v));
@@ -76,7 +76,9 @@ export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}
           return 0;
         });
       }
+      const off = Number(u.searchParams.get('offset')) || 0;
       const lim = Number(u.searchParams.get('limit'));
+      if (off) out = out.slice(off);
       if (lim) out = out.slice(0, lim);
       return respuesta(200, out.map(f => ({ ...f })));
     }

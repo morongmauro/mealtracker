@@ -17,6 +17,7 @@
 import React, { useState } from 'react';
 import { Hoja, Chip, Card, TEXT, TEXT_MUTED, TEXT_LIGHT, SURFACE_2, BORDER_SOFT, ACCENT_DARK } from './entrenoUI.jsx';
 import FiguraMusculos from './FiguraMusculos.jsx';
+import { v2Activa } from './v2.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import { LABEL } from './taxonomia.js';
 import { miniatura, urlVideo, fechaLarga } from './entrenoDatos.js';
@@ -119,7 +120,7 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
           )}
         </div>
 
-        {(e.musculos_primarios?.length || e.musculos_secundarios?.length) ? (
+        {!v2Activa() && (e.musculos_primarios?.length || e.musculos_secundarios?.length) ? (
           <div style={{ flex: '0 0 auto', width: 132 }}>
             <Rotulo>Qué trabaja</Rotulo>
             <FiguraMusculos
@@ -130,6 +131,21 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
           </div>
         ) : null}
       </div>
+
+      {/* Visual nueva: el cuerpo va grande y a lo ancho. Es lo que más se
+          mira después del video, y a 132 px no se distinguía un músculo. */}
+      {v2Activa() && (e.musculos_primarios?.length || e.musculos_secundarios?.length) ? (
+        <div style={{ marginTop: 18 }}>
+          <Rotulo>Qué trabaja</Rotulo>
+          <div style={{ background: '#F7F5EF', borderRadius: 16, padding: '14px 12px 12px' }}>
+            <FiguraMusculos
+              primarios={e.musculos_primarios || []}
+              secundarios={e.musculos_secundarios || []}
+              alto={230}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {/* ── Características, plegadas ── */}
       {caracs.length > 0 && (

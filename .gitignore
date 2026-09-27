@@ -6,3 +6,5 @@ package-lock.json
 .env
 .env.local
 .vite/
+pruebas/capturas/
+pruebas/*-fallo.png

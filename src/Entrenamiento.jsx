@@ -5,6 +5,7 @@ import EntrenoResumen from './EntrenoResumen.jsx';
 import EntrenoFotos from './EntrenoFotos.jsx';
 import EntrenoActividad, { ChipActividad } from './EntrenoActividad.jsx';
 import EntrenoFicha from './EntrenoFicha.jsx';
+import EntrenoGaleria from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
 import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir } from './entrenoDatos.js';
@@ -110,11 +111,20 @@ const Nav = ({ seccion, setSeccion }) => (
   </nav>
 );
 
-export default function Entrenamiento({ name }) {
+// `seccionV2`: con la visual nueva la sección la elige la barra de abajo de
+// la app (Hoy · Calendario · Galería) y la navegación de arriba no se pinta.
+const SinNav = () => null;
+
+export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2 }) {
   const [plan, setPlan] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [rutinaId, setRutinaId] = useState(null);
-  const [seccion, setSeccion] = useState('hoy');
+  const [seccionPropia, setSeccionPropia] = useState('hoy');
+  const seccion = seccionV2 || seccionPropia;
+  const setSeccion = seccionV2 ? (alSeccionV2 || (() => {})) : setSeccionPropia;
+  const NavSi = seccionV2 ? SinNav : Nav;
+  // Tocar otra opción de la barra con una rutina abierta lleva a esa opción.
+  useEffect(() => { if (seccionV2) setRutinaId(null); }, [seccionV2]);
 
   const cargarPlan = useCallback(async () => {
     setCargando(true);
@@ -153,11 +163,12 @@ export default function Entrenamiento({ name }) {
   if (seccion !== 'hoy') {
     return (
       <Envoltorio>
-        <Nav seccion={seccion} setSeccion={setSeccion} />
+        <NavSi seccion={seccion} setSeccion={setSeccion} />
         {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={setRutinaId} />}
         {seccion === 'rutinas' && <EntrenoRutinas nombre={name} alEntrenar={setRutinaId} />}
         {seccion === 'resumen' && <EntrenoResumen nombre={name} />}
         {seccion === 'fotos' && <EntrenoFotos name={name} />}
+        {seccion === 'galeria' && <EntrenoGaleria nombre={name} />}
       </Envoltorio>
     );
   }
@@ -165,7 +176,7 @@ export default function Entrenamiento({ name }) {
   if (!plan || !plan.ok) {
     return (
       <Envoltorio>
-        <Nav seccion={seccion} setSeccion={setSeccion} />
+        <NavSi seccion={seccion} setSeccion={setSeccion} />
         <Tarjeta>
           <Fila icono={<Info size={18} color={TEXT_LIGHT} />} titulo="Todavía no hay nada aquí" />
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
@@ -177,7 +188,7 @@ export default function Entrenamiento({ name }) {
 
   return (
     <Envoltorio>
-      <Nav seccion={seccion} setSeccion={setSeccion} />
+      <NavSi seccion={seccion} setSeccion={setSeccion} />
       <VistaSemana plan={plan} onAbrir={setRutinaId} />
       <BloqueActividad name={name} />
     </Envoltorio>

@@ -213,6 +213,12 @@ await caso('mi medida: rechaza lo absurdo y el futuro', async () => {
   igual((sb.db.mediciones_corporales || []).length, 0, 'nada guardado');
 });
 
+await caso('mi medida: un día de margen por la hora del teléfono', async () => {
+  globalThis.fetch = base().fetch;
+  igual((await llamar(handler, { accion: 'medida', name: yo, peso: 70, fecha: mas(hoy, 1) })).ok, true, 'mañana según su teléfono');
+  igual((await llamar(handler, { accion: 'medida', name: yo, peso: 70, fecha: mas(hoy, 2) })).motivo, 'fecha_futura', 'pasado mañana');
+});
+
 await caso('nota al coach sobre un ejercicio: queda pegada al ejercicio', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   const r = await llamar(handler, { accion: 'nota', name: yo, texto: 'Me molesta el hombro', rutina_id: 'r1', rutina_ejercicio_id: 're1' });

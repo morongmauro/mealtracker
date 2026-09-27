@@ -25,6 +25,8 @@
 //                                     sin ejecutarlas
 // GET|POST  ?accion=catalogo        → los tipos de actividad complementaria
 // GET|POST  ?accion=resumen         → su semana: entrenamiento + alimentación
+// GET|POST  ?accion=dash            → 12 semanas: entrenos, volumen, fuerza por
+//                                     ejercicio y sus medidas (el Dash)
 // POST      { accion:'actividad', … }         → registra cardio/deporte/caminata
 // POST      { accion:'borrar_actividad', id } → la quita
 //
@@ -89,6 +91,7 @@ export default async function handler(req, res) {
     if (accion === 'rutinas') return res.status(200).json(await verRutinas(cliente));
     if (accion === 'catalogo') return res.status(200).json(await verCatalogo());
     if (accion === 'resumen') return res.status(200).json(await verResumen(cliente, hoy));
+    if (accion === 'dash') return res.status(200).json(await verDash(cliente, hoy));
     if (!esGet && accion === 'abrir') return res.status(200).json(await abrirSesion(cliente, cuerpo, hoy));
     if (!esGet && accion === 'serie') return res.status(200).json(await guardarSerie(cliente, cuerpo));
     if (!esGet && accion === 'cerrar') return res.status(200).json(await cerrarSesion(cliente, cuerpo));
@@ -896,8 +899,10 @@ async function guardarActividad(cliente, cuerpo, hoy) {
   if (!tipo) return { ok: false, motivo: 'sin_tipo' };
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || '')) ? String(cuerpo.fecha) : hoy;
   // Nada de registrar en el futuro: marcar una caminata de la semana que
-  // viene descuadra la adherencia de una semana que aún no pasó.
-  if (fecha > hoy) return { ok: false, motivo: 'fecha_futura' };
+  // viene descuadra la adherencia de una semana que aún no pasó. Un día de
+  // margen: «hoy» es la fecha de Bogotá y el teléfono puede ir adelantado
+  // (un cliente de viaje en Europa, de noche, ya está en mañana).
+  if (fecha > sumarDiasISO(hoy, 1)) return { ok: false, motivo: 'fecha_futura' };
 
   const num = (v, max) => {
     const n = aNumero(v);
@@ -1073,7 +1078,8 @@ async function guardarMedida(cliente, cuerpo, hoy) {
   if (peso != null && (peso < pMin || peso > pMax)) return { ok: false, motivo: 'peso_fuera_de_rango' };
   if (grasa != null && (grasa < gMin || grasa > gMax)) return { ok: false, motivo: 'grasa_fuera_de_rango' };
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || '')) ? String(cuerpo.fecha) : hoy;
-  if (fecha > hoy) return { ok: false, motivo: 'fecha_futura' };
+  // El mismo día de margen que la actividad: el teléfono pone su fecha.
+  if (fecha > sumarDiasISO(hoy, 1)) return { ok: false, motivo: 'fecha_futura' };
 
   // La anterior, para decirle al coach cuánto cambió.
   const previas = await sb(`mediciones_corporales?select=fecha,peso,grasa_pct&cliente_id=eq.${cliente.id}`
@@ -1155,4 +1161,140 @@ async function guardarNota(cliente, cuerpo, hoy) {
   await alertarCoach({ title: `${cliente.nombre}${sobre ? ` · ${sobre}` : ''}`, body: texto, tag: 'ecm-nota' });
   const n = Array.isArray(ins) ? ins[0] : ins;
   return { ok: true, nota: { id: n && n.id, texto } };
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// DASH · las últimas 12 semanas en números
+// ══════════════════════════════════════════════════════════════════════════
+// Lo que la pantalla de Dash dibuja del entrenamiento. La comida no pasa por
+// aquí: la app ya la tiene en el teléfono, con los mismos totales que el
+// cliente ve en su día.
+//
+// La FUERZA se mide con el 1RM estimado (Epley: kg × (1 + reps/30)) de la
+// mejor serie de cada sesión. Es lo que deja comparar 60 × 10 con 65 × 6: el
+// peso solo, o las reps solas, dicen «igual» o «peor» cuando se progresó.
+// Series de más de 15 reps no cuentan: ahí la fórmula ya no significa nada.
+const DASH_SEMANAS = 12;
+const DASH_EJERCICIOS = 4;
+const E1RM_MAX_REPS = 15;
+
+export const e1rm = (kg, reps) => {
+  const r = Number(reps);
+  if (!(kg > 0) || !Number.isFinite(r) || r <= 0 || r > E1RM_MAX_REPS) return null;
+  return Math.round(kg * (1 + r / 30) * 10) / 10;
+};
+
+// Puro, para poder probarlo sin base: recibe las filas ya leídas.
+export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres = {}, actividades = [], medidas = [] }) {
+  const lunesHoy = lunesDe(hoy);
+  const semanas = [];
+  for (let i = DASH_SEMANAS - 1; i >= 0; i--) {
+    const desde = sumarDiasISO(lunesHoy, -7 * i);
+    semanas.push({ desde, hasta: sumarDiasISO(desde, 6), planeados: 0, hechos: 0, volumen_kg: 0, cardio_min: 0 });
+  }
+  const semanaDe = (f) => semanas.find(w => f >= w.desde && f <= w.hasta) || null;
+
+  // Lo planeado: los días de la fase que cubría esa semana. Sin fase, cero —
+  // no se inventa una meta que el coach no puso.
+  semanas.forEach(w => {
+    const f = fases.find(x => x.fecha_inicio && x.fecha_inicio <= w.hasta && finDeFase(x) >= w.desde);
+    w.planeados = f ? (f.dias_semana || []).length : 0;
+  });
+
+  const fechaDe = {};
+  sesiones.forEach(ses => {
+    fechaDe[ses.id] = ses.fecha;
+    if (ses.estado !== 'completada') return;
+    const w = semanaDe(ses.fecha);
+    if (w) w.hechos++;
+  });
+
+  // Mejor e1RM de cada ejercicio en cada fecha.
+  const mejor = {};
+  series.forEach(l => {
+    const fecha = fechaDe[l.sesion_id];
+    if (!fecha) return;
+    const kg = aKg(l.peso, l.unidad);
+    const reps = Number(l.reps);
+    const w = semanaDe(fecha);
+    if (w && kg > 0 && reps > 0) w.volumen_kg += kg * reps;
+    const est = e1rm(kg, reps);
+    if (est == null) return;
+    const porFecha = mejor[l.ejercicio_id] || (mejor[l.ejercicio_id] = {});
+    if (!porFecha[fecha] || est > porFecha[fecha]) porFecha[fecha] = est;
+  });
+  semanas.forEach(w => { w.volumen_kg = Math.round(w.volumen_kg); });
+
+  actividades.forEach(a => {
+    const w = semanaDe(a.fecha);
+    if (w) w.cardio_min += Number(a.duracion_min) || 0;
+  });
+
+  // Los que más ha hecho, que son los que tienen una tendencia que leer. Con
+  // una sola sesión no hay línea: se quedan fuera.
+  const ejercicios = Object.entries(mejor)
+    .map(([id, porFecha]) => {
+      const puntos = Object.keys(porFecha).sort().map(fecha => ({ fecha, e1rm: porFecha[fecha] }));
+      return { id, nombre: nombres[id] || 'Ejercicio', puntos };
+    })
+    .filter(e => e.puntos.length >= 2)
+    .sort((a, b) => b.puntos.length - a.puntos.length || a.nombre.localeCompare(b.nombre))
+    .slice(0, DASH_EJERCICIOS)
+    .map(e => ({ ...e, inicio: e.puntos[0].e1rm, actual: e.puntos[e.puntos.length - 1].e1rm }));
+
+  return {
+    ok: true, hoy, semanas, ejercicios,
+    medidas: medidas.slice().sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
+      .map(m => ({ fecha: m.fecha, peso: m.peso == null ? null : Number(m.peso), grasa_pct: m.grasa_pct == null ? null : Number(m.grasa_pct) })),
+  };
+}
+
+// Todas las filas, de mil en mil: Supabase no devuelve más de 1.000 por
+// consulta y un cliente de cinco días a la semana pasa de eso en 12 semanas.
+async function todas(path) {
+  const out = [];
+  for (let offset = 0; offset < 50000; offset += 1000) {
+    const pag = await sb(`${path}&limit=1000&offset=${offset}`);
+    const filas = Array.isArray(pag) ? pag : [];
+    out.push(...filas);
+    if (filas.length < 1000) break;
+  }
+  return out;
+}
+
+async function verDash(cliente, hoy) {
+  const desde = sumarDiasISO(lunesDe(hoy), -7 * (DASH_SEMANAS - 1));
+  const [fases, sesiones, actividades, medidas] = await Promise.all([
+    // Las fases pasadas también cuentan (la de hace dos meses ya está
+    // finalizada): lo planeado de cada semana sale de la que la cubría.
+    sb(`fases?select=id,fecha_inicio,semanas,dias_semana,visible_cliente,estado`
+      + `&cliente_id=eq.${cliente.id}&estado=in.(activa,finalizada)&visible_cliente=is.true&order=orden.desc`).catch(() => []),
+    todas(`sesiones?select=id,fecha,estado&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}&order=fecha.asc`),
+    sb(`actividades?select=fecha,duracion_min&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}`).catch(() => []),
+    sb(`mediciones_corporales?select=fecha,peso,grasa_pct&cliente_id=eq.${cliente.id}&order=fecha.desc&limit=24`).catch(() => []),
+  ]);
+
+  // Las series solo de las sesiones hechas, en tandas: una lista de cientos
+  // de ids en la URL la corta el servidor.
+  const ids = sesiones.filter(x => x.estado === 'completada').map(x => x.id);
+  const series = [];
+  for (let i = 0; i < ids.length; i += 80) {
+    const tanda = ids.slice(i, i + 80).join(',');
+    series.push(...await todas(`series_log?select=sesion_id,ejercicio_id,reps,peso,unidad`
+      + `&sesion_id=in.(${tanda})&completada=is.true&order=id.asc`));
+  }
+
+  const ejIds = [...new Set(series.map(x => x.ejercicio_id).filter(Boolean))];
+  const nombres = {};
+  for (let i = 0; i < ejIds.length; i += 80) {
+    const ejs = await sb(`ejercicios?select=id,nombre&id=in.(${ejIds.slice(i, i + 80).join(',')})`);
+    (Array.isArray(ejs) ? ejs : []).forEach(e => { nombres[e.id] = e.nombre; });
+  }
+
+  return armarDash({
+    hoy, fases: Array.isArray(fases) ? fases : [], sesiones, series, nombres,
+    actividades: Array.isArray(actividades) ? actividades : [],
+    medidas: Array.isArray(medidas) ? medidas : [],
+  });
 }

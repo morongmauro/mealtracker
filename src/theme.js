@@ -78,5 +78,23 @@ export const SHADOW_RAISED = '0 6px 20px rgba(0,0,0,0.22), 0 2px 4px rgba(0,0,0,
 export const SHADOW_OVERLAY = '0 -8px 40px rgba(0,0,0,0.18)';
 
 // Tipografía
-export const FONT_UI = "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif";
-export const FONT_DISPLAY = "'Bebas Neue', 'Inter', sans-serif";
+// Con la visual nueva (v2.js) las variables apuntan a Archivo; sin ella, el
+// respaldo es Inter y Bebas de siempre.
+export const FONT_UI = "var(--f-ui, 'Inter'), ui-sans-serif, system-ui, -apple-system, sans-serif";
+export const FONT_DISPLAY = "var(--f-display, 'Bebas Neue'), 'Inter', sans-serif";
+
+// ── Visual nueva (v2): un color por sección de la barra ──────────────────
+// Cada sección tiene su tono para que se sepa dónde se está sin leer:
+//   Dash         azul      análisis, calma, confianza en el dato
+//   Entrenamiento naranja  energía, acción — es donde se empuja
+//   Alimentación verde     salud, lo natural; el verde de la marca, más vivo
+//   Aprendizaje  violeta   curiosidad, pausa para leer
+// `base` pinta iconos y marcas; `ink` es el fondo del botón activo con letra
+// blanca (todos pasan 4.5:1); `tint` es el cristal teñido del grupo abierto.
+// Paleta validada para daltonismo (protan/deutan/tritan) sobre el fondo BG.
+export const SECCION = {
+  dash:    { base: '#236FA6', ink: '#1D5E8C', tint: 'rgba(35,111,166,0.13)' },
+  entreno: { base: '#D9782C', ink: '#B35A17', tint: 'rgba(217,120,44,0.15)' },
+  comida:  { base: '#4F6A1C', ink: '#4F6A1C', tint: 'rgba(79,106,28,0.13)' },
+  aprende: { base: '#8A58B6', ink: '#6E4596', tint: 'rgba(138,88,182,0.13)' },
+};

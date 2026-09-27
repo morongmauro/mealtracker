@@ -18,6 +18,9 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useMemo } from 'react';
 import { FIG_CUERPO, FIG_FRENTE, FIG_ESPALDA } from './figura-formas.js';
+import { FIG2_SILUETA, FIG2_CABEZA, FIG2_FRENTE, FIG2_ESPALDA,
+         FIG2_LINEAS_FRENTE, FIG2_LINEAS_ESPALDA, FIG2_PROFUNDOS } from './figura-formas-v2.js';
+import { v2Activa } from './v2.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import { ACCENT, ACCENT_PASTEL, BORDER, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
 
@@ -72,6 +75,55 @@ function Cara({ formas, prim, sec, titulo, idClip, etiqueta }) {
   );
 }
 
+// ── Figura v2 (visual nueva) ──────────────────────────────────────────────
+// Un cuerpo de verdad cubierto ENTERO de músculos en gris, y lo que trabaja
+// el ejercicio encendido: naranja fuerte lo principal, naranja suave lo
+// secundario. El naranja es el color de Entrenamiento en la barra: energía,
+// «esto es lo que empujas». Así se lee de un vistazo DÓNDE está el músculo
+// en el cuerpo, que era lo que la silueta vieja no contaba.
+const V2 = { cuerpo: '#ECE8DF', placa: '#D8D3C6', prim: '#D9652A', sec: '#F2B488', borde: '#BCB6A7' };
+
+function CaraV2({ formas, lineas, prim, sec, titulo, idClip, etiqueta }) {
+  const todo = prim.has('cuerpo_completo') || sec.has('cuerpo_completo');
+  const colorTodo = prim.has('cuerpo_completo') ? V2.prim : V2.sec;
+  const piezas = [];
+  for (const [slug, paths] of Object.entries(formas)) {
+    const esPrim = prim.has(slug), esSec = sec.has(slug);
+    // Los profundos (transverso, romboides) quedan debajo de otros: en gris
+    // solo estorbarían. Aparecen cuando el ejercicio los trabaja.
+    if (FIG2_PROFUNDOS.includes(slug) && !esPrim && !esSec) continue;
+    const fill = esPrim ? V2.prim : esSec ? V2.sec : todo ? colorTodo : V2.placa;
+    const nombre = MUSCULO_POR_SLUG[slug]?.nombre || slug;
+    paths.forEach((d, i) => piezas.push(
+      <path key={`${slug}-${i}`} d={d} fill={fill} stroke={V2.cuerpo} strokeWidth="0.7"
+            strokeLinejoin="round" data-musculo={slug} data-activo={esPrim || esSec ? '1' : undefined}>
+        <title>{nombre}</title>
+      </path>
+    ));
+  }
+  return (
+    <figure style={{ margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <svg viewBox="0 0 100 205" role="img" aria-label={titulo}
+           preserveAspectRatio="xMidYMid meet" style={{ height: '100%', width: 'auto', display: 'block' }}>
+        <defs>
+          <clipPath id={idClip}><path d={FIG2_SILUETA} /></clipPath>
+        </defs>
+        <path d={FIG2_SILUETA} fill={V2.cuerpo} />
+        <path d={FIG2_CABEZA} fill={V2.cuerpo} />
+        <g clipPath={`url(#${idClip})`}>
+          {piezas}
+          {lineas.map((d, i) => <path key={`l${i}`} d={d} fill="none" stroke={V2.cuerpo} strokeWidth="0.7" strokeLinecap="round" />)}
+        </g>
+        <path d={FIG2_SILUETA} fill="none" stroke={V2.borde} strokeWidth="0.6" strokeLinejoin="round" />
+        <path d={FIG2_CABEZA} fill="none" stroke={V2.borde} strokeWidth="0.6" />
+      </svg>
+      {etiqueta && (
+        <figcaption style={{ fontSize: '.6rem', letterSpacing: '.04em', textTransform: 'uppercase', color: TEXT_LIGHT }}>{titulo}</figcaption>
+      )}
+    </figure>
+  );
+}
+
 let _seq = 0;
 
 // `etiquetas`: el "FRENTE"/"ESPALDA" bajo cada silueta. Con las dos caras
@@ -95,15 +147,31 @@ export default function FiguraMusculos({
   const prim = new Set(p), sec = new Set(s);
   const conPie = etiquetas == null ? (cara === 'ambas') : !!etiquetas;
   const nombres = (l) => l.map(x => MUSCULO_POR_SLUG[x]?.corto || x).join(', ');
+  const v2 = v2Activa();
+  const colPrim = v2 ? V2.prim : ACCENT;
+  const colSec = v2 ? V2.sec : ACCENT_PASTEL;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'center', gap: 14, height: alto }}>
-        {cara !== 'espalda' && (
-          <Cara formas={FIG_FRENTE} prim={prim} sec={sec} titulo="Frente" idClip={`${base}-f`} etiqueta={conPie} />
-        )}
-        {cara !== 'frente' && (
-          <Cara formas={FIG_ESPALDA} prim={prim} sec={sec} titulo="Espalda" idClip={`${base}-e`} etiqueta={conPie} />
+        {v2 ? (
+          <>
+            {cara !== 'espalda' && (
+              <CaraV2 formas={FIG2_FRENTE} lineas={FIG2_LINEAS_FRENTE} prim={prim} sec={sec} titulo="Frente" idClip={`${base}-f`} etiqueta={conPie} />
+            )}
+            {cara !== 'frente' && (
+              <CaraV2 formas={FIG2_ESPALDA} lineas={FIG2_LINEAS_ESPALDA} prim={prim} sec={sec} titulo="Espalda" idClip={`${base}-e`} etiqueta={conPie} />
+            )}
+          </>
+        ) : (
+          <>
+            {cara !== 'espalda' && (
+              <Cara formas={FIG_FRENTE} prim={prim} sec={sec} titulo="Frente" idClip={`${base}-f`} etiqueta={conPie} />
+            )}
+            {cara !== 'frente' && (
+              <Cara formas={FIG_ESPALDA} prim={prim} sec={sec} titulo="Espalda" idClip={`${base}-e`} etiqueta={conPie} />
+            )}
+          </>
         )}
       </div>
 
@@ -111,12 +179,12 @@ export default function FiguraMusculos({
         <div style={{ fontSize: '.7rem', lineHeight: 1.5, color: TEXT_MUTED }}>
           {!!p.length && (
             <div>
-              <Punto color={ACCENT} /><b>Principal:</b> {nombres(p)}
+              <Punto color={colPrim} /><b>Principal:</b> {nombres(p)}
             </div>
           )}
           {!!s.length && (
             <div>
-              <Punto color={ACCENT_PASTEL} /><b>También trabaja:</b> {nombres(s)}
+              <Punto color={colSec} /><b>También trabaja:</b> {nombres(s)}
             </div>
           )}
         </div>
