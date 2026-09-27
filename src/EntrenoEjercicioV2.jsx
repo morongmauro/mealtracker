@@ -18,9 +18,9 @@
 // escribirlo se usa ese.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
-import { Play, Check, CaretDown, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText } from '@phosphor-icons/react';
+import { Play, Check, CaretDown, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise } from '@phosphor-icons/react';
 import EntrenoFicha, { HojaRecord } from './EntrenoFicha.jsx';
-import { miniatura, numero, convertir } from './entrenoDatos.js';
+import { miniatura, numero, descansoEnCircuito } from './entrenoDatos.js';
 import { nombresEj } from './v2.js';
 import { SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, BORDER, SECCION } from './theme.js';
 
@@ -101,31 +101,102 @@ const coma = (x) => String(x).replace('.', ',');
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const fechaCorta = (iso) => { const [, m, d] = String(iso || '').slice(0, 10).split('-').map(Number); return m ? `${d} ${MESES[m - 1]}` : ''; };
 
-// «Última vez» en una línea corta: «8 · 8 · 7 reps × 71,25 kg» si todas las
-// series fueron con el mismo peso; si no, «8 × 70 · 8 × 72,5 kg».
+// ¿Las reps son POR LADO? Lo dice el coach en el texto («10 por lado»,
+// «c/l») o el ejercicio es unilateral. Tiene que quedar dicho en todos lados:
+// en lo recetado, en la cabecera de las cajitas y en «la última vez».
+const RE_LADO = /(por|cada)\s+(lado|pierna|brazo)|c\/l\b|per side|each side/i;
+export const porLado = (re) => RE_LADO.test(String(re?.reps || '')) || !!re?.ejercicio?.unilateral;
+export function textoReps(re) {
+  const r = String(re?.reps || '').trim();
+  if (!r) return '';
+  const conReps = /^\d+(\s*[-–]\s*\d+)?$/.test(r) ? `${r} reps` : r;
+  return porLado(re) && !RE_LADO.test(r) ? `${conReps} por lado` : conReps;
+}
+export const textoDescanso = (seg) => (Number(seg) > 0 ? `Descanso ${Number(seg)} s` : 'Sin descanso');
+
+// «La última vez», serie por serie y dicho entero: «Serie 1: 12 reps por lado · 15 kg».
+export function lineasUltima(series, lado) {
+  return (series || []).filter(s => s.reps != null || s.peso).map(s => {
+    const reps = s.reps != null ? `${s.reps} reps${lado ? ' por lado' : ''}` : '';
+    const peso = s.peso ? `${coma(s.peso)} ${s.unidad || 'kg'}` : 'sin peso';
+    return `Serie ${s.serie}: ${[reps, peso].filter(Boolean).join(' · ')}`;
+  });
+}
+// Compatibilidad: una línea corta (la usan otras vistas).
 export function textoUltima(series) {
-  const ok = (series || []).filter(s => s.reps != null || s.peso);
-  if (!ok.length) return '';
-  const u = ok[0].unidad || 'kg';
-  const mismo = ok.every(s => String(s.peso || '') === String(ok[0].peso || '') && (s.unidad || 'kg') === u);
-  if (mismo) {
-    const reps = ok.map(s => (s.reps != null ? s.reps : '—')).join(' · ');
-    return ok[0].peso ? `${reps} reps × ${coma(ok[0].peso)} ${u}` : `${reps} reps`;
-  }
-  return ok.map(s => (s.peso ? `${s.reps ?? '—'} × ${coma(s.peso)}` : `${s.reps ?? '—'}`)).join(' · ') + ` ${u}`;
+  return lineasUltima(series, false).map(l => l.replace(/^Serie \d+: /, '')).join(' · ');
 }
 
-export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, compacto = false,
-                             descansoCircuito, unidad = 'kg', onUnidad, onNota }) {
+function Miniatura({ e, alTocar, ancho = 60, alto = 46 }) {
+  const n = nombresEj(e);
+  const thumb = miniatura(e);
+  return (
+    <button onClick={alTocar} aria-label={`Ver ${n.grande}`} style={{
+      flex: 'none', width: ancho, height: alto, borderRadius: 11, overflow: 'hidden', border: 'none', padding: 0,
+      cursor: 'pointer', background: CREMA, position: 'relative', display: 'block',
+    }}>
+      {thumb
+        ? <img src={thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        : <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: TEXT_LIGHT }}><Barbell size={20} /></span>}
+      {thumb && (
+        <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(20,20,18,0.18)' }}>
+          <Play size={13} weight="fill" color="#fff" />
+        </span>
+      )}
+    </button>
+  );
+}
+
+function Nombres({ e, tam = 15.5 }) {
+  const n = nombresEj(e);
+  return (
+    <>
+      <div style={{ fontSize: tam, fontWeight: 750, color: TEXT, lineHeight: 1.2, letterSpacing: '-0.01em' }}>{n.grande}</div>
+      {n.chico && <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 1 }}>{n.chico}</div>}
+    </>
+  );
+}
+
+function UltimaVez({ ultima, lado }) {
+  const lineas = lineasUltima(ultima?.series, lado);
+  if (!lineas.length) return null;
+  return (
+    <div style={{ marginTop: 9, padding: '8px 11px', borderRadius: 11, background: '#F7F5F0', fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.5 }}>
+      <div style={{ fontWeight: 700, color: TEXT }}>La última vez <span style={{ fontWeight: 500, color: TEXT_LIGHT }}>· {fechaCorta(ultima.fecha)}</span></div>
+      {lineas.map(l => <div key={l}>{l}</div>)}
+    </div>
+  );
+}
+
+function CabeceraCajitas({ lado, unidad, onUnidad }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 4,
+      fontSize: 11, fontWeight: 700, color: TEXT_LIGHT, letterSpacing: '.02em',
+    }}>
+      <div style={{ width: 22, flex: 'none' }} />
+      <div style={{ flex: 1, textAlign: 'center' }}>{lado ? 'Reps por lado' : 'Reps'}</div>
+      <div style={{ width: 10, flex: 'none' }} />
+      <div style={{ flex: 1, textAlign: 'center' }}>
+        <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
+          border: `1px solid ${BORDER}`, background: 'transparent', borderRadius: 999, padding: '0 8px',
+          height: 20, fontSize: 11, fontWeight: 700, color: AZUL_TINTA, cursor: 'pointer', fontFamily: 'inherit',
+        }}>Peso ({unidad}) ⇄</button>
+      </div>
+      <div style={{ width: 32, flex: 'none' }} />
+    </div>
+  );
+}
+
+export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg', onUnidad, onNota }) {
   const e = re.ejercicio;
   const n = nombresEj(e);
   const [ficha, setFicha] = useState(false);
   const [record, setRecord] = useState(false);
-  const series = serieUnica != null
-    ? [serieUnica]
-    : Array.from({ length: Math.max(1, re.series || 1) }, (_, i) => i + 1);
+  const series = Array.from({ length: Math.max(1, re.series || 1) }, (_, i) => i + 1);
   const ultima = re.ultima_vez;
   const sinCarga = SIN_CARGA.has(e?.tipo);
+  const lado = porLado(re);
   const completo = series.every(s => marcadas[`${re.id}:${s}`]);
 
   // Terminado → se pliega solo. Se puede volver a abrir con un toque.
@@ -136,24 +207,6 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, serieUnica = 
     if (!completo) setPlegado(false);
     antes.current = completo;
   }, [completo]);
-
-  const filas = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {series.map(s => {
-        const previa = (ultima?.series || []).find(x => x.serie === s) || null;
-        const pesoPrevio = previa && previa.peso
-          ? convertir(previa.peso, previa.unidad || 'kg', unidad)
-          : (ultima && ultima.mejor_peso ? convertir(ultima.mejor_peso, ultima.unidad || 'kg', unidad) : null);
-        return (
-          <SerieFilaV2 key={s} n={s} re={re} unidad={unidad} sinCarga={sinCarga}
-            marcada={marcadas[`${re.id}:${s}`]}
-            rango={re.reps} pesoPrevio={pesoPrevio}
-            descansoSeg={descansoCircuito !== undefined ? descansoCircuito : (s < (re.series || 1) ? re.descanso_seg : null)}
-            onMarcar={onMarcar} onDesmarcar={onDesmarcar} />
-        );
-      })}
-    </div>
-  );
 
   if (plegado) {
     return (
@@ -168,56 +221,32 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, serieUnica = 
           <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.grande}</span>
           {n.chico && <span style={{ display: 'block', fontSize: 12, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.chico}</span>}
         </span>
-        <span style={{ fontSize: 12.5, color: TEXT_MUTED, flex: 'none' }}>{series.length === 1 && serieUnica != null ? 'Hecho' : `${series.length}/${series.length}`}</span>
+        <span style={{ fontSize: 12.5, color: TEXT_MUTED, flex: 'none' }}>{`${series.length}/${series.length}`}</span>
         <CaretDown size={15} color={TEXT_LIGHT} />
       </button>
     );
   }
 
-  // Vueltas 2 y siguientes de un circuito: solo el nombre y su fila.
-  if (compacto) {
-    return (
-      <div style={{ ...TARJETA, padding: '10px 12px' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {n.grande} <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_LIGHT }}>· {re.reps}</span>
-        </div>
-        {filas}
-      </div>
-    );
-  }
-
-  const thumb = miniatura(e);
   return (
     <div style={{ ...TARJETA, padding: '12px 12px 12px' }}>
       <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-        <button onClick={() => setFicha(true)} aria-label={`Ver ${n.grande}`} style={{
-          flex: 'none', width: 60, height: 46, borderRadius: 11, overflow: 'hidden', border: 'none', padding: 0,
-          cursor: 'pointer', background: CREMA, position: 'relative', display: 'block',
-        }}>
-          {thumb
-            ? <img src={thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            : <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: TEXT_LIGHT }}><Barbell size={20} /></span>}
-          {thumb && (
-            <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(20,20,18,0.18)' }}>
-              <Play size={14} weight="fill" color="#fff" />
-            </span>
-          )}
-        </button>
+        <Miniatura e={e} alTocar={() => setFicha(true)} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, lineHeight: 1.2, letterSpacing: '-0.01em' }}>{n.grande}</div>
-          {n.chico && <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 1 }}>{n.chico}</div>}
+          <Nombres e={e} />
           <div style={{ fontSize: 13, color: AZUL_TINTA, fontWeight: 650, marginTop: 3 }}>
-            {serieUnica != null ? re.reps : `${re.series} × ${re.reps}`}
+            {re.series > 1 ? `${re.series} series × ` : ''}{textoReps(re)}
             {re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}
             {re.rir != null ? ` · RIR ${re.rir}` : ''}
-            {serieUnica == null && re.descanso_seg ? <span style={{ color: TEXT_MUTED, fontWeight: 500 }}> · descanso {re.descanso_seg} s</span> : null}
+          </div>
+          <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Timer size={13} /> {textoDescanso(re.descanso_seg)}{Number(re.descanso_seg) > 0 && re.series > 1 ? ' entre series' : ''}
           </div>
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginTop: 9, flexWrap: 'wrap' }}>
         <button onClick={() => setFicha(true)} style={boton}><FilmStrip size={15} /> Ficha</button>
-        {ultima && <button onClick={() => setRecord(true)} style={boton}><Trophy size={15} /> Tu récord</button>}
+        {ultima && !sinCarga && <button onClick={() => setRecord(true)} style={boton}><Trophy size={15} /> Tu récord</button>}
         {onNota && <button onClick={onNota} style={boton}><ChatCircleText size={15} /> Nota</button>}
       </div>
 
@@ -227,31 +256,17 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, serieUnica = 
         </div>
       )}
 
-      {/* Lo de la última vez, dicho en claro. */}
-      {!sinCarga && ultima && ultima.series.length > 0 && (
-        <div style={{ marginTop: 9, fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.45 }}>
-          <span style={{ fontWeight: 700, color: TEXT }}>Última vez</span>
-          <span style={{ color: TEXT_LIGHT }}> · {fechaCorta(ultima.fecha)}</span><br />
-          <span style={{ fontWeight: 650, color: TEXT }}>{textoUltima(ultima.series)}</span>
-        </div>
-      )}
+      {!sinCarga && <UltimaVez ultima={ultima} lado={lado} />}
 
-      {sinCarga ? <div style={{ height: 8 }} /> : <div style={{
-        display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 4,
-        fontSize: 11, fontWeight: 700, color: TEXT_LIGHT, letterSpacing: '.02em',
-      }}>
-        <div style={{ width: 22, flex: 'none' }} />
-        <div style={{ flex: 1, textAlign: 'center' }}>Reps</div>
-        <div style={{ width: 10, flex: 'none' }} />
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
-            border: `1px solid ${BORDER}`, background: 'transparent', borderRadius: 999, padding: '0 8px',
-            height: 20, fontSize: 11, fontWeight: 700, color: AZUL_TINTA, cursor: 'pointer', fontFamily: 'inherit',
-          }}>{unidad} ⇄</button>
-        </div>
-        <div style={{ width: 34, flex: 'none' }} />
-      </div>}
-      {filas}
+      {sinCarga ? <div style={{ height: 8 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} />}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {series.map(s => (
+          <SerieFilaV2 key={s} n={s} re={re} unidad={unidad} sinCarga={sinCarga}
+            marcada={marcadas[`${re.id}:${s}`]}
+            descansoSeg={s < (re.series || 1) ? re.descanso_seg : null}
+            onMarcar={onMarcar} onDesmarcar={onDesmarcar} />
+        ))}
+      </div>
 
       <EntrenoFicha item={re} abierto={ficha} alCerrar={() => setFicha(false)} />
       <HojaRecord item={re} abierto={record} alCerrar={() => setRecord(false)} />
@@ -259,7 +274,87 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, serieUnica = 
   );
 }
 
-function SerieFilaV2({ n, re, marcada, rango, pesoPrevio, descansoSeg, unidad, onMarcar, onDesmarcar, sinCarga }) {
+// ── Un circuito, en UNA tarjeta ───────────────────────────────────────────
+// Todas las vueltas juntas, y cada vez que aparece un ejercicio va con su
+// foto y su nombre: la gente se guía por la imagen, no solo por el nombre.
+// Tras cada estación, el descanso que toca (o «Sin descanso»).
+export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, onUnidad, onNota }) {
+  const b = tramo.bloque || {};
+  const vueltas = tramo.vueltas;
+  const tipo = { superserie: 'Superserie', circuito: 'Circuito', emom: 'EMOM', amrap: 'AMRAP' }[b.tipo] || 'Circuito';
+  const [ficha, setFicha] = useState(null);
+  const [record, setRecord] = useState(null);
+  const hechas = vueltas.reduce((t, v, vi) => t + v.filter(re => marcadas[`${re.id}:${vi + 1}`]).length, 0);
+  const total = vueltas.reduce((t, v) => t + v.length, 0);
+  return (
+    <div style={{ ...TARJETA, padding: '14px 12px 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ width: 30, height: 30, borderRadius: 99, background: SECCION.entreno.tint, color: AZUL_TINTA, display: 'grid', placeItems: 'center', flex: 'none' }}>
+          <ArrowsClockwise size={16} weight="bold" />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 750, color: TEXT }}>{tipo} · {vueltas.length} vueltas</div>
+          <div style={{ fontSize: 12.5, color: TEXT_MUTED }}>
+            {Number(b.descanso_entre_seg) > 0 ? `${b.descanso_entre_seg} s entre ejercicios` : 'Sin descanso entre ejercicios'}
+            {' · '}{Number(b.descanso_seg) > 0 ? `${b.descanso_seg} s al terminar cada vuelta` : 'sin descanso entre vueltas'}
+          </div>
+        </div>
+        <div style={{ fontSize: 13, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{hechas}/{total}</div>
+      </div>
+
+      {vueltas.map((vuelta, vi) => (
+        <div key={vi} style={{ marginTop: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 2px 8px', fontSize: 12, fontWeight: 750, color: AZUL_TINTA }}>
+            Vuelta {vi + 1} de {vueltas.length}
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {vuelta.map((re, k) => {
+              const e = re.ejercicio;
+              const sinCarga = SIN_CARGA.has(e?.tipo);
+              const lado = porLado(re);
+              const desc = descansoEnCircuito(b, k, vuelta.length, vi, vueltas.length);
+              const unidad = unidadDe(re);
+              return (
+                <div key={re.id} style={{ borderRadius: 14, background: '#FAF9F6', padding: '10px 10px 9px' }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <Miniatura e={e} ancho={54} alto={42} alTocar={() => setFicha(re)} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Nombres e={e} tam={14.5} />
+                      <div style={{ fontSize: 12.5, color: AZUL_TINTA, fontWeight: 650, marginTop: 2 }}>{textoReps(re)}</div>
+                    </div>
+                  </div>
+                  {vi === 0 && (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                      <button onClick={() => setFicha(re)} style={{ ...boton, height: 28, background: '#EFEBE3' }}><FilmStrip size={14} /> Ficha</button>
+                      {re.ultima_vez && !sinCarga && <button onClick={() => setRecord(re)} style={{ ...boton, height: 28, background: '#EFEBE3' }}><Trophy size={14} /> Tu récord</button>}
+                      {onNota && <button onClick={() => onNota(re)} style={{ ...boton, height: 28, background: '#EFEBE3' }}><ChatCircleText size={14} /> Nota</button>}
+                    </div>
+                  )}
+                  {vi === 0 && !sinCarga && <UltimaVez ultima={re.ultima_vez} lado={lado} />}
+                  {!sinCarga && <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={() => onUnidad(re)} />}
+                  <div style={{ marginTop: sinCarga ? 8 : 0 }}>
+                    <SerieFilaV2 n={vi + 1} re={re} unidad={unidad} sinCarga={sinCarga} etiqueta={vi + 1}
+                      marcada={marcadas[`${re.id}:${vi + 1}`]} descansoSeg={desc}
+                      onMarcar={onMarcar} onDesmarcar={onDesmarcar} />
+                  </div>
+                  <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Timer size={13} /> {k === vuelta.length - 1 && vi === vueltas.length - 1 ? 'Fin del circuito' : textoDescanso(desc)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      <EntrenoFicha item={ficha} abierto={!!ficha} alCerrar={() => setFicha(null)} />
+      <HojaRecord item={record} abierto={!!record} alCerrar={() => setRecord(null)} />
+    </div>
+  );
+}
+
+function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarcar, sinCarga }) {
   const [reps, setReps] = useState(marcada?.reps != null ? String(marcada.reps) : '');
   const [peso, setPeso] = useState(marcada?.peso != null ? String(marcada.peso).replace('.', ',') : '');
   const [falta, setFalta] = useState(false);
@@ -285,17 +380,10 @@ function SerieFilaV2({ n, re, marcada, rango, pesoPrevio, descansoSeg, unidad, o
     // Sin reps no se marca: no se inventa un número. Se lleva el dedo a la cajita.
     if (r == null) { setFalta(true); repsRef.current && repsRef.current.focus(); return; }
     setFalta(false);
-    const p = numero(peso);
-    onMarcar(re, n, r, p != null ? p : (pesoPrevio != null ? pesoPrevio : null), descansoSeg, unidad);
+    // El peso va en blanco: si no lo escribe, se guarda sin peso (no se
+    // copia el de la última vez, que confundía).
+    onMarcar(re, n, r, numero(peso), descansoSeg, unidad);
   };
-
-  const campo = (malo) => ({
-    width: '100%', height: 36, padding: '0 6px', borderRadius: 10, textAlign: 'center',
-    border: `1px solid ${malo ? '#D9785F' : hecha ? 'transparent' : '#E4E0D5'}`,
-    background: hecha ? 'transparent' : '#FBFAF7',
-    fontSize: 15, fontWeight: 650, color: TEXT, outline: 'none',
-    fontFamily: 'inherit', WebkitAppearance: 'none', boxSizing: 'border-box',
-  });
 
   if (sinCarga) {
     return (
@@ -303,10 +391,10 @@ function SerieFilaV2({ n, re, marcada, rango, pesoPrevio, descansoSeg, unidad, o
         display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 38, padding: '0 6px 0 12px',
         borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         border: hecha ? '1px solid transparent' : '1px solid #E4E0D5',
-        background: hecha ? SECCION.entreno.tint : '#FBFAF7',
+        background: hecha ? SECCION.entreno.tint : '#FFFFFF',
       }}>
         <span style={{ flex: 1, fontSize: 13.5, fontWeight: 650, color: hecha ? AZUL_TINTA : TEXT_MUTED }}>
-          {hecha ? 'Hecho' : (re.series > 1 ? `Serie ${n} · ${re.reps}` : re.reps || 'Marcar hecho')}
+          {hecha ? 'Hecho' : (re.series > 1 ? `Serie ${n} · ${textoReps(re)}` : textoReps(re) || 'Marcar hecho')}
         </span>
         <span style={{
           width: 28, height: 28, borderRadius: 9, display: 'grid', placeItems: 'center', flex: 'none',
@@ -316,29 +404,36 @@ function SerieFilaV2({ n, re, marcada, rango, pesoPrevio, descansoSeg, unidad, o
     );
   }
 
+  const campo = (malo) => ({
+    width: '100%', height: 32, padding: '0 6px', borderRadius: 9, textAlign: 'center',
+    border: `1px solid ${malo ? '#D9785F' : hecha ? 'transparent' : '#E4E0D5'}`,
+    background: hecha ? 'transparent' : '#FFFFFF',
+    fontSize: 15, fontWeight: 650, color: TEXT, outline: 'none',
+    fontFamily: 'inherit', WebkitAppearance: 'none', boxSizing: 'border-box',
+  });
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 6,
-      background: hecha ? SECCION.entreno.tint : 'transparent', borderRadius: 12, padding: hecha ? '0 2px' : 0,
+      background: hecha ? SECCION.entreno.tint : 'transparent', borderRadius: 11, padding: hecha ? '0 2px' : 0,
     }}>
       <div style={{ width: 22, flex: 'none', textAlign: 'center', fontSize: 12.5, fontWeight: 750, color: hecha ? AZUL_TINTA : TEXT_LIGHT }}>{n}</div>
       <div style={{ flex: 1 }}>
         <input ref={repsRef} inputMode="numeric" value={reps}
           onChange={ev => { setReps(ev.target.value); if (falta) setFalta(false); }}
-          placeholder={rango ? String(rango) : 'reps'} aria-label={`Repeticiones serie ${n}`}
+          aria-label={`Repeticiones serie ${n}`}
           style={campo(falta)} disabled={hecha} />
       </div>
       <div style={{ width: 10, flex: 'none', textAlign: 'center', fontSize: 12, color: TEXT_LIGHT }}>×</div>
       <div style={{ flex: 1 }}>
         <input inputMode="decimal" value={peso} onChange={ev => setPeso(ev.target.value)}
-          placeholder={pesoPrevio != null ? String(pesoPrevio).replace('.', ',') : unidad}
           aria-label={`Peso serie ${n}`} style={campo(false)} disabled={hecha} />
       </div>
       <button onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
-        flex: 'none', width: 34, height: 34, borderRadius: 10, cursor: 'pointer',
+        flex: 'none', width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
         border: hecha ? 0 : '1px solid #E4E0D5', background: hecha ? AZUL : 'transparent',
         color: hecha ? '#fff' : TEXT_LIGHT, display: 'grid', placeItems: 'center',
-      }}><Check size={16} weight={hecha ? 'bold' : 'regular'} /></button>
+      }}><Check size={15} weight={hecha ? 'bold' : 'regular'} /></button>
     </div>
   );
 }

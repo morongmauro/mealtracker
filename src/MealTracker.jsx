@@ -20,6 +20,7 @@ const Dash = lazy(() => import('./Dash.jsx'));
 import BarraV2, { NOMBRE_SECCION, SquaresFour } from './BarraV2.jsx';
 import { esV2, v2Activa } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
+import CabeceraHoy from './CabeceraHoy.jsx';
 import { Bell as BellV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
 
@@ -5190,6 +5191,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             dice. */}
         <div className="rounded-3xl relative" style={{
           padding: cardCompact ? '11px 14px' : '16px',
+          ...(v2 ? { borderRadius: 24 } : {}),
           // Se perdía contra el fondo: blanco al 95% sobre un fondo crema
           // claro, con un borde también blanco. Oscurecerla era demasiado
           // (es una tarjeta de datos, no un CTA), así que el contraste sale
@@ -5197,16 +5199,18 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           // un contorno grafito muy tenue en lugar del borde blanco que la
           // fundía, y una sombra más profunda que la despega de la página.
           background: '#FFFFFF',
-          border: '1px solid rgba(31,31,31,0.09)',
-          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 10px 30px rgba(45,48,32,0.13), 0 2px 6px rgba(45,48,32,0.07)',
+          border: v2 ? 'none' : '1px solid rgba(31,31,31,0.09)',
+          // Visual nueva: la misma sombra suave de las tarjetas del Dash.
+          boxShadow: v2 ? '0 1px 2px rgba(40,40,30,0.04), 0 10px 28px rgba(60,60,40,0.07)'
+            : '0 1px 0 rgba(255,255,255,0.9) inset, 0 10px 30px rgba(45,48,32,0.13), 0 2px 6px rgba(45,48,32,0.07)',
           overflow: 'hidden',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)'
         }}>
           {/* Subtle organic blob inside the card — gradiente puro, sin blur */}
-          <div className="absolute pointer-events-none" style={{
+          {!v2 && <div className="absolute pointer-events-none" style={{
             top: '-30%', right: '-20%', width: '60%', height: '120%',
             background: `radial-gradient(circle, ${ACCENT_PASTEL}30, transparent 65%)`
-          }} />
+          }} />}
           <div className="relative">
           {/* La meta nutricional la administra el COACH desde el CRM: el
               cliente ya no tiene botón de "Cambiar meta". Cuando el coach la
@@ -5474,10 +5478,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 imagen empujaría los aros y las comidas fuera de pantalla. */}
             {/* Visual nueva: el saludo vive en el Dash; aquí solo el día. */}
             {v2 ? (
-              <div style={{ margin: '6px 2px 0' }}>
-                <div style={{ fontSize: '15px', color: TEXT_MUTED, fontWeight: 500 }}>{capFirst(formatDate(today))}</div>
-                <div style={{ fontFamily: FONT_DISPLAY, fontSize: '28px', fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.1, marginTop: '2px' }}>Así va tu día</div>
-                <div style={{ marginTop: '12px' }}>
+              <div>
+                <CabeceraHoy tema="comida" fecha={capFirst(formatDate(today))} titulo="Así va tu día"
+                  sangria="20px" arriba={`${headerH + 16}px`} />
+                <div style={{ marginTop: '-4px' }}>
                   <Pastilla icono={BellV2} color="#E0A21A" badge={coachReminders.filter(r => !r.done_at).length}
                     onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</Pastilla>
                 </div>
@@ -5602,10 +5606,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                         <RingGauge size={mch.size} stroke={mch.grad ? 6 : 5}
                           pct={Math.min(100, Math.round((mch.v / (mch.g || 1)) * 100))}
                           color={mch.c}
-                          gradId={mch.grad ? 'ring-kcal' : null}
-                          stops={mch.grad ? [['0%', '#A8B56B'], ['55%', ACCENT], ['100%', ACCENT_DARK]] : null}
+                          gradId={mch.grad && !v2 ? 'ring-kcal' : null}
+                          stops={mch.grad && !v2 ? [['0%', '#A8B56B'], ['55%', ACCENT], ['100%', ACCENT_DARK]] : null}
                           track={mch.grad ? 'rgba(138,149,88,0.14)' : 'rgba(31,31,31,0.07)'}
-                          shadow={mch.grad ? 'drop-shadow(0 4px 9px rgba(74,82,56,0.28))' : 'drop-shadow(0 3px 7px rgba(60,66,42,0.18))'}>
+                          // Visual nueva: como los del Dash — planos, sin halo.
+                          shadow={v2 ? null : mch.grad ? 'drop-shadow(0 4px 9px rgba(74,82,56,0.28))' : 'drop-shadow(0 3px 7px rgba(60,66,42,0.18))'}>
                           <div className="num" style={{ color: mch.g > 0 && mch.v > mch.g * 1.05 ? DANGER_SOFT : TEXT, fontWeight: 500, fontSize: mch.grad ? '13px' : '11.5px' }}>
                             {mch.grad ? `${Math.round((mch.v / (mch.g || 1)) * 100)}%` : fmt1(mch.v)}
                           </div>
@@ -7010,7 +7015,7 @@ function BotonRecetario({ label, onClick, tono = ACCENT_DARK }) {
   return (
     <button onClick={onClick}
       className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold active:scale-95 transition"
-      style={{ background: tono, color: '#FFF', boxShadow: '0 4px 12px rgba(60,70,50,0.18)' }}>
+      style={{ background: v2Activa() ? TEXT : tono, color: '#FFF', boxShadow: '0 4px 12px rgba(60,70,50,0.18)' }}>
       <BookOpen size={13} strokeWidth={2.3} /> {label}
     </button>
   );

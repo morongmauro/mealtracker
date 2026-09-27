@@ -8,12 +8,19 @@ import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir } from './entrenoDatos.js';
+import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, MESES } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
-import { Bell } from '@phosphor-icons/react';
-import { EjercicioV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
+import CabeceraHoy from './CabeceraHoy.jsx';
+// «Domingo, 27 de septiembre»
+const fechaDeHoy = () => {
+  const d = new Date();
+  return `${DIAS_LARGO['DLMXJVS'[d.getDay()]]}, ${d.getDate()} de ${MESES[d.getMonth()]}`;
+};
+import { useUnidades, HojaUnidades } from './Unidades.jsx';
+import { Bell, Ruler } from '@phosphor-icons/react';
+import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
@@ -186,7 +193,9 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     return (
       <Envoltorio>
         <NavSi seccion={seccion} setSeccion={setSeccion} />
-        {recordatorios && <PildoraRecordatorios {...recordatorios} />}
+        {seccionV2 && <CabeceraHoy tema="entreno" fecha={fechaDeHoy()} titulo="Tu entreno"
+        arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} />}
+      {recordatorios && <PildoraRecordatorios {...recordatorios} />}
       {avisoPago}
         <Tarjeta>
           <Fila icono={<Info size={18} color={TEXT_LIGHT} />} titulo="Todavía no hay nada aquí" />
@@ -200,6 +209,8 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   return (
     <Envoltorio>
       <NavSi seccion={seccion} setSeccion={setSeccion} />
+      {seccionV2 && <CabeceraHoy tema="entreno" fecha={fechaDeHoy()} titulo="Tu entreno"
+        arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} />}
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
       {avisoPago}
       <VistaSemana plan={plan} onAbrir={setRutinaId} />
@@ -446,12 +457,17 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   // máquinas del otro en kilos. Se recuerda en el teléfono; si no hay nada,
   // la unidad de la última vez; si no, kg.
   const [unidades, setUnidades] = useState({});
+  const preferida = useUnidades();
+  // Cambió la preferencia general → se olvidan los cambios de esta sesión.
+  useEffect(() => { setUnidades({}); }, [preferida.peso]);
   const unidadDe = useCallback((re) => {
     const id = re.ejercicio.id;
     if (unidades[id]) return unidades[id];
     try { const u = almacen.getItem(`entreno:unidad:${id}`); if (u === 'kg' || u === 'lb') return u; } catch (e) {}
+    // La preferencia general (botón «Unidades») manda sobre la de la última vez.
+    if (preferida.peso) return preferida.peso;
     return re.ultima_vez?.unidad === 'lb' ? 'lb' : 'kg';
-  }, [unidades]);
+  }, [unidades, preferida]);
   const cambiarUnidad = useCallback((re) => {
     const nueva = unidadDe(re) === 'kg' ? 'lb' : 'kg';
     setUnidades(u => ({ ...u, [re.ejercicio.id]: nueva }));
@@ -649,15 +665,21 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const EjercicioX = v2 ? EjercicioV2 : Ejercicio;
   // Los tres momentos de la rutina y cuánto va hecho de cada uno.
   const fases = v2 ? fasesDeTramos(tramos) : tramos.map(() => null);
+  // Visual nueva: el avance se cuenta por EJERCICIOS terminados (todas sus
+  // series, o todas sus vueltas en un circuito), no por series.
   const conteo = {};
+  let ejTotal = 0, ejHechos = 0;
   tramos.forEach((tr, i) => {
     const f = fases[i];
-    if (!f) return;
-    const c = conteo[f] || (conteo[f] = { hechos: 0, total: 0 });
-    tr.vueltas.forEach((vuelta, vi) => vuelta.forEach(re => {
-      const ns = tr.vueltas.length > 1 ? [vi + 1] : Array.from({ length: Math.max(1, re.series || 1) }, (_, k) => k + 1);
-      ns.forEach(n => { c.total++; if (marcadas[`${re.id}:${n}`]) c.hechos++; });
-    }));
+    const c = f ? (conteo[f] || (conteo[f] = { hechos: 0, total: 0 })) : null;
+    tr.vueltas[0].forEach(re => {
+      const ns = tr.vueltas.length > 1
+        ? tr.vueltas.map((_, vi) => vi + 1)
+        : Array.from({ length: Math.max(1, re.series || 1) }, (_, k) => k + 1);
+      const listo = ns.every(n => marcadas[`${re.id}:${n}`]);
+      ejTotal++; if (listo) ejHechos++;
+      if (c) { c.total++; if (listo) c.hechos++; }
+    });
   });
 
   return (
@@ -718,11 +740,11 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           boxShadow: '0 1px 2px rgba(40,40,30,0.05), 0 6px 16px rgba(60,60,40,0.06)',
           display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5,
         }}>
-          <span style={{ fontWeight: 650, color: TEXT, flex: 'none' }}>{Math.min(hechas, totalSeries)}/{totalSeries} series</span>
+          <span style={{ fontWeight: 650, color: TEXT, flex: 'none' }}>{ejHechos}/{ejTotal} ejercicios</span>
           <div style={{ flex: 1, height: 6, borderRadius: 99, background: '#EEEAE1', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${Math.min(100, (hechas / totalSeries) * 100)}%`, background: SECCION.entreno.base, borderRadius: 99, transition: 'width .25s ease' }} />
+            <div style={{ height: '100%', width: `${ejTotal ? (ejHechos / ejTotal) * 100 : 0}%`, background: SECCION.entreno.base, borderRadius: 99, transition: 'width .25s ease' }} />
           </div>
-          <span style={{ color: TEXT_MUTED, flex: 'none' }}>{Math.round(Math.min(1, hechas / totalSeries) * 100)} %</span>
+          <span style={{ color: TEXT_MUTED, flex: 'none' }}>{ejTotal ? Math.round((ejHechos / ejTotal) * 100) : 0} %</span>
         </div>
       )}
 
@@ -739,6 +761,11 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           {fases[ti] && fases[ti] !== fases[ti - 1] && (
             <SeparadorMomento fase={fases[ti]} hechos={conteo[fases[ti]]?.hechos || 0} total={conteo[fases[ti]]?.total || 0} />
           )}
+          {v2 && tramo.vueltas.length > 1 ? (
+            <CircuitoV2 tramo={tramo} marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar}
+              unidadDe={unidadDe} onUnidad={cambiarUnidad}
+              onNota={(re) => setNota({ titulo: re.ejercicio.nombre, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })} />
+          ) : (<>
           {tramo.bloque && <CabeceraBloque b={tramo.bloque} v2={v2} />}
           {tramo.vueltas.map((vuelta, vi) => (
             <React.Fragment key={vi}>
@@ -765,6 +792,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
               ))}
             </React.Fragment>
           ))}
+          </>)}
         </React.Fragment>
       ))}
 
@@ -818,9 +846,13 @@ function VistaRutina({ name, rutinaId, onVolver }) {
 
 
 function PildoraRecordatorios({ pendientes = 0, abrir }) {
+  const [unidadesAbiertas, setUnidadesAbiertas] = useState(false);
+  const u = useUnidades();
   return (
-    <div style={{ margin: '0 0 14px' }}>
-      <Pastilla icono={Bell} color="#E0A21A" badge={pendientes} onClick={abrir}>Recordatorios</Pastilla>
+    <div style={{ margin: '0 0 14px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <Pastilla chica icono={Bell} color="#E0A21A" badge={pendientes} onClick={abrir}>Recordatorios</Pastilla>
+      <Pastilla chica icono={Ruler} color={SECCION.entreno.base} onClick={() => setUnidadesAbiertas(true)}>Unidades · {u.peso || 'kg'}</Pastilla>
+      <HojaUnidades abierta={unidadesAbiertas} alCerrar={() => setUnidadesAbiertas(false)} />
     </div>
   );
 }

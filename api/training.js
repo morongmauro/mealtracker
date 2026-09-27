@@ -37,9 +37,10 @@ import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
   diasDeRutina, repartirPorDia, FASE_VISIBLE, rutinaVisible, finDeFase,
-  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, TIPOS_REGISTRO,
+  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, TIPOS_REGISTRO, nombreFase,
 } from './_entreno.js';
 import { alertarCoach } from './_alerta.js';
+import { completarMusculos } from './_musculos.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
@@ -186,7 +187,7 @@ async function verPlan(cliente, hoy) {
   return {
     ok: true, hoy, cliente: cliente.nombre,
     fase: {
-      nombre: fase.nombre, objetivo: fase.objetivo,
+      nombre: nombreFase(fase.nombre), objetivo: fase.objetivo,
       semanas: fase.semanas, semana_actual: semanaDeFase(fase, hoy),
       dias_semana: fase.dias_semana || [],
     },
@@ -261,7 +262,7 @@ async function verRutina(cliente, rutinaId, hoy) {
   const ids = [...new Set(lista.map(x => x.ejercicio_id))].join(',');
   const ejs = await sb(`ejercicios?select=${CAMPOS_EJERCICIO}&id=in.(${ids})`);
   const porId = {};
-  (Array.isArray(ejs) ? ejs : []).forEach(e => { porId[e.id] = e; });
+  (Array.isArray(ejs) ? ejs : []).forEach(e => { porId[e.id] = completarMusculos(e); });
 
   // Lo último que levantó en cada ejercicio: es lo que de verdad se mira
   // antes de cargar la barra. Se lee de SUS sesiones, no de las de nadie más.
@@ -833,7 +834,7 @@ async function verMes(cliente, ym, hoy) {
 
   return {
     ok: true, mes, hoy,
-    fase: fase ? { nombre: fase.nombre, semanas: fase.semanas, desde: fase.fecha_inicio, hasta: finDeFase(fase) } : null,
+    fase: fase ? { nombre: nombreFase(fase.nombre), semanas: fase.semanas, desde: fase.fecha_inicio, hasta: finDeFase(fase) } : null,
     dias,
   };
 }
@@ -966,7 +967,7 @@ async function verRutinas(cliente) {
   const rr = await sb(`rutinas?select=id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
     + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
   const rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
-  if (!rutinas.length) return { ok: true, fase: { nombre: fase.nombre, objetivo: fase.objetivo }, rutinas: [] };
+  if (!rutinas.length) return { ok: true, fase: { nombre: nombreFase(fase.nombre), objetivo: fase.objetivo }, rutinas: [] };
 
   // Qué trabaja cada rutina: los músculos de sus ejercicios, para que se
   // distinga "Push" de "Pull" sin abrir ninguna.
@@ -984,7 +985,7 @@ async function verRutinas(cliente) {
   return {
     ok: true,
     fase: {
-      nombre: fase.nombre, objetivo: fase.objetivo,
+      nombre: nombreFase(fase.nombre), objetivo: fase.objetivo,
       semanas: fase.semanas, desde: fase.fecha_inicio, hasta: finDeFase(fase),
     },
     rutinas: rutinas.map(r => {
@@ -1118,7 +1119,7 @@ async function verResumen(cliente, hoy) {
       en_curso: sesiones.filter(s => s.estado === 'en_curso').length,
       minutos: Math.round(hechas.reduce((a, s) => a + (Number(s.duracion_seg) || 0), 0) / 60),
       rpe_promedio: rpes.length ? Math.round(rpes.reduce((a, b) => a + b, 0) / rpes.length * 10) / 10 : null,
-      fase: fase ? { nombre: fase.nombre, semana_actual: semanaDeFase(fase, hoy), semanas: fase.semanas } : null,
+      fase: fase ? { nombre: nombreFase(fase.nombre), semana_actual: semanaDeFase(fase, hoy), semanas: fase.semanas } : null,
     },
     complementaria: {
       veces: actividades.length,

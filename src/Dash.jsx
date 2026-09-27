@@ -18,7 +18,8 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Bell, Mountains, WhatsappLogo, CaretRight, CaretLeft, CalendarBlank } from '@phosphor-icons/react';
+import { Bell, Mountains, WhatsappLogo, CaretRight, CaretLeft, CalendarBlank, Ruler } from '@phosphor-icons/react';
+import { HojaUnidades, useUnidades } from './Unidades.jsx';
 import { api, hoyLocal, sumarDias, aFecha } from './entrenoDatos.js';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
@@ -381,6 +382,8 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
   const [midiendo, setMidiendo] = useState(false);
   const [vista, setVista] = useState('inicio');
   const [sinRetos, setSinRetos] = useState(false);
+  const [unidadesAbiertas, setUnidadesAbiertas] = useState(false);
+  const unidades = useUnidades();
   const raizRef = useRef(null);
 
   const cargar = async () => {
@@ -431,7 +434,9 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
         {acciones.recordatorios && <Pastilla icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
         <Pastilla icono={Mountains} color="#D9744A" onClick={() => setSinRetos(true)}>Reto</Pastilla>
         {wa && <Pastilla icono={WhatsappLogo} color="#25A35A" href={wa}>Escríbele a tu coach</Pastilla>}
+        <Pastilla icono={Ruler} color={AZUL} onClick={() => setUnidadesAbiertas(true)}>Unidades · {unidades.peso || 'kg'}</Pastilla>
       </div>
+      <HojaUnidades abierta={unidadesAbiertas} alCerrar={() => setUnidadesAbiertas(false)} />
 
       {/* Mensualidad pendiente (primeros 5 días de mora). */}
       {avisoPago}
@@ -449,7 +454,7 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
         </div>
       )}
 
-      <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '26px 2px 2px' }}>Tu constancia</h2>
+      <Seccion>Tu constancia</Seccion>
 
       {/* Protagonista 1: entrenamiento */}
       {entrenoOn && (
@@ -468,11 +473,16 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
                   {promedio8 == null ? '—' : `${promedio8} %`}
                   <span style={{ fontSize: 13, fontWeight: 500, color: TEXT_MUTED }}> de lo planeado</span>
                 </div>
-                {ochoSemanas.length >= 2 && (
-                  <Linea puntos={ochoSemanas} color={AZUL} alto={46}
-                    textoValor={(p) => `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} />
-                )}
               </div>
+            </div>
+          )}
+          {/* Misma forma que la tarjeta de alimentación: anillo y cifra
+              arriba, la línea de tendencia a lo ancho debajo. */}
+          {!falloEnt && ochoSemanas.length >= 2 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Tu constancia, semana a semana</div>
+              <Linea puntos={ochoSemanas} color={AZUL} alto={54}
+                textoValor={(p) => `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} />
             </div>
           )}
           <Profundiza color={AZUL} onClick={() => setVista('entreno')}>Profundiza en tus gráficas de entrenamiento</Profundiza>
@@ -507,10 +517,21 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
       </Tarjeta>
 
       {/* Cuerpo */}
+      <Seccion>Tu cuerpo</Seccion>
       <Cuerpo medidas={ent?.medidas || []} cargando={entrenoOn && !ent && !falloEnt} alMedir={() => setMidiendo(true)} />
       <HojaMedida abierta={midiendo} nombre={name} alCerrar={() => setMidiendo(false)}
         alGuardar={() => { setMidiendo(false); cargar(); }} />
     </Marco>
+  );
+}
+
+// Título de sección con una línea fina encima: separa lo que es de otra cosa.
+function Seccion({ children }) {
+  return (
+    <div style={{ marginTop: 26 }}>
+      <div style={{ height: 1, background: 'rgba(31,31,31,0.09)', margin: '0 2px 16px' }} />
+      <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '0 2px 2px' }}>{children}</h2>
+    </div>
   );
 }
 

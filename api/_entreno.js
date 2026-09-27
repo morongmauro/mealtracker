@@ -125,6 +125,9 @@ export async function movimientosDe(sb, filtro) {
 // cuando los marca). `medicion` es el tipo de antes de separarlos.
 export const TIPOS_REGISTRO = ['medidas', 'peso', 'fotos', 'medicion'];
 
+// «Cycle 2» (lo que traía Trainerize) → «Ciclo 2». En español siempre.
+export const nombreFase = (n) => String(n || '').replace(/\bcycle\b/gi, 'Ciclo');
+
 // La fase que el cliente puede ver: activa Y ENVIADA.
 //
 // `estado` y `visible_cliente` son dos cosas distintas y las dos tienen que

@@ -174,7 +174,7 @@ const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.
 try {
   // ── Mauro ──
   const { p, ctx, errores, db } = await abrir('Mauro Morón');
-  await p.getByText('Tu constancia').waitFor({ timeout: 25000 });
+  await p.getByText('Tu constancia', { exact: true }).waitFor({ timeout: 25000 });
   ok('apertura fría: cae en el Dash', true);
   await p.getByText('Últimas 8 semanas').waitFor({ timeout: 10000 });
   await espera(800);
@@ -228,7 +228,7 @@ try {
   ok('el calendario de comidas se abre desde el Dash', (await p.getByText(/Mes|Semana/).count()) > 0);
   await p.keyboard.press('Escape');
   await p.goto('http://localhost:5198/');
-  await p.getByText('Tu constancia').waitFor({ timeout: 25000 });
+  await p.getByText('Tu constancia', { exact: true }).waitFor({ timeout: 25000 });
 
   await p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await p.getByRole('button', { name: 'Calendario' }).waitFor();
@@ -241,16 +241,35 @@ try {
   ok('Entrenamiento abre en Hoy', (await p.getByRole('button', { name: 'Hoy', exact: true }).first().getAttribute('aria-current')) === 'page');
   ok('sin la navegación de arriba del módulo', (await p.getByRole('button', { name: 'Resumen', exact: true }).count()) === 0);
   await foto(p, '04-entreno-hoy');
+  ok('Hoy de entreno trae su cabecera ilustrada', await p.locator('[data-view="entrena"]').getByText('Tu entreno', { exact: true }).isVisible());
+  // Unidades: una preferencia para toda la app
+  await p.getByRole('button', { name: /Unidades · kg/ }).first().click();
+  await p.getByRole('radio', { name: 'Libras (lb)' }).click();
+  await p.keyboard.press('Escape');
+  await espera(300);
+  ok('unidades: la preferencia queda en lb', (await p.getByRole('button', { name: /Unidades · lb/ }).count()) > 0);
   // La rutina por dentro
   await p.getByRole('button', { name: /Push/ }).first().click();
   await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
   ok('la rutina se parte en calentamiento, fuerza y enfriamiento',
     (await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()) === 1 && (await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()) === 1,
     `${await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()} / ${await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()} / ${await p.getByText('Enfriamiento').count()}`);
-  ok('el calentamiento no pide kilos', (await p.getByText('SuperBand Dislocates').first().locator('xpath=ancestor::div[3]').locator('input').count()) === 0);
-  ok('las reps van vacías con el rango de sugerencia', (await p.getByLabel('Repeticiones serie 1').first().getAttribute('placeholder')) === '6-12'
+  ok('el calentamiento no pide kilos', await p.evaluate(() => {
+    const t = [...document.querySelectorAll('[data-view="entrena"] div')].find(d => d.textContent === 'SuperBand Dislocates');
+    let el = t; while (el && getComputedStyle(el).backgroundColor !== 'rgb(250, 249, 246)') el = el.parentElement;
+    return !!el && el.querySelectorAll('input').length === 0;
+  }));
+  ok('circuito: todas las vueltas en UNA tarjeta', (await p.getByText('Circuito · 2 vueltas').count()) === 1);
+  ok('circuito: la foto sale cada vez que aparece el ejercicio', (await p.getByRole('button', { name: 'Ver SuperBand Dislocates' }).count()) === 2);
+  ok('las cajitas van en blanco, sin sugerencias', (await p.getByLabel('Repeticiones serie 1').first().getAttribute('placeholder')) === null
+    && (await p.getByLabel('Peso serie 1').first().getAttribute('placeholder')) === null
     && (await p.getByLabel('Repeticiones serie 1').first().inputValue()) === '');
-  ok('la última vez se lee en claro', (await p.getByText(/Última vez/).count()) > 0);
+  ok('lo recetado dice series y reps', (await p.getByText('3 series × 6-12 reps').count()) === 1);
+  ok('la última vez, serie por serie', (await p.getByText(/^Serie 1: 8 reps · 71,25 kg$/).count()) > 0);
+  ok('descansos: el que tiene dice sus segundos', (await p.getByText('Descanso 120 s entre series').count()) === 1);
+  ok('descansos: el que no tiene lo dice', (await p.getByText('Sin descanso').count()) > 0);
+  ok('unidades: la rutina abre en lb', (await p.getByText('Peso (lb) ⇄').count()) > 0);
+  ok('el avance cuenta ejercicios', (await p.getByText('0/6 ejercicios').count()) === 1);
   await espera(500);
   await foto(p, '04b-rutina-arriba');
   const scRut = () => p.evaluate(() => document.querySelector('[data-view="entrena"]').scrollTop);
@@ -262,7 +281,21 @@ try {
   ok('sin reps no se marca la serie', (await p.locator('[aria-label="Deshacer serie 1"]').count()) === 0);
   await p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
   await espera(300);
-  ok('el calentamiento se marca con un toque y se pliega', (await p.getByText('1/5', { exact: true }).count()) === 1);
+  ok('el calentamiento se marca con un toque y se pliega', (await p.getByText('1/3', { exact: true }).count()) === 1);
+  ok('el avance sube por ejercicio terminado', (await p.getByText('1/6 ejercicios').count()) === 1);
+  // La ficha tiene scroll propio (el fallo del teléfono) y la silueta va en Características
+  await p.getByRole('button', { name: 'Ficha' }).nth(3).click();
+  await p.locator('[data-hoja-scroll]').waitFor({ timeout: 5000 });
+  await espera(400);
+  const hs = p.locator('[data-hoja-scroll]');
+  const cajaH = await hs.boundingBox();
+  await p.mouse.move(cajaH.x + cajaH.width / 2, cajaH.y + cajaH.height / 2);
+  await p.mouse.wheel(0, 500); await espera(400);
+  ok('la ficha se deja recorrer con scroll', await hs.evaluate(el => el.scrollHeight > el.clientHeight && el.scrollTop > 0));
+  ok('características con los músculos marcados', await p.getByText(/^Principal:/).first().isVisible());
+  await foto(p, '04e-ficha-scroll');
+  await p.keyboard.press('Escape');
+  await espera(300);
   // Tu récord abre su hoja y el scroll no se va a la rutina de atrás
   await p.getByRole('button', { name: /Tu récord/ }).first().click();
   await p.getByText(/Tu récord ·/).waitFor({ timeout: 5000 });
@@ -331,11 +364,10 @@ try {
   ok('la ficha pinta el cuerpo nuevo con lo que trabaja', (await p.locator('path[data-activo="1"]').count()) >= 4);
   ok('la ficha trae las características abiertas', await p.locator('dl dt', { hasText: 'Tipo' }).first().isVisible());
   ok('la ficha ya no dice «cómo se hace»', (await p.getByRole('dialog').last().getByText(/Cómo se hace/i).count()) === 0);
-  await p.locator('text=Qué trabaja').scrollIntoViewIfNeeded();
+  await p.getByText(/^Principal:/).first().scrollIntoViewIfNeeded();
   await espera(400);
   await foto(p, '07b-ficha-cuerpo');
   await p.keyboard.press('Escape');
-  await p.mouse.click(20, 80);
   await espera(400);
 
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
@@ -372,14 +404,14 @@ try {
   await foto(p, '10-aprende');
 
   await p.getByRole('button', { name: 'Dash', exact: true }).click();
-  await p.getByText('Tu constancia').waitFor();
+  await p.getByText('Tu constancia', { exact: true }).waitFor();
   ok('vuelve al Dash', true);
   ok('sin errores de JavaScript (Mauro)', errores.length === 0, errores.join(' | '));
   await ctx.close();
 
   // ── Teléfono angosto ──
   const n = await abrir('Mauro Morón', { ancho: 375 });
-  await n.p.getByText('Tu constancia').waitFor({ timeout: 25000 });
+  await n.p.getByText('Tu constancia', { exact: true }).waitFor({ timeout: 25000 });
   await n.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await espera(900);
   const caja = await n.p.locator('nav[aria-label="Secciones"]').boundingBox();
@@ -445,7 +477,7 @@ try {
   await espera(2600);
   ok('otra persona ve la barra de siempre', (await o.p.locator('nav[aria-label="Secciones"]').count()) === 0);
   ok('…y su letra de siempre', !(await o.p.evaluate(() => document.documentElement.hasAttribute('data-v2'))));
-  ok('…y no abre en el Dash', (await o.p.getByText('Tu constancia').count()) === 0);
+  ok('…y no abre en el Dash', (await o.p.getByText('Tu constancia', { exact: true }).count()) === 0);
   await foto(o.p, '13-otra-persona');
   ok('sin errores de JavaScript (otra persona)', o.errores.length === 0, o.errores.join(' | '));
   await o.ctx.close();

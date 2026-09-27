@@ -17,6 +17,7 @@
 //   puede tocar, se puede registrar — pero no grita.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ACCENT as OLIVA, ACCENT_DARK as OLIVA_DARK, ACCENT_PASTEL as OLIVA_PASTEL, ACCENT_LIGHT as OLIVA_LIGHT,
          SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT, SUCCESS as SUCCESS_OLIVA, WARN, DANGER,
          SHADOW_CARD, SHADOW_OVERLAY, FONT_DISPLAY } from './theme.js';
@@ -199,7 +200,9 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh' }) {
   }, [abierta, alCerrar]);
 
   if (!abierta) return null;
-  return (
+  // Va a <body> por portal: dentro de la capa de la sección (fixed, con
+  // scroll propio) el navegador del teléfono le robaba el gesto a la hoja.
+  const hoja = (
     <div
       onClick={alCerrar}
       style={{
@@ -213,7 +216,7 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh' }) {
         style={{
           background: SURFACE, width: '100%', maxWidth: 560,
           borderRadius: '22px 22px 0 0', boxShadow: SHADOW_OVERLAY,
-          maxHeight: alto, display: 'flex', flexDirection: 'column',
+          maxHeight: `min(${alto}, calc(100dvh - 24px))`, display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
         {/* La barrita de arrastre va en su propia fila, no superpuesta: al
             posicionarla absoluta sobre la cabecera se cruzaba encima del
@@ -231,13 +234,18 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh' }) {
             width: 30, height: 30, borderRadius: 999, fontSize: 15, cursor: 'pointer', flexShrink: 0,
           }}>✕</button>
         </div>
-        <div style={{
+        {/* minHeight 0: sin esto el área no se encoge dentro de la hoja,
+            el contenido se desborda y NO hay scroll (el fallo de «Ficha»,
+            «Nota» y «Tu récord» en el teléfono). */}
+        <div data-hoja-scroll="" style={{
+          flex: '1 1 auto', minHeight: 0,
           padding: '16px 18px calc(26px + env(safe-area-inset-bottom, 0px))',
-          overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain',
+          overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y',
         }}>{children}</div>
       </div>
     </div>
   );
+  return typeof document !== 'undefined' ? createPortal(hoja, document.body) : hoja;
 }
 
 // ── Barra de progreso ─────────────────────────────────────────────────────

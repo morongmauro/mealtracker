@@ -37,6 +37,7 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
   const thumb = miniatura(e);
   const video = urlVideo(e);
   const claves = e.claves_tecnicas || [];
+  const tieneMusculos = !!(e.musculos_primarios?.length || e.musculos_secundarios?.length);
   const caracs = [
     ['Patrón', LABEL.patron[e.patron]],
     ['Segmento', LABEL.segmento[e.segmento]],
@@ -140,23 +141,9 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
       </div>
       )}
 
-      {/* Visual nueva: el cuerpo va grande y a lo ancho. Es lo que más se
-          mira después del video, y a 132 px no se distinguía un músculo. */}
-      {v2Activa() && (e.musculos_primarios?.length || e.musculos_secundarios?.length) ? (
-        <div style={{ marginTop: 18 }}>
-          <Rotulo>Qué trabaja</Rotulo>
-          <div style={{ background: '#F7F5EF', borderRadius: 16, padding: '14px 12px 12px' }}>
-            <FiguraMusculos
-              primarios={e.musculos_primarios || []}
-              secundarios={e.musculos_secundarios || []}
-              alto={230}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── Características, plegadas ── */}
-      {caracs.length > 0 && (
+      {/* ── Características ── (visual nueva: abiertas, con el cuerpo y los
+          músculos que trabaja marcados, grande y a lo ancho) */}
+      {(caracs.length > 0 || (v2Activa() && tieneMusculos)) && (
         <div style={{ marginTop: 18, borderTop: `1px solid ${BORDER_SOFT}`, paddingTop: 12 }}>
           <button onClick={() => setVerCaracs(v => !v)} style={{
             border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
@@ -166,6 +153,21 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
             Características
             <span style={{ transform: verCaracs ? 'rotate(90deg)' : 'none', transition: 'transform .16s' }}>›</span>
           </button>
+          {verCaracs && v2Activa() && tieneMusculos && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ background: '#F7F5EF', borderRadius: 16, padding: '14px 12px 12px' }}>
+                <FiguraMusculos
+                  primarios={e.musculos_primarios || []}
+                  secundarios={e.musculos_secundarios || []}
+                  alto={230}
+                />
+              </div>
+              <div style={{ fontSize: 13.5, color: TEXT, marginTop: 8, lineHeight: 1.5 }}>
+                <b>Principal:</b> {nombresMusculos(e.musculos_primarios).join(', ') || '—'}
+                {(e.musculos_secundarios || []).length > 0 && <><br /><b>También trabaja:</b> {nombresMusculos(e.musculos_secundarios).join(', ')}</>}
+              </div>
+            </div>
+          )}
           {verCaracs && (
             <dl style={{ margin: '10px 0 0', display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 14px', fontSize: 13.5 }}>
               {caracs.map(([k, v]) => (

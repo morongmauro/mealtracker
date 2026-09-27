@@ -21,6 +21,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { v2Activa } from './v2.js';
 import { SECCION } from './theme.js';
 import { IconoActividad } from './iconosEntreno.jsx';
+import { leerUnidades } from './Unidades.jsx';
 import { api, CATALOGO_MINIMO, hoyLocal, sumarDias, fechaLarga, DIAS_LARGO, numero } from './entrenoDatos.js';
 import { Hoja, Boton, Chip, ACCENT, ACCENT_LIGHT, ACCENT_DARK, SURFACE, SURFACE_2,
          BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT } from './entrenoUI.jsx';
@@ -90,7 +91,9 @@ export default function Actividad({
       tipo, fecha,
       titulo: tipo === 'otro' ? otroNombre.trim() : null,
       duracion_min: duracion || null,
-      distancia_km: elegido?.pide_distancia ? numero(distancia) : null,
+      // La distancia se escribe en la unidad elegida (km o m) y se guarda en km.
+      distancia_km: elegido?.pide_distancia && numero(distancia) != null
+        ? (leerUnidades().distancia === 'm' ? numero(distancia) / 1000 : numero(distancia)) : null,
       intensidad,
       sesion_id: sesionId, evento_id: eventoId,
     });
@@ -194,8 +197,8 @@ export default function Actividad({
                 </label>
                 {elegido?.pide_distancia && (
                   <label style={{ flex: 1 }}>
-                    <div style={rotulo}>Kilómetros</div>
-                    <input inputMode="decimal" value={distancia} placeholder="5"
+                    <div style={rotulo}>{leerUnidades().distancia === 'm' ? 'Metros' : 'Kilómetros'}</div>
+                    <input inputMode="decimal" value={distancia} placeholder={leerUnidades().distancia === 'm' ? '5000' : '5'}
                            onChange={(e) => setDistancia(e.target.value.replace(',', '.').replace(/[^\d.]/g, ''))}
                            style={campo} />
                   </label>
@@ -262,7 +265,7 @@ export function ChipActividad({ actividad, catalogo, onClick }) {
   const etiqueta = actividad.titulo || c?.nombre || actividad.tipo;
   const detalle = [
     actividad.duracion_min ? `${actividad.duracion_min} min` : null,
-    actividad.distancia_km ? `${actividad.distancia_km} km` : null,
+    actividad.distancia_km ? (leerUnidades().distancia === 'm' ? `${Math.round(actividad.distancia_km * 1000)} m` : `${actividad.distancia_km} km`) : null,
   ].filter(Boolean).join(' · ');
   return (
     <button onClick={onClick} disabled={!onClick} style={{
