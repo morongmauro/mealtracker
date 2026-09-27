@@ -737,7 +737,17 @@ export default function MealTracker() {
   const stableSend = useCallback((t) => latestHandlersRef.current.handleSend?.(t), []);
   const stableStartVoice = useCallback(() => latestHandlersRef.current.startVoice?.(), []);
   const stableStopVoice = useCallback(() => latestHandlersRef.current.stopVoice?.(), []);
-  const stableFocusInput = useCallback(() => setActionsExpanded(false), []);
+  // Escribiendo en el chat: la barra de módulos se esconde mientras el campo
+  // tiene el foco y vuelve al enviar (o al salir del campo). No depende de
+  // adivinar el teclado por el alto de la pantalla, que en el iPhone con la
+  // app agregada a inicio no siempre cambia.
+  const escribiendoRef = useRef(false);
+  const marcarEscribiendo = useCallback((si) => {
+    escribiendoRef.current = si;
+    if (colocarRef.current) colocarRef.current();
+  }, []);
+  const stableFocusInput = useCallback(() => { setActionsExpanded(false); marcarEscribiendo(true); }, [marcarEscribiendo]);
+  const stableBlurInput = useCallback(() => marcarEscribiendo(false), [marcarEscribiendo]);
 
   // Herramientas que ACTÚAN sobre el chat (repetir ayer, resumen del día,
   // proporciones): si se abrieron desde Hoy o Recetario, primero llevan al
@@ -1753,7 +1763,7 @@ export default function MealTracker() {
         // botón de teclado flotando pegados al borde visible, y sin este
         // hueco tapan el texto. Con el teclado cerrado el colchón es el de
         // la barra de navegación.
-        inputBarRef.current.style.paddingBottom = kbOpen
+        inputBarRef.current.style.paddingBottom = (kbOpen || escribiendoRef.current)
           ? '52px'
           : 'calc(90px + env(safe-area-inset-bottom, 0px))';
       }
@@ -1762,7 +1772,7 @@ export default function MealTracker() {
         navBarRef.current.style.bottom = `${abajo}px`;
         // Con el teclado abierto la barra de navegación estorba: el input
         // baja a pegarse al teclado y se solaparían.
-        navBarRef.current.style.visibility = kbOpen ? 'hidden' : '';
+        navBarRef.current.style.visibility = (kbOpen || escribiendoRef.current) ? 'hidden' : '';
       }
 
       // ── El scroller ocupa exactamente lo que queda visible ──
@@ -6075,6 +6085,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         onStartVoice={stableStartVoice}
         onStopVoice={stableStopVoice}
         onFocusInput={stableFocusInput}
+        onBlurInput={stableBlurInput}
       />
 
       {/* Deshacer — visible 6s después de registrar. Un tap revierte la(s)
@@ -6501,7 +6512,7 @@ function composeDayOpening(name, yesterday, goals, opts = {}) {
 // vía `apiRef` (getText/setText/appendText/clear).
 const InputBar = memo(function InputBar({
   barRef, apiRef, hidden, recording, transcribing, loading, predictedMeal,
-  onSend, onStartVoice, onStopVoice, onFocusInput, liftPx = 0,
+  onSend, onStartVoice, onStopVoice, onFocusInput, onBlurInput, liftPx = 0,
 }) {
   const [text, setText] = useState('');
   const divRef = useRef(null);
@@ -6544,6 +6555,8 @@ const InputBar = memo(function InputBar({
     const value = (divRef.current?.textContent || '').trim();
     if (!value) return;
     writeDom(''); setText('');
+    // Al enviar se cierra el teclado y vuelve la barra de módulos.
+    if (divRef.current && typeof divRef.current.blur === 'function') divRef.current.blur();
     onSend(value);
   };
 
@@ -6616,6 +6629,7 @@ const InputBar = memo(function InputBar({
             data-placeholder={recording ? 'Escuchando…' : transcribing ? 'Transcribiendo…' : 'Dicta o escribe lo que comiste…'}
             onInput={(e) => setText(e.currentTarget.textContent || '')}
             onFocus={onFocusInput}
+            onBlur={onBlurInput}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

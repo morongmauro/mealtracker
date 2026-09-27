@@ -346,6 +346,21 @@ try {
   await p.getByRole('button', { name: 'Chat', exact: true }).click();
   await espera(900);
   await foto(p, '09-comida-chat');
+  const barraVisible = () => p.evaluate(() => { const n = document.querySelector('nav[aria-label="Secciones"]'); const w = n && n.parentElement; return !!w && getComputedStyle(w).visibility !== 'hidden' && getComputedStyle(w).display !== 'none'; });
+  ok('chat: la barra de módulos se ve antes de escribir', await barraVisible());
+  await p.locator('.msg-input').click();
+  await espera(300);
+  ok('chat: al tocar el campo de texto la barra se esconde', !(await barraVisible()));
+  await foto(p, '09b-chat-escribiendo');
+  await p.keyboard.type('2 huevos');
+  await p.keyboard.press('Enter');
+  await espera(600);
+  ok('chat: al enviar vuelve la barra', await barraVisible());
+  await p.locator('.msg-input').click();
+  await espera(200);
+  await p.mouse.click(195, 300);
+  await espera(300);
+  ok('chat: al salir del campo sin enviar también vuelve', await barraVisible());
 
   await p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
   await espera(1200);
