@@ -62,7 +62,7 @@ async function buscarCliente(nombre) {
 
 // Lo que se le manda al cliente de un ejercicio. Lista blanca a propósito:
 // añadir una columna al schema no debe filtrar notas del coach sin querer.
-const CAMPOS_EJERCICIO = 'id,nombre,descripcion,claves_tecnicas,patron,segmento,tipo,'
+const CAMPOS_EJERCICIO = 'id,nombre,alias,descripcion,claves_tecnicas,patron,segmento,tipo,'
   + 'musculos_primarios,musculos_secundarios,equipo,nivel,unilateral,'
   + 'video_fuente,video_url,video_ref,video_inicio_seg,poster_url';
 
@@ -1186,7 +1186,8 @@ export const e1rm = (kg, reps) => {
 };
 
 // Puro, para poder probarlo sin base: recibe las filas ya leídas.
-export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres = {}, actividades = [], medidas = [] }) {
+// `alias`: el nombre original en inglés, que la app muestra chico debajo.
+export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres = {}, alias = {}, actividades = [], medidas = [] }) {
   const lunesHoy = lunesDe(hoy);
   const semanas = [];
   for (let i = DASH_SEMANAS - 1; i >= 0; i--) {
@@ -1236,7 +1237,7 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   const ejercicios = Object.entries(mejor)
     .map(([id, porFecha]) => {
       const puntos = Object.keys(porFecha).sort().map(fecha => ({ fecha, e1rm: porFecha[fecha] }));
-      return { id, nombre: nombres[id] || 'Ejercicio', puntos };
+      return { id, nombre: nombres[id] || 'Ejercicio', alias: alias[id] || null, puntos };
     })
     .filter(e => e.puntos.length >= 2)
     .sort((a, b) => b.puntos.length - a.puntos.length || a.nombre.localeCompare(b.nombre))
@@ -1286,14 +1287,15 @@ async function verDash(cliente, hoy) {
   }
 
   const ejIds = [...new Set(series.map(x => x.ejercicio_id).filter(Boolean))];
-  const nombres = {};
+  const nombres = {}, alias = {};
   for (let i = 0; i < ejIds.length; i += 80) {
-    const ejs = await sb(`ejercicios?select=id,nombre&id=in.(${ejIds.slice(i, i + 80).join(',')})`);
-    (Array.isArray(ejs) ? ejs : []).forEach(e => { nombres[e.id] = e.nombre; });
+    const ejs = await sb(`ejercicios?select=id,nombre,alias&id=in.(${ejIds.slice(i, i + 80).join(',')})`)
+      .catch(() => sb(`ejercicios?select=id,nombre&id=in.(${ejIds.slice(i, i + 80).join(',')})`));
+    (Array.isArray(ejs) ? ejs : []).forEach(e => { nombres[e.id] = e.nombre; alias[e.id] = e.alias || null; });
   }
 
   return armarDash({
-    hoy, fases: Array.isArray(fases) ? fases : [], sesiones, series, nombres,
+    hoy, fases: Array.isArray(fases) ? fases : [], sesiones, series, nombres, alias,
     actividades: Array.isArray(actividades) ? actividades : [],
     medidas: Array.isArray(medidas) ? medidas : [],
   });

@@ -11,6 +11,7 @@
 // el gimnasio con mala señal tiene que ver "no pude cargar, reintenta", no
 // una pantalla en blanco.
 // ─────────────────────────────────────────────────────────────────────────
+import { v2Activa } from './v2.js';
 
 async function pedir(body) {
   try {
@@ -119,7 +120,11 @@ export const miniatura = (ej) => {
   if (!ej) return null;
   if (ej.poster_url) return ej.poster_url;
   if (ej.video_fuente === 'youtube' && ej.video_ref) {
-    return `https://i.ytimg.com/vi/${ej.video_ref}/mqdefault.jpg`;
+    // Con la visual nueva se usa un fotograma del MEDIO del video (mq2) y no
+    // la portada que eligió el canal: las portadas traen letreros y estilos
+    // de cada canal, y en una galería se ven desparejas. El fotograma muestra
+    // el ejercicio mismo, y todas se ven de la misma familia.
+    return `https://i.ytimg.com/vi/${ej.video_ref}/${v2Activa() ? 'mq2' : 'mqdefault'}.jpg`;
   }
   return null;
 };

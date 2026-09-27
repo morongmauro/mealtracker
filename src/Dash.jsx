@@ -1,57 +1,76 @@
 // ─────────────────────────────────────────────────────────────────────────
 // DASH · cómo vas en todo, en una pantalla
 //
-// Entrenamiento y comida viven en secciones distintas, y está bien para
-// registrar; pero para saber cómo vas había que mirar en dos sitios y sumar
-// de cabeza. Aquí va junto, en el orden en que se pregunta:
+// Es la portada de la app con la visual nueva. Arriba el saludo y los atajos
+// que se usan a diario (recordatorios, el reto, escribirle al coach); luego
+// las DOS gráficas protagonistas, en anillo como el logo de la marca:
 //
-//   1. Esta semana       — entrenos, días con comida registrada, proteína
-//   2. Consistencia      — 12 semanas: entrenos hechos contra lo planeado
-//   3. Fuerza            — el 1RM estimado de sus ejercicios más hechos
-//   4. Volumen           — kilos movidos por semana
-//   5. Proteína          — 14 días contra la meta
-//   6. Calorías          — 14 días: cuántos cayeron dentro de ±10 % de la meta
-//   7. Cuerpo            — peso y % de grasa
+//   · Constancia en el entrenamiento — entrenos hechos contra planeados
+//   · Constancia en la alimentación  — días dentro de la meta de calorías,
+//                                      y cómo va cada macro
 //
-// Igual que el resumen de la semana: NO se pone nota. Se enseñan los números
-// y la persona saca su conclusión. La fuerza va arriba de la comida a
-// propósito — es la que manda en la pantalla.
+// Todo lo demás (12 semanas, fuerza, volumen, proteína día a día, calorías
+// contra la franja, el calendario de comidas) vive un toque más adentro, en
+// «Profundiza». Anillos solo en los dos protagonistas: si todo es anillo,
+// ninguno destaca.
 //
-// Las gráficas son SVG a mano: una serie por gráfica, marcas finas, ejes y
-// rejilla en gris de un paso, y al tocar una barra o un punto sale su valor.
+// Igual que el resumen de la semana: NO se pone nota ni semáforo. Se enseñan
+// los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
+import { Bell, Mountains, WhatsappLogo, CaretRight, CaretLeft, CalendarBlank } from '@phosphor-icons/react';
 import { api, hoyLocal, sumarDias, aFecha } from './entrenoDatos.js';
 import { HojaMedida } from './EntrenoMedidas.jsx';
+import { WHATSAPP_COACH } from './v2.js';
 import {
-  SURFACE, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT, SHADOW_CARD,
-  FONT_DISPLAY, C_PROTEIN, SECCION,
+  SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, DANGER,
+  FONT_DISPLAY, C_PROTEIN, C_CARBS, C_FAT, SECCION,
 } from './theme.js';
 
-const AZUL = SECCION.dash.base;
-const NARANJA = SECCION.entreno.base;
-const VERDE = SECCION.comida.base;
-const REJILLA = '#E4E1D6';
+const AZUL = SECCION.entreno.base;       // el entrenamiento, en todo el Dash
+const VERDE = SECCION.comida.base;       // la alimentación
+const AMBAR = '#C98A0B';                  // el cuerpo (peso), en el tono del Dash
+const REJILLA = '#E7E3D9';
+const TARJETA = '#FFFFFF';
+const CREMA = '#F4F1EB';                  // pastillas y bloques internos
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 const fmt = (n, dec = 0) => (n == null || !Number.isFinite(Number(n)) ? '—'
   : Number(n).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: dec }));
 const fechaCorta = (iso) => { const d = aFecha(iso); return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}`; };
+const fechaLarga = (iso) => { const d = aFecha(iso); const t = `${DIAS[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]}`; return t[0].toUpperCase() + t.slice(1); };
 const DIA_LETRA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 
 // ── Datos de comida: salen del propio teléfono ────────────────────────────
 // `history[fecha]` son los totales del día que el cliente ve en su pantalla;
 // no se recalcula nada, solo se agrupa.
+//
+// Un día CUMPLE una meta así (y así lo dice la pantalla de «Profundiza»):
+//   calorías  ±10 % de la meta
+//   proteína  al menos el 90 % de la meta (pasarse de proteína no es fallar)
+//   carbos    ±15 %
+//   grasas    ±15 %
+// La ventana son los 7 días ANTERIORES a hoy: hoy aún no termina y contarlo
+// castigaría a quien apenas desayunó.
+export const CUMPLE = {
+  kcal: (v, m) => Math.abs(v - m) <= m * 0.10,
+  p:    (v, m) => v >= m * 0.90,
+  c:    (v, m) => Math.abs(v - m) <= m * 0.15,
+  g:    (v, m) => Math.abs(v - m) <= m * 0.15,
+};
+
 export function datosComida(history = {}, goals = {}, hoy = hoyLocal()) {
   const dia = (f) => {
     const t = history[f];
     return t && typeof t === 'object' && Number(t.kcal) > 0
-      ? { kcal: Number(t.kcal) || 0, p: Number(t.p) || 0 } : null;
+      ? { kcal: Number(t.kcal) || 0, p: Number(t.p) || 0, c: Number(t.c) || 0, g: Number(t.g) || 0 } : null;
   };
   const ultimos = [];
   for (let i = 13; i >= 0; i--) {
     const f = sumarDias(hoy, -i);
-    ultimos.push({ fecha: f, ...(dia(f) || { kcal: null, p: null }) });
+    ultimos.push({ fecha: f, ...(dia(f) || { kcal: null, p: null, c: null, g: null }) });
   }
   // Semanas de lunes a domingo, las mismas 12 del entrenamiento.
   const lunes = sumarDias(hoy, -((aFecha(hoy).getDay() + 6) % 7));
@@ -66,14 +85,24 @@ export function datosComida(history = {}, goals = {}, hoy = hoyLocal()) {
     const transcurridos = s === 0 ? Math.min(7, (aFecha(hoy).getDay() + 6) % 7 + 1) : 7;
     semanas.push({ desde, dias, transcurridos });
   }
-  const metaK = Number(goals && goals.kcal) || null;
-  const metaP = Number(goals && goals.p) || null;
+  const meta = {
+    kcal: Number(goals && goals.kcal) || null, p: Number(goals && goals.p) || null,
+    c: Number(goals && goals.c) || null, g: Number(goals && goals.g) || null,
+  };
   const conDato = ultimos.filter(d => d.kcal != null);
-  const enRango = metaK ? conDato.filter(d => Math.abs(d.kcal - metaK) <= metaK * 0.1).length : null;
+  const enRango = meta.kcal ? conDato.filter(d => CUMPLE.kcal(d.kcal, meta.kcal)).length : null;
+
+  // Los 7 días antes de hoy: cuántos cumplieron cada meta.
+  const siete = ultimos.filter(d => d.fecha < hoy).slice(-7);
+  const cumplidos = {};
+  ['kcal', 'p', 'c', 'g'].forEach(k => {
+    cumplidos[k] = meta[k] ? siete.filter(d => d.kcal != null && CUMPLE[k](d[k], meta[k])).length : null;
+  });
   const semanaActual = semanas[semanas.length - 1];
   const estaSemana = ultimos.filter(d => d.fecha >= semanaActual.desde && d.p != null);
   return {
-    ultimos, semanas, metaK, metaP, enRango, conDato: conDato.length,
+    ultimos, semanas, meta, metaK: meta.kcal, metaP: meta.p, enRango, conDato: conDato.length,
+    siete, cumplidos, registrados7: siete.filter(d => d.kcal != null).length,
     proteinaSemana: estaSemana.length ? Math.round(estaSemana.reduce((a, d) => a + d.p, 0) / estaSemana.length) : null,
   };
 }
@@ -95,38 +124,118 @@ function useAncho() {
   return [ref, ancho];
 }
 
+// Tarjeta blanca, esquinas amplias y sin borde: la sombra apenas la separa
+// del fondo. Título en negrita y la explicación en gris normal debajo.
 function Tarjeta({ titulo, detalle, accion, children, style }) {
   return (
     <section style={{
-      background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 22,
-      boxShadow: SHADOW_CARD, padding: '16px 16px 14px', marginTop: 12, ...style,
+      background: TARJETA, borderRadius: 24, padding: '18px 18px 16px', marginTop: 12,
+      boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 10px 28px rgba(60,60,40,0.07)', ...style,
     }}>
       {(titulo || accion) && (
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em' }}>{titulo}</h2>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 750, color: TEXT, letterSpacing: '-0.015em' }}>{titulo}</h3>
           {accion}
         </div>
       )}
-      {detalle && <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2, lineHeight: 1.45 }}>{detalle}</div>}
+      {detalle && <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 3, lineHeight: 1.45 }}>{detalle}</div>}
       {children}
     </section>
   );
 }
 
-function Dato({ etiqueta, valor, unidad, pie, onClick }) {
-  const Tag = onClick ? 'button' : 'div';
+function Dato({ etiqueta, valor, unidad, pie }) {
   return (
-    <Tag onClick={onClick} style={{
-      flex: 1, minWidth: 0, textAlign: 'left', border: `1px solid ${BORDER_SOFT}`, background: 'rgba(255,255,255,0.6)',
-      borderRadius: 16, padding: '11px 12px', fontFamily: 'inherit', cursor: onClick ? 'pointer' : 'default',
-    }}>
-      <div style={{ fontSize: 11.5, fontWeight: 650, color: TEXT_MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{etiqueta}</div>
+    <div style={{ flex: 1, minWidth: 0, background: CREMA, borderRadius: 18, padding: '12px 13px' }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED }}>{etiqueta}</div>
       <div style={{ marginTop: 4, display: 'flex', alignItems: 'baseline', gap: 3 }}>
         <span style={{ fontSize: 26, fontWeight: 750, color: TEXT, lineHeight: 1, letterSpacing: '-0.02em' }}>{valor}</span>
-        {unidad && <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_MUTED }}>{unidad}</span>}
+        {unidad && <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED }}>{unidad}</span>}
       </div>
-      {pie && <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pie}</div>}
+      {pie && <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pie}</div>}
+    </div>
+  );
+}
+
+// Pastilla crema con ícono y texto en negrita: los atajos de arriba.
+function Pastilla({ icono: Icono, children, onClick, href, badge, color = TEXT }) {
+  const Tag = href ? 'a' : 'button';
+  return (
+    <Tag onClick={onClick} href={href} target={href ? '_blank' : undefined} rel={href ? 'noopener noreferrer' : undefined}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8, height: 46, padding: '0 18px',
+        borderRadius: 999, background: 'rgba(255,255,255,0.88)', border: 'none', cursor: 'pointer', textDecoration: 'none',
+        boxShadow: '0 1px 2px rgba(40,40,30,0.05), 0 6px 16px rgba(60,60,40,0.06)',
+        fontFamily: 'inherit', fontSize: 15.5, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap',
+        position: 'relative', flex: 'none',
+      }}>
+      <Icono size={19} weight="fill" color={color} />
+      {children}
+      {badge > 0 && (
+        <span style={{
+          minWidth: 20, height: 20, padding: '0 6px', borderRadius: 99, background: DANGER, color: '#fff',
+          fontSize: 11.5, fontWeight: 700, display: 'grid', placeItems: 'center',
+        }}>{badge}</span>
+      )}
     </Tag>
+  );
+}
+
+// Botón de «Profundiza»: toda la fila se toca.
+function Profundiza({ children, onClick, color }) {
+  return (
+    <button onClick={onClick} style={{
+      marginTop: 14, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      background: CREMA, border: 'none', borderRadius: 16, padding: '13px 14px 13px 16px', cursor: 'pointer',
+      fontFamily: 'inherit', fontSize: 15, fontWeight: 650, color: TEXT, textAlign: 'left',
+    }}>
+      <span>{children}</span>
+      <CaretRight size={18} weight="bold" color={color} />
+    </button>
+  );
+}
+
+// El anillo de la marca: trazo redondeado sobre su riel, y el punto blanco en
+// la punta, como en el logo. Es el único lugar del Dash que lo usa.
+function Anillo({ valor, total, color, tam = 118, grosor = 11, centro, pie }) {
+  const r = (tam - grosor) / 2;
+  const c = 2 * Math.PI * r;
+  const frac = total > 0 ? Math.max(0, Math.min(1, valor / total)) : 0;
+  const ang = frac * 2 * Math.PI - Math.PI / 2;
+  const cx = tam / 2 + r * Math.cos(ang), cy = tam / 2 + r * Math.sin(ang);
+  return (
+    <div style={{ position: 'relative', width: tam, height: tam, flex: 'none' }}>
+      <svg width={tam} height={tam} role="img" aria-label={`${valor} de ${total}`}>
+        <circle cx={tam / 2} cy={tam / 2} r={r} fill="none" stroke={CREMA} strokeWidth={grosor} />
+        {frac > 0 && (
+          <circle cx={tam / 2} cy={tam / 2} r={r} fill="none" stroke={color} strokeWidth={grosor}
+            strokeLinecap="round" strokeDasharray={`${c * frac} ${c}`}
+            transform={`rotate(-90 ${tam / 2} ${tam / 2})`} />
+        )}
+        {frac > 0 && frac < 1 && <circle cx={cx} cy={cy} r={grosor / 2 - 2.5} fill="#FFFFFF" />}
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+        <div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: TEXT, lineHeight: 1, letterSpacing: '-0.02em' }}>{centro}</div>
+          {pie && <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 3, fontWeight: 600 }}>{pie}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Una barrita por macro: cuántos de los 7 días cumplió.
+function BarraMeta({ etiqueta, valor, total, color }) {
+  return (
+    <div style={{ marginTop: 9 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: TEXT }}>
+        <span style={{ fontWeight: 600 }}>{etiqueta}</span>
+        <span style={{ color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{valor == null ? '—' : `${valor}/${total}`}</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 99, background: CREMA, marginTop: 5, overflow: 'hidden' }}>
+        <div style={{ width: `${valor == null ? 0 : (valor / total) * 100}%`, height: '100%', borderRadius: 99, background: color }} />
+      </div>
+    </div>
   );
 }
 
@@ -238,7 +347,13 @@ function Linea({ puntos, color, alto = 46, textoValor }) {
     <div ref={ref} style={{ position: 'relative', paddingTop: textoValor ? 24 : 0, width: '100%', minWidth: 0, minHeight: alto }}>
       {ancho > 0 && <svg width={ancho} height={alto} style={{ display: 'block', overflow: 'visible', cursor: textoValor ? 'pointer' : 'default' }}
         onClick={textoValor ? tocar : undefined}>
-        <path d={area} fill={color} opacity="0.10" />
+        <defs>
+          <linearGradient id={`g-${color.slice(1)}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.22" />
+            <stop offset="1" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill={`url(#g-${color.slice(1)})`} />
         <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         {sel != null && <line x1={x(sel)} x2={x(sel)} y1={0} y2={alto} stroke={REJILLA} strokeWidth="1" />}
         <circle cx={x(sel ?? ult)} cy={y(puntos[sel ?? ult].v)} r="4.5" fill={color} stroke={SURFACE} strokeWidth="2" />
@@ -268,12 +383,25 @@ const Cambio = ({ desde, hasta, unidad, bueno = 'sube' }) => {
   );
 };
 
+// FUERA del componente a propósito: definido dentro, cada render de la app
+// crearía un componente nuevo y se perdería lo que se tocó en las gráficas.
+const Marco = React.forwardRef(({ children }, ref) => (
+  <div ref={ref} style={{
+    position: 'relative', maxWidth: 560, margin: '0 auto', padding: '0 16px',
+    paddingTop: 'calc(62px + env(safe-area-inset-top, 0px))',
+    paddingBottom: 'calc(104px + env(safe-area-inset-bottom, 0px))',
+  }}>{children}</div>
+));
+
 // ── La pantalla ───────────────────────────────────────────────────────────
-export default function Dash({ name, history, goals, entrenoOn = true, alIr }) {
+// `acciones`: { recordatorios, reto, calendarioComida } — las abre la app.
+export default function Dash({ name, history, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {} }) {
   const hoy = hoyLocal();
   const [ent, setEnt] = useState(null);
   const [falloEnt, setFalloEnt] = useState(false);
   const [midiendo, setMidiendo] = useState(false);
+  const [vista, setVista] = useState('inicio');
+  const raizRef = useRef(null);
 
   const cargar = async () => {
     setFalloEnt(false);
@@ -281,111 +409,221 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr }) {
     if (r && r.ok) setEnt(r); else setFalloEnt(true);
   };
   useEffect(() => { if (name) cargar(); /* eslint-disable-next-line */ }, [name]);
+  // Al entrar o salir de «Profundiza» se sube al principio.
+  useEffect(() => {
+    const sc = raizRef.current && raizRef.current.closest('[data-view="dash"]');
+    if (sc) sc.scrollTo({ top: 0 });
+  }, [vista]);
 
   const comida = useMemo(() => datosComida(history, goals, hoy), [history, goals, hoy]);
   const semana = ent?.semanas?.[ent.semanas.length - 1];
+  const nombre = String(name || '').split(' ')[0];
+  const wa = WHATSAPP_COACH
+    ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent(`Hola coach, soy ${nombre || 'tu cliente'}. `)}`
+    : null;
+
+  if (vista === 'entreno') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
+    <DetalleEntreno ent={ent} falloEnt={falloEnt} cargar={cargar} /></Marco>;
+  if (vista === 'comida') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
+    <DetalleComida comida={comida} alCalendario={acciones.calendarioComida} /></Marco>;
+
+  // Constancia del entrenamiento en las últimas 8 semanas (% de lo planeado).
+  const ochoSemanas = (ent?.semanas || []).slice(-8).filter(w => w.planeados > 0)
+    .map(w => ({ v: Math.min(100, Math.round((w.hechos / w.planeados) * 100)), fecha: w.desde }));
+  const promedio8 = ochoSemanas.length ? Math.round(ochoSemanas.reduce((a, p) => a + p.v, 0) / ochoSemanas.length) : null;
+  const kcal14 = comida.ultimos.filter(d => d.kcal != null).map(d => ({ v: d.kcal, fecha: d.fecha }));
 
   return (
-    <div style={{
-      position: 'relative', maxWidth: 560, margin: '0 auto', padding: '0 16px',
-      paddingTop: 'calc(58px + env(safe-area-inset-top, 0px))',
-      paddingBottom: 'calc(96px + env(safe-area-inset-bottom, 0px))',
-    }}>
-      <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 34, lineHeight: 1, margin: '6px 2px 2px', color: TEXT, fontWeight: 400, letterSpacing: '0.01em' }}>
-        Cómo vas
+    <Marco ref={raizRef}>
+      {/* Saludo */}
+      <div style={{ fontSize: 15, color: TEXT_MUTED, fontWeight: 500, margin: '4px 2px 0' }}>{fechaLarga(hoy)}</div>
+      <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 34, lineHeight: 1.08, margin: '4px 2px 0', color: TEXT, fontWeight: 800, letterSpacing: '-0.025em' }}>
+        Hola{nombre ? `, ${nombre}` : ''}
       </h1>
-      <div style={{ fontSize: 13, color: TEXT_MUTED, margin: '0 2px' }}>Semana del {fechaCorta(comida.semanas[11].desde)} · hoy {fechaCorta(hoy)}</div>
-
-      {/* 1. Esta semana */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-        {entrenoOn && (
-          <Dato etiqueta="Entrenos"
-            valor={semana ? semana.hechos : '—'} unidad={semana && semana.planeados ? `de ${semana.planeados}` : null}
-            pie={semana ? (semana.cardio_min ? `+${fmt(semana.cardio_min)} min cardio` : 'esta semana') : 'cargando…'}
-            onClick={alIr ? () => alIr('entreno', 'hoy') : undefined} />
-        )}
-        <Dato etiqueta="Comida"
-          valor={comida.semanas[11].dias} unidad={`de ${comida.semanas[11].transcurridos}`}
-          pie="días registrados" onClick={alIr ? () => alIr('comida', 'hoy') : undefined} />
-        <Dato etiqueta="Proteína"
-          valor={comida.proteinaSemana != null ? fmt(comida.proteinaSemana) : '—'} unidad="g"
-          pie={comida.metaP ? `al día · meta ${fmt(comida.metaP)}` : 'al día, promedio'} />
+      <div style={{ fontSize: 15, color: TEXT_MUTED, margin: '6px 2px 0' }}>
+        {racha >= 2 ? `${racha} días seguidos registrando. Sigamos.` : 'Un día a la vez. Aquí ves cómo vas en todo.'}
       </div>
 
-      {entrenoOn && falloEnt && (
-        <Tarjeta titulo="Entrenamiento" detalle="No pude traer tus datos de entrenamiento. Revisa tu señal.">
-          <button onClick={cargar} style={{ marginTop: 10, border: `1px solid ${BORDER}`, background: 'transparent', borderRadius: 999, padding: '7px 14px', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, color: TEXT, cursor: 'pointer' }}>Reintentar</button>
-        </Tarjeta>
-      )}
+      {/* Atajos */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 16, overflowX: 'auto', margin: '16px -16px 0', padding: '0 16px 2px', scrollbarWidth: 'none' }}>
+        {acciones.recordatorios && <Pastilla icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
+        {acciones.reto && <Pastilla icono={Mountains} color="#D9744A" onClick={acciones.reto}>Reto</Pastilla>}
+        {wa && <Pastilla icono={WhatsappLogo} color="#25A35A" href={wa}>Escríbele a tu coach</Pastilla>}
+      </div>
 
-      {/* 2. Consistencia */}
-      {entrenoOn && ent && (
-        <Tarjeta titulo="Consistencia" detalle="Entrenos hechos por semana, contra los que tenías planeados.">
-          <Columnas
-            datos={ent.semanas.map(w => ({ ...w, valor: w.hechos }))}
-            color={NARANJA}
-            marca={(w) => w.planeados}
-            etiquetaX={(w, i) => (i % 3 === 2 || i === 11 ? fechaCorta(w.desde) : '')}
-            textoValor={(w) => `${fechaCorta(w.desde)}: ${w.hechos}${w.planeados ? ` de ${w.planeados}` : ''}`}
-          />
-          <Leyenda items={[{ label: 'Hechos', color: NARANJA }, { label: 'Planeados', color: 'rgba(31,31,31,0.55)', tipo: 'linea' }]} />
-          <div style={{ height: 1, background: BORDER_SOFT, margin: '14px 0 2px' }} />
-          <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 10 }}>Días con la comida registrada</div>
-          <Columnas
-            datos={comida.semanas.map(w => ({ ...w, valor: w.dias }))}
-            color={VERDE} alto={104} tope={7}
-            marca={(w) => w.transcurridos}
-            etiquetaX={(w, i) => (i % 3 === 2 || i === 11 ? fechaCorta(w.desde) : '')}
-            textoValor={(w) => `${fechaCorta(w.desde)}: ${w.dias} de ${w.transcurridos} días`}
-          />
-        </Tarjeta>
-      )}
+      <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '26px 2px 2px' }}>Tu constancia</h2>
 
-      {/* 3. Fuerza */}
-      {entrenoOn && ent && (
-        <Tarjeta titulo="Fuerza"
-          detalle="Tu 1RM estimado: lo que levantarías a una repetición, calculado con tu mejor serie de cada día. Deja comparar 60 × 10 con 65 × 6.">
-          {ent.ejercicios.length === 0 ? (
-            <div style={{ fontSize: 13, color: TEXT_LIGHT, marginTop: 12 }}>Aparece cuando repitas un mismo ejercicio en dos sesiones.</div>
+      {/* Protagonista 1: entrenamiento */}
+      {entrenoOn && (
+        <Tarjeta titulo="Entrenamiento" detalle="Entrenos hechos esta semana, contra los planeados.">
+          {falloEnt ? (
+            <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>
+              No pude traer tus datos. <button onClick={cargar} style={{ border: 'none', background: 'none', color: AZUL, fontWeight: 700, fontFamily: 'inherit', fontSize: 14, padding: 0, cursor: 'pointer' }}>Reintentar</button>
+            </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 12 }}>
-              {ent.ejercicios.map(e => (
-                <div key={e.id} style={{ border: `1px solid ${BORDER_SOFT}`, borderRadius: 16, padding: '11px 12px 8px', minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 650, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.nombre}</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 3 }}>
-                    <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{fmt(e.actual, 1)}</span>
-                    <span style={{ fontSize: 12, color: TEXT_MUTED }}>kg</span>
-                  </div>
-                  <div style={{ fontSize: 11.5, marginTop: 1 }}>
-                    <Cambio desde={e.inicio} hasta={e.actual} unidad="kg" />
-                    <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
-                  </div>
-                  <Linea puntos={e.puntos.map(p => ({ v: p.e1rm, fecha: p.fecha }))} color={NARANJA}
-                    textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
+              <Anillo valor={semana ? semana.hechos : 0} total={semana && semana.planeados ? semana.planeados : 0} color={AZUL}
+                centro={semana ? `${semana.hechos}${semana.planeados ? `/${semana.planeados}` : ''}` : '—'} pie="entrenos" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Últimas 8 semanas</div>
+                <div style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', marginTop: 1 }}>
+                  {promedio8 == null ? '—' : `${promedio8} %`}
+                  <span style={{ fontSize: 13, fontWeight: 500, color: TEXT_MUTED }}> de lo planeado</span>
                 </div>
-              ))}
+                {ochoSemanas.length >= 2 && (
+                  <Linea puntos={ochoSemanas} color={AZUL} alto={46}
+                    textoValor={(p) => `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} />
+                )}
+              </div>
             </div>
           )}
+          <Profundiza color={AZUL} onClick={() => setVista('entreno')}>Profundiza en tus gráficas de entrenamiento</Profundiza>
         </Tarjeta>
       )}
 
-      {/* 4. Volumen */}
-      {entrenoOn && ent && ent.semanas.some(w => w.volumen_kg > 0) && (
-        <Tarjeta titulo="Volumen" detalle="Kilos movidos por semana (peso × repeticiones de todas tus series).">
+      {/* Protagonista 2: alimentación */}
+      <Tarjeta titulo="Alimentación" detalle="Tus últimos 7 días: cuántos cumpliste tu meta.">
+        {!comida.metaK ? (
+          <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>Tu coach aún no carga tu meta. Cuando lo haga, aquí ves cómo vas con ella.</div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
+              <Anillo valor={comida.cumplidos.kcal || 0} total={7} color={VERDE}
+                centro={`${comida.cumplidos.kcal ?? 0}/7`} pie="en calorías" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <BarraMeta etiqueta="Proteína" valor={comida.cumplidos.p} total={7} color={C_PROTEIN} />
+                <BarraMeta etiqueta="Carbohidratos" valor={comida.cumplidos.c} total={7} color={C_CARBS} />
+                <BarraMeta etiqueta="Grasas" valor={comida.cumplidos.g} total={7} color={C_FAT} />
+              </div>
+            </div>
+            {kcal14.length >= 2 && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Tus calorías, últimos 14 días</div>
+                <Linea puntos={kcal14} color={VERDE} alto={54}
+                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v)} kcal`} />
+              </div>
+            )}
+          </>
+        )}
+        <Profundiza color={VERDE} onClick={() => setVista('comida')}>Profundiza en tus gráficas de alimentación</Profundiza>
+      </Tarjeta>
+
+      {/* Cuerpo */}
+      <Cuerpo medidas={ent?.medidas || []} cargando={entrenoOn && !ent && !falloEnt} alMedir={() => setMidiendo(true)} />
+      <HojaMedida abierta={midiendo} nombre={name} alCerrar={() => setMidiendo(false)}
+        alGuardar={() => { setMidiendo(false); cargar(); }} />
+    </Marco>
+  );
+}
+
+function Volver({ alVolver }) {
+  return (
+    <button onClick={alVolver} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4, height: 38, padding: '0 14px 0 10px',
+      borderRadius: 999, background: CREMA, border: 'none', cursor: 'pointer',
+      fontFamily: 'inherit', fontSize: 14.5, fontWeight: 650, color: TEXT, marginTop: 4,
+    }}>
+      <CaretLeft size={16} weight="bold" /> Dash
+    </button>
+  );
+}
+
+function Titular({ children, bajada }) {
+  return (
+    <>
+      <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 28, lineHeight: 1.1, margin: '14px 2px 0', color: TEXT, fontWeight: 800, letterSpacing: '-0.02em' }}>{children}</h1>
+      {bajada && <div style={{ fontSize: 15, color: TEXT_MUTED, margin: '6px 2px 0', lineHeight: 1.45 }}>{bajada}</div>}
+    </>
+  );
+}
+
+// ── Profundiza: entrenamiento ─────────────────────────────────────────────
+function DetalleEntreno({ ent, falloEnt, cargar }) {
+  if (falloEnt) {
+    return (<><Titular>Tus gráficas de entrenamiento</Titular>
+      <Tarjeta titulo="Sin conexión" detalle="No pude traer tus datos de entrenamiento.">
+        <button onClick={cargar} style={{ marginTop: 10, border: 'none', background: CREMA, borderRadius: 999, padding: '9px 16px', fontFamily: 'inherit', fontWeight: 700, fontSize: 14, color: TEXT, cursor: 'pointer' }}>Reintentar</button>
+      </Tarjeta></>);
+  }
+  if (!ent) return <><Titular>Tus gráficas de entrenamiento</Titular><div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 16 }}>Cargando…</div></>;
+  return (
+    <>
+      <Titular bajada="Las últimas 12 semanas de tu entrenamiento.">Tus gráficas de entrenamiento</Titular>
+
+      <Tarjeta titulo="Constancia" detalle="Entrenos hechos por semana, contra los que tenías planeados.">
+        <Columnas
+          datos={ent.semanas.map(w => ({ ...w, valor: w.hechos }))}
+          color={AZUL}
+          marca={(w) => w.planeados}
+          etiquetaX={(w, i) => (i % 3 === 2 || i === 11 ? fechaCorta(w.desde) : '')}
+          textoValor={(w) => `${fechaCorta(w.desde)}: ${w.hechos}${w.planeados ? ` de ${w.planeados}` : ''}`}
+        />
+        <Leyenda items={[{ label: 'Hechos', color: AZUL }, { label: 'Planeados', color: 'rgba(31,31,31,0.55)', tipo: 'linea' }]} />
+      </Tarjeta>
+
+      <Tarjeta titulo="Fuerza"
+        detalle="Tu 1RM estimado: lo que levantarías a una repetición, calculado con tu mejor serie de cada día. Así 60 × 10 y 65 × 6 se pueden comparar.">
+        {ent.ejercicios.length === 0 ? (
+          <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Aparece cuando repitas un mismo ejercicio en dos sesiones.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>
+            {ent.ejercicios.map(e => (
+              <div key={e.id} style={{ background: CREMA, borderRadius: 18, padding: '12px 13px 8px', minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.nombre}</div>
+                {e.alias && e.alias !== e.nombre && (
+                  <div style={{ fontSize: 11.5, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.alias}</div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+                  <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{fmt(e.actual, 1)}</span>
+                  <span style={{ fontSize: 12.5, color: TEXT_MUTED }}>kg</span>
+                </div>
+                <div style={{ fontSize: 12, marginTop: 1 }}>
+                  <Cambio desde={e.inicio} hasta={e.actual} unidad="kg" />
+                  <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
+                </div>
+                <Linea puntos={e.puntos.map(p => ({ v: p.e1rm, fecha: p.fecha }))} color={AZUL}
+                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
+              </div>
+            ))}
+          </div>
+        )}
+      </Tarjeta>
+
+      {ent.semanas.some(w => w.volumen_kg > 0) && (
+        <Tarjeta titulo="Volumen" detalle="Kilos movidos por semana: peso × repeticiones de todas tus series.">
           <Columnas
             datos={ent.semanas.map(w => ({ ...w, valor: w.volumen_kg }))}
-            color={NARANJA}
+            color={AZUL}
             etiquetaX={(w, i) => (i % 3 === 2 || i === 11 ? fechaCorta(w.desde) : '')}
             textoValor={(w) => `${fechaCorta(w.desde)}: ${fmt(w.volumen_kg)} kg`}
           />
         </Tarjeta>
       )}
+    </>
+  );
+}
 
-      {/* 5. Proteína */}
+// ── Profundiza: alimentación ──────────────────────────────────────────────
+function DetalleComida({ comida, alCalendario }) {
+  return (
+    <>
+      <Titular bajada="Tus metas de calorías y macros, día a día.">Tus gráficas de alimentación</Titular>
+
+      {comida.metaK && comida.conDato > 0 && (
+        <Tarjeta titulo="Calorías" detalle={`Últimos 14 días. La franja es tu meta de ${fmt(comida.metaK)} kcal, ±10 %.`}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 10 }}>
+            <span style={{ fontSize: 30, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1 }}>{comida.enRango}</span>
+            <span style={{ fontSize: 14, color: TEXT_MUTED }}>de {comida.conDato} días registrados dentro de la franja</span>
+          </div>
+          <Alineacion dias={comida.ultimos} meta={comida.metaK} />
+          <Leyenda items={[{ label: 'Tus calorías', color: VERDE }, { label: 'Meta ±10 %', color: 'rgba(70,150,90,0.16)', tipo: 'banda' }]} />
+        </Tarjeta>
+      )}
+
       <Tarjeta titulo="Proteína"
         detalle={comida.metaP ? `Últimos 14 días. La raya es tu meta de ${fmt(comida.metaP)} g.` : 'Últimos 14 días.'}>
         {comida.conDato === 0 ? (
-          <div style={{ fontSize: 13, color: TEXT_LIGHT, marginTop: 12 }}>Registra tu comida en el chat y aquí ves tu proteína día a día.</div>
+          <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Registra tu comida en el chat y aquí ves tu proteína día a día.</div>
         ) : (
           <Columnas
             datos={comida.ultimos.map(d => ({ ...d, valor: d.p }))}
@@ -397,24 +635,25 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr }) {
         )}
       </Tarjeta>
 
-      {/* 6. Calorías: alineación a la meta */}
-      {comida.metaK && comida.conDato > 0 && (
-        <Tarjeta titulo="Alineación a tu meta"
-          detalle={`Calorías de los últimos 14 días. La franja es tu meta de ${fmt(comida.metaK)} kcal, ±10 %.`}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 10 }}>
-            <span style={{ fontSize: 30, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1 }}>{comida.enRango}</span>
-            <span style={{ fontSize: 13, color: TEXT_MUTED }}>de {comida.conDato} días registrados dentro de la franja</span>
-          </div>
-          <Alineacion dias={comida.ultimos} meta={comida.metaK} />
-          <Leyenda items={[{ label: 'Tus calorías', color: VERDE }, { label: 'Meta ±10 %', color: 'rgba(79,106,28,0.14)', tipo: 'banda' }]} />
-        </Tarjeta>
-      )}
+      <Tarjeta titulo="Días registrados" detalle="Días de cada semana con tu comida registrada.">
+        <Columnas
+          datos={comida.semanas.map(w => ({ ...w, valor: w.dias }))}
+          color={VERDE} alto={110} tope={7}
+          marca={(w) => w.transcurridos}
+          etiquetaX={(w, i) => (i % 3 === 2 || i === 11 ? fechaCorta(w.desde) : '')}
+          textoValor={(w) => `${fechaCorta(w.desde)}: ${w.dias} de ${w.transcurridos} días`}
+        />
+      </Tarjeta>
 
-      {/* 7. Cuerpo */}
-      <Cuerpo medidas={ent?.medidas || []} cargando={entrenoOn && !ent && !falloEnt} alMedir={() => setMidiendo(true)} />
-      <HojaMedida abierta={midiendo} nombre={name} alCerrar={() => setMidiendo(false)}
-        alGuardar={() => { setMidiendo(false); cargar(); }} />
-    </div>
+      <Tarjeta titulo="Cómo se cuenta"
+        detalle="Un día cumple calorías si queda a ±10 % de tu meta; proteína, si llegas al menos al 90 %; carbohidratos y grasas, a ±15 %. Hoy no cuenta hasta que termine." />
+
+      {alCalendario && (
+        <Profundiza color={VERDE} onClick={alCalendario}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><CalendarBlank size={18} /> Tu calendario de comidas: mes, semana y día</span>
+        </Profundiza>
+      )}
+    </>
   );
 }
 
@@ -457,6 +696,7 @@ function Alineacion({ dias, meta }) {
   );
 }
 
+
 function Cuerpo({ medidas, cargando, alMedir }) {
   const conPeso = medidas.filter(m => m.peso != null);
   const conGrasa = medidas.filter(m => m.grasa_pct != null);
@@ -464,11 +704,11 @@ function Cuerpo({ medidas, cargando, alMedir }) {
   const ultGrasa = conGrasa[conGrasa.length - 1];
   return (
     <Tarjeta titulo="Cuerpo"
-      accion={<button onClick={alMedir} style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: AZUL, cursor: 'pointer' }}>+ Registrar</button>}>
+      accion={<button onClick={alMedir} style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: AMBAR, cursor: 'pointer' }}>+ Registrar</button>}>
       {cargando ? (
-        <div style={{ fontSize: 13, color: TEXT_LIGHT, marginTop: 12 }}>Cargando…</div>
+        <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Cargando…</div>
       ) : !medidas.length ? (
-        <div style={{ fontSize: 13, color: TEXT_LIGHT, marginTop: 10, lineHeight: 1.5 }}>Aún no hay medidas. Registra tu peso y tu % de grasa cuando te midas, y aquí ves cómo cambian.</div>
+        <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 6, lineHeight: 1.5 }}>Registra tu peso y tu % de grasa cuando te midas, y aquí ves cómo cambian.</div>
       ) : (
         <>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -478,9 +718,9 @@ function Cuerpo({ medidas, cargando, alMedir }) {
               pie={ultGrasa ? <><Cambio desde={conGrasa[0].grasa_pct} hasta={ultGrasa.grasa_pct} unidad="pts" bueno="baja" /> <span>· {fechaCorta(ultGrasa.fecha)}</span></> : null} />
           </div>
           {conPeso.length >= 2 && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 12, color: TEXT_MUTED }}>Peso desde el {fechaCorta(conPeso[0].fecha)}</div>
-              <Linea puntos={conPeso.map(m => ({ v: m.peso, fecha: m.fecha }))} color={AZUL} alto={64}
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Peso desde el {fechaCorta(conPeso[0].fecha)}</div>
+              <Linea puntos={conPeso.map(m => ({ v: m.peso, fecha: m.fecha }))} color={AMBAR} alto={64}
                 textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
             </div>
           )}

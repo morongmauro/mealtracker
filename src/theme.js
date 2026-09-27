@@ -84,17 +84,16 @@ export const FONT_UI = "var(--f-ui, 'Inter'), ui-sans-serif, system-ui, -apple-s
 export const FONT_DISPLAY = "var(--f-display, 'Bebas Neue'), 'Inter', sans-serif";
 
 // ── Visual nueva (v2): un color por sección de la barra ──────────────────
-// Cada sección tiene su tono para que se sepa dónde se está sin leer:
-//   Dash         azul      análisis, calma, confianza en el dato
-//   Entrenamiento naranja  energía, acción — es donde se empuja
-//   Alimentación verde     salud, lo natural; el verde de la marca, más vivo
-//   Aprendizaje  violeta   curiosidad, pausa para leer
-// `base` pinta iconos y marcas; `ink` es el fondo del botón activo con letra
-// blanca (todos pasan 4.5:1); `tint` es el cristal teñido del grupo abierto.
-// Paleta validada para daltonismo (protan/deutan/tritan) sobre el fondo BG.
+// Suaves a propósito: la barra no grita, solo dice dónde estás.
+//   Dash          amarillo  lo luminoso, el resumen de todo
+//   Entrenamiento azul      foco, constancia, calma para empujar
+//   Alimentación  verde     salud, lo natural
+//   Aprendizaje   naranja   curiosidad, calidez
+// `base` pinta iconos y marcas; `ink` es la letra de la opción activa (sobre
+// blanco pasa 4.5:1); `tint` es el cristal teñido del grupo abierto.
 export const SECCION = {
-  dash:    { base: '#236FA6', ink: '#1D5E8C', tint: 'rgba(35,111,166,0.13)' },
-  entreno: { base: '#D9782C', ink: '#B35A17', tint: 'rgba(217,120,44,0.15)' },
-  comida:  { base: '#4F6A1C', ink: '#4F6A1C', tint: 'rgba(79,106,28,0.13)' },
-  aprende: { base: '#8A58B6', ink: '#6E4596', tint: 'rgba(138,88,182,0.13)' },
+  dash:    { base: '#E0A21A', ink: '#7A5500', tint: 'rgba(240,184,40,0.20)' },
+  entreno: { base: '#3C7BD6', ink: '#1E58A6', tint: 'rgba(60,123,214,0.14)' },
+  comida:  { base: '#46965A', ink: '#2A6A3A', tint: 'rgba(70,150,90,0.15)' },
+  aprende: { base: '#EE8434', ink: '#A24F0E', tint: 'rgba(238,132,52,0.16)' },
 };

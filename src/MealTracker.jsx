@@ -18,7 +18,8 @@ const Entrenamiento = lazy(() => import('./Entrenamiento.jsx'));
 // y Dash. El Dash va en su chunk: el resto de clientes no lo descarga.
 const Dash = lazy(() => import('./Dash.jsx'));
 import BarraV2, { NOMBRE_SECCION, SquaresFour } from './BarraV2.jsx';
-import { esV2, aplicarV2 } from './v2.js';
+import { esV2 } from './v2.js';
+import { aplicarV2 } from './v2-fuentes.js';
 
 // Paleta y tipografía: única fuente de verdad en src/theme.js.
 import {
@@ -5452,6 +5453,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 velos ni difuminados encima que la laven.
                 Sin foto a propósito: Hoy se abre muchas veces al día y una
                 imagen empujaría los aros y las comidas fuera de pantalla. */}
+            {/* Visual nueva: el saludo vive en el Dash; aquí solo el día. */}
+            {v2 ? (
+              <div style={{ margin: '6px 2px 0' }}>
+                <div style={{ fontSize: '15px', color: TEXT_MUTED, fontWeight: 500 }}>{capFirst(formatDate(today))}</div>
+                <div style={{ fontFamily: FONT_DISPLAY, fontSize: '28px', fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.1, marginTop: '2px' }}>Así va tu día</div>
+              </div>
+            ) : (
             <div style={{
               marginLeft: '-20px', marginRight: '-20px',
               marginTop: `calc(-${headerH + 10}px - 6px)`,
@@ -5492,6 +5500,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 </div>
               )}
             </div>
+            )}
 
             {/* Aviso de pago también en Hoy (mismo componente que el chat):
                 es la pantalla de aterrizaje, no puede pasar desapercibido. */}
@@ -5591,7 +5600,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               )}
             </div>
 
-            {/* Herramientas */}
+            {/* Herramientas. Con la visual nueva se van al Dash: Hoy queda
+                solo con lo del día (lo acumulado y las comidas). */}
+            {!v2 && (<>
             <div className="text-[13.5px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em', margin: '22px 0 10px' }}>
               Tus herramientas
             </div>
@@ -5618,6 +5629,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 </button>
               ))}
             </div>
+            </>)}
 
             {/* Comidas de hoy */}
             <div className="text-[13.5px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em', margin: '22px 0 10px' }}>
@@ -5711,7 +5723,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
           <Suspense fallback={null}>
             <Dash name={name} history={history} goals={goals}
-              alIr={(sec, op) => irSubV2(sec, op)} entrenoOn={trainingOn} />
+              alIr={(sec, op) => irSubV2(sec, op)} entrenoOn={trainingOn}
+              racha={streak} pendientes={coachReminders.filter(r => !r.done_at).length}
+              acciones={{
+                // Los atajos que antes vivían en «Tus herramientas» de Hoy.
+                recordatorios: () => { haptic(8); setActiveModal('reminders'); },
+                reto: () => { haptic(8); window.location.href = '/ranking'; },
+                calendarioComida: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); },
+              }} />
           </Suspense>
         </div>
       )}

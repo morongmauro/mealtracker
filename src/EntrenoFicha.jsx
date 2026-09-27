@@ -17,7 +17,7 @@
 import React, { useState } from 'react';
 import { Hoja, Chip, Card, TEXT, TEXT_MUTED, TEXT_LIGHT, SURFACE_2, BORDER_SOFT, ACCENT_DARK } from './entrenoUI.jsx';
 import FiguraMusculos from './FiguraMusculos.jsx';
-import { v2Activa } from './v2.js';
+import { v2Activa, nombreIngles } from './v2.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import { LABEL } from './taxonomia.js';
 import { miniatura, urlVideo, fechaLarga } from './entrenoDatos.js';
@@ -47,6 +47,9 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
 
   return (
     <Hoja abierta={abierto} alCerrar={alCerrar} titulo={e.nombre}>
+      {nombreIngles(e) && (
+        <div style={{ fontSize: 13, color: TEXT_LIGHT, margin: '-6px 0 12px' }}>{nombreIngles(e)}</div>
+      )}
       {/* ── 1. El video ── */}
       {video && !verVideo && (
         <button onClick={() => setVerVideo(true)} style={{

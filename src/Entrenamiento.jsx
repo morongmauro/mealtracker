@@ -10,6 +10,7 @@ import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
 import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
+import { nombreIngles } from './v2.js';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
   SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
@@ -944,6 +945,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15.5, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em' }}>{e.nombre}</div>
+          {nombreIngles(e) && <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 1 }}>{nombreIngles(e)}</div>}
           <div style={{ fontSize: 12.5, color: ACCENT_DARK, fontWeight: 600, marginTop: 3 }}>
             {re.series} × {re.reps}
             {re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}

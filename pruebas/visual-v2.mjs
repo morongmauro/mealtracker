@@ -79,6 +79,7 @@ function base() {
         ['e3', 'Remo con mancuerna', ['dorsal_ancho']], ['e4', 'Elevación lateral', ['deltoides_lateral']],
         ['e5', 'Hip thrust a una pierna', ['gluteo_mayor']], ['e6', 'Jalón al pecho', ['dorsal_ancho', 'biceps']],
       ].map(([id, nombre, mus], i) => ({ id, nombre, musculos_primarios: mus, video_fuente: 'youtube', video_ref: yt[i],
+        alias: { e1: 'Barbell Bench Press', e2: 'Barbell Back Squat', e3: 'Dumbbell Single Arm Row', e4: 'Dumbbell Lateral Raise', e5: 'Bench Single Leg Hip Thrust', e6: 'Wide Grip Lat Pulldown' }[id],
         musculos_secundarios: id === 'e2' ? ['isquiotibiales', 'aductores', 'erectores'] : [] })),
       sesiones, series_log,
       actividades: [{ id: 'a1', cliente_id: 'c1', user_id: 'coach', fecha: hace(0), tipo: 'cinta', duracion_min: 25 }],
@@ -156,10 +157,13 @@ const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.
 try {
   // ── Mauro ──
   const { p, ctx, errores } = await abrir('Mauro Morón');
-  await p.getByText('Cómo vas').waitFor({ timeout: 25000 });
+  await p.getByText('Tu constancia').waitFor({ timeout: 25000 });
   ok('apertura fría: cae en el Dash', true);
-  await p.getByText('Fuerza', { exact: true }).waitFor({ timeout: 10000 });
+  await p.getByText('Últimas 8 semanas').waitFor({ timeout: 10000 });
   await espera(800);
+  ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
+  ok('atajos de recordatorios y reto', (await p.getByRole('button', { name: /Recordatorios/ }).count()) === 1
+    && (await p.getByRole('button', { name: 'Reto' }).count()) === 1);
   ok('la letra nueva está puesta', await p.evaluate(() => document.documentElement.hasAttribute('data-v2')));
   ok('la barra nueva está y la vieja no', (await p.locator('nav[aria-label="Secciones"]').count()) === 1
     && (await p.getByRole('button', { name: 'Herram.' }).count()) === 0);
@@ -170,8 +174,25 @@ try {
   await p.evaluate(() => document.querySelector('[data-view="dash"]').scrollTo(0, 99999));
   await espera(300);
   await foto(p, '03-dash-final');
+  await p.getByRole('button', { name: /Profundiza en tus gráficas de entrenamiento/ }).click();
+  await p.getByText('Fuerza', { exact: true }).waitFor({ timeout: 10000 });
+  ok('Profundiza entrenamiento abre fuerza y volumen', (await p.getByText('Volumen', { exact: true }).count()) === 1);
+  await espera(400);
+  await foto(p, '03b-profundiza-entreno');
+  await p.getByRole('button', { name: /Dash/ }).first().click();
+  await p.getByRole('button', { name: /Profundiza en tus gráficas de alimentación/ }).click();
+  await p.getByText('Días registrados', { exact: true }).waitFor({ timeout: 10000 });
+  await espera(400);
+  await foto(p, '03c-profundiza-comida');
+  await p.getByRole('button', { name: /calendario de comidas/ }).click();
+  await espera(900);
+  await foto(p, '03d-calendario-comidas');
+  ok('el calendario de comidas se abre desde el Dash', (await p.getByText(/Mes|Semana/).count()) > 0);
+  await p.keyboard.press('Escape');
+  await p.goto('http://localhost:5198/');
+  await p.getByText('Tu constancia').waitFor({ timeout: 25000 });
 
-  await p.getByRole('button', { name: 'Entrenamiento' }).click();
+  await p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await p.getByRole('button', { name: 'Calendario' }).waitFor();
   await espera(1800);
   for (const nom of ['Hoy', 'Calendario', 'Galería']) {
@@ -200,14 +221,16 @@ try {
   await p.mouse.click(20, 80);
   await espera(400);
 
-  await p.getByRole('button', { name: 'Alimentación' }).click();
+  await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(1200);
   await foto(p, '08-comida-hoy');
+  ok('Hoy de alimentación ya no saluda ni trae herramientas', (await p.getByText('Hola, Mauro').count()) === 0
+    && (await p.getByText('Tus herramientas').count()) === 0);
   await p.getByRole('button', { name: 'Chat', exact: true }).click();
   await espera(900);
   await foto(p, '09-comida-chat');
 
-  await p.getByRole('button', { name: 'Aprendizaje' }).click();
+  await p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
   await espera(1200);
   const marco = p.frameLocator('iframe[title="Centro de aprendizaje"]');
   ok('Aprendizaje abre en su inicio', /inicio/.test(await marco.locator('#t').textContent()));
@@ -216,23 +239,23 @@ try {
   ok('Onboarding se pide al centro sin recargarlo', /onboarding/.test(await marco.locator('#t').textContent()));
   await foto(p, '10-aprende');
 
-  await p.getByRole('button', { name: 'Dash' }).click();
-  await p.getByText('Cómo vas').waitFor();
+  await p.getByRole('button', { name: 'Dash', exact: true }).click();
+  await p.getByText('Tu constancia').waitFor();
   ok('vuelve al Dash', true);
   ok('sin errores de JavaScript (Mauro)', errores.length === 0, errores.join(' | '));
   await ctx.close();
 
   // ── Teléfono angosto ──
   const n = await abrir('Mauro Morón', { ancho: 375 });
-  await n.p.getByText('Cómo vas').waitFor({ timeout: 25000 });
-  await n.p.getByRole('button', { name: 'Entrenamiento' }).click();
+  await n.p.getByText('Tu constancia').waitFor({ timeout: 25000 });
+  await n.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await espera(900);
   const caja = await n.p.locator('nav[aria-label="Secciones"]').boundingBox();
   ok('la barra cabe en 375 px', caja && caja.x >= 0 && caja.x + caja.width <= 375, JSON.stringify(caja));
   const gal = await n.p.getByRole('button', { name: 'Galería' }).boundingBox();
   ok('las tres opciones de Entrenamiento se ven enteras en 375 px', gal && gal.x + gal.width <= caja.x + caja.width - 2, JSON.stringify(gal));
   await foto(n.p, '11-375-entreno');
-  await n.p.getByRole('button', { name: 'Aprendizaje' }).click();
+  await n.p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
   await espera(900);
   await foto(n.p, '12-375-aprende');
   await n.ctx.close();
@@ -243,7 +266,7 @@ try {
   await espera(2600);
   ok('otra persona ve la barra de siempre', (await o.p.locator('nav[aria-label="Secciones"]').count()) === 0);
   ok('…y su letra de siempre', !(await o.p.evaluate(() => document.documentElement.hasAttribute('data-v2'))));
-  ok('…y no abre en el Dash', (await o.p.getByText('Cómo vas').count()) === 0);
+  ok('…y no abre en el Dash', (await o.p.getByText('Tu constancia').count()) === 0);
   await foto(o.p, '13-otra-persona');
   ok('sin errores de JavaScript (otra persona)', o.errores.length === 0, o.errores.join(' | '));
   await o.ctx.close();

@@ -5,49 +5,25 @@
 // esta lista. El resto sigue con la app de siempre, byte a byte. Para
 // abrírsela a todos: VISUAL_V2_TODOS = true.
 // ─────────────────────────────────────────────────────────────────────────
-import archivoUrl from '@fontsource-variable/archivo/files/archivo-latin-wdth-normal.woff2?url';
 
 export const VISUAL_V2 = ['mauro moron'];
 export const VISUAL_V2_TODOS = false;
+
+// El WhatsApp del coach para el botón «Escríbele a tu coach» del Dash, solo
+// números con indicativo (Colombia: 57…). Vacío = el botón no aparece.
+export const WHATSAPP_COACH = '';
 
 const normal = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/\s+/g, ' ').trim();
 
 export const esV2 = (nombre) => VISUAL_V2_TODOS || VISUAL_V2.includes(normal(nombre));
 
-// La letra: Archivo, una sola familia en dos cortes. Texto en ancho normal;
-// títulos y números grandes en su versión condensada y gruesa (el papel que
-// hacía Bebas). Se declaran como familias propias para que el grosor y el
-// ancho de los títulos no dependan de lo que pida cada pantalla.
-const FUENTES = `
-@font-face { font-family: 'ECM Sans'; font-style: normal; font-display: swap;
-  font-weight: 100 900; font-stretch: 100%;
-  src: url(${archivoUrl}) format('woff2-variations'); }
-@font-face { font-family: 'ECM Display'; font-style: normal; font-display: swap;
-  font-weight: 760; font-stretch: 74%;
-  src: url(${archivoUrl}) format('woff2-variations'); }
-html[data-v2] { --f-ui: 'ECM Sans'; --f-display: 'ECM Display'; }
-`;
-
-// Enciende o apaga la visual nueva en el documento. Solo toca variables y un
-// atributo: los componentes de siempre leen la letra de theme.js, que ya
-// mira estas variables con Inter y Bebas de respaldo.
-export function aplicarV2(on) {
-  if (typeof document === 'undefined') return;
-  const html = document.documentElement;
-  if (on) {
-    if (!document.getElementById('ecm-v2-fuentes')) {
-      const st = document.createElement('style');
-      st.id = 'ecm-v2-fuentes';
-      st.textContent = FUENTES;
-      document.head.appendChild(st);
-    }
-    html.setAttribute('data-v2', '');
-  } else {
-    html.removeAttribute('data-v2');
-  }
-}
-
 // Para los componentes que no reciben el nombre (la figura muscular): ¿está
 // encendida la visual nueva en este documento?
 export const v2Activa = () => typeof document !== 'undefined' && document.documentElement.hasAttribute('data-v2');
+
+// Nombre del ejercicio en inglés (el de Trainerize, en `alias`), para ponerlo
+// chico y en gris debajo del español: hay traducciones que suenan raras y el
+// original ayuda a reconocerlo. Solo con la visual nueva, y solo si dice algo
+// distinto al español.
+export const nombreIngles = (ej) => (v2Activa() && ej && ej.alias && normal(ej.alias) !== normal(ej.nombre)) ? ej.alias : null;

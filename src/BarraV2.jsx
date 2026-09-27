@@ -16,6 +16,9 @@ import { SECCION, DANGER } from './theme.js';
 
 export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: ForkKnife, aprende: GraduationCap };
 export const NOMBRE_SECCION = { dash: 'Dash', entreno: 'Entrenamiento', comida: 'Alimentación', aprende: 'Aprendizaje' };
+// Rótulo corto bajo el ícono de las secciones cerradas: un ícono solo no
+// siempre se entiende, y con el nombre se sabe dónde tocar.
+const CORTO = { dash: 'Dash', entreno: 'Entreno', comida: 'Comida', aprende: 'Aprende' };
 
 // secciones: [{ id, subs: [{ id, label, icono? }] }] en el orden de la barra.
 // punto: { [seccionId]: true } para el aviso de novedad.
@@ -71,14 +74,16 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                   // Se encogen antes que el grupo abierto: en un teléfono
                   // angosto ceden espacio a las opciones, que son las que
                   // tienen texto.
-                  flex: '1 1 42px', minWidth: 34, height: 44, borderRadius: 999, border: 'none',
-                  background: 'transparent', color: '#55544C', position: 'relative',
-                  display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0,
+                  flex: '1 1 48px', minWidth: 40, height: 48, borderRadius: 999, border: 'none',
+                  background: 'transparent', color: '#6A6860', position: 'relative',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  gap: 1, cursor: 'pointer', padding: 0, fontFamily: 'inherit',
                 }}>
-                <Icono size={23} weight="regular" />
+                <Icono size={21} weight="regular" />
+                <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{CORTO[s.id]}</span>
                 {punto[s.id] && (
                   <span aria-hidden="true" style={{
-                    position: 'absolute', top: 9, right: 9, width: 8, height: 8, borderRadius: 99,
+                    position: 'absolute', top: 5, right: '50%', marginRight: -15, width: 8, height: 8, borderRadius: 99,
                     background: DANGER, boxShadow: '0 0 0 2px rgba(255,255,255,0.9)',
                   }} />
                 )}
@@ -93,7 +98,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
             <div key={s.id} ref={grupoRef} className="bv2-grupo bv2-abre" role="group" aria-label={NOMBRE_SECCION[s.id]}
               style={{
                 flex: '0 0.15 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 2,
-                background: c.tint, borderRadius: 999, padding: 3, overflowX: 'auto',
+                background: c.tint, borderRadius: 999, padding: 4, overflowX: 'auto',
               }}>
               {subs.map(o => {
                 const activo = o.id === sub || sinSubs;
@@ -106,12 +111,14 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                     style={{
                       flex: 'none', height: 38, borderRadius: 999, border: 'none', cursor: 'pointer',
                       padding: SubIcono && !o.label ? '0 10px' : SubIcono ? '0 14px 0 11px' : '0 11px',
-                      background: activo ? c.ink : 'transparent',
-                      color: activo ? '#FFFFFF' : c.ink,
-                      fontFamily: 'inherit', fontSize: 13, fontWeight: activo ? 700 : 600,
-                      letterSpacing: '-0.005em', whiteSpace: 'nowrap',
+                      // La activa es una pastilla de cristal blanco con la letra
+                      // en el color de la sección: se distingue sin gritar.
+                      background: activo ? 'rgba(255,255,255,0.92)' : 'transparent',
+                      color: c.ink, opacity: activo ? 1 : 0.8,
+                      fontFamily: 'inherit', fontSize: 13.5, fontWeight: activo ? 700 : 600,
+                      letterSpacing: '-0.01em', whiteSpace: 'nowrap',
                       display: 'flex', alignItems: 'center', gap: 5,
-                      boxShadow: activo ? `0 4px 12px ${c.tint}` : 'none',
+                      boxShadow: activo ? '0 1px 2px rgba(40,40,30,0.06), 0 4px 12px rgba(40,40,30,0.08)' : 'none',
                     }}>
                     {SubIcono && <SubIcono size={18} weight={activo ? 'fill' : 'regular'} />}
                     {o.label}
