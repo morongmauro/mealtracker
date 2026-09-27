@@ -325,6 +325,8 @@ try {
   await espera(700);
   await foto(p, '07-galeria-ficha');
   ok('la ficha pinta el cuerpo nuevo con lo que trabaja', (await p.locator('path[data-activo="1"]').count()) >= 4);
+  ok('la ficha trae las características abiertas', await p.locator('dl dt', { hasText: 'Tipo' }).first().isVisible());
+  ok('la ficha ya no dice «cómo se hace»', (await p.getByRole('dialog').last().getByText(/Cómo se hace/i).count()) === 0);
   await p.locator('text=Qué trabaja').scrollIntoViewIfNeeded();
   await espera(400);
   await foto(p, '07b-ficha-cuerpo');
@@ -364,6 +366,20 @@ try {
   const caja = await n.p.locator('nav[aria-label="Secciones"]').boundingBox();
   ok('la barra cabe en 375 px', caja && caja.x >= 0 && caja.x + caja.width <= 375, JSON.stringify(caja));
   const gal = await n.p.getByRole('button', { name: 'Galería' }).boundingBox();
+  const enteros = async (pg) => pg.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Secciones"]').getBoundingClientRect();
+    return [...document.querySelectorAll('nav[aria-label="Secciones"] > button')].every(b => {
+      const r = b.getBoundingClientRect(); return r.left >= nav.left - 0.5 && r.right <= nav.right + 0.5 && r.right <= innerWidth;
+    });
+  });
+  ok('375 px: Dash, Comida y Aprende se ven enteros', await enteros(n.p));
+  await n.p.getByRole('button', { name: 'Alimentación', exact: true }).click();
+  await espera(700);
+  ok('375 px con Comida abierta: todo entero', await enteros(n.p));
+  await foto(n.p, '11b-375-comida');
+  await n.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
+  await espera(700);
+  ok('con Entrenamiento abierto se sigue viendo su ícono', await n.p.locator('[data-icono-seccion="entreno"]').isVisible());
   ok('las tres opciones de Entrenamiento se ven enteras en 375 px', gal && gal.x + gal.width <= caja.x + caja.width - 2, JSON.stringify(gal));
   await foto(n.p, '11-375-entreno');
   await n.p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();

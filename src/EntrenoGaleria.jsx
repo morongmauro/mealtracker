@@ -74,7 +74,7 @@ export default function Galeria({ nombre }) {
     <div>
       <Titulo>Galería</Titulo>
       <div style={{ color: TEXT_MUTED, fontSize: 13.5 }}>
-        {todos.length} ejercicio{todos.length === 1 ? '' : 's'} de tu plan · toca uno para ver cómo se hace
+        {todos.length} ejercicio{todos.length === 1 ? '' : 's'} de tu plan · toca uno para ver su video y lo que trabaja
       </div>
 
       {rutinas.length > 1 && (

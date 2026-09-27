@@ -24,11 +24,12 @@ import { miniatura, urlVideo, fechaLarga } from './entrenoDatos.js';
 
 export default function Ejercicio({ item, abierto, alCerrar }) {
   const [verVideo, setVerVideo] = useState(false);
-  const [verCaracs, setVerCaracs] = useState(false);
+  // Visual nueva: las características se ven de entrada (no hay que buscarlas).
+  const [verCaracs, setVerCaracs] = useState(v2Activa());
 
   // El componente se desmonta al cerrar, pero por si acaso: cambiar de
   // ejercicio con el video abierto no debe heredar el reproductor anterior.
-  React.useEffect(() => { setVerVideo(false); setVerCaracs(false); }, [item?.ejercicio?.id]);
+  React.useEffect(() => { setVerVideo(false); setVerCaracs(v2Activa()); }, [item?.ejercicio?.id]);
 
   const e = item?.ejercicio;
   if (!e) return null;

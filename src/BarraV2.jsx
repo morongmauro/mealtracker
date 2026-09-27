@@ -74,7 +74,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                   // Se encogen antes que el grupo abierto: en un teléfono
                   // angosto ceden espacio a las opciones, que son las que
                   // tienen texto.
-                  flex: '1 1 48px', minWidth: 40, height: 48, borderRadius: 999, border: 'none',
+                  flex: '1 1 48px', minWidth: 47, height: 48, borderRadius: 999, border: 'none',
                   background: 'transparent', color: '#6A6860', position: 'relative',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   gap: 1, cursor: 'pointer', padding: 0, fontFamily: 'inherit',
@@ -97,9 +97,16 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
           return (
             <div key={s.id} ref={grupoRef} className="bv2-grupo bv2-abre" role="group" aria-label={NOMBRE_SECCION[s.id]}
               style={{
-                flex: '0 0.15 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 2,
+                flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 2,
                 background: c.tint, borderRadius: 999, padding: 4, overflowX: 'auto',
               }}>
+              {/* El ícono de la sección se queda a la vista con sus opciones
+                  abiertas: se sabe en qué parte de la app se está. */}
+              {!sinSubs && (
+                <span aria-hidden="true" data-icono-seccion={s.id} style={{
+                  flex: 'none', display: 'grid', placeItems: 'center', width: 22, height: 38, marginLeft: 3, color: c.ink,
+                }}><Icono size={20} weight="fill" /></span>
+              )}
               {subs.map(o => {
                 const activo = o.id === sub || sinSubs;
                 const SubIcono = o.icono;
@@ -110,12 +117,12 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                     aria-label={o.aria || o.label}
                     style={{
                       flex: 'none', height: 38, borderRadius: 999, border: 'none', cursor: 'pointer',
-                      padding: SubIcono && !o.label ? '0 10px' : SubIcono ? '0 14px 0 11px' : '0 11px',
+                      padding: SubIcono && !o.label ? '0 9px' : SubIcono ? '0 12px 0 10px' : '0 9px',
                       // La activa es una pastilla de cristal blanco con la letra
                       // en el color de la sección: se distingue sin gritar.
                       background: activo ? 'rgba(255,255,255,0.92)' : 'transparent',
                       color: c.ink, opacity: activo ? 1 : 0.8,
-                      fontFamily: 'inherit', fontSize: 13.5, fontWeight: activo ? 700 : 600,
+                      fontFamily: 'inherit', fontSize: 13, fontWeight: activo ? 700 : 600,
                       letterSpacing: '-0.01em', whiteSpace: 'nowrap',
                       display: 'flex', alignItems: 'center', gap: 5,
                       boxShadow: activo ? '0 1px 2px rgba(40,40,30,0.06), 0 4px 12px rgba(40,40,30,0.08)' : 'none',

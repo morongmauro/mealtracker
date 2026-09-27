@@ -6699,6 +6699,15 @@ function formatDateShort(iso) {
   return d.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+// Visual nueva: los aros como los del Dash — pista crema lisa y un punto
+// blanco en la punta del trazo. Mismos tamaños y colores de siempre.
+const PISTA_V2 = '#F4F1EB';   // la misma crema del Dash
+function PuntaAro({ c, r, frac, grosor }) {
+  if (!(frac > 0.02 && frac < 1)) return null;
+  const a = frac * 2 * Math.PI;
+  return <circle cx={c + r * Math.cos(a)} cy={c + r * Math.sin(a)} r={Math.max(1.1, grosor / 2 - 1.6)} fill="#FFFFFF" />;
+}
+
 // True Apple-style glass ring — the chart is the focal element
 function CompactMacro({ val, goal, color, label, unit = '' }) {
   // Columna vertical: aro (con la etiqueta ADENTRO) y el número debajo.
@@ -6718,10 +6727,13 @@ function CompactMacro({ val, goal, color, label, unit = '' }) {
     <div className="flex-1 min-w-0 flex flex-col items-center" style={{ gap: '3px' }}>
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size}>
-          <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.16" strokeWidth={stroke} />
+          {v2Activa()
+            ? <circle cx={center} cy={center} r={radius} fill="none" stroke={PISTA_V2} strokeWidth={stroke} />
+            : <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.16" strokeWidth={stroke} />}
           <g transform={`rotate(-90 ${center} ${center})`}>
             <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
               strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 0.6s ease' }} />
+            {v2Activa() && <PuntaAro c={center} r={radius} frac={pct} grosor={stroke} />}
           </g>
         </svg>
         <div className="absolute inset-0 grid place-items-center text-[8px] font-bold" style={{ color: TEXT_LIGHT }}>{label}</div>
@@ -6747,10 +6759,13 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
   return (
     <div className="flex flex-col items-center min-w-0 w-full">
       <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: 'auto', maxWidth: size, display: 'block' }}>
-        <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.14" strokeWidth={stroke} />
+        {v2Activa()
+          ? <circle cx={center} cy={center} r={radius} fill="none" stroke={PISTA_V2} strokeWidth={stroke} />
+          : <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.14" strokeWidth={stroke} />}
         <g transform={`rotate(-90 ${center} ${center})`}>
           <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
             strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
+          {v2Activa() && <PuntaAro c={center} r={radius} frac={pct} grosor={stroke} />}
         </g>
         <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 20, fill: goal > 0 && val > goal * 1.05 ? DANGER_SOFT : TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
         <text x={center} y={center + 13} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10.5, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
@@ -6781,7 +6796,7 @@ function RingGauge({ size = 78, stroke = 6, pct = 0, color = ACCENT, track = 'rg
             </linearGradient>
           </defs>
         )}
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={v2Activa() ? PISTA_V2 : track} strokeWidth={stroke} />
         {p > 0 && (
           <circle cx={size / 2} cy={size / 2} r={r} fill="none"
             stroke={gradId ? `url(#${gradId})` : color}
@@ -6789,6 +6804,7 @@ function RingGauge({ size = 78, stroke = 6, pct = 0, color = ACCENT, track = 'rg
             strokeDasharray={circ} strokeDashoffset={circ * (1 - p / 100)}
             style={{ transition: 'stroke-dashoffset 0.7s cubic-bezier(0.2, 0, 0, 1)' }} />
         )}
+        {v2Activa() && <PuntaAro c={size / 2} r={r} frac={p / 100} grosor={stroke} />}
       </svg>
       <div className="absolute inset-0 grid place-items-center">{children}</div>
     </div>
