@@ -183,6 +183,10 @@ try {
   ok('atajos de recordatorios y reto', (await dash.getByRole('button', { name: /Recordatorios/ }).count()) === 1
     && (await dash.getByRole('button', { name: 'Reto' }).count()) === 1);
   await dash.getByRole('button', { name: 'Reto' }).click();
+  const wa = await dash.getByRole('link', { name: /Escríbele a tu coach/ }).getAttribute('href');
+  ok('los tres atajos se ven enteros', await dash.evaluate(() => [...document.querySelectorAll('[data-view="dash"] a, [data-view="dash"] button')]
+    .filter(b => /Recordatorios|Reto|Escríbele/.test(b.textContent)).every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; })));
+  ok('WhatsApp: el botón abre tu chat', /^https:\/\/wa\.me\/573008527043\?text=Hola%20coach/.test(wa || ''), wa);
   ok('Reto: solo «No hay retos actualmente»', (await p.getByRole('dialog', { name: 'Retos' }).innerText()).trim() === 'No hay retos actualmente');
   await foto(p, '01b-reto');
   await p.getByRole('dialog', { name: 'Retos' }).click();

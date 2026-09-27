@@ -425,7 +425,9 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
       </div>
 
       {/* Atajos */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 16, overflowX: 'auto', margin: '16px -16px 0', padding: '0 16px 2px', scrollbarWidth: 'none' }}>
+      {/* Si no caben en una fila bajan a la siguiente: un botón cortado en
+          el borde parecía roto. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
         {acciones.recordatorios && <Pastilla icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
         <Pastilla icono={Mountains} color="#D9744A" onClick={() => setSinRetos(true)}>Reto</Pastilla>
         {wa && <Pastilla icono={WhatsappLogo} color="#25A35A" href={wa}>Escríbele a tu coach</Pastilla>}

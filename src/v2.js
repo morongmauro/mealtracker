@@ -11,7 +11,7 @@ export const VISUAL_V2_TODOS = false;
 
 // El WhatsApp del coach para el botón «Escríbele a tu coach» del Dash, solo
 // números con indicativo (Colombia: 57…). Vacío = el botón no aparece.
-export const WHATSAPP_COACH = '';
+export const WHATSAPP_COACH = '573008527043';   // +57 300 852 7043 (@mauromoronm)
 
 const normal = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/\s+/g, ' ').trim();
