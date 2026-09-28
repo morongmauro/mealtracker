@@ -40,6 +40,7 @@ import {
   expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, TIPOS_REGISTRO, nombreFase,
 } from './_entreno.js';
 import { alertarCoach } from './_alerta.js';
+import { whatsappCoach, textoNotaWhatsapp } from './_whatsapp.js';
 import { completarMusculos } from './_musculos.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
@@ -739,6 +740,14 @@ async function cerrarSesion(cliente, cuerpo) {
       title: `${cliente.nombre} · ${cierre.estado === 'saltada' ? 'no pudo entrenar' : 'terminó su rutina'}`,
       body: cierre.notas_cliente,
     });
+    const rr = sesion.rutina_id
+      ? await sb(`rutinas?select=nombre&id=eq.${sesion.rutina_id}&limit=1`).catch(() => [])
+      : [];
+    await whatsappCoach(textoNotaWhatsapp({
+      cliente: cliente.nombre, alCerrar: true,
+      rutina: `${Array.isArray(rr) && rr[0] ? rr[0].nombre : 'su rutina'} (${cierre.estado === 'saltada' ? 'no pudo entrenar' : 'terminó'})`,
+      texto: cierre.notas_cliente,
+    }));
   }
   return { ok: true, sesion: Array.isArray(upd) ? upd[0] : upd, records };
 }
@@ -1244,7 +1253,7 @@ async function guardarNota(cliente, cuerpo, hoy) {
   if (!texto) return { ok: false, motivo: 'vacia' };
 
   // Todo lo que se referencia tiene que ser SUYO.
-  let rutina = null, ejercicioNombre = null;
+  let rutina = null, ejercicioNombre = null, ejercicioLargo = null;
   if (cuerpo.rutina_id) {
     const rr = await sb(`rutinas?select=id,nombre&id=eq.${encodeURIComponent(cuerpo.rutina_id)}&cliente_id=eq.${cliente.id}&limit=1`);
     rutina = Array.isArray(rr) ? rr[0] : null;
@@ -1256,8 +1265,12 @@ async function guardarNota(cliente, cuerpo, hoy) {
     const x = Array.isArray(re) ? re[0] : null;
     if (x) {
       reId = x.id; ejId = x.ejercicio_id;
-      const ej = await sb(`ejercicios?select=nombre&id=eq.${ejId}&limit=1`).catch(() => []);
-      ejercicioNombre = Array.isArray(ej) && ej[0] ? ej[0].nombre : null;
+      const ej = await sb(`ejercicios?select=nombre,alias&id=eq.${ejId}&limit=1`)
+        .catch(() => sb(`ejercicios?select=nombre&id=eq.${ejId}&limit=1`)).catch(() => []);
+      const x0 = Array.isArray(ej) ? ej[0] : null;
+      ejercicioNombre = x0 ? x0.nombre : null;
+      // En el WhatsApp va como en la app: inglés primero, español entre paréntesis.
+      ejercicioLargo = x0 ? (x0.alias && x0.alias !== x0.nombre ? `${x0.alias} (${x0.nombre})` : x0.nombre) : null;
     }
   }
   let sesionId = null;
@@ -1281,6 +1294,10 @@ async function guardarNota(cliente, cuerpo, hoy) {
   }
   const sobre = ejercicioNombre || (rutina ? rutina.nombre : null);
   await alertarCoach({ title: `${cliente.nombre}${sobre ? ` · ${sobre}` : ''}`, body: texto, tag: 'ecm-nota' });
+  // Y a tu WhatsApp: con quién, qué ejercicio (o que es general) y la nota.
+  await whatsappCoach(textoNotaWhatsapp({
+    cliente: cliente.nombre, ejercicio: ejercicioLargo, rutina: rutina ? rutina.nombre : null, texto,
+  }));
   const n = Array.isArray(ins) ? ins[0] : ins;
   return { ok: true, nota: { id: n && n.id, texto } };
 }

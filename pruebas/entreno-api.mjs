@@ -227,6 +227,48 @@ await caso('nota al coach sobre un ejercicio: queda pegada al ejercicio', async 
   igual([n.texto, n.rutina_id, n.ejercicio_id, n.user_id, n.fecha], ['Me molesta el hombro', 'r1', 'e1', 'coach-1', hoy], 'fila');
 });
 
+// El WhatsApp al coach: se captura la llamada a CallMeBot sin salir a la red.
+function conWhatsapp(sb) {
+  const enviados = [];
+  process.env.CALLMEBOT_APIKEY = 'llave';
+  globalThis.fetch = async (url, o) => {
+    if (String(url).startsWith('https://api.callmebot.com/')) {
+      enviados.push(new URL(url).searchParams.get('text'));
+      return new Response('ok', { status: 200 });
+    }
+    return sb.fetch(url, o);
+  };
+  return enviados;
+}
+
+await caso('nota sobre un ejercicio: te llega al WhatsApp con el ejercicio y la nota', async () => {
+  const sb = base(); const w = conWhatsapp(sb);
+  sb.db.ejercicios[0].alias = 'Bench Press';
+  await llamar(handler, { accion: 'nota', name: yo, texto: 'Me molesta el hombro', rutina_id: 'r1', rutina_ejercicio_id: 're1' });
+  delete process.env.CALLMEBOT_APIKEY;
+  igual(w, ['📝 Nota de Mauro Morón\nEjercicio: Bench Press (Press banca)\nRutina: Push\n«Me molesta el hombro»'], 'whatsapp');
+});
+
+await caso('nota general (sin ejercicio) y nota al cerrar: también llegan al WhatsApp', async () => {
+  const sb = base(); const w = conWhatsapp(sb);
+  await llamar(handler, { accion: 'nota', name: yo, texto: 'Esta semana viajo', rutina_id: 'r1' });
+  await llamar(handler, { accion: 'nota', name: yo, texto: 'Todo bien' });
+  const a = await llamar(handler, { accion: 'abrir', name: yo, rutina_id: 'r1' });
+  await llamar(handler, { accion: 'cerrar', name: yo, sesion_id: a.sesion.id, estado: 'completada', rpe: 7, notas: 'Me costó el final' });
+  delete process.env.CALLMEBOT_APIKEY;
+  igual(w, [
+    '📝 Nota de Mauro Morón\nSobre la rutina: Push\n«Esta semana viajo»',
+    '📝 Nota de Mauro Morón\nNota general\n«Todo bien»',
+    '📝 Nota de Mauro Morón\nAl cerrar la rutina: Push (terminó)\n«Me costó el final»',
+  ], 'whatsapp');
+});
+
+await caso('sin llave de CallMeBot no se intenta el WhatsApp y la nota se guarda igual', async () => {
+  const sb = base(); const w = conWhatsapp(sb); delete process.env.CALLMEBOT_APIKEY;
+  const r = await llamar(handler, { accion: 'nota', name: yo, texto: 'hola', rutina_id: 'r1' });
+  igual([r.ok, w.length, sb.db.notas_entreno.length], [true, 0, 1], 'nota sin whatsapp');
+});
+
 await caso('nota al coach: no se cuelga de la rutina de otro cliente', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   const r = await llamar(handler, { accion: 'nota', name: yo, texto: 'hola', rutina_id: 'r9' });

@@ -12,15 +12,16 @@
 //   3. El ejercicio TERMINADO se pliega en una sola línea con su check. Lo
 //      hecho deja de ocupar pantalla; se despliega con un toque si hace falta.
 //
-// Las repeticiones se muestran como las recetó el coach (6-12, 15, 30 s) y la
-// cajita de reps va VACÍA: rellenarla con un número inventado confundía. El
-// peso sí se sugiere con el de la última vez, en gris, y si se marca sin
-// escribirlo se usa ese.
+// Las repeticiones se muestran como las recetó el coach (6-12, 15, 30 s) y las
+// cajitas van VACÍAS: rellenarlas con la vez pasada confundía. Lo de la
+// última vez y el récord están a un toque, en sus botones. En los ejercicios
+// de peso corporal solo se piden reps.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
-import { Play, Check, CaretDown, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise } from '@phosphor-icons/react';
-import EntrenoFicha, { HojaRecord } from './EntrenoFicha.jsx';
-import { miniatura, numero, descansoEnCircuito } from './entrenoDatos.js';
+import { Play, Check, CaretDown, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise } from '@phosphor-icons/react';
+import EntrenoFicha from './EntrenoFicha.jsx';
+import { Hoja } from './entrenoUI.jsx';
+import { miniatura, numero, descansoEnCircuito, sinPeso, convertir } from './entrenoDatos.js';
 import { nombresEj } from './v2.js';
 import { SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, BORDER, SECCION } from './theme.js';
 
@@ -87,12 +88,6 @@ export function SeparadorMomento({ fase, hechos, total }) {
 }
 
 // ── Un ejercicio ──────────────────────────────────────────────────────────
-const boton = {
-  display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 11px',
-  borderRadius: 999, border: 'none', background: CREMA, color: TEXT, cursor: 'pointer',
-  fontFamily: 'inherit', fontSize: 12.5, fontWeight: 650,
-};
-
 // Lo que no lleva carga (cardio, movilidad, estiramientos) no pide reps ni
 // kilos: se marca hecho y ya. Menos cajitas, menos pantalla.
 export const SIN_CARGA = new Set(['cardio', 'movilidad', 'estiramiento_pasivo', 'estiramiento', 'agilidad']);
@@ -115,10 +110,13 @@ export function textoReps(re) {
 export const textoDescanso = (seg) => (Number(seg) > 0 ? `Descanso ${Number(seg)} s` : 'Sin descanso');
 
 // «La última vez», serie por serie y dicho entero: «Serie 1: 12 reps por lado · 15 kg».
-export function lineasUltima(series, lado) {
+// Con `unidad` el peso se pasa a la unidad de hoy (la que eligió en
+// «Unidades»); con `soloReps` (peso corporal) no se habla de peso.
+export function lineasUltima(series, lado, { unidad = null, soloReps = false } = {}) {
   return (series || []).filter(s => s.reps != null || s.peso).map(s => {
     const reps = s.reps != null ? `${s.reps} reps${lado ? ' por lado' : ''}` : '';
-    const peso = s.peso ? `${coma(s.peso)} ${s.unidad || 'kg'}` : 'sin peso';
+    const u = unidad || s.unidad || 'kg';
+    const peso = soloReps && !s.peso ? '' : s.peso ? `${coma(convertir(s.peso, s.unidad || 'kg', u))} ${u}` : 'sin peso';
     return `Serie ${s.serie}: ${[reps, peso].filter(Boolean).join(' · ')}`;
   });
 }
@@ -157,18 +155,111 @@ function Nombres({ e, tam = 15.5 }) {
   );
 }
 
-function UltimaVez({ ultima, lado }) {
-  const lineas = lineasUltima(ultima?.series, lado);
-  if (!lineas.length) return null;
+// ── Los botones de cada ejercicio ─────────────────────────────────────────
+// Ficha, Tu récord, Última vez y Nota, en una fila pareja. «La última vez»
+// ya no va escrita dentro de la tarjeta: se come mucha pantalla y solo la
+// consulta quien la necesita.
+function Botones({ items, chico = false }) {
   return (
-    <div style={{ marginTop: 9, padding: '8px 11px', borderRadius: 11, background: '#F7F5F0', fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.5 }}>
-      <div style={{ fontWeight: 700, color: TEXT }}>La última vez <span style={{ fontWeight: 500, color: TEXT_LIGHT }}>· {fechaCorta(ultima.fecha)}</span></div>
-      {lineas.map(l => <div key={l}>{l}</div>)}
+    <div data-botones style={{ display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 6, marginTop: chico ? 8 : 10 }}>
+      {items.map(({ Icono, texto, onClick }) => (
+        <button key={texto} onClick={onClick} style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+          height: chico ? 42 : 46, padding: '0 2px', borderRadius: 12, border: 'none',
+          background: chico ? '#EFEBE3' : CREMA, color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
+          fontSize: 11.5, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0,
+        }}>
+          <Icono size={chico ? 16 : 17} color={AZUL_TINTA} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{texto}</span>
+        </button>
+      ))}
     </div>
   );
 }
 
-function CabeceraCajitas({ lado, unidad, onUnidad }) {
+function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota }) {
+  return [
+    { Icono: FilmStrip, texto: 'Ficha', onClick: abrirFicha },
+    ...(sinCarga ? [] : [
+      { Icono: Trophy, texto: 'Tu récord', onClick: abrirRecord },
+      { Icono: ClockCounterClockwise, texto: 'Última vez', onClick: abrirUltima },
+    ]),
+    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota', onClick: onNota }] : []),
+  ];
+}
+
+const NADA_AUN = 'Todavía no has registrado este ejercicio. Lo que marques hoy será tu primera marca.';
+const cajaHoja = { marginTop: 14, padding: '14px 15px', borderRadius: 16, background: '#F7F5F0' };
+
+// TU RÉCORD: el peso más alto que ha levantado en este ejercicio (y con ese
+// peso, sus mejores reps). En peso corporal, su mejor serie en reps.
+export function HojaRecordV2({ re, abierto, alCerrar, unidad = 'kg' }) {
+  if (!re) return null;
+  const n = nombresEj(re.ejercicio);
+  const u = re.ultima_vez;
+  const r = u && u.record;
+  const soloReps = sinPeso(re.ejercicio);
+  const lado = porLado(re);
+  return (
+    <Hoja abierta={abierto} alCerrar={alCerrar} titulo={`Tu récord · ${n.grande}`} alto="60vh">
+      {!r ? <div style={{ ...cajaHoja, fontSize: 14, color: TEXT_MUTED }}>{NADA_AUN}</div> : (
+        <div style={{ ...cajaHoja, display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span style={{ width: 44, height: 44, borderRadius: 99, background: SECCION.entreno.tint, color: AZUL_TINTA, display: 'grid', placeItems: 'center', flex: 'none' }}>
+            <Trophy size={22} weight="fill" />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, color: TEXT_MUTED, fontWeight: 650 }}>
+              {r.peso && !soloReps ? 'El peso más alto que has levantado' : 'Tu mejor serie'}
+            </div>
+            <div data-record style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+              {r.peso ? `${coma(convertir(r.peso, r.unidad || 'kg', unidad))} ${unidad}` : `${r.reps} reps${lado ? ' por lado' : ''}`}
+            </div>
+            <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 2 }}>
+              {r.peso ? `${r.reps} reps${lado ? ' por lado' : ''} · ` : ''}{fechaCorta(r.fecha)}
+            </div>
+          </div>
+        </div>
+      )}
+      {u && u.veces > 1 && <div style={{ fontSize: 13, color: TEXT_LIGHT, marginTop: 10, textAlign: 'center' }}>Lo has hecho {u.veces} veces.</div>}
+    </Hoja>
+  );
+}
+
+// LA ÚLTIMA VEZ: serie por serie, y debajo (plegadas) las anteriores.
+export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
+  const [todas, setTodas] = useState(false);
+  if (!re) return null;
+  const n = nombresEj(re.ejercicio);
+  const u = re.ultima_vez;
+  const lado = porLado(re);
+  const soloReps = sinPeso(re.ejercicio);
+  const opciones = { unidad, soloReps };
+  const antes = (u?.historial || []).slice(1);
+  return (
+    <Hoja abierta={abierto} alCerrar={alCerrar} titulo={`La última vez · ${n.grande}`} alto="75vh">
+      {!u ? <div style={{ ...cajaHoja, fontSize: 14, color: TEXT_MUTED }}>{NADA_AUN}</div> : (<>
+        <div data-ultima style={{ ...cajaHoja, fontSize: 15, color: TEXT, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 12.5, color: TEXT_MUTED, fontWeight: 650, marginBottom: 2 }}>{fechaCorta(u.fecha)}</div>
+          {lineasUltima(u.series, lado, opciones).map(l => <div key={l}>{l}</div>)}
+        </div>
+        {antes.length > 0 && (
+          <button onClick={() => setTodas(v => !v)} style={{
+            marginTop: 12, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
+            fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: AZUL_TINTA,
+          }}>{todas ? 'Ocultar las anteriores' : `Ver las ${antes.length} anteriores`}</button>
+        )}
+        {todas && antes.map(h => (
+          <div key={h.fecha} style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}`, fontSize: 13.5, color: TEXT_MUTED, lineHeight: 1.55 }}>
+            <div style={{ fontWeight: 700, color: TEXT }}>{fechaCorta(h.fecha)}</div>
+            {lineasUltima(h.series, lado, opciones).map(l => <div key={l}>{l}</div>)}
+          </div>
+        ))}
+      </>)}
+    </Hoja>
+  );
+}
+
+function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 4,
@@ -176,6 +267,7 @@ function CabeceraCajitas({ lado, unidad, onUnidad }) {
     }}>
       <div style={{ width: 22, flex: 'none' }} />
       <div style={{ flex: 1, textAlign: 'center' }}>{lado ? 'Reps por lado' : 'Reps'}</div>
+      {!soloReps && <>
       <div style={{ width: 10, flex: 'none' }} />
       <div style={{ flex: 1, textAlign: 'center' }}>
         <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
@@ -183,6 +275,7 @@ function CabeceraCajitas({ lado, unidad, onUnidad }) {
           height: 20, fontSize: 11, fontWeight: 700, color: AZUL_TINTA, cursor: 'pointer', fontFamily: 'inherit',
         }}>Peso ({unidad}) ⇄</button>
       </div>
+      </>}
       <div style={{ width: 32, flex: 'none' }} />
     </div>
   );
@@ -193,9 +286,10 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
   const n = nombresEj(e);
   const [ficha, setFicha] = useState(false);
   const [record, setRecord] = useState(false);
+  const [verUltima, setVerUltima] = useState(false);
   const series = Array.from({ length: Math.max(1, re.series || 1) }, (_, i) => i + 1);
-  const ultima = re.ultima_vez;
   const sinCarga = SIN_CARGA.has(e?.tipo);
+  const soloReps = !sinCarga && sinPeso(e);
   const lado = porLado(re);
   const completo = series.every(s => marcadas[`${re.id}:${s}`]);
 
@@ -228,7 +322,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
   }
 
   return (
-    <div style={{ ...TARJETA, padding: '12px 12px 12px' }}>
+    <div data-ejercicio={e?.alias || e?.nombre} style={{ ...TARJETA, padding: '12px 12px 12px' }}>
       <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
         <Miniatura e={e} alTocar={() => setFicha(true)} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -244,11 +338,9 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginTop: 9, flexWrap: 'wrap' }}>
-        <button onClick={() => setFicha(true)} style={boton}><FilmStrip size={15} /> Ficha</button>
-        {ultima && !sinCarga && <button onClick={() => setRecord(true)} style={boton}><Trophy size={15} /> Tu récord</button>}
-        {onNota && <button onClick={onNota} style={boton}><ChatCircleText size={15} /> Nota</button>}
-      </div>
+      <Botones items={botonesDe({
+        sinCarga, onNota, abrirFicha: () => setFicha(true), abrirRecord: () => setRecord(true), abrirUltima: () => setVerUltima(true),
+      })} />
 
       {re.notas && (
         <div style={{ marginTop: 9, padding: '8px 11px', borderRadius: 11, background: '#FFF6E0', fontSize: 12.5, color: '#6B4E05', lineHeight: 1.45 }}>
@@ -256,12 +348,10 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </div>
       )}
 
-      {!sinCarga && <UltimaVez ultima={ultima} lado={lado} />}
-
-      {sinCarga ? <div style={{ height: 8 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} />}
+      {sinCarga ? <div style={{ height: 8 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} soloReps={soloReps} />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {series.map(s => (
-          <SerieFilaV2 key={s} n={s} re={re} unidad={unidad} sinCarga={sinCarga}
+          <SerieFilaV2 key={s} n={s} re={re} unidad={unidad} sinCarga={sinCarga} soloReps={soloReps}
             marcada={marcadas[`${re.id}:${s}`]}
             descansoSeg={s < (re.series || 1) ? re.descanso_seg : null}
             onMarcar={onMarcar} onDesmarcar={onDesmarcar} />
@@ -269,7 +359,8 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
       </div>
 
       <EntrenoFicha item={re} abierto={ficha} alCerrar={() => setFicha(false)} />
-      <HojaRecord item={re} abierto={record} alCerrar={() => setRecord(false)} />
+      <HojaRecordV2 re={re} unidad={unidad} abierto={record} alCerrar={() => setRecord(false)} />
+      <HojaUltimaV2 re={re} unidad={unidad} abierto={verUltima} alCerrar={() => setVerUltima(false)} />
     </div>
   );
 }
@@ -284,6 +375,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
   const tipo = { superserie: 'Superserie', circuito: 'Circuito', emom: 'EMOM', amrap: 'AMRAP' }[b.tipo] || 'Circuito';
   const [ficha, setFicha] = useState(null);
   const [record, setRecord] = useState(null);
+  const [verUltima, setVerUltima] = useState(null);
   const hechas = vueltas.reduce((t, v, vi) => t + v.filter(re => marcadas[`${re.id}:${vi + 1}`]).length, 0);
   const total = vueltas.reduce((t, v) => t + v.length, 0);
   return (
@@ -312,6 +404,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
             {vuelta.map((re, k) => {
               const e = re.ejercicio;
               const sinCarga = SIN_CARGA.has(e?.tipo);
+              const soloReps = !sinCarga && sinPeso(e);
               const lado = porLado(re);
               const desc = descansoEnCircuito(b, k, vuelta.length, vi, vueltas.length);
               const unidad = unidadDe(re);
@@ -325,16 +418,14 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                     </div>
                   </div>
                   {vi === 0 && (
-                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                      <button onClick={() => setFicha(re)} style={{ ...boton, height: 28, background: '#EFEBE3' }}><FilmStrip size={14} /> Ficha</button>
-                      {re.ultima_vez && !sinCarga && <button onClick={() => setRecord(re)} style={{ ...boton, height: 28, background: '#EFEBE3' }}><Trophy size={14} /> Tu récord</button>}
-                      {onNota && <button onClick={() => onNota(re)} style={{ ...boton, height: 28, background: '#EFEBE3' }}><ChatCircleText size={14} /> Nota</button>}
-                    </div>
+                    <Botones chico items={botonesDe({
+                      sinCarga, onNota: onNota ? () => onNota(re) : null,
+                      abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re),
+                    })} />
                   )}
-                  {vi === 0 && !sinCarga && <UltimaVez ultima={re.ultima_vez} lado={lado} />}
-                  {!sinCarga && <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={() => onUnidad(re)} />}
+                  {!sinCarga && <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={() => onUnidad(re)} soloReps={soloReps} />}
                   <div style={{ marginTop: sinCarga ? 8 : 0 }}>
-                    <SerieFilaV2 n={vi + 1} re={re} unidad={unidad} sinCarga={sinCarga} etiqueta={vi + 1}
+                    <SerieFilaV2 n={vi + 1} re={re} unidad={unidad} sinCarga={sinCarga} soloReps={soloReps} etiqueta={vi + 1}
                       marcada={marcadas[`${re.id}:${vi + 1}`]} descansoSeg={desc}
                       onMarcar={onMarcar} onDesmarcar={onDesmarcar} />
                   </div>
@@ -349,12 +440,13 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
       ))}
 
       <EntrenoFicha item={ficha} abierto={!!ficha} alCerrar={() => setFicha(null)} />
-      <HojaRecord item={record} abierto={!!record} alCerrar={() => setRecord(null)} />
+      <HojaRecordV2 re={record} unidad={record ? unidadDe(record) : 'kg'} abierto={!!record} alCerrar={() => setRecord(null)} />
+      <HojaUltimaV2 re={verUltima} unidad={verUltima ? unidadDe(verUltima) : 'kg'} abierto={!!verUltima} alCerrar={() => setVerUltima(null)} />
     </div>
   );
 }
 
-function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarcar, sinCarga }) {
+function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarcar, sinCarga, soloReps = false }) {
   const [reps, setReps] = useState(marcada?.reps != null ? String(marcada.reps) : '');
   const [peso, setPeso] = useState(marcada?.peso != null ? String(marcada.peso).replace('.', ',') : '');
   const [falta, setFalta] = useState(false);
@@ -382,7 +474,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
     setFalta(false);
     // El peso va en blanco: si no lo escribe, se guarda sin peso (no se
     // copia el de la última vez, que confundía).
-    onMarcar(re, n, r, numero(peso), descansoSeg, unidad);
+    onMarcar(re, n, r, soloReps ? null : numero(peso), descansoSeg, unidad);
   };
 
   if (sinCarga) {
@@ -424,11 +516,13 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
           aria-label={`Repeticiones serie ${n}`}
           style={campo(falta)} disabled={hecha} />
       </div>
+      {!soloReps && <>
       <div style={{ width: 10, flex: 'none', textAlign: 'center', fontSize: 12, color: TEXT_LIGHT }}>×</div>
       <div style={{ flex: 1 }}>
         <input inputMode="decimal" value={peso} onChange={ev => setPeso(ev.target.value)}
           aria-label={`Peso serie ${n}`} style={campo(false)} disabled={hecha} />
       </div>
+      </>}
       <button onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
         flex: 'none', width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
         border: hecha ? 0 : '1px solid #E4E0D5', background: hecha ? AZUL : 'transparent',

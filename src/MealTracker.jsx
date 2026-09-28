@@ -17,11 +17,11 @@ const Entrenamiento = lazy(() => import('./Entrenamiento.jsx'));
 // Visual nueva (en prueba, solo quien esté en src/v2.js): barra de secciones
 // y Dash. El Dash va en su chunk: el resto de clientes no lo descarga.
 const Dash = lazy(() => import('./Dash.jsx'));
-import BarraV2, { NOMBRE_SECCION, SquaresFour } from './BarraV2.jsx';
+import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
-import { Bell as BellV2 } from '@phosphor-icons/react';
+import { Bell as BellV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
 
 // Paleta y tipografía: única fuente de verdad en src/theme.js.
@@ -4888,7 +4888,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     ] }] : []),
     { id: 'comida', subs: [
       { id: 'hoy', label: 'Hoy' }, { id: 'chat', label: 'Chat' }, { id: 'recetas', label: 'Recetas' },
-      { id: 'herr', label: '', icono: SquaresFour, aria: 'Herramientas' },
+      // Las herramientas de comida ya no van en la barra: son la píldora
+      // «Opciones» de Hoy, al lado de Recordatorios.
     ] },
     ...(learningUrl ? [{ id: 'aprende', subs: [
       { id: 'home', label: 'Inicio' }, { id: 'onboarding', label: 'Onboarding' }, { id: 'capsulas', label: 'Cápsulas' },
@@ -5481,9 +5482,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               <div>
                 <CabeceraHoy tema="comida" fecha={capFirst(formatDate(today))} titulo="Así va tu día"
                   sangria="20px" arriba={`${headerH + 16}px`} />
-                <div style={{ marginTop: '-4px' }}>
+                <div style={{ marginTop: '-4px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Pastilla icono={BellV2} color="#E0A21A" badge={coachReminders.filter(r => !r.done_at).length}
                     onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</Pastilla>
+                  <Pastilla icono={OpcionesV2} color={SECCION.comida.base}
+                    onClick={() => { haptic(8); openActionsSheet(); }}>Opciones</Pastilla>
                 </div>
               </div>
             ) : (
@@ -5964,7 +5967,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             // del blur (la barra de navegación y la píldora ya lo usan); y
             // como el sheet vive con display:none, el blur solo se computa
             // mientras está abierto. En WebViews viejos degrada a solo dim.
-            background: 'rgba(20,22,16,0.38)',
+            background: v2 ? 'rgba(31,31,31,0.38)' : 'rgba(20,22,16,0.38)',
             backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
             display: visible ? 'flex' : 'none',
             contain: 'strict'
@@ -5972,7 +5975,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           onClick={() => { haptic(6); closeActionsSheet(); }}>
           <div
             className={`w-full max-w-md rounded-t-3xl px-4 pt-2 ${visible ? 'sheet-up' : ''}`}
-            style={{
+            style={v2 ? {
+              // Visual nueva: fondo cálido liso de la marca, sin manchas.
+              background: '#F6F4EE', borderRadius: '28px 28px 0 0',
+              boxShadow: '0 -8px 40px rgba(0,0,0,0.16)',
+              paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+              maxHeight: '82vh', overflowY: 'auto',
+            } : {
               // EL DEGRADADO VIVE AQUÍ: en la tarjeta de fondo de la hoja,
               // detrás de los botones (que se quedan blancos). Son las
               // mismas manchas de color de la app — oliva arriba-izquierda,
@@ -5996,10 +6005,17 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               <div className="h-1 w-10 rounded-full" style={{ background: BORDER }} />
             </div>
             <div className="flex items-center justify-between mb-3 px-1">
+              {v2 ? (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 650, color: SECCION.comida.ink }}>Opciones de alimentación</div>
+                  <div style={{ fontSize: 21, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>¿Qué quieres hacer?</div>
+                </div>
+              ) : (
               <div>
                 <div className="text-[11px] font-semibold" style={{ color: ACCENT }}>Acciones</div>
                 <div className="text-[15px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
               </div>
+              )}
               {/* Cierre: X usando onPointerDown (touchstart inmediato) + feedback visual
                   visible al press (scale-90 + halo gris). El cierre real está optimizado
                   con DOM-mutation directo en closeActionsSheet. */}
@@ -6009,69 +6025,79 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 aria-label="Cerrar"
                 className="p-2 rounded-full active:scale-90 active-x"
                 style={{
-                  background: SURFACE_2,
+                  background: v2 ? '#FFFFFF' : SURFACE_2,
                   touchAction: 'manipulation',
                   WebkitTapHighlightColor: 'transparent'
                 }}>
                 <X size={16} style={{ color: TEXT_MUTED }} />
               </button>
             </div>
-            {/* Iconos de LÍNEA (lucide, como el onboarding del centro de
-                recursos) en insignias circulares, cada uno con su tono de
-                la paleta de la app — se acabaron los emojis repetidos en
-                el mismo pastel. Menos chips: "Aprendizaje" vive en el
-                header y "¿Qué puedo hacer?" en el chat. */}
+            {/* Las acciones, una sola lista para las dos visuales. */}
+            {(() => {
+              const pend = coachReminders.filter(r => !r.done_at).length;
+              const grupos = [
+                { titulo: 'Día a día', items: [
+                  { L: ChefHat, P: ChefHatV2, label: 'Arma mi día', grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`,
+                    onClick: () => { haptic(8); plannerPrefsRef.current = { text: '', extra: [] }; setShowPlannerModal(true); generatePlan(); } },
+                  { L: Repeat, P: RepeatV2, label: 'Repetir comida de ayer', grad: 'linear-gradient(135deg, #7C8CA3, #4E5D74)',
+                    onClick: () => { haptic(8); goToChat(); repeatYesterday(); closeActionsSheet(); } },
+                  { L: Star, P: StarV2, label: 'Menús favoritos', grad: 'linear-gradient(135deg, #D4B581, #9C7C3C)',
+                    onClick: () => { haptic(8); setActiveModal('favorites'); } },
+                  { L: ShoppingBasket, P: BasketV2, label: 'Mis ingredientes', grad: 'linear-gradient(135deg, #E09479, #C05E44)',
+                    onClick: () => { haptic(8); setShowIngredientsModal(true); } },
+                  { L: BookOpen, P: BookOpenV2, label: 'Ideas de recetas', grad: 'linear-gradient(135deg, #A9B87B, #6E7B45)',
+                    onClick: pedirIdeasRecetas },
+                  { L: Pin, P: PushPinV2, label: 'Guardar día como favorito', grad: 'linear-gradient(135deg, #74AECB, #3F81A6)',
+                    onClick: () => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); } },
+                ] },
+                { titulo: 'Tu progreso', items: [
+                  { L: BarChart3, P: ChartBarV2, label: 'Mis gráficas', grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`,
+                    onClick: () => { haptic(8); setPerfVentana('semana'); setShowPerformanceModal(true); } },
+                  { L: FileText, P: FileTextV2, label: 'Resumen del día', grad: 'linear-gradient(135deg, #7C8CA3, #4E5D74)',
+                    onClick: () => { haptic(8); goToChat(); closeActionsSheet(); handleSend('ver resumen diario'); } },
+                  { L: Calendar, P: CalendarV2, label: 'Mi mes', grad: 'linear-gradient(135deg, #74AECB, #3F81A6)',
+                    onClick: () => { haptic(8); setPerfVentana('mes'); setShowPerformanceModal(true); } },
+                  { L: Scale, P: ScalesV2, label: 'Ayuda con proporciones', grad: 'linear-gradient(135deg, #E09479, #C05E44)',
+                    onClick: () => { haptic(8); goToChat(); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); } },
+                ] },
+                { titulo: 'Ajustes', items: [
+                  { L: Bell, P: BellV2, label: pend > 0 ? `Mis recordatorios (${pend})` : 'Mis recordatorios', grad: 'linear-gradient(135deg, #C4A353, #8A6D16)',
+                    onClick: () => { haptic(8); setActiveModal('reminders'); } },
+                  { L: RotateCcw, P: ReiniciarV2, label: 'Reiniciar día', grad: 'linear-gradient(135deg, #9A9A8F, #62625A)',
+                    onClick: () => { haptic(8); setActiveModal('reset'); } },
+                ] },
+              ];
+              // Visual nueva: tarjetas blancas con el ícono de LÍNEA en un
+              // círculo verde de la sección, como el resto de la marca.
+              if (v2) return (
+                <div data-opciones-v2 style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {grupos.map(g => (
+                    <div key={g.titulo}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, margin: '0 4px 8px' }}>{g.titulo}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        {g.items.map(it => <OpcionV2 key={it.label} Icono={it.P} label={it.label} onClick={it.onClick} />)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+              return (
             <div className="space-y-2.5">
-              <div>
+              {grupos.map(g => (
+              <div key={g.titulo}>
                 <div className="flex items-center gap-2 mb-1.5 px-1">
-                  <span className="text-[11px] font-bold" style={{ color: TEXT_MUTED }}>Día a día</span>
+                  <span className="text-[11px] font-bold" style={{ color: TEXT_MUTED }}>{g.titulo}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <ActionChipMini icon={<ChefHat size={15} strokeWidth={2.2} />} label="Arma mi día" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
-                    onClick={() => { haptic(8); plannerPrefsRef.current = { text: '', extra: [] }; setShowPlannerModal(true); generatePlan(); }} />
-                  <ActionChipMini icon={<Repeat size={15} strokeWidth={2.2} />} label="Repetir comida de ayer" grad="linear-gradient(135deg, #7C8CA3, #4E5D74)"
-                    onClick={() => { haptic(8); goToChat(); repeatYesterday(); closeActionsSheet(); }} />
-                  <ActionChipMini icon={<Star size={15} strokeWidth={2.2} />} label="Menús favoritos" grad="linear-gradient(135deg, #D4B581, #9C7C3C)"
-                    onClick={() => { haptic(8); setActiveModal('favorites'); }} />
-                  <ActionChipMini icon={<ShoppingBasket size={15} strokeWidth={2.2} />} label="Mis ingredientes" grad="linear-gradient(135deg, #E09479, #C05E44)"
-                    onClick={() => { haptic(8); setShowIngredientsModal(true); }} />
-                  <ActionChipMini icon={<BookOpen size={15} strokeWidth={2.2} />} label="Ideas de recetas" grad="linear-gradient(135deg, #A9B87B, #6E7B45)"
-                    onClick={pedirIdeasRecetas} />
-                  <ActionChipMini icon={<Pin size={15} strokeWidth={2.2} />} label="Guardar día como favorito" grad="linear-gradient(135deg, #74AECB, #3F81A6)"
-                    onClick={() => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); }} />
+                  {g.items.map(it => (
+                    <ActionChipMini key={it.label} icon={<it.L size={15} strokeWidth={2.2} />} label={it.label} grad={it.grad} onClick={it.onClick} />
+                  ))}
                 </div>
               </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-1.5 px-1">
-                  <span className="text-[11px] font-bold" style={{ color: TEXT_MUTED }}>Tu progreso</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <ActionChipMini icon={<BarChart3 size={15} strokeWidth={2.2} />} label="Mis gráficas" grad={`linear-gradient(135deg, #98A465, ${ACCENT_DARK})`}
-                    onClick={() => { haptic(8); setPerfVentana('semana'); setShowPerformanceModal(true); }} />
-                  <ActionChipMini icon={<FileText size={15} strokeWidth={2.2} />} label="Resumen del día" grad="linear-gradient(135deg, #7C8CA3, #4E5D74)"
-                    onClick={() => { haptic(8); goToChat(); closeActionsSheet(); handleSend('ver resumen diario'); }} />
-                  <ActionChipMini icon={<Calendar size={15} strokeWidth={2.2} />} label="Mi mes" grad="linear-gradient(135deg, #74AECB, #3F81A6)"
-                    onClick={() => { haptic(8); setPerfVentana('mes'); setShowPerformanceModal(true); }} />
-                  <ActionChipMini icon={<Scale size={15} strokeWidth={2.2} />} label="Ayuda con proporciones" grad="linear-gradient(135deg, #E09479, #C05E44)"
-                    onClick={() => { haptic(8); goToChat(); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-1.5 px-1">
-                  <span className="text-[11px] font-bold" style={{ color: TEXT_MUTED }}>Ajustes</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <ActionChipMini icon={<Bell size={15} strokeWidth={2.2} />}
-                    label={(() => { const n = coachReminders.filter(r => !r.done_at).length; return n > 0 ? `Mis recordatorios (${n})` : 'Mis recordatorios'; })()}
-                    grad="linear-gradient(135deg, #C4A353, #8A6D16)"
-                    onClick={() => { haptic(8); setActiveModal('reminders'); }} />
-                  <ActionChipMini icon={<RotateCcw size={15} strokeWidth={2.2} />} label="Reiniciar día" grad="linear-gradient(135deg, #9A9A8F, #62625A)"
-                    onClick={() => { haptic(8); setActiveModal('reset'); }} />
-                </div>
-              </div>
+              ))}
             </div>
+              );
+            })()}
           </div>
         </div>
         );
@@ -6948,6 +6974,35 @@ function PaymentNotice({ info, style }) {
   );
 }
 
+// Visual nueva: una opción de la hoja de alimentación. Tarjeta blanca,
+// ícono de línea en círculo verde de la sección. Mismo tap instantáneo que
+// ActionChipMini (se descarta si el dedo se movió: era scroll).
+function OpcionV2({ Icono, label, onClick }) {
+  const startRef = useRef(null);
+  return (
+    <button
+      onPointerDown={(e) => { startRef.current = { x: e.clientX, y: e.clientY }; }}
+      onPointerUp={(e) => {
+        const st = startRef.current; startRef.current = null;
+        if (!st || Math.abs(e.clientX - st.x) > 8 || Math.abs(e.clientY - st.y) > 8) return;
+        e.preventDefault(); onClick?.();
+      }}
+      onClick={(e) => e.preventDefault()}
+      className="active:scale-[0.97]"
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', minHeight: 58,
+        borderRadius: 18, border: 'none', background: '#FFFFFF', textAlign: 'left', fontFamily: 'inherit',
+        boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 18px rgba(60,60,40,0.06)',
+        transition: 'transform 0.08s ease-out', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
+      }}>
+      <span style={{ width: 36, height: 36, borderRadius: 999, flex: 'none', display: 'grid', placeItems: 'center', background: SECCION.comida.tint, color: SECCION.comida.ink }}>
+        <Icono size={19} />
+      </span>
+      <span style={{ fontSize: 13.5, fontWeight: 650, color: TEXT, lineHeight: 1.25, letterSpacing: '-0.01em' }}>{label}</span>
+    </button>
+  );
+}
+
 function ActionChipMini({ icon, label, color, pastel, grad, onClick }) {
   // Chip compacto + tap instantáneo: usa onPointerDown para disparar al
   // primer touchstart sin esperar el click sintético de iOS. Llevamos un
@@ -7274,7 +7329,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
           {message.showRecetarioButton && typeof onOpenRecetario === 'function' && (
             <button onClick={() => onOpenRecetario({})}
               className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
-              style={{ background: ACCENT_DARK, color: '#fff' }}>
+              style={{ background: v2Activa() ? TEXT : ACCENT_DARK, color: '#fff' }}>
               <BookOpen size={13} /> Abrir el Recetario
             </button>
           )}

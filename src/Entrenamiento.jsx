@@ -8,7 +8,7 @@ import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, MESES } from './entrenoDatos.js';
+import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, MESES, sinPeso } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
@@ -19,7 +19,7 @@ const fechaDeHoy = () => {
   return `${DIAS_LARGO['DLMXJVS'[d.getDay()]]}, ${d.getDate()} de ${MESES[d.getMonth()]}`;
 };
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
-import { Bell, Ruler } from '@phosphor-icons/react';
+import { Bell, Ruler, CheckCircle, PlayCircle } from '@phosphor-icons/react';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
@@ -715,6 +715,18 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           marginTop: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
           fontSize: v2 ? 13.5 : 12.5, fontWeight: 700, color: v2 ? SECCION.entreno.ink : ACCENT_DARK, fontFamily: 'inherit',
         }}>Escribirle a tu coach sobre esta rutina</button>
+        {/* Quien viene de otras apps busca un «Iniciar». Aquí no hace falta:
+            la sesión arranca sola con la primera serie. Se dice una vez,
+            mientras no haya nada marcado, y desaparece. */}
+        {v2 && hechas === 0 && datos.ejercicios.length > 0 && (
+          <div data-sin-iniciar style={{
+            marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+            borderRadius: 14, background: SECCION.entreno.tint, color: SECCION.entreno.ink, fontSize: 13.5, lineHeight: 1.4,
+          }}>
+            <PlayCircle size={22} weight="fill" style={{ flex: 'none' }} />
+            <span><b>No tienes que darle a iniciar.</b> Marca tu primera serie y el entreno arranca solo.</span>
+          </div>
+        )}
         {totalSeries > 0 && !v2 && (
           <div style={{ marginTop: 11 }}>
             <div style={{ height: 5, borderRadius: 99, background: SURFACE_2, overflow: 'hidden' }}>
@@ -805,12 +817,30 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         />
       )}
 
-      {datos.ejercicios.length > 0 && (
+      {datos.ejercicios.length > 0 && v2 && (
+        // Visual nueva: el cierre se tiene que ver. Azul de entreno, con su
+        // check; antes era gris sobre gris y se perdía con el fondo.
+        <button data-terminar
+          onClick={() => { setDescanso(null); setErrorCierre(null); setCerrandoHoja(true); }}
+          style={{
+            width: '100%', marginTop: 10, height: 54, borderRadius: 18, cursor: 'pointer', fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            border: hechas > 0 ? 0 : `1.5px solid ${SECCION.entreno.base}`,
+            background: hechas > 0 ? SECCION.entreno.base : '#FFFFFF',
+            color: hechas > 0 ? '#fff' : SECCION.entreno.ink,
+            boxShadow: hechas > 0 ? '0 6px 18px color-mix(in srgb, var(--ent-accent, #3C7BD6) 30%, transparent)' : 'none',
+            fontSize: 16, fontWeight: 750,
+          }}>
+          <CheckCircle size={20} weight="bold" />
+          Terminar entrenamiento
+        </button>
+      )}
+      {datos.ejercicios.length > 0 && !v2 && (
         <button
           onClick={() => { setDescanso(null); setErrorCierre(null); setCerrandoHoja(true); }}
           style={{
             width: '100%', marginTop: 6, padding: '15px 18px', borderRadius: 16, border: 0,
-            background: hechas > 0 ? (v2 ? TEXT : ACCENT_DARK) : SURFACE_2,
+            background: hechas > 0 ? ACCENT_DARK : SURFACE_2,
             color: hechas > 0 ? '#fff' : TEXT_MUTED,
             fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
           }}>
@@ -981,6 +1011,8 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
   const pesoSugerido = ultima && ultima.mejor_peso
     ? String(convertir(ultima.mejor_peso, ultima.unidad || 'kg', unidad)) : '';
   const thumb = miniatura(e);
+  // Peso corporal (flexiones, dominadas, bandas…): solo reps.
+  const soloReps = sinPeso(e);
 
   const filas = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -989,7 +1021,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
           key={n} n={n} re={re}
           marcada={marcadas[`${re.id}:${n}`]}
           previa={(ultima?.series || []).find(x => x.serie === n) || null}
-          pesoSugerido={pesoSugerido} unidad={unidad}
+          pesoSugerido={soloReps ? '' : pesoSugerido} unidad={unidad} soloReps={soloReps}
           repsSugeridas={String(re.reps || '').match(/^\d+/) ? String(re.reps).match(/^\d+/)[0] : ''}
           // Fuera de un circuito: el descanso del ejercicio entre series, y
           // ninguno tras la última (ahí ya se pasa al siguiente ejercicio).
@@ -1105,6 +1137,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
         <div style={{ width: 24, flexShrink: 0 }} />
         <div style={{ width: 52, flexShrink: 0, textAlign: 'right' }}>Antes</div>
         <div style={{ flex: 1, textAlign: 'center' }}>Reps</div>
+        {!soloReps && <>
         <div style={{ width: 8, flexShrink: 0 }} />
         {/* La columna del peso ES el interruptor: kg ⇄ lb para este ejercicio. */}
         <div style={{ flex: 1, textAlign: 'center' }}>
@@ -1114,6 +1147,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
             textTransform: 'uppercase', color: ACCENT_DARK, cursor: 'pointer', fontFamily: 'inherit',
           }}>{unidad} ⇄</button>
         </div>
+        </>}
         <div style={{ width: 38, flexShrink: 0 }} />
       </div>
 
@@ -1122,7 +1156,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
   );
 }
 
-function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descansoSeg, unidad = 'kg', onMarcar, onDesmarcar }) {
+function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descansoSeg, unidad = 'kg', onMarcar, onDesmarcar, soloReps = false }) {
   const [reps, setReps] = useState(marcada?.reps != null ? String(marcada.reps) : repsSugeridas);
   const [peso, setPeso] = useState(marcada?.peso != null ? String(marcada.peso) : pesoSugerido);
   const hecha = !!marcada;
@@ -1179,15 +1213,17 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descan
         <input inputMode="numeric" value={reps} onChange={e => setReps(e.target.value)}
           placeholder="reps" aria-label={`Repeticiones serie ${n}`} style={campo} disabled={hecha} />
       </div>
+      {!soloReps && <>
       <div style={{ fontSize: 12, color: TEXT_LIGHT, flexShrink: 0 }}>×</div>
       <div style={{ flex: 1 }}>
         <input inputMode="decimal" value={peso} onChange={e => setPeso(e.target.value)}
           placeholder={unidad} aria-label={`Peso serie ${n}`} style={campo} disabled={hecha} />
       </div>
+      </>}
       <button
         onClick={() => hecha
           ? onDesmarcar(re, n)
-          : onMarcar(re, n, numero(reps), numero(peso), descansoSeg, unidad)}
+          : onMarcar(re, n, numero(reps), soloReps ? null : numero(peso), descansoSeg, unidad)}
         aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`}
         style={{
           flexShrink: 0, width: 38, height: 38, borderRadius: 11, cursor: 'pointer',

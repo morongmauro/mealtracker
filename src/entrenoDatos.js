@@ -182,3 +182,33 @@ export function convertir(peso, de, a) {
   if (de === 'kg' && a === 'lb') return Math.round(n / 0.45359237);
   return peso;
 }
+
+// ¿Este ejercicio se hace con el propio cuerpo (o con banda) y no lleva
+// kilos que anotar? Flexiones, dominadas, planchas, zancadas sin peso,
+// bandas: se piden SOLO las reps. Pedir un peso ahí confunde («¿pongo mi
+// peso?») y ensucia el historial.
+//
+// Manda lo que el coach marque en el CRM, en «Equipo»: cualquier equipo con
+// carga (barra, mancuernas, máquina…) pide peso; «Peso corporal» sin nada de
+// eso, no. Si el ejercicio no tiene equipo marcado, se deduce del nombre.
+const EQUIPO_CON_CARGA = new Set(['barra', 'mancuerna', 'kettlebell', 'polea', 'maquina', 'smith', 'balon', 'disco', 'landmine', 'lastre']);
+const EQUIPO_SIN_CARGA = new Set(['peso_corporal', 'banda', 'trx']);
+// Equipo con kilos dicho en el nombre (inglés o español).
+const CON_EQUIPO = /\b(dumbbells?|barbell|kettlebells?|cable|(?<!dip )machine|smith|landmine|plates?|weighted|medicine ball|leg press|pulldown|ez[- ]bar|trap bar|sled|sandbag|goblet)\b|mancuerna|con barra|polea|m[aá]quina|multipower|con disco|lastrad|bal[oó]n medicinal|prensa|jal[oó]n/i;
+// Se hace con el cuerpo o con banda, dicho en el nombre.
+const SIN_EQUIPO = /\bband(s|ed)?\b|superband|mini band|banda|\btrx\b|suspension|suspensi[oó]n|bodyweight|body weight|peso corporal|sin peso|sin carga/i;
+// Movimientos que casi siempre llevan peso aunque el nombre no diga con qué
+// («Press banca», «Remo», «Curl»): ante la duda se pide peso, que es lo que
+// menos estorba (se puede dejar vacío; lo contrario no deja anotarlo).
+const SUELE_LLEVAR_PESO = /\brow\b|\bremo\b|mu[ñn]eca|\bwrist\b|\bpress\b|\bcurl\b|\bbanca\b|peso muerto|\bdeadlift\b|\bshrug\b|encogimiento|\b(lateral|front|calf|shoulder) raises?\b|elevaci[oó]n (lateral|frontal)/i;
+export function sinPeso(e) {
+  if (!e) return false;
+  const equipo = Array.isArray(e.equipo) ? e.equipo : [];
+  if (equipo.some(x => EQUIPO_CON_CARGA.has(x))) return false;
+  if (equipo.some(x => EQUIPO_SIN_CARGA.has(x))) return true;
+  const texto = `${e.alias || ''} ${e.nombre || ''}`;
+  if (CON_EQUIPO.test(texto)) return false;
+  if (SIN_EQUIPO.test(texto)) return true;
+  if (SUELE_LLEVAR_PESO.test(texto)) return false;
+  return true;
+}

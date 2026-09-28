@@ -72,7 +72,8 @@ function base() {
         { id: 're-e9', rutina_id: 'r1', bloque_id: 'b1', ejercicio_id: 'e9', orden: 3, series: 1, reps: '5 por lado', descanso_seg: 30 },
         { id: 're-e1', rutina_id: 'r1', ejercicio_id: 'e1', orden: 4, series: 3, reps: '6-12', descanso_seg: 120 },
         { id: 're-e4', rutina_id: 'r1', ejercicio_id: 'e4', orden: 5, series: 3, reps: '10-15', descanso_seg: 90 },
-        { id: 're-e10', rutina_id: 'r1', ejercicio_id: 'e10', orden: 6, series: 1, reps: '30 s', descanso_seg: null },
+        { id: 're-e11', rutina_id: 'r1', ejercicio_id: 'e11', orden: 6, series: 3, reps: '12', descanso_seg: 60 },
+        { id: 're-e10', rutina_id: 'r1', ejercicio_id: 'e10', orden: 7, series: 1, reps: '30 s', descanso_seg: null },
         { id: 're-e2', rutina_id: 'r2', ejercicio_id: 'e2', orden: 1, series: 3, reps: '6', descanso_seg: 150 },
         { id: 're-e5', rutina_id: 'r2', ejercicio_id: 'e5', orden: 2, series: 3, reps: '10' },
         { id: 're-e3', rutina_id: 'r3', ejercicio_id: 'e3', orden: 1, series: 3, reps: '10' },
@@ -84,9 +85,10 @@ function base() {
         ['e5', 'Hip thrust a una pierna', ['gluteo_mayor']], ['e6', 'Jalón al pecho', ['dorsal_ancho', 'biceps']],
         ['e7', 'Carrera continua', [], 'cardio'], ['e8', 'Dislocaciones de hombro con banda', ['deltoide_posterior'], 'movilidad'],
         ['e9', 'Rotación torácica en cuadrupedia', [], 'movilidad'], ['e10', 'Postura del niño', [], 'estiramiento_pasivo'],
+        ['e11', 'Flexión de brazos', ['pectoral_mayor', 'triceps']],
       ].map(([id, nombre, mus, tipo], i) => ({ id, nombre, tipo: tipo || 'fuerza', musculos_primarios: mus, video_fuente: 'youtube', video_ref: yt[i % yt.length],
         alias: { e1: 'Barbell Bench Press', e2: 'Barbell Back Squat', e3: 'Dumbbell Single Arm Row', e4: 'Dumbbell Lateral Raise', e5: 'Bench Single Leg Hip Thrust', e6: 'Wide Grip Lat Pulldown',
-          e7: 'Running', e8: 'SuperBand Dislocates', e9: 'Table Top Half Arm Thoracic Rotation', e10: "Child's Pose" }[id],
+          e7: 'Running', e8: 'SuperBand Dislocates', e9: 'Table Top Half Arm Thoracic Rotation', e10: "Child's Pose", e11: 'Push Up' }[id],
         musculos_secundarios: id === 'e2' ? ['isquiotibiales', 'aductores', 'erectores'] : [] })),
       sesiones, series_log,
       actividades: [{ id: 'a1', cliente_id: 'c1', user_id: 'coach', fecha: hace(0), tipo: 'cinta', duracion_min: 25 }],
@@ -242,6 +244,7 @@ try {
   ok('sin la navegación de arriba del módulo', (await p.getByRole('button', { name: 'Resumen', exact: true }).count()) === 0);
   await foto(p, '04-entreno-hoy');
   ok('Hoy de entreno trae su cabecera ilustrada', await p.locator('[data-view="entrena"]').getByText('Tu entreno', { exact: true }).isVisible());
+  ok('…con kettlebell y mancuernas, entera en pantalla', await p.locator('[data-dibujo="pesas"]').evaluate(el => { const r = el.getBoundingClientRect(); return r.width > 100 && r.left >= 0 && r.right <= innerWidth; }));
   // Unidades: una preferencia para toda la app
   await p.getByRole('button', { name: /Unidades · kg/ }).first().click();
   await p.getByRole('radio', { name: 'Libras (lb)' }).click();
@@ -265,11 +268,31 @@ try {
     && (await p.getByLabel('Peso serie 1').first().getAttribute('placeholder')) === null
     && (await p.getByLabel('Repeticiones serie 1').first().inputValue()) === '');
   ok('lo recetado dice series y reps', (await p.getByText('3 series × 6-12 reps').count()) === 1);
-  ok('la última vez, serie por serie', (await p.getByText(/^Serie 1: 8 reps · 71,25 kg$/).count()) > 0);
+  ok('la última vez ya no va escrita en la tarjeta', (await p.getByText(/^Serie 1: /).count()) === 0);
+  ok('cada ejercicio de fuerza trae Ficha, Tu récord, Última vez y Nota', (await p.getByRole('button', { name: /Última vez/ }).count()) >= 3
+    && (await p.getByRole('button', { name: /Tu récord/ }).count()) >= 3);
+  ok('no hay que darle a iniciar: se dice mientras no hay nada marcado', await p.locator('[data-sin-iniciar]').isVisible());
+  ok('el botón de terminar se ve (azul, no gris sobre gris)', await p.locator('[data-terminar]').evaluate(b => {
+    const cs = getComputedStyle(b); return cs.borderTopColor === 'rgb(60, 123, 214)' && cs.color === 'rgb(30, 88, 166)';
+  }));
+  // Peso corporal: solo reps
+  const flex = p.locator('[data-ejercicio="Push Up"]');
+  ok('peso corporal (Push Up): pide reps y NO pide peso', (await flex.getByLabel(/Repeticiones serie/).count()) === 3 && (await flex.getByLabel(/Peso serie/).count()) === 0,
+    `${await flex.getByLabel(/Repeticiones serie/).count()} reps / ${await flex.getByLabel(/Peso serie/).count()} peso`);
+  ok('con carga (Bench Press) sí pide peso', (await p.getByLabel('Peso serie 1').count()) >= 2);
+  // Los botones caben en 375 px sin partirse en dos filas
+  ok('los botones de cada ejercicio van en una fila y sin cortar el texto', await p.evaluate(() => {
+    const filas = [...document.querySelectorAll('[data-botones]')];
+    return filas.length >= 5 && filas.every(f => {
+      const bs = [...f.children];
+      return new Set(bs.map(b => Math.round(b.getBoundingClientRect().top))).size === 1
+        && bs.every(b => { const t = b.querySelector('span'); return t.scrollWidth <= t.clientWidth + 1; });
+    });
+  }));
   ok('descansos: el que tiene dice sus segundos', (await p.getByText('Descanso 120 s entre series').count()) === 1);
   ok('descansos: el que no tiene lo dice', (await p.getByText('Sin descanso').count()) > 0);
   ok('unidades: la rutina abre en lb', (await p.getByText('Peso (lb) ⇄').count()) > 0);
-  ok('el avance cuenta ejercicios', (await p.getByText('0/6 ejercicios').count()) === 1);
+  ok('el avance cuenta ejercicios', (await p.getByText('0/7 ejercicios').count()) === 1);
   await espera(500);
   await foto(p, '04b-rutina-arriba');
   const scRut = () => p.evaluate(() => document.querySelector('[data-view="entrena"]').scrollTop);
@@ -282,7 +305,9 @@ try {
   await p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
   await espera(300);
   ok('el calentamiento se marca con un toque y se pliega', (await p.getByText('1/3', { exact: true }).count()) === 1);
-  ok('el avance sube por ejercicio terminado', (await p.getByText('1/6 ejercicios').count()) === 1);
+  ok('el avance sube por ejercicio terminado', (await p.getByText('1/7 ejercicios').count()) === 1);
+  ok('con la primera serie marcada ya no sale lo de iniciar', (await p.locator('[data-sin-iniciar]').count()) === 0);
+  ok('…y el botón de terminar queda relleno de azul', await p.locator('[data-terminar]').evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(60, 123, 214)'));
   // La ficha tiene scroll propio (el fallo del teléfono) y la silueta va en Características
   await p.getByRole('button', { name: 'Ficha' }).nth(3).click();
   await p.locator('[data-hoja-scroll]').waitFor({ timeout: 5000 });
@@ -303,6 +328,15 @@ try {
   await p.mouse.move(195, 700); await p.mouse.wheel(0, 600); await espera(300);
   ok('con la hoja abierta la rutina de atrás no se mueve', (await scRut()) === antesSc, `${antesSc} → ${await scRut()}`);
   await foto(p, '04d-tu-record');
+  ok('tu récord: el peso más alto, en la unidad elegida', (await p.getByText('El peso más alto que has levantado').count()) === 1
+    && /lb$/.test(await p.locator('[data-record]').textContent()), await p.locator('[data-record]').textContent());
+  await p.keyboard.press('Escape');
+  await espera(300);
+  await p.locator('[data-ejercicio="Barbell Bench Press"]').getByRole('button', { name: /Última vez/ }).click();
+  await p.locator('[data-ultima]').waitFor({ timeout: 5000 });
+  ok('última vez: serie por serie, pasado a lb', (await p.locator('[data-ultima]').getByText(/^Serie 1: 8 reps · 157 lb$/).count()) === 1,
+    await p.locator('[data-ultima]').textContent());
+  await foto(p, '04f-ultima-vez');
   await p.keyboard.press('Escape');
   await espera(300);
   await p.getByRole('button', { name: 'Hoy', exact: true }).first().click();
@@ -375,6 +409,28 @@ try {
   await foto(p, '08-comida-hoy');
   ok('Hoy de alimentación ya no saluda ni trae herramientas', (await p.getByText('Hola, Mauro').count()) === 0
     && (await p.getByText('Tus herramientas').count()) === 0);
+  ok('Hoy de alimentación: aguacate, huevos, pescado y pollo en la cabecera', await p.locator('[data-dibujo="comida"]').evaluate(el => { const r = el.getBoundingClientRect(); return r.width > 100 && r.left >= 0 && r.right <= innerWidth; }));
+  const pRec = await p.getByRole('button', { name: /^Recordatorios/ }).last().boundingBox();
+  const pOpc = await p.getByRole('button', { name: 'Opciones', exact: true }).boundingBox();
+  ok('«Opciones» va al lado de Recordatorios', pRec && pOpc && Math.abs(pRec.y - pOpc.y) < 4 && pOpc.x > pRec.x, JSON.stringify([pRec, pOpc]));
+  await p.getByRole('button', { name: 'Opciones', exact: true }).click();
+  await p.locator('[data-opciones-v2]').waitFor({ timeout: 5000 });
+  await espera(500);
+  await foto(p, '08b-opciones-comida');
+  ok('opciones: íconos de línea (svg de phosphor), sin degradados de colores', await p.evaluate(() => {
+    const caja = document.querySelector('[data-opciones-v2]');
+    const hoja = caja.closest('.rounded-t-3xl');
+    const bs = [...caja.querySelectorAll('button')];
+    return bs.length === 12 && bs.every(b => b.querySelector('svg') && !/gradient/.test(getComputedStyle(b.firstElementChild).backgroundImage))
+      && !/gradient/.test(getComputedStyle(hoja).backgroundImage);
+  }));
+  ok('opciones: sin oliva', await p.evaluate(() => {
+    const oliva = /rgb\((1[12]\d), (1[2-4]\d), (8\d|9\d)\)|rgb\(231, 235, 214\)/;
+    return ![...document.querySelectorAll('[data-opciones-v2] *')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor));
+  }));
+  await p.getByRole('button', { name: 'Cerrar' }).last().dispatchEvent('pointerdown');
+  await espera(800);   // tras cerrar, la app se traga el siguiente toque 0,6 s (el «click fantasma» de iOS)
+  ok('opciones: se cierra', !(await p.locator('[data-opciones-v2]').isVisible()));
   await p.getByRole('button', { name: 'Chat', exact: true }).click();
   await espera(900);
   await foto(p, '09-comida-chat');
