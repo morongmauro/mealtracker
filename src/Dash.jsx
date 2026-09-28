@@ -18,20 +18,21 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Bell, Mountains, WhatsappLogo, CaretRight, CaretLeft, CalendarBlank, Ruler } from '@phosphor-icons/react';
-import { HojaUnidades, useUnidades } from './Unidades.jsx';
+import { Bell, Mountains, WhatsappLogo, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText } from '@phosphor-icons/react';
+import { leerAprendizaje } from './aprendizaje.js';
 import { api, hoyLocal, sumarDias, aFecha } from './entrenoDatos.js';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
 import {
-  SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, DANGER,
+  SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT,
   FONT_DISPLAY, C_PROTEIN, C_CARBS, C_FAT, SECCION,
 } from './theme.js';
 
 const AZUL = SECCION.entreno.base;       // el entrenamiento, en todo el Dash
 const VERDE = SECCION.comida.base;       // la alimentación
 const AMBAR = '#C98A0B';                  // el cuerpo (peso), en el tono del Dash
+const NARANJA = SECCION.aprende.base;     // el aprendizaje
 const REJILLA = '#E7E3D9';
 const TARJETA = '#FFFFFF';
 const CREMA = '#F4F1EB';                  // pastillas y bloques internos
@@ -100,11 +101,23 @@ export function datosComida(history = {}, goals = {}, hoy = hoyLocal()) {
   ['kcal', 'p', 'c', 'g'].forEach(k => {
     cumplidos[k] = meta[k] ? siete.filter(d => d.kcal != null && CUMPLE[k](d[k], meta[k])).length : null;
   });
+  // Promedio de los días REGISTRADOS de esos 7: cuánto de la meta se cumple
+  // en promedio (en % y en números), y cuántos días quedaron cerca de la
+  // meta de calorías (±10 %) y cuántos no.
+  const conDato7 = siete.filter(d => d.kcal != null);
+  const prom = (k) => (conDato7.length ? conDato7.reduce((a, d) => a + (d[k] || 0), 0) / conDato7.length : null);
+  const promedio = {};
+  ['kcal', 'p', 'c', 'g'].forEach(k => {
+    const v = prom(k);
+    promedio[k] = v == null ? null : { valor: Math.round(v), pct: meta[k] ? Math.round((v / meta[k]) * 100) : null };
+  });
+  const cerca = meta.kcal ? conDato7.filter(d => CUMPLE.kcal(d.kcal, meta.kcal)).length : null;
   const semanaActual = semanas[semanas.length - 1];
   const estaSemana = ultimos.filter(d => d.fecha >= semanaActual.desde && d.p != null);
   return {
     ultimos, semanas, meta, metaK: meta.kcal, metaP: meta.p, enRango, conDato: conDato.length,
-    siete, cumplidos, registrados7: siete.filter(d => d.kcal != null).length,
+    siete, cumplidos, registrados7: conDato7.length, promedio, cerca,
+    lejos: cerca == null ? null : conDato7.length - cerca, sinRegistro: siete.length - conDato7.length,
     proteinaSemana: estaSemana.length ? Math.round(estaSemana.reduce((a, d) => a + d.p, 0) / estaSemana.length) : null,
   };
 }
@@ -204,17 +217,43 @@ function Anillo({ valor, total, color, tam = 118, grosor = 11, centro, pie }) {
   );
 }
 
-// Una barrita por macro: cuántos de los 7 días cumplió.
-function BarraMeta({ etiqueta, valor, total, color }) {
+// Una barrita por macro: cuánto de la meta se cumple en promedio, en % y en
+// números. Pasarse se ve: la barra llena y el % arriba de 100.
+function BarraPct({ etiqueta, pct, valor, meta, unidad = 'g', color }) {
   return (
     <div style={{ marginTop: 9 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: TEXT }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6, fontSize: 13.5, color: TEXT }}>
         <span style={{ fontWeight: 600 }}>{etiqueta}</span>
-        <span style={{ color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{valor == null ? '—' : `${valor}/${total}`}</span>
+        <span style={{ color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+          {pct == null ? '—' : <><b style={{ color: TEXT }}>{pct} %</b> · {fmt(valor)}/{fmt(meta)} {unidad}</>}
+        </span>
       </div>
       <div style={{ height: 6, borderRadius: 99, background: CREMA, marginTop: 5, overflow: 'hidden' }}>
-        <div style={{ width: `${valor == null ? 0 : (valor / total) * 100}%`, height: '100%', borderRadius: 99, background: color }} />
+        <div style={{ width: `${pct == null ? 0 : Math.min(100, pct)}%`, height: '100%', borderRadius: 99, background: color }} />
       </div>
+    </div>
+  );
+}
+
+// Una fila de la semana de entrenamiento: ícono, qué es y cuánto.
+function FilaSemana({ Icono, etiqueta, valor }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: `1px solid ${CREMA}` }}>
+      <span style={{ width: 28, height: 28, borderRadius: 99, background: SECCION.entreno.tint, color: SECCION.entreno.ink, display: 'grid', placeItems: 'center', flex: 'none' }}>
+        <Icono size={15} weight="bold" />
+      </span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: TEXT_MUTED, lineHeight: 1.25 }}>{etiqueta}</span>
+      <span style={{ fontSize: 15, fontWeight: 750, color: TEXT, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{valor}</span>
+    </div>
+  );
+}
+
+// Una pastillita de conteo: «5 días cerca de tu meta».
+function Conteo({ n, texto, color, fondo }) {
+  return (
+    <div style={{ flex: 1, minWidth: 0, background: fondo, borderRadius: 14, padding: '9px 11px' }}>
+      <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1, letterSpacing: '-0.02em' }}>{n ?? '—'}</div>
+      <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 3, lineHeight: 1.25 }}>{texto}</div>
     </div>
   );
 }
@@ -382,9 +421,9 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
   const [midiendo, setMidiendo] = useState(false);
   const [vista, setVista] = useState('inicio');
   const [sinRetos, setSinRetos] = useState(false);
-  const [unidadesAbiertas, setUnidadesAbiertas] = useState(false);
-  const unidades = useUnidades();
+  const [aprende, setAprende] = useState(undefined);   // undefined = cargando, null = sin datos
   const raizRef = useRef(null);
+  useEffect(() => { let vivo = true; if (name) leerAprendizaje(name).then(r => { if (vivo) setAprende(r); }); return () => { vivo = false; }; }, [name]);
 
   const cargar = async () => {
     setFalloEnt(false);
@@ -402,13 +441,15 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
   const semana = ent?.semanas?.[ent.semanas.length - 1];
   const nombre = String(name || '').split(' ')[0];
   const wa = WHATSAPP_COACH
-    ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent(`Hola coach, soy ${nombre || 'tu cliente'}. `)}`
+    ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`
     : null;
 
   if (vista === 'entreno') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <DetalleEntreno ent={ent} falloEnt={falloEnt} cargar={cargar} /></Marco>;
   if (vista === 'comida') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <DetalleComida comida={comida} alCalendario={acciones.calendarioComida} /></Marco>;
+  if (vista === 'aprende') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
+    <DetalleAprende aprende={aprende} alIr={alIr} /></Marco>;
 
   // Constancia del entrenamiento en las últimas 8 semanas (% de lo planeado).
   const ochoSemanas = (ent?.semanas || []).slice(-8).filter(w => w.planeados > 0)
@@ -423,20 +464,18 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
       <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 34, lineHeight: 1.08, margin: '4px 2px 0', color: TEXT, fontWeight: 800, letterSpacing: '-0.025em' }}>
         Hola{nombre ? `, ${nombre}` : ''}
       </h1>
-      <div style={{ fontSize: 15, color: TEXT_MUTED, margin: '6px 2px 0' }}>
-        {racha >= 2 ? `${racha} días seguidos registrando. Sigamos.` : 'Un día a la vez. Aquí ves cómo vas en todo.'}
+      <div style={{ fontSize: 15.5, color: TEXT_MUTED, margin: '6px 2px 0', lineHeight: 1.45 }}>
+        {animo(hoy)}{racha >= 2 ? ` Llevas ${racha} días seguidos registrando.` : ''}
       </div>
 
-      {/* Atajos */}
-      {/* Si no caben en una fila bajan a la siguiente: un botón cortado en
-          el borde parecía roto. */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
-        {acciones.recordatorios && <Pastilla icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
-        <Pastilla icono={Mountains} color="#D9744A" onClick={() => setSinRetos(true)}>Reto</Pastilla>
-        {wa && <Pastilla icono={WhatsappLogo} color="#25A35A" href={wa}>Escríbele a tu coach</Pastilla>}
-        <Pastilla icono={Ruler} color={AZUL} onClick={() => setUnidadesAbiertas(true)}>Unidades · {unidades.peso || 'kg'}</Pastilla>
+      {/* Atajos: en UNA sola línea y compactos, para no quitarle el
+          protagonismo a las gráficas. Si un teléfono muy angosto no los
+          alcanza, la fila se desliza de lado en vez de partirse. */}
+      <div data-atajos style={{ display: 'flex', flexWrap: 'nowrap', gap: 6, marginTop: 14, overflowX: 'auto', scrollbarWidth: 'none', padding: '2px 0 6px' }}>
+        {acciones.recordatorios && <Pastilla mini icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
+        <Pastilla mini icono={Mountains} color="#D9744A" onClick={() => setSinRetos(true)}>Reto</Pastilla>
+        {wa && <Pastilla mini icono={WhatsappLogo} color="#25A35A" href={wa}>Coach</Pastilla>}
       </div>
-      <HojaUnidades abierta={unidadesAbiertas} alCerrar={() => setUnidadesAbiertas(false)} />
 
       {/* Mensualidad pendiente (primeros 5 días de mora). */}
       {avisoPago}
@@ -454,11 +493,11 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
         </div>
       )}
 
-      <Seccion>Tu constancia</Seccion>
+      <Seccion>Tu performance semanal</Seccion>
 
       {/* Protagonista 1: entrenamiento */}
       {entrenoOn && (
-        <Tarjeta titulo="Entrenamiento" detalle="Entrenos hechos esta semana, contra los planeados.">
+        <Tarjeta titulo="Entrenamiento" detalle={ent?.semana ? `Esta semana · ${fechaCorta(ent.semana.desde)} al ${fechaCorta(ent.semana.hasta)}` : 'Esta semana'}>
           {falloEnt ? (
             <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>
               No pude traer tus datos. <button onClick={cargar} style={{ border: 'none', background: 'none', color: AZUL, fontWeight: 700, fontFamily: 'inherit', fontSize: 14, padding: 0, cursor: 'pointer' }}>Reintentar</button>
@@ -466,21 +505,20 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
           ) : (
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
               <Anillo valor={semana ? semana.hechos : 0} total={semana && semana.planeados ? semana.planeados : 0} color={AZUL}
-                centro={semana ? `${semana.hechos}${semana.planeados ? `/${semana.planeados}` : ''}` : '—'} pie="entrenos" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Últimas 8 semanas</div>
-                <div style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', marginTop: 1 }}>
-                  {promedio8 == null ? '—' : `${promedio8} %`}
-                  <span style={{ fontSize: 13, fontWeight: 500, color: TEXT_MUTED }}> de lo planeado</span>
-                </div>
+                centro={semana ? `${semana.hechos}${semana.planeados ? `/${semana.planeados}` : ''}` : '—'} pie="fuerza" />
+              <div data-semana-entreno style={{ flex: 1, minWidth: 0 }}>
+                <FilaSemana Icono={Heartbeat} etiqueta="Días de cardio" valor={ent?.semana ? ent.semana.cardio.dias : '—'} />
+                <FilaSemana Icono={CalendarCheck} etiqueta="Lo que te puso tu coach"
+                  valor={ent?.semana ? (ent.semana.coach.total ? `${ent.semana.coach.hechos}/${ent.semana.coach.total}` : '—') : '—'} />
+                <FilaSemana Icono={Sparkle} etiqueta="Actividad extra" valor={ent?.semana ? `${ent.semana.extra.dias} ${ent.semana.extra.dias === 1 ? 'día' : 'días'}` : '—'} />
               </div>
             </div>
           )}
-          {/* Misma forma que la tarjeta de alimentación: anillo y cifra
+          {/* Misma forma que la tarjeta de alimentación: anillo y cifras
               arriba, la línea de tendencia a lo ancho debajo. */}
           {!falloEnt && ochoSemanas.length >= 2 && (
             <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Tu constancia, semana a semana</div>
+              <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Fuerza, semana a semana{promedio8 != null ? ` · ${promedio8} % de lo planeado` : ''}</div>
               <Linea puntos={ochoSemanas} color={AZUL} alto={54}
                 textoValor={(p) => `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} />
             </div>
@@ -490,19 +528,30 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
       )}
 
       {/* Protagonista 2: alimentación */}
-      <Tarjeta titulo="Alimentación" detalle="Tus últimos 7 días: cuántos cumpliste tu meta.">
+      <Tarjeta titulo="Alimentación" detalle="Tu promedio de los últimos 7 días registrados, contra tu meta.">
         {!comida.metaK ? (
           <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>Tu coach aún no carga tu meta. Cuando lo haga, aquí ves cómo vas con ella.</div>
+        ) : !comida.registrados7 ? (
+          <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>Registra tu comida y aquí ves tu promedio contra tu meta.</div>
         ) : (
           <>
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
-              <Anillo valor={comida.cumplidos.kcal || 0} total={7} color={VERDE}
-                centro={`${comida.cumplidos.kcal ?? 0}/7`} pie="en calorías" />
+            <div data-comida-promedio style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
+              <Anillo valor={Math.min(100, comida.promedio.kcal.pct || 0)} total={100} color={VERDE}
+                centro={`${comida.promedio.kcal.pct} %`} pie="de tus calorías" />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <BarraMeta etiqueta="Proteína" valor={comida.cumplidos.p} total={7} color={C_PROTEIN} />
-                <BarraMeta etiqueta="Carbohidratos" valor={comida.cumplidos.c} total={7} color={C_CARBS} />
-                <BarraMeta etiqueta="Grasas" valor={comida.cumplidos.g} total={7} color={C_FAT} />
+                <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Calorías en promedio</div>
+                <div style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', marginTop: 1 }}>
+                  {fmt(comida.promedio.kcal.valor)}<span style={{ fontSize: 13, fontWeight: 500, color: TEXT_MUTED }}> de {fmt(comida.metaK)} kcal</span>
+                </div>
+                <BarraPct etiqueta="Proteína" pct={comida.promedio.p?.pct} valor={comida.promedio.p?.valor} meta={comida.meta.p} color={C_PROTEIN} />
+                <BarraPct etiqueta="Carbos" pct={comida.promedio.c?.pct} valor={comida.promedio.c?.valor} meta={comida.meta.c} color={C_CARBS} />
+                <BarraPct etiqueta="Grasas" pct={comida.promedio.g?.pct} valor={comida.promedio.g?.valor} meta={comida.meta.g} color={C_FAT} />
               </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <Conteo n={comida.cerca} texto={`${comida.cerca === 1 ? 'día' : 'días'} cerca de tu meta`} color={VERDE} fondo="rgba(70,150,90,0.10)" />
+              <Conteo n={comida.lejos} texto={`${comida.lejos === 1 ? 'día' : 'días'} lejos de tu meta`} color={TEXT} fondo={CREMA} />
+              {comida.sinRegistro > 0 && <Conteo n={comida.sinRegistro} texto="sin registrar" color={TEXT_LIGHT} fondo={CREMA} />}
             </div>
             {kcal14.length >= 2 && (
               <div style={{ marginTop: 14 }}>
@@ -517,11 +566,105 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
       </Tarjeta>
 
       {/* Cuerpo */}
-      <Seccion>Tu cuerpo</Seccion>
+      <Seccion>Composición corporal</Seccion>
       <Cuerpo medidas={ent?.medidas || []} cargando={entrenoOn && !ent && !falloEnt} alMedir={() => setMidiendo(true)} />
       <HojaMedida abierta={midiendo} nombre={name} alCerrar={() => setMidiendo(false)}
         alGuardar={() => { setMidiendo(false); cargar(); }} />
+
+      {/* Aprendizaje: cuánto ha visto del centro de recursos */}
+      <Seccion>Aprendizaje</Seccion>
+      <TarjetaAprende aprende={aprende} alProfundizar={() => setVista('aprende')} />
     </Marco>
+  );
+}
+
+// Debajo del «Hola»: una frase que empuja, distinta cada día.
+const ANIMOS = [
+  'Hoy es una gran oportunidad para cumplir lo tuyo y seguir progresando.',
+  'Cada entreno y cada comida de hoy suman. Vamos por el día.',
+  'Lo que hagas hoy es lo que te acerca a tu meta. ¡A por ello!',
+  'Tienes tu plan, tu comida y tu coach. Hoy toca avanzar.',
+  'Un buen día se construye con pequeñas decisiones. Empieza por la primera.',
+  'Tu constancia de hoy es tu resultado de mañana. ¡Vamos!',
+  'Hoy puedes hacerlo un poco mejor que ayer. Ese es el progreso.',
+];
+function animo(hoy) {
+  const n = Math.floor(Date.parse(hoy + 'T00:00:00Z') / 86400000);
+  return ANIMOS[((n % ANIMOS.length) + ANIMOS.length) % ANIMOS.length];
+}
+
+// ── Aprendizaje ───────────────────────────────────────────────────────────
+function TarjetaAprende({ aprende, alProfundizar }) {
+  return (
+    <Tarjeta titulo="Centro de aprendizaje" detalle="Lo que has leído, visto y escuchado del material de tu programa.">
+      {aprende === undefined ? (
+        <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Cargando…</div>
+      ) : !aprende ? (
+        <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>No pude traer tu avance ahora. Vuelve a intentarlo en un rato.</div>
+      ) : (
+        <div data-aprende style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
+          <Anillo valor={aprende.vistas} total={aprende.total} color={NARANJA} centro={`${aprende.pct} %`} pie="completado" />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {aprende.bloques.map(b => (
+              <div key={b.k} style={{ marginTop: 7 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: TEXT }}>
+                  <span style={{ fontWeight: 600 }}>{b.titulo}</span>
+                  <span style={{ color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{b.vistas}/{b.total}</span>
+                </div>
+                <div style={{ height: 6, borderRadius: 99, background: CREMA, marginTop: 4, overflow: 'hidden' }}>
+                  <div style={{ width: `${b.total ? (b.vistas / b.total) * 100 : 0}%`, height: '100%', borderRadius: 99, background: NARANJA }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <Profundiza color={NARANJA} onClick={alProfundizar}>Profundiza en tu aprendizaje</Profundiza>
+    </Tarjeta>
+  );
+}
+
+// Pieza por pieza: lo que ya vio, con su check, y lo que le falta.
+const SUB_APRENDE = { hub: 'onboarding', capsula: 'capsulas' };
+function DetalleAprende({ aprende, alIr }) {
+  const [abierto, setAbierto] = useState(null);
+  if (!aprende) return <><Titular>Tu aprendizaje</Titular><div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 16 }}>{aprende === undefined ? 'Cargando…' : 'No pude traer tu avance ahora.'}</div></>;
+  return (
+    <>
+      <Titular bajada={`Has completado ${aprende.vistas} de ${aprende.total} piezas del centro de aprendizaje.`}>Tu aprendizaje</Titular>
+      {aprende.bloques.map(b => {
+        const faltan = b.piezas.filter(x => !x.vista);
+        const ver = abierto === b.k;
+        return (
+          <Tarjeta key={b.k} titulo={b.titulo} detalle={b.bajada}
+            accion={<span style={{ fontSize: 15, fontWeight: 750, color: NARANJA, fontVariantNumeric: 'tabular-nums' }}>{b.vistas}/{b.total}</span>}>
+            <div style={{ height: 8, borderRadius: 99, background: CREMA, marginTop: 12, overflow: 'hidden' }}>
+              <div style={{ width: `${b.total ? (b.vistas / b.total) * 100 : 0}%`, height: '100%', borderRadius: 99, background: NARANJA }} />
+            </div>
+            <div style={{ marginTop: 10 }}>
+              {(ver ? b.piezas : b.piezas.slice(0, 4)).map(x => (
+                <div key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: `1px solid ${CREMA}` }}>
+                  {x.vista ? <CheckCircle size={19} weight="fill" color={NARANJA} /> : <Circle size={19} color={TEXT_LIGHT} />}
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: x.vista ? TEXT : TEXT_MUTED, lineHeight: 1.3 }}>{x.title}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              {b.piezas.length > 4 && (
+                <button onClick={() => setAbierto(ver ? null : b.k)} style={{ border: 'none', background: CREMA, borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>
+                  {ver ? 'Ver menos' : `Ver las ${b.piezas.length}`}
+                </button>
+              )}
+              {alIr && faltan.length > 0 && (
+                <button onClick={() => alIr('aprende', SUB_APRENDE[b.k] || 'home')} style={{ border: 'none', background: TEXT, borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <BookOpenText size={15} /> Seguir aprendiendo
+                </button>
+              )}
+            </div>
+          </Tarjeta>
+        );
+      })}
+    </>
   );
 }
 
@@ -722,7 +865,7 @@ function Cuerpo({ medidas, cargando, alMedir }) {
   const ultPeso = conPeso[conPeso.length - 1];
   const ultGrasa = conGrasa[conGrasa.length - 1];
   return (
-    <Tarjeta titulo="Cuerpo"
+    <Tarjeta titulo="Peso y % de grasa"
       accion={<button onClick={alMedir} style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: AMBAR, cursor: 'pointer' }}>+ Registrar</button>}>
       {cargando ? (
         <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Cargando…</div>

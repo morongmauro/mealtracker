@@ -42,6 +42,7 @@ import {
 import { alertarCoach } from './_alerta.js';
 import { whatsappCoach, textoNotaWhatsapp } from './_whatsapp.js';
 import { completarMusculos } from './_musculos.js';
+import { fechaCorte } from './_pagos.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
@@ -58,7 +59,8 @@ const sb = async (path, opts = {}) => {
 async function buscarCliente(nombre) {
   const buscado = normalizeName(nombre);
   if (!buscado) return null;
-  const cl = await sb('clientes?select=id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno');
+  const cl = await sb('clientes?select=id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno,dia_pago')
+    .catch(() => sb('clientes?select=id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno'));
   return (Array.isArray(cl) ? cl : []).find(c => normalizeName(c.nombre) === buscado) || null;
 }
 
@@ -807,6 +809,12 @@ async function verMes(cliente, ym, hoy) {
     (Array.isArray(otras) ? otras : []).forEach(r => { nombreRutina[r.id] = r.nombre; });
   }
 
+  // La fecha de corte de su mensualidad en este mes (el día de pago de su
+  // ficha; si el mes es más corto, el último día). Solo a clientes activos.
+  const diaPago = Number(cliente.dia_pago);
+  const corte = String(cliente.estado || 'activo').toLowerCase() === 'activo' && diaPago >= 1 && diaPago <= 31
+    ? fechaCorte(y, m, diaPago) : null;
+
   const dias = [];
   for (let d = new Date(Date.UTC(y, m - 1, 1)); d.getUTCMonth() === m - 1; d.setUTCDate(d.getUTCDate() + 1)) {
     const fecha = d.toISOString().slice(0, 10);
@@ -832,6 +840,9 @@ async function verMes(cliente, ym, hoy) {
       estado: s ? s.estado : null,          // completada | saltada | en_curso | null
       rpe: s ? s.rpe : (otra ? otra.rpe : null),
       hecho: otra ? { id: otra.rutina_id, nombre: nombreRutina[otra.rutina_id] || 'Entreno' } : null,
+      inicio_ciclo: !!fase?.fecha_inicio && fecha === fase.fecha_inicio,
+      fin_ciclo: !!fase?.fecha_inicio && !!fase?.semanas && fecha === finDeFase(fase),
+      corte_pago: fecha === corte,
       actividades: actividades.filter(a => a.fecha === fecha),
       // Medición, peso y fotos llevan si ya lo marcó (y el peso que puso).
       eventos: (eventosPorFecha[fecha] || []).map(ev => {
@@ -1326,7 +1337,13 @@ export const e1rm = (kg, reps) => {
 
 // Puro, para poder probarlo sin base: recibe las filas ya leídas.
 // `alias`: el nombre original en inglés, que la app muestra chico debajo.
-export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres = {}, alias = {}, actividades = [], medidas = [] }) {
+// Las actividades de cardio, por si la tabla del catálogo no está.
+const CARDIO_BASE = ['cinta', 'eliptica', 'remo_maquina', 'escaladora', 'bici_estatica', 'running', 'caminata', 'bici', 'ciclismo', 'spinning', 'trote', 'hiit', 'cuerda'];
+// Lo del calendario que el coach le pide HACER (no citas ni notas).
+const EVENTOS_QUE_SE_HACEN = ['actividad', 'medidas', 'peso', 'fotos', 'medicion'];
+
+export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres = {}, alias = {}, actividades = [], medidas = [],
+  eventosSemana = {}, registros = [], categorias = {} }) {
   const lunesHoy = lunesDe(hoy);
   const semanas = [];
   for (let i = DASH_SEMANAS - 1; i >= 0; i--) {
@@ -1383,8 +1400,37 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
     .slice(0, DASH_EJERCICIOS)
     .map(e => ({ ...e, inicio: e.puntos[0].e1rm, actual: e.puntos[e.puntos.length - 1].e1rm }));
 
+  // ── LA SEMANA EN CURSO, de lunes a domingo ──────────────────────────────
+  //   fuerza  — entrenos hechos contra los días de la fase
+  //   cardio  — días con cardio (caminadora, elíptica, running…)
+  //   coach   — lo que el coach le puso en el calendario y ya hizo
+  //   extra   — días con actividad que se puso él solo (deporte u otra),
+  //             sin contar el cardio, que va aparte
+  const actual = semanas[semanas.length - 1];
+  const deLaSemana = (f) => f >= actual.desde && f <= actual.hasta;
+  const esCardio = (tipo) => (categorias[tipo] ? categorias[tipo] === 'cardio' : CARDIO_BASE.includes(tipo));
+  const actSemana = actividades.filter(a => deLaSemana(a.fecha));
+  const diasCon = (lista) => new Set(lista.map(a => a.fecha)).size;
+  const hechoRegistro = new Set(registros.filter(r => r.estado === 'hecho').map(r => `${r.evento_id}:${r.fecha}`));
+  const hechoActividad = new Set(actSemana.filter(a => a.evento_id).map(a => `${a.evento_id}:${a.fecha}`));
+  let coachTotal = 0, coachHechos = 0;
+  Object.entries(eventosSemana).forEach(([fecha, evs]) => {
+    if (!deLaSemana(fecha)) return;
+    evs.filter(ev => EVENTOS_QUE_SE_HACEN.includes(ev.tipo)).forEach(ev => {
+      coachTotal++;
+      if (hechoRegistro.has(`${ev.id}:${fecha}`) || hechoActividad.has(`${ev.id}:${fecha}`)) coachHechos++;
+    });
+  });
+  const semana = {
+    desde: actual.desde, hasta: actual.hasta,
+    fuerza: { hechos: actual.hechos, planeados: actual.planeados },
+    cardio: { dias: diasCon(actSemana.filter(a => esCardio(a.tipo))) },
+    coach: { hechos: coachHechos, total: coachTotal },
+    extra: { dias: diasCon(actSemana.filter(a => !a.evento_id && a.tipo && !esCardio(a.tipo))) },
+  };
+
   return {
-    ok: true, hoy, semanas, ejercicios,
+    ok: true, hoy, semanas, ejercicios, semana,
     medidas: medidas.slice().sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
       .map(m => ({ fecha: m.fecha, peso: m.peso == null ? null : Number(m.peso), grasa_pct: m.grasa_pct == null ? null : Number(m.grasa_pct) })),
   };
@@ -1405,14 +1451,20 @@ async function todas(path) {
 
 async function verDash(cliente, hoy) {
   const desde = sumarDiasISO(lunesDe(hoy), -7 * (DASH_SEMANAS - 1));
-  const [fases, sesiones, actividades, medidas] = await Promise.all([
+  const lunes = lunesDe(hoy), domingo = sumarDiasISO(lunesDe(hoy), 6);
+  const [fases, sesiones, actividades, medidas, eventos, registros, catalogo] = await Promise.all([
     // Las fases pasadas también cuentan (la de hace dos meses ya está
     // finalizada): lo planeado de cada semana sale de la que la cubría.
     sb(`fases?select=id,fecha_inicio,semanas,dias_semana,visible_cliente,estado`
       + `&cliente_id=eq.${cliente.id}&estado=in.(activa,finalizada)&visible_cliente=is.true&order=orden.desc`).catch(() => []),
     todas(`sesiones?select=id,fecha,estado&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}&order=fecha.asc`),
-    sb(`actividades?select=fecha,duracion_min&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}`).catch(() => []),
+    sb(`actividades?select=fecha,duracion_min,tipo,evento_id&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}`)
+      .catch(() => sb(`actividades?select=fecha,duracion_min&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}`)).catch(() => []),
     sb(`mediciones_corporales?select=fecha,peso,grasa_pct&cliente_id=eq.${cliente.id}&order=fecha.desc&limit=24`).catch(() => []),
+    // Lo que el coach le puso en el calendario ESTA semana, y lo que ya marcó.
+    eventosDelCliente(cliente.id),
+    sb(`evento_registros?select=evento_id,fecha,estado&cliente_id=eq.${cliente.id}&fecha=gte.${lunes}&fecha=lte.${domingo}`).catch(() => []),
+    sb('actividades_catalogo?select=slug,categoria').catch(() => []),
   ]);
 
   // Las series solo de las sesiones hechas, en tandas: una lista de cientos
@@ -1433,9 +1485,14 @@ async function verDash(cliente, hoy) {
     (Array.isArray(ejs) ? ejs : []).forEach(e => { nombres[e.id] = e.nombre; alias[e.id] = e.alias || null; });
   }
 
+  const listaFases = Array.isArray(fases) ? fases : [];
+  const faseHoy = listaFases.find(x => x.fecha_inicio && x.fecha_inicio <= hoy && finDeFase(x) >= hoy) || null;
   return armarDash({
-    hoy, fases: Array.isArray(fases) ? fases : [], sesiones, series, nombres, alias,
+    hoy, fases: listaFases, sesiones, series, nombres, alias,
     actividades: Array.isArray(actividades) ? actividades : [],
     medidas: Array.isArray(medidas) ? medidas : [],
+    eventosSemana: expandirEventos(Array.isArray(eventos) ? eventos : [], faseHoy),
+    registros: Array.isArray(registros) ? registros : [],
+    categorias: Object.fromEntries((Array.isArray(catalogo) ? catalogo : []).map(c => [c.slug, c.categoria])),
   });
 }

@@ -275,6 +275,21 @@ await caso('nota al coach: no se cuelga de la rutina de otro cliente', async () 
   igual([r.ok, r.motivo], [false, 'no_es_suya'], 'rechazo');
 });
 
+await caso('el mes marca el inicio del ciclo y la fecha de corte de pago', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.clientes[0].dia_pago = 31;
+  const ini = sb.db.fases[0].fecha_inicio;
+  const r = await llamar(handler, { accion: 'mes', name: yo, ym: ini.slice(0, 7) });
+  const diaIni = r.dias.find(d => d.fecha === ini);
+  igual(diaIni.inicio_ciclo, true, 'inicio del ciclo');
+  igual(r.dias.filter(d => d.inicio_ciclo).length, 1, 'un solo inicio');
+  const ultimo = r.dias[r.dias.length - 1];
+  igual([ultimo.corte_pago, r.dias.filter(d => d.corte_pago).length], [true, 1], 'corte el 31 → último día del mes');
+  sb.db.clientes[0].estado = 'pausado';
+  const r2 = await llamar(handler, { accion: 'mes', name: yo, ym: ini.slice(0, 7) });
+  igual(r2.dias.some(d => d.corte_pago), false, 'sin corte si no está activo');
+});
+
 await caso('las fotos están apagadas', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   igual((await llamar(handler, { accion: 'fotos', name: yo })).motivo, 'desactivado', 'ver');

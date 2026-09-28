@@ -18,7 +18,8 @@ const FUENTES = `
   font-weight: 800; src: url(${figtreeUrl}) format('woff2-variations'); }
 html[data-v2] { --f-ui: 'ECM Sans'; --f-display: 'ECM Display';
   --ent-accent: #3C7BD6; --ent-accent-dark: #1E58A6; --ent-accent-light: #E4EDF9; --ent-accent-pastel: #D5E3F6;
-  --ent-ok: #3C7BD6; --ent-boton: #1F1F1F; }
+  --ent-ok: #3C7BD6; --ent-boton: #1F1F1F;
+  --rec-accent: #46965A; --rec-accent-dark: #2A6A3A; --rec-accent-pastel: rgba(70,150,90,0.15); --rec-accent-light: rgba(70,150,90,0.08); }
 `;
 
 // Enciende o apaga la visual nueva en el documento. Solo toca variables y un

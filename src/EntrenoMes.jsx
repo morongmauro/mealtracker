@@ -26,7 +26,7 @@
 // días con el nombre completo de cada cosa, que en una casilla no se lee.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle, CaretRight, ArrowsLeftRight, Plus } from '@phosphor-icons/react';
+import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, Moon } from '@phosphor-icons/react';
 import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha } from './entrenoDatos.js';
 import Actividad, { ChipActividad } from './EntrenoActividad.jsx';
 import { IconoEvento, REGISTRO } from './iconosEntreno.jsx';
@@ -48,7 +48,13 @@ function paleta(v2) {
 const DIA_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const diaCorto = (f) => { const d = aFecha(f); return `${DIA_SEMANA[d.getDay()]} ${d.getDate()}`; };
 
-export default function Mes({ nombre, alEntrenar }) {
+// Con la visual nueva el calendario es otro (MesV2, abajo): semana y mes,
+// estados «por hacer / hecho», ciclo, registros y corte de pago a la vista.
+export default function Mes(props) {
+  return v2Activa() ? <MesV2 {...props} /> : <MesClasico {...props} />;
+}
+
+function MesClasico({ nombre, alEntrenar }) {
   const v2 = v2Activa();
   const P = paleta(v2);
   const [ym, setYm] = useState(hoyLocal().slice(0, 7));
@@ -407,7 +413,7 @@ function FilaViene({ dia, P, hoy, alTocar }) {
 }
 
 // ── El día, al tocarlo ───────────────────────────────────────────────────
-function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar, alEntrenar, alRegistrar, alMover, alCambio }) {
+function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar, alEntrenar, alRegistrar, alMover, alCambio, fase = null }) {
   const [eligiendo, setEligiendo] = useState(false);
   useEffect(() => { setEligiendo(false); }, [dia && dia.fecha]);
   if (!dia) return null;
@@ -425,6 +431,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
           Semana {dia.semana} de tu plan
         </div>
       )}
+      {v2 && <AvisosDia dia={dia} fase={fase} P={P} />}
 
       {dia.rutina ? (
         <Card onClick={() => alEntrenar(dia.rutina.id)} style={{ padding: 15 }}>
@@ -432,10 +439,12 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 800, fontSize: v2 ? 17 : 15.5 }}>{dia.rutina.nombre}</div>
               <div style={{ fontSize: t.chico, color: TEXT_LIGHT }}>
-                {dia.movida ? 'La moviste a este día' : 'Tu rutina de fuerza'}
+                {dia.movida ? 'La moviste a este día' : v2 ? 'Tu rutina de fuerza · toca para entrenar' : 'Tu rutina de fuerza'}
               </div>
             </div>
-            {dia.estado && <Marca estado={dia.estado} style={{ fontSize: 17 }} />}
+            {v2
+              ? <EstadoChip hecha={dia.estado === 'completada'} P={P} />
+              : dia.estado && <Marca estado={dia.estado} style={{ fontSize: 17 }} />}
           </div>
           {dia.rpe && (
             <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 7 }}>
@@ -633,4 +642,430 @@ const botonSuave = {
 const botonPrimario = {
   height: 42, padding: '0 16px', borderRadius: 12, border: 'none', background: TEXT, color: '#fff',
   cursor: 'pointer', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700,
+};
+
+// ═════════════════════════════════════════════════════════════════════════
+// CALENDARIO · visual nueva
+//
+// Dos vistas, y se recuerda la última:
+//   · SEMANA — un renglón por día con todo escrito entero: la rutina, lo que
+//     hay que registrar, lo del coach, lo que hizo. Es la que se lee.
+//   · MES    — la foto del mes. Casillas altas para que el nombre quepa en
+//     dos o tres líneas; lo demás, ícono.
+//
+// Los estados son dos, sin juzgar: POR HACER (borde azul) y HECHO (relleno
+// azul). Un día que pasó sin entrenar no dice «la saltaste»: sigue por hacer,
+// que se puede recuperar.
+//
+// Arrastrar: se mantiene el dedo sobre la rutina y se suelta en otro día.
+// Va con eventos TÁCTILES y no con pointer: en el iPhone el scroll le roba el
+// gesto al pointer a mitad de camino (llega un pointercancel) y el arrastre
+// moría. Con touchmove no-pasivo, una vez que arrancó, el scroll se bloquea.
+// ═════════════════════════════════════════════════════════════════════════
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const DIAS_V2 = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const AMBAR_PAGO = '#B7791F';
+const lunesDeLocal = (f) => sumarDias(f, -((aFecha(f).getDay() + 6) % 7));
+const cortaFecha = (f) => { const d = aFecha(f); return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}`; };
+const unicos = (xs) => [...new Set(xs)];
+const leerVista = () => { try { return localStorage.getItem('entreno:cal:vista') || 'semana'; } catch (e) { return 'semana'; } };
+
+function useArrastre(puedeMover, alSoltar) {
+  const [arrastre, setEstado] = useState(null);
+  const ref = useRef(null);
+  const presion = useRef(null);
+  const recien = useRef(0);   // para que el «click» que sigue a soltar no abra el día
+  const set = (v) => { ref.current = v; setEstado(v); };
+  const soltarRef = useRef(alSoltar);
+  soltarRef.current = alSoltar;
+
+  const empezar = (d, x, y) => {
+    presion.current = { x, y, t: setTimeout(() => {
+      presion.current = { activo: true };
+      if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
+      set({ desde: d.fecha, nombre: d.rutina.nombre, x, y, sobre: null });
+    }, 380) };
+  };
+  const alTocar = (d) => (e) => { if (puedeMover(d) && e.touches && e.touches[0]) empezar(d, e.touches[0].clientX, e.touches[0].clientY); };
+  const alRaton = (d) => (e) => { if (e.pointerType === 'mouse' && puedeMover(d)) empezar(d, e.clientX, e.clientY); };
+
+  useEffect(() => {
+    const sobreDe = (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      const c = el && el.closest && el.closest('[data-fecha]');
+      return c ? c.getAttribute('data-fecha') : null;
+    };
+    const mover = (x, y, e) => {
+      const p = presion.current;
+      if (!p) return;
+      if (!p.activo) {
+        // Se movió antes de tiempo: era scroll, no arrastre.
+        if (Math.abs(x - p.x) > 8 || Math.abs(y - p.y) > 8) { clearTimeout(p.t); presion.current = null; }
+        return;
+      }
+      if (e.cancelable) e.preventDefault();
+      set({ ...ref.current, x, y, sobre: sobreDe(x, y) });
+    };
+    const fin = () => {
+      const p = presion.current;
+      presion.current = null;
+      if (p && !p.activo) { clearTimeout(p.t); return; }
+      const a = ref.current;
+      if (!a) return;
+      set(null);
+      recien.current = Date.now();
+      if (a.sobre && a.sobre !== a.desde) soltarRef.current(a.desde, a.sobre);
+    };
+    const tm = (e) => { const t = e.touches && e.touches[0]; if (t) mover(t.clientX, t.clientY, e); };
+    const pm = (e) => { if (e.pointerType === 'mouse') mover(e.clientX, e.clientY, e); };
+    const pu = (e) => { if (e.pointerType === 'mouse') fin(); };
+    window.addEventListener('touchmove', tm, { passive: false });
+    window.addEventListener('touchend', fin);
+    window.addEventListener('touchcancel', fin);
+    window.addEventListener('pointermove', pm);
+    window.addEventListener('pointerup', pu);
+    return () => {
+      window.removeEventListener('touchmove', tm);
+      window.removeEventListener('touchend', fin);
+      window.removeEventListener('touchcancel', fin);
+      window.removeEventListener('pointermove', pm);
+      window.removeEventListener('pointerup', pu);
+    };
+  }, []);
+  const acabaDeSoltar = () => Date.now() - recien.current < 450;
+  return { arrastre, alTocar, alRaton, acabaDeSoltar };
+}
+
+// La rutina: POR HACER con borde azul, HECHA rellena. `lineas`: cuántas
+// líneas deja al nombre (en el mes, tres; en la semana, sin límite).
+function ChipRutina({ nombre, hecha, movida, P, lineas, grande, arrastre }) {
+  return (
+    <div {...(arrastre || {})} onContextMenu={e => e.preventDefault()} data-chip={hecha ? 'hecha' : 'pendiente'} style={{
+      display: grande ? 'flex' : lineas ? '-webkit-box' : 'block', alignItems: 'center', gap: 6,
+      WebkitLineClamp: lineas || undefined, WebkitBoxOrient: lineas ? 'vertical' : undefined,
+      overflow: 'hidden', wordBreak: 'normal', overflowWrap: 'break-word', letterSpacing: grande ? 'normal' : '-0.02em',
+      background: hecha ? P.base : '#FFFFFF', color: hecha ? '#fff' : P.ink,
+      border: `1.5px ${movida && !hecha ? 'dashed' : 'solid'} ${P.base}`,
+      borderRadius: grande ? 12 : 6, padding: grande ? '8px 11px' : '3px 2px',
+      fontSize: grande ? 15 : 10, fontWeight: 750, lineHeight: 1.18, textAlign: 'left',
+      WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', cursor: 'grab',
+    }}>
+      {grande && hecha && <Check size={16} weight="bold" style={{ flex: 'none' }} />}
+      {grande ? <span style={{ flex: 1, minWidth: 0 }}>{nombre}</span> : nombre}
+    </div>
+  );
+}
+
+function EstadoChip({ hecha, P }) {
+  return (
+    <span style={{
+      flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, height: 26, padding: '0 10px', borderRadius: 999,
+      fontSize: 12.5, fontWeight: 750, background: hecha ? P.base : '#FFFFFF', color: hecha ? '#fff' : P.ink,
+      border: `1.5px solid ${P.base}`,
+    }}>{hecha ? <><Check size={13} weight="bold" /> Hecho</> : 'Por hacer'}</span>
+  );
+}
+
+// Lo especial del día, arriba en la hoja: inicio o fin de ciclo, corte de pago.
+function AvisosDia({ dia, fase, P }) {
+  const items = [];
+  if (dia.inicio_ciclo) items.push({ k: 'ini', Icono: Flag, color: P.ink, fondo: P.tint, texto: `Empieza ${fase?.nombre || 'tu ciclo'}` });
+  if (dia.fin_ciclo) items.push({ k: 'fin', Icono: FlagCheckered, color: P.ink, fondo: P.tint, texto: `Último día de ${fase?.nombre || 'tu ciclo'}` });
+  if (dia.corte_pago) items.push({ k: 'pago', Icono: CurrencyCircleDollar, color: AMBAR_PAGO, fondo: '#FBF1DC', texto: 'Fecha de corte de tu mensualidad' });
+  if (!items.length) return null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+      {items.map(({ k, Icono, color, fondo, texto }) => (
+        <div key={k} data-aviso-dia={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 12, background: fondo, color, fontSize: 14.5, fontWeight: 700 }}>
+          <Icono size={18} weight="fill" /> {texto}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MesV2({ nombre, alEntrenar }) {
+  const P = paleta(true);
+  const hoy = hoyLocal();
+  const [vista, setVistaEstado] = useState(leerVista);
+  const setVista = (v) => { setVistaEstado(v); try { localStorage.setItem('entreno:cal:vista', v); } catch (e) {} };
+  const [lunes, setLunes] = useState(() => lunesDeLocal(hoy));
+  const [ym, setYm] = useState(hoy.slice(0, 7));
+  const [cache, setCache] = useState({});
+  const [error, setError] = useState(null);
+  const [abierto, setAbierto] = useState(null);
+  const [registrando, setRegistrando] = useState(null);
+  const [catalogo, setCatalogo] = useState(null);
+  const [aviso, setAviso] = useState(null);
+
+  const cargar = async (mes) => {
+    setError(null);
+    const r = await api.mes(nombre, mes);
+    if (!r.ok) { setError(r.motivo || 'error'); return; }
+    setCache(c => ({ ...c, [mes]: r }));
+  };
+  const necesarios = vista === 'semana' ? unicos([lunes.slice(0, 7), sumarDias(lunes, 6).slice(0, 7)]) : [ym];
+  useEffect(() => { necesarios.forEach(m => { if (!cache[m]) cargar(m); }); /* eslint-disable-next-line */ }, [necesarios.join(), nombre]);
+  useEffect(() => { api.catalogo(nombre).then(r => setCatalogo(r.ok && r.catalogo?.length ? r.catalogo : CATALOGO_MINIMO)); }, [nombre]);
+  useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 3200); return () => clearTimeout(t); }, [aviso]);
+
+  const porFecha = useMemo(() => {
+    const out = {};
+    Object.values(cache).forEach(c => (c.dias || []).forEach(d => { out[d.fecha] = d; }));
+    return out;
+  }, [cache]);
+  const fase = (cache[necesarios[0]] || {}).fase || null;
+  const listo = necesarios.every(m => cache[m]);
+
+  const puedeMover = (d) => !!(d && d.rutina && !d.hecho && d.estado !== 'completada' && d.fecha >= hoy);
+  const moverRutina = async (desde, hasta) => {
+    const d = porFecha[desde];
+    if (!d || !d.rutina || desde === hasta) return;
+    const r = await api.mover(nombre, { desde, hasta, rutina_id: d.rutina.id });
+    if (!r.ok) {
+      setAviso({
+        pasado: 'Solo se mueven días de hoy en adelante.',
+        fuera_de_fase: 'Ese día está fuera de tu ciclo.',
+        ya_entrenada: 'Ese día ya tiene un entreno hecho.',
+        sin_tabla: 'Mover días aún no está disponible. Avísale a tu coach.',
+      }[r.motivo] || 'No se pudo mover. Inténtalo otra vez.');
+      return;
+    }
+    setAviso(r.intercambio ? `${r.movida.nombre} ↔ ${r.intercambio.nombre}` : `${r.movida.nombre} → ${fechaLarga(hasta)}`);
+    setAbierto(null);
+    unicos([desde.slice(0, 7), hasta.slice(0, 7)]).forEach(cargar);
+  };
+  const { arrastre, alTocar, alRaton, acabaDeSoltar } = useArrastre(puedeMover, moverRutina);
+  const abrir = (f) => { if (!arrastre && !acabaDeSoltar()) setAbierto(f); };
+  const arrastrable = (d) => (puedeMover(d) ? { onTouchStart: alTocar(d), onPointerDown: alRaton(d) } : null);
+
+  const [y, m] = ym.split('-').map(Number);
+  const cambiarMes = (delta) => { const d = new Date(y, m - 1 + delta, 1); setYm(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); };
+  const semana = Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i));
+
+  const celdas = useMemo(() => {
+    const c = cache[ym];
+    if (!c || !c.dias.length) return [];
+    const huecos = (aFecha(c.dias[0].fecha).getDay() + 6) % 7;
+    return [...Array.from({ length: huecos }, () => null), ...c.dias];
+  }, [cache, ym]);
+
+  const segmento = (id, txt) => (
+    <button key={id} role="tab" aria-selected={vista === id} onClick={() => setVista(id)} style={{
+      flex: 1, height: 34, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+      fontSize: 14, fontWeight: 750, background: vista === id ? '#FFFFFF' : 'transparent', color: vista === id ? P.ink : TEXT_MUTED,
+      boxShadow: vista === id ? '0 1px 2px rgba(40,40,30,0.08), 0 3px 10px rgba(40,40,30,0.06)' : 'none',
+    }}>{txt}</button>
+  );
+
+  return (
+    <div data-calendario-v2 style={{ touchAction: arrastre ? 'none' : undefined }}>
+      <Titulo>Tu calendario</Titulo>
+      <div role="tablist" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, background: '#E9E6DE', margin: '10px 0 12px' }}>
+        {segmento('semana', 'Semana')}{segmento('mes', 'Mes')}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 0 10px' }}>
+        <button onClick={() => (vista === 'semana' ? setLunes(sumarDias(lunes, -7)) : cambiarMes(-1))} aria-label="Anterior" style={flechaV2}><CaretLeft size={18} weight="bold" /></button>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontWeight: 800, fontSize: 17, color: TEXT, textTransform: vista === 'mes' ? 'capitalize' : 'none' }}>
+            {vista === 'semana' ? `${cortaFecha(semana[0])} – ${cortaFecha(semana[6])}` : `${MESES[m - 1]} ${y}`}
+          </div>
+          {((vista === 'semana' && lunes !== lunesDeLocal(hoy)) || (vista === 'mes' && ym !== hoy.slice(0, 7))) && (
+            <button onClick={() => { setLunes(lunesDeLocal(hoy)); setYm(hoy.slice(0, 7)); }} style={{ border: 'none', background: 'none', color: P.ink, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Volver a hoy</button>
+          )}
+        </div>
+        <button onClick={() => (vista === 'semana' ? setLunes(sumarDias(lunes, 7)) : cambiarMes(1))} aria-label="Siguiente" style={flechaV2}><CaretRight size={18} weight="bold" /></button>
+      </div>
+
+      {fase && (
+        <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginBottom: 10, textAlign: 'center' }}>
+          <b style={{ color: TEXT }}>{fase.nombre}</b> · del {cortaFecha(fase.desde)} al {cortaFecha(fase.hasta)}
+        </div>
+      )}
+
+      {error && <Fallo motivo={error} alReintentar={() => necesarios.forEach(cargar)} />}
+      {!listo && !error && <Cargando />}
+
+      {listo && vista === 'semana' && (
+        <div data-vista="semana" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {semana.map((f, i) => {
+            const d = porFecha[f];
+            return <FilaDiaV2 key={f} fecha={f} etiqueta={DIAS_V2[i]} dia={d} P={P} hoy={hoy} fase={fase}
+              sobre={arrastre && arrastre.sobre === f && arrastre.desde !== f} origen={arrastre && arrastre.desde === f}
+              arrastrable={arrastrable(d)} alTocar={() => d && abrir(f)} />;
+          })}
+        </div>
+      )}
+
+      {listo && vista === 'mes' && (
+        <div data-vista="mes">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 4, marginBottom: 6 }}>
+            {DIAS_V2.map(d => (
+              <div key={d} style={{ fontSize: 12, fontWeight: 800, color: P.base, textAlign: 'center', letterSpacing: '.02em' }}>{d}</div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 3 }}>
+            {celdas.map((d, i) => d
+              ? <CeldaV2 key={d.fecha} dia={d} P={P} hoy={hoy}
+                  sobre={arrastre && arrastre.sobre === d.fecha && arrastre.desde !== d.fecha}
+                  origen={arrastre && arrastre.desde === d.fecha}
+                  arrastrable={arrastrable(d)} alTocar={() => abrir(d.fecha)} />
+              : <div key={`h${i}`} />)}
+          </div>
+        </div>
+      )}
+
+      {listo && <LeyendaV2 P={P} />}
+      {listo && (
+        <div style={{ fontSize: 13, color: TEXT_LIGHT, marginTop: 6, lineHeight: 1.45 }}>
+          Toca un día para ver todo lo que tiene. Para cambiar una rutina de día, mantén el dedo sobre ella y arrástrala.
+        </div>
+      )}
+
+      {arrastre && (
+        <div aria-hidden data-fantasma style={{
+          position: 'fixed', left: arrastre.x, top: arrastre.y, transform: 'translate(-50%, -130%)', zIndex: 90,
+          pointerEvents: 'none', background: P.base, color: '#fff', borderRadius: 12, padding: '8px 12px',
+          fontSize: 14, fontWeight: 800, boxShadow: '0 10px 26px rgba(30,40,60,0.3)', whiteSpace: 'nowrap',
+        }}>{arrastre.nombre}</div>
+      )}
+      {aviso && (
+        <div role="status" style={{
+          position: 'fixed', left: '50%', bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', transform: 'translateX(-50%)',
+          zIndex: 70, background: TEXT, color: '#fff', borderRadius: 999, padding: '10px 16px',
+          fontSize: 14, fontWeight: 650, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', maxWidth: '88vw', textAlign: 'center',
+        }}>{aviso}</div>
+      )}
+
+      <HojaDia
+        dia={abierto ? porFecha[abierto] : null} P={P} v2 fase={fase}
+        nombre={nombre} catalogo={catalogo} porFecha={porFecha}
+        puedeMover={puedeMover(abierto ? porFecha[abierto] : null)}
+        alCerrar={() => setAbierto(null)}
+        alEntrenar={(id) => { setAbierto(null); alEntrenar(id); }}
+        alRegistrar={(fecha) => { setAbierto(null); setRegistrando(fecha); }}
+        alMover={(hasta) => moverRutina(abierto, hasta)}
+        alCambio={() => unicos([abierto.slice(0, 7)]).forEach(cargar)}
+      />
+      <Actividad abierta={!!registrando} nombre={nombre} fecha={registrando}
+        alCerrar={() => setRegistrando(null)}
+        alGuardar={() => { const f = registrando; setRegistrando(null); cargar(f.slice(0, 7)); }} />
+    </div>
+  );
+}
+
+// ── Semana: un renglón por día, todo escrito ────────────────────────────
+function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastrable, alTocar }) {
+  const esHoy = fecha === hoy;
+  const nada = !dia || (!dia.rutina && !dia.hecho && !dia.eventos.length && !dia.actividades.length && !dia.inicio_ciclo && !dia.corte_pago && !dia.fin_ciclo);
+  return (
+    <div data-fecha={fecha} role="button" tabIndex={0} onClick={alTocar} style={{
+      display: 'flex', gap: 12, padding: '11px 12px', borderRadius: 18, cursor: dia ? 'pointer' : 'default',
+      background: sobre ? P.tint : esHoy ? '#F4F8FE' : SURFACE, opacity: origen ? 0.5 : 1,
+      border: sobre ? `2px dashed ${P.base}` : esHoy ? `1.5px solid ${P.base}` : '1.5px solid transparent',
+      boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)',
+    }}>
+      <div style={{ width: 42, flex: 'none', textAlign: 'center' }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: P.base, textTransform: 'uppercase', letterSpacing: '.04em' }}>{esHoy ? 'Hoy' : etiqueta}</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, lineHeight: 1.1 }}>{Number(fecha.slice(8))}</div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' }}>
+        {dia?.inicio_ciclo && <Etiqueta Icono={Flag} color={P.ink} fondo={P.tint}>Empieza {fase?.nombre || 'tu ciclo'}</Etiqueta>}
+        {dia?.fin_ciclo && <Etiqueta Icono={FlagCheckered} color={P.ink} fondo={P.tint}>Último día de {fase?.nombre || 'tu ciclo'}</Etiqueta>}
+        {dia?.rutina && (
+          <ChipRutina grande nombre={dia.rutina.nombre} hecha={dia.estado === 'completada'} movida={dia.movida} P={P} arrastre={arrastrable} />
+        )}
+        {dia?.hecho && <ChipRutina grande nombre={`${dia.hecho.nombre}${dia.rutina ? ' (en su lugar)' : ''}`} hecha P={P} />}
+        {dia?.eventos.filter(e => e.registra).map(e => (
+          <Etiqueta key={e.id} Icono={null} tipo={e.tipo} color={MORADO} fondo={e.hecho ? '#EEE9FB' : '#FFFFFF'} borde={e.hecho ? 'transparent' : '#CFC3EF'} hecho={e.hecho}>
+            {REGISTRO[e.tipo]?.nombre || e.titulo}
+          </Etiqueta>
+        ))}
+        {dia?.eventos.filter(e => !e.registra).map(e => (
+          <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: TEXT_MUTED }}>
+            <IconoEvento tipo={e.tipo} size={16} /> <span style={{ minWidth: 0 }}>{e.hora ? `${String(e.hora).slice(0, 5)} · ` : ''}{e.titulo}</span>
+          </div>
+        ))}
+        {dia?.actividades.map(a => (
+          <div key={a.id} style={{ fontSize: 13.5, color: TEXT_MUTED, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 99, background: P.base }} /> {a.titulo || a.tipo}{a.duracion_min ? ` · ${a.duracion_min} min` : ''}
+          </div>
+        ))}
+        {dia?.corte_pago && <Etiqueta Icono={CurrencyCircleDollar} color={AMBAR_PAGO} fondo="#FBF1DC">Corte de tu mensualidad</Etiqueta>}
+        {nada && <div style={{ fontSize: 14, color: TEXT_LIGHT, display: 'flex', alignItems: 'center', gap: 6 }}><Moon size={15} /> {dia ? 'Descanso' : '—'}</div>}
+      </div>
+    </div>
+  );
+}
+
+function Etiqueta({ Icono, tipo, color, fondo, borde = 'transparent', hecho, children }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 10, background: fondo, color, border: `1.5px solid ${borde}`, fontSize: 14, fontWeight: 700, alignSelf: 'flex-start', maxWidth: '100%' }}>
+      {Icono ? <Icono size={16} weight="fill" /> : <IconoEvento tipo={tipo} size={16} />}
+      <span style={{ minWidth: 0 }}>{children}</span>
+      {hecho && <CheckCircle size={16} weight="fill" />}
+    </div>
+  );
+}
+
+// ── Mes: casillas altas ─────────────────────────────────────────────────
+function CeldaV2({ dia, P, hoy, sobre, origen, arrastrable, alTocar }) {
+  const esHoy = dia.fecha === hoy;
+  const registros = dia.eventos.filter(e => e.registra);
+  const otros = dia.eventos.filter(e => !e.registra);
+  return (
+    <button data-fecha={dia.fecha} onClick={alTocar} style={{
+      minHeight: 92, borderRadius: 12, padding: '5px 2px 4px', cursor: 'pointer', fontFamily: 'inherit',
+      display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3, overflow: 'hidden', minWidth: 0,
+      background: sobre ? P.tint : esHoy ? '#F4F8FE' : SURFACE, opacity: origen ? 0.45 : 1,
+      border: sobre ? `2px dashed ${P.base}` : esHoy ? `1.5px solid ${P.base}` : `1px solid ${BORDER_SOFT}`,
+      WebkitUserSelect: 'none', userSelect: 'none',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px' }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: esHoy ? P.ink : TEXT_MUTED }}>{Number(dia.fecha.slice(8))}</span>
+        <span style={{ display: 'flex', gap: 1 }}>
+          {dia.inicio_ciclo && <Flag size={12} weight="fill" color={P.base} aria-label="Inicio de ciclo" />}
+          {dia.corte_pago && <CurrencyCircleDollar size={13} weight="fill" color={AMBAR_PAGO} aria-label="Corte de pago" />}
+        </span>
+      </div>
+      {dia.rutina && <ChipRutina nombre={dia.rutina.nombre} hecha={dia.estado === 'completada'} movida={dia.movida} P={P} lineas={3} arrastre={arrastrable} />}
+      {!dia.rutina && dia.hecho && <ChipRutina nombre={dia.hecho.nombre} hecha P={P} lineas={3} />}
+      {registros.length > 0 && (
+        <div style={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {registros.slice(0, 3).map(e => (
+            <span key={e.id} style={{ width: 20, height: 20, borderRadius: 99, display: 'grid', placeItems: 'center', background: e.hecho ? MORADO : '#EEE9FB', color: e.hecho ? '#fff' : MORADO }}>
+              <IconoEvento tipo={e.tipo} size={12} />
+            </span>
+          ))}
+        </div>
+      )}
+      {(dia.actividades.length > 0 || otros.length > 0) && (
+        <div style={{ display: 'flex', gap: 3, marginTop: 'auto', justifyContent: 'center' }}>
+          {dia.actividades.slice(0, 3).map((a, i) => <span key={`a${i}`} style={{ width: 5, height: 5, borderRadius: 99, background: P.base }} />)}
+          {otros.slice(0, 2).map((e, i) => <span key={`e${i}`} style={{ width: 5, height: 5, borderRadius: 99, background: TEXT_LIGHT }} />)}
+        </div>
+      )}
+    </button>
+  );
+}
+
+function LeyendaV2({ P }) {
+  const item = (muestra, texto) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{muestra}{texto}</span>;
+  const caja = (relleno) => <span style={{ width: 16, height: 11, borderRadius: 4, background: relleno ? P.base : '#fff', border: `1.5px solid ${P.base}` }} />;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', fontSize: 13, color: TEXT_MUTED, marginTop: 14 }}>
+      {item(caja(false), 'Por hacer')}
+      {item(caja(true), 'Hecho')}
+      {item(<span style={{ width: 16, height: 16, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center' }}><IconoEvento tipo="peso" size={10} /></span>, 'Registrar peso, medidas o fotos')}
+      {item(<Flag size={14} weight="fill" color={P.base} />, 'Inicio de ciclo')}
+      {item(<CurrencyCircleDollar size={15} weight="fill" color={AMBAR_PAGO} />, 'Corte de pago')}
+      {item(<span style={{ width: 6, height: 6, borderRadius: 99, background: P.base }} />, 'Cardio o deporte')}
+    </div>
+  );
+}
+
+const flechaV2 = {
+  width: 38, height: 38, borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer',
+  display: 'grid', placeItems: 'center', boxShadow: '0 1px 2px rgba(40,40,30,0.06), 0 4px 12px rgba(40,40,30,0.06)',
 };

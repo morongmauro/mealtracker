@@ -4888,8 +4888,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     ] }] : []),
     { id: 'comida', subs: [
       { id: 'hoy', label: 'Hoy' }, { id: 'chat', label: 'Chat' }, { id: 'recetas', label: 'Recetas' },
-      // Las herramientas de comida ya no van en la barra: son la píldora
-      // «Opciones» de Hoy, al lado de Recordatorios.
+      // El calendario de comidas: qué comió cada día y qué tan cerca quedó
+      // de su meta (mes, semana y día). Las herramientas de comida no van en
+      // la barra: son la píldora «Opciones» de Hoy.
+      // Solo el ícono: con cuatro opciones el texto no cabe en un teléfono.
+      { id: 'calendario', label: '', icono: CalendarV2, aria: 'Calendario' },
     ] },
     ...(learningUrl ? [{ id: 'aprende', subs: [
       { id: 'home', label: 'Inicio' }, { id: 'onboarding', label: 'Onboarding' }, { id: 'capsulas', label: 'Cápsulas' },
@@ -4908,6 +4911,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     }
     if (sec === 'comida') {
       if (op === 'herr') { openActionsSheet(); return; }
+      if (op === 'calendario') {
+        if (!goals) { avisarMetaPendiente(); return; }
+        setPerfVentana('mes'); setShowPerformanceModal(true);
+        return;
+      }
       if (op === 'recetas') {
         if (!goals) { avisarMetaPendiente(); return; }
         if (showRecetario) { setRecetarioScrollSig(x => x + 1); return; }
@@ -6050,7 +6058,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   { L: Pin, P: PushPinV2, label: 'Guardar día como favorito', grad: 'linear-gradient(135deg, #74AECB, #3F81A6)',
                     onClick: () => { haptic(8); closeActionsSheet(); requestAnimationFrame(() => requestAnimationFrame(() => saveDayAsFavorite())); } },
                 ] },
-                { titulo: 'Tu progreso', items: [
+                { titulo: 'Tu progreso', soloClasica: true, items: [
                   { L: BarChart3, P: ChartBarV2, label: 'Mis gráficas', grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`,
                     onClick: () => { haptic(8); setPerfVentana('semana'); setShowPerformanceModal(true); } },
                   { L: FileText, P: FileTextV2, label: 'Resumen del día', grad: 'linear-gradient(135deg, #7C8CA3, #4E5D74)',
@@ -6061,7 +6069,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     onClick: () => { haptic(8); goToChat(); closeActionsSheet(); inputApiRef.current?.setText('Ayúdame con proporciones, tengo: '); } },
                 ] },
                 { titulo: 'Ajustes', items: [
-                  { L: Bell, P: BellV2, label: pend > 0 ? `Mis recordatorios (${pend})` : 'Mis recordatorios', grad: 'linear-gradient(135deg, #C4A353, #8A6D16)',
+                  { L: Bell, P: BellV2, soloClasica: true, label: pend > 0 ? `Mis recordatorios (${pend})` : 'Mis recordatorios', grad: 'linear-gradient(135deg, #C4A353, #8A6D16)',
                     onClick: () => { haptic(8); setActiveModal('reminders'); } },
                   { L: RotateCcw, P: ReiniciarV2, label: 'Reiniciar día', grad: 'linear-gradient(135deg, #9A9A8F, #62625A)',
                     onClick: () => { haptic(8); setActiveModal('reset'); } },
@@ -6069,9 +6077,17 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               ];
               // Visual nueva: tarjetas blancas con el ícono de LÍNEA en un
               // círculo verde de la sección, como el resto de la marca.
+              // Visual nueva: fuera lo que ya vive en otro lado — las gráficas y
+              // el mes están en el Dash y en «Calendario»; el resumen del día,
+              // en Hoy; los recordatorios, en su píldora. «Ayuda con
+              // proporciones» se queda, en el día a día.
+              const gruposV2 = [
+                { titulo: 'Día a día', items: [...grupos[0].items, grupos[1].items.find(it => it.label === 'Ayuda con proporciones')] },
+                { titulo: 'Ajustes', items: grupos[2].items.filter(it => !it.soloClasica) },
+              ];
               if (v2) return (
                 <div data-opciones-v2 style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {grupos.map(g => (
+                  {gruposV2.map(g => (
                     <div key={g.titulo}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, margin: '0 4px 8px' }}>{g.titulo}</div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -8793,14 +8809,16 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
   // El oliva de la marca NO entra aquí: es color de marca y de confirmación,
   // no de dato. Un tablero con el color de la marca hace que todo grite lo
   // mismo y nada destaque.
-  const EN_META = '#00704E', POR_ENCIMA = '#CE806B', POR_DEBAJO = '#1C62A9';
+  // Visual nueva: el verde es el de Alimentación, como en el resto de la app.
+  const v2p = v2Activa();
+  const EN_META = v2p ? '#2A6A3A' : '#00704E', POR_ENCIMA = '#CE806B', POR_DEBAJO = '#1C62A9';
   const EN_META_T = '#E3F0EA', POR_ENCIMA_T = '#F8E8E1', POR_DEBAJO_T = '#E3EBF5';
   const ENCIMA_TINTA = '#A4523A';
   // Las barras van TODAS del mismo color. El que dice si te pasaste o te
   // quedaste corto es la línea punteada de la meta, no el color: pintar cada
   // barra según su valor gasta el color en repetir lo que la altura ya dice, y
   // deja la pantalla con cuatro colores discutiendo entre ellos.
-  const DATO = '#0E8060';   // paso claro del verde meta: el relleno no debe
+  const DATO = v2p ? '#46965A' : '#0E8060';   // paso claro del verde meta: el relleno no debe
                             // pesar más que la línea que lo cruza
   const NEUTRO = '#DAD6CB';   // sin registro
 
@@ -9404,7 +9422,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-xl">
-      <ModalHeader accent={TEXT_MUTED} label="Mis gráficas" title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
+      <ModalHeader accent={v2p ? SECCION.comida.ink : TEXT_MUTED} label={v2p ? 'Calendario de comidas' : 'Mis gráficas'} title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
 
       {/* UNA sola sección, tres ventanas de tiempo. Antes esto vivía partido
           en dos botones —"Mi semana" y "Calendario"— que contaban lo mismo

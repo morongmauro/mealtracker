@@ -1,13 +1,28 @@
 import React, { useState, useMemo, useRef, useEffect, startTransition } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, Info, Clock, AlertTriangle, X, ShoppingCart, Copy } from 'lucide-react';
 
 // Paleta, sombras y tipografía compartidas — ver src/theme.js.
 import {
-  ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
+  ACCENT as ACCENT_BASE, ACCENT_DARK as ACCENT_DARK_BASE, ACCENT_PASTEL as ACCENT_PASTEL_BASE, ACCENT_LIGHT as ACCENT_LIGHT_BASE,
   C_PROTEIN, C_CARBS, C_FAT,
   BG, BG_STAINS, SURFACE, SURFACE_2, BORDER, TEXT, TEXT_MUTED, TEXT_LIGHT,
   FONT_UI, FONT_DISPLAY, SHADOW_CARD,
 } from './theme.js';
+
+import { v2Activa } from './v2.js';
+import { SlidersHorizontal, CalendarBlank, MagnifyingGlass } from '@phosphor-icons/react';
+
+// El acento del Recetario sale de variables CSS: con la visual nueva
+// (html[data-v2], ver v2-fuentes.js) es el verde de Alimentación; con la de
+// siempre, el oliva de la marca. Solo se usan dentro de `style`, que sí
+// entiende var() (un atributo SVG no).
+const ACCENT = `var(--rec-accent, ${ACCENT_BASE})`;
+const ACCENT_DARK = `var(--rec-accent-dark, ${ACCENT_DARK_BASE})`;
+const ACCENT_PASTEL = `var(--rec-accent-pastel, ${ACCENT_PASTEL_BASE})`;
+const ACCENT_LIGHT = `var(--rec-accent-light, ${ACCENT_LIGHT_BASE})`;
+const CREMA_V2 = '#F4F1EB';
+const SOMBRA_V2 = '0 1px 2px rgba(40,40,30,0.04), 0 8px 22px rgba(60,60,40,0.07)';
 
 const haptic = (p = 10) => { if (typeof window !== 'undefined' && window.navigator?.vibrate) window.navigator.vibrate(p); };
 const r0 = (n) => Math.round(Number(n) || 0);
@@ -1681,8 +1696,8 @@ function MacroDonut({ totals, size = 92 }) {
     <div className="relative" style={{ width: size, height: size, flexShrink: 0 }}>
       {/* Trazo fino + sombra en el trazo: mismo lenguaje premium que los
           aros de la vista Hoy, con los colores de macros de la paleta. */}
-      <svg width={size} height={size} viewBox="0 0 36 36" style={{ filter: 'drop-shadow(0 3px 6px rgba(60,66,42,0.18))', overflow: 'visible' }}>
-        <circle cx="18" cy="18" r={r} fill="none" stroke="rgba(31,31,31,0.07)" strokeWidth="3" />
+      <svg width={size} height={size} viewBox="0 0 36 36" style={{ filter: v2Activa() ? 'none' : 'drop-shadow(0 3px 6px rgba(60,66,42,0.18))', overflow: 'visible' }}>
+        <circle cx="18" cy="18" r={r} fill="none" stroke={v2Activa() ? CREMA_V2 : 'rgba(31,31,31,0.07)'} strokeWidth="3" />
         {seg(pc, C_PROTEIN)}{seg(cc, C_CARBS)}{seg(gc, C_FAT)}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -1711,6 +1726,19 @@ const cardStyle = { background: '#FFFFFF', border: '1px solid rgba(255,255,255,0
 // Sin bordes sólidos: tarjeta blanca con sombra suave y brillo interior
 // (mismo lenguaje que las burbujas del chat del MealTracker).
 const plainCard = { background: '#FFFFFF', boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(60,70,50,0.09), 0 2px 6px rgba(60,70,50,0.05)' };
+// Visual nueva: los dos botones de arriba, las opciones de la búsqueda
+// avanzada y los filtros activos.
+const botonV2 = {
+  display: 'flex', alignItems: 'center', gap: 9, padding: '10px 11px', minHeight: 58, borderRadius: 18, border: 'none',
+  background: '#FFFFFF', boxShadow: SOMBRA_V2, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: TEXT,
+  textAlign: 'left', lineHeight: 1.25, cursor: 'pointer',
+};
+const iconoV2 = { width: 34, height: 34, borderRadius: 999, flex: 'none', display: 'grid', placeItems: 'center', background: ACCENT_PASTEL, color: ACCENT_DARK };
+const chipActivoV2 = { height: 30, padding: '0 12px', borderRadius: 999, border: 'none', background: ACCENT_PASTEL, color: ACCENT_DARK, fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer' };
+const opcionV2 = (on) => ({
+  height: 46, borderRadius: 14, border: on ? `1.5px solid ${ACCENT}` : '1.5px solid transparent', background: on ? ACCENT_PASTEL : '#FFFFFF',
+  color: on ? ACCENT_DARK : TEXT, fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, cursor: 'pointer',
+});
 
 // Semáforo del día: qué tan cerca quedó de la meta.
 // Entrada para el tracker a partir de una receta ya escalada. La comparten el
@@ -1859,7 +1887,11 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const [manualK, setManualK] = useState(null);
   const [registered, setRegistered] = useState(false);
   // ── Sección Menús ──
-  const [vista, setVista] = useState('inicio');         // inicio | recetas | menus
+  // Visual nueva: se entra directo a las recetas; «Organiza tu día o tu
+  // semana» y «Búsqueda avanzada» son botones arriba, no una portada aparte.
+  const v2 = v2Activa();
+  const [vista, setVista] = useState(v2 ? 'recetas' : 'inicio');   // inicio | recetas | menus
+  const [avanzada, setAvanzada] = useState(false);
   const [mercado, setMercado] = useState(null);         // { titulo, dias } de la lista de compras
   const [copiado, setCopiado] = useState(false);
   const [menuTab, setMenuTab] = useState('dia');        // dia | semana | mios
@@ -2691,6 +2723,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           máscaras ni difuminados que la diluyan por arriba o por abajo.
           La imagen va en public/recetario-hero.png (o .jpg); si no está,
           queda el degradado oliva y nada se rompe. */}
+      {v2 ? (
+        <div className="relative max-w-xl mx-auto px-4" style={{ zIndex: 3, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 70px)' }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: TEXT_MUTED }}>{vista === 'menus' ? 'Organiza tu día o tu semana' : `${RECIPES.length} recetas ajustadas a tu meta`}</div>
+          <h1 style={{ margin: '2px 0 0', fontFamily: FONT_DISPLAY, fontSize: 32, fontWeight: 800, letterSpacing: '-0.025em', color: TEXT, lineHeight: 1.08 }}>Recetario</h1>
+        </div>
+      ) : (
       <div className="relative w-full overflow-hidden" style={{
         zIndex: 1,
         height: 'calc(env(safe-area-inset-top, 0px) + 236px)',
@@ -2725,13 +2763,14 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           <div style={{ width: 44, height: 2, borderRadius: 2, background: ACCENT_PASTEL, marginTop: 8, opacity: 0.9 }} />
         </div>
       </div>
+      )}
 
       {/* Atrás — botón circular flotante, el mismo de las subpantallas de
           Aprendizaje y del detalle de receta. Antes era un enlace de texto
           suelto que además empujaba el contenido hacia abajo. */}
-      {vista !== 'inicio' && (
+      {(v2 ? vista === 'menus' : vista !== 'inicio') && (
         <button
-          onClick={() => { haptic(6); setVista('inicio'); }}
+          onClick={() => { haptic(6); setVista(v2 ? 'recetas' : 'inicio'); }}
           aria-label="Volver al recetario"
           className="fixed rounded-full flex items-center justify-center active:scale-90 transition"
           style={{
@@ -2751,12 +2790,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         // meta (o lo primero de cada subvista) queda encajada en el hero en
         // vez de flotar separada por aire.
         zIndex: 3,
-        marginTop: '-26px',
+        marginTop: v2 ? '14px' : '-26px',
         paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))',
       }}>
         {/* Meta nutricional — píldora compacta de UNA fila (la meta la
             administra el coach desde el CRM; aquí solo se consulta). */}
-        <div className="rounded-full px-4 py-2.5 flex items-center gap-2" style={cardStyle}>
+        <div className="rounded-full px-4 py-2.5 flex items-center gap-2" style={v2 ? { background: '#FFFFFF', boxShadow: SOMBRA_V2 } : cardStyle}>
           <span className="text-[9.5px] font-bold flex-shrink-0" style={{ color: ACCENT }}>Tu meta de hoy</span>
           <div className="ml-auto flex items-center gap-2.5 num text-[12px] font-bold whitespace-nowrap">
             <span style={{ color: TEXT }}>{g.kcal}<span className="text-[9px] font-semibold" style={{ color: TEXT_LIGHT }}> kcal</span></span>
@@ -2806,8 +2845,20 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {vista === 'menus' && vistaMenus}
 
         {vista === 'recetas' && (<>
+        {v2 && (
+          <div data-recetario-botones style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <button onClick={() => { haptic(8); setVista('menus'); }} style={botonV2}>
+              <span style={iconoV2}><CalendarBlank size={19} /></span>
+              <span style={{ minWidth: 0 }}>Organiza tu día o semana</span>
+            </button>
+            <button onClick={() => { haptic(8); setAvanzada(true); }} style={botonV2}>
+              <span style={iconoV2}><SlidersHorizontal size={19} /></span>
+              <span style={{ minWidth: 0 }}>Búsqueda avanzada{(filterSlot !== 'todas' || sort !== 'reco') ? ' · activa' : ''}</span>
+            </button>
+          </div>
+        )}
         {/* Buscador */}
-        <div className="flex items-center gap-2 rounded-2xl px-3.5 py-2.5" style={plainCard}>
+        <div className="flex items-center gap-2 rounded-2xl px-3.5 py-2.5" style={v2 ? { background: '#FFFFFF', boxShadow: SOMBRA_V2 } : plainCard}>
           <Search size={16} style={{ color: TEXT_LIGHT, flexShrink: 0 }} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar receta o ingrediente…" className="flex-1 bg-transparent outline-none text-[14px]" style={{ color: TEXT }} />
           {query && <button onClick={() => setQuery('')} className="p-0.5 rounded-full active:scale-90"><X size={15} style={{ color: TEXT_LIGHT }} /></button>}
@@ -2822,7 +2873,13 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             demasiados rectángulos ovalados y confundían. La opción activa
             va en grafito con subrayado oliva; el resto en gris. Todo cabe
             sin scroll horizontal hasta en un iPhone SE. */}
-        {!searching && (
+        {v2 && (filterSlot !== 'todas' || sort !== 'reco') && !searching && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {filterSlot !== 'todas' && <button onClick={() => setFilterSlot('todas')} style={chipActivoV2}>{SLOT_FILTERS.find(f => f.key === filterSlot)?.label} ✕</button>}
+            {sort !== 'reco' && <button onClick={() => setSort('reco')} style={chipActivoV2}>{{ rapidos: 'Rápidas', economicos: 'Económicas', proteina: 'Alta proteína' }[sort]} ✕</button>}
+          </div>
+        )}
+        {!searching && !v2 && (
           <>
             <div>
               <div className="text-[11px] font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Filtrar según tipo de comida</div>
@@ -2877,8 +2934,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               })}
               onClick={(e) => e.preventDefault()}
               className="w-full text-left rounded-[20px] p-3 active:scale-[0.99] transition flex items-center gap-3"
-              style={{ ...cardStyle, touchAction: 'manipulation' }}>
-              <div className="flex items-center justify-center rounded-xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24, flexShrink: 0 }}>{recipe.icon}</div>
+              style={v2 ? { background: '#FFFFFF', borderRadius: 20, boxShadow: SOMBRA_V2, touchAction: 'manipulation' } : { ...cardStyle, touchAction: 'manipulation' }}>
+              <div className="flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: v2 ? 999 : 12, background: v2 ? ACCENT_PASTEL : SURFACE_2, fontSize: 24, flexShrink: 0 }}>{recipe.icon}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{recipe.name}</div>
                 <div className="flex items-center gap-2 text-[10.5px] mt-1" style={{ color: TEXT_MUTED }}>
@@ -2921,6 +2978,41 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           <div style={{ fontSize: '9.5px', color: TEXT_LIGHT, opacity: 0.75, margin: '12px 0 0' }}>© 2026 · Acceso personal e intransferible</div>
         </div>
       </div>
+      {/* Por portal: dentro del Recetario (z-38) la barra de secciones
+          (z-45) le tapaba los botones de abajo. */}
+      {avanzada && createPortal(
+        <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ background: 'rgba(31,31,31,0.38)' }} onClick={() => setAvanzada(false)}>
+          <div data-busqueda-avanzada onClick={(e) => e.stopPropagation()} className="w-full max-w-xl" style={{
+            background: '#F6F4EE', borderRadius: '28px 28px 0 0', padding: '10px 18px calc(24px + env(safe-area-inset-bottom, 0px))',
+            boxShadow: '0 -8px 40px rgba(0,0,0,0.16)', maxHeight: '82vh', overflowY: 'auto',
+          }}>
+            <div style={{ width: 40, height: 4, borderRadius: 99, background: '#DDD8CC', margin: '0 auto 12px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 650, color: ACCENT_DARK }}>Recetario</div>
+                <div style={{ fontSize: 21, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>Búsqueda avanzada</div>
+              </div>
+              <button onClick={() => setAvanzada(false)} aria-label="Cerrar" style={{ width: 38, height: 38, borderRadius: 99, border: 'none', background: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><X size={16} style={{ color: TEXT_MUTED }} /></button>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, margin: '16px 2px 8px' }}>Tipo de comida</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {SLOT_FILTERS.map(f => (
+                <button key={f.key} onClick={() => { haptic(4); setFilterSlot(f.key); }} aria-pressed={filterSlot === f.key} style={opcionV2(filterSlot === f.key)}>{f.label}</button>
+              ))}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, margin: '16px 2px 8px' }}>Ordenar según</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {[{ k: 'reco', l: 'Recomendadas' }, { k: 'rapidos', l: 'Rápidas' }, { k: 'economicos', l: 'Económicas' }, { k: 'proteina', l: 'Alta proteína' }].map(o => (
+                <button key={o.k} onClick={() => { haptic(4); setSort(o.k); }} aria-pressed={sort === o.k} style={opcionV2(sort === o.k)}>{o.l}</button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <button onClick={() => { setFilterSlot('todas'); setSort('reco'); }} style={{ flex: 1, height: 48, borderRadius: 16, border: 'none', background: '#fff', fontFamily: 'inherit', fontSize: 15, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>Limpiar</button>
+              <button onClick={() => setAvanzada(false)} style={{ flex: 2, height: 48, borderRadius: 16, border: 'none', background: TEXT, fontFamily: 'inherit', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>Ver {list.length} recetas</button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
       {filtrosOverlay}
       {mercadoOverlay}
       {armadorOverlay}

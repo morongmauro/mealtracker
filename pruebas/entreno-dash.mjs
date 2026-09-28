@@ -115,5 +115,34 @@ await caso('la API junta todo: series de más de 1.000, libras, solo lo suyo', a
   igual(r.medidas.map(m => m.peso), [83, 81.2], 'medidas de la más vieja a la más nueva');
 });
 
+await caso('la semana en curso: fuerza, cardio, lo del coach y la actividad extra', async () => {
+  const d = (n) => sumarDiasISO(lunes, n);
+  const r = armarDash({
+    hoy: d(4),
+    fases: [{ id: 'f1', fecha_inicio: hace(3), semanas: 8, dias_semana: ['L', 'X', 'V'] }],
+    sesiones: [{ id: 's1', fecha: d(0), estado: 'completada' }, { id: 's2', fecha: d(2), estado: 'completada' }, { id: 's3', fecha: d(1), estado: 'saltada' }],
+    actividades: [
+      { fecha: d(0), tipo: 'cinta', duracion_min: 15 },                 // cardio (remate)
+      { fecha: d(1), tipo: 'caminata', duracion_min: 30 },              // cardio
+      { fecha: d(1), tipo: 'eliptica', duracion_min: 10 },              // mismo día: un día de cardio
+      { fecha: d(3), tipo: 'natacion', duracion_min: 40, evento_id: 'ev1' },   // la que puso el coach
+      { fecha: d(4), tipo: 'futbol', duracion_min: 60 },                // extra, se la puso él
+      { fecha: hace(1), tipo: 'futbol', duracion_min: 60 },             // otra semana: no cuenta
+    ],
+    eventosSemana: {
+      [d(3)]: [{ id: 'ev1', tipo: 'actividad' }, { id: 'ev9', tipo: 'nota' }],
+      [d(4)]: [{ id: 'ev2', tipo: 'peso' }],
+      [d(6)]: [{ id: 'ev3', tipo: 'fotos' }],
+      [hace(1, 2)]: [{ id: 'ev4', tipo: 'peso' }],
+    },
+    registros: [{ evento_id: 'ev2', fecha: d(4), estado: 'hecho' }],
+    categorias: { cinta: 'cardio', caminata: 'cardio', eliptica: 'cardio', natacion: 'deporte', futbol: 'deporte' },
+  });
+  igual(r.semana.fuerza, { hechos: 2, planeados: 3 }, 'fuerza');
+  igual(r.semana.cardio, { dias: 2 }, 'días con cardio');
+  igual(r.semana.coach, { hechos: 2, total: 3 }, 'lo del coach (la nota no cuenta; lo de otra semana tampoco)');
+  igual(r.semana.extra, { dias: 1 }, 'actividad extra');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

@@ -34,6 +34,9 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
     if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [seccion, sub]);
 
+  // Con cuatro opciones abiertas (Alimentación), las secciones cerradas se
+  // quedan solo en su ícono para dejarles sitio.
+  const apretada = ((secciones.find(x => x.id === seccion) || {}).subs || []).length >= 4;
   return (
     <div ref={barRef} className="fixed left-0 right-0 bottom-0" style={{
       zIndex: 45, pointerEvents: 'none',
@@ -74,13 +77,13 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                   // Se encogen antes que el grupo abierto: en un teléfono
                   // angosto ceden espacio a las opciones, que son las que
                   // tienen texto.
-                  flex: '1 1 48px', minWidth: 47, height: 48, borderRadius: 999, border: 'none',
+                  flex: apretada ? '1 1 40px' : '1 1 48px', minWidth: apretada ? 38 : 47, height: 48, borderRadius: 999, border: 'none',
                   background: 'transparent', color: '#6A6860', position: 'relative',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   gap: 1, cursor: 'pointer', padding: 0, fontFamily: 'inherit',
                 }}>
                 <Icono size={21} weight="regular" />
-                <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{CORTO[s.id]}</span>
+                {!apretada && <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{CORTO[s.id]}</span>}
                 {punto[s.id] && (
                   <span aria-hidden="true" style={{
                     position: 'absolute', top: 5, right: '50%', marginRight: -15, width: 8, height: 8, borderRadius: 99,

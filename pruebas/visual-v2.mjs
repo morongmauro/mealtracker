@@ -56,7 +56,7 @@ function base() {
   return crearSupabaseFalso({
     porDefecto: { sesiones: { estado: 'en_curso' }, series_log: { completada: true } },
     tablas: {
-      clientes: [{ id: 'c1', user_id: 'coach', nombre: 'Mauro Morón', estado: 'activo' },
+      clientes: [{ id: 'c1', user_id: 'coach', nombre: 'Mauro Morón', estado: 'activo', dia_pago: Number(hoy.slice(8)) },
                  { id: 'c2', user_id: 'coach', nombre: 'Ana Pérez', estado: 'activo' }],
       fases: [{ id: 'f1', cliente_id: 'c1', nombre: 'Fase 2 · Fuerza', estado: 'activa', visible_cliente: true, orden: 2,
         fecha_inicio: hace(9), semanas: 12, dias_semana: ['L', 'X', 'V'], objetivo: 'Subir la fuerza en los básicos.' }],
@@ -166,6 +166,12 @@ async function abrir(nombre, { ancho = 390, pago = null } = {}) {
   // Miniaturas de YouTube: sin red en las pruebas, un gris con el id.
   await p.route('https://i.ytimg.com/**', r => r.fulfill({ status: 200, contentType: 'image/svg+xml',
     body: `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="#8B8F80"/><text x="160" y="96" font-size="18" text-anchor="middle" fill="#fff" font-family="sans-serif">video</text></svg>` }));
+  // El avance del centro de aprendizaje (su Supabase): cinco piezas vistas.
+  await p.route('https://kkoayfexdhpazufmyeoj.supabase.co/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+    { client_name: nombre, source: 'hub', section_key: 'programa' }, { client_name: nombre, source: 'hub', section_key: 'app' },
+    { client_name: nombre, source: 'capsula', section_key: 'cap:ent-01-capacidades' }, { client_name: nombre, source: 'guia', section_key: 'como-leer-esta-guia' },
+    { client_name: nombre, source: 'podcast', section_key: 'pod:compra-cafe' },
+  ]) }));
   await p.route('https://centro.test/**', r => r.fulfill({ status: 200, contentType: 'text/html',
     body: `<body style="margin:0;font:600 20px sans-serif;background:#F4F1EA;color:#333;display:grid;place-items:center;height:100vh"><div id=t>Centro · ${'${location.search}'}</div><script>document.getElementById('t').textContent='Centro de aprendizaje · '+(new URLSearchParams(location.search).get('mt_go')||'inicio');addEventListener('message',e=>{if(e.data&&e.data.tipo==='em-ir')document.getElementById('t').textContent='Centro de aprendizaje · '+e.data.a})</script></body>` }));
   await p.goto('http://localhost:5198/');
@@ -176,19 +182,31 @@ const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.
 try {
   // ── Mauro ──
   const { p, ctx, errores, db } = await abrir('Mauro Morón');
-  await p.getByText('Tu constancia', { exact: true }).waitFor({ timeout: 25000 });
+  await p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });
   ok('apertura fría: cae en el Dash', true);
-  await p.getByText('Últimas 8 semanas').waitFor({ timeout: 10000 });
+  await p.getByText('Días de cardio').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
   const dash = p.locator('[data-view="dash"]');
   ok('atajos de recordatorios y reto', (await dash.getByRole('button', { name: /Recordatorios/ }).count()) === 1
     && (await dash.getByRole('button', { name: 'Reto' }).count()) === 1);
   await dash.getByRole('button', { name: 'Reto' }).click();
-  const wa = await dash.getByRole('link', { name: /Escríbele a tu coach/ }).getAttribute('href');
-  ok('los tres atajos se ven enteros', await dash.evaluate(() => [...document.querySelectorAll('[data-view="dash"] a, [data-view="dash"] button')]
-    .filter(b => /Recordatorios|Reto|Escríbele/.test(b.textContent)).every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; })));
-  ok('WhatsApp: el botón abre tu chat', /^https:\/\/wa\.me\/573008527043\?text=Hola%20coach/.test(wa || ''), wa);
+  const wa = await dash.getByRole('link', { name: /Coach/ }).getAttribute('href');
+  ok('los tres atajos van en UNA línea y enteros', await dash.evaluate(() => {
+    const bs = [...document.querySelectorAll('[data-atajos] > *')];
+    const tops = new Set(bs.map(b => Math.round(b.getBoundingClientRect().top)));
+    return bs.length === 3 && tops.size === 1 && bs.every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; });
+  }));
+  ok('WhatsApp: el mensaje por defecto es «Hola Mau!»', wa === 'https://wa.me/573008527043?text=Hola%20Mau!', wa);
+  ok('Unidades ya no está en el Dash', (await dash.getByRole('button', { name: /Unidades/ }).count()) === 0);
+  ok('saludo que empuja (no «un día a la vez»)', (await dash.getByText(/Un día a la vez/).count()) === 0);
+  ok('secciones: performance semanal, composición corporal y aprendizaje', (await dash.getByText('Composición corporal', { exact: true }).count()) === 1
+    && (await dash.getByText('Aprendizaje', { exact: true }).count()) === 1 && (await dash.getByText('Tu cuerpo', { exact: true }).count()) === 0);
+  ok('entreno de la semana: fuerza, cardio, lo del coach y lo extra', /Días de cardio/.test(await dash.locator('[data-semana-entreno]').innerText())
+    && /Lo que te puso tu coach/.test(await dash.locator('[data-semana-entreno]').innerText()) && /Actividad extra/.test(await dash.locator('[data-semana-entreno]').innerText()));
+  ok('comida: promedio en % y en números, y días cerca / lejos', /%/.test(await dash.locator('[data-comida-promedio]').innerText())
+    && /de 2\.400 kcal/.test(await dash.locator('[data-comida-promedio]').innerText())
+    && (await dash.getByText(/cerca de tu meta/).count()) === 1 && (await dash.getByText(/lejos de tu meta/).count()) === 1);
   ok('Reto: solo «No hay retos actualmente»', (await p.getByRole('dialog', { name: 'Retos' }).innerText()).trim() === 'No hay retos actualmente');
   await foto(p, '01b-reto');
   await p.getByRole('dialog', { name: 'Retos' }).click();
@@ -225,12 +243,25 @@ try {
   await espera(400);
   await foto(p, '03c-profundiza-comida');
   await p.getByRole('button', { name: /calendario de comidas/ }).click();
+  await p.getByText(/Calendario de comidas|Mis gráficas/).first().waitFor({ timeout: 5000 });
   await espera(900);
   await foto(p, '03d-calendario-comidas');
   ok('el calendario de comidas se abre desde el Dash', (await p.getByText(/Mes|Semana/).count()) > 0);
   await p.keyboard.press('Escape');
   await p.goto('http://localhost:5198/');
-  await p.getByText('Tu constancia', { exact: true }).waitFor({ timeout: 25000 });
+  await p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });
+  // Aprendizaje: la tarjeta y su «Profundiza»
+  await p.locator('[data-aprende]').waitFor({ timeout: 8000 });
+  ok('aprendizaje: % completado con lo que vio del centro', /\d+ %/.test(await p.locator('[data-aprende]').innerText())
+    && /Onboarding\s*2\/5/.test(await p.locator('[data-aprende]').innerText()), await p.locator('[data-aprende]').innerText());
+  await p.locator('[data-aprende]').scrollIntoViewIfNeeded();
+  await foto(p, '03e-dash-aprendizaje');
+  await p.getByRole('button', { name: /Profundiza en tu aprendizaje/ }).click();
+  await p.getByText('Tu aprendizaje', { exact: true }).waitFor({ timeout: 5000 });
+  ok('profundiza aprendizaje: pieza por pieza', (await p.getByText('Cómo funciona el programa').count()) === 1 && (await p.getByText('Seguir aprendiendo').count()) >= 1);
+  await espera(300);
+  await foto(p, '03f-profundiza-aprendizaje');
+  await p.getByRole('button', { name: /Dash/ }).first().click();
 
   await p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await p.getByRole('button', { name: 'Calendario' }).waitFor();
@@ -345,7 +376,18 @@ try {
   await espera(1500);
   await foto(p, '05-entreno-calendario');
   const cal = p.locator('[data-view="entrena"]');
-  ok('calendario: «Lo que viene» con el nombre entero', await cal.getByText('Lower Body + Core Training').last().isVisible());
+  ok('calendario: abre en la semana, con el nombre entero', (await cal.locator('[data-vista="semana"]').count()) === 1
+    && await cal.getByText('Lower Body + Core Training').first().isVisible());
+  ok('calendario: sin «la saltaste»', (await cal.getByText(/saltaste/).count()) === 0);
+  ok('calendario: el registro de peso y fotos se ve escrito', (await cal.getByText('Registro fotográfico').count()) + (await cal.getByText(/peso/i).count()) >= 2);
+  await cal.getByRole('tab', { name: 'Mes' }).click();
+  await espera(600);
+  await foto(p, '05a-entreno-mes');
+  ok('mes: días de la semana en azul', await cal.getByText('Lun', { exact: true }).first().evaluate(el => getComputedStyle(el).color === 'rgb(60, 123, 214)'));
+  ok('por hacer con borde azul; hecho relleno de azul', (await cal.locator('[data-chip="pendiente"]').count()) >= 1
+    && await cal.locator('[data-chip="pendiente"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(el).borderTopColor === 'rgb(60, 123, 214)')
+    && await cal.locator('[data-chip="hecha"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(60, 123, 214)'));
+  ok('mes: casillas altas (la rutina se lee)', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => el.getBoundingClientRect().height >= 90));
   ok('calendario: sin oliva', await p.evaluate(() => {
     const oliva = /rgb\((1[12]\d), (1[2-4]\d), (8\d|9\d)\)|rgb\(231, 235, 214\)/;
     return ![...document.querySelectorAll('[data-view="entrena"] *')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor) || oliva.test(getComputedStyle(el).borderTopColor));
@@ -388,6 +430,43 @@ try {
   ok('arrastrar: se guardó una sola vez', db.db.rutina_movimientos.length === 2, String(db.db.rutina_movimientos.length));
   ok('el plan del coach no cambia', JSON.stringify(db.db.rutinas.find(r => r.id === 'r2').dias_semana) === '["X"]');
   await foto(p, '05e-movidas');
+  // Arrastrar CON EL DEDO, en la vista de semana (lo que falló en el iPhone):
+  // eventos táctiles de verdad, no ratón.
+  await cal.getByRole('tab', { name: 'Semana' }).click();
+  await espera(700);
+  for (let i = 0; i < 3 && !(await cal.locator(`[data-vista="semana"] [data-fecha="${lun}"]`).count()); i++) {
+    await cal.getByRole('button', { name: 'Siguiente' }).click(); await espera(700);
+  }
+  const filas = await cal.locator('[data-vista="semana"] [data-fecha]').evaluateAll(els => els.map(e => ({ f: e.dataset.fecha, t: e.innerText })));
+  const libre = filas.find(x => x.f > hoy && x.f !== lun && /Descanso/.test(x.t));
+  if (libre) {
+    const cdp = await ctx.newCDPSession(p);
+    const c0 = await cal.locator(`[data-fecha="${lun}"] [data-chip]`).first().boundingBox();
+    const c1 = await cal.locator(`[data-fecha="${libre.f}"]`).boundingBox();
+    const x0 = c0.x + c0.width / 2, y0 = c0.y + c0.height / 2, x1 = c1.x + c1.width / 2, y1 = c1.y + c1.height / 2;
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0 }] });
+    await espera(600);
+    for (let k = 1; k <= 12; k++) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + (x1 - x0) * k / 12, y: y0 + (y1 - y0) * k / 12 }] });
+      await espera(25);
+    }
+    await foto(p, '05f-arrastre-dedo');
+    ok('dedo: aparece la rutina flotando mientras se arrastra', (await p.locator('[data-fantasma]').count()) === 1);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await espera(1200);
+    ok('dedo: el Lower cambia de día con el dedo', (await cal.locator(`[data-fecha="${libre.f}"]`).innerText()).includes('Lower'),
+      await cal.locator(`[data-fecha="${libre.f}"]`).innerText());
+    ok('dedo: soltar no abre la hoja del día', (await p.getByText('Mover a otro día').count()) === 0);
+  } else ok('(esta semana no hay día libre para probar el dedo)', true);
+  await cal.locator(`[data-vista="semana"] [data-fecha="${hoy}"]`).count() || await cal.getByRole('button', { name: 'Volver a hoy' }).click().catch(() => {});
+  await espera(500);
+  ok('semana: el corte de pago se ve', (await cal.getByText('Corte de tu mensualidad').count()) >= 1);
+  await cal.locator(`[data-vista="semana"] [data-fecha="${hoy}"]`).click();
+  await p.locator('[data-aviso-dia="pago"]').waitFor({ timeout: 5000 });
+  ok('al tocar el día: el detalle dice la fecha de corte', (await p.getByText('Fecha de corte de tu mensualidad').count()) === 1);
+  await foto(p, '05g-dia-detalle');
+  await p.getByRole('button', { name: 'Cerrar' }).first().click();
+  await espera(400);
   await p.getByRole('button', { name: 'Galería' }).click();
   await p.getByText('Sentadilla con barra').first().waitFor({ timeout: 10000 });
   await espera(600);
@@ -421,7 +500,7 @@ try {
     const caja = document.querySelector('[data-opciones-v2]');
     const hoja = caja.closest('.rounded-t-3xl');
     const bs = [...caja.querySelectorAll('button')];
-    return bs.length === 12 && bs.every(b => b.querySelector('svg') && !/gradient/.test(getComputedStyle(b.firstElementChild).backgroundImage))
+    return bs.length === 8 && bs.every(b => b.querySelector('svg') && !/gradient/.test(getComputedStyle(b.firstElementChild).backgroundImage))
       && !/gradient/.test(getComputedStyle(hoja).backgroundImage);
   }));
   ok('opciones: sin oliva', await p.evaluate(() => {
@@ -431,6 +510,34 @@ try {
   await p.getByRole('button', { name: 'Cerrar' }).last().dispatchEvent('pointerdown');
   await espera(800);   // tras cerrar, la app se traga el siguiente toque 0,6 s (el «click fantasma» de iOS)
   ok('opciones: se cierra', !(await p.locator('[data-opciones-v2]').isVisible()));
+  ok('opciones: sin gráficas, mi mes, resumen del día ni recordatorios', true);
+  // Recetario: directo a las recetas, con los dos botones arriba
+  await p.getByRole('button', { name: 'Recetas', exact: true }).click();
+  await p.locator('[data-recetario-botones]').waitFor({ timeout: 8000 });
+  await espera(500);
+  await foto(p, '10-recetario');
+  ok('recetario: sin la foto de portada', (await p.locator('img[src*="recetario-hero"]').count()) === 0);
+  ok('recetario: las recetas se ven de una', (await p.getByText('Wrap crujiente de atún').count()) >= 1);
+  await p.getByRole('button', { name: /Búsqueda avanzada/ }).click();
+  await p.locator('[data-busqueda-avanzada]').waitFor({ timeout: 5000 });
+  await p.getByRole('button', { name: 'Snack', exact: true }).click();
+  await foto(p, '10b-busqueda-avanzada');
+  await p.getByRole('button', { name: /^Ver \d+ recetas$/ }).click();
+  await espera(400);
+  ok('búsqueda avanzada: filtra y deja el filtro a la vista', (await p.getByRole('button', { name: 'Snack ✕' }).count()) === 1
+    && (await p.getByText('Wrap crujiente de atún').count()) === 0);
+  ok('recetario: sin oliva', await p.evaluate(() => {
+    const oliva = /rgb\((1[2-4]\d), (1[4-5]\d), (8\d|9\d)\)|rgb\(212, 218, 184\)/;
+    return ![...document.querySelectorAll('.rec-slide-in *')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor));
+  }));
+  // Calendario de comidas desde la barra
+  await p.getByRole('button', { name: 'Calendario', exact: true }).click();
+  await p.getByText('Calendario de comidas').waitFor({ timeout: 5000 });
+  await espera(600);
+  await foto(p, '10c-calendario-comidas');
+  ok('barra de Alimentación: Calendario abre el calendario de comidas', true);
+  await p.getByRole('button', { name: 'Cerrar' }).last().dispatchEvent('pointerdown');
+  await espera(800);
   await p.getByRole('button', { name: 'Chat', exact: true }).click();
   await espera(900);
   await foto(p, '09-comida-chat');
@@ -460,14 +567,14 @@ try {
   await foto(p, '10-aprende');
 
   await p.getByRole('button', { name: 'Dash', exact: true }).click();
-  await p.getByText('Tu constancia', { exact: true }).waitFor();
+  await p.getByText('Tu performance semanal', { exact: true }).waitFor();
   ok('vuelve al Dash', true);
   ok('sin errores de JavaScript (Mauro)', errores.length === 0, errores.join(' | '));
   await ctx.close();
 
   // ── Teléfono angosto ──
   const n = await abrir('Mauro Morón', { ancho: 375 });
-  await n.p.getByText('Tu constancia', { exact: true }).waitFor({ timeout: 25000 });
+  await n.p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });
   await n.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await espera(900);
   const caja = await n.p.locator('nav[aria-label="Secciones"]').boundingBox();
@@ -497,7 +604,7 @@ try {
   // ── Mensualidad pendiente: aviso los primeros 5 días, bloqueo después ──
   const deuda = { due: true, dia_corte: 15, monto: 250000, moneda: 'COP', meses_deuda: 1, meses: [new Date().toISOString().slice(0, 7)] };
   const a = await abrir('Mauro Morón', { pago: { ...deuda, dias_vencido: 3, bloqueo: false } });
-  await a.p.getByText('Últimas 8 semanas').waitFor({ timeout: 20000 });
+  await a.p.getByText('Días de cardio').waitFor({ timeout: 20000 });
   await espera(900);
   ok('mora día 3: el aviso sale en el Dash', await a.p.locator('[data-view="dash"]').getByText('Mensualidad pendiente').isVisible());
   ok('mora día 3: la app no se bloquea', (await a.p.getByRole('alertdialog').count()) === 0);
@@ -533,7 +640,7 @@ try {
   await espera(2600);
   ok('otra persona ve la barra de siempre', (await o.p.locator('nav[aria-label="Secciones"]').count()) === 0);
   ok('…y su letra de siempre', !(await o.p.evaluate(() => document.documentElement.hasAttribute('data-v2'))));
-  ok('…y no abre en el Dash', (await o.p.getByText('Tu constancia', { exact: true }).count()) === 0);
+  ok('…y no abre en el Dash', (await o.p.getByText('Tu performance semanal', { exact: true }).count()) === 0);
   await foto(o.p, '13-otra-persona');
   ok('sin errores de JavaScript (otra persona)', o.errores.length === 0, o.errores.join(' | '));
   await o.ctx.close();
@@ -547,7 +654,7 @@ try {
   await ob.ctx.close();
 } catch (e) {
   fallos++;
-  console.log('  MAL  se cortó: ' + e.message.split('\n')[0]);
+  console.log('  MAL  se cortó: ' + e.message.split('\n').slice(0, 12).join(' | '));
 } finally {
   await b.close();
   await vite.close();
