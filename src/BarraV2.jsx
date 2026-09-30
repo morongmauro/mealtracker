@@ -34,9 +34,11 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
     if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [seccion, sub]);
 
-  // Con cuatro opciones abiertas (Alimentación), las secciones cerradas se
+  // Con cuatro opciones abiertas (Alimentación) o con textos largos
+  // (Aprendizaje: Hoy · Onboarding · Cápsulas), las secciones cerradas se
   // quedan solo en su ícono para dejarles sitio.
-  const apretada = ((secciones.find(x => x.id === seccion) || {}).subs || []).length >= 4;
+  const subsAbiertas = (secciones.find(x => x.id === seccion) || {}).subs || [];
+  const apretada = subsAbiertas.length >= 4 || subsAbiertas.reduce((n, x) => n + String(x.label || '').length, 0) > 20;
   return (
     <div ref={barRef} className="fixed left-0 right-0 bottom-0" style={{
       zIndex: 45, pointerEvents: 'none',
@@ -120,12 +122,12 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                     aria-label={o.aria || o.label}
                     style={{
                       flex: 'none', height: 38, borderRadius: 999, border: 'none', cursor: 'pointer',
-                      padding: SubIcono && !o.label ? '0 9px' : SubIcono ? '0 12px 0 10px' : '0 9px',
+                      padding: SubIcono && !o.label ? '0 9px' : SubIcono ? '0 12px 0 10px' : apretada ? '0 7px' : '0 9px',
                       // La activa es una pastilla de cristal blanco con la letra
                       // en el color de la sección: se distingue sin gritar.
                       background: activo ? 'rgba(255,255,255,0.92)' : 'transparent',
                       color: c.ink, opacity: activo ? 1 : 0.8,
-                      fontFamily: 'inherit', fontSize: 13, fontWeight: activo ? 700 : 600,
+                      fontFamily: 'inherit', fontSize: apretada ? 12.5 : 13, fontWeight: activo ? 700 : 600,
                       letterSpacing: '-0.01em', whiteSpace: 'nowrap',
                       display: 'flex', alignItems: 'center', gap: 5,
                       boxShadow: activo ? '0 1px 2px rgba(40,40,30,0.06), 0 4px 12px rgba(40,40,30,0.08)' : 'none',

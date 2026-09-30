@@ -518,7 +518,7 @@ function TarjetaAprende({ aprende, alProfundizar }) {
 }
 
 // Pieza por pieza: lo que ya vio, con su check, y lo que le falta.
-const SUB_APRENDE = { hub: 'onboarding', capsula: 'capsulas' };
+const SUB_APRENDE = { hub: 'onboarding', capsula: 'capsulas', guia: 'guia', podcast: 'podcast' };
 function DetalleAprende({ aprende, alIr }) {
   const [abierto, setAbierto] = useState(null);
   if (!aprende) return <><Titular>Tu aprendizaje</Titular><div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 16 }}>{aprende === undefined ? 'Cargando…' : 'No pude traer tu avance ahora.'}</div></>;

@@ -8,6 +8,7 @@
 //   Alimentación  — un AGUACATE contento, saludando
 //   Entrenamiento — una KETTLEBELL con cara, brazos y piernas, levantando
 //                   una barra, sonriendo y con una gota de sudor en la frente
+//   Aprendizaje   — un CEREBRO con gafas y sonrisa, levantando dos mancuernas
 //
 // Mismo tamaño para las dos: 200 × 124. Los ids llevan prefijo propio para
 // que las dos cabeceras no se pisen si conviven en el DOM.
@@ -143,6 +144,79 @@ export function IlustracionPesas() {
           <rect x="45" y="-11" width="7" height="22" rx="3" fill="#3C7BD6" />
           <circle cx="-36" cy="0" r="4.5" fill={KB_OSCURA} />
           <circle cx="36" cy="0" r="4.5" fill={KB_OSCURA} />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+// ── Aprendizaje: el cerebro que entrena ──────────────────────────────────
+const SESO = '#F4A574';
+const SESO_PLIEGUE = '#DE7F45';
+const SESO_BRAZO = '#D2703A';
+
+function Mancuerna({ x, y }) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <rect x="-13" y="-2.2" width="26" height="4.4" rx="2.2" fill={BARRA} />
+      <rect x="-17" y="-8" width="7" height="16" rx="3" fill={DISCO} />
+      <rect x="10" y="-8" width="7" height="16" rx="3" fill={DISCO} />
+      <rect x="-19.5" y="-5" width="3.5" height="10" rx="1.6" fill="#EE8434" />
+      <rect x="16" y="-5" width="3.5" height="10" rx="1.6" fill="#EE8434" />
+    </g>
+  );
+}
+
+export function IlustracionCerebro() {
+  return (
+    <svg viewBox="0 0 200 124" aria-hidden="true" data-dibujo="cerebro" style={{ width: '100%', height: '100%', display: 'block', overflow: 'visible' }}>
+      <Fondo color="#EE8434" />
+      <ellipse cx="120" cy="120" rx="32" ry="4" fill="#7A3A12" opacity="0.18" />
+      <g transform="translate(120 70)">
+        {/* piernas */}
+        <g stroke={SESO_BRAZO} strokeWidth="6" strokeLinecap="round" fill="none">
+          <path d="M-10 30 L-13 42" />
+          <path d="M10 30 L13 42" />
+        </g>
+        <ellipse cx="-16" cy="43.5" rx="6.5" ry="3" fill={SESO_BRAZO} />
+        <ellipse cx="16" cy="43.5" rx="6.5" ry="3" fill={SESO_BRAZO} />
+        {/* brazos arriba, una mancuerna en cada mano */}
+        <g stroke={SESO_BRAZO} strokeWidth="6" strokeLinecap="round" fill="none">
+          <path d="M-32 4 Q-50 -2 -50 -26" />
+          <path d="M32 4 Q50 -2 50 -26" />
+        </g>
+        <Mancuerna x={-50} y={-31} />
+        <Mancuerna x={50} y={-31} />
+        <circle cx="-50" cy="-29" r="4.5" fill={SESO_BRAZO} />
+        <circle cx="50" cy="-29" r="4.5" fill={SESO_BRAZO} />
+        {/* el cerebro: lóbulos redondos, un solo color */}
+        <g fill={SESO}>
+          <circle cx="-22" cy="-8" r="18" />
+          <circle cx="-8" cy="-20" r="18" />
+          <circle cx="9" cy="-20" r="18" />
+          <circle cx="23" cy="-8" r="18" />
+          <circle cx="-19" cy="10" r="18" />
+          <circle cx="19" cy="10" r="18" />
+          <circle cx="0" cy="8" r="22" />
+        </g>
+        {/* pliegues */}
+        <g stroke={SESO_PLIEGUE} strokeWidth="2.6" strokeLinecap="round" fill="none">
+          <path d="M0 -37 Q-5 -28 0 -20 Q4 -14 0 -9" />
+          <path d="M-33 -12 q7 -7 14 -1" />
+          <path d="M-22 -28 q6 5 1 11" />
+          <path d="M19 -30 q-5 6 1 11" />
+          <path d="M20 -12 q7 -6 14 0" />
+          <path d="M-35 14 q6 -5 11 1" />
+          <path d="M24 15 q6 -6 11 0" />
+        </g>
+        {/* la cara con gafas */}
+        <g stroke={TINTA} strokeWidth="2.4" strokeLinecap="round" fill="none">
+          <circle cx="-10.5" cy="6" r="8" fill="#FFFFFF" fillOpacity="0.35" />
+          <circle cx="10.5" cy="6" r="8" fill="#FFFFFF" fillOpacity="0.35" />
+          <path d="M-2.5 5 Q0 3 2.5 5" />
+          <path d="M-14 7 Q-10.5 10 -7 7" />
+          <path d="M7 7 Q10.5 10 14 7" />
+          <path d="M-5.5 18 Q0 23 5.5 18" />
         </g>
       </g>
     </svg>

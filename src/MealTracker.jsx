@@ -17,6 +17,8 @@ const Entrenamiento = lazy(() => import('./Entrenamiento.jsx'));
 // Visual nueva (en prueba, solo quien esté en src/v2.js): barra de secciones
 // y Dash. El Dash va en su chunk: el resto de clientes no lo descarga.
 const Dash = lazy(() => import('./Dash.jsx'));
+// «Hoy» de Aprendizaje (visual nueva): lo próximo por leer, el avance y los accesos.
+const AprendeHoy = lazy(() => import('./AprendeHoy.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa } from './v2.js';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada } from './mudanza.js';
@@ -636,7 +638,7 @@ export default function MealTracker() {
   const [showDash, setShowDash] = useState(false);
   useEffect(() => { showDashRef.current = showDash; }, [showDash]);
   const [entrenoSub, setEntrenoSub] = useState('hoy');
-  const [aprendeSub, setAprendeSub] = useState('home');
+  const [aprendeSub, setAprendeSub] = useState('hoy');
   const learningFrameRef = useRef(null);
   const v2 = esV2(name);
   useEffect(() => { aplicarV2(v2); }, [v2]);
@@ -659,6 +661,7 @@ export default function MealTracker() {
     const t = idle(() => {
       import('./Dash.jsx').catch(() => {});
       import('./Recetario.jsx').catch(() => {});
+      import('./AprendeHoy.jsx').catch(() => {});
       if (trainingOn) import('./Entrenamiento.jsx').then(m => m.precargar && m.precargar(name)).catch(() => {});
     });
     return () => { if (window.cancelIdleCallback) try { window.cancelIdleCallback(t); } catch (e) {} };
@@ -2593,7 +2596,9 @@ export default function MealTracker() {
     let go = '', goId = '';
     if (ir.indexOf('pod:') === 0) { go = 'podcast'; goId = ir.slice(4); }
     else if (ir.indexOf('cap:') === 0) { go = 'capsulas'; goId = ir.slice(4); }
-    else if (ir === 'podcast' || ir === 'capsulas' || ir === 'onboarding') { go = ir; }
+    else if (ir === 'podcast' || ir === 'capsulas' || ir === 'onboarding' || ir === 'guia') { go = ir; }
+    // Una pieza del onboarding (Hoy de Aprendizaje): el centro abre esa pantalla.
+    else if (ir.indexOf('hub:') === 0) { go = ir.slice(4); }
     try {
       const u = new URL(learningUrl);
       if (uid) u.searchParams.set('mt_user', uid);
@@ -2608,7 +2613,12 @@ export default function MealTracker() {
     setShowRecetario(false);
     setShowDash(false);
     setShowTraining(false);
-    setAprendeSub(go === 'podcast' ? 'capsulas' : (go || 'home'));
+    // Qué opción de la barra queda marcada: las piezas del onboarding bajo
+    // «Onboarding», el podcast bajo «Cápsulas»; la guía, ninguna.
+    setAprendeSub(go === 'podcast' ? 'capsulas'
+      : (go === 'capsulas' || go === 'onboarding') ? go
+      : ['programa', 'app', 'meal-tracker', 'journey', 'faq'].includes(go) ? 'onboarding'
+      : 'centro');
     setShowLearning(true);
   }, [learningUrl, name]);
 
@@ -4983,7 +4993,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       { id: 'calendario', label: '', icono: CalendarV2, aria: 'Calendario' },
     ] },
     ...(learningUrl ? [{ id: 'aprende', subs: [
-      { id: 'home', label: 'Inicio' }, { id: 'onboarding', label: 'Onboarding' }, { id: 'capsulas', label: 'Cápsulas' },
+      { id: 'hoy', label: 'Hoy' }, { id: 'onboarding', label: 'Onboarding' }, { id: 'capsulas', label: 'Cápsulas' },
     ] }] : []),
   ];
   const irSubV2 = (sec, op) => {
@@ -5021,9 +5031,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       return;
     }
     if (sec === 'aprende') {
+      // «Hoy» es de la app (AprendeHoy); el centro, si ya estaba cargado, se
+      // queda por detrás para volver a él sin recargar.
+      if (op === 'hoy') {
+        setShowRecetario(false); setShowDash(false); setShowTraining(false);
+        setAprendeSub('hoy'); setShowLearning(true);
+        return;
+      }
       // Con el centro ya abierto no se recarga: se le pide que cambie de
       // pantalla. Si aún no está abierto, se abre ya en la que toca.
-      if (showLearning && learningFrameRef.current?.contentWindow) {
+      if (showLearning && learningSrc && learningFrameRef.current?.contentWindow) {
         setAprendeSub(op);
         try { learningFrameRef.current.contentWindow.postMessage({ tipo: 'em-ir', a: op }, '*'); } catch (e) {}
         return;
@@ -5031,14 +5048,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       openLearning(op === 'home' ? undefined : op);
     }
   };
-  // Al tocar una sección cerrada se abre en su opción por defecto: Entreno en
-  // Hoy, Alimentación en el mealtracker (Hoy o Chat según la regla de
-  // siempre), Aprendizaje en su inicio.
+  // Al tocar una sección se abre en su Hoy: Entrenamiento, Alimentación y
+  // Aprendizaje, las tres igual.
   const irSeccionV2 = (sec) => {
     if (sec === 'dash') return irSubV2('dash');
     if (sec === 'entreno') return irSubV2('entreno', 'hoy');
-    if (sec === 'comida') return irSubV2('comida', tab);
-    if (sec === 'aprende') return irSubV2('aprende', 'home');
+    if (sec === 'comida') return irSubV2('comida', 'hoy');
+    if (sec === 'aprende') return irSubV2('aprende', 'hoy');
   };
 
   return (
@@ -5881,6 +5897,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
             background: 'linear-gradient(0deg, rgba(237,236,229,0.96) 0%, rgba(237,236,229,0.72) 42%, rgba(237,236,229,0.3) 72%, rgba(237,236,229,0) 100%)',
           }} />
+          {learningSrc && (
           <iframe
             ref={learningFrameRef}
             key={learningKey}
@@ -5890,8 +5907,19 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               position: 'absolute', top: 0, left: 0, width: '100%',
               height: 'calc(100% - 64px - env(safe-area-inset-bottom, 0px))',
               border: 0, background: 'transparent',
+              // Con «Hoy» abierto el centro sigue cargado por detrás.
+              visibility: v2 && aprendeSub === 'hoy' ? 'hidden' : 'visible',
             }}
           />
+          )}
+          {v2 && aprendeSub === 'hoy' && (
+            <div data-view="aprende" className="absolute inset-0 overflow-y-auto" style={{ zIndex: 1, background: BG }}>
+              <Suspense fallback={null}>
+                <AprendeHoy nombre={name} alAbrir={(destino) => openLearning(destino)}
+                  arriba="calc(62px + env(safe-area-inset-top, 0px))" />
+              </Suspense>
+            </div>
+          )}
         </div>
       )}
 

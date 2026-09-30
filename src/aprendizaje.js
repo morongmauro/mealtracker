@@ -126,3 +126,69 @@ export async function leerAprendizaje(nombre) {
     return null;
   }
 }
+
+// ── Lo próximo por leer, ver o escuchar ──────────────────────────────────
+// Puro. Del avance a una lista ordenada de recomendaciones:
+//   1. lo que falte del onboarding, en su orden: es la base;
+//   2. seguir lo empezado: en cada bloque a medias (el más avanzado
+//      primero), la siguiente pieza sin ver, del tema que más ha visto;
+//   3. algo nuevo de cada bloque que aún no ha tocado;
+//   4. el resto de lo que falta, en orden.
+// `destino` es lo que entiende openLearning de la app para abrir la pieza.
+const DESTINO = {
+  hub: (p) => `hub:${p.id}`,
+  guia: () => 'guia',
+  capsula: (p) => `cap:${p.id}`,
+  podcast: (p) => `pod:${p.id}`,
+};
+const temaFavorito = (b) => {
+  const cuenta = {};
+  b.piezas.filter(p => p.vista && p.cat).forEach(p => { cuenta[p.cat] = (cuenta[p.cat] || 0) + 1; });
+  return Object.entries(cuenta).sort((a, c) => c[1] - a[1])[0]?.[0] || null;
+};
+const siguienteDe = (b) => {
+  const pendientes = b.piezas.filter(p => !p.vista);
+  if (!pendientes.length) return null;
+  if (b.k === 'guia') {
+    // En la guía se sigue el orden: la primera sin leer después de la
+    // última leída (y si no, la primera sin leer).
+    const ult = b.piezas.map(p => p.vista).lastIndexOf(true);
+    return b.piezas.slice(ult + 1).find(p => !p.vista) || pendientes[0];
+  }
+  const tema = temaFavorito(b);
+  return (tema && pendientes.find(p => p.cat === tema)) || pendientes[0];
+};
+
+export function recomendarAprendizaje(avance, n = 4) {
+  if (!avance || !Array.isArray(avance.bloques)) return [];
+  const out = [];
+  const ya = new Set();
+  const add = (b, p, motivo) => {
+    if (!p) return;
+    const k = `${b.k}:${p.id}`;
+    if (ya.has(k)) return;
+    ya.add(k);
+    out.push({ bloque: b.k, bloqueTitulo: b.titulo, id: p.id, title: p.title, cat: p.cat || null, motivo, destino: DESTINO[b.k](p) });
+  };
+  const de = (k) => avance.bloques.find(b => b.k === k);
+  const hub = de('hub');
+  if (hub) hub.piezas.filter(p => !p.vista).forEach(p => add(hub, p, 'Empieza por aquí'));
+  const resto = avance.bloques.filter(b => b.k !== 'hub');
+  resto.filter(b => b.vistas > 0 && b.vistas < b.total)
+    .sort((a, c) => c.vistas - a.vistas)
+    .forEach(b => add(b, siguienteDe(b), 'Sigue donde ibas'));
+  const orden = ['capsula', 'guia', 'podcast'].map(de).filter(Boolean);
+  orden.filter(b => b.vistas === 0).forEach(b => add(b, b.piezas[0], 'Nuevo para ti'));
+  orden.forEach(b => b.piezas.filter(p => !p.vista).forEach(p => add(b, p, 'Te falta')));
+  return out.slice(0, n);
+}
+
+// Última lectura, por nombre, en esta visita: al volver a Aprendizaje se
+// pinta al instante y se refresca por detrás.
+const cacheAvance = new Map();
+export const avanceGuardado = (nombre) => cacheAvance.get(nombre);
+export async function leerAprendizajeConCache(nombre) {
+  const r = await leerAprendizaje(nombre);
+  if (r) cacheAvance.set(nombre, r);
+  return r || cacheAvance.get(nombre) || null;
+}

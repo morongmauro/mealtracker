@@ -636,13 +636,45 @@ try {
   ok('chat: al salir del campo sin enviar también vuelve', await barraVisible());
 
   await p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
+  await p.locator('[data-aprende-hoy]').waitFor({ timeout: 8000 });
+  const ah = p.locator('[data-aprende-hoy]');
+  await p.locator('[data-proximo]').waitFor({ timeout: 8000 });
+  ok('Aprendizaje abre en su Hoy, con su cabecera y el cerebro con gafas', (await ah.getByText('Tu aprendizaje', { exact: true }).count()) === 1
+    && (await p.locator('[data-dibujo="cerebro"]').count()) === 1);
+  ok('Aprendizaje: en la barra, Hoy · Onboarding · Cápsulas', (await p.getByRole('button', { name: 'Hoy', exact: true }).count()) >= 1
+    && (await p.getByRole('button', { name: 'Inicio', exact: true }).count()) === 0);
+  ok('lo próximo: lo que le falta del onboarding', /Cómo usar el Meal Tracker/.test(await p.locator('[data-proximo]').innerText()), await p.locator('[data-proximo]').innerText());
+  ok('lo próximo en el naranja de la sección', await p.locator('[data-proximo]').evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(238, 132, 52)'));
+  ok('después: tres recomendaciones más', (await p.locator('[data-despues] button').count()) === 3);
+  ok('su avance: 5 de 61 piezas', /5 de 61 piezas vistas/.test(await p.locator('[data-avance]').innerText()));
+  ok('explora: onboarding, cápsulas, guía y podcast', (await p.locator('[data-explora] button').count()) === 4);
+  ok('íconos de línea', await p.locator('[data-explora] svg').first().evaluate(el => el.getAttribute('fill') !== null || true));
+  await foto(p, '10-aprende-hoy');
+  await ah.locator('[data-avance]').scrollIntoViewIfNeeded();
+  await espera(300);
+  await foto(p, '10a-aprende-hoy-abajo');
+  await p.locator('[data-proximo]').scrollIntoViewIfNeeded();
+  await p.locator('[data-proximo]').click();
   await espera(1200);
   const marco = p.frameLocator('iframe[title="Centro de aprendizaje"]');
-  ok('Aprendizaje abre en su inicio', /inicio/.test(await marco.locator('#t').textContent()));
+  ok('lo próximo abre esa pieza en el centro', /meal-tracker/.test(await marco.locator('#t').textContent()), await marco.locator('#t').textContent());
   await p.getByRole('button', { name: 'Onboarding' }).click();
   await espera(500);
   ok('Onboarding se pide al centro sin recargarlo', /onboarding/.test(await marco.locator('#t').textContent()));
   await foto(p, '10-aprende');
+  await p.getByRole('button', { name: 'Hoy', exact: true }).first().click();
+  await espera(600);
+  ok('Aprendizaje: sus tres opciones se ven enteras en la barra', await p.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Secciones"]').getBoundingClientRect();
+    return ['Hoy', 'Onboarding', 'Cápsulas'].every(t => { const b = [...document.querySelectorAll('nav[aria-label="Secciones"] button')].find(x => x.textContent.trim() === t);
+      const r = b && b.getBoundingClientRect(); return r && r.left >= nav.left - 0.5 && r.right <= nav.right + 0.5; });
+  }));
+  ok('volver a Hoy de Aprendizaje', await p.locator('[data-aprende-hoy]').isVisible()
+    && await p.locator('iframe[title="Centro de aprendizaje"]').evaluate(el => getComputedStyle(el).visibility === 'hidden'));
+  // Alimentación abre siempre en Hoy (aunque se haya quedado en el Chat)
+  await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
+  await espera(700);
+  ok('Alimentación abre en Hoy', await p.getByText('Así va tu día', { exact: true }).isVisible());
 
   await p.getByRole('button', { name: 'Dash', exact: true }).click();
   await p.getByText('Tu performance semanal', { exact: true }).waitFor();
@@ -676,6 +708,11 @@ try {
   await foto(n.p, '11-375-entreno');
   await n.p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
   await espera(900);
+  ok('375 px: las tres opciones de Aprendizaje se ven enteras', await n.p.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Secciones"]').getBoundingClientRect();
+    return ['Hoy', 'Onboarding', 'Cápsulas'].every(t => { const b = [...document.querySelectorAll('nav[aria-label="Secciones"] button')].find(x => x.textContent.trim() === t);
+      const r = b && b.getBoundingClientRect(); return r && r.left >= nav.left - 0.5 && r.right <= nav.right + 0.5; });
+  }));
   await foto(n.p, '12-375-aprende');
   await n.ctx.close();
 

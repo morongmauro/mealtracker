@@ -2,8 +2,9 @@
 // CABECERA DE «HOY» · visual nueva
 //
 // Una banda de color de lado a lado, con curvas como olas (azules para
-// entrenar, verdes para comer), el personaje de la marca (un aguacate: solo
-// en alimentación, levantando una mancuerna en entrenamiento) y el borde de
+// entrenar, verdes para comer, naranjas para aprender), el personaje de la
+// sección (el aguacate en alimentación, la kettlebell en entrenamiento, el
+// cerebro con gafas en aprendizaje) y el borde de
 // abajo que sube en el centro. Los dibujos viven en IlustracionesHoy.jsx.
 //
 // `sangria` y `arriba` cancelan el relleno del contenedor para que la banda
@@ -11,11 +12,12 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { TEXT, TEXT_MUTED } from './theme.js';
-import { IlustracionPesas, IlustracionComida } from './IlustracionesHoy.jsx';
+import { IlustracionPesas, IlustracionComida, IlustracionCerebro } from './IlustracionesHoy.jsx';
 
 const TEMAS = {
   entreno: { fondo: ['#CFE0F7', '#E8F0FB'], ola1: '#B5CEF1', ola2: '#8FB3E8', ola3: '#6F9DE0', acento: '#3C7BD6', tinta: '#1E3F73', claro: '#9EBFEE' },
   comida:  { fondo: ['#D3EBD8', '#ECF6EE'], ola1: '#BCDDC3', ola2: '#98CAA3', ola3: '#79B687', acento: '#46965A', tinta: '#1F4D2C', claro: '#A9D4B2' },
+  aprende: { fondo: ['#FBDCC4', '#FDF0E6'], ola1: '#F8C9A6', ola2: '#F4AE7C', ola3: '#EF9358', acento: '#EE8434', tinta: '#7A3A12', claro: '#F6BE95' },
 };
 
 // El fondo: curvas de color, como olas, que se estiran a lo ancho de
@@ -59,7 +61,7 @@ export default function CabeceraHoy({ tema = 'entreno', fecha, titulo, sangria =
       {/* El dibujo va abajo a la derecha, a tamaño fijo: no se deforma ni se
           recorta según el ancho del teléfono. */}
       <div style={{ position: 'absolute', right: `calc(${sangria} - 8px)`, bottom: 34, width: 184, height: 114 }}>
-        {tema === 'comida' ? <IlustracionComida /> : <IlustracionPesas />}
+        {tema === 'comida' ? <IlustracionComida /> : tema === 'aprende' ? <IlustracionCerebro /> : <IlustracionPesas />}
       </div>
       <div style={{ position: 'relative', padding: `0 ${sangria} 72px` }}>
         {fecha && <div style={{ fontSize: 15, color: TEXT_MUTED, fontWeight: 500 }}>{fecha}</div>}
