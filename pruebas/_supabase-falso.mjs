@@ -107,8 +107,11 @@ export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}
     }
     if (metodo === 'DELETE') {
       const quedan = filas.filter(f => !pasa(f));
+      const borradas = filas.filter(pasa);
       db[tabla] = quedan;
-      return respuesta(204, null);
+      // Como PostgREST: con «return=representation» devuelve lo borrado.
+      const prefer = String((opts.headers && (opts.headers.Prefer || opts.headers.prefer)) || '');
+      return prefer.includes('return=representation') ? respuesta(200, borradas) : respuesta(204, null);
     }
     return respuesta(405, {});
   }

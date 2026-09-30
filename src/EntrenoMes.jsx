@@ -26,8 +26,10 @@
 // días con el nombre completo de cada cosa, que en una casilla no se lee.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, Moon } from '@phosphor-icons/react';
-import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha } from './entrenoDatos.js';
+import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
+import { MUSCULO_POR_SLUG } from './musculos.js';
 import Actividad, { ChipActividad } from './EntrenoActividad.jsx';
 import { IconoEvento, REGISTRO } from './iconosEntreno.jsx';
 import { v2Activa } from './v2.js';
@@ -52,6 +54,11 @@ const diaCorto = (f) => { const d = aFecha(f); return `${DIA_SEMANA[d.getDay()]}
 // estados «por hacer / hecho», ciclo, registros y corte de pago a la vista.
 export default function Mes(props) {
   return v2Activa() ? <MesV2 {...props} /> : <MesClasico {...props} />;
+}
+
+// Visual nueva: lo de hoy y la semana en curso, para la pantalla Hoy.
+export function HoySemana(props) {
+  return <MesV2 {...props} modo="hoy" />;
 }
 
 function MesClasico({ nombre, alEntrenar }) {
@@ -413,14 +420,15 @@ function FilaViene({ dia, P, hoy, alTocar }) {
 }
 
 // ── El día, al tocarlo ───────────────────────────────────────────────────
-function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar, alEntrenar, alRegistrar, alMover, alCambio, fase = null }) {
+function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar, alEntrenar, alRegistrar, alMover, alCambio, fase = null,
+  destinosSemana = null, alAgregarRutina = null, alQuitarRutina = null }) {
   const [eligiendo, setEligiendo] = useState(false);
   useEffect(() => { setEligiendo(false); }, [dia && dia.fecha]);
   if (!dia) return null;
   const hoy = hoyLocal();
   const futuro = dia.fecha > hoy;
   // A dónde se puede mover: los 10 días siguientes a hoy, dentro del mes cargado.
-  const destinos = Array.from({ length: 10 }, (_, i) => sumarDias(hoy, i))
+  const destinos = (destinosSemana || Array.from({ length: 10 }, (_, i) => sumarDias(hoy, i)))
     .filter(f => f !== dia.fecha && porFecha[f] && porFecha[f].semana && !porFecha[f].hecho && porFecha[f].estado !== 'completada');
   const t = v2 ? { cuerpo: 15, chico: 13.5 } : { cuerpo: 13.5, chico: 12 };
 
@@ -439,7 +447,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 800, fontSize: v2 ? 17 : 15.5 }}>{dia.rutina.nombre}</div>
               <div style={{ fontSize: t.chico, color: TEXT_LIGHT }}>
-                {dia.movida ? 'La moviste a este día' : v2 ? 'Tu rutina de fuerza · toca para entrenar' : 'Tu rutina de fuerza'}
+                {dia.extra ? 'La añadiste tú a este día' : dia.movida ? 'La moviste a este día' : v2 ? 'Tu rutina de fuerza · toca para entrenar' : 'Tu rutina de fuerza'}
               </div>
             </div>
             {v2
@@ -458,6 +466,12 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
         </div>
       )}
 
+      {(alAgregarRutina || alQuitarRutina) && (
+        <div style={{ marginTop: 10 }}>
+          {alAgregarRutina && <button onClick={alAgregarRutina} style={botonSuave}><Plus size={16} /> Añadir una rutina a este día</button>}
+          {alQuitarRutina && dia.estado !== 'completada' && <button onClick={alQuitarRutina} style={botonSuave}>Quitar la rutina que añadiste</button>}
+        </div>
+      )}
       {puedeMover && (
         <div style={{ marginTop: 10 }}>
           {!eligiendo ? (
@@ -474,10 +488,10 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
                     cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                   }}>
                     <div style={{ fontSize: 13.5, fontWeight: 750, color: TEXT }}>{f === hoy ? 'Hoy' : diaCorto(f)}</div>
-                    <div style={{ fontSize: 11.5, color: TEXT_LIGHT }}>{porFecha[f].rutina ? porFecha[f].rutina.nombre : 'libre'}</div>
+                    <div style={{ fontSize: 11.5, color: TEXT_LIGHT }}>{porFecha[f].rutina ? (v2 ? nombreCorto(porFecha[f].rutina.nombre) : porFecha[f].rutina.nombre) : 'libre'}</div>
                   </button>
                 ))}
-                {!destinos.length && <div style={{ fontSize: t.chico, color: TEXT_LIGHT }}>No hay días libres cerca en este mes.</div>}
+                {!destinos.length && <div style={{ fontSize: t.chico, color: TEXT_LIGHT }}>{destinosSemana ? 'No quedan otros días en esta semana.' : 'No hay días libres cerca en este mes.'}</div>}
               </div>
             </div>
           )}
@@ -784,12 +798,20 @@ function AvisosDia({ dia, fase, P }) {
   );
 }
 
-function MesV2({ nombre, alEntrenar }) {
+// Los músculos que comparten dos rutinas, en nombre corto («Cuádriceps, Glúteo»).
+const nombreMusculo = (m) => MUSCULO_POR_SLUG[m]?.corto || m;
+const DIA_LARGO_V2 = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const diaDe = (f) => DIA_LARGO_V2[aFecha(f).getDay()];
+const corto = (r) => (r ? (r.corto || nombreCorto(r.nombre)) : '');
+
+// `modo`:
+//   'mes' — el calendario: el mes, su leyenda y «Ten en cuenta».
+//   'hoy' — la pantalla Hoy: lo que toca hoy (fuerza, registros, lo del
+//           coach, añadir actividad) y debajo la semana en curso con detalle.
+function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const P = paleta(true);
   const hoy = hoyLocal();
-  const [vista, setVistaEstado] = useState(leerVista);
-  const setVista = (v) => { setVistaEstado(v); try { localStorage.setItem('entreno:cal:vista', v); } catch (e) {} };
-  const [lunes, setLunes] = useState(() => lunesDeLocal(hoy));
+  const lunes = lunesDeLocal(hoy);
   const [ym, setYm] = useState(hoy.slice(0, 7));
   const [cache, setCache] = useState({});
   const [error, setError] = useState(null);
@@ -797,6 +819,8 @@ function MesV2({ nombre, alEntrenar }) {
   const [registrando, setRegistrando] = useState(null);
   const [catalogo, setCatalogo] = useState(null);
   const [aviso, setAviso] = useState(null);
+  const [confirmar, setConfirmar] = useState(null);     // { texto, si, accion }
+  const [eligiendo, setEligiendo] = useState(null);     // fecha a la que se le añade rutina
 
   const cargar = async (mes) => {
     setError(null);
@@ -804,122 +828,195 @@ function MesV2({ nombre, alEntrenar }) {
     if (!r.ok) { setError(r.motivo || 'error'); return; }
     setCache(c => ({ ...c, [mes]: r }));
   };
-  const necesarios = vista === 'semana' ? unicos([lunes.slice(0, 7), sumarDias(lunes, 6).slice(0, 7)]) : [ym];
+  const semana = Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i));
+  const necesarios = modo === 'hoy' ? unicos([semana[0].slice(0, 7), semana[6].slice(0, 7)]) : unicos([ym, semana[0].slice(0, 7), semana[6].slice(0, 7)]);
   useEffect(() => { necesarios.forEach(m => { if (!cache[m]) cargar(m); }); /* eslint-disable-next-line */ }, [necesarios.join(), nombre]);
   useEffect(() => { api.catalogo(nombre).then(r => setCatalogo(r.ok && r.catalogo?.length ? r.catalogo : CATALOGO_MINIMO)); }, [nombre]);
-  useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 3200); return () => clearTimeout(t); }, [aviso]);
+  useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 3600); return () => clearTimeout(t); }, [aviso]);
 
   const porFecha = useMemo(() => {
     const out = {};
     Object.values(cache).forEach(c => (c.dias || []).forEach(d => { out[d.fecha] = d; }));
     return out;
   }, [cache]);
-  const fase = (cache[necesarios[0]] || {}).fase || null;
+  const base = cache[hoy.slice(0, 7)] || cache[necesarios[0]] || {};
+  const fase = base.fase || null;
+  const rutinasCiclo = base.rutinas || [];
+  const musculosDe = useMemo(() => Object.fromEntries(rutinasCiclo.map(r => [r.id, r.musculos || []])), [rutinasCiclo]);
   const listo = necesarios.every(m => cache[m]);
+  const enSemana = (f) => f >= semana[0] && f <= semana[6];
+  const recargar = (fechas) => unicos(fechas.map(f => f.slice(0, 7))).forEach(cargar);
 
-  const puedeMover = (d) => !!(d && d.rutina && !d.hecho && d.estado !== 'completada' && d.fecha >= hoy);
-  const moverRutina = async (desde, hasta) => {
+  // Solo se mueve lo de ESTA semana, de hoy en adelante, sin hacer, y que
+  // sea del plan (lo añadido se quita y se vuelve a añadir).
+  const puedeMover = (d) => !!(d && d.rutina && !d.extra && !d.hecho && d.estado !== 'completada' && d.fecha >= hoy && enSemana(d.fecha));
+  const puedeAgregar = (d) => !!(d && !d.rutina && !d.hecho && d.semana && d.fecha >= hoy && enSemana(d.fecha) && rutinasCiclo.length);
+
+  // ¿Queda pegada a una rutina que trabaja lo mismo? Mira el día anterior y
+  // el siguiente (como quedarían después del cambio). No bloquea: avisa.
+  const choque = (fecha, rutinaId, cambios = {}) => {
+    const rutinaEn = (f) => (f in cambios ? cambios[f] : porFecha[f]?.rutina?.id || porFecha[f]?.hecho?.id || null);
+    const mias = new Set(musculosDe[rutinaId] || []);
+    for (const f of [sumarDias(fecha, -1), sumarDias(fecha, 1)]) {
+      const otra = rutinaEn(f);
+      if (!otra) continue;
+      const comunes = (musculosDe[otra] || []).filter(m => mias.has(m));
+      if (otra === rutinaId || comunes.length >= 2) {
+        const nom = rutinasCiclo.find(r => r.id === otra);
+        return { dia: diaDe(f), rutina: nom ? corto(nom) : 'otra rutina', musculos: comunes.slice(0, 3).map(nombreMusculo) };
+      }
+    }
+    return null;
+  };
+  const textoChoque = (c, verbo) => `El ${c.dia} haces ${c.rutina}, que trabaja lo mismo${c.musculos.length ? ` (${c.musculos.join(', ')})` : ''}. `
+    + `Lo ideal es dejar al menos un día de descanso entre rutinas que trabajan los mismos músculos. ¿${verbo} igual?`;
+
+  const hacerMover = async (desde, hasta) => {
     const d = porFecha[desde];
-    if (!d || !d.rutina || desde === hasta) return;
     const r = await api.mover(nombre, { desde, hasta, rutina_id: d.rutina.id });
     if (!r.ok) {
       setAviso({
         pasado: 'Solo se mueven días de hoy en adelante.',
+        otra_semana: 'Solo puedes mover rutinas dentro de esta semana.',
         fuera_de_fase: 'Ese día está fuera de tu ciclo.',
         ya_entrenada: 'Ese día ya tiene un entreno hecho.',
+        es_extra: 'Una rutina que añadiste no se mueve: quítala y añádela en el otro día.',
         sin_tabla: 'Mover días aún no está disponible. Avísale a tu coach.',
       }[r.motivo] || 'No se pudo mover. Inténtalo otra vez.');
       return;
     }
-    setAviso(r.intercambio ? `${r.movida.nombre} ↔ ${r.intercambio.nombre}` : `${r.movida.nombre} → ${fechaLarga(hasta)}`);
+    setAviso(r.intercambio ? `${corto(r.movida)} ↔ ${corto(r.intercambio)}` : `${corto(r.movida)} → ${fechaLarga(hasta)}`);
     setAbierto(null);
-    unicos([desde.slice(0, 7), hasta.slice(0, 7)]).forEach(cargar);
+    recargar([desde, hasta]);
   };
+  const moverRutina = (desde, hasta) => {
+    const d = porFecha[desde];
+    if (!d || !d.rutina || desde === hasta) return;
+    if (!enSemana(hasta) || hasta < hoy) { setAviso('Solo puedes mover rutinas dentro de esta semana, de hoy en adelante.'); return; }
+    const destino = porFecha[hasta]?.rutina?.id || null;
+    const c = choque(hasta, d.rutina.id, { [desde]: destino, [hasta]: d.rutina.id });
+    if (c) { setConfirmar({ texto: textoChoque(c, 'Moverla'), si: 'Moverla igual', accion: () => hacerMover(desde, hasta) }); return; }
+    hacerMover(desde, hasta);
+  };
+  const hacerAgregar = async (fecha, rutinaId) => {
+    const r = await api.agregarRutina(nombre, { fecha, rutina_id: rutinaId });
+    setEligiendo(null);
+    if (!r.ok) {
+      setAviso({
+        ocupado: 'Ese día ya tiene rutina.', otra_semana: 'Solo puedes añadir rutinas en esta semana.',
+        pasado: 'Solo se añaden rutinas de hoy en adelante.', sin_tabla: 'Añadir rutinas aún no está disponible. Avísale a tu coach.',
+      }[r.motivo] || 'No se pudo añadir. Inténtalo otra vez.');
+      return;
+    }
+    setAviso(`${corto(r.agregada)} añadida el ${diaDe(fecha)}`);
+    setAbierto(null);
+    recargar([fecha]);
+  };
+  const agregarRutina = (fecha, rutinaId) => {
+    const c = choque(fecha, rutinaId);
+    if (c) { setConfirmar({ texto: textoChoque(c, 'Añadirla'), si: 'Añadirla igual', accion: () => hacerAgregar(fecha, rutinaId) }); return; }
+    hacerAgregar(fecha, rutinaId);
+  };
+  const quitarRutina = async (fecha) => {
+    const r = await api.quitarRutina(nombre, { fecha });
+    if (!r.ok) { setAviso(r.motivo === 'ya_entrenada' ? 'Ya la entrenaste: queda en tu registro.' : 'No se pudo quitar. Inténtalo otra vez.'); return; }
+    setAviso('Rutina quitada. Ese día vuelve a estar libre.');
+    setAbierto(null);
+    recargar([fecha]);
+  };
+
   const { arrastre, alTocar, alRaton, acabaDeSoltar } = useArrastre(puedeMover, moverRutina);
   const abrir = (f) => { if (!arrastre && !acabaDeSoltar()) setAbierto(f); };
   const arrastrable = (d) => (puedeMover(d) ? { onTouchStart: alTocar(d), onPointerDown: alRaton(d) } : null);
 
   const [y, m] = ym.split('-').map(Number);
   const cambiarMes = (delta) => { const d = new Date(y, m - 1 + delta, 1); setYm(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); };
-  const semana = Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i));
-
+  // La primera y la última fila se completan con los días del mes vecino si
+  // ya están cargados (la semana en curso siempre lo está): a fin de mes se
+  // puede mover del miércoles 30 al jueves 1 sin cambiar de pantalla.
   const celdas = useMemo(() => {
     const c = cache[ym];
     if (!c || !c.dias.length) return [];
-    const huecos = (aFecha(c.dias[0].fecha).getDay() + 6) % 7;
-    return [...Array.from({ length: huecos }, () => null), ...c.dias];
-  }, [cache, ym]);
-
-  const segmento = (id, txt) => (
-    <button key={id} role="tab" aria-selected={vista === id} onClick={() => setVista(id)} style={{
-      flex: 1, height: 34, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-      fontSize: 14, fontWeight: 750, background: vista === id ? '#FFFFFF' : 'transparent', color: vista === id ? P.ink : TEXT_MUTED,
-      boxShadow: vista === id ? '0 1px 2px rgba(40,40,30,0.08), 0 3px 10px rgba(40,40,30,0.06)' : 'none',
-    }}>{txt}</button>
-  );
+    const primero = c.dias[0].fecha, ultimo = c.dias[c.dias.length - 1].fecha;
+    const huecos = (aFecha(primero).getDay() + 6) % 7;
+    const antes = Array.from({ length: huecos }, (_, i) => porFecha[sumarDias(primero, i - huecos)] || null);
+    const colas = (7 - ((huecos + c.dias.length) % 7)) % 7;
+    const despues = Array.from({ length: colas }, (_, i) => porFecha[sumarDias(ultimo, i + 1)] || null);
+    return [...antes, ...c.dias, ...despues];
+  }, [cache, ym, porFecha]);
+  const dHoy = porFecha[hoy];
 
   return (
-    <div data-calendario-v2 style={{ touchAction: arrastre ? 'none' : undefined }}>
-      <Titulo>Tu calendario</Titulo>
-      <div role="tablist" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, background: '#E9E6DE', margin: '10px 0 12px' }}>
-        {segmento('semana', 'Semana')}{segmento('mes', 'Mes')}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 0 10px' }}>
-        <button onClick={() => (vista === 'semana' ? setLunes(sumarDias(lunes, -7)) : cambiarMes(-1))} aria-label="Anterior" style={flechaV2}><CaretLeft size={18} weight="bold" /></button>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontWeight: 800, fontSize: 17, color: TEXT, textTransform: vista === 'mes' ? 'capitalize' : 'none' }}>
-            {vista === 'semana' ? `${cortaFecha(semana[0])} – ${cortaFecha(semana[6])}` : `${MESES[m - 1]} ${y}`}
+    <div data-calendario-v2={modo} style={{ touchAction: arrastre ? 'none' : undefined }}>
+      {modo === 'mes' && (
+        <>
+          <Titulo>Tu calendario</Titulo>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '12px 0 10px' }}>
+            <button onClick={() => cambiarMes(-1)} aria-label="Anterior" style={flechaV2}><CaretLeft size={18} weight="bold" /></button>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 800, fontSize: 17, color: TEXT, textTransform: 'capitalize' }}>{MESES[m - 1]} {y}</div>
+              {ym !== hoy.slice(0, 7) && (
+                <button onClick={() => setYm(hoy.slice(0, 7))} style={{ border: 'none', background: 'none', color: P.ink, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Volver a hoy</button>
+              )}
+            </div>
+            <button onClick={() => cambiarMes(1)} aria-label="Siguiente" style={flechaV2}><CaretRight size={18} weight="bold" /></button>
           </div>
-          {((vista === 'semana' && lunes !== lunesDeLocal(hoy)) || (vista === 'mes' && ym !== hoy.slice(0, 7))) && (
-            <button onClick={() => { setLunes(lunesDeLocal(hoy)); setYm(hoy.slice(0, 7)); }} style={{ border: 'none', background: 'none', color: P.ink, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Volver a hoy</button>
+          {fase && (
+            <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginBottom: 10, textAlign: 'center' }}>
+              <b style={{ color: TEXT }}>{fase.nombre}</b> · del {cortaFecha(fase.desde)} al {cortaFecha(fase.hasta)}
+            </div>
           )}
-        </div>
-        <button onClick={() => (vista === 'semana' ? setLunes(sumarDias(lunes, 7)) : cambiarMes(1))} aria-label="Siguiente" style={flechaV2}><CaretRight size={18} weight="bold" /></button>
-      </div>
-
-      {fase && (
-        <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginBottom: 10, textAlign: 'center' }}>
-          <b style={{ color: TEXT }}>{fase.nombre}</b> · del {cortaFecha(fase.desde)} al {cortaFecha(fase.hasta)}
-        </div>
+        </>
       )}
 
       {error && <Fallo motivo={error} alReintentar={() => necesarios.forEach(cargar)} />}
       {!listo && !error && <Cargando />}
 
-      {listo && vista === 'semana' && (
-        <div data-vista="semana" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {semana.map((f, i) => {
-            const d = porFecha[f];
-            return <FilaDiaV2 key={f} fecha={f} etiqueta={DIAS_V2[i]} dia={d} P={P} hoy={hoy} fase={fase}
-              sobre={arrastre && arrastre.sobre === f && arrastre.desde !== f} origen={arrastre && arrastre.desde === f}
-              arrastrable={arrastrable(d)} alTocar={() => d && abrir(f)} />;
-          })}
-        </div>
+      {/* ── HOY TE TOCA ── */}
+      {listo && modo === 'hoy' && (
+        <HoyTeToca dia={dHoy} P={P} nombre={nombre} ejerciciosDe={ejerciciosDe}
+          alEntrenar={alEntrenar} alRegistrarActividad={() => setRegistrando(hoy)}
+          alAgregar={puedeAgregar(dHoy) ? () => setEligiendo(hoy) : null}
+          alQuitar={dHoy?.extra ? () => quitarRutina(hoy) : null}
+          alCambio={() => recargar([hoy])} />
       )}
 
-      {listo && vista === 'mes' && (
+      {listo && modo === 'hoy' && (
+        <>
+          <div style={{ height: 1, background: 'rgba(31,31,31,0.09)', margin: '26px 2px 16px' }} />
+          <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '0 2px 4px' }}>Tu semana</h2>
+          <div style={{ fontSize: 13.5, color: TEXT_MUTED, margin: '0 2px 12px', lineHeight: 1.45 }}>
+            Toca un día para ver todo. Mantén el dedo sobre una rutina para cambiarla de día.
+          </div>
+          <div data-vista="semana" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {semana.map((f, i) => {
+              const d = porFecha[f];
+              return <FilaDiaV2 key={f} fecha={f} etiqueta={DIAS_V2[i]} dia={d} P={P} hoy={hoy} fase={fase}
+                sobre={arrastre && arrastre.sobre === f && arrastre.desde !== f} origen={arrastre && arrastre.desde === f}
+                arrastrable={arrastrable(d)} alTocar={() => d && abrir(f)} />;
+            })}
+          </div>
+        </>
+      )}
+
+      {/* ── EL MES ── */}
+      {listo && modo === 'mes' && (
         <div data-vista="mes">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 4, marginBottom: 6 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 3, marginBottom: 6 }}>
             {DIAS_V2.map(d => (
               <div key={d} style={{ fontSize: 12, fontWeight: 800, color: P.base, textAlign: 'center', letterSpacing: '.02em' }}>{d}</div>
             ))}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 3 }}>
             {celdas.map((d, i) => d
-              ? <CeldaV2 key={d.fecha} dia={d} P={P} hoy={hoy}
+              ? <CeldaV2 key={d.fecha} dia={d} P={P} hoy={hoy} semanaActual={enSemana(d.fecha)} ajeno={d.fecha.slice(0, 7) !== ym}
                   sobre={arrastre && arrastre.sobre === d.fecha && arrastre.desde !== d.fecha}
                   origen={arrastre && arrastre.desde === d.fecha}
                   arrastrable={arrastrable(d)} alTocar={() => abrir(d.fecha)} />
               : <div key={`h${i}`} />)}
           </div>
-        </div>
-      )}
-
-      {listo && <LeyendaV2 P={P} />}
-      {listo && (
-        <div style={{ fontSize: 13, color: TEXT_LIGHT, marginTop: 6, lineHeight: 1.45 }}>
-          Toca un día para ver todo lo que tiene. Para cambiar una rutina de día, mantén el dedo sobre ella y arrástrala.
+          <LeyendaV2 P={P} />
+          <TenEnCuenta />
         </div>
       )}
 
@@ -928,7 +1025,7 @@ function MesV2({ nombre, alEntrenar }) {
           position: 'fixed', left: arrastre.x, top: arrastre.y, transform: 'translate(-50%, -130%)', zIndex: 90,
           pointerEvents: 'none', background: P.base, color: '#fff', borderRadius: 12, padding: '8px 12px',
           fontSize: 14, fontWeight: 800, boxShadow: '0 10px 26px rgba(30,40,60,0.3)', whiteSpace: 'nowrap',
-        }}>{arrastre.nombre}</div>
+        }}>{nombreCorto(arrastre.nombre)}</div>
       )}
       {aviso && (
         <div role="status" style={{
@@ -938,19 +1035,150 @@ function MesV2({ nombre, alEntrenar }) {
         }}>{aviso}</div>
       )}
 
+      {/* Por portal: tiene que quedar encima de la hoja de elegir rutina,
+          que también va a <body>. */}
+      {confirmar && createPortal(
+        <div role="dialog" aria-label="Aviso de descanso" onClick={() => setConfirmar(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(31,31,31,0.38)', display: 'grid', placeItems: 'center', padding: 22,
+        }}>
+          <div onClick={e => e.stopPropagation()} data-confirmar style={{ background: '#fff', borderRadius: 24, padding: '20px 20px 16px', maxWidth: 380, boxShadow: '0 16px 44px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em' }}>Deja descansar esos músculos</div>
+            <div style={{ fontSize: 14.5, color: TEXT_MUTED, marginTop: 8, lineHeight: 1.5 }}>{confirmar.texto}</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button onClick={() => setConfirmar(null)} style={{ ...botonPrimario, flex: 1, background: TEXT }}>Mejor no</button>
+              <button onClick={() => { const a = confirmar.accion; setConfirmar(null); a(); }} style={{ ...botonSuave, flex: 1, justifyContent: 'center', height: 42, borderRadius: 12 }}>{confirmar.si}</button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
+
+      <Hoja abierta={!!eligiendo} alCerrar={() => setEligiendo(null)} titulo={eligiendo ? `Añadir una rutina · ${fechaLarga(eligiendo)}` : ''} alto="70vh">
+        <div style={{ fontSize: 14, color: TEXT_MUTED, marginBottom: 12, lineHeight: 1.45 }}>
+          Solo cambia ese día: tu plan base no se toca. Evita repetir los mismos músculos dos días seguidos.
+        </div>
+        <div data-elegir-rutina style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {rutinasCiclo.map(r => (
+            <button key={r.id} onClick={() => agregarRutina(eligiendo, r.id)} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 14, border: `1.5px solid ${P.base}`,
+              background: '#fff', color: P.ink, fontFamily: 'inherit', fontSize: 15.5, fontWeight: 750, cursor: 'pointer', textAlign: 'left',
+            }}>
+              <Plus size={16} weight="bold" /> <span style={{ flex: 1 }}>{corto(r)}</span>
+              {r.musculos?.length > 0 && <span style={{ fontSize: 12, fontWeight: 600, color: TEXT_LIGHT }}>{r.musculos.slice(0, 2).map(nombreMusculo).join(', ')}</span>}
+            </button>
+          ))}
+        </div>
+      </Hoja>
+
       <HojaDia
         dia={abierto ? porFecha[abierto] : null} P={P} v2 fase={fase}
         nombre={nombre} catalogo={catalogo} porFecha={porFecha}
         puedeMover={puedeMover(abierto ? porFecha[abierto] : null)}
+        destinosSemana={semana.filter(f => f >= hoy)}
+        alAgregarRutina={abierto && puedeAgregar(porFecha[abierto]) ? () => setEligiendo(abierto) : null}
+        alQuitarRutina={abierto && porFecha[abierto]?.extra ? () => quitarRutina(abierto) : null}
         alCerrar={() => setAbierto(null)}
         alEntrenar={(id) => { setAbierto(null); alEntrenar(id); }}
         alRegistrar={(fecha) => { setAbierto(null); setRegistrando(fecha); }}
         alMover={(hasta) => moverRutina(abierto, hasta)}
-        alCambio={() => unicos([abierto.slice(0, 7)]).forEach(cargar)}
+        alCambio={() => recargar([abierto])}
       />
       <Actividad abierta={!!registrando} nombre={nombre} fecha={registrando}
         alCerrar={() => setRegistrando(null)}
-        alGuardar={() => { const f = registrando; setRegistrando(null); cargar(f.slice(0, 7)); }} />
+        alGuardar={() => { const f = registrando; setRegistrando(null); recargar([f]); }} />
+    </div>
+  );
+}
+
+// ── Lo que toca hoy, todo junto ──────────────────────────────────────────
+function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActividad, alAgregar, alQuitar, alCambio }) {
+  const hoy = hoyLocal();
+  const r = dia?.rutina;
+  const hecha = dia?.estado === 'completada';
+  const registros = (dia?.eventos || []).filter(e => e.registra);
+  const otros = (dia?.eventos || []).filter(e => !e.registra);
+  const n = r ? ejerciciosDe[r.id] : null;
+  return (
+    <div data-hoy-te-toca>
+      <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '4px 2px 12px' }}>Hoy te toca</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {r ? (
+          <button onClick={() => alEntrenar(r.id)} data-hoy-rutina style={{
+            width: '100%', textAlign: 'left', border: hecha ? `1.5px solid ${P.base}` : 'none', cursor: 'pointer', fontFamily: 'inherit',
+            background: hecha ? '#fff' : P.base, color: hecha ? TEXT : '#fff', borderRadius: 20, padding: '16px 18px',
+            boxShadow: hecha ? 'none' : '0 8px 22px color-mix(in srgb, var(--ent-accent, #3C7BD6) 28%, transparent)',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.85 }}>
+              {hecha ? 'Fuerza · ya la hiciste' : dia.estado === 'en_curso' ? 'Fuerza · a medias' : dia.extra ? 'Fuerza · la añadiste tú' : 'Fuerza'}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginTop: 2 }}>{r.nombre}</div>
+            <div style={{ fontSize: 13.5, marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
+              {hecha && <CheckCircle size={16} weight="fill" color={P.base} />}
+              {[n ? `${n} ejercicio${n === 1 ? '' : 's'}` : null, r.minutos ? `~${r.minutos} min` : null].filter(Boolean).join(' · ') || (hecha ? 'Toca para ver lo que hiciste' : 'Toca para empezar')}
+            </div>
+          </button>
+        ) : dia?.hecho ? (
+          <div style={{ ...cajaDia, border: `1.5px solid ${P.base}` }}>
+            <CheckCircle size={20} weight="fill" color={P.base} /> <span>Hoy entrenaste <b>{dia.hecho.nombre}</b>.</span>
+          </div>
+        ) : (
+          <div style={cajaDia}><Moon size={19} color={TEXT_LIGHT} /> <span><b style={{ color: TEXT }}>Hoy descansas.</b> Descansar también es parte del plan.</span></div>
+        )}
+
+        {registros.map(ev => (
+          <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 alCambio={alCambio} />
+        ))}
+
+        {otros.map(ev => (
+          <div key={ev.id} style={{ ...cajaDia, fontSize: 14.5 }}>
+            <IconoEvento tipo={ev.tipo} size={18} />
+            <span><b style={{ color: TEXT }}>{ev.hora ? `${String(ev.hora).slice(0, 5)} · ` : ''}{ev.titulo}</b>{ev.detalle ? ` · ${ev.detalle}` : ''} <span style={{ color: TEXT_LIGHT }}>· de tu coach</span></span>
+          </div>
+        ))}
+
+        {(dia?.actividades || []).map(a => <ChipActividad key={a.id} actividad={a} />)}
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={alRegistrarActividad} data-hoy-actividad style={{ ...botonSuave, flex: '1 1 auto', justifyContent: 'center', height: 46, background: '#fff', boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)' }}>
+            <Plus size={16} weight="bold" /> Añadir cardio o deporte
+          </button>
+          {alAgregar && (
+            <button onClick={alAgregar} style={{ ...botonSuave, flex: '1 1 auto', justifyContent: 'center', height: 46, background: '#fff', boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)' }}>
+              <Plus size={16} weight="bold" /> Añadir una rutina
+            </button>
+          )}
+          {alQuitar && !hecha && (
+            <button onClick={alQuitar} style={{ ...botonSuave, flex: '1 1 auto', justifyContent: 'center', height: 46 }}>Quitar la rutina añadida</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+const cajaDia = {
+  display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 18, background: '#fff', color: TEXT_MUTED,
+  fontSize: 15, lineHeight: 1.4, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)',
+};
+
+// Lo que hay que saber antes de mover o añadir, en viñetas que se leen.
+function TenEnCuenta() {
+  const P = paleta(true);
+  const items = [
+    ['Mover', 'Mantén el dedo sobre una rutina y arrástrala a otro día. Solo se mueven las rutinas de esta semana, de hoy en adelante.'],
+    ['Añadir', 'Toca un día libre de esta semana para añadir una rutina, o cualquier día para añadir cardio o deporte.'],
+    ['Tu plan no cambia', 'Mover o añadir solo cambia esos días. El plan que armó tu coach sigue igual.'],
+    ['Descanso', 'No repitas los mismos músculos dos días seguidos: deja al menos un día entre rutinas que trabajan lo mismo (por ejemplo, dos días de pierna seguidos). Si pasa, la app te avisa.'],
+  ];
+  return (
+    <div data-ten-en-cuenta style={{ marginTop: 16, background: '#fff', borderRadius: 20, padding: '16px 16px 12px', boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)' }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 800, color: P.ink, background: P.tint, borderRadius: 999, padding: '4px 10px' }}>Léelo · ten en cuenta</div>
+      <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {items.map(([t, d]) => (
+          <li key={t} style={{ display: 'flex', gap: 10, fontSize: 14.5, color: TEXT_MUTED, lineHeight: 1.45 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 99, background: P.base, flex: 'none', marginTop: 8 }} />
+            <span><b style={{ color: TEXT }}>{t}.</b> {d}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -974,9 +1202,9 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
         {dia?.inicio_ciclo && <Etiqueta Icono={Flag} color={P.ink} fondo={P.tint}>Empieza {fase?.nombre || 'tu ciclo'}</Etiqueta>}
         {dia?.fin_ciclo && <Etiqueta Icono={FlagCheckered} color={P.ink} fondo={P.tint}>Último día de {fase?.nombre || 'tu ciclo'}</Etiqueta>}
         {dia?.rutina && (
-          <ChipRutina grande nombre={dia.rutina.nombre} hecha={dia.estado === 'completada'} movida={dia.movida} P={P} arrastre={arrastrable} />
+          <ChipRutina grande nombre={`${corto(dia.rutina)}${dia.extra ? ' · añadida' : ''}`} hecha={dia.estado === 'completada'} movida={dia.movida || dia.extra} P={P} arrastre={arrastrable} />
         )}
-        {dia?.hecho && <ChipRutina grande nombre={`${dia.hecho.nombre}${dia.rutina ? ' (en su lugar)' : ''}`} hecha P={P} />}
+        {dia?.hecho && <ChipRutina grande nombre={`${corto(dia.hecho)}${dia.rutina ? ' (en su lugar)' : ''}`} hecha P={P} />}
         {dia?.eventos.filter(e => e.registra).map(e => (
           <Etiqueta key={e.id} Icono={null} tipo={e.tipo} color={MORADO} fondo={e.hecho ? '#EEE9FB' : '#FFFFFF'} borde={e.hecho ? 'transparent' : '#CFC3EF'} hecho={e.hecho}>
             {REGISTRO[e.tipo]?.nombre || e.titulo}
@@ -1010,7 +1238,7 @@ function Etiqueta({ Icono, tipo, color, fondo, borde = 'transparent', hecho, chi
 }
 
 // ── Mes: casillas altas ─────────────────────────────────────────────────
-function CeldaV2({ dia, P, hoy, sobre, origen, arrastrable, alTocar }) {
+function CeldaV2({ dia, P, hoy, sobre, origen, arrastrable, alTocar, semanaActual, ajeno }) {
   const esHoy = dia.fecha === hoy;
   const registros = dia.eventos.filter(e => e.registra);
   const otros = dia.eventos.filter(e => !e.registra);
@@ -1018,7 +1246,7 @@ function CeldaV2({ dia, P, hoy, sobre, origen, arrastrable, alTocar }) {
     <button data-fecha={dia.fecha} onClick={alTocar} style={{
       minHeight: 92, borderRadius: 12, padding: '5px 2px 4px', cursor: 'pointer', fontFamily: 'inherit',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3, overflow: 'hidden', minWidth: 0,
-      background: sobre ? P.tint : esHoy ? '#F4F8FE' : SURFACE, opacity: origen ? 0.45 : 1,
+      background: sobre ? P.tint : esHoy ? '#F4F8FE' : ajeno ? 'rgba(255,255,255,0.55)' : SURFACE, opacity: origen ? 0.45 : 1,
       border: sobre ? `2px dashed ${P.base}` : esHoy ? `1.5px solid ${P.base}` : `1px solid ${BORDER_SOFT}`,
       WebkitUserSelect: 'none', userSelect: 'none',
     }}>
@@ -1029,8 +1257,8 @@ function CeldaV2({ dia, P, hoy, sobre, origen, arrastrable, alTocar }) {
           {dia.corte_pago && <CurrencyCircleDollar size={13} weight="fill" color={AMBAR_PAGO} aria-label="Corte de pago" />}
         </span>
       </div>
-      {dia.rutina && <ChipRutina nombre={dia.rutina.nombre} hecha={dia.estado === 'completada'} movida={dia.movida} P={P} lineas={3} arrastre={arrastrable} />}
-      {!dia.rutina && dia.hecho && <ChipRutina nombre={dia.hecho.nombre} hecha P={P} lineas={3} />}
+      {dia.rutina && <ChipRutina nombre={corto(dia.rutina)} hecha={dia.estado === 'completada'} movida={dia.movida || dia.extra} P={P} lineas={3} arrastre={arrastrable} />}
+      {!dia.rutina && dia.hecho && <ChipRutina nombre={corto(dia.hecho)} hecha P={P} lineas={3} />}
       {registros.length > 0 && (
         <div style={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
           {registros.slice(0, 3).map(e => (
@@ -1057,6 +1285,7 @@ function LeyendaV2({ P }) {
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', fontSize: 13, color: TEXT_MUTED, marginTop: 14 }}>
       {item(caja(false), 'Por hacer')}
       {item(caja(true), 'Hecho')}
+      {item(<span style={{ width: 16, height: 11, borderRadius: 4, background: '#fff', border: `1.5px dashed ${P.base}` }} />, 'Movida o añadida por ti')}
       {item(<span style={{ width: 16, height: 16, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center' }}><IconoEvento tipo="peso" size={10} /></span>, 'Registrar peso, medidas o fotos')}
       {item(<Flag size={14} weight="fill" color={P.base} />, 'Inicio de ciclo')}
       {item(<CurrencyCircleDollar size={15} weight="fill" color={AMBAR_PAGO} />, 'Corte de pago')}

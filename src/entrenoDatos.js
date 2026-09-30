@@ -45,6 +45,8 @@ export const api = {
   borrarActividad: (name, id)    => pedir({ accion: 'borrar_actividad', name, id }),
   // Mover una rutina a otro día (solo esa fecha; si el destino tenía rutina, se intercambian).
   mover:     (name, datos) => pedir({ accion: 'mover', name, ...datos }),
+  agregarRutina: (name, datos) => pedir({ accion: 'agregar_rutina', name, ...datos }),
+  quitarRutina:  (name, datos) => pedir({ accion: 'quitar_rutina', name, ...datos }),
   // Medición corporal, peso y fotos que puso el coach: «ya lo hice».
   registrar: (name, datos) => pedir({ accion: 'registrar', name, ...datos }),
 
@@ -212,3 +214,13 @@ export function sinPeso(e) {
   if (SUELE_LLEVAR_PESO.test(texto)) return false;
   return true;
 }
+
+// «Pull Training» → «Pull», «Lower Body + Core Training» → «Lower + Core».
+// Espejo de nombreCorto() en api/_entreno.js (el mes ya lo trae calculado).
+export const nombreCorto = (n) => {
+  const s = String(n || '')
+    .replace(/\b(training|workout|entrenamiento|entreno|session|sesi[oó]n)\b/gi, '')
+    .replace(/\b(upper|lower)\s+body\b/gi, '$1')
+    .replace(/\s*\+\s*/g, ' + ').replace(/\s{2,}/g, ' ').replace(/^[\s+·-]+|[\s+·-]+$/g, '').trim();
+  return s.length >= 3 ? s : String(n || '');
+};

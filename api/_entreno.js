@@ -90,7 +90,9 @@ export function repartirPorDia(fase, rutinas) {
 //
 // Devuelve una función fecha → rutina (o null) que ya los tiene en cuenta.
 // La usan la semana, el mes y el aviso de la mañana: los tres dicen lo mismo.
-export function rutinaPorFecha(fase, porDia, movimientos = []) {
+// `extras`: rutinas que el CLIENTE añadió a un día libre ([{ fecha, rutina }]).
+// Solo cuentan si ese día, después de los cambios, no tiene rutina.
+export function rutinaPorFecha(fase, porDia, movimientos = [], extras = []) {
   const fin = finDeFase(fase);
   const base = (fecha) => {
     if (!fase?.fecha_inicio || fecha < fase.fecha_inicio || fecha > fin) return null;
@@ -108,10 +110,33 @@ export function rutinaPorFecha(fase, porDia, movimientos = []) {
       mapa[mv.hasta] = r;
       mapa[mv.desde] = otra;
     });
-  const fn = (fecha) => ver(fecha);
+  const extra = {};
+  (extras || []).forEach(x => { if (x && x.rutina && x.fecha) extra[x.fecha] = x.rutina; });
+  const fn = (fecha) => ver(fecha) || extra[fecha] || null;
   fn.movida = (fecha) => fecha in mapa && (mapa[fecha]?.id || null) !== (base(fecha)?.id || null);
+  fn.extra = (fecha) => !ver(fecha) && !!extra[fecha];
   return fn;
 }
+
+// Las rutinas que el cliente añadió a días libres (tabla `rutina_extras`,
+// carga/migracion-rutina-extra.sql). Sin la tabla, no hay ninguna.
+export async function extrasDe(sb, filtro, rutinas = []) {
+  try {
+    const x = await sb(`rutina_extras?select=fecha,rutina_id,fase_id&${filtro}`);
+    const porId = Object.fromEntries((rutinas || []).map(r => [r.id, r]));
+    return (Array.isArray(x) ? x : []).filter(e => porId[e.rutina_id]).map(e => ({ fecha: String(e.fecha).slice(0, 10), rutina: porId[e.rutina_id], fase_id: e.fase_id }));
+  } catch (e) { return []; }
+}
+
+// «Pull Training» → «Pull», «Lower Body + Core Training» → «Lower + Core»:
+// para que en el calendario se lea el nombre entero.
+export const nombreCorto = (n) => {
+  const s = String(n || '')
+    .replace(/\b(training|workout|entrenamiento|entreno|session|sesi[oó]n)\b/gi, '')
+    .replace(/\b(upper|lower)\s+body\b/gi, '$1')
+    .replace(/\s*\+\s*/g, ' + ').replace(/\s{2,}/g, ' ').replace(/^[\s+·-]+|[\s+·-]+$/g, '').trim();
+  return s.length >= 3 ? s : String(n || '');
+};
 
 // La tabla puede no existir (migración sin correr): entonces no hay cambios.
 export async function movimientosDe(sb, filtro) {
@@ -266,6 +291,7 @@ export async function agendaDeHoy(sb, hoy) {
   const lunes = lunesDe(hoy);
   const sesiones = await sb(`sesiones?select=cliente_id,rutina_id,fecha,estado&fecha=gte.${lunes}&fecha=lte.${hoy}`);
   const movs = ids.length ? await movimientosDe(sb, `fase_id=in.(${ids.join(',')})`) : [];
+  const extras = ids.length ? await extrasDe(sb, `fase_id=in.(${ids.join(',')})&fecha=eq.${hoy}`, Array.isArray(rutinas) ? rutinas : []) : [];
   let eventos = [];
   try { eventos = await sb(`eventos?select=id,cliente_id,fase_id,tipo,titulo,fecha,dias_semana,semanas,visible_cliente&tipo=in.(${TIPOS_REGISTRO.join(',')})`); }
   catch (e) { eventos = []; }
@@ -276,7 +302,8 @@ export async function agendaDeHoy(sb, hoy) {
     let rutina = null;
     if (fase && hoy >= (fase.fecha_inicio || '9999') && hoy <= finDeFase(fase)) {
       const suyas = (Array.isArray(rutinas) ? rutinas : []).filter(r => r.fase_id === fase.id && rutinaVisible(r, fase));
-      const r = rutinaPorFecha(fase, repartirPorDia(fase, suyas), movs.filter(mv => mv.fase_id === fase.id))(hoy);
+      const r = rutinaPorFecha(fase, repartirPorDia(fase, suyas), movs.filter(mv => mv.fase_id === fase.id),
+        extras.filter(x => x.fase_id === fase.id))(hoy);
       // Si esa rutina ya está hecha esta semana (la adelantó), no se insiste.
       const hecha = r && (Array.isArray(sesiones) ? sesiones : [])
         .some(s => s.cliente_id === c.id && s.rutina_id === r.id && s.estado === 'completada');

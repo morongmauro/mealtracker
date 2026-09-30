@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import EntrenoMes from './EntrenoMes.jsx';
+import EntrenoMes, { HoySemana } from './EntrenoMes.jsx';
 import EntrenoRutinas from './EntrenoRutinas.jsx';
 import EntrenoResumen from './EntrenoResumen.jsx';
 import EntrenoFotos from './EntrenoFotos.jsx';
@@ -213,9 +213,54 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} />}
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
       {avisoPago}
-      <VistaSemana plan={plan} onAbrir={setRutinaId} />
-      <BloqueActividad name={name} />
+      {v2Activa() ? (
+        // Visual nueva: lo de HOY todo junto (fuerza, registros, lo del coach
+        // y añadir actividad) y, debajo, la semana con el detalle de cada
+        // día. El Calendario queda para el mes: no se repite lo mismo.
+        <>
+          <CabeceraFase fase={plan.fase} />
+          <HoySemana nombre={name} alEntrenar={setRutinaId}
+            ejerciciosDe={Object.fromEntries((plan.dias || []).filter(d => d.rutina).map(d => [d.rutina.id, d.rutina.ejercicios]))} />
+          <Sueltas plan={plan} onAbrir={setRutinaId} />
+        </>
+      ) : (
+        <>
+          <VistaSemana plan={plan} onAbrir={setRutinaId} />
+          <BloqueActividad name={name} />
+        </>
+      )}
     </Envoltorio>
+  );
+}
+
+function CabeceraFase({ fase: f }) {
+  if (!f) return null;
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em', textTransform: 'uppercase', lineHeight: 1, color: TEXT }}>{f.nombre}</div>
+      <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 5 }}>
+        {f.semana_actual ? `Semana ${f.semana_actual} de ${f.semanas}` : `${f.semanas} semanas`}{f.objetivo ? ` · ${f.objetivo}` : ''}
+      </div>
+    </div>
+  );
+}
+
+function Sueltas({ plan, onAbrir }) {
+  if (!plan.sueltas || !plan.sueltas.length) return null;
+  return (
+    <>
+      <div style={{ fontSize: 13.5, fontWeight: 750, color: TEXT_MUTED, margin: '22px 2px 8px' }}>También en tu ciclo</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {plan.sueltas.map(r => (
+          <button key={r.id} onClick={() => onAbrir(r.id)} style={filaBase(false)}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, color: TEXT }}>{r.nombre}</div>
+              <div style={{ fontSize: 12, color: TEXT_MUTED }}>{r.ejercicios} ejercicios · sin día fijo</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 

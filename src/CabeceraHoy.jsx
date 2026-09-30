@@ -2,9 +2,9 @@
 // CABECERA DE «HOY» · visual nueva
 //
 // Una banda de color de lado a lado, con curvas como olas (azules para
-// entrenar, verdes para comer), un dibujo del tema (kettlebell y mancuernas;
-// aguacate, brócoli y huevo) y el borde de abajo ovalado. Los dibujos
-// viven en IlustracionesHoy.jsx.
+// entrenar, verdes para comer), el personaje de la marca (un aguacate: solo
+// en alimentación, levantando una mancuerna en entrenamiento) y el borde de
+// abajo que sube en el centro. Los dibujos viven en IlustracionesHoy.jsx.
 //
 // `sangria` y `arriba` cancelan el relleno del contenedor para que la banda
 // llegue a los bordes y al techo de la pantalla.
@@ -48,17 +48,20 @@ export default function CabeceraHoy({ tema = 'entreno', fecha, titulo, sangria =
       position: 'relative', overflow: 'hidden',
       margin: `calc(-1 * ${arriba}) calc(-1 * ${sangria}) 16px`,
       paddingTop: `calc(${arriba} + 8px)`,
-      minHeight: `calc(${arriba} + 150px)`,
-      // El borde de abajo ovalado: el «cielo» se abre sobre la pantalla.
-      borderRadius: '0 0 50% 50% / 0 0 34px 34px',
+      minHeight: `calc(${arriba} + 168px)`,
+      // El borde de abajo sube en el centro, como una loma: la pantalla
+      // «entra» en la banda de color (el estilo de las apps de bienestar).
+      // Es una máscara, así que lo de abajo se ve tal cual, sin costuras.
+      WebkitMaskImage: 'radial-gradient(ellipse 58% 38px at 50% 100%, transparent 97%, #000 100%)',
+      maskImage: 'radial-gradient(ellipse 58% 38px at 50% 100%, transparent 97%, #000 100%)',
     }}>
       <Olas tema={tema} t={t} />
       {/* El dibujo va abajo a la derecha, a tamaño fijo: no se deforma ni se
           recorta según el ancho del teléfono. */}
-      <div style={{ position: 'absolute', right: `calc(${sangria} - 2px)`, bottom: 24, width: 178, height: 110 }}>
+      <div style={{ position: 'absolute', right: `calc(${sangria} - 8px)`, bottom: 34, width: 184, height: 114 }}>
         {tema === 'comida' ? <IlustracionComida /> : <IlustracionPesas />}
       </div>
-      <div style={{ position: 'relative', padding: `0 ${sangria} 58px` }}>
+      <div style={{ position: 'relative', padding: `0 ${sangria} 72px` }}>
         {fecha && <div style={{ fontSize: 15, color: TEXT_MUTED, fontWeight: 500 }}>{fecha}</div>}
         {titulo && <div style={{ fontSize: 28, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.1, marginTop: 2, maxWidth: '62%' }}>{titulo}</div>}
         {children}

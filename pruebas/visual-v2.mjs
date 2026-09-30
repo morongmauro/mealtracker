@@ -20,6 +20,15 @@ try { ({ chromium } = require_('playwright')); }
 catch { try { ({ chromium } = require_(path.join(process.execPath, '../../lib/node_modules/playwright'))); }
 catch { console.error('Falta playwright:  npm i -g playwright'); process.exit(2); } }
 
+// El reloj, fijo en un MARTES (mediodía de Bogotá): mover y añadir rutinas
+// vale solo en la semana en curso, y así la prueba no depende del día.
+const FIJO = Date.parse('2026-09-29T17:00:00Z');
+const DateReal = Date;
+globalThis.Date = class extends DateReal {
+  constructor(...a) { super(...(a.length ? a : [FIJO])); }
+  static now() { return FIJO; }
+};
+
 process.env.CRM_SUPABASE_URL = 'https://crm.test';
 process.env.CRM_SUPABASE_SERVICE_KEY = 'k';
 const { default: handler } = await import('../api/training.js');
@@ -145,6 +154,7 @@ async function abrir(nombre, { ancho = 390, pago = null } = {}) {
   const db = base();
   globalThis.fetch = db.fetch;
   const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota' });
+  await ctx.clock.setFixedTime(new DateReal(FIJO));
   const p = await ctx.newPage();
   const errores = [];
   p.on('pageerror', e => errores.push(e.message));
@@ -282,8 +292,32 @@ try {
   await p.keyboard.press('Escape');
   await espera(300);
   ok('unidades: la preferencia queda en lb', (await p.getByRole('button', { name: /Unidades · lb/ }).count()) > 0);
-  // La rutina por dentro
-  await p.getByRole('button', { name: /Push/ }).first().click();
+  // Hoy: lo de hoy todo junto y la semana con detalle
+  const hoyV = p.locator('[data-view="entrena"]');
+  ok('hoy: «Hoy te toca» con registros y añadir actividad ahí mismo', (await hoyV.locator('[data-hoy-te-toca]').count()) === 1
+    && (await hoyV.locator('[data-hoy-te-toca]').getByText('Registro fotográfico').count()) === 1
+    && (await hoyV.locator('[data-hoy-te-toca] [data-hoy-actividad]').count()) === 1);
+  ok('hoy: debajo, la semana con el detalle de cada día', (await hoyV.locator('[data-vista="semana"] [data-fecha]').count()) === 7);
+  ok('hoy: nombres cortos que se leen enteros', (await hoyV.getByText('Lower + Core', { exact: true }).count()) === 1
+    && (await hoyV.getByText(/Training/).count()) === 0);
+  ok('hoy: el corte de pago se ve en la semana', (await hoyV.getByText('Corte de tu mensualidad').count()) >= 1);
+  // Añadir una rutina hoy (martes, libre): el Push repetiría lo del lunes → avisa
+  await hoyV.getByRole('button', { name: 'Añadir una rutina' }).click();
+  await p.locator('[data-elegir-rutina]').waitFor({ timeout: 5000 });
+  await p.locator('[data-elegir-rutina] button', { hasText: 'Push' }).click();
+  await p.locator('[data-confirmar]').waitFor({ timeout: 5000 });
+  ok('añadir: si repite músculos del día anterior, avisa del descanso', /lunes haces Push/.test(await p.locator('[data-confirmar]').innerText()), await p.locator('[data-confirmar]').innerText());
+  await foto(p, '04g-aviso-descanso');
+  await p.getByRole('button', { name: 'Mejor no' }).click();
+  ok('…y «Mejor no» no añade nada', !(db.db.rutina_extras || []).length);
+  await p.locator('[data-elegir-rutina] button', { hasText: 'Pull' }).click();
+  await espera(1200);
+  ok('añadir: el Pull queda hoy, «la añadiste tú»', (db.db.rutina_extras || []).length === 1
+    && /la añadiste tú/.test(await hoyV.locator('[data-hoy-rutina]').innerText()));
+  await foto(p, '04h-hoy-anadida');
+  // La rutina por dentro: el Push del lunes, desde su día
+  await hoyV.locator(`[data-vista="semana"] [data-fecha="${lunes}"]`).click();
+  await p.locator('[data-hoja-scroll]').getByText('Push', { exact: true }).click();
   await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
   ok('la rutina se parte en calentamiento, fuerza y enfriamiento',
     (await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()) === 1 && (await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()) === 1,
@@ -376,24 +410,27 @@ try {
   await espera(1500);
   await foto(p, '05-entreno-calendario');
   const cal = p.locator('[data-view="entrena"]');
-  ok('calendario: abre en la semana, con el nombre entero', (await cal.locator('[data-vista="semana"]').count()) === 1
-    && await cal.getByText('Lower Body + Core Training').first().isVisible());
+  const d = (n) => sumarDiasISO(lunes, n);   // 0 lunes … 6 domingo (hoy es martes = 1)
+  ok('calendario: es el mes (sin repetir la semana de Hoy)', (await cal.locator('[data-vista="mes"]').count()) === 1
+    && (await cal.getByRole('tab').count()) === 0);
   ok('calendario: sin «la saltaste»', (await cal.getByText(/saltaste/).count()) === 0);
-  ok('calendario: el registro de peso y fotos se ve escrito', (await cal.getByText('Registro fotográfico').count()) + (await cal.getByText(/peso/i).count()) >= 2);
-  await cal.getByRole('tab', { name: 'Mes' }).click();
-  await espera(600);
-  await foto(p, '05a-entreno-mes');
   ok('mes: días de la semana en azul', await cal.getByText('Lun', { exact: true }).first().evaluate(el => getComputedStyle(el).color === 'rgb(60, 123, 214)'));
-  ok('por hacer con borde azul; hecho relleno de azul', (await cal.locator('[data-chip="pendiente"]').count()) >= 1
-    && await cal.locator('[data-chip="pendiente"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(el).borderTopColor === 'rgb(60, 123, 214)')
+  ok('mes: casillas altas y nombres cortos', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => el.getBoundingClientRect().height >= 90)
+    && (await cal.getByText(/Training/).count()) === 0);
+  ok('por hacer con borde azul; hecho relleno de azul', await cal.locator('[data-chip="pendiente"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(el).borderTopColor === 'rgb(60, 123, 214)')
     && await cal.locator('[data-chip="hecha"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(60, 123, 214)'));
-  ok('mes: casillas altas (la rutina se lee)', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => el.getBoundingClientRect().height >= 90));
+  ok('mes: «Léelo · ten en cuenta» con mover, añadir, plan y descanso', /Léelo/.test(await cal.locator('[data-ten-en-cuenta]').innerText())
+    && ['Mover', 'Añadir', 'Tu plan no cambia', 'Descanso'].every(t => (async () => true)()) && /Descanso\./.test(await cal.locator('[data-ten-en-cuenta]').innerText()));
   ok('calendario: sin oliva', await p.evaluate(() => {
     const oliva = /rgb\((1[12]\d), (1[2-4]\d), (8\d|9\d)\)|rgb\(231, 235, 214\)/;
     return ![...document.querySelectorAll('[data-view="entrena"] *')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor) || oliva.test(getComputedStyle(el).borderTopColor));
   }));
-  await cal.locator('[data-fecha="' + hoy + '"]').click();
+  await cal.locator('[data-ten-en-cuenta]').scrollIntoViewIfNeeded();
+  await foto(p, '05a-ten-en-cuenta');
+  // Registrar desde el día
+  await cal.locator(`[data-vista="mes"] [data-fecha="${hoy}"]`).click();
   await p.getByText('Para registrar').waitFor({ timeout: 5000 });
+  ok('al tocar el día: el detalle dice la fecha de corte', (await p.getByText('Fecha de corte de tu mensualidad').count()) === 1);
   await espera(300);
   await foto(p, '05b-dia-registrar');
   await p.getByRole('button', { name: 'Ya envié mis fotos' }).click();
@@ -403,70 +440,65 @@ try {
   ok('fotos y peso quedan registrados', db.db.evento_registros && db.db.evento_registros.length === 2
     && Number(db.db.evento_registros.find(r => r.evento_id === 'evp').valor) === 78.4);
   ok('…y la hoja lo dice', (await p.getByText(/Hecho\. Tu coach ya lo sabe/).count()) === 2);
-  await foto(p, '05c-dia-registrado');
   await p.getByRole('button', { name: 'Cerrar' }).first().click();
   await espera(400);
-  // Mover con el botón: el lunes (Push) al martes.
-  const lun = sumarDiasISO(hoy, 1), mar = sumarDiasISO(hoy, 2), mie = sumarDiasISO(hoy, 3);
-  await cal.locator('[data-fecha="' + lun + '"]').click();
+  // Mover con el botón: el Lower del miércoles al jueves (solo esta semana)
+  await cal.locator(`[data-vista="mes"] [data-fecha="${d(2)}"]`).click();
   await p.getByRole('button', { name: /Mover a otro día/ }).click();
-  await p.getByRole('button', { name: new RegExp('^Mar ' + Number(mar.slice(8))) }).click();
+  ok('mover: solo ofrece días de esta semana', (await p.getByRole('button', { name: /^Lun / }).count()) === 0);
+  await p.getByRole('button', { name: new RegExp('^Jue ' + Number(d(3).slice(8))) }).click();
   await espera(900);
-  ok('mover con el botón: el Push pasa al martes', (await cal.locator('[data-fecha="' + mar + '"]').innerText()).includes('Push')
-    && !(await cal.locator('[data-fecha="' + lun + '"]').innerText()).includes('Push'));
-  // Arrastrar: el Lower del miércoles al lunes (que quedó libre).
-  const de = await cal.locator('[data-fecha="' + mie + '"] div').filter({ hasText: 'Lower' }).first().boundingBox();
-  const aLun = await cal.locator('[data-fecha="' + lun + '"]').boundingBox();
+  ok('mover con el botón: el Lower pasa al jueves', (await cal.locator(`[data-fecha="${d(3)}"]`).innerText()).includes('Lower')
+    && !(await cal.locator(`[data-fecha="${d(2)}"]`).innerText()).includes('Lower'));
+  // Arrastrar con el ratón: el Pull del viernes al sábado
+  const de = await cal.locator(`[data-fecha="${d(4)}"] [data-chip]`).first().boundingBox();
+  const aSab = await cal.locator(`[data-fecha="${d(5)}"]`).boundingBox();
   await p.mouse.move(de.x + de.width / 2, de.y + de.height / 2);
   await p.mouse.down();
   await espera(500);
-  await p.mouse.move(aLun.x + aLun.width / 2, aLun.y + aLun.height / 2, { steps: 8 });
+  await p.mouse.move(aSab.x + aSab.width / 2, aSab.y + aSab.height / 2, { steps: 8 });
   await espera(150);
   await foto(p, '05d-arrastrando');
   await p.mouse.up();
   await espera(1000);
-  ok('arrastrar: el Lower pasa al lunes', (await cal.locator('[data-fecha="' + lun + '"]').innerText()).includes('Lower'));
-  ok('arrastrar: sin aviso de error', (await p.getByText('No se pudo mover').count()) === 0);
-  ok('arrastrar: se guardó una sola vez', db.db.rutina_movimientos.length === 2, String(db.db.rutina_movimientos.length));
+  ok('arrastrar: el Pull pasa al sábado', (await cal.locator(`[data-fecha="${d(5)}"]`).innerText()).includes('Pull'));
+  // A la semana que viene no se puede
+  const deJ = await cal.locator(`[data-fecha="${d(3)}"] [data-chip]`).first().boundingBox();
+  const aSig = (await cal.locator(`[data-fecha="${d(7)}"]`).count()) ? await cal.locator(`[data-fecha="${d(7)}"]`).boundingBox() : null;
+  if (aSig) {
+    await p.mouse.move(deJ.x + deJ.width / 2, deJ.y + deJ.height / 2);
+    await p.mouse.down(); await espera(500);
+    await p.mouse.move(aSig.x + aSig.width / 2, aSig.y + aSig.height / 2, { steps: 8 });
+    await p.mouse.up(); await espera(700);
+    ok('arrastrar a la otra semana: no se mueve y lo explica', (await p.getByText('Solo puedes mover rutinas dentro de esta semana', { exact: false }).count()) === 1
+      && (await cal.locator(`[data-fecha="${d(3)}"]`).innerText()).includes('Lower'));
+  }
+  ok('arrastrar: se guardó una vez por cambio', db.db.rutina_movimientos.length === 2, String(db.db.rutina_movimientos.length));
   ok('el plan del coach no cambia', JSON.stringify(db.db.rutinas.find(r => r.id === 'r2').dias_semana) === '["X"]');
   await foto(p, '05e-movidas');
-  // Arrastrar CON EL DEDO, en la vista de semana (lo que falló en el iPhone):
-  // eventos táctiles de verdad, no ratón.
-  await cal.getByRole('tab', { name: 'Semana' }).click();
-  await espera(700);
-  for (let i = 0; i < 3 && !(await cal.locator(`[data-vista="semana"] [data-fecha="${lun}"]`).count()); i++) {
-    await cal.getByRole('button', { name: 'Siguiente' }).click(); await espera(700);
+  // Con el dedo, en la semana de Hoy: el Pull del sábado al domingo
+  await p.getByRole('button', { name: 'Hoy', exact: true }).first().click();
+  await espera(1500);
+  const cdp = await ctx.newCDPSession(p);
+  const c0 = await cal.locator(`[data-vista="semana"] [data-fecha="${d(5)}"] [data-chip]`).first().boundingBox();
+  await cal.locator(`[data-vista="semana"] [data-fecha="${d(6)}"]`).scrollIntoViewIfNeeded();
+  const c0b = await cal.locator(`[data-vista="semana"] [data-fecha="${d(5)}"] [data-chip]`).first().boundingBox();
+  const c1 = await cal.locator(`[data-vista="semana"] [data-fecha="${d(6)}"]`).boundingBox();
+  const x0 = c0b.x + c0b.width / 2, y0 = c0b.y + c0b.height / 2, x1 = c1.x + c1.width / 2, y1 = c1.y + c1.height / 2;
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0 }] });
+  await espera(600);
+  for (let k = 1; k <= 12; k++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + (x1 - x0) * k / 12, y: y0 + (y1 - y0) * k / 12 }] });
+    await espera(25);
   }
-  const filas = await cal.locator('[data-vista="semana"] [data-fecha]').evaluateAll(els => els.map(e => ({ f: e.dataset.fecha, t: e.innerText })));
-  const libre = filas.find(x => x.f > hoy && x.f !== lun && /Descanso/.test(x.t));
-  if (libre) {
-    const cdp = await ctx.newCDPSession(p);
-    const c0 = await cal.locator(`[data-fecha="${lun}"] [data-chip]`).first().boundingBox();
-    const c1 = await cal.locator(`[data-fecha="${libre.f}"]`).boundingBox();
-    const x0 = c0.x + c0.width / 2, y0 = c0.y + c0.height / 2, x1 = c1.x + c1.width / 2, y1 = c1.y + c1.height / 2;
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0 }] });
-    await espera(600);
-    for (let k = 1; k <= 12; k++) {
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + (x1 - x0) * k / 12, y: y0 + (y1 - y0) * k / 12 }] });
-      await espera(25);
-    }
-    await foto(p, '05f-arrastre-dedo');
-    ok('dedo: aparece la rutina flotando mientras se arrastra', (await p.locator('[data-fantasma]').count()) === 1);
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await espera(1200);
-    ok('dedo: el Lower cambia de día con el dedo', (await cal.locator(`[data-fecha="${libre.f}"]`).innerText()).includes('Lower'),
-      await cal.locator(`[data-fecha="${libre.f}"]`).innerText());
-    ok('dedo: soltar no abre la hoja del día', (await p.getByText('Mover a otro día').count()) === 0);
-  } else ok('(esta semana no hay día libre para probar el dedo)', true);
-  await cal.locator(`[data-vista="semana"] [data-fecha="${hoy}"]`).count() || await cal.getByRole('button', { name: 'Volver a hoy' }).click().catch(() => {});
-  await espera(500);
-  ok('semana: el corte de pago se ve', (await cal.getByText('Corte de tu mensualidad').count()) >= 1);
-  await cal.locator(`[data-vista="semana"] [data-fecha="${hoy}"]`).click();
-  await p.locator('[data-aviso-dia="pago"]').waitFor({ timeout: 5000 });
-  ok('al tocar el día: el detalle dice la fecha de corte', (await p.getByText('Fecha de corte de tu mensualidad').count()) === 1);
-  await foto(p, '05g-dia-detalle');
-  await p.getByRole('button', { name: 'Cerrar' }).first().click();
-  await espera(400);
+  await foto(p, '05f-arrastre-dedo');
+  ok('dedo: aparece la rutina flotando mientras se arrastra', (await p.locator('[data-fantasma]').count()) === 1);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await espera(1200);
+  ok('dedo: el Pull cambia de día con el dedo', (await cal.locator(`[data-vista="semana"] [data-fecha="${d(6)}"]`).innerText()).includes('Pull'),
+    await cal.locator(`[data-vista="semana"] [data-fecha="${d(6)}"]`).innerText());
+  ok('dedo: soltar no abre la hoja del día', (await p.getByText('Mover a otro día').count()) === 0);
+  void c0;
   await p.getByRole('button', { name: 'Galería' }).click();
   await p.getByText('Sentadilla con barra').first().waitFor({ timeout: 10000 });
   await espera(600);
