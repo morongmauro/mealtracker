@@ -103,71 +103,77 @@
       /* Arranque caliente (misma sesión): sin opener, directo a la app */
       html.warm-start #splash { display: none; }
       /* ── Apertura de la visual nueva ─────────────────────────────────
-         El LOGO REAL (la M que termina hacia arriba, como un check), dentro
-         del anillo de las gráficas del Dash: trazo grueso sobre su riel, el
-         punto blanco dentro del trazo, del azul del entreno (arriba) al verde
-         de la comida (en la punta). El mismo dibujo del ícono de la app.
-           0.0 s  aparece el riel y un halo suave que respira
-           0.2 s  el anillo se llena hasta donde lo hace el logo, con el punto
-                  en la punta
-           0.6 s  la M se dibuja de un solo trazo
-           1.5 s  un brillo recorre la M y el logo da un pulso
-           1.6 s  el nombre sube desde detrás de una línea
-           2.2 s  el lema
-         Luego se queda quieto hasta que la app está lista (mínimo 3,4 s
-         desde que se toca el ícono, ver main.jsx) y sale agrandándose. */
+         Al estilo de las apps de referencia (Puntos, Headspace): la
+         pantalla completa en el grafito del ícono, así tocar el ícono y
+         abrir la app se sienten una sola cosa.
+           0.10 s  aparece un punto blanco en el centro
+           0.55 s  el punto sube a su sitio en el anillo
+           0.80 s  el anillo se dibuja con el punto en la punta: naranja
+                   (aprendizaje), azul (entreno), verde (comida)
+           1.25 s  la M del logo se dibuja
+           1.95 s  un brillo recorre la M
+           2.15 s  el logo se hace chico a la izquierda y sale el nombre
+           2.75 s  el lema
+         Se queda quieto hasta que la app está lista (mínimo 3,6 s desde que
+         se toca el ícono, ver main.jsx) y se desvanece. */
       @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: block;
         src: url('/fonts/figtree.woff2') format('woff2-variations'), url('/fonts/figtree.woff2') format('woff2'); }
       #splash2 { display: none; }
       html.splash-v2 #splash { display: none; }
       html.splash-v2 #splash2 {
         position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; background: #F1F0EA; overflow: hidden;
-        transition: opacity 0.5s ease-out;
+        align-items: center; justify-content: center; background: #1B1B1A; overflow: hidden;
+        transition: opacity 0.45s ease-out;
       }
       body.app-ready #splash2 { opacity: 0; pointer-events: none; }
       html.warm-start #splash2 { display: none !important; }
-      #splash2 .halo { position: absolute; width: 520px; height: 520px; border-radius: 50%; left: 50%; top: 50%;
-        margin: -330px 0 0 -260px; opacity: 0;
-        background: radial-gradient(closest-side, rgba(60,123,214,0.16), rgba(70,150,90,0.10) 55%, rgba(241,240,234,0) 100%);
-        animation: s2halo 1.2s ease-out 0.05s forwards, s2respira 3.2s ease-in-out 1.25s infinite; }
-      @keyframes s2halo { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
-      @keyframes s2respira { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-      #splash2 .contenido { position: relative; display: flex; flex-direction: column; align-items: center;
-        transition: transform 0.5s cubic-bezier(.3,0,.2,1); }
-      body.app-ready #splash2 .contenido { transform: scale(1.08); }
-      #splash2 .marca { width: 132px; height: 132px; overflow: visible;
-        animation: s2pulso 0.6s cubic-bezier(.3,0,.2,1) 1.5s both; }
-      @keyframes s2pulso { 0% { transform: scale(1); } 40% { transform: scale(1.07); } 100% { transform: scale(1); } }
-      #splash2 .riel { opacity: 0; animation: s2in 0.4s ease-out 0.05s forwards; }
-      #splash2 .arco { stroke-dasharray: 100; stroke-dashoffset: 100;
-        animation: s2arco 1.2s cubic-bezier(.65,0,.25,1) 0.2s forwards; }
-      @keyframes s2arco { to { stroke-dashoffset: 33.3; } }
-      #splash2 .punta { transform-origin: 256px 256px; opacity: 0;
-        animation: s2punta 1.2s cubic-bezier(.65,0,.25,1) 0.2s forwards; }
-      @keyframes s2punta { 0% { opacity: 1; transform: rotate(0deg); } 100% { opacity: 1; transform: rotate(240deg); } }
-      #splash2 .eme { stroke-dasharray: 100; stroke-dashoffset: 100;
-        animation: s2eme 0.8s cubic-bezier(.6,0,.25,1) 0.6s forwards; }
-      @keyframes s2eme { to { stroke-dashoffset: 0; } }
+      #splash2 .fila { display: flex; align-items: center; transition: transform 0.45s cubic-bezier(.3,0,.2,1); }
+      body.app-ready #splash2 .fila { transform: scale(1.05); }
+      #splash2 .marca { width: 150px; height: 150px; flex: none; overflow: visible;
+        animation: s2chica 0.65s cubic-bezier(.65,0,.25,1) 2.15s forwards; }
+      @keyframes s2chica { to { width: 84px; height: 84px; } }
+      #splash2 .riel { opacity: 0; animation: s2in 0.45s ease-out 0.7s forwards; }
+      #splash2 .tramo1 { stroke-dasharray: 100 100; stroke-dashoffset: 100;
+        animation: s2traza 0.5s cubic-bezier(.55,0,1,1) 0.8s forwards; }
+      #splash2 .tramo2 { stroke-dasharray: 100 100; stroke-dashoffset: 100; opacity: 0;
+        animation: s2traza2 0.5s cubic-bezier(0,0,.3,1) 1.3s forwards; }
+      @keyframes s2traza { to { stroke-dashoffset: 0; } }
+      @keyframes s2traza2 { 0% { opacity: 1; stroke-dashoffset: 100; } 100% { opacity: 1; stroke-dashoffset: 0; } }
+      /* El punto: nace grande en el centro, sube a lo alto del anillo y
+         luego gira con la punta del trazo (mismo ritmo que los dos tramos). */
+      #splash2 .gira { transform-origin: 256px 256px;
+        animation: s2gira 1s linear 0.8s forwards; }
+      @keyframes s2gira {
+        0% { transform: rotate(0deg); animation-timing-function: cubic-bezier(.55,0,1,1); }
+        50% { transform: rotate(120deg); animation-timing-function: cubic-bezier(0,0,.3,1); }
+        100% { transform: rotate(240deg); } }
+      #splash2 .semilla { transform-box: fill-box; transform-origin: center; transform: translateY(172px) scale(0);
+        animation: s2semilla 0.7s cubic-bezier(.3,0,.2,1) 0.1s forwards; }
+      @keyframes s2semilla {
+        0% { transform: translateY(172px) scale(0); }
+        40% { transform: translateY(172px) scale(5.5); }
+        62% { transform: translateY(172px) scale(5.5); }
+        100% { transform: translateY(0) scale(1); } }
+      #splash2 .eme { stroke-dasharray: 100 100; stroke-dashoffset: 100; opacity: 0;
+        animation: s2eme 0.7s cubic-bezier(.6,0,.25,1) 1.25s forwards; }
+      @keyframes s2eme { 0% { opacity: 1; stroke-dashoffset: 100; } 100% { opacity: 1; stroke-dashoffset: 0; } }
       #splash2 .brillo { stroke-dasharray: 18 100; stroke-dashoffset: 18; opacity: 0;
-        animation: s2brillo 0.65s ease-in-out 1.45s forwards; }
-      @keyframes s2brillo { 0% { opacity: 0; stroke-dashoffset: 18; } 20% { opacity: 0.9; } 80% { opacity: 0.9; } 100% { opacity: 0; stroke-dashoffset: -100; } }
-      #splash2 .nombre { margin-top: 26px; overflow: hidden; padding: 2px 4px 4px;
-        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: 26px;
-        color: #1F1F1F; line-height: 1.1; }
-      #splash2 .nombre span { display: inline-block; transform: translateY(110%); letter-spacing: 0.12em;
-        animation: s2nombre 0.75s cubic-bezier(.2,.8,.2,1) 1.6s forwards; }
-      @keyframes s2nombre { to { transform: none; letter-spacing: -0.02em; } }
-      #splash2 .linea { width: 0; height: 2px; border-radius: 2px; margin-top: 2px;
-        background: linear-gradient(90deg, #3C7BD6, #46965A); animation: s2linea 0.6s cubic-bezier(.3,0,.2,1) 1.55s forwards; }
-      @keyframes s2linea { to { width: 44px; } }
-      #splash2 .lema { margin-top: 10px; font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 500;
-        font-size: 14.5px; color: #8A8778; letter-spacing: 0.01em; opacity: 0; transform: translateY(4px);
-        animation: s2lema 0.6s ease-out 2.2s forwards; }
+        animation: s2brillo 0.6s ease-in-out 1.95s forwards; }
+      @keyframes s2brillo { 0% { opacity: 0; stroke-dashoffset: 18; } 20% { opacity: 0.85; } 80% { opacity: 0.85; } 100% { opacity: 0; stroke-dashoffset: -100; } }
+      #splash2 .palabra { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0;
+        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; color: #F5F3EC; line-height: 1.02;
+        animation: s2palabra 0.65s cubic-bezier(.65,0,.25,1) 2.15s forwards; }
+      @keyframes s2palabra { to { max-width: 230px; opacity: 1; padding-left: 16px; } }
+      #splash2 .palabra .p1 { font-size: 21px; font-weight: 600; color: #CFCBC0; letter-spacing: -0.01em; }
+      #splash2 .palabra .p2 { font-size: 38px; font-weight: 800; letter-spacing: -0.025em; }
+      #splash2 .lema { position: absolute; left: 0; right: 0; top: calc(50% + 70px); text-align: center;
+        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 500;
+        font-size: 14.5px; color: #8E8A80; letter-spacing: 0.01em; opacity: 0; transform: translateY(6px);
+        animation: s2lema 0.6s ease-out 2.75s forwards; }
       @keyframes s2lema { to { opacity: 1; transform: none; } }
       @keyframes s2in { to { opacity: 1; } }
       @media (prefers-reduced-motion: reduce) {
-        #splash2 *, #splash2 .marca { animation-duration: 0.01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; }
+        #splash2 *, #splash2 .marca { animation-duration: 0.01s !important; animation-delay: 0s !important; }
       }
       @media (prefers-reduced-motion: reduce) {
         #splash .ring { animation-duration: 0.01s; }
@@ -204,29 +210,24 @@
       <div class="sub">Entrena con Método</div>
     </div>
     <div id="splash2" aria-label="Entrena con Método">
-      <div class="halo"></div>
-      <div class="contenido">
+      <div class="fila">
         <svg class="marca" viewBox="0 0 512 512" fill="none" aria-hidden="true">
           <defs>
-            <linearGradient id="s2-arco" x1="442" y1="256" x2="170" y2="107" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#3C7BD6"/>
-              <stop offset="0.55" stop-color="#3F8FA6"/>
-              <stop offset="1" stop-color="#46965A"/>
-            </linearGradient>
-          </defs>
-          <circle class="riel" cx="256" cy="256" r="172" stroke="#E6E2D8" stroke-width="46"/>
-          <circle class="arco" cx="256" cy="256" r="172" stroke="url(#s2-arco)" stroke-width="46" pathLength="100"
-                  stroke-linecap="round" transform="rotate(-90 256 256)"/>
-          <g class="punta"><circle cx="256" cy="84" r="16" fill="#FFFFFF"/></g>
-          <polyline class="eme" points="194,305 194,196 267,282 314,203" pathLength="100" stroke="#1F1F1F"
+    <linearGradient id="s2a1" x1="256" y1="84" x2="404.96" y2="342" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#EE8434"/><stop offset="0.42" stop-color="#EE8434"/><stop offset="0.72" stop-color="#C06AA0"/><stop offset="1" stop-color="#3C7BD6"/></linearGradient>
+    <linearGradient id="s2a2" x1="404.96" y1="342" x2="107.04" y2="342" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3C7BD6"/><stop offset="0.25" stop-color="#3C7BD6"/><stop offset="0.75" stop-color="#46965A"/><stop offset="1" stop-color="#46965A"/></linearGradient>
+  </defs>
+  <circle class="riel" cx="256" cy="256" r="172" stroke="#2C2C2A" stroke-width="46" fill="none"/>
+  <path class="tramo1" d="M256 84 A172 172 0 0 1 404.96 342" stroke="url(#s2a1)" stroke-width="46" stroke-linecap="round" fill="none" pathLength="100"/>
+  <path class="tramo2" d="M404.96 342 A172 172 0 0 1 107.04 342" stroke="url(#s2a2)" stroke-width="46" stroke-linecap="round" fill="none" pathLength="100"/>
+          <polyline class="eme" points="194,305 194,196 267,282 314,203" pathLength="100" stroke="#F5F3EC"
                     stroke-width="24" stroke-linecap="square" stroke-linejoin="miter"/>
           <polyline class="brillo" points="194,305 194,196 267,282 314,203" pathLength="100" stroke="#FFFFFF"
-                    stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+                    stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+          <g class="gira"><circle class="semilla" cx="256" cy="84" r="16" fill="#F5F3EC"/></g>
         </svg>
-        <div class="nombre"><span>Entrena con Método</span></div>
-        <div class="linea"></div>
-        <div class="lema">Tu progreso, con método</div>
+        <div class="palabra"><div class="p1">Entrena con</div><div class="p2">Método</div></div>
       </div>
+      <div class="lema">Tu progreso, con método</div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

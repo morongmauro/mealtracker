@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#1B1B1A"/>
+  <defs>
+    <linearGradient id="i1" x1="256" y1="84" x2="404.96" y2="342" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#EE8434"/><stop offset="0.42" stop-color="#EE8434"/><stop offset="0.72" stop-color="#C06AA0"/><stop offset="1" stop-color="#3C7BD6"/></linearGradient>
+    <linearGradient id="i2" x1="404.96" y1="342" x2="107.04" y2="342" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3C7BD6"/><stop offset="0.25" stop-color="#3C7BD6"/><stop offset="0.75" stop-color="#46965A"/><stop offset="1" stop-color="#46965A"/></linearGradient>
+  </defs>
+  <circle class="riel" cx="256" cy="256" r="172" stroke="#2C2C2A" stroke-width="46" fill="none"/>
+  <path class="tramo1" d="M256 84 A172 172 0 0 1 404.96 342" stroke="url(#i1)" stroke-width="46" stroke-linecap="round" fill="none" pathLength="100"/>
+  <path class="tramo2" d="M404.96 342 A172 172 0 0 1 107.04 342" stroke="url(#i2)" stroke-width="46" stroke-linecap="round" fill="none" pathLength="100"/>
+  <polyline points="194,305 194,196 267,282 314,203" stroke="#F5F3EC" stroke-width="24" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+  <circle cx="107.04" cy="342" r="16" fill="#F5F3EC"/>
+</svg>

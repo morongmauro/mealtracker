@@ -46,9 +46,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 if (typeof window !== 'undefined') {
   const warmStart = (() => { try { return !!sessionStorage.getItem('mt:booted'); } catch (e) { return false; } })();
   // Visual nueva: la apertura con el logo dura más (la secuencia termina a
-  // los ~2,8 s) para que se alcance a ver completa.
+  // los ~3,3 s) para que se alcance a ver completa.
   const splashV2 = document.documentElement.classList.contains('splash-v2');
-  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? 3400 : 2200;
+  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? 3600 : 2200;
   requestAnimationFrame(() => {
     const holdLeft = Math.max(80, SPLASH_MIN_MS - performance.now());
     setTimeout(() => {
