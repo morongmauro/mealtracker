@@ -77,6 +77,8 @@ const almacen = (() => {
 })();
 // Una sola cola para toda la app: las series marcadas sin señal esperan aquí.
 const cola = crearCola({ almacen, api: entrenoApi, hoy: hoyLocal });
+// Para la mudanza de dirección: sube lo pendiente antes de irse.
+export const vaciarCola = () => cola.vaciar();
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => { cola.vaciar(); });
   document.addEventListener('visibilitychange', () => {

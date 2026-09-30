@@ -19,6 +19,7 @@ const Entrenamiento = lazy(() => import('./Entrenamiento.jsx'));
 const Dash = lazy(() => import('./Dash.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa } from './v2.js';
+import { recibirMudanza, enDireccionVieja, urlDeLlegada } from './mudanza.js';
 import { Pastilla } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2 } from './GraficasV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
@@ -492,6 +493,10 @@ if (typeof window !== 'undefined' && !window.storage) {
     list: async (prefix = '') => { try { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(PREFIX + prefix)) keys.push(k.slice(PREFIX.length)); } return { keys }; } catch (e) { return null; } },
   };
 }
+
+// Llegada desde la dirección vieja (?mudanza=1&n=…): antes de que la app lea
+// su almacenamiento. Ver mudanza.js.
+recibirMudanza();
 
 export default function MealTracker() {
   const [view, setView] = useState('loading');
@@ -1007,6 +1012,10 @@ export default function MealTracker() {
   // justo cuando la carga termina, así que re-dispara el intento en el momento
   // correcto. cloudPullStartedRef evita repetir el pull en cambios de view.
   const cloudPullStartedRef = useRef(false);
+  // Cuándo terminó de traer y fusionar la cuenta de la nube. La mudanza sube
+  // TODO solo después: el servidor reemplaza el historial con lo que llega, y
+  // subir antes de fusionar pisaría lo que esté en la nube y no aquí.
+  const pullListoRef = useRef(0);
   useEffect(() => {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
     if (cloudPullStartedRef.current) return;
@@ -1068,6 +1077,7 @@ export default function MealTracker() {
         if (cancelled) { cloudPullStartedRef.current = false; return; }
         if (!row || !row.data) {
           // Server vacío → primer push con datos locales (migración invisible)
+          pullListoRef.current = Date.now();
           schedulePushToCloud(0);
           return;
         }
@@ -1237,6 +1247,7 @@ export default function MealTracker() {
         }
         if (Array.isArray(d.goals_history) && d.goals_history.length > 0) setGoalsHistory(d.goals_history);
         if (typeof d.name === 'string' && d.name) setName(d.name);
+        pullListoRef.current = Date.now();
       } catch (e) {
         // Falló el pull (red): liberar el guard para poder reintentar — el
         // pull es una fusión idempotente, repetirlo es seguro.
@@ -1481,66 +1492,110 @@ export default function MealTracker() {
   // y `water` para que el coach lo vea EN TIEMPO REAL en su dashboard.
   // El backend reconstruye el history[today] cuando llega esto, así no
   // necesitamos esperar a que el cliente cambie de día.
+  // Lo que se sube a la nube. Lo usan el guardado automático y la mudanza.
+  const paqueteNube = () => {
+    const todayTotals = entries.reduce((acc, e) => ({
+      kcal: acc.kcal + (e.kcal || 0),
+      p: acc.p + (e.p || 0),
+      c: acc.c + (e.c || 0),
+      g: acc.g + (e.g || 0),
+    }), { kcal: 0, p: 0, c: 0, g: 0 });
+    return {
+      favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted,
+      historyDayOps,
+      frequentItems, wellbeing, goals, name,
+      coach_reminders: coachReminders,
+      reminders_updated: remindersMetaRef.current || undefined,
+      // Señales de dispositivo para el CRM: app instalada en
+      // homescreen y push activado. `undefined` no viaja en el JSON,
+      // y el server conserva el valor existente si no llega (así un
+      // segundo dispositivo sin la marca no la borra).
+      pwa_installed_at: (() => { try { return localStorage.getItem('mt:pwaInstalledAt') || undefined; } catch (e) { return undefined; } })(),
+      push_enabled_at: (() => { try { return localStorage.getItem('mt:pushEnabledAt') || undefined; } catch (e) { return undefined; } })(),
+      // Menús armados en el Recetario. Viven en localStorage (no
+      // necesitan cuenta), pero el coach no podía verlos desde el CRM.
+      // Se mandan tal cual (son IDs de receta, pesan nada) y el
+      // servidor conserva los del server si un dispositivo sincroniza
+      // sin ellos — mismo patrón que las señales de dispositivo.
+      // Versiones de novedades ya vistas: así la ventana no reaparece
+      // al entrar desde otro teléfono.
+      novedades_vistas: novedadesVistasRef.current.length ? novedadesVistasRef.current : undefined,
+      recetario_menus: (() => {
+        try {
+          const raw = localStorage.getItem('mt:menus_guardados');
+          if (!raw) return undefined;
+          const arr = JSON.parse(raw);
+          return Array.isArray(arr) && arr.length ? arr.slice(0, 60) : undefined;
+        } catch (e) { return undefined; }
+      })(),
+      // Versión de la meta que este dispositivo conoce; el server la
+      // compara y NO deja que un push viejo pise una meta más nueva
+      // (p.ej. recién cambiada por el coach).
+      goals_updated: goalsMetaRef.current || undefined,
+      // CHAT: las últimas ~150 burbujas también viajan a la nube. Sin
+      // esto, un teléfono nuevo o la app instalada (Agregar a inicio)
+      // recuperaba los DATOS pero el chat aparecía casi vacío — y la
+      // conversación es parte de la memoria del asistente.
+      messages: messages.slice(-150),
+      // En vivo: comidas y agua de HOY
+      today,
+      today_entries: entries,
+      today_water: water,
+      today_totals: todayTotals,
+    };
+  };
+  // ── Mudanza a la dirección nueva ──────────────────────────────────────
+  // 'aviso' (en la vieja) → 'guardando' → se abre la nueva, o 'error'.
+  // 'llegada': ya en la nueva, recién llegada; explica cómo instalarla.
+  const [mudanza, setMudanza] = useState(() => {
+    try {
+      if (enDireccionVieja()) return sessionStorage.getItem('mt:mudanzaLuego') ? null : 'aviso';
+      const enPantallaDeInicio = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+      if (localStorage.getItem('mt:llegoDeMudanza') && !enPantallaDeInicio) return 'llegada';
+    } catch (e) {}
+    return null;
+  });
+  const subirNubeRef = useRef(null);
+  subirNubeRef.current = async () => {
+    if (!cloudUserIdRef.current) return false;
+    const r = await fetch('/api/sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: cloudUserIdRef.current, name, data: paqueteNube() }),
+    });
+    return r.ok;
+  };
+  // Sube TODO a la cuenta y solo entonces abre la dirección nueva. Si quien
+  // se muda había dicho que no a la nube, este botón es su sí: el aviso lo
+  // explica. Antes de subir se espera a que la cuenta de la nube se haya
+  // traído y fusionado (ver pullListoRef).
+  const mudarse = async () => {
+    setMudanza('guardando');
+    acceptCloudConsent();
+    const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+    for (let i = 0; i < 80 && !(cloudUserIdRef.current && pullListoRef.current); i++) await esperar(250);
+    if (!cloudUserIdRef.current || !pullListoRef.current) { setMudanza('error'); return; }
+    await esperar(1600);   // que asienten los merges y las ediciones del coach
+    let ok = false;
+    try { ok = await subirNubeRef.current(); } catch (e) {}
+    // Series de entreno marcadas sin señal: que no se queden en este teléfono.
+    try { const m = await import('./Entrenamiento.jsx'); if (m.vaciarCola) await m.vaciarCola(); } catch (e) {}
+    if (!ok) { setMudanza('error'); return; }
+    try { localStorage.setItem('mt:mudanzaHecha', String(Date.now())); } catch (e) {}
+    window.location.href = urlDeLlegada(name);
+  };
+
   const schedulePushToCloud = useCallback((delayMs = 3000) => {
     if (cloudConsent !== 'accepted' || !cloudUserIdRef.current) return;
     if (cloudPushTimerRef.current) clearTimeout(cloudPushTimerRef.current);
     cloudPushTimerRef.current = setTimeout(async () => {
       try {
-        const todayTotals = entries.reduce((acc, e) => ({
-          kcal: acc.kcal + (e.kcal || 0),
-          p: acc.p + (e.p || 0),
-          c: acc.c + (e.c || 0),
-          g: acc.g + (e.g || 0),
-        }), { kcal: 0, p: 0, c: 0, g: 0 });
         await fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user_id: cloudUserIdRef.current,
             name,
-            data: {
-              favorites, favoritesDeleted, favoriteIngredients, history, historyDetail, historyDeleted,
-              historyDayOps,
-              frequentItems, wellbeing, goals, name,
-              coach_reminders: coachReminders,
-              reminders_updated: remindersMetaRef.current || undefined,
-              // Señales de dispositivo para el CRM: app instalada en
-              // homescreen y push activado. `undefined` no viaja en el JSON,
-              // y el server conserva el valor existente si no llega (así un
-              // segundo dispositivo sin la marca no la borra).
-              pwa_installed_at: (() => { try { return localStorage.getItem('mt:pwaInstalledAt') || undefined; } catch (e) { return undefined; } })(),
-              push_enabled_at: (() => { try { return localStorage.getItem('mt:pushEnabledAt') || undefined; } catch (e) { return undefined; } })(),
-              // Menús armados en el Recetario. Viven en localStorage (no
-              // necesitan cuenta), pero el coach no podía verlos desde el CRM.
-              // Se mandan tal cual (son IDs de receta, pesan nada) y el
-              // servidor conserva los del server si un dispositivo sincroniza
-              // sin ellos — mismo patrón que las señales de dispositivo.
-              // Versiones de novedades ya vistas: así la ventana no reaparece
-              // al entrar desde otro teléfono.
-              novedades_vistas: novedadesVistasRef.current.length ? novedadesVistasRef.current : undefined,
-              recetario_menus: (() => {
-                try {
-                  const raw = localStorage.getItem('mt:menus_guardados');
-                  if (!raw) return undefined;
-                  const arr = JSON.parse(raw);
-                  return Array.isArray(arr) && arr.length ? arr.slice(0, 60) : undefined;
-                } catch (e) { return undefined; }
-              })(),
-              // Versión de la meta que este dispositivo conoce; el server la
-              // compara y NO deja que un push viejo pise una meta más nueva
-              // (p.ej. recién cambiada por el coach).
-              goals_updated: goalsMetaRef.current || undefined,
-              // CHAT: las últimas ~150 burbujas también viajan a la nube. Sin
-              // esto, un teléfono nuevo o la app instalada (Agregar a inicio)
-              // recuperaba los DATOS pero el chat aparecía casi vacío — y la
-              // conversación es parte de la memoria del asistente.
-              messages: messages.slice(-150),
-              // En vivo: comidas y agua de HOY
-              today,
-              today_entries: entries,
-              today_water: water,
-              today_totals: todayTotals,
-            },
+            data: paqueteNube(),
           }),
         });
       } catch (e) {}
@@ -1581,6 +1636,24 @@ export default function MealTracker() {
     try { localStorage.setItem('cloudConsent', 'declined'); } catch (e) {}
     setCloudConsent('declined');
   }, []);
+
+  // Instalación nueva (la dirección nueva, el iPhone tras «Agregar a inicio»,
+  // un teléfono nuevo): si este nombre YA tiene cuenta en la nube es porque
+  // antes dijo que sí a guardarla. Se recupera sola, sin volver a preguntar:
+  // un «No» por despiste aquí le mostraba la app vacía («se me borró todo»).
+  // Solo cuando aquí aún no ha decidido; un «No» dado en este teléfono se
+  // respeta. El aviso de la nube espera a esta revisión.
+  const [cuentaRevisada, setCuentaRevisada] = useState(false);
+  useEffect(() => {
+    if (view !== 'main' || cuentaRevisada) return;
+    if (cloudConsent !== null || !name) { setCuentaRevisada(true); return; }
+    let vivo = true;
+    fetch(`/api/sync?identity_for=${encodeURIComponent(name)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!vivo) return; if (d && d.user_id) acceptCloudConsent(); setCuentaRevisada(true); })
+      .catch(() => { if (vivo) setCuentaRevisada(true); });
+    return () => { vivo = false; };
+  }, [view, cloudConsent, name, cuentaRevisada, acceptCloudConsent]);
 
   // Proactive favorites suggestion: if user has 3+ days with registrations and no favoriteIngredients, suggest once (dismissible)
   useEffect(() => {
@@ -6312,8 +6385,18 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       )}
 
       {/* Cloud sync consent — solo una vez, cuando el cliente entró por primera vez al main */}
-      {view === 'main' && cloudConsent === null && (
+      {view === 'main' && cloudConsent === null && cuentaRevisada && !mudanza && (
         <CloudConsentModal onAccept={acceptCloudConsent} onDecline={declineCloudConsent} />
+      )}
+
+      {/* MUDANZA a la dirección nueva (ver mudanza.js). */}
+      {view === 'main' && mudanza && (
+        <AvisoMudanza estado={mudanza} alPasar={mudarse}
+          alCerrar={() => {
+            if (mudanza === 'llegada') { try { localStorage.removeItem('mt:llegoDeMudanza'); } catch (e) {} }
+            else { try { sessionStorage.setItem('mt:mudanzaLuego', '1'); } catch (e) {} }
+            setMudanza(null);
+          }} />
       )}
 
       {/* NOVEDADES · solo si el interruptor está encendido y este cliente no
@@ -6323,6 +6406,57 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {mostrarNovedades && (
         <NovedadesModal items={v2 ? NOVEDADES.items.map(it => ({ ...it, puntos: it.puntos.map(t => t.replace('Están en Aprende, el botón de abajo a la derecha', 'Están en Aprendizaje, el último botón de la barra')) })) : NOVEDADES.items} onTerminar={marcarNovedadesVistas} />
       )}
+    </div>
+  );
+}
+
+// El aviso de la mudanza. Neutro a propósito (grafito sobre blanco): lo ven
+// todos los clientes, con la visual vieja o la nueva.
+function AvisoMudanza({ estado, alPasar, alCerrar }) {
+  const iphone = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  const boton = { width: '100%', border: 'none', borderRadius: 999, padding: '13px 18px', fontFamily: 'inherit', fontSize: 15.5, fontWeight: 700, cursor: 'pointer' };
+  return (
+    <div role="dialog" aria-label="La app se muda" data-mudanza={estado} className="fixed inset-0 flex items-end sm:items-center justify-center p-4"
+      style={{ zIndex: 90, background: 'rgba(31,31,31,0.38)', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
+      <div className="w-full max-w-md fade-up" style={{ background: '#FFFFFF', borderRadius: 28, padding: '24px 22px 18px', boxShadow: '0 16px 44px rgba(0,0,0,0.18)', fontFamily: FONT_UI }}>
+        {estado === 'llegada' ? (
+          <>
+            <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>Listo, ya estás en la app nueva</div>
+            <div style={{ fontSize: 15, color: TEXT_MUTED, marginTop: 8, lineHeight: 1.5 }}>
+              Tus datos se están cargando aquí. Ahora agrégala a tu pantalla de inicio y borra el ícono de la app vieja.
+            </div>
+            <div style={{ fontSize: 14.5, color: TEXT, marginTop: 12, lineHeight: 1.5, background: '#F4F1EB', borderRadius: 16, padding: '12px 14px' }}>
+              {iphone
+                ? <>En Safari toca <b>Compartir</b> (el cuadrito con la flecha) → <b>Agregar a inicio</b>. Al abrirla, escribe tu nombre como siempre: tus datos aparecen solos.</>
+                : <>Toca el menú <b>⋮</b> del navegador → <b>Instalar app</b> o <b>Agregar a la pantalla principal</b>.</>}
+            </div>
+            <button onClick={alCerrar} style={{ ...boton, marginTop: 16, background: TEXT, color: '#fff' }}>Entendido</button>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>La app se muda a una dirección nueva</div>
+            <div style={{ fontSize: 15, color: TEXT_MUTED, marginTop: 8, lineHeight: 1.5 }}>
+              Es la misma app, con tu misma cuenta. Toca el botón: guardamos todos tus datos en tu cuenta y te abrimos la nueva.
+              {' '}Allí la agregas a tu pantalla de inicio y borras esta.
+            </div>
+            {estado === 'error' && (
+              <div role="alert" style={{ fontSize: 14, color: DANGER, marginTop: 10, lineHeight: 1.45 }}>
+                No pude guardar tus datos ahora. Revisa tu conexión e inténtalo otra vez: no se ha perdido nada.
+              </div>
+            )}
+            <button onClick={alPasar} disabled={estado === 'guardando'} data-pasar
+              style={{ ...boton, marginTop: 16, background: TEXT, color: '#fff', opacity: estado === 'guardando' ? 0.7 : 1 }}>
+              {estado === 'guardando' ? 'Guardando tus datos…' : estado === 'error' ? 'Intentar otra vez' : 'Pasar a la app nueva'}
+            </button>
+            {estado !== 'guardando' && (
+              <button onClick={alCerrar} style={{ ...boton, marginTop: 6, background: 'transparent', color: TEXT_MUTED, fontWeight: 600 }}>Ahora no</button>
+            )}
+            <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 8, lineHeight: 1.45, textAlign: 'center' }}>
+              Tus datos se guardan en tu cuenta de la app para poder pasarlos.
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
