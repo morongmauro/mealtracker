@@ -7128,11 +7128,13 @@ function queryDeItems(options = []) {
 // Recetario es otra cosa y sigue estando ahí — con esos mismos ingredientes
 // o con otros. Sin esto, el cliente cree que la app solo sabe combinar su
 // lista y nunca vuelve a abrir el recetario.
-function NotaRecetario({ onAbrir, query = '' }) {
+// `v2` llega del chat (que se pinta antes de que la visual se encienda); en
+// el planificador se mira el documento.
+function NotaRecetario({ onAbrir, query = '', v2 = v2Activa() }) {
   if (typeof onAbrir !== 'function') return null;
   return (
     <div className="mt-3 p-3 rounded-[16px]" style={{
-      background: `linear-gradient(135deg, ${ACCENT_PASTEL}50, rgba(255,255,255,0.25))`,
+      background: v2 ? '#F4F1EB' : `linear-gradient(135deg, ${ACCENT_PASTEL}50, rgba(255,255,255,0.25))`,
       border: '1px solid rgba(255,255,255,0.6)',
     }}>
       <div className="text-[11.5px]" style={{ color: TEXT, lineHeight: 1.55 }}>
@@ -7886,7 +7888,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </>
           )}
 
-          <NotaRecetario onAbrir={onOpenRecetario} query={queryDeItems(options)} />
+          <NotaRecetario v2={v2} onAbrir={onOpenRecetario} query={queryDeItems(options)} />
 
           <div className="mt-3 pt-3 border-t text-[10px] italic" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
             Esto es solo cálculo organizativo basado en los ingredientes que registraste como habituales. No constituye consejo nutricional. Para criterio personalizado, consulta con tu coach.
@@ -7956,7 +7958,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </>
           )}
 
-          <NotaRecetario onAbrir={onOpenRecetario} query={queryDeItems(options)} />
+          <NotaRecetario v2={v2} onAbrir={onOpenRecetario} query={queryDeItems(options)} />
 
           <div className="mt-3 pt-3 border-t text-[10px] italic" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
             Esto es solo cálculo organizativo. No constituye consejo nutricional ni reemplaza la valoración de un profesional.

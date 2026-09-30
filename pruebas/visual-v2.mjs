@@ -9,7 +9,7 @@
 //
 //   node pruebas/visual-v2.mjs
 import { createRequire } from 'node:module';
-import { createServer } from 'vite';
+import { createServer, build, preview } from 'vite';
 import path from 'node:path';
 import fs from 'node:fs';
 import { crearSupabaseFalso, llamar } from './_supabase-falso.mjs';
@@ -138,12 +138,24 @@ function almacen(nombre) {
     'mt:novedadesVistas': JSON.stringify(['2026-08-26-aprendizaje-y-recetas']),
     trainingOn: '1',
     learningUrl: 'https://centro.test/',
+    // Un chat con propuestas de proporciones (llevan la nota del Recetario
+    // con «Recetas con esto»): con ese mensaje la app quedó en blanco una vez.
+    'mt:messages': JSON.stringify([
+      { role: 'user', content: 'qué almuerzo con lo que tengo' },
+      { role: 'assistant', isMealSuggestion: true, data: { mealType: 'almuerzo', options: [
+        { items: [{ name: 'Pechuga de pollo', amount: '150 g', kcal: 248 }, { name: 'Arroz', amount: '1 taza', kcal: 205 }], subtotal: { kcal: 453, p: 48, c: 45, g: 5 } },
+      ] } },
+    ]),
   };
 }
 
 const raiz = path.resolve(import.meta.dirname, '..');
-const vite = await createServer({ root: raiz, logLevel: 'error', server: { port: 5198, strictPort: true } });
-await vite.listen();
+// PROD=1: contra la versión de PRODUCCIÓN (build minificado + preview), que
+// es lo que corre en el teléfono. Hay errores que solo salen minificados.
+const vite = process.env.PROD
+  ? (await build({ root: raiz, logLevel: 'error' }), await preview({ root: raiz, logLevel: 'error', preview: { port: 5198, strictPort: true } }))
+  : await createServer({ root: raiz, logLevel: 'error', server: { port: 5198, strictPort: true } });
+if (!process.env.PROD) await vite.listen();
 const b = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
 
 let fallos = 0;

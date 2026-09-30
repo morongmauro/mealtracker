@@ -10,6 +10,7 @@ import '@fontsource/inter/latin-700.css';
 import '@fontsource/inter/latin-800.css';
 import '@fontsource/bebas-neue/latin-400.css';
 import MealTracker from './MealTracker.jsx';
+import Salvavidas from './Salvavidas.jsx';
 
 // El dashboard del coach se carga en un chunk aparte: los clientes no
 // descargan su código, y el coach solo lo baja al entrar a /coach.
@@ -30,7 +31,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       ? <Suspense fallback={null}><CoachDashboard /></Suspense>
       : isRanking
         ? <Suspense fallback={null}><Ranking /></Suspense>
-        : <MealTracker />}
+        : <Salvavidas><MealTracker /></Salvavidas>}
   </React.StrictMode>
 );
 
