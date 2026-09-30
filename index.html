@@ -103,44 +103,70 @@
       /* Arranque caliente (misma sesión): sin opener, directo a la app */
       html.warm-start #splash { display: none; }
       /* ── Apertura de la visual nueva ─────────────────────────────────
-         Fondo crema de la app. El anillo es el de las gráficas del Dash:
-         riel suave, trazo redondeado que se llena y el punto blanco en la
-         punta. La M se dibuja sola, redondeada, y el nombre sube palabra
-         por palabra en la letra de la marca (Figtree). */
+         El LOGO REAL (la M que termina hacia arriba, como un check, y el
+         anillo de progreso con su punto), en los colores de la app: el
+         anillo va del azul del entreno al verde de la comida.
+           0.0 s  aparece el riel y un halo suave que respira
+           0.2 s  el anillo se llena hasta donde lo hace el logo, con el punto
+                  en la punta
+           0.6 s  la M se dibuja de un solo trazo
+           1.5 s  un brillo recorre la M y el logo da un pulso
+           1.6 s  el nombre sube desde detrás de una línea
+           2.2 s  el lema
+         Luego se queda quieto hasta que la app está lista (mínimo 3,4 s
+         desde que se toca el ícono, ver main.jsx) y sale agrandándose. */
       @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: block;
         src: url('/fonts/figtree.woff2') format('woff2-variations'), url('/fonts/figtree.woff2') format('woff2'); }
       #splash2 { display: none; }
       html.splash-v2 #splash { display: none; }
       html.splash-v2 #splash2 {
         position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; background: #F1F0EA;
-        transition: opacity 0.35s ease-out;
+        align-items: center; justify-content: center; background: #F1F0EA; overflow: hidden;
+        transition: opacity 0.5s ease-out;
       }
       body.app-ready #splash2 { opacity: 0; pointer-events: none; }
       html.warm-start #splash2 { display: none !important; }
-      #splash2 .marca { width: 136px; height: 136px; animation: s2pulso 0.5s cubic-bezier(.3,0,.2,1) 1.45s both; }
-      @keyframes s2pulso { 0% { transform: scale(1); } 45% { transform: scale(1.06); } 100% { transform: scale(1); } }
-      #splash2 .riel { opacity: 0; animation: s2in 0.35s ease-out 0.05s forwards; }
-      #splash2 .arco { stroke-dasharray: 1131; stroke-dashoffset: 1131; animation: s2arco 1.15s cubic-bezier(.45,0,.15,1) 0.2s forwards; }
-      @keyframes s2arco { to { stroke-dashoffset: 90.5; } }
-      #splash2 .punta { transform-origin: 256px 256px; transform: rotate(0deg); opacity: 0;
-        animation: s2punta 1.15s cubic-bezier(.45,0,.15,1) 0.2s forwards; }
-      @keyframes s2punta { 0% { opacity: 1; transform: rotate(0deg); } 100% { opacity: 1; transform: rotate(331deg); } }
-      #splash2 .eme { stroke-dasharray: 460; stroke-dashoffset: 460; animation: s2eme 0.75s cubic-bezier(.55,0,.2,1) 0.55s forwards; }
+      #splash2 .halo { position: absolute; width: 520px; height: 520px; border-radius: 50%; left: 50%; top: 50%;
+        margin: -330px 0 0 -260px; opacity: 0;
+        background: radial-gradient(closest-side, rgba(60,123,214,0.16), rgba(70,150,90,0.10) 55%, rgba(241,240,234,0) 100%);
+        animation: s2halo 1.2s ease-out 0.05s forwards, s2respira 3.2s ease-in-out 1.25s infinite; }
+      @keyframes s2halo { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+      @keyframes s2respira { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+      #splash2 .contenido { position: relative; display: flex; flex-direction: column; align-items: center;
+        transition: transform 0.5s cubic-bezier(.3,0,.2,1); }
+      body.app-ready #splash2 .contenido { transform: scale(1.08); }
+      #splash2 .marca { width: 132px; height: 132px; overflow: visible;
+        animation: s2pulso 0.6s cubic-bezier(.3,0,.2,1) 1.5s both; }
+      @keyframes s2pulso { 0% { transform: scale(1); } 40% { transform: scale(1.07); } 100% { transform: scale(1); } }
+      #splash2 .riel { opacity: 0; animation: s2in 0.4s ease-out 0.05s forwards; }
+      #splash2 .arco { stroke-dasharray: 100; stroke-dashoffset: 100;
+        animation: s2arco 1.2s cubic-bezier(.65,0,.25,1) 0.2s forwards; }
+      @keyframes s2arco { to { stroke-dashoffset: 33.3; } }
+      #splash2 .punta { transform-origin: 256px 256px; opacity: 0;
+        animation: s2punta 1.2s cubic-bezier(.65,0,.25,1) 0.2s forwards; }
+      @keyframes s2punta { 0% { opacity: 1; transform: rotate(0deg); } 100% { opacity: 1; transform: rotate(240deg); } }
+      #splash2 .eme { stroke-dasharray: 100; stroke-dashoffset: 100;
+        animation: s2eme 0.8s cubic-bezier(.6,0,.25,1) 0.6s forwards; }
       @keyframes s2eme { to { stroke-dashoffset: 0; } }
-      #splash2 .nombre { margin-top: 22px; display: flex; gap: 0.28em;
-        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: 25px;
-        letter-spacing: -0.02em; color: #1F1F1F; line-height: 1; }
-      #splash2 .nombre span { opacity: 0; transform: translateY(10px); animation: s2sube 0.45s cubic-bezier(.2,.7,.2,1) forwards; }
-      #splash2 .nombre span:nth-child(1) { animation-delay: 0.95s; }
-      #splash2 .nombre span:nth-child(2) { animation-delay: 1.07s; }
-      #splash2 .nombre span:nth-child(3) { animation-delay: 1.19s; }
-      #splash2 .lema { margin-top: 9px; font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 500;
-        font-size: 14px; color: #8A8778; letter-spacing: 0.01em; opacity: 0; animation: s2in 0.5s ease-out 1.45s forwards; }
-      @keyframes s2sube { to { opacity: 1; transform: none; } }
+      #splash2 .brillo { stroke-dasharray: 18 100; stroke-dashoffset: 18; opacity: 0;
+        animation: s2brillo 0.65s ease-in-out 1.45s forwards; }
+      @keyframes s2brillo { 0% { opacity: 0; stroke-dashoffset: 18; } 20% { opacity: 0.9; } 80% { opacity: 0.9; } 100% { opacity: 0; stroke-dashoffset: -100; } }
+      #splash2 .nombre { margin-top: 26px; overflow: hidden; padding: 2px 4px 4px;
+        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: 26px;
+        color: #1F1F1F; line-height: 1.1; }
+      #splash2 .nombre span { display: inline-block; transform: translateY(110%); letter-spacing: 0.12em;
+        animation: s2nombre 0.75s cubic-bezier(.2,.8,.2,1) 1.6s forwards; }
+      @keyframes s2nombre { to { transform: none; letter-spacing: -0.02em; } }
+      #splash2 .linea { width: 0; height: 2px; border-radius: 2px; margin-top: 2px;
+        background: linear-gradient(90deg, #3C7BD6, #46965A); animation: s2linea 0.6s cubic-bezier(.3,0,.2,1) 1.55s forwards; }
+      @keyframes s2linea { to { width: 44px; } }
+      #splash2 .lema { margin-top: 10px; font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 500;
+        font-size: 14.5px; color: #8A8778; letter-spacing: 0.01em; opacity: 0; transform: translateY(4px);
+        animation: s2lema 0.6s ease-out 2.2s forwards; }
+      @keyframes s2lema { to { opacity: 1; transform: none; } }
       @keyframes s2in { to { opacity: 1; } }
       @media (prefers-reduced-motion: reduce) {
-        #splash2 *, #splash2 .marca { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+        #splash2 *, #splash2 .marca { animation-duration: 0.01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; }
       }
       @media (prefers-reduced-motion: reduce) {
         #splash .ring { animation-duration: 0.01s; }
@@ -177,23 +203,29 @@
       <div class="sub">Entrena con Método</div>
     </div>
     <div id="splash2" aria-label="Entrena con Método">
-      <svg class="marca" viewBox="0 0 512 512" fill="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="s2-arco" x1="80" y1="80" x2="440" y2="440" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#3C7BD6"/>
-            <stop offset="0.6" stop-color="#3E8FB0"/>
-            <stop offset="1" stop-color="#46965A"/>
-          </linearGradient>
-        </defs>
-        <circle class="riel" cx="256" cy="256" r="180" stroke="#E2DED3" stroke-width="40"/>
-        <circle class="arco" cx="256" cy="256" r="180" stroke="url(#s2-arco)" stroke-width="40"
-                stroke-linecap="round" transform="rotate(-90 256 256)"/>
-        <g class="punta"><circle cx="256" cy="76" r="11" fill="#FFFFFF"/></g>
-        <path class="eme" d="M178 326 V190 L256 282 L334 190 V326" stroke="#1F1F1F" stroke-width="34"
-              stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div class="nombre"><span>Entrena</span><span>con</span><span>Método</span></div>
-      <div class="lema">Tu progreso, con método</div>
+      <div class="halo"></div>
+      <div class="contenido">
+        <svg class="marca" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="s2-arco" x1="300" y1="60" x2="120" y2="420" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#3C7BD6"/>
+              <stop offset="0.55" stop-color="#3F8FA6"/>
+              <stop offset="1" stop-color="#46965A"/>
+            </linearGradient>
+          </defs>
+          <circle class="riel" cx="256" cy="256" r="180" stroke="#E3DFD4" stroke-width="18"/>
+          <circle class="arco" cx="256" cy="256" r="180" stroke="url(#s2-arco)" stroke-width="18" pathLength="100"
+                  stroke-linecap="round" transform="rotate(-90 256 256)"/>
+          <g class="punta"><circle cx="256" cy="76" r="19" fill="#FFFFFF" stroke="#46965A" stroke-width="3"/></g>
+          <polyline class="eme" points="185,313 185,186 270,286 325,194" pathLength="100" stroke="#1F1F1F"
+                    stroke-width="26" stroke-linecap="square" stroke-linejoin="miter"/>
+          <polyline class="brillo" points="185,313 185,186 270,286 325,194" pathLength="100" stroke="#FFFFFF"
+                    stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="nombre"><span>Entrena con Método</span></div>
+        <div class="linea"></div>
+        <div class="lema">Tu progreso, con método</div>
+      </div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
