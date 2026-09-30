@@ -20,6 +20,7 @@ const Dash = lazy(() => import('./Dash.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
+import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2 } from './GraficasV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { Bell as BellV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
@@ -644,6 +645,19 @@ export default function MealTracker() {
     if (tab === 'hoy') setShowDash(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v2, view]);
+  // Visual nueva: al abrir la app, en un rato libre, se bajan los módulos
+  // (Dash, Entrenamiento, Recetario) y los datos de entreno. Así el primer
+  // toque a cada sección ya no espera la descarga ni muestra «cargando».
+  useEffect(() => {
+    if (!v2 || view !== 'main' || !name) return;
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
+    const t = idle(() => {
+      import('./Dash.jsx').catch(() => {});
+      import('./Recetario.jsx').catch(() => {});
+      if (trainingOn) import('./Entrenamiento.jsx').then(m => m.precargar && m.precargar(name)).catch(() => {});
+    });
+    return () => { if (window.cancelIdleCallback) try { window.cancelIdleCallback(t); } catch (e) {} };
+  }, [v2, view, name, trainingOn]);
   const initialLoadDone = useRef(false);
   // Copia viva de favoritesDeleted para closures async (pull del server).
   const favoritesDeletedRef = useRef([]);
@@ -2318,8 +2332,8 @@ export default function MealTracker() {
 
   // ─── Recordatorios push ────────────────────────────────────────────────
   // Suscribe este dispositivo al push (idempotente) y registra en el server
-  // la zona horaria del teléfono — así los recordatorios llegan a las 10am /
-  // 2pm / 8pm HORA LOCAL de cada cliente, esté en el país que esté.
+  // la zona horaria del teléfono — así el cierre del día (8pm) y la medición
+  // de la mañana llegan a la HORA LOCAL de cada cliente, esté donde esté.
   const ensurePushSubscription = useCallback(async () => {
     try {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
@@ -4790,9 +4804,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         favSignature={favSignature}
         onOpenLearning={openLearning}
         onOpenRecetario={abrirRecetarioEn}
+        v2={v2}
       />
     </div>
-  )), [messages, goals, totals, entries, historyDetail, favoriteIngredients, favoriteSignatures, favSignature, handleEditEntry, deleteEntry, addToFavorites, handleAcceptFavSuggestion, handleDismissFavSuggestion, acceptAutoFavorite, dismissAutoFavorite, handleOpenPerformance, separateAppendedItems, openLearning, abrirRecetarioEn]);
+  )), [v2, messages, goals, totals, entries, historyDetail, favoriteIngredients, favoriteSignatures, favSignature, handleEditEntry, deleteEntry, addToFavorites, handleAcceptFavSuggestion, handleDismissFavSuggestion, acceptAutoFavorite, dismissAutoFavorite, handleOpenPerformance, separateAppendedItems, openLearning, abrirRecetarioEn]);
 
   if (view === 'loading') {
     return (
@@ -5369,12 +5384,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '84px', contain: 'layout paint', willChange: 'transform' }}>
           {/* Editorial hand-drawn food silhouettes — thin organic lines */}
-          <div className="absolute inset-0 pointer-events-none select-none" style={{
+          {!v2 && <div className="absolute inset-0 pointer-events-none select-none" style={{
             backgroundImage: FOOD_SILHOUETTES_BG_URL,
             backgroundRepeat: 'repeat',
             backgroundSize: '280px 280px'
-          }} />
-          <div className="relative">
+          }} />}
+          {v2 && <style>{CSS_CHAT_V2}</style>}
+          <div className="relative" data-chat-v2={v2 ? '' : undefined}>
             {renderedMessages}
             {loading && (
               <div className="flex items-center gap-2 text-sm px-4 py-3">
@@ -7082,11 +7098,11 @@ function DaySeparator({ date }) {
 // Botón "ir al Recetario" — el mismo en la tarjeta de recetas y en los pies
 // de las propuestas de proporciones, para que el camino al recetario se vea
 // SIEMPRE igual y el cliente lo reconozca.
-function BotonRecetario({ label, onClick, tono = ACCENT_DARK }) {
+function BotonRecetario({ label, onClick, tono = ACCENT_DARK, v2 = v2Activa() }) {
   return (
     <button onClick={onClick}
       className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold active:scale-95 transition"
-      style={{ background: v2Activa() ? TEXT : tono, color: '#FFF', boxShadow: '0 4px 12px rgba(60,70,50,0.18)' }}>
+      style={{ background: v2 ? TEXT : tono, color: '#FFF', boxShadow: v2 ? 'none' : '0 4px 12px rgba(60,70,50,0.18)' }}>
       <BookOpen size={13} strokeWidth={2.3} /> {label}
     </button>
   );
@@ -7124,7 +7140,7 @@ function NotaRecetario({ onAbrir, query = '' }) {
         Aparte, está el <strong>Recetario</strong>: platos completos con su paso a paso, algunos con estos mismos ingredientes y otros con ingredientes distintos.
       </div>
       <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-        {query && <BotonRecetario label="Recetas con esto" onClick={() => onAbrir({ query })} />}
+        {query && <BotonRecetario v2={v2} label="Recetas con esto" onClick={() => onAbrir({ query })} />}
         <button onClick={() => onAbrir({})}
           className="px-3 py-1.5 rounded-full text-[11.5px] font-semibold active:scale-95 transition"
           style={{ background: 'rgba(255,255,255,0.85)', color: TEXT, boxShadow: '0 2px 8px rgba(60,70,50,0.10)' }}>
@@ -7135,7 +7151,29 @@ function NotaRecetario({ onAbrir, query = '' }) {
   );
 }
 
-const MessageBubble = memo(function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature, onOpenLearning, onOpenRecetario }) {
+// Con la visual nueva el chat usa la paleta de la marca: el verde de la
+// sección solo en detalles (etiquetas, cifras), los bloques internos en crema
+// neutra y los botones en grafito. Se pasa `v2` como prop y no se mira el
+// documento: el chat se memoriza y se pinta antes de que la visual se encienda.
+const PALETA_CHAT = { ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT, BORDER };
+// Calendario de comidas con la visual nueva: fondo crema claro, tarjetas
+// blancas con la sombra del Dash, el verde de Alimentación y cada macro en su
+// color (los mismos del Dash).
+const FONDO_V2 = '#F3F1EB';
+const VERDE_V2 = '#46965A';
+const SOMBRA_TARJETA_V2 = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)';
+const COLOR_MACRO_V2 = { kcal: '#46965A', p: C_PROTEIN, c: C_CARBS, g: C_FAT };
+const PALETA_CHAT_V2 = { ACCENT: '#46965A', ACCENT_DARK: '#2A6A3A', ACCENT_PASTEL: '#E9E5DB', ACCENT_LIGHT: '#F4F1EB', BORDER: 'rgba(31,31,31,0.12)' };
+// Las burbujas, al estilo de las tarjetas del Dash: blancas, sin degradados
+// ni bordes, sombra suave. Las del cliente en un verde muy tenue.
+const CSS_CHAT_V2 = `
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] { background: #FFFFFF !important; border: none !important; border-radius: 20px 20px 20px 6px !important;
+  box-shadow: 0 1px 2px rgba(40,40,30,0.05), 0 6px 18px rgba(60,60,40,0.07) !important; }
+[data-chat-v2] .fade-up[data-rol="user"] > div { background: #E3F0E6 !important; box-shadow: none !important; border-radius: 20px 20px 6px 20px !important; }
+`;
+
+const MessageBubble = memo(function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature, onOpenLearning, onOpenRecetario, v2 = false }) {
+  const { ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT, BORDER } = v2 ? PALETA_CHAT_V2 : PALETA_CHAT;
   // ── PROPUESTAS DEL RECETARIO ─────────────────────────────────────────
   // Tarjetas TOCABLES, no un párrafo de texto: cada receta abre su ficha
   // completa en el Recetario (pasos, porción ajustada, registrar). El chat
@@ -7152,7 +7190,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
           boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 8px 24px rgba(96,102,72,0.14), 0 1px 4px rgba(0,0,0,0.05)',
         }}>
           <div className="flex items-center gap-2 mb-2.5">
-            <div className="flex items-center justify-center rounded-[9px]" style={{ width: 22, height: 22, background: `linear-gradient(135deg, #A9B87B, #6E7B45)` }}>
+            <div className="flex items-center justify-center rounded-[9px]" style={{ width: 22, height: 22, background: v2 ? ACCENT : `linear-gradient(135deg, #A9B87B, #6E7B45)` }}>
               <BookOpen size={12} strokeWidth={2.3} style={{ color: '#FFF' }} />
             </div>
             <span className="text-[11.5px] font-bold" style={{ color: ACCENT_DARK }}>
@@ -7168,14 +7206,14 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
               <div className="text-[11.5px] mb-3" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
                 O ábrelo y míralas todas{totalRecetario ? ` (${totalRecetario})` : ''}: puedes buscar por receta o por ingrediente, filtrar por comida y ver el paso a paso.
               </div>
-              <BotonRecetario label={totalRecetario ? `Ver las ${totalRecetario} recetas` : 'Abrir el Recetario'} onClick={() => abrir({})} />
+              <BotonRecetario v2={v2} label={totalRecetario ? `Ver las ${totalRecetario} recetas` : 'Abrir el Recetario'} onClick={() => abrir({})} />
             </>
           ) : recetas.length === 0 ? (
             <>
               <div className="text-[13.5px] mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>
                 No encontré ninguna receta con <strong>{entrada}</strong>. Prueba con otro ingrediente, o ábrelo y busca directamente{totalRecetario ? ` entre las ${totalRecetario}` : ''}.
               </div>
-              <BotonRecetario label="Abrir el Recetario" onClick={() => abrir({})} />
+              <BotonRecetario v2={v2} label="Abrir el Recetario" onClick={() => abrir({})} />
             </>
           ) : (
             <>
@@ -7206,7 +7244,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
                 ))}
               </div>
               <div className="mt-3 flex items-center gap-2 flex-wrap">
-                <BotonRecetario
+                <BotonRecetario v2={v2}
                   label={nMas > 0 ? `Ver las otras ${nMas}` : (totalRecetario ? `Ver las ${totalRecetario} recetas` : 'Abrir el Recetario')}
                   onClick={() => abrir(nMas > 0 ? { query: consulta, slot: slotKey } : {})} />
                 {nMas > 0 && totalRecetario && (
@@ -7345,7 +7383,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
           {message.showRecetarioButton && typeof onOpenRecetario === 'function' && (
             <button onClick={() => onOpenRecetario({})}
               className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
-              style={{ background: v2Activa() ? TEXT : ACCENT_DARK, color: '#fff' }}>
+              style={{ background: v2 ? TEXT : ACCENT_DARK, color: '#fff' }}>
               <BookOpen size={13} /> Abrir el Recetario
             </button>
           )}
@@ -7398,7 +7436,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
 
   if (message.role === 'user') {
     return (
-      <div className="flex justify-end fade-up">
+      <div className="flex justify-end fade-up" data-rol="user">
         <div className="max-w-[85%] px-4 py-3 rounded-[22px] rounded-br-lg text-[15px]" style={{
           background: ACCENT_PASTEL, color: TEXT, fontWeight: 500, lineHeight: 1.4,
           boxShadow: '0 0 0 1px rgba(74,82,56,0.10) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 18px rgba(60,66,42,0.10)'
@@ -8197,7 +8235,7 @@ function Row({ label, val, diff, unit, color }) {
 // disparar el cierre INSTANTÁNEO sin esperar al re-render del padre.
 const ModalCloseContext = React.createContext(null);
 
-function ModalShell({ children, onClose, maxWidth = 'max-w-md' }) {
+function ModalShell({ children, onClose, maxWidth = 'max-w-md', fondo = null }) {
   // Cierre instantáneo en mobile: mutamos el DOM directamente (display:none)
   // SIN setState — igual que closeActionsSheet. Eso evita re-renderizar el
   // árbol del modal (con su PerformanceModal de varios miles de DOM nodes).
@@ -8242,17 +8280,20 @@ function ModalShell({ children, onClose, maxWidth = 'max-w-md' }) {
     });
   }, [onClose]);
 
+  // Visual nueva: la hoja blanca de la marca, sin el borde crema.
+  const v2 = v2Activa();
   return (
     <ModalCloseContext.Provider value={handleClose}>
       <div ref={outerRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{
-        background: 'rgba(20,22,16,0.38)',
+        background: v2 ? 'rgba(31,31,31,0.34)' : 'rgba(20,22,16,0.38)',
         backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
         // Sin teclado: las hojas inferiores respetan el home-indicator en la
         // app instalada (env=0 en navegador normal). Con teclado manda kbLift.
         paddingBottom: kbLift ? `${kbLift}px` : 'calc(16px + env(safe-area-inset-bottom, 0px))',
       }} onClick={handleClose}>
         <div className={`w-full ${maxWidth} overflow-y-auto p-6 rounded-3xl fade-up`} style={{
-          background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI,
+          background: fondo || SURFACE, border: v2 ? 'none' : `1px solid ${BORDER}`, fontFamily: FONT_UI,
+          ...(v2 ? { borderRadius: 28, boxShadow: '0 16px 44px rgba(0,0,0,0.18)' } : {}),
           maxHeight: kbLift ? `calc(100vh - ${kbLift + 24}px)` : '85vh',
         }} onClick={e => e.stopPropagation()}>
           {children}
@@ -8287,11 +8328,12 @@ function ModalHeader({ accent, label, title, onClose }) {
   // de iOS Safari (~50-300ms). preventDefault en click bloquea el doble disparo.
   const contextClose = React.useContext(ModalCloseContext);
   const handleClose = contextClose || onClose;
+  const v2 = v2Activa();
   return (
     <div className="flex items-start justify-between mb-5">
       <div>
-        <div className="text-[11.5px] font-semibold" style={{ color: accent }}>{label}</div>
-        <div className="text-xl font-bold tracking-tight mt-0.5" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
+        <div className="font-semibold" style={{ color: accent, fontSize: v2 ? 13 : 11.5 }}>{label}</div>
+        <div className="font-bold tracking-tight mt-0.5" style={{ color: TEXT, letterSpacing: '-0.02em', fontSize: v2 ? 24 : 20, fontWeight: v2 ? 800 : 700, lineHeight: 1.15 }}>{title}</div>
       </div>
       <button
         onPointerDown={(e) => { e.preventDefault(); swallowGhostClick(); handleClose(); }}
@@ -8359,6 +8401,7 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
   const acento = v2 ? SECCION.dash.ink : ACCENT;
   const hecho = v2 ? TEXT : ACCENT;
   const pendienteBg = v2 ? SECCION.dash.tint : '#FBEFCF';
+  const crema = v2 ? '#F4F1EB' : SURFACE_2;
 
   const refresh = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
@@ -8398,19 +8441,28 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
 
       {/* Recordatorios que el COACH dejó para este cliente. Tocar = marcar
           cumplido (el coach lo ve ✓ en su CRM en el próximo refresco). */}
-      <div className="font-semibold mb-2" style={{ color: TEXT_LIGHT, fontSize: v2 ? 13 : 11 }}>
+      <div className="font-semibold mb-2" style={{ color: v2 ? TEXT : TEXT_LIGHT, fontSize: v2 ? 16 : 11, fontWeight: v2 ? 750 : 600 }}>
         De tu coach
       </div>
       {coachReminders.length === 0 ? (
-        <p className="mb-4 p-3 rounded-xl text-center" style={{ background: SURFACE_2, color: v2 ? TEXT_MUTED : TEXT_LIGHT, fontSize: v2 ? 15 : 12 }}>
-          Por ahora no tienes recordatorios de tu coach.{v2 ? '' : ' ✓'}
+        v2 ? (
+          <div data-sin-recordatorios className="mb-4" style={{ display: 'flex', alignItems: 'center', gap: 12, background: crema, borderRadius: 18, padding: '14px 16px' }}>
+            <span style={{ width: 38, height: 38, borderRadius: 99, background: SECCION.dash.tint, display: 'grid', placeItems: 'center', flex: 'none' }}>
+              <BellV2 size={19} color={SECCION.dash.ink} />
+            </span>
+            <span style={{ fontSize: 15, color: TEXT_MUTED, lineHeight: 1.4 }}>Por ahora no tienes recordatorios de tu coach.</span>
+          </div>
+        ) : (
+        <p className="mb-4 p-3 rounded-xl text-center" style={{ background: SURFACE_2, color: TEXT_LIGHT, fontSize: 12 }}>
+          Por ahora no tienes recordatorios de tu coach. ✓
         </p>
+        )
       ) : (
         <div className="space-y-2 mb-4">
           {coachReminders.slice().sort((a, b) => (a.done_at ? 1 : 0) - (b.done_at ? 1 : 0)).map(r => (
             <button key={r.id} onClick={() => onToggleReminder && onToggleReminder(r.id)}
               className="w-full flex items-start gap-2.5 p-3 rounded-xl text-left active:scale-[0.98] transition"
-              style={{ background: r.done_at ? SURFACE_2 : pendienteBg }}>
+              style={{ background: r.done_at ? crema : pendienteBg, ...(v2 ? { borderRadius: 16, padding: '13px 14px' } : {}) }}>
               <span className="flex-shrink-0 w-[18px] h-[18px] rounded-md flex items-center justify-center mt-0.5"
                 style={{ background: r.done_at ? hecho : '#FFF', border: r.done_at ? 'none' : `1.5px solid ${v2 ? SECCION.dash.base : '#D9C58A'}` }}>
                 {r.done_at ? <Check size={12} strokeWidth={3} style={{ color: '#FFF' }} /> : null}
@@ -8433,8 +8485,8 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
-        <span className="font-semibold" style={{ color: TEXT_MUTED, fontSize: v2 ? 14 : 12 }}>Notificaciones</span>
+      <div className="flex items-center justify-between mb-3 pt-3 border-t" style={{ borderColor: v2 ? 'rgba(31,31,31,0.09)' : BORDER_SOFT, ...(v2 ? { paddingTop: 16, marginTop: 4 } : {}) }}>
+        <span className="font-semibold" style={{ color: v2 ? TEXT : TEXT_MUTED, fontSize: v2 ? 16 : 12, fontWeight: v2 ? 750 : 600 }}>Notificaciones</span>
         <span className="px-3 py-1 rounded-full text-[11px] font-bold" style={{ background: pill.bg, color: pill.fg }}>{pill.txt}</span>
       </div>
 
@@ -8450,12 +8502,12 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
           {busy ? 'Activando…' : (v2 ? 'Activar recordatorios' : '🔔 Activar recordatorios')}
         </button>
       )}
-      {status === 'active' && (
-        <p className="text-[11px] text-center" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
-          Para pausarlos o apagarlos: Ajustes del teléfono → Notificaciones → Entrena con Método.
+      {status === 'denied' && v2 && (
+        <p style={{ color: TEXT_MUTED, fontSize: 13.5, lineHeight: 1.45, margin: 0 }}>
+          Están bloqueadas en los ajustes del teléfono.
         </p>
       )}
-      {status === 'denied' && (
+      {status === 'denied' && !v2 && (
         <p className="text-[11px] text-center" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
           Las notificaciones están bloqueadas para esta app. Actívalas desde
           Ajustes del teléfono → Notificaciones → Entrena con Método, y vuelve aquí.
@@ -9179,6 +9231,35 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
   const StatBlock = ({ label, goal, unit, data, statKey }) => {
     const s = stats(data, statKey);
     const recorded = data.filter(reg).length;
+    if (v2p) {
+      // Visual nueva: la misma tarjeta y las mismas columnas del Dash, cada
+      // macro en su color, y la raya gris es la meta.
+      const mes = data.length > 14;
+      const LETRA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+      return (
+        <TarjetaV2 titulo={label} style={{ marginTop: 0, marginBottom: 12 }}
+          detalle={`Promedio diario · la raya es tu meta de ${goal}${unit === '' ? ' kcal' : ' ' + unit}.`}
+          accion={<span style={{ textAlign: 'right' }}>
+            <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{s.avg}</span>
+            <span style={{ fontSize: 13, color: TEXT_MUTED }}>{unit || ' kcal'}</span>
+          </span>}>
+          <div data-grafica-comida style={{ fontSize: 13, color: s.pct >= 90 && s.pct <= 110 ? EN_META : TEXT_MUTED, fontWeight: 650, marginTop: 4 }}>
+            {s.pct}% de tu meta{recorded > 0 ? ` · ${s.inGoal} de ${recorded} días en meta ±10%` : ''}
+          </div>
+          {recorded === 0 ? (
+            <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 10 }}>Aún sin registros en este periodo.</div>
+          ) : (
+            <Columnas
+              datos={data.map(d => ({ fecha: d.date, valor: d.data ? (d.data[statKey] || 0) : 0 }))}
+              color={COLOR_MACRO_V2[statKey] || VERDE_V2}
+              marca={() => goal}
+              etiquetaX={(d, i) => (mes ? (i % 7 === 0 || i === data.length - 1 ? String(Number(d.fecha.slice(8))) : '') : LETRA[new Date(d.fecha + 'T00:00:00').getDay()])}
+              textoValor={(d) => `${new Date(d.fecha + 'T00:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short' })}: ${d.valor ? Math.round(d.valor) + (unit || ' kcal') : 'sin registro'}`}
+            />
+          )}
+        </TarjetaV2>
+      );
+    }
     return (
       <div className="mb-4" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, borderRadius: '14px', padding: '12px 12px 10px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="flex justify-between items-end mb-2">
@@ -9265,6 +9346,100 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     const pct = Math.round(((celda.data.kcal || 0) / g.kcal) * 100);
     if (pct >= 90 && pct <= 110) return { clave: 'meta', pct };
     return { clave: pct > 110 ? 'encima' : 'debajo', pct };
+  };
+
+  // Visual nueva: el mismo calendario que el de entreno (casillas blancas,
+  // días en el color de la sección, flechas redondas). El verde se usa poco:
+  // los días EN META con un tinte verde claro; por encima o por debajo, solo
+  // con borde y su flechita.
+  const CalendarioV2 = () => {
+    const g = mesGrid;
+    const conDatos = g.celdas.filter(c => c && c.data);
+    const registrados = conDatos.length;
+    const promKcal = registrados ? Math.round(conDatos.reduce((a, c) => a + (c.data.kcal || 0), 0) / registrados) : 0;
+    const enMeta = conDatos.filter(c => estadoDelDia(c)?.clave === 'meta').length;
+    const flecha = { width: 38, height: 38, borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer',
+      display: 'grid', placeItems: 'center', boxShadow: '0 1px 2px rgba(40,40,30,0.06), 0 4px 12px rgba(40,40,30,0.06)' };
+    const chip = (clave) => clave === 'meta'
+      ? { background: '#E3F0E6', color: SECCION.comida.ink, border: '1.5px solid #E3F0E6' }
+      : clave === 'encima'
+        ? { background: '#fff', color: ENCIMA_TINTA, border: `1.5px solid ${POR_ENCIMA}` }
+        : { background: '#fff', color: TEXT_MUTED, border: '1.5px solid #B9B6AE' };
+    const flechita = { encima: '↑', debajo: '↓', meta: '' };
+    return (
+      <div data-calendario-comidas className="mb-4">
+        <div className="flex items-center justify-between" style={{ margin: '2px 0 4px' }}>
+          <button onClick={() => { haptic(6); setMesAtras(m => m + 1); }} style={flecha} aria-label="Mes anterior">
+            <ChevronLeft size={18} strokeWidth={2.4} />
+          </button>
+          <div className="text-center min-w-0">
+            <div style={{ fontWeight: 800, fontSize: 17, color: TEXT, textTransform: 'capitalize' }}>{g.nombre.replace(' de ', ' ')}</div>
+            {mesAtras > 0 && (
+              <button onClick={() => { haptic(6); setMesAtras(0); }} style={{ border: 'none', background: 'none', color: SECCION.comida.ink, fontWeight: 700, fontSize: 13, padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Volver a hoy
+              </button>
+            )}
+          </div>
+          <button onClick={() => { haptic(6); setMesAtras(m => Math.max(0, m - 1)); }} disabled={mesAtras === 0}
+            style={{ ...flecha, opacity: mesAtras === 0 ? 0.35 : 1 }} aria-label="Mes siguiente">
+            <ChevronRight size={18} strokeWidth={2.4} />
+          </button>
+        </div>
+        <div style={{ fontSize: 13, color: TEXT_MUTED, textAlign: 'center', marginBottom: 10 }}>Toca un día para ver lo que comiste</div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+          {[[`${registrados}`, `/${g.dias}`, 'días registrados'], [promKcal ? promKcal.toLocaleString('es-CO') : '—', '', 'kcal promedio'], [`${enMeta}`, '', 'días en meta']].map(([n, extra, t]) => (
+            <div key={t} style={{ background: '#FFFFFF', borderRadius: 14, padding: '9px 8px', textAlign: 'center', boxShadow: SOMBRA_TARJETA_V2 }}>
+              <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{n}<span style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 600 }}>{extra}</span></div>
+              <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginTop: 2 }}>{t}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 3, marginBottom: 6 }}>
+          {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
+            <div key={d} style={{ fontSize: 12, fontWeight: 800, color: VERDE_V2, textAlign: 'center', letterSpacing: '.02em' }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 3 }}>
+          {g.celdas.map((c, i) => {
+            if (!c) return <div key={i} />;
+            const est = estadoDelDia(c);
+            const clave = est && est.clave;
+            const esHoy = c.date === today;
+            const futuro = c.date > today;
+            return (
+              <button key={i} data-dia-comida={clave || (c.data ? 'sin_meta' : 'sin_registro')} disabled={futuro} onClick={() => irAlDia(c.date)}
+                title={`${c.date}${clave ? ` · ${Math.round(c.data.kcal || 0)} kcal (${est.pct}% de tu meta) · ${ESTADOS[clave].label}` : ' · sin registro'}`}
+                style={{
+                  minHeight: 58, borderRadius: 11, padding: '4px 3px', cursor: futuro ? 'default' : 'pointer', fontFamily: 'inherit',
+                  display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 4, minWidth: 0,
+                  background: esHoy ? '#F2F8F3' : '#FFFFFF', opacity: futuro ? 0.45 : 1,
+                  border: esHoy ? `1.5px solid ${VERDE_V2}` : '1px solid rgba(31,31,31,0.07)',
+                }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: esHoy ? SECCION.comida.ink : TEXT_MUTED, textAlign: 'left', padding: '0 2px' }}>{c.dia}</span>
+                {c.data && (
+                  <span style={{ ...chip(clave), borderRadius: 6, fontSize: 10.5, fontWeight: 750, padding: '2px 0', textAlign: 'center', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                    {Math.round((c.data.kcal || 0) / 100) / 10}k{clave ? flechita[clave] : ''}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div data-leyenda-comida style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', fontSize: 11.5, color: TEXT_MUTED, marginTop: 8 }}>
+          {[['meta', 'En tu meta (±10%)'], ['encima', 'Por encima ↑'], ['debajo', 'Por debajo ↓']].map(([k, t]) => (
+            <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 13, height: 9, borderRadius: 3, ...chip(k), padding: 0 }} />{t}
+            </span>
+          ))}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 13, height: 9, borderRadius: 3, background: '#fff', border: '1px solid rgba(31,31,31,0.12)' }} />Sin registro
+          </span>
+        </div>
+      </div>
+    );
   };
 
   const Calendario = () => {
@@ -9421,7 +9596,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
   };
 
   return (
-    <ModalShell onClose={onClose} maxWidth="max-w-xl">
+    <ModalShell onClose={onClose} maxWidth="max-w-xl" fondo={v2p ? FONDO_V2 : null}>
       <ModalHeader accent={v2p ? SECCION.comida.ink : TEXT_MUTED} label={v2p ? 'Calendario de comidas' : 'Mis gráficas'} title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
 
       {/* UNA sola sección, tres ventanas de tiempo. Antes esto vivía partido
@@ -9432,13 +9607,16 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           tenía sentido. Ahora es Mes → Semana → Día, de lo general a lo
           concreto, y desde el mes o la semana se entra al día tocándolo. */}
       <div>
-          <div className="flex gap-1 p-1 rounded-xl mb-4" style={{ background: SURFACE_2 }}>
+          <div className="flex gap-1 p-1 rounded-xl mb-4" data-pestanas-comida style={v2p
+            ? { background: '#FFFFFF', borderRadius: 14, padding: 4, boxShadow: SOMBRA_TARJETA_V2 }
+            : { background: SURFACE_2 }}>
             {[{ key: 'mes', label: 'Mes' }, { key: 'semana', label: 'Semana' }, { key: 'dia', label: 'Día' }].map(t => (
               <button key={t.key} onClick={() => { haptic(6); setAlimTab(t.key); }}
                 className="flex-1 py-2 rounded-lg text-[12px] font-semibold transition active:scale-[0.98]"
                 style={{
-                  background: alimTab === t.key ? TEXT : 'transparent',
+                  background: alimTab === t.key ? (v2p ? VERDE_V2 : TEXT) : 'transparent',
                   color: alimTab === t.key ? '#fff' : TEXT_MUTED,
+                  ...(v2p ? { borderRadius: 10, fontSize: 14.5, fontWeight: 750, padding: '9px 0' } : {}),
                 }}>
                 {t.label}
               </button>
@@ -9627,7 +9805,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
             {/* El calendario reemplaza a la gráfica de barras de calorías:
                 cuenta la misma historia y además se ve la racha. Los macros
                 van abajo en barras, que ahí sí se leen mejor. */}
-            <Calendario />
+            {v2p ? <CalendarioV2 /> : <Calendario />}
             <StatBlock label="Proteína" goal={goals.p} unit="g" data={diasDelMes} statKey="p" />
             <StatBlock label="Carbohidratos" goal={goals.c} unit="g" data={diasDelMes} statKey="c" />
             <StatBlock label="Grasas" goal={goals.g} unit="g" data={diasDelMes} statKey="g" />
@@ -9639,7 +9817,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           verde "con registro", gris "sin registro"— hablaba de tres colores
           que ya no existen. Lo único que hay que explicar es la línea. */}
       <div className="flex items-center justify-center gap-4 mt-4 pt-3 text-[10px]"
-        style={{ color: TEXT_MUTED, borderTop: `1px solid ${BORDER_SOFT}`, display: alimTab === 'dia' ? 'none' : 'flex' }}>
+        style={{ color: TEXT_MUTED, borderTop: `1px solid ${BORDER_SOFT}`, display: alimTab === 'dia' || v2p ? 'none' : 'flex' }}>
         <div className="flex items-center gap-1.5">
           <div className="w-5 border-t-[1.5px] border-dashed" style={{ borderColor: TEXT, opacity: 0.45 }} />
           <span>La línea punteada es tu meta</span>

@@ -441,6 +441,24 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
       )}
       {v2 && <AvisosDia dia={dia} fase={fase} P={P} />}
 
+      {/* Visual nueva: al tocar un día, lo primero son las dos cosas que se
+          pueden añadir. Cardio o deporte solo cuando el día ya llegó (lo que
+          se registra es lo hecho); la rutina, en un día libre de esta semana. */}
+      {v2 && (alAgregarRutina || !futuro) && (
+        <div data-acciones-dia style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          {alAgregarRutina && (
+            <button onClick={alAgregarRutina} data-accion="rutina" style={{ ...botonAccion, background: P.base, color: '#fff', border: 'none' }}>
+              <Plus size={16} weight="bold" /> Añadir rutina
+            </button>
+          )}
+          {!futuro && (
+            <button onClick={() => alRegistrar(dia.fecha)} data-accion="actividad" style={{ ...botonAccion, background: '#fff', color: P.ink, border: `1.5px solid ${P.base}` }}>
+              <Plus size={16} weight="bold" /> Cardio o deporte
+            </button>
+          )}
+        </div>
+      )}
+
       {dia.rutina ? (
         <Card onClick={() => alEntrenar(dia.rutina.id)} style={{ padding: 15 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -466,9 +484,9 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
         </div>
       )}
 
-      {(alAgregarRutina || alQuitarRutina) && (
+      {((alAgregarRutina && !v2) || alQuitarRutina) && (
         <div style={{ marginTop: 10 }}>
-          {alAgregarRutina && <button onClick={alAgregarRutina} style={botonSuave}><Plus size={16} /> Añadir una rutina a este día</button>}
+          {alAgregarRutina && !v2 && <button onClick={alAgregarRutina} style={botonSuave}><Plus size={16} /> Añadir una rutina a este día</button>}
           {alQuitarRutina && dia.estado !== 'completada' && <button onClick={alQuitarRutina} style={botonSuave}>Quitar la rutina que añadiste</button>}
         </div>
       )}
@@ -545,22 +563,16 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
         </>
       )}
 
-      {!futuro && (
+      {!futuro && !v2 && (
         <div style={{ marginTop: 18 }}>
-          {v2 ? (
-            <button onClick={() => alRegistrar(dia.fecha)} style={{ ...botonSuave, width: '100%', justifyContent: 'center', height: 46 }}>
-              <Plus size={16} /> Añadir cardio o deporte
-            </button>
-          ) : (
-            <Boton ancho variante="suave" onClick={() => alRegistrar(dia.fecha)}>
-              + Registrar cardio o deporte
-            </Boton>
-          )}
+          <Boton ancho variante="suave" onClick={() => alRegistrar(dia.fecha)}>
+            + Registrar cardio o deporte
+          </Boton>
         </div>
       )}
       {futuro && (
-        <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 16, textAlign: 'center' }}>
-          Podrás registrar actividad cuando llegue el día.
+        <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 16, textAlign: 'center' }}>
+          El cardio o deporte lo registras cuando llegue el día.
         </div>
       )}
     </Hoja>
@@ -808,16 +820,34 @@ const corto = (r) => (r ? (r.corto || nombreCorto(r.nombre)) : '');
 //   'mes' — el calendario: el mes, su leyenda y «Ten en cuenta».
 //   'hoy' — la pantalla Hoy: lo que toca hoy (fuerza, registros, lo del
 //           coach, añadir actividad) y debajo la semana en curso con detalle.
+// Los meses ya traídos, por cliente, a nivel de módulo: al volver a Hoy o al
+// Calendario se pinta lo último al instante y se refresca por detrás, sin el
+// «cargando» de cada vez.
+const cacheMeses = new Map();     // nombre → { 'YYYY-MM': respuesta }
+const cacheCatalogo = new Map();  // nombre → catálogo de actividades
+
+// Deja en caché los meses de la semana en curso (la app lo llama al abrir).
+export async function precargarMeses(nombre) {
+  const lunes = lunesDeLocal(hoyLocal());
+  const meses = unicos([lunes.slice(0, 7), sumarDias(lunes, 6).slice(0, 7)]);
+  await Promise.all(meses.map(async (m) => {
+    if (cacheMeses.get(nombre)?.[m]) return;
+    const r = await api.mes(nombre, m);
+    if (r && r.ok) cacheMeses.set(nombre, { ...(cacheMeses.get(nombre) || {}), [m]: r });
+  }));
+}
+
 function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const P = paleta(true);
   const hoy = hoyLocal();
   const lunes = lunesDeLocal(hoy);
   const [ym, setYm] = useState(hoy.slice(0, 7));
-  const [cache, setCache] = useState({});
+  const [cache, setCacheEstado] = useState(() => cacheMeses.get(nombre) || {});
+  const setCache = (f) => setCacheEstado(c => { const n = f(c); cacheMeses.set(nombre, n); return n; });
   const [error, setError] = useState(null);
   const [abierto, setAbierto] = useState(null);
   const [registrando, setRegistrando] = useState(null);
-  const [catalogo, setCatalogo] = useState(null);
+  const [catalogo, setCatalogo] = useState(() => cacheCatalogo.get(nombre) || null);
   const [aviso, setAviso] = useState(null);
   const [confirmar, setConfirmar] = useState(null);     // { texto, si, accion }
   const [eligiendo, setEligiendo] = useState(null);     // fecha a la que se le añade rutina
@@ -825,13 +855,29 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const cargar = async (mes) => {
     setError(null);
     const r = await api.mes(nombre, mes);
-    if (!r.ok) { setError(r.motivo || 'error'); return; }
+    // Sin red pero con el mes guardado: se queda lo guardado, sin error.
+    if (!r.ok) { if (!cacheMeses.get(nombre)?.[mes]) setError(r.motivo || 'error'); return; }
     setCache(c => ({ ...c, [mes]: r }));
   };
   const semana = Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i));
   const necesarios = modo === 'hoy' ? unicos([semana[0].slice(0, 7), semana[6].slice(0, 7)]) : unicos([ym, semana[0].slice(0, 7), semana[6].slice(0, 7)]);
-  useEffect(() => { necesarios.forEach(m => { if (!cache[m]) cargar(m); }); /* eslint-disable-next-line */ }, [necesarios.join(), nombre]);
-  useEffect(() => { api.catalogo(nombre).then(r => setCatalogo(r.ok && r.catalogo?.length ? r.catalogo : CATALOGO_MINIMO)); }, [nombre]);
+  // Lo que no está se trae; lo que ya estaba guardado se refresca por detrás
+  // una vez por visita (cada vez que se entra), sin tapar la pantalla.
+  const refrescados = useRef(new Set());
+  useEffect(() => {
+    necesarios.forEach(m => {
+      const k = `${nombre}|${m}`;
+      if (!refrescados.current.has(k)) { refrescados.current.add(k); cargar(m); }
+    });
+    /* eslint-disable-next-line */
+  }, [necesarios.join(), nombre]);
+  useEffect(() => {
+    api.catalogo(nombre).then(r => {
+      if (!r.ok && cacheCatalogo.has(nombre)) return;
+      const c = r.ok && r.catalogo?.length ? r.catalogo : CATALOGO_MINIMO;
+      cacheCatalogo.set(nombre, c); setCatalogo(c);
+    });
+  }, [nombre]);
   useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 3600); return () => clearTimeout(t); }, [aviso]);
 
   const porFecha = useMemo(() => {
@@ -847,10 +893,11 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const enSemana = (f) => f >= semana[0] && f <= semana[6];
   const recargar = (fechas) => unicos(fechas.map(f => f.slice(0, 7))).forEach(cargar);
 
-  // Solo se mueve lo de ESTA semana, de hoy en adelante, sin hacer, y que
-  // sea del plan (lo añadido se quita y se vuelve a añadir).
-  const puedeMover = (d) => !!(d && d.rutina && !d.extra && !d.hecho && d.estado !== 'completada' && d.fecha >= hoy && enSemana(d.fecha));
-  const puedeAgregar = (d) => !!(d && !d.rutina && !d.hecho && d.semana && d.fecha >= hoy && enSemana(d.fecha) && rutinasCiclo.length);
+  // Se mueve lo de ESTA semana (también un día que ya pasó: si perdiste el
+  // lunes, lo pasas al jueves para compensar), sin hacer, y que sea del plan
+  // (lo añadido se quita y se vuelve a añadir).
+  const puedeMover = (d) => !!(d && d.rutina && !d.extra && !d.hecho && d.estado !== 'completada' && enSemana(d.fecha));
+  const puedeAgregar = (d) => !!(d && !d.rutina && !d.hecho && d.semana && enSemana(d.fecha) && rutinasCiclo.length);
 
   // ¿Queda pegada a una rutina que trabaja lo mismo? Mira el día anterior y
   // el siguiente (como quedarían después del cambio). No bloquea: avisa.
@@ -876,7 +923,6 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     const r = await api.mover(nombre, { desde, hasta, rutina_id: d.rutina.id });
     if (!r.ok) {
       setAviso({
-        pasado: 'Solo se mueven días de hoy en adelante.',
         otra_semana: 'Solo puedes mover rutinas dentro de esta semana.',
         fuera_de_fase: 'Ese día está fuera de tu ciclo.',
         ya_entrenada: 'Ese día ya tiene un entreno hecho.',
@@ -892,7 +938,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const moverRutina = (desde, hasta) => {
     const d = porFecha[desde];
     if (!d || !d.rutina || desde === hasta) return;
-    if (!enSemana(hasta) || hasta < hoy) { setAviso('Solo puedes mover rutinas dentro de esta semana, de hoy en adelante.'); return; }
+    if (!enSemana(hasta)) { setAviso('Solo puedes mover rutinas dentro de esta semana.'); return; }
     const destino = porFecha[hasta]?.rutina?.id || null;
     const c = choque(hasta, d.rutina.id, { [desde]: destino, [hasta]: d.rutina.id });
     if (c) { setConfirmar({ texto: textoChoque(c, 'Moverla'), si: 'Moverla igual', accion: () => hacerMover(desde, hasta) }); return; }
@@ -904,7 +950,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     if (!r.ok) {
       setAviso({
         ocupado: 'Ese día ya tiene rutina.', otra_semana: 'Solo puedes añadir rutinas en esta semana.',
-        pasado: 'Solo se añaden rutinas de hoy en adelante.', sin_tabla: 'Añadir rutinas aún no está disponible. Avísale a tu coach.',
+        sin_tabla: 'Añadir rutinas aún no está disponible. Avísale a tu coach.',
       }[r.motivo] || 'No se pudo añadir. Inténtalo otra vez.');
       return;
     }
@@ -951,7 +997,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
       {modo === 'mes' && (
         <>
           <Titulo>Tu calendario</Titulo>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '12px 0 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '10px 0 2px' }}>
             <button onClick={() => cambiarMes(-1)} aria-label="Anterior" style={flechaV2}><CaretLeft size={18} weight="bold" /></button>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontWeight: 800, fontSize: 17, color: TEXT, textTransform: 'capitalize' }}>{MESES[m - 1]} {y}</div>
@@ -962,7 +1008,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
             <button onClick={() => cambiarMes(1)} aria-label="Siguiente" style={flechaV2}><CaretRight size={18} weight="bold" /></button>
           </div>
           {fase && (
-            <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginBottom: 10, textAlign: 'center' }}>
+            <div style={{ fontSize: 13, color: TEXT_MUTED, marginBottom: 8, textAlign: 'center', lineHeight: 1.3 }}>
               <b style={{ color: TEXT }}>{fase.nombre}</b> · del {cortaFecha(fase.desde)} al {cortaFecha(fase.hasta)}
             </div>
           )}
@@ -1073,7 +1119,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
         dia={abierto ? porFecha[abierto] : null} P={P} v2 fase={fase}
         nombre={nombre} catalogo={catalogo} porFecha={porFecha}
         puedeMover={puedeMover(abierto ? porFecha[abierto] : null)}
-        destinosSemana={semana.filter(f => f >= hoy)}
+        destinosSemana={semana}
         alAgregarRutina={abierto && puedeAgregar(porFecha[abierto]) ? () => setEligiendo(abierto) : null}
         alQuitarRutina={abierto && porFecha[abierto]?.extra ? () => quitarRutina(abierto) : null}
         alCerrar={() => setAbierto(null)}
@@ -1163,18 +1209,18 @@ const cajaDia = {
 function TenEnCuenta() {
   const P = paleta(true);
   const items = [
-    ['Mover', 'Mantén el dedo sobre una rutina y arrástrala a otro día. Solo se mueven las rutinas de esta semana, de hoy en adelante.'],
-    ['Añadir', 'Toca un día libre de esta semana para añadir una rutina, o cualquier día para añadir cardio o deporte.'],
+    ['Mover', 'Mantén el dedo sobre una rutina y arrástrala a otro día de esta semana. También la de un día que ya pasó: si lo perdiste, la mueves para compensar.'],
+    ['Añadir', 'Toca un día: en uno libre de esta semana añades una rutina, y en cualquier día que ya llegó, cardio o deporte.'],
     ['Tu plan no cambia', 'Mover o añadir solo cambia esos días. El plan que armó tu coach sigue igual.'],
     ['Descanso', 'No repitas los mismos músculos dos días seguidos: deja al menos un día entre rutinas que trabajan lo mismo (por ejemplo, dos días de pierna seguidos). Si pasa, la app te avisa.'],
   ];
   return (
-    <div data-ten-en-cuenta style={{ marginTop: 16, background: '#fff', borderRadius: 20, padding: '16px 16px 12px', boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)' }}>
+    <div data-ten-en-cuenta style={{ marginTop: 12, background: '#fff', borderRadius: 18, padding: '14px 14px 10px', boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 800, color: P.ink, background: P.tint, borderRadius: 999, padding: '4px 10px' }}>Léelo · ten en cuenta</div>
-      <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <ul style={{ margin: '10px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {items.map(([t, d]) => (
-          <li key={t} style={{ display: 'flex', gap: 10, fontSize: 14.5, color: TEXT_MUTED, lineHeight: 1.45 }}>
-            <span style={{ width: 7, height: 7, borderRadius: 99, background: P.base, flex: 'none', marginTop: 8 }} />
+          <li key={t} style={{ display: 'flex', gap: 9, fontSize: 14, color: TEXT_MUTED, lineHeight: 1.42 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 99, background: P.base, flex: 'none', marginTop: 8 }} />
             <span><b style={{ color: TEXT }}>{t}.</b> {d}</span>
           </li>
         ))}
@@ -1244,7 +1290,7 @@ function CeldaV2({ dia, P, hoy, sobre, origen, arrastrable, alTocar, semanaActua
   const otros = dia.eventos.filter(e => !e.registra);
   return (
     <button data-fecha={dia.fecha} onClick={alTocar} style={{
-      minHeight: 92, borderRadius: 12, padding: '5px 2px 4px', cursor: 'pointer', fontFamily: 'inherit',
+      minHeight: 70, borderRadius: 11, padding: '4px 2px 3px', cursor: 'pointer', fontFamily: 'inherit',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3, overflow: 'hidden', minWidth: 0,
       background: sobre ? P.tint : esHoy ? '#F4F8FE' : ajeno ? 'rgba(255,255,255,0.55)' : SURFACE, opacity: origen ? 0.45 : 1,
       border: sobre ? `2px dashed ${P.base}` : esHoy ? `1.5px solid ${P.base}` : `1px solid ${BORDER_SOFT}`,
@@ -1279,20 +1325,25 @@ function CeldaV2({ dia, P, hoy, sobre, origen, arrastrable, alTocar, semanaActua
 }
 
 function LeyendaV2({ P }) {
-  const item = (muestra, texto) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{muestra}{texto}</span>;
-  const caja = (relleno) => <span style={{ width: 16, height: 11, borderRadius: 4, background: relleno ? P.base : '#fff', border: `1.5px solid ${P.base}` }} />;
+  const item = (muestra, texto) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{muestra}{texto}</span>;
+  const caja = (relleno) => <span style={{ width: 13, height: 9, borderRadius: 3, background: relleno ? P.base : '#fff', border: `1.5px solid ${P.base}` }} />;
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', fontSize: 13, color: TEXT_MUTED, marginTop: 14 }}>
+    <div data-leyenda style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', fontSize: 11.5, color: TEXT_MUTED, marginTop: 8, lineHeight: 1.3 }}>
       {item(caja(false), 'Por hacer')}
       {item(caja(true), 'Hecho')}
-      {item(<span style={{ width: 16, height: 11, borderRadius: 4, background: '#fff', border: `1.5px dashed ${P.base}` }} />, 'Movida o añadida por ti')}
-      {item(<span style={{ width: 16, height: 16, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center' }}><IconoEvento tipo="peso" size={10} /></span>, 'Registrar peso, medidas o fotos')}
-      {item(<Flag size={14} weight="fill" color={P.base} />, 'Inicio de ciclo')}
-      {item(<CurrencyCircleDollar size={15} weight="fill" color={AMBAR_PAGO} />, 'Corte de pago')}
-      {item(<span style={{ width: 6, height: 6, borderRadius: 99, background: P.base }} />, 'Cardio o deporte')}
+      {item(<span style={{ width: 13, height: 9, borderRadius: 3, background: '#fff', border: `1.5px dashed ${P.base}` }} />, 'Movida o añadida por ti')}
+      {item(<span style={{ width: 13, height: 13, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center' }}><IconoEvento tipo="peso" size={8} /></span>, 'Peso, medidas o fotos')}
+      {item(<Flag size={11} weight="fill" color={P.base} />, 'Inicio de ciclo')}
+      {item(<CurrencyCircleDollar size={12} weight="fill" color={AMBAR_PAGO} />, 'Corte de pago')}
+      {item(<span style={{ width: 5, height: 5, borderRadius: 99, background: P.base }} />, 'Cardio o deporte')}
     </div>
   );
 }
+
+const botonAccion = {
+  flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 46, borderRadius: 14,
+  fontFamily: 'inherit', fontSize: 15, fontWeight: 750, cursor: 'pointer', padding: '0 10px',
+};
 
 const flechaV2 = {
   width: 38, height: 38, borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer',

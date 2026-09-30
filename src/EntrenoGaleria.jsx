@@ -33,8 +33,13 @@ export function armarGaleria(rutinas) {
   return [...porId.values()];
 }
 
+// Lo último traído, por cliente: al volver a la Galería se pinta al instante
+// y se refresca por detrás.
+const cacheGaleria = new Map();
+
 export default function Galeria({ nombre }) {
-  const [rutinas, setRutinas] = useState(null);
+  const [rutinas, setRutinasEstado] = useState(() => cacheGaleria.get(nombre) || null);
+  const setRutinas = (v) => { cacheGaleria.set(nombre, v); setRutinasEstado(v); };
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState('todas');
   const [abierto, setAbierto] = useState(null);
@@ -42,7 +47,7 @@ export default function Galeria({ nombre }) {
   const cargar = async () => {
     setError(null);
     const lista = await api.rutinas(nombre);
-    if (!lista.ok) { setError(lista.motivo || 'error'); return; }
+    if (!lista.ok) { if (!cacheGaleria.has(nombre)) setError(lista.motivo || 'error'); return; }
     // Cada rutina trae sus ejercicios completos (con video). Son pocas —de
     // dos a seis—, así que van en paralelo.
     const detalles = await Promise.all((lista.rutinas || []).map(r => api.rutina(nombre, r.id)));

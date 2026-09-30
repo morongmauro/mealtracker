@@ -229,6 +229,8 @@ try {
     return ![...caja.querySelectorAll('*')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor));
   }));
   await espera(400);
+  ok('recordatorios: sin el mensaje de pausar/apagar y con su estado vacío de marca',
+    (await p.getByText(/pausarlos o apagarlos/).count()) === 0 && (await p.locator('[data-sin-recordatorios]').count()) === 1);
   await foto(p, '01c-recordatorios');
   await p.getByRole('button', { name: 'Cerrar' }).first().click();
   await espera(500);
@@ -242,6 +244,11 @@ try {
   await p.evaluate(() => document.querySelector('[data-view="dash"]').scrollTo(0, 99999));
   await espera(300);
   await foto(p, '03-dash-final');
+  ok('dash: la firma al final', await p.locator('[data-view="dash"] [data-firma]').isVisible());
+  ok('dash: composición corporal con la línea de peso y la de grasa, y cifras compactas',
+    (await p.locator('[data-linea-peso] svg').count()) === 1 && (await p.locator('[data-linea-grasa] svg').count()) === 1
+    && await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height <= 62),
+    String(await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height)));
   await p.getByRole('button', { name: /Profundiza en tus gráficas de entrenamiento/ }).click();
   await p.getByText('Fuerza', { exact: true }).waitFor({ timeout: 10000 });
   ok('Profundiza entrenamiento abre fuerza y volumen', (await p.getByText('Volumen', { exact: true }).count()) === 1);
@@ -415,8 +422,12 @@ try {
     && (await cal.getByRole('tab').count()) === 0);
   ok('calendario: sin «la saltaste»', (await cal.getByText(/saltaste/).count()) === 0);
   ok('mes: días de la semana en azul', await cal.getByText('Lun', { exact: true }).first().evaluate(el => getComputedStyle(el).color === 'rgb(60, 123, 214)'));
-  ok('mes: casillas altas y nombres cortos', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => el.getBoundingClientRect().height >= 90)
-    && (await cal.getByText(/Training/).count()) === 0);
+  ok('mes: casillas compactas y nombres cortos', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => { const h = el.getBoundingClientRect().height; return h >= 66 && h <= 84; })
+    && (await cal.getByText(/Training/).count()) === 0, String(await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => el.getBoundingClientRect().height)));
+  ok('mes: la leyenda es pequeña y «ten en cuenta» asoma en la primera vista',
+    await cal.locator('[data-leyenda]').evaluate(el => parseFloat(getComputedStyle(el).fontSize) <= 12)
+    && await cal.locator('[data-ten-en-cuenta]').evaluate(el => el.getBoundingClientRect().top < innerHeight),
+    String(await cal.locator('[data-ten-en-cuenta]').evaluate(el => [el.getBoundingClientRect().top, innerHeight])));
   ok('por hacer con borde azul; hecho relleno de azul', await cal.locator('[data-chip="pendiente"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(el).borderTopColor === 'rgb(60, 123, 214)')
     && await cal.locator('[data-chip="hecha"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(60, 123, 214)'));
   ok('mes: «Léelo · ten en cuenta» con mover, añadir, plan y descanso', /Léelo/.test(await cal.locator('[data-ten-en-cuenta]').innerText())
@@ -431,6 +442,7 @@ try {
   await cal.locator(`[data-vista="mes"] [data-fecha="${hoy}"]`).click();
   await p.getByText('Para registrar').waitFor({ timeout: 5000 });
   ok('al tocar el día: el detalle dice la fecha de corte', (await p.getByText('Fecha de corte de tu mensualidad').count()) === 1);
+  ok('al tocar el día: arriba, añadir cardio o deporte', (await p.locator('[data-acciones-dia] [data-accion="actividad"]').count()) === 1);
   await espera(300);
   await foto(p, '05b-dia-registrar');
   await p.getByRole('button', { name: 'Ya envié mis fotos' }).click();
@@ -503,6 +515,7 @@ try {
   await p.getByText('Sentadilla con barra').first().waitFor({ timeout: 10000 });
   await espera(600);
   await foto(p, '06-entreno-galeria');
+  ok('entreno: la firma al final de la galería', (await p.locator('[data-view="entrena"] [data-firma]').count()) === 1);
   await p.getByText('Sentadilla con barra').first().click();
   await espera(700);
   await foto(p, '07-galeria-ficha');
@@ -548,6 +561,7 @@ try {
   await p.locator('[data-recetario-botones]').waitFor({ timeout: 8000 });
   await espera(500);
   await foto(p, '10-recetario');
+  ok('recetario: una línea separa los botones de las recetas', (await p.locator('[data-recetario-separador]').count()) === 1);
   ok('recetario: sin la foto de portada', (await p.locator('img[src*="recetario-hero"]').count()) === 0);
   ok('recetario: las recetas se ven de una', (await p.getByText('Wrap crujiente de atún').count()) >= 1);
   await p.getByRole('button', { name: /Búsqueda avanzada/ }).click();
@@ -567,12 +581,32 @@ try {
   await p.getByText('Calendario de comidas').waitFor({ timeout: 5000 });
   await espera(600);
   await foto(p, '10c-calendario-comidas');
+  const calC = p.locator('[data-calendario-comidas]');
+  ok('calendario de comidas: con la forma del de entreno (días en verde, casillas blancas)', (await calC.count()) === 1
+    && await calC.getByText('Lun', { exact: true }).evaluate(el => getComputedStyle(el).color === 'rgb(70, 150, 90)')
+    && await calC.locator('[data-dia-comida]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)' || getComputedStyle(el).backgroundColor === 'rgb(242, 248, 243)'));
+  ok('calendario de comidas: pestañas rectangulares, la activa en verde', await p.locator('[data-pestanas-comida] button').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(70, 150, 90)' && parseFloat(getComputedStyle(el).borderTopLeftRadius) <= 12));
+  ok('calendario de comidas: las gráficas son las del Dash', (await p.locator('[data-grafica-comida]').count()) === 3
+    && (await p.locator('.fixed.inset-0.z-50 svg rect').count()) > 10);
+  ok('calendario de comidas: sin oliva', await p.evaluate(() => {
+    const oliva = /rgb\((1[2-4]\d), (1[4-5]\d), (8\d|9\d)\)|rgb\(212, 218, 184\)|rgb\(74, 82, 56\)/;
+    const caja = [...document.querySelectorAll('.fixed.inset-0.z-50')].pop();
+    return ![...caja.querySelectorAll('*')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor));
+  }));
+  await p.locator('.fixed.inset-0.z-50 [data-grafica-comida]').first().scrollIntoViewIfNeeded();
+  await espera(300);
+  await foto(p, '10d-graficas-comidas');
   ok('barra de Alimentación: Calendario abre el calendario de comidas', true);
   await p.getByRole('button', { name: 'Cerrar' }).last().dispatchEvent('pointerdown');
   await espera(800);
   await p.getByRole('button', { name: 'Chat', exact: true }).click();
   await espera(900);
   await foto(p, '09-comida-chat');
+  ok('chat: burbujas blancas de marca, sin oliva', (await p.locator('[data-chat-v2]').count()) === 1 && await p.evaluate(() => {
+    const oliva = /rgb\((1[2-4]\d), (1[4-5]\d), (8\d|9\d)\)|rgb\(212, 218, 184\)|rgb\(74, 82, 56\)/;
+    const els = [...document.querySelectorAll('[data-chat-v2] *')];
+    return els.length > 0 && !els.some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor));
+  }));
   const barraVisible = () => p.evaluate(() => { const n = document.querySelector('nav[aria-label="Secciones"]'); const w = n && n.parentElement; return !!w && getComputedStyle(w).visibility !== 'hidden' && getComputedStyle(w).display !== 'none'; });
   ok('chat: la barra de módulos se ve antes de escribir', await barraVisible());
   await p.locator('.msg-input').click();

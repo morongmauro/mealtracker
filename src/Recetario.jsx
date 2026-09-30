@@ -2857,6 +2857,17 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             </button>
           </div>
         )}
+        {/* Visual nueva: una línea separa las herramientas (organizar,
+            búsqueda avanzada) de las recetas como tal. */}
+        {v2 && (
+          <div data-recetario-separador style={{ paddingTop: 6 }}>
+            <div style={{ height: 1, background: 'rgba(31,31,31,0.09)', margin: '0 2px 14px' }} />
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '0 2px' }}>
+              <h2 style={{ fontSize: 20, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: 0 }}>Recetas</h2>
+              <span style={{ fontSize: 13, color: TEXT_MUTED }}>{list.length} {list.length === 1 ? 'receta' : 'recetas'}</span>
+            </div>
+          </div>
+        )}
         {/* Buscador */}
         <div className="flex items-center gap-2 rounded-2xl px-3.5 py-2.5" style={v2 ? { background: '#FFFFFF', boxShadow: SOMBRA_V2 } : plainCard}>
           <Search size={16} style={{ color: TEXT_LIGHT, flexShrink: 0 }} />
@@ -2960,6 +2971,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           )}
         </div>
 
+        {!searching && v2 && <div style={{ height: 1, background: 'rgba(31,31,31,0.09)', margin: '6px 2px 0' }} />}
         {!searching && (
           <div className="text-[11px] text-center pt-1" style={{ color: TEXT_LIGHT }}>
             Cada receta se ajusta a su comida dentro de tu meta — y al abrirla puedes adaptarla a lo que te queda del día

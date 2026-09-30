@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import EntrenoMes, { HoySemana } from './EntrenoMes.jsx';
+import EntrenoMes, { HoySemana, precargarMeses } from './EntrenoMes.jsx';
 import EntrenoRutinas from './EntrenoRutinas.jsx';
 import EntrenoResumen from './EntrenoResumen.jsx';
 import EntrenoFotos from './EntrenoFotos.jsx';
@@ -13,6 +13,7 @@ import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js
 import { nombresEj, v2Activa } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
+import Firma from './Firma.jsx';
 // «Domingo, 27 de septiembre»
 const fechaDeHoy = () => {
   const d = new Date();
@@ -131,9 +132,23 @@ const SinNav = () => null;
 
 // `recordatorios` (visual nueva): { pendientes, abrir } — la píldora de
 // Recordatorios va arriba de Hoy, como en el Dash.
+// Último plan traído, por cliente. Al volver al módulo (o cambiar de opción en
+// la barra) se pinta ESTE al instante y se refresca por detrás: antes cada
+// vuelta mostraba el «cargando» aunque nada hubiera cambiado.
+const cachePlan = new Map();
+
+// Lo llama la app al abrir (en un rato libre): deja el plan y la semana
+// listos antes de que el cliente toque Entrenamiento.
+export async function precargar(name) {
+  if (!name || cachePlan.has(name)) return;
+  const r = await api({ accion: 'plan', name });
+  if (r && r.ok && !cachePlan.has(name)) cachePlan.set(name, r);
+  precargarMeses(name);
+}
+
 export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, recordatorios = null, avisoPago = null }) {
-  const [plan, setPlan] = useState(null);
-  const [cargando, setCargando] = useState(true);
+  const [plan, setPlan] = useState(() => cachePlan.get(name) || null);
+  const [cargando, setCargando] = useState(() => !cachePlan.has(name));
   const [rutinaId, setRutinaId] = useState(null);
   const [seccionPropia, setSeccionPropia] = useState('hoy');
   const seccion = seccionV2 || seccionPropia;
@@ -143,9 +158,11 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   useEffect(() => { if (seccionV2) setRutinaId(null); }, [seccionV2]);
 
   const cargarPlan = useCallback(async () => {
-    setCargando(true);
+    if (!cachePlan.has(name)) setCargando(true);
     const r = await api({ accion: 'plan', name });
-    setPlan(r && r.ok ? r : { ok: false });
+    if (r && r.ok) cachePlan.set(name, r);
+    // Sin red y con algo guardado: se queda lo guardado, no un «sin plan».
+    setPlan(r && r.ok ? r : (cachePlan.get(name) || { ok: false }));
     setCargando(false);
   }, [name]);
 
@@ -185,6 +202,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         {seccion === 'resumen' && <EntrenoResumen nombre={name} />}
         {seccion === 'fotos' && <EntrenoFotos name={name} />}
         {seccion === 'galeria' && <EntrenoGaleria nombre={name} />}
+        {seccionV2 && <Firma style={{ marginTop: 28 }} />}
       </Envoltorio>
     );
   }
@@ -202,6 +220,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
         </Tarjeta>
         <BloqueActividad name={name} />
+        {seccionV2 && <Firma style={{ marginTop: 28 }} />}
       </Envoltorio>
     );
   }
@@ -229,6 +248,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
           <BloqueActividad name={name} />
         </>
       )}
+      {seccionV2 && <Firma style={{ marginTop: 28 }} />}
     </Envoltorio>
   );
 }

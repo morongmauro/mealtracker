@@ -309,12 +309,16 @@ export async function agendaDeHoy(sb, hoy) {
         .some(s => s.cliente_id === c.id && s.rutina_id === r.id && s.estado === 'completada');
       if (r && !hecha) rutina = r.nombre;
     }
+    // ¿Entrenó HOY (lo que sea, terminado o a medias)? El cierre del día no
+    // le recuerda entrenar a quien ya lo hizo.
+    const entrenoHoy = (Array.isArray(sesiones) ? sesiones : [])
+      .some(s => s.cliente_id === c.id && s.fecha === hoy && (s.estado === 'completada' || s.estado === 'en_curso'));
     const evs = (Array.isArray(eventos) ? eventos : []).filter(e => e.cliente_id === c.id);
     const deHoy = expandirEventos(evs, fase)[hoy] || [];
     const medicion = !!deHoy.length;
     // Qué toca registrar hoy, para que el aviso diga «pesarte» o «tus fotos».
     const registros = [...new Set(deHoy.map(e => e.tipo))];
-    const dato = { rutina, medicion, registros };
+    const dato = { rutina, medicion, registros, entrenoHoy };
     [c.nombre, ...(Array.isArray(c.nombres_alternos) ? c.nombres_alternos : [])]
       .forEach(n => { const k = normalizeName(n); if (k) out.set(k, dato); });
   }

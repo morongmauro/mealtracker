@@ -932,8 +932,9 @@ async function registrarEvento(cliente, cuerpo, hoy) {
 // El cliente arrastra la rutina en su calendario. Se guarda como un cambio
 // de UNA fecha (ver rutinaPorFecha); si el destino tenía rutina, se
 // intercambian. Reglas:
-//   · solo de hoy en adelante (con un día de margen por la hora del
-//     teléfono): el pasado es registro;
+//   · las dos fechas dentro de la semana en curso (lunes a domingo), también
+//     los días que ya pasaron: si perdió el martes, lo pasa al jueves para
+//     compensar. Lo de otras semanas lo planea el coach;
 //   · las dos fechas dentro de la fase;
 //   · la rutina tiene que estar de verdad ese día (lo que ve el cliente);
 //   · no se mueve lo ya entrenado.
@@ -941,9 +942,7 @@ async function moverRutina(cliente, cuerpo, hoy) {
   const fecha = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
   const desde = fecha(cuerpo.desde), hasta = fecha(cuerpo.hasta);
   if (!desde || !hasta || desde === hasta) return { ok: false, motivo: 'fechas' };
-  const ayer = sumarDiasISO(hoy, -1);
-  if (desde < ayer || hasta < ayer) return { ok: false, motivo: 'pasado' };
-  // Solo dentro de la semana en curso: lo de más adelante lo planea el coach.
+  // Solo dentro de la semana en curso: lo de otras semanas lo planea el coach.
   if (![desde, hasta].every(enSemanaActual(hoy))) return { ok: false, motivo: 'otra_semana' };
 
   const ctx = await contextoCalendario(cliente);
@@ -1010,13 +1009,12 @@ async function musculosDeRutinas(rutinas) {
 }
 
 // ── AÑADIR UNA RUTINA A UN DÍA LIBRE ─────────────────────────────────────
-// «Este sábado quiero hacer otra vez el Push.» Solo en la semana en curso,
-// de hoy en adelante, en un día SIN rutina, y con una rutina de su ciclo. Se
+// «Este sábado quiero hacer otra vez el Push.» Solo en la semana en curso
+// (también un día que ya pasó, si lo entrenó y no lo tenía), en un día SIN rutina, y con una rutina de su ciclo. Se
 // guarda aparte (`rutina_extras`): el plan del coach no cambia.
 async function agregarRutina(cliente, cuerpo, hoy) {
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || '')) ? String(cuerpo.fecha) : null;
   if (!fecha) return { ok: false, motivo: 'fechas' };
-  if (fecha < sumarDiasISO(hoy, -1)) return { ok: false, motivo: 'pasado' };
   if (!enSemanaActual(hoy)(fecha)) return { ok: false, motivo: 'otra_semana' };
   const ctx = await contextoCalendario(cliente);
   if (!ctx) return { ok: false, motivo: 'sin_fase' };
@@ -1041,7 +1039,7 @@ async function agregarRutina(cliente, cuerpo, hoy) {
 async function quitarRutina(cliente, cuerpo, hoy) {
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || '')) ? String(cuerpo.fecha) : null;
   if (!fecha) return { ok: false, motivo: 'fechas' };
-  if (fecha < sumarDiasISO(hoy, -1)) return { ok: false, motivo: 'pasado' };
+  if (!enSemanaActual(hoy)(fecha)) return { ok: false, motivo: 'otra_semana' };
   const hechas = await sb(`sesiones?select=id&cliente_id=eq.${cliente.id}&fecha=eq.${fecha}&estado=eq.completada`).catch(() => []);
   if ((Array.isArray(hechas) ? hechas : []).length) return { ok: false, motivo: 'ya_entrenada' };
   try {

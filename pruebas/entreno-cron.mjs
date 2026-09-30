@@ -1,7 +1,8 @@
 // El cron de avisos (api/push-cron.js) en lo que toca al entrenamiento:
 //   · cierra solas las sesiones olvidadas (y solo esas);
-//   · «hoy te toca Push» solo a quien está en la beta y no la hizo ya;
-//   · el recordatorio de medición, con el texto que corresponde.
+//   · en la mañana solo sale la medición (con el texto que corresponde);
+//   · al final del día, UN mensaje con lo que falte: el entreno (solo a la
+//     beta, si tenía rutina y no entrenó) y la comida (bajo la meta).
 // Sin red: base en memoria y los envíos push interceptados.
 //
 //   node pruebas/entreno-cron.mjs
@@ -31,14 +32,17 @@ const mas = (ymd, n) => { const t = new Date(Date.parse(ymd + 'T00:00:00Z')); t.
 const letra = 'LMXJVSD'[(new Date(Date.parse(hoy + 'T00:00:00Z')).getUTCDay() + 6) % 7];
 const lunes = mas(hoy, -((new Date(Date.parse(hoy + 'T00:00:00Z')).getUTCDay() + 6) % 7));
 
-// Una zona horaria donde AHORA sean las 9 de la mañana: el turno de mañana.
-const tzNueve = (() => {
+// Una zona horaria donde AHORA sea cierta hora: las 9 (mañana) o las 20
+// (cierre del día).
+const tzA = (hora) => {
   for (let n = -14; n <= 12; n++) {
     const tz = n === 0 ? 'Etc/GMT' : `Etc/GMT${n > 0 ? '+' : ''}${n}`;
     const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hour12: false }).format(new Date()));
-    if (h === 9) return tz;
+    if (h === hora) return tz;
   }
-})();
+};
+const tzNueve = tzA(9), tzVeinte = tzA(20);
+const fechaEn = (tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
 function base() {
   return crearSupabaseFalso({
@@ -104,9 +108,9 @@ await caso('cierra la olvidada con series, borra la vacía y no toca ni la de ay
 await caso('qué toca hoy: la rutina si no la hizo, y la medición', async () => {
   const db = base();
   const a = await agendaDeHoy(sbDe(db), hoy);
-  igual(a.get('mauro moron'), { rutina: 'Push', medicion: false, registros: [] }, 'Mauro');
-  igual(a.get('otra persona'), { rutina: 'Push', medicion: true, registros: ['medicion'] }, 'Otra');
-  igual(a.get('ya entreno'), { rutina: null, medicion: false, registros: [] }, 'la hizo hoy: no se insiste');
+  igual(a.get('mauro moron'), { rutina: 'Push', medicion: false, registros: [], entrenoHoy: false }, 'Mauro');
+  igual(a.get('otra persona'), { rutina: 'Push', medicion: true, registros: ['medicion'], entrenoHoy: false }, 'Otra');
+  igual(a.get('ya entreno'), { rutina: null, medicion: false, registros: [], entrenoHoy: true }, 'la hizo hoy: no se insiste');
 });
 
 await caso('peso y fotos el mismo día: el aviso dice las dos cosas', async () => {
@@ -126,21 +130,79 @@ await caso('peso y fotos el mismo día: el aviso dice las dos cosas', async () =
   if (!m || !/pesarte y tu registro fotográfico/.test(m.body)) throw new Error('aviso: ' + (m && m.body));
 });
 
-await caso('el aviso «hoy te toca» sale solo a la beta; la medición a quien la tiene', async () => {
-  const db = base();
-  globalThis.fetch = db.fetch;
-  enviados.length = 0;
+const correr = async () => {
   let json = null;
   await cron({ method: 'GET', query: { key: 'secreto' }, headers: {} },
     { status() { return this; }, json(j) { json = j; return this; }, setHeader() {}, end() { return this; } });
-  const de = (q, tag) => enviados.filter(e => e.a === q && e.tag === tag);
-  igual(de('Mauro', 'ecm-t').length, 1, 'Mauro recibe «hoy te toca»');
-  if (!/Push/.test(de('Mauro', 'ecm-t')[0].body)) throw new Error('el aviso no nombra la rutina');
-  igual(de('Otra', 'ecm-t').length, 0, 'Otra no está en la beta');
+  return json;
+};
+
+await caso('en la mañana: solo la medición; nada de «registra tu comida» ni «hoy te toca»', async () => {
+  const db = base();
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  const json = await correr();
+  const de = (q, tag) => enviados.filter(e => e.a === q && (!tag || e.tag === tag));
+  igual(de('Mauro').length, 0, 'Mauro no recibe nada en la mañana');
   igual(de('Otra', 'ecm-med').length, 1, 'Otra recibe la medición');
+  igual(de('Otra').length, 1, '…y solo eso');
   if (!/WhatsApp/.test(de('Otra', 'ecm-med')[0].body)) throw new Error('sin la app, la medición debe pedir el pantallazo por WhatsApp');
-  igual(de('Ya', 'ecm-t').length, 0, 'quien ya entrenó no recibe aviso');
+  igual(de('Ya').length, 0, 'Ya no recibe nada');
   igual(json.olvidadas, { cerradas: 1, borradas: 1 }, 'el cron también cerró las olvidadas');
+});
+
+// Al cierre del día (20h locales). El falso de Supabase no proyecta
+// `data->today`: las filas de user_data van ya con esas columnas.
+function baseNoche() {
+  const db = base();
+  db.db.push_subs.forEach((s, i) => { s.tz = tzVeinte; s.user_id = 'u' + (i + 1); });
+  return db;
+}
+
+await caso('cierre del día: entreno pendiente y comida sin registrar van en UN solo mensaje', async () => {
+  const db = baseNoche();
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  await correr();
+  const m = enviados.filter(e => e.a === 'Mauro');
+  igual(m.length, 1, 'un solo mensaje a Mauro');
+  if (m[0].tag !== 'ecm-n' || !/Push/.test(m[0].body) || !/comi/.test(m[0].body)) throw new Error('mensaje: ' + m[0].body);
+  const o = enviados.filter(e => e.a === 'Otra');
+  igual(o.length, 1, 'Otra (sin el módulo de entreno) recibe solo lo de comida');
+  if (/Push/.test(o[0].body)) throw new Error('a Otra no se le habla de entreno: ' + o[0].body);
+});
+
+await caso('cierre del día: con la meta cumplida solo se recuerda el entreno', async () => {
+  const db = baseNoche();
+  db.db.user_data = [{ user_id: 'u1', today: fechaEn(tzVeinte), today_entries: [1, 2, 3], goals: { kcal: 2000 }, totals: { kcal: 1900 } }];
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  await correr();
+  const m = enviados.filter(e => e.a === 'Mauro');
+  igual(m.length, 1, 'un mensaje');
+  if (!/Push/.test(m[0].body) || /%/.test(m[0].body)) throw new Error('debía ser solo el entreno: ' + m[0].body);
+});
+
+await caso('cierre del día: si ya entrenó hoy y va bajo la meta, solo la comida con su %', async () => {
+  const db = baseNoche();
+  db.db.sesiones.push({ id: 'hoy-otra', cliente_id: 'c1', rutina_id: 'r-x', fecha: hoy, estado: 'completada', origen: 'cliente' });
+  db.db.user_data = [{ user_id: 'u1', today: fechaEn(tzVeinte), today_entries: [1], goals: { kcal: 2000 }, totals: { kcal: 900 } }];
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  await correr();
+  const m = enviados.filter(e => e.a === 'Mauro');
+  igual(m.length, 1, 'un mensaje');
+  if (/Push/.test(m[0].body) || !/45%/.test(m[0].body)) throw new Error('debía ser solo la comida al 45%: ' + m[0].body);
+});
+
+await caso('cierre del día: entrenó y cumplió la meta → no se le molesta', async () => {
+  const db = baseNoche();
+  db.db.sesiones.push({ id: 'hoy-push', cliente_id: 'c1', rutina_id: 'r-c1', fecha: hoy, estado: 'completada', origen: 'cliente' });
+  db.db.user_data = [{ user_id: 'u1', today: fechaEn(tzVeinte), today_entries: [1, 2, 3], goals: { kcal: 2000 }, totals: { kcal: 1800 } }];
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  await correr();
+  igual(enviados.filter(e => e.a === 'Mauro').length, 0, 'nada para Mauro');
 });
 
 console.log(`\n${casos - fallos}/${casos} bien`);

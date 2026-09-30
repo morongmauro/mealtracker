@@ -3,21 +3,22 @@
 // punto (GitHub Action del repo: .github/workflows/push-cron.yml) con
 // ?key=<CRON_SECRET>. En cada corrida revisa la hora LOCAL de cada
 // suscripción (tz capturada del teléfono al suscribirse) y envía el
-// recordatorio del turno si corresponde:
+// recordatorio del turno si corresponde. Para no saturar, el recordatorio
+// de comida y entreno es UNO SOLO, al final del día:
 //
-//   09:00 local → mañana (primer empujón del día; skip si ya registró algo
-//                 hoy). Los copys son NEUTROS: no nombran comidas (desayuno/
-//                 almuerzo/cena) ni imponen horarios — cada cliente tiene su
-//                 propia estructura de comidas.
-//   14:00 local → mediodía (skip si ya lleva 2+ registros)
+//   09:00 local → solo si el coach puso para hoy medición, peso o fotos
+//                 (el peso se toma en ayunas: tiene que llegar temprano).
 //   19:30 local → recordatorio de pago SOLO a quien está en deuda
 //                 (misma regla que el banner de payment-status: corte
 //                 vencido y mes sin pago marcado en el CRM)
-//   20:00 local → cierre del día por % de meta: si el cliente tiene meta de
-//                 kcal y va por DEBAJO del 80%, se le recuerda registrar
-//                 todo el día (con su % real en el mensaje); al 80%+ no se
-//                 le molesta. Sin meta configurada cae a la regla vieja por
-//                 conteo (solo si lleva menos de 3 registros).
+//   20:00 local → CIERRE DEL DÍA, un solo mensaje que junta lo que falte:
+//                 · entreno: tenía rutina hoy en su calendario, no la ha
+//                   hecho esta semana y hoy no entrenó nada;
+//                 · comida: con meta de kcal, va por DEBAJO del 80% (con su
+//                   % real en el mensaje); sin meta, menos de 3 registros.
+//                 Si no falta nada, no se le molesta.
+//   (Los avisos de las 9am y las 2pm de «registra tu comida» y el de «hoy
+//   te toca» de la mañana se quitaron: saturaban.)
 //
 // RESILIENCIA: los crons de GitHub son "mejor esfuerzo" y a veces SALTAN
 // horas completas (documentado: bajo carga, los schedules se retrasan o se
@@ -64,16 +65,6 @@ const normalizeName = (str) => String(str || '')
 // sugieren a qué hora comer — cada cliente tiene su propia estructura y
 // horarios. Solo invitan a REGISTRAR lo que haya comido, cuando sea.
 const MSGS = {
-  morning: [
-    'Buenos días ☀️ Un registro a tiempo vale más que uno perfecto. Cuando tengas tu primera comida, cuéntamelo.',
-    'Arranca el día con claridad: tu primer registro marca la pauta ☀️',
-    'Nuevo día, mismo método 💪 Registra a tu ritmo — cada comida cuenta, sea la que sea.',
-  ],
-  midday: [
-    '¿Ya comiste algo hoy? Dos líneas en tu registro y tu día sigue en orden 🍽',
-    'Mitad del día: registrar lo que has comido ahora te ahorra hacer memoria en la noche.',
-    'Sea cual sea tu próxima comida, regístrala y sigue en lo tuyo 🍽',
-  ],
   // Cierre del día SIN meta configurada (regla vieja por conteo)
   evening: [
     'Cierra el día como se debe: registra lo que comiste y mira tu jornada completa 🌙',
@@ -95,14 +86,37 @@ const MSGS = {
   ],
 };
 
-// ── Entrenamiento ──
-// «Hoy te toca»: solo a quien tiene el módulo de entrenamiento (la beta), y
-// solo si la rutina de hoy no la hizo ya esta semana. {rutina} = su nombre.
-MSGS.entreno = [
-  'Hoy te toca {rutina} 💪 Abre tu rutina y marca cada serie: así vemos tu progreso real.',
-  '{rutina} en tu agenda de hoy. Cuando entrenes, registra pesos y reps en la app 🏋️',
-  'Tu entreno de hoy: {rutina}. Lo que registras es lo que nos deja ajustar el plan con datos 💪',
+// ── Cierre del día: comida + entreno en UN mensaje ──
+// {rutina} = la rutina de hoy; {pct} = avance de kcal contra la meta.
+MSGS.cierreEntreno = [
+  'Hoy tenías {rutina} y aún no aparece registrada. Si ya entrenaste, márcala en la app; si no, todavía estás a tiempo 💪',
+  '{rutina} sigue pendiente hoy. ¿Ya entrenaste? Regístralo en la app para que cuente 💪',
+  'Antes de cerrar el día: tu {rutina} de hoy aún no está registrada. Márcala si ya la hiciste 🏋️',
 ];
+MSGS.cierreAmbos = [
+  'Cierre del día 🌙 Tu {rutina} aún no está registrada y tu comida va en {pct}% de la meta. Registra lo que entrenaste y lo que comiste.',
+  'Antes de descansar: marca tu {rutina} si ya entrenaste y pon tu comida al día (vas en {pct}% de la meta) 🌙',
+  'Tu día aún no está completo: {rutina} sin registrar y comida en {pct}% de tu meta. Dos minutos y queda al día 📋',
+];
+MSGS.cierreAmbosSinMeta = [
+  'Cierre del día 🌙 Tu {rutina} aún no está registrada y falta poner tu comida al día. Registra lo que entrenaste y lo que comiste.',
+  'Antes de descansar: marca tu {rutina} si ya entrenaste y registra lo que comiste hoy 🌙',
+];
+
+// El texto del cierre según lo que falte. `comida`: null (va bien),
+// { pct } con meta, o { sinMeta: true }. `rutina`: nombre o null.
+export function textoCierre({ rutina = null, comida = null }) {
+  if (rutina && comida) {
+    return comida.sinMeta
+      ? pick(MSGS.cierreAmbosSinMeta).replace('{rutina}', rutina)
+      : pick(MSGS.cierreAmbos).replace('{rutina}', rutina).replace('{pct}', String(comida.pct));
+  }
+  if (rutina) return pick(MSGS.cierreEntreno).replace('{rutina}', rutina);
+  if (comida) return comida.sinMeta ? pick(MSGS.evening) : pick(MSGS.eveningLow).replace('{pct}', String(comida.pct));
+  return null;
+}
+
+// ── Entrenamiento ──
 // Día de medición (evento «medicion» que pone el coach en el calendario).
 MSGS.medicion = [
   'Hoy toca registrar tu peso y % de grasa 📏 Hazlo en la app (Entrena → Resumen) o mándame el pantallazo de la medida.',
@@ -428,7 +442,6 @@ export default async function handler(req, res) {
       // gracia en la hora 20 para no pisar el recordatorio nocturno de las 8.
       let slot = null;
       if (hour === 9 || hour === 10) slot = 'm';
-      else if (hour === 14 || hour === 15) slot = 'd';
       else if (hour === 19 && minute >= 30) slot = 'p';
       else if (hour === 20 || hour === 21) slot = 'n';
       if (!slot) continue;
@@ -439,16 +452,12 @@ export default async function handler(req, res) {
 
       const payloads = [];
       if (slot === 'm') {
-        // Mañana (10am): solo a quien no ha registrado nada aún
-        if (registrosHoy < 1) payloads.push({ title: 'Tu coach', body: pick(MSGS.morning), tag: 'ecm-m' });
-        // Entreno y medición de hoy. Tags propios: no se pisan con el de comida.
+        // Mañana: SOLO la medición, peso o fotos que puso el coach para hoy.
+        // Comida y entreno esperan al cierre del día (un solo mensaje).
         if (s.name) {
           await cargarAgenda();
           const hoyEs = agenda && agenda.get(normalizeName(s.name));
           const beta = enBetaEntreno(s.name);
-          if (hoyEs && hoyEs.rutina && beta) {
-            payloads.push({ title: 'Tu coach', body: pick(MSGS.entreno).replace('{rutina}', hoyEs.rutina), tag: 'ecm-t' });
-          }
           if (hoyEs && hoyEs.medicion) {
             payloads.push({ title: 'Tu coach', body: textoRegistro(hoyEs.registros, beta), tag: 'ecm-med' });
           }
@@ -460,26 +469,32 @@ export default async function handler(req, res) {
         if (deudores && s.name && deudores.has(normalizeName(s.name))) {
           payloads.push({ title: 'Tu coach', body: pick(MSGS.payment), tag: 'ecm-p' });
         }
-      } else if (slot === 'd') {
-        // Mediodía (2pm): a quien lleva menos de 2 registros hasta ahora
-        if (registrosHoy < 2) payloads.push({ title: 'Tu coach', body: pick(MSGS.midday), tag: 'ecm-d' });
       } else if (slot === 'n') {
-        // Noche (8pm): DIARIO por % de meta de kcal. Los totales solo valen
-        // si el "today" sincronizado es el día local del cliente (si no,
-        // son de un día viejo y cuentan como 0).
+        // Cierre del día (8pm): UN mensaje con lo que falte de comida y de
+        // entreno. Los totales de comida solo valen si el "today"
+        // sincronizado es el día local del cliente (si no, son de un día
+        // viejo y cuentan como 0).
         const metaKcal = act.goalKcal;
         const kcalHoy = act.date === date ? act.kcalHoy : 0;
+        let comida = null;
         if (metaKcal > 0) {
-          // 80% o más de la meta = día bien llevado: no molestamos. Solo se
-          // recuerda a quien va por debajo del 80%.
+          // 80% o más de la meta = día bien llevado: no se le recuerda.
           const pct = Math.min(999, Math.max(0, Math.round((kcalHoy / metaKcal) * 100)));
-          if (pct < 80) {
-            payloads.push({ title: 'Tu coach', body: pick(MSGS.eveningLow).replace('{pct}', String(pct)), tag: 'ecm-n' });
-          }
+          if (pct < 80) comida = { pct };
         } else if (registrosHoy < 3) {
-          // Sin meta configurada: regla vieja por conteo de registros
-          payloads.push({ title: 'Tu coach', body: pick(MSGS.evening), tag: 'ecm-n' });
+          // Sin meta configurada: regla por conteo de registros
+          comida = { sinMeta: true };
         }
+        // Entreno: solo con el módulo, si hoy tenía rutina en su calendario,
+        // no la ha hecho y hoy no entrenó nada.
+        let rutina = null;
+        if (s.name && enBetaEntreno(s.name)) {
+          await cargarAgenda();
+          const hoyEs = agenda && agenda.get(normalizeName(s.name));
+          if (hoyEs && hoyEs.rutina && !hoyEs.entrenoHoy) rutina = hoyEs.rutina;
+        }
+        const body = textoCierre({ rutina, comida });
+        if (body) payloads.push({ title: 'Tu coach', body, tag: 'ecm-n' });
       }
 
       // Marcar el turno como atendido AUNQUE no haya nada que enviar (p.ej.
