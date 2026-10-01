@@ -36,7 +36,7 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
     <div data-aprende-hoy style={{ maxWidth: 560, margin: '0 auto', padding: '0 20px', paddingTop: arriba, paddingBottom: 'calc(104px + env(safe-area-inset-bottom, 0px))' }}>
       <CabeceraHoy tema="aprende" fecha={fechaHoy()} titulo="Tu aprendizaje" arriba={arriba} />
 
-      <h2 style={titulo}>Lo próximo para ti</h2>
+      <h2 style={titulo}>Recomendado para ti</h2>
       {avance === undefined ? (
         <Esqueleto />
       ) : avance === null ? (
