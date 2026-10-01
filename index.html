@@ -103,11 +103,12 @@
       /* Arranque caliente (misma sesión): sin opener, directo a la app */
       html.warm-start #splash { display: none; }
       /* ── Apertura de la visual nueva ─────────────────────────────────
-         Al estilo de las apps de referencia (Puntos, Headspace): la
-         pantalla en el color del ícono (el degradado del azul del entreno al
-         verde de la comida), así tocar el ícono y abrir la app se sienten una
-         sola cosa. El logo en blanco, con el anillo grueso de los del Dash.
-           0.10 s  aparece un punto blanco en el centro
+         Al estilo de las apps de referencia (Puntos, Headspace): fondo
+         blanco con manchas de color que flotan despacio (naranja, verde,
+         azul y amarillo, los de las secciones) y el logo encima: la M en
+         grafito y el anillo verde, grueso como los del Dash, igual que el
+         ícono.
+           0.10 s  aparece un punto verde en el centro
            0.55 s  el punto sube a su sitio en el anillo
            0.80 s  el anillo se dibuja con el punto en la punta
            1.25 s  la M del logo se dibuja
@@ -122,11 +123,29 @@
       html.splash-v2 #splash { display: none; }
       html.splash-v2 #splash2 {
         position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; overflow: hidden;
-        background: linear-gradient(135deg, #3C7BD6 0%, #3690AE 50%, #46965A 100%);
+        align-items: center; justify-content: center; overflow: hidden; background: #FFFFFF;
         transition: opacity 0.45s ease-out;
       }
       body.app-ready #splash2 { opacity: 0; pointer-events: none; }
+      /* Manchas de color de las secciones (naranja, verde, azul y amarillo)
+         que flotan despacio sobre el blanco. Gradientes radiales, sin blur:
+         livianos en el teléfono. */
+      #splash2 .manchas { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+        animation: s2in 0.9s ease-out 0.05s forwards; }
+      #splash2 .mancha { position: absolute; width: 100vw; height: 100vw; border-radius: 50%; will-change: transform; }
+      #splash2 .m1 { left: -34vw; top: -12vh; background: radial-gradient(closest-side, rgba(238,132,52,0.55), rgba(238,132,52,0) 72%);
+        animation: s2flota1 6s ease-in-out infinite alternate; }
+      #splash2 .m2 { right: -34vw; top: 6vh; background: radial-gradient(closest-side, rgba(60,123,214,0.50), rgba(60,123,214,0) 72%);
+        animation: s2flota2 7s ease-in-out infinite alternate; }
+      #splash2 .m3 { left: -34vw; bottom: 4vh; background: radial-gradient(closest-side, rgba(70,150,90,0.50), rgba(70,150,90,0) 72%);
+        animation: s2flota3 6.5s ease-in-out infinite alternate; }
+      #splash2 .m4 { right: -30vw; bottom: -14vh; background: radial-gradient(closest-side, rgba(242,196,60,0.58), rgba(242,196,60,0) 72%);
+        animation: s2flota4 5.5s ease-in-out infinite alternate; }
+      @keyframes s2flota1 { from { transform: translate(0, 0) scale(1); } to { transform: translate(7vw, 5vh) scale(1.1); } }
+      @keyframes s2flota2 { from { transform: translate(0, 0) scale(1.06); } to { transform: translate(-7vw, 6vh) scale(0.94); } }
+      @keyframes s2flota3 { from { transform: translate(0, 0) scale(0.96); } to { transform: translate(6vw, -6vh) scale(1.08); } }
+      @keyframes s2flota4 { from { transform: translate(0, 0) scale(1.08); } to { transform: translate(-6vw, -5vh) scale(0.96); } }
+      #splash2 .fila, #splash2 .lema { position: relative; z-index: 1; }
       html.warm-start #splash2 { display: none !important; }
       #splash2 .fila { display: flex; align-items: center; transition: transform 0.45s cubic-bezier(.3,0,.2,1); }
       body.app-ready #splash2 .fila { transform: scale(1.05); }
@@ -151,12 +170,12 @@
       #splash2 .semilla { transform-box: fill-box; transform-origin: center; transform: translateY(172px) scale(0);
         animation: s2semilla 0.7s cubic-bezier(.3,0,.2,1) 0.1s forwards; }
       @keyframes s2semilla {
-        0% { transform: translateY(172px) scale(0); fill: #FFFFFF; }
-        40% { transform: translateY(172px) scale(5.5); fill: #FFFFFF; }
-        62% { transform: translateY(172px) scale(5.5); fill: #FFFFFF; }
-        100% { transform: translateY(0) scale(1); fill: #FFFFFF; } }
+        0% { transform: translateY(172px) scale(0); fill: #4FA463; }
+        40% { transform: translateY(172px) scale(5.5); fill: #4FA463; }
+        62% { transform: translateY(172px) scale(5.5); fill: #4FA463; }
+        100% { transform: translateY(0) scale(1); fill: #4FA463; } }
       #splash2 .gira .semilla { animation: s2semilla 0.7s cubic-bezier(.3,0,.2,1) 0.1s forwards, s2hueco 0.25s ease-out 0.85s forwards; }
-      @keyframes s2hueco { to { fill: #4291B8; } }
+      @keyframes s2hueco { to { fill: #FFFFFF; } }
       #splash2 .eme { stroke-dasharray: 100 100; stroke-dashoffset: 100; opacity: 0;
         animation: s2eme 0.7s cubic-bezier(.6,0,.25,1) 1.25s forwards; }
       @keyframes s2eme { 0% { opacity: 1; stroke-dashoffset: 100; } 100% { opacity: 1; stroke-dashoffset: 0; } }
@@ -164,14 +183,14 @@
         animation: s2brillo 0.6s ease-in-out 1.95s forwards; }
       @keyframes s2brillo { 0% { opacity: 0; stroke-dashoffset: 18; } 20% { opacity: 0.85; } 80% { opacity: 0.85; } 100% { opacity: 0; stroke-dashoffset: -100; } }
       #splash2 .palabra { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0;
-        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; color: #FFFFFF; line-height: 1.02;
+        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; color: #1F1F1F; line-height: 1.02;
         animation: s2palabra 0.65s cubic-bezier(.65,0,.25,1) 2.15s forwards; }
       @keyframes s2palabra { to { max-width: 230px; opacity: 1; padding-left: 16px; } }
-      #splash2 .palabra .p1 { font-size: 21px; font-weight: 600; color: rgba(255,255,255,0.82); letter-spacing: -0.01em; }
+      #splash2 .palabra .p1 { font-size: 21px; font-weight: 600; color: #6B6B6B; letter-spacing: -0.01em; }
       #splash2 .palabra .p2 { font-size: 38px; font-weight: 800; letter-spacing: -0.025em; }
-      #splash2 .lema { position: absolute; left: 0; right: 0; top: calc(50% + 70px); text-align: center;
+      #splash2 .lema { position: absolute !important; left: 0; right: 0; top: calc(50% + 70px); text-align: center;
         font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 500;
-        font-size: 14.5px; color: rgba(255,255,255,0.78); letter-spacing: 0.01em; opacity: 0; transform: translateY(6px);
+        font-size: 14.5px; color: #6B6B6B; letter-spacing: 0.01em; opacity: 0; transform: translateY(6px);
         animation: s2lema 0.6s ease-out 2.75s forwards; }
       @keyframes s2lema { to { opacity: 1; transform: none; } }
       @keyframes s2in { to { opacity: 1; } }
@@ -213,17 +232,18 @@
       <div class="sub">Entrena con Método</div>
     </div>
     <div id="splash2" aria-label="Entrena con Método">
+      <div class="manchas" aria-hidden="true"><div class="mancha m1"></div><div class="mancha m2"></div><div class="mancha m3"></div><div class="mancha m4"></div></div>
       <div class="fila">
         <svg class="marca" viewBox="0 0 512 512" fill="none" aria-hidden="true">
           
-  <circle class="riel" cx="256" cy="256" r="172" stroke="#FFFFFF" stroke-opacity="0.24" stroke-width="42" fill="none"/>
-          <path class="tramo1" d="M256 84 A172 172 0 0 1 404.96 342" stroke="#FFFFFF" stroke-width="42" stroke-linecap="round" fill="none" pathLength="100"/>
-          <path class="tramo2" d="M404.96 342 A172 172 0 0 1 107.04 342" stroke="#FFFFFF" stroke-width="42" stroke-linecap="round" fill="none" pathLength="100"/>
-          <polyline class="eme" points="194,305 194,196 267,282 314,203" pathLength="100" stroke="#FFFFFF"
+  <circle class="riel" cx="256" cy="256" r="172" stroke="#1F1F1F" stroke-opacity="0.08" stroke-width="42" fill="none"/>
+          <path class="tramo1" d="M256 84 A172 172 0 0 1 404.96 342" stroke="#4FA463" stroke-width="42" stroke-linecap="round" fill="none" pathLength="100"/>
+          <path class="tramo2" d="M404.96 342 A172 172 0 0 1 107.04 342" stroke="#4FA463" stroke-width="42" stroke-linecap="round" fill="none" pathLength="100"/>
+          <polyline class="eme" points="194,305 194,196 267,282 314,203" pathLength="100" stroke="#1F1F1F"
                     stroke-width="24" stroke-linecap="square" stroke-linejoin="miter"/>
-          <polyline class="brillo" points="194,305 194,196 267,282 314,203" pathLength="100" stroke="#BFE3F2"
+          <polyline class="brillo" points="194,305 194,196 267,282 314,203" pathLength="100" stroke="#FFFFFF"
                     stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-          <g class="gira"><circle class="semilla" cx="256" cy="84" r="14" fill="#FFFFFF"/></g>
+          <g class="gira"><circle class="semilla" cx="256" cy="84" r="14" fill="#4FA463"/></g>
         </svg>
         <div class="palabra"><div class="p1">Entrena con</div><div class="p2">Método</div></div>
       </div>
