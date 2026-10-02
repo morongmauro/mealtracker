@@ -8,17 +8,14 @@ import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, MESES, sinPeso } from './entrenoDatos.js';
+import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
-import CabeceraHoy from './CabeceraHoy.jsx';
+import CabeceraHoy, { FirmaCoach } from './CabeceraHoy.jsx';
+import { IlustracionPesas } from './IlustracionesHoy.jsx';
+import { vozEntreno, vozFinEntreno } from './vozCoach.js';
 import Firma from './Firma.jsx';
-// «Domingo, 27 de septiembre»
-const fechaDeHoy = () => {
-  const d = new Date();
-  return `${DIAS_LARGO['DLMXJVS'[d.getDay()]]}, ${d.getDate()} de ${MESES[d.getMonth()]}`;
-};
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
 import { Bell, Ruler, CheckCircle, PlayCircle } from '@phosphor-icons/react';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
@@ -213,7 +210,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     return (
       <Envoltorio>
         <NavSi seccion={seccion} setSeccion={setSeccion} />
-        {seccionV2 && <CabeceraHoy tema="entreno" fecha={fechaDeHoy()} titulo="Tu entreno"
+        {seccionV2 && <CabeceraHoy tema="entreno" voz={vozEntreno({ plan, hoy: hoyLocal() })}
         arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} />}
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
       {avisoPago}
@@ -230,7 +227,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   return (
     <Envoltorio>
       <NavSi seccion={seccion} setSeccion={setSeccion} />
-      {seccionV2 && <CabeceraHoy tema="entreno" fecha={fechaDeHoy()} titulo="Tu entreno"
+      {seccionV2 && <CabeceraHoy tema="entreno" voz={vozEntreno({ plan, hoy: hoyLocal() })}
         arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} />}
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
       {avisoPago}
@@ -239,7 +236,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         // y añadir actividad) y, debajo, la semana con el detalle de cada
         // día. El Calendario queda para el mes: no se repite lo mismo.
         <>
-          <CabeceraFase fase={plan.fase} />
+          <CabeceraFase fase={plan.fase} v2 />
           <HoySemana nombre={name} alEntrenar={setRutinaId}
             ejerciciosDe={Object.fromEntries((plan.dias || []).filter(d => d.rutina).map(d => [d.rutina.id, d.rutina.ejercicios]))} />
           <Sueltas plan={plan} onAbrir={setRutinaId} />
@@ -255,8 +252,18 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   );
 }
 
-function CabeceraFase({ fase: f }) {
+function CabeceraFase({ fase: f, v2 = false }) {
   if (!f) return null;
+  // Visual nueva: la semana ya la dice la cabecera; aquí solo el ciclo y su
+  // objetivo, en una línea discreta.
+  if (v2) {
+    return (
+      <div data-fase style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '0 2px 14px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 15, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em' }}>{f.nombre}</span>
+        {f.objetivo && <span style={{ fontSize: 13.5, color: TEXT_MUTED }}>{f.objetivo}</span>}
+      </div>
+    );
+  }
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em', textTransform: 'uppercase', lineHeight: 1, color: TEXT }}>{f.nombre}</div>
@@ -518,6 +525,8 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const [errorCierre, setErrorCierre] = useState(null);
   const [remate, setRemate] = useState(false);   // ofrecer cardio al cerrar
   const [records, setRecords] = useState(null);  // lo que batió hoy, si batió algo
+  const [fin, setFin] = useState(null);           // visual nueva: la celebración al terminar
+  const conteoRef = useRef({ hechos: 0, total: 0, series: 0 });
   const [pendientes, setPendientes] = useState(0);
   const [nota, setNota] = useState(null);          // { titulo, rutina_id, rutina_ejercicio_id? }
   // kg o lb, POR EJERCICIO: las mancuernas de un gimnasio van en libras y las
@@ -704,8 +713,9 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     // Visual nueva: no se pregunta por el cardio al terminar. El coach ya lo
     // receta dentro de la rutina, y lo que el cliente haga aparte lo agrega
     // desde el calendario.
+    // Visual nueva: siempre se celebra (y los récords van dentro).
+    if (v2Activa()) { setFin({ ...conteoRef.current, records: r.records || [] }); return; }
     if (r.records?.length) setRecords(r.records);
-    else if (v2Activa()) onVolver();
     else setRemate(true);
   }, [cerrando, deEsta, asegurarSesion, name, onVolver]);
 
@@ -748,6 +758,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       if (c) { c.total++; if (listo) c.hechos++; }
     });
   });
+  conteoRef.current = { hechos: ejHechos, total: ejTotal, series: hechas };
 
   return (
     <>
@@ -927,6 +938,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       <HojaNota abierta={!!nota} nombre={name} contexto={nota} alCerrar={() => setNota(null)} />
 
       {records && <HojaRecords records={records} alCerrar={() => { setRecords(null); if (v2) onVolver(); else setRemate(true); }} />}
+      {fin && <HojaFin fin={fin} alCerrar={() => { setFin(null); onVolver(); }} />}
 
       <EntrenoActividad
         abierta={remate}
@@ -991,6 +1003,74 @@ export function agruparEnTramos(ejercicios, bloqueDe, clase = null) {
 // pantalla que haya que leer: es el número más alto que ha levantado nunca
 // en ese ejercicio, puesto delante de sus ojos el día que lo consigue.
 // ─────────────────────────────────────────────────────────────────────────
+// ── Visual nueva · AL TERMINAR ───────────────────────────────────────────
+// El único momento de la rutina con personaje: la kettlebell levantando la
+// barra, la frase del coach, lo que hizo y, si batió algo, sus récords. Un
+// toque en «Seguir» (o fuera) vuelve a Hoy.
+const CSS_FIN = `
+@keyframes fin-fondo { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fin-sube { from { opacity: 0; transform: translateY(24px) scale(.98) } to { opacity: 1; transform: none } }
+@keyframes fin-salta { 0% { transform: translateY(14px) scale(.9); opacity: 0 } 60% { transform: translateY(-4px) scale(1.02); opacity: 1 } 100% { transform: none } }
+[data-fin-entreno] { animation: fin-fondo .25s ease both }
+[data-fin-entreno] .fin-tarjeta { animation: fin-sube .45s cubic-bezier(.2,.8,.2,1) both }
+[data-fin-entreno] .fin-dibujo { animation: fin-salta .7s .12s cubic-bezier(.2,.8,.2,1) both }
+@media (prefers-reduced-motion: reduce) { [data-fin-entreno], [data-fin-entreno] * { animation: none !important } }`;
+
+function HojaFin({ fin, alCerrar }) {
+  const A = SECCION.entreno;
+  const marca = (r) => r.peso ? `${r.peso} ${r.unidad || 'kg'} × ${r.reps}` : `${r.reps} reps`;
+  const frase = vozFinEntreno({ hoy: hoyLocal(), hechos: fin.hechos, total: fin.total, records: fin.records.length });
+  return (
+    <div data-fin-entreno onClick={alCerrar} style={{
+      position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(31,31,28,0.42)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }}>
+      <style>{CSS_FIN}</style>
+      <div className="fin-tarjeta" onClick={e => e.stopPropagation()} style={{
+        background: '#FFFFFF', borderRadius: 28, maxWidth: 380, width: '100%', overflow: 'hidden',
+        boxShadow: '0 20px 60px rgba(0,0,0,.25)', maxHeight: '88vh', overflowY: 'auto',
+      }}>
+        <div style={{ position: 'relative', height: 150, background: `radial-gradient(70% 90% at 70% 10%, #8FB3E8 0%, rgba(143,179,232,0) 70%), radial-gradient(60% 80% at 10% 90%, #F6CFA9 0%, rgba(246,207,169,0) 70%), #EAF1FB`, display: 'grid', placeItems: 'end center' }}>
+          <div className="fin-dibujo" style={{ width: 210, height: 130, marginBottom: 6, marginRight: 40 }}><IlustracionPesas /></div>
+        </div>
+        <div style={{ padding: '18px 20px 20px' }}>
+          <div style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.08 }}>Entreno hecho.</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: '#2F6CC4', letterSpacing: '-0.01em', lineHeight: 1.3, marginTop: 4 }}>{frase}</div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <div style={datoFin}><b style={datoFinNum}>{fin.hechos}<span style={{ color: TEXT_LIGHT, fontWeight: 600 }}>/{fin.total}</span></b><span style={datoFinPie}>ejercicios</span></div>
+            <div style={datoFin}><b style={datoFinNum}>{fin.series}</b><span style={datoFinPie}>series</span></div>
+            {fin.records.length > 0 && <div style={{ ...datoFin, background: A.tint }}><b style={{ ...datoFinNum, color: A.ink }}>{fin.records.length}</b><span style={datoFinPie}>{fin.records.length === 1 ? 'récord' : 'récords'}</span></div>}
+          </div>
+          {fin.records.length > 0 && (
+            <div data-records style={{ marginTop: 14 }}>
+              {fin.records.map(r => (
+                <div key={r.ejercicio_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: '1px solid #EFEBE3' }}>
+                  <span style={{ width: 32, height: 32, borderRadius: 99, background: A.tint, color: A.ink, display: 'grid', placeItems: 'center', flex: 'none' }}><TrophyV2 size={17} weight="fill" /></span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 700, color: TEXT, lineHeight: 1.25 }}>{r.nombre}</div>
+                    <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 1 }}>
+                      <b style={{ color: A.ink }}>{marca(r)}</b>
+                      {r.antes ? `  · antes ${marca(r.antes)}` : r.primera_vez ? '  · primera vez' : ''}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <FirmaCoach />
+          <button onClick={alCerrar} style={{
+            width: '100%', marginTop: 18, padding: '14px 18px', borderRadius: 14, border: 0,
+            background: TEXT, color: '#fff', fontSize: 15.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}>Seguir</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+const datoFin = { flex: 1, background: '#F4F1EB', borderRadius: 14, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 };
+const datoFinNum = { fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.1 };
+const datoFinPie = { fontSize: 12, color: TEXT_MUTED, fontWeight: 600 };
+
 function HojaRecords({ records, alCerrar }) {
   const marca = (r) => r.peso ? `${r.peso} ${r.unidad || 'kg'} × ${r.reps}` : `${r.reps} repeticiones`;
   return (

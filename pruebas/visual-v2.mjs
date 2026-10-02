@@ -209,6 +209,14 @@ try {
   await p.getByText('Días de cardio').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
+  ok('Dash: el saludo con la letra de las cabeceras y la firma del coach', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
+    && /^MARTES 29/.test(await p.locator('[data-cabecera-hoy="dash"] [data-etiqueta]').innerText())
+    && (await p.locator('[data-cabecera-hoy="dash"] [data-sub]').innerText()).length > 10
+    && await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').isVisible());
+  ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
+    const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));
+    return getComputedStyle(el).transitionProperty.includes('stroke-dashoffset') && o < c;
+  }));
   const dash = p.locator('[data-view="dash"]');
   ok('atajos de recordatorios y reto', (await dash.getByRole('button', { name: /Recordatorios/ }).count()) === 1
     && (await dash.getByRole('button', { name: 'Reto' }).count()) === 1);
@@ -303,8 +311,14 @@ try {
   ok('Entrenamiento abre en Hoy', (await p.getByRole('button', { name: 'Hoy', exact: true }).first().getAttribute('aria-current')) === 'page');
   ok('sin la navegación de arriba del módulo', (await p.getByRole('button', { name: 'Resumen', exact: true }).count()) === 0);
   await foto(p, '04-entreno-hoy');
-  ok('Hoy de entreno trae su cabecera ilustrada', await p.locator('[data-view="entrena"]').getByText('Tu entreno', { exact: true }).isVisible());
-  ok('…con kettlebell y mancuernas, entera en pantalla', await p.locator('[data-dibujo="pesas"]').evaluate(el => { const r = el.getBoundingClientRect(); return r.width > 100 && r.left >= 0 && r.right <= innerWidth; }));
+  const cabE = p.locator('[data-cabecera-hoy="entreno"]');
+  ok('Hoy de entreno: la voz del coach (el día, la semana y la frase de hoy)', await cabE.locator('[data-frase]').isVisible()
+    && /^MARTES 29 · SEMANA \d+ DE \d+$/.test(await cabE.locator('[data-etiqueta]').innerText())
+    && /^(Hoy toca|Hecho por hoy|Día de descanso|Hoy no te toca|Semana completa|Tienes un entreno)/.test(await cabE.locator('[data-frase]').innerText()),
+    `${await cabE.locator('[data-etiqueta]').innerText()} | ${await cabE.locator('[data-frase]').innerText()}`);
+  ok('…firmada por el coach y sin personajes en la cabecera', await cabE.locator('[data-firma-coach]').isVisible() && (await cabE.locator('[data-dibujo]').count()) === 0);
+  ok('…la segunda línea en el azul de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(47, 108, 196)'));
+  ok('…y el color no se sale de la pantalla', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   // Unidades: una preferencia para toda la app
   await p.getByRole('button', { name: /Unidades · kg/ }).first().click();
   await p.getByRole('radio', { name: 'Libras (lb)' }).click();
@@ -545,7 +559,10 @@ try {
   await foto(p, '08-comida-hoy');
   ok('Hoy de alimentación ya no saluda ni trae herramientas', (await p.getByText('Hola, Mauro').count()) === 0
     && (await p.getByText('Tus herramientas').count()) === 0);
-  ok('Hoy de alimentación: aguacate, huevos, pescado y pollo en la cabecera', await p.locator('[data-dibujo="comida"]').evaluate(el => { const r = el.getBoundingClientRect(); return r.width > 100 && r.left >= 0 && r.right <= innerWidth; }));
+  ok('Hoy de alimentación: la voz del coach según lo comido, sin personajes', await p.locator('[data-cabecera-hoy="comida"] [data-frase]').isVisible()
+    && (await p.locator('[data-cabecera-hoy="comida"] [data-dibujo]').count()) === 0
+    && /kcal|registr|desayuno|meta|día|comida/i.test(await p.locator('[data-cabecera-hoy="comida"] [data-frase]').innerText()),
+    await p.locator('[data-cabecera-hoy="comida"] [data-frase]').innerText());
   const pRec = await p.getByRole('button', { name: /^Recordatorios/ }).last().boundingBox();
   const pOpc = await p.getByRole('button', { name: 'Opciones', exact: true }).boundingBox();
   ok('«Opciones» va al lado de Recordatorios', pRec && pOpc && Math.abs(pRec.y - pOpc.y) < 4 && pOpc.x > pRec.x, JSON.stringify([pRec, pOpc]));
@@ -639,8 +656,8 @@ try {
   await p.locator('[data-aprende-hoy]').waitFor({ timeout: 8000 });
   const ah = p.locator('[data-aprende-hoy]');
   await p.locator('[data-proximo]').waitFor({ timeout: 8000 });
-  ok('Aprendizaje abre en su Hoy, con su cabecera y el cerebro con gafas', (await ah.getByText('Tu aprendizaje', { exact: true }).count()) === 1
-    && (await p.locator('[data-dibujo="cerebro"]').count()) === 1);
+  ok('Aprendizaje abre en su Hoy, con la voz del coach según su avance', /^Llevas el \d+ %\./.test(await ah.locator('[data-cabecera-hoy="aprende"] [data-frase]').innerText())
+    && (await ah.locator('[data-dibujo]').count()) === 0, await ah.locator('[data-cabecera-hoy="aprende"] [data-frase]').innerText());
   ok('Aprendizaje: en la barra, Hoy · Onboarding · Cápsulas', (await p.getByRole('button', { name: 'Hoy', exact: true }).count()) >= 1
     && (await p.getByRole('button', { name: 'Inicio', exact: true }).count()) === 0);
   ok('lo próximo: lo que le falta del onboarding', /Cómo usar el Meal Tracker/.test(await p.locator('[data-proximo]').innerText()), await p.locator('[data-proximo]').innerText());
@@ -674,7 +691,7 @@ try {
   // Alimentación abre siempre en Hoy (aunque se haya quedado en el Chat)
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(700);
-  ok('Alimentación abre en Hoy', await p.getByText('Así va tu día', { exact: true }).isVisible());
+  ok('Alimentación abre en Hoy', await p.locator('[data-cabecera-hoy="comida"]').isVisible());
 
   await p.getByRole('button', { name: 'Dash', exact: true }).click();
   await p.getByText('Tu performance semanal', { exact: true }).waitFor();
@@ -714,6 +731,30 @@ try {
       const r = b && b.getBoundingClientRect(); return r && r.left >= nav.left - 0.5 && r.right <= nav.right + 0.5; });
   }));
   await foto(n.p, '12-375-aprende');
+  // ── Al terminar un entreno: la celebración (con el personaje, sin cara) ──
+  await n.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
+  await espera(1200);
+  await n.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"]`).click();
+  await n.p.locator('[data-hoja-scroll]').getByText('Push', { exact: true }).click();
+  await n.p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
+  await n.p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
+  await espera(300);
+  await n.p.locator('[data-terminar]').click();
+  await n.p.getByRole('button', { name: 'Enviar a mi coach' }).click();
+  const fin = n.p.locator('[data-fin-entreno]');
+  await fin.waitFor({ timeout: 8000 });
+  await espera(900);
+  ok('fin: «Entreno hecho.» con la frase del coach y lo que hizo', (await fin.getByText('Entreno hecho.').count()) === 1
+    && /1\/7\s*ejercicios/.test(await fin.innerText()) && await fin.locator('[data-firma-coach]').isVisible(), await fin.innerText());
+  ok('fin: la kettlebell levantando la barra, sin cara, entera', await fin.locator('[data-dibujo="pesas"]').evaluate(el => {
+    const r = el.getBoundingClientRect(); return r.width > 150 && r.left >= 0 && r.right <= innerWidth && !el.querySelector('[stroke="#2A2A28"]');
+  }));
+  await foto(n.p, '16-fin-entreno');
+  await fin.getByRole('button', { name: 'Seguir' }).click();
+  await espera(600);
+  ok('fin: «Seguir» vuelve a Hoy', (await fin.count()) === 0 && await n.p.locator('[data-cabecera-hoy="entreno"]').isVisible());
+  ok('fin: la cabecera ya dice que entrenó hoy… o lo que sigue', (await n.p.locator('[data-cabecera-hoy="entreno"] [data-frase]').innerText()).length > 5);
+  ok('sin errores de JavaScript (375 y fin de entreno)', n.errores.length === 0, n.errores.join(' | '));
   await n.ctx.close();
 
   // ── Mensualidad pendiente: aviso los primeros 5 días, bloqueo después ──

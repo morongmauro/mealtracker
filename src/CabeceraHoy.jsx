@@ -1,71 +1,107 @@
 // ─────────────────────────────────────────────────────────────────────────
-// CABECERA DE «HOY» · visual nueva
+// CABECERA DE «HOY» · visual nueva · LA VOZ DEL COACH
 //
-// Una banda de color de lado a lado, con curvas como olas (azules para
-// entrenar, verdes para comer, naranjas para aprender), el personaje de la
-// sección (el aguacate en alimentación, la kettlebell en entrenamiento, el
-// cerebro con gafas en aprendizaje) y el borde de
-// abajo que sube en el centro. Los dibujos viven en IlustracionesHoy.jsx.
+// La personalidad la pone lo que dice, no un dibujo: arriba el día (y la
+// semana de la fase o la racha), y una frase grande en dos tiempos, lo que
+// pasa hoy en negro y lo que diría el coach en el color de la sección
+// (las frases viven en vozCoach.js). Debajo, la firma del coach.
 //
-// `sangria` y `arriba` cancelan el relleno del contenedor para que la banda
+// El fondo son manchas de color de la marca, difuminadas y con una deriva
+// muy lenta (las mismas de la animación de entrada), en la paleta de cada
+// sección. Se desvanecen hacia abajo en el fondo de la pantalla: sin bordes,
+// sin olas, sin cortes. Quien pide menos movimiento las ve quietas.
+//
+// `sangria` y `arriba` cancelan el relleno del contenedor para que el color
 // llegue a los bordes y al techo de la pantalla.
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { TEXT, TEXT_MUTED } from './theme.js';
-import { IlustracionPesas, IlustracionComida, IlustracionCerebro } from './IlustracionesHoy.jsx';
 
-const TEMAS = {
-  entreno: { fondo: ['#CFE0F7', '#E8F0FB'], ola1: '#B5CEF1', ola2: '#8FB3E8', ola3: '#6F9DE0', acento: '#3C7BD6', tinta: '#1E3F73', claro: '#9EBFEE' },
-  comida:  { fondo: ['#D3EBD8', '#ECF6EE'], ola1: '#BCDDC3', ola2: '#98CAA3', ola3: '#79B687', acento: '#46965A', tinta: '#1F4D2C', claro: '#A9D4B2' },
-  aprende: { fondo: ['#FBDCC4', '#FDF0E6'], ola1: '#F8C9A6', ola2: '#F4AE7C', ola3: '#EF9358', acento: '#EE8434', tinta: '#7A3A12', claro: '#F6BE95' },
+// m1 la mancha grande (arriba a la derecha), m2 la de la izquierda, m3 el
+// acento cálido o frío que la acompaña. `frase` es el color de la segunda
+// línea: el de la sección, con contraste para letra grande sobre claro.
+export const TEMAS = {
+  entreno: { m1: '#8FB3E8', m2: '#CFE0F7', m3: '#F6CFA9', base: '#EAF1FB', frase: '#2F6CC4' },
+  comida:  { m1: '#9CCFA8', m2: '#D7EEDC', m3: '#F7E1A0', base: '#EDF6EF', frase: '#2F7F45' },
+  aprende: { m1: '#F6B98C', m2: '#FBE0CB', m3: '#A9C6EE', base: '#FDF1E7', frase: '#C95F17' },
+  dash:    { m1: '#9CCFA8', m2: '#A9C6EE', m3: '#F6B98C', m4: '#F7E1A0', base: '#F3F2EC', frase: '#1F1F1F' },
 };
 
-// El fondo: curvas de color, como olas, que se estiran a lo ancho de
-// cualquier pantalla (preserveAspectRatio none). Sin sol ni nubes.
-function Olas({ tema, t }) {
+const CSS = `
+@keyframes cab-deriva-1 { from { transform: translate3d(0,0,0) scale(1) } to { transform: translate3d(-7%, 6%, 0) scale(1.08) } }
+@keyframes cab-deriva-2 { from { transform: translate3d(0,0,0) scale(1) } to { transform: translate3d(9%, -5%, 0) scale(1.12) } }
+@keyframes cab-deriva-3 { from { transform: translate3d(0,0,0) } to { transform: translate3d(-10%, -8%, 0) } }
+[data-cabecera-hoy] .cab-m { position: absolute; border-radius: 50%; will-change: transform; }
+[data-cabecera-hoy] .cab-m1 { animation: cab-deriva-1 16s ease-in-out infinite alternate; }
+[data-cabecera-hoy] .cab-m2 { animation: cab-deriva-2 19s ease-in-out infinite alternate; }
+[data-cabecera-hoy] .cab-m3 { animation: cab-deriva-3 23s ease-in-out infinite alternate; }
+[data-cabecera-hoy] .cab-m4 { animation: cab-deriva-1 21s ease-in-out infinite alternate-reverse; }
+@keyframes cab-entra { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+[data-cabecera-hoy] .cab-texto > * { animation: cab-entra .5s cubic-bezier(.2,.8,.2,1) both; }
+[data-cabecera-hoy] .cab-texto > *:nth-child(2) { animation-delay: .06s }
+[data-cabecera-hoy] .cab-texto > *:nth-child(3) { animation-delay: .12s }
+@media (prefers-reduced-motion: reduce) {
+  [data-cabecera-hoy] .cab-m, [data-cabecera-hoy] .cab-texto > * { animation: none !important; }
+}`;
+
+// Una mancha: un degradado radial que se apaga solo (sin filtros de
+// desenfoque, que en teléfonos viejos pesan).
+const mancha = (color, extra) => ({ background: `radial-gradient(closest-side, ${color} 0%, ${color}00 100%)`, ...extra });
+
+// La firma: el monograma del coach en grafito y su nombre.
+export function FirmaCoach({ claro = false }) {
   return (
-    <svg viewBox="0 0 400 200" preserveAspectRatio="none" aria-hidden="true"
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-      <defs>
-        <linearGradient id={`fondo-${tema}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={t.fondo[0]} />
-          <stop offset="1" stopColor={t.fondo[1]} />
-        </linearGradient>
-      </defs>
-      <rect width="400" height="200" fill={`url(#fondo-${tema})`} />
-      <path d="M0 0 H400 V58 C320 96 250 20 160 48 C90 70 40 40 0 62 Z" fill="#FFFFFF" opacity="0.28" />
-      <path d="M0 132 C80 104 170 150 250 124 C320 102 360 118 400 104 V200 H0 Z" fill={t.ola1} />
-      <path d="M0 158 C100 132 190 178 290 150 C340 136 372 142 400 136 V200 H0 Z" fill={t.ola2} />
-      <path d="M0 184 C120 164 230 200 400 170 V200 H0 Z" fill={t.ola3} />
-      <path d="M-10 100 C70 74 150 118 230 92 S360 64 410 84" stroke="#FFFFFF" strokeWidth="2.5" fill="none" opacity="0.55" vectorEffect="non-scaling-stroke" />
-      <path d="M-10 118 C90 96 170 134 260 110 S370 88 410 100" stroke="#FFFFFF" strokeWidth="1.5" fill="none" opacity="0.35" vectorEffect="non-scaling-stroke" />
-    </svg>
+    <div data-firma-coach style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
+      <span aria-hidden="true" style={{
+        width: 26, height: 26, borderRadius: 99, background: TEXT, color: '#FFFFFF', flex: 'none',
+        display: 'grid', placeItems: 'center', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.02em',
+        boxShadow: '0 0 0 2px rgba(255,255,255,0.7)',
+      }}>MM</span>
+      <span style={{ fontSize: 13.5, fontWeight: 600, color: claro ? '#FFFFFF' : '#4A4A48' }}>Mauro, tu coach</span>
+    </div>
   );
 }
 
-export default function CabeceraHoy({ tema = 'entreno', fecha, titulo, sangria = '20px', arriba = '0px', children }) {
+// `fondo={false}`: solo la letra (el Dash ya tiene sus manchas detrás).
+// `voz.sub`: una línea de texto normal debajo de la frase.
+export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = true, fondo = true, sangria = '20px', arriba = '0px', children }) {
   const t = TEMAS[tema] || TEMAS.entreno;
   return (
-    <div style={{
-      position: 'relative', overflow: 'hidden',
-      margin: `calc(-1 * ${arriba}) calc(-1 * ${sangria}) 16px`,
-      paddingTop: `calc(${arriba} + 8px)`,
-      minHeight: `calc(${arriba} + 168px)`,
-      // El borde de abajo sube en el centro, como una loma: la pantalla
-      // «entra» en la banda de color (el estilo de las apps de bienestar).
-      // Es una máscara, así que lo de abajo se ve tal cual, sin costuras.
-      WebkitMaskImage: 'radial-gradient(ellipse 58% 38px at 50% 100%, transparent 97%, #000 100%)',
-      maskImage: 'radial-gradient(ellipse 58% 38px at 50% 100%, transparent 97%, #000 100%)',
+    <div data-cabecera-hoy={tema} style={{
+      position: 'relative',
+      margin: `calc(-1 * ${arriba}) calc(-1 * ${sangria}) 18px`,
+      paddingTop: `calc(${arriba} + 10px)`,
     }}>
-      <Olas tema={tema} t={t} />
-      {/* El dibujo va abajo a la derecha, a tamaño fijo: no se deforma ni se
-          recorta según el ancho del teléfono. */}
-      <div style={{ position: 'absolute', right: `calc(${sangria} - 8px)`, bottom: 34, width: 184, height: 114 }}>
-        {tema === 'comida' ? <IlustracionComida /> : tema === 'aprende' ? <IlustracionCerebro /> : <IlustracionPesas />}
-      </div>
-      <div style={{ position: 'relative', padding: `0 ${sangria} 72px` }}>
-        {fecha && <div style={{ fontSize: 15, color: TEXT_MUTED, fontWeight: 500 }}>{fecha}</div>}
-        {titulo && <div style={{ fontSize: 28, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.1, marginTop: 2, maxWidth: '62%' }}>{titulo}</div>}
+      <style>{CSS}</style>
+      {/* El color: llega al techo y a los bordes, y se apaga hacia abajo. */}
+      {fondo && <div aria-hidden="true" style={{
+        position: 'absolute', inset: '0 0 -40px 0', overflow: 'hidden', pointerEvents: 'none',
+        background: t.base,
+        WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 52%, transparent 100%)',
+        maskImage: 'linear-gradient(180deg, #000 0%, #000 52%, transparent 100%)',
+      }}>
+        <div className="cab-m cab-m1" style={mancha(t.m1, { width: '95vw', height: '95vw', maxWidth: 520, maxHeight: 520, top: '-34%', right: '-30%' })} />
+        <div className="cab-m cab-m2" style={mancha(t.m2, { width: '80vw', height: '80vw', maxWidth: 440, maxHeight: 440, bottom: '-18%', left: '-34%' })} />
+        <div className="cab-m cab-m3" style={mancha(t.m3, { width: '58vw', height: '58vw', maxWidth: 320, maxHeight: 320, bottom: '0%', right: '-22%', opacity: 0.75 })} />
+        {t.m4 && <div className="cab-m cab-m4" style={mancha(t.m4, { width: '60vw', height: '60vw', maxWidth: 340, maxHeight: 340, top: '-20%', left: '-14%', opacity: 0.8 })} />}
+      </div>}
+
+      <div className="cab-texto" style={{ position: 'relative', padding: `6px ${sangria} 4px` }}>
+        {voz?.etiqueta && (
+          <div data-etiqueta style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
+        )}
+        {voz ? (
+          <h1 data-frase style={{
+            margin: '10px 0 0', fontSize: 'clamp(27px, 7.6vw, 34px)', fontWeight: 800, lineHeight: 1.04,
+            letterSpacing: '-0.035em', color: TEXT, textWrap: 'balance', maxWidth: 460,
+          }}>
+            {voz.a}{voz.b && <><br /><span style={{ color: t.frase }}>{voz.b}</span></>}
+          </h1>
+        ) : titulo && (
+          <h1 style={{ margin: '10px 0 0', fontSize: 30, fontWeight: 800, letterSpacing: '-0.03em', color: TEXT }}>{titulo}</h1>
+        )}
+        {voz?.sub && <p data-sub style={{ margin: '10px 0 0', fontSize: 16, lineHeight: 1.45, color: TEXT_MUTED, maxWidth: 460 }}>{voz.sub}</p>}
+        {firma && <FirmaCoach />}
         {children}
       </div>
     </div>

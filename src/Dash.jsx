@@ -25,7 +25,9 @@ import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
 import Firma from './Firma.jsx';
-import { useAncho, Tarjeta, Leyenda, Globo, Columnas, niceTope, REJILLA } from './GraficasV2.jsx';
+import CabeceraHoy from './CabeceraHoy.jsx';
+import { etiquetaDia, vozDash } from './vozCoach.js';
+import { useAncho, Tarjeta, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca } from './GraficasV2.jsx';
 import {
   SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT,
   FONT_DISPLAY, C_PROTEIN, C_CARBS, C_FAT, SECCION,
@@ -38,13 +40,10 @@ const GRASA = C_FAT;                      // el % de grasa: el mismo tono de las
 const NARANJA = SECCION.aprende.base;     // el aprendizaje
 const CREMA = '#F4F1EB';                  // pastillas y bloques internos
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 const fmt = (n, dec = 0) => (n == null || !Number.isFinite(Number(n)) ? '—'
   : Number(n).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: dec }));
 const fechaCorta = (iso) => { const d = aFecha(iso); return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}`; };
-const fechaLarga = (iso) => { const d = aFecha(iso); const t = `${DIAS[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]}`; return t[0].toUpperCase() + t.slice(1); };
 const DIA_LETRA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 
 // ── Datos de comida: salen del propio teléfono ────────────────────────────
@@ -161,29 +160,12 @@ function Profundiza({ children, onClick, color }) {
 // El anillo de la marca: trazo redondeado sobre su riel, y el punto blanco en
 // la punta, como en el logo. Es el único lugar del Dash que lo usa.
 function Anillo({ valor, total, color, tam = 118, grosor = 11, centro, pie }) {
-  const r = (tam - grosor) / 2;
-  const c = 2 * Math.PI * r;
-  const frac = total > 0 ? Math.max(0, Math.min(1, valor / total)) : 0;
-  const ang = frac * 2 * Math.PI - Math.PI / 2;
-  const cx = tam / 2 + r * Math.cos(ang), cy = tam / 2 + r * Math.sin(ang);
+  const frac = total > 0 ? valor / total : 0;
   return (
-    <div style={{ position: 'relative', width: tam, height: tam, flex: 'none' }}>
-      <svg width={tam} height={tam} role="img" aria-label={`${valor} de ${total}`}>
-        <circle cx={tam / 2} cy={tam / 2} r={r} fill="none" stroke={CREMA} strokeWidth={grosor} />
-        {frac > 0 && (
-          <circle cx={tam / 2} cy={tam / 2} r={r} fill="none" stroke={color} strokeWidth={grosor}
-            strokeLinecap="round" strokeDasharray={`${c * frac} ${c}`}
-            transform={`rotate(-90 ${tam / 2} ${tam / 2})`} />
-        )}
-        {frac > 0 && frac < 1 && <circle cx={cx} cy={cy} r={grosor / 2 - 2.5} fill="#FFFFFF" />}
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
-        <div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: TEXT, lineHeight: 1, letterSpacing: '-0.02em' }}>{centro}</div>
-          {pie && <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 3, fontWeight: 600 }}>{pie}</div>}
-        </div>
-      </div>
-    </div>
+    <AnilloMarca frac={frac} color={color} tam={tam} grosor={grosor} etiqueta={`${valor} de ${total}`}>
+      <div style={{ fontSize: 28, fontWeight: 800, color: TEXT, lineHeight: 1, letterSpacing: '-0.02em' }}>{centro}</div>
+      {pie && <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 3, fontWeight: 600 }}>{pie}</div>}
+    </AnilloMarca>
   );
 }
 
@@ -352,14 +334,9 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
 
   return (
     <Marco ref={raizRef}>
-      {/* Saludo */}
-      <div style={{ fontSize: 15, color: TEXT_MUTED, fontWeight: 500, margin: '4px 2px 0' }}>{fechaLarga(hoy)}</div>
-      <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 34, lineHeight: 1.08, margin: '4px 2px 0', color: TEXT, fontWeight: 800, letterSpacing: '-0.025em' }}>
-        Hola{nombre ? `, ${nombre}` : ''}
-      </h1>
-      <div style={{ fontSize: 15.5, color: TEXT_MUTED, margin: '6px 2px 0', lineHeight: 1.45 }}>
-        {animo(hoy)}{racha >= 2 ? ` Llevas ${racha} días seguidos registrando.` : ''}
-      </div>
+      {/* Saludo: con la misma letra y la voz del coach de las cabeceras de Hoy. */}
+      <CabeceraHoy tema="dash" fondo={false} sangria="16px"
+        voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, sub: vozDash({ hoy, racha }) }} />
 
       {/* Atajos: en UNA sola línea y compactos, para no quitarle el
           protagonismo a las gráficas. Si un teléfono muy angosto no los
@@ -469,21 +446,6 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
       <TarjetaAprende aprende={aprende} alProfundizar={() => setVista('aprende')} />
     </Marco>
   );
-}
-
-// Debajo del «Hola»: una frase que empuja, distinta cada día.
-const ANIMOS = [
-  'Hoy es una gran oportunidad para cumplir lo tuyo y seguir progresando.',
-  'Cada entreno y cada comida de hoy suman. Vamos por el día.',
-  'Lo que hagas hoy es lo que te acerca a tu meta. ¡A por ello!',
-  'Tienes tu plan, tu comida y tu coach. Hoy toca avanzar.',
-  'Un buen día se construye con pequeñas decisiones. Empieza por la primera.',
-  'Tu constancia de hoy es tu resultado de mañana. ¡Vamos!',
-  'Hoy puedes hacerlo un poco mejor que ayer. Ese es el progreso.',
-];
-function animo(hoy) {
-  const n = Math.floor(Date.parse(hoy + 'T00:00:00Z') / 86400000);
-  return ANIMOS[((n % ANIMOS.length) + ANIMOS.length) % ANIMOS.length];
 }
 
 // ── Aprendizaje ───────────────────────────────────────────────────────────

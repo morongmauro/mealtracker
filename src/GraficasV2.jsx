@@ -5,7 +5,7 @@
 // aparte para que el calendario de comidas use EXACTAMENTE las mismas: el
 // Dash va en su propio chunk y el calendario vive en la app principal.
 // ─────────────────────────────────────────────────────────────────────────
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
 
 export const REJILLA = '#E7E3D9';
@@ -139,3 +139,48 @@ export function niceTope(v) {
   return 10 * mag;
 }
 
+
+// ── EL ANILLO DE LA MARCA ─────────────────────────────────────────────────
+// Trazo redondeado sobre su riel crema y el punto blanco en la punta, como
+// el ícono. Al aparecer se LLENA desde cero (una vez, ~1 s, sin rebote) y el
+// punto viaja con la punta; quien pide menos movimiento lo ve ya lleno.
+// Todos los anillos grandes de la visual nueva son este.
+const RIEL = '#F4F1EB';
+const sinMovimiento = () => typeof window !== 'undefined' && window.matchMedia
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+export function useDesdeCero(valor, retardo = 60) {
+  const [v, setV] = useState(() => (sinMovimiento() ? valor : 0));
+  useEffect(() => {
+    if (sinMovimiento()) { setV(valor); return; }
+    const t = setTimeout(() => setV(valor), retardo);
+    return () => clearTimeout(t);
+  }, [valor, retardo]);
+  return v;
+}
+
+export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = RIEL, etiqueta, children }) {
+  const f = useDesdeCero(Math.max(0, Math.min(1, Number(frac) || 0)));
+  const r = (tam - grosor) / 2, c = 2 * Math.PI * r, m = tam / 2;
+  const curva = '1s cubic-bezier(.22,.8,.24,1)';
+  return (
+    <div data-anillo style={{ position: 'relative', width: tam, height: tam, flex: 'none' }}>
+      <svg width={tam} height={tam} role="img" aria-label={etiqueta}>
+        <circle cx={m} cy={m} r={r} fill="none" stroke={riel} strokeWidth={grosor} />
+        <g transform={`rotate(-90 ${m} ${m})`}>
+          <circle cx={m} cy={m} r={r} fill="none" stroke={color} strokeWidth={grosor} strokeLinecap="round"
+            strokeDasharray={c} strokeDashoffset={c * (1 - f)}
+            style={{ transition: `stroke-dashoffset ${curva}`, opacity: f > 0 ? 1 : 0 }} />
+          {/* el punto: gira con la punta (una rotación sí se anima en todos lados) */}
+          <g style={{ transform: `rotate(${f * 360}deg)`, transformOrigin: `${m}px ${m}px`, transition: `transform ${curva}, opacity .2s`,
+            opacity: f > 0.02 && f < 1 ? 1 : 0 }}>
+            <circle cx={m + r} cy={m} r={Math.max(1.5, grosor / 2 - 2.5)} fill="#FFFFFF" />
+          </g>
+        </g>
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+        <div>{children}</div>
+      </div>
+    </div>
+  );
+}

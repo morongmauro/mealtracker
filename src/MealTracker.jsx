@@ -23,8 +23,9 @@ import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa } from './v2.js';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada } from './mudanza.js';
 import { Pastilla } from './PastillaV2.jsx';
-import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2 } from './GraficasV2.jsx';
+import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero } from './GraficasV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
+import { vozComida } from './vozCoach.js';
 import { Bell as BellV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
 
@@ -5593,8 +5594,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             {/* Visual nueva: el saludo vive en el Dash; aquí solo el día. */}
             {v2 ? (
               <div>
-                <CabeceraHoy tema="comida" fecha={capFirst(formatDate(today))} titulo="Así va tu día"
-                  sangria="20px" arriba={`${headerH + 16}px`} />
+                <CabeceraHoy tema="comida" sangria="20px" arriba={`${headerH + 16}px`}
+                  voz={vozComida({ hoy: today, hora: new Date().getHours(), kcal: totals.kcal, meta: goals?.kcal || 0, comidas: entries.length, racha: streak })} />
                 <div style={{ marginTop: '-4px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Pastilla icono={BellV2} color="#E0A21A" badge={coachReminders.filter(r => !r.done_at).length}
                     onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</Pastilla>
@@ -6941,10 +6942,15 @@ function formatDateShort(iso) {
 // Visual nueva: los aros como los del Dash — pista crema lisa y un punto
 // blanco en la punta del trazo. Mismos tamaños y colores de siempre.
 const PISTA_V2 = '#F4F1EB';   // la misma crema del Dash
+// El punto gira con la punta (una rotación se anima igual en todos lados).
+const CURVA_ARO = '1s cubic-bezier(.22,.8,.24,1)';
 function PuntaAro({ c, r, frac, grosor }) {
-  if (!(frac > 0.02 && frac < 1)) return null;
-  const a = frac * 2 * Math.PI;
-  return <circle cx={c + r * Math.cos(a)} cy={c + r * Math.sin(a)} r={Math.max(1.1, grosor / 2 - 1.6)} fill="#FFFFFF" />;
+  const visible = frac > 0.02 && frac < 1;
+  return (
+    <g style={{ transform: `rotate(${frac * 360}deg)`, transformOrigin: `${c}px ${c}px`, transition: `transform ${CURVA_ARO}, opacity .2s`, opacity: visible ? 1 : 0 }}>
+      <circle cx={c + r} cy={c} r={Math.max(1.1, grosor / 2 - 1.6)} fill="#FFFFFF" />
+    </g>
+  );
 }
 
 // True Apple-style glass ring — the chart is the focal element
@@ -6993,7 +6999,11 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
   const center = size / 2;
   const radius = (size - stroke) / 2;
   const circ = 2 * Math.PI * radius;
-  const pct = goal > 0 ? Math.min(1, val / goal) : 0;
+  const pctReal = goal > 0 ? Math.min(1, val / goal) : 0;
+  // Visual nueva: al aparecer se llena desde cero, como los del Dash.
+  const pctDesdeCero = useDesdeCero(pctReal);
+  const v2 = v2Activa();
+  const pct = v2 ? pctDesdeCero : pctReal;
   const dash = circ * pct;
   return (
     <div className="flex flex-col items-center min-w-0 w-full">
@@ -7003,8 +7013,8 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
           : <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.14" strokeWidth={stroke} />}
         <g transform={`rotate(-90 ${center} ${center})`}>
           <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-            strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
-          {v2Activa() && <PuntaAro c={center} r={radius} frac={pct} grosor={stroke} />}
+            strokeDasharray={`${dash} ${circ}`} style={{ transition: v2 ? `stroke-dasharray ${CURVA_ARO}` : 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)', opacity: v2 && dash <= 0 ? 0 : 1 }} />
+          {v2 && <PuntaAro c={center} r={radius} frac={pct} grosor={stroke} />}
         </g>
         <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 20, fill: goal > 0 && val > goal * 1.05 ? DANGER_SOFT : TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
         <text x={center} y={center + 13} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10.5, fill: TEXT_LIGHT }}>/{goal}{unit}</text>

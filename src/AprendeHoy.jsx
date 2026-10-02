@@ -2,14 +2,17 @@
 // APRENDIZAJE · «Hoy» (visual nueva)
 //
 // Lo mismo que Hoy de alimentación y de entrenamiento, en el naranja de la
-// sección: la cabecera con su personaje (el cerebro con gafas que levanta
-// mancuernas), lo próximo por leer, ver o escuchar según lo que ya vio, su
-// avance y los accesos a cada parte del centro. Íconos de línea, tarjetas
-// blancas y la letra de la marca. Tocar una pieza la abre en el centro.
+// sección: la cabecera con la voz del coach, lo próximo por leer, ver o
+// escuchar según lo que ya vio, su avance y los accesos a cada parte del
+// centro. Íconos de línea, tarjetas blancas y la letra de la marca. Tocar una
+// pieza la abre en el centro.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useState } from 'react';
 import { CaretRight, Compass, Cards, BookOpenText, Headphones, PlayCircle } from '@phosphor-icons/react';
 import CabeceraHoy from './CabeceraHoy.jsx';
+import { IlustracionCerebro } from './IlustracionesHoy.jsx';
+import { AnilloMarca } from './GraficasV2.jsx';
+import { vozAprende } from './vozCoach.js';
 import Firma from './Firma.jsx';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT, SECCION } from './theme.js';
 import { recomendarAprendizaje, leerAprendizajeConCache, avanceGuardado } from './aprendizaje.js';
@@ -18,9 +21,7 @@ const N = SECCION.aprende;          // { base, ink, tint }
 const CREMA = '#F4F1EB';
 const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)';
 const ICONO = { hub: Compass, capsula: Cards, guia: BookOpenText, podcast: Headphones };
-const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-const fechaHoy = () => { const d = new Date(); const t = `${DIAS[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]}`; return t[0].toUpperCase() + t.slice(1); };
+const hoyIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 export default function AprendeHoy({ nombre, alAbrir, arriba }) {
   const [avance, setAvance] = useState(() => avanceGuardado(nombre));   // undefined = cargando
@@ -34,7 +35,7 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
 
   return (
     <div data-aprende-hoy style={{ maxWidth: 560, margin: '0 auto', padding: '0 20px', paddingTop: arriba, paddingBottom: 'calc(104px + env(safe-area-inset-bottom, 0px))' }}>
-      <CabeceraHoy tema="aprende" fecha={fechaHoy()} titulo="Tu aprendizaje" arriba={arriba} />
+      <CabeceraHoy tema="aprende" voz={vozAprende({ hoy: hoyIso(), avance, quedan: recs.length })} arriba={arriba} />
 
       <h2 style={titulo}>Recomendado para ti</h2>
       {avance === undefined ? (
@@ -45,8 +46,11 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
           <button onClick={() => alAbrir('onboarding')} style={{ ...botonLinea, marginTop: 12 }}>Abrir el centro</button>
         </div>
       ) : !recs.length ? (
-        <div style={{ ...tarjeta, fontSize: 15, color: TEXT_MUTED, lineHeight: 1.45 }}>
-          <b style={{ color: TEXT }}>Ya viste todo el material.</b> Cuando tu coach publique algo nuevo, aparece aquí.
+        // Un momento para celebrar: aquí sí sale el personaje.
+        <div data-todo-visto style={{ ...tarjeta, textAlign: 'center', padding: '8px 18px 20px' }}>
+          <div style={{ width: 200, height: 124, margin: '0 auto' }}><IlustracionCerebro /></div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', marginTop: 4 }}>Ya viste todo el material</div>
+          <div style={{ fontSize: 14.5, color: TEXT_MUTED, lineHeight: 1.45, marginTop: 4 }}>Cuando publique algo nuevo, aparece aquí primero.</div>
         </div>
       ) : (
         <>
@@ -137,24 +141,11 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
 }
 
 function Anillo({ pct, tam = 104, grosor = 10 }) {
-  const r = (tam - grosor) / 2, c = 2 * Math.PI * r;
-  const f = Math.max(0, Math.min(1, (pct || 0) / 100));
-  const a = f * 2 * Math.PI - Math.PI / 2;
   return (
-    <div style={{ position: 'relative', width: tam, height: tam, flex: 'none' }}>
-      <svg width={tam} height={tam}>
-        <circle cx={tam / 2} cy={tam / 2} r={r} fill="none" stroke={CREMA} strokeWidth={grosor} />
-        {f > 0 && <circle cx={tam / 2} cy={tam / 2} r={r} fill="none" stroke={N.base} strokeWidth={grosor} strokeLinecap="round"
-          strokeDasharray={`${c * f} ${c}`} transform={`rotate(-90 ${tam / 2} ${tam / 2})`} />}
-        {f > 0 && f < 1 && <circle cx={tam / 2 + r * Math.cos(a)} cy={tam / 2 + r * Math.sin(a)} r={grosor / 2 - 2.5} fill="#FFFFFF" />}
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: TEXT, lineHeight: 1, letterSpacing: '-0.02em' }}>{pct}%</div>
-          <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginTop: 3, fontWeight: 600 }}>completado</div>
-        </div>
-      </div>
-    </div>
+    <AnilloMarca frac={(pct || 0) / 100} color={N.base} tam={tam} grosor={grosor} riel={CREMA} etiqueta={`${pct} % completado`}>
+      <div style={{ fontSize: 24, fontWeight: 800, color: TEXT, lineHeight: 1, letterSpacing: '-0.02em' }}>{pct}%</div>
+      <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginTop: 3, fontWeight: 600 }}>completado</div>
+    </AnilloMarca>
   );
 }
 

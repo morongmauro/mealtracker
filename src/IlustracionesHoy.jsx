@@ -1,17 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────
-// ILUSTRACIONES DE «HOY» · visual nueva
+// LOS PERSONAJES · visual nueva · SOLO PARA LOS MOMENTOS
 //
-// Un personaje, al estilo de las apps de bienestar (Headspace): formas
-// planas y redondas, colores llenos, sin contornos, y una cara tranquila
-// (ojos cerrados en arco y sonrisa, sin mejillas rosadas). Dos personajes:
+// Ya no van en las cabeceras (allí habla el coach, ver CabeceraHoy.jsx):
+// salen cuando hay algo que celebrar (terminar el entreno, un récord, ver
+// todo el material). Formas planas y redondas, colores llenos, SIN CARA: sin
+// ojos ni boca se leen como un objeto con energía, no como un muñeco.
 //
-//   Alimentación  — un AGUACATE contento, saludando
-//   Entrenamiento — una KETTLEBELL con cara, brazos y piernas, levantando
-//                   una barra, sonriendo y con una gota de sudor en la frente
-//   Aprendizaje   — un CEREBRO con gafas y sonrisa, levantando dos mancuernas
+//   Alimentación  — un AGUACATE saludando
+//   Entrenamiento — una KETTLEBELL levantando una barra
+//   Aprendizaje   — un CEREBRO levantando dos mancuernas
 //
-// Mismo tamaño para las dos: 200 × 124. Los ids llevan prefijo propio para
-// que las dos cabeceras no se pisen si conviven en el DOM.
+// Mismo tamaño para todos: 200 × 124.
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
 
@@ -21,24 +20,11 @@ const PULPA = '#D2EA8C';
 const PULPA_BORDE = '#E6F4B6';
 const HUESO = '#9C6238';
 const HUESO_LUZ = '#BE8252';
-const TINTA = '#2A2A28';
 const KB = '#5B95E6';
 const KB_OSCURA = '#2F66B8';
 const KB_LUZ = '#8DB8F2';
 const DISCO = '#2C313A';
 const BARRA = '#B9C1CC';
-
-// La cara: ojos cerrados en arco (tranquilo) y sonrisa.
-function Cara({ x, y, grande = false }) {
-  const s = grande ? 1.1 : 1;
-  return (
-    <g transform={`translate(${x} ${y}) scale(${s})`} fill="none" stroke={TINTA} strokeWidth="2.6" strokeLinecap="round">
-      <path d="M-11 -2 Q-7 2 -3 -2" />
-      <path d="M3 -2 Q7 2 11 -2" />
-      <path d="M-5 5 Q0 10 5 5" />
-    </g>
-  );
-}
 
 // El cuerpo del aguacate partido: piel, borde claro de la pulpa, pulpa y
 // hueso (la «panza»). Centro en (0,0); mide ~64 × 92.
@@ -90,7 +76,6 @@ export function IlustracionComida() {
         <circle cx="-42" cy="-25" r="4.5" fill={PIEL_OSCURA} />
         <Piernas />
         <Aguacate />
-        <Cara x={0} y={-16} />
       </g>
       {/* un par de hojitas que caen, para darle aire */}
       <path d="M58 70 q8 -10 18 -4 q-8 10 -18 4 Z" fill="#6DB36F" />
@@ -131,9 +116,7 @@ export function IlustracionPesas() {
           <path d="M33 0 Q46 -26 36 -58" />
         </g>
         <Kettlebell />
-        <Cara x={0} y={4} grande />
-        {/* gota de sudor en la frente */}
-        <path d="M14 -14 q4.5 6.5 0 9.5 q-4.5 -3 0 -9.5 Z" fill="#FFFFFF" />
+        {/* una gota de esfuerzo, fuera del cuerpo */}
         <path d="M44 -30 q3 5 0 7 q-3 -2 0 -7 Z" fill="#7FB2F0" />
         {/* la barra con sus discos */}
         <g transform="translate(0 -61)">
@@ -208,15 +191,6 @@ export function IlustracionCerebro() {
           <path d="M20 -12 q7 -6 14 0" />
           <path d="M-35 14 q6 -5 11 1" />
           <path d="M24 15 q6 -6 11 0" />
-        </g>
-        {/* la cara con gafas */}
-        <g stroke={TINTA} strokeWidth="2.4" strokeLinecap="round" fill="none">
-          <circle cx="-10.5" cy="6" r="8" fill="#FFFFFF" fillOpacity="0.35" />
-          <circle cx="10.5" cy="6" r="8" fill="#FFFFFF" fillOpacity="0.35" />
-          <path d="M-2.5 5 Q0 3 2.5 5" />
-          <path d="M-14 7 Q-10.5 10 -7 7" />
-          <path d="M7 7 Q10.5 10 14 7" />
-          <path d="M-5.5 18 Q0 23 5.5 18" />
         </g>
       </g>
     </svg>
