@@ -6,45 +6,50 @@
 // pasa hoy en negro y lo que diría el coach en el color de la sección
 // (las frases viven en vozCoach.js). Debajo, la firma del coach.
 //
-// El fondo es una banda del color de la sección con dos olas quietas al pie
-// y el borde de abajo curvo, más baja que la de antes; a la derecha, el
-// ícono de línea de la sección (el mismo de la barra). Sin animaciones de
-// fondo ni personajes: esos quedan para celebrar.
+// Dos capas, mezcla de los dos estilos que se probaron:
+//   · una BANDA delgada del color de la sección, solo detrás de la barra de
+//     arriba (la del nombre del módulo), con el borde de abajo curvo;
+//   · debajo, el mensaje sobre MANCHAS de color de la sección, difuminadas,
+//     con una deriva muy lenta, que se apagan hacia abajo sin cortes.
+// Sin íconos ni personajes. Quien pide menos movimiento ve las manchas
+// quietas.
 //
 // `sangria` y `arriba` cancelan el relleno del contenedor para que el color
-// llegue a los bordes y al techo de la pantalla.
+// llegue a los bordes y al techo de la pantalla; `arriba` es también el alto
+// de la banda (lo que ocupa la barra de arriba).
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { TEXT, TEXT_MUTED } from './theme.js';
-import { ICONO_SECCION } from './BarraV2.jsx';
 
-// La banda: degradado suave del color de la sección, unas olas QUIETAS al
-// pie y el borde de abajo que sube en el centro (la curva de antes). `tinta`
-// es el color del ícono y de la segunda línea de la frase.
+// banda: degradado de la banda · m1/m2/m3: manchas · base: fondo detrás de
+// las manchas · tinta: la segunda línea de la frase (contraste para letra
+// grande sobre claro).
 export const TEMAS = {
-  entreno: { fondo: ['#D6E5F8', '#EEF4FC'], ola1: '#C3D7F3', ola2: '#A9C5EE', tinta: '#2F6CC4' },
-  comida:  { fondo: ['#D9EEDD', '#F0F8F1'], ola1: '#C5E3CC', ola2: '#A8D3B2', tinta: '#2F7F45' },
-  aprende: { fondo: ['#FBE1CD', '#FDF3EA'], ola1: '#F8D0B1', ola2: '#F4BC92', tinta: '#C95F17' },
-  dash:    { fondo: ['#F3F2EC', '#F3F2EC'], ola1: '#E9E6DC', ola2: '#E0DCCF', tinta: '#1F1F1F' },
+  entreno: { banda: ['#BFD5F4', '#D3E2F8'], m1: '#8FB3E8', m2: '#CFE0F7', m3: '#F6CFA9', base: '#EEF4FC', tinta: '#2F6CC4' },
+  comida:  { banda: ['#C3E3CB', '#D6EDDC'], m1: '#9CCFA8', m2: '#D7EEDC', m3: '#F7E1A0', base: '#F0F8F1', tinta: '#2F7F45' },
+  aprende: { banda: ['#F7CFAF', '#FADFCA'], m1: '#F6B98C', m2: '#FBE0CB', m3: '#A9C6EE', base: '#FDF3EA', tinta: '#C95F17' },
+  dash:    { banda: ['#E9E6DC', '#F0EEE7'], m1: '#9CCFA8', m2: '#A9C6EE', m3: '#F6B98C', base: '#F3F2EC', tinta: '#1F1F1F' },
 };
 
 const CSS = `
+@keyframes cab-deriva-1 { from { transform: translate3d(0,0,0) scale(1) } to { transform: translate3d(-7%, 6%, 0) scale(1.08) } }
+@keyframes cab-deriva-2 { from { transform: translate3d(0,0,0) scale(1) } to { transform: translate3d(9%, -5%, 0) scale(1.12) } }
+@keyframes cab-deriva-3 { from { transform: translate3d(0,0,0) } to { transform: translate3d(-10%, -8%, 0) } }
+[data-cabecera-hoy] .cab-m { position: absolute; border-radius: 50%; will-change: transform; }
+[data-cabecera-hoy] .cab-m1 { animation: cab-deriva-1 16s ease-in-out infinite alternate; }
+[data-cabecera-hoy] .cab-m2 { animation: cab-deriva-2 19s ease-in-out infinite alternate; }
+[data-cabecera-hoy] .cab-m3 { animation: cab-deriva-3 23s ease-in-out infinite alternate; }
 @keyframes cab-entra { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
 [data-cabecera-hoy] .cab-texto > * { animation: cab-entra .5s cubic-bezier(.2,.8,.2,1) both; }
 [data-cabecera-hoy] .cab-texto > *:nth-child(2) { animation-delay: .06s }
 [data-cabecera-hoy] .cab-texto > *:nth-child(3) { animation-delay: .12s }
-@media (prefers-reduced-motion: reduce) { [data-cabecera-hoy] .cab-texto > * { animation: none !important; } }`;
+@media (prefers-reduced-motion: reduce) {
+  [data-cabecera-hoy] .cab-m, [data-cabecera-hoy] .cab-texto > * { animation: none !important; }
+}`;
 
-// Las olas: dos curvas al pie de la banda, del ancho de cualquier pantalla.
-function Olas({ t }) {
-  return (
-    <svg viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true"
-      style={{ position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: 60 }}>
-      <path d="M0 26 C90 6 180 44 270 22 C330 8 370 18 400 12 V60 H0 Z" fill={t.ola1} />
-      <path d="M0 44 C110 26 220 58 400 34 V60 H0 Z" fill={t.ola2} />
-    </svg>
-  );
-}
+// Una mancha: un degradado radial que se apaga solo (sin filtros de
+// desenfoque, que en teléfonos viejos pesan).
+const mancha = (color, extra) => ({ background: `radial-gradient(closest-side, ${color} 0%, ${color}00 100%)`, ...extra });
 
 // La firma: el monograma del coach en grafito y su nombre.
 export function FirmaCoach({ claro = false, compacta = false }) {
@@ -64,7 +69,6 @@ export function FirmaCoach({ claro = false, compacta = false }) {
 // `voz.sub`: una línea de texto normal debajo de la frase.
 export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = true, fondo = true, sangria = '20px', arriba = '0px', children }) {
   const t = TEMAS[tema] || TEMAS.entreno;
-  const Icono = ICONO_SECCION[tema];
   const texto = (
     <div className="cab-texto" style={{ position: 'relative' }}>
       {voz?.etiqueta && (
@@ -72,8 +76,8 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = tru
       )}
       {voz ? (
         <h1 data-frase style={{
-          margin: '8px 0 0', fontSize: fondo ? 'clamp(23px, 6.6vw, 28px)' : 'clamp(27px, 7.6vw, 34px)', fontWeight: 800, lineHeight: 1.08,
-          letterSpacing: '-0.03em', color: TEXT, textWrap: 'balance', maxWidth: fondo && Icono ? 'calc(100% - 64px)' : 460,
+          margin: '8px 0 0', fontSize: fondo ? 'clamp(24px, 6.8vw, 29px)' : 'clamp(27px, 7.6vw, 34px)', fontWeight: 800, lineHeight: 1.08,
+          letterSpacing: '-0.03em', color: TEXT, textWrap: 'balance', maxWidth: 460,
         }}>
           {voz.a}{voz.b && <><br /><span style={{ color: t.tinta }}>{voz.b}</span></>}
         </h1>
@@ -88,7 +92,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = tru
 
   if (!fondo) {
     return (
-      <div data-cabecera-hoy={tema} style={{ position: 'relative', margin: `0 0 18px`, padding: `16px 0 4px` }}>
+      <div data-cabecera-hoy={tema} style={{ position: 'relative', margin: '0 0 18px', padding: '16px 0 4px' }}>
         <style>{CSS}</style>
         {texto}
       </div>
@@ -96,24 +100,28 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = tru
   }
   return (
     <div data-cabecera-hoy={tema} style={{
-      position: 'relative', overflow: 'hidden',
+      position: 'relative',
       margin: `calc(-1 * ${arriba}) calc(-1 * ${sangria}) 14px`,
-      padding: `calc(${arriba} + 4px) ${sangria} 58px`,
-      background: `linear-gradient(180deg, ${t.fondo[0]} 0%, ${t.fondo[1]} 100%)`,
-      // El borde de abajo sube en el centro, como una loma.
-      WebkitMaskImage: 'radial-gradient(ellipse 58% 26px at 50% 100%, transparent 97%, #000 100%)',
-      maskImage: 'radial-gradient(ellipse 58% 26px at 50% 100%, transparent 97%, #000 100%)',
+      padding: `calc(${arriba} + 26px) ${sangria} 6px`,
     }}>
       <style>{CSS}</style>
-      <Olas t={t} />
-      {/* El ícono de la sección, de línea, en un círculo blanco suave. */}
-      {Icono && (
-        <span data-icono-cabecera={tema} aria-hidden="true" style={{
-          position: 'absolute', right: sangria, top: `calc(${arriba} + 26px)`, width: 52, height: 52, borderRadius: 99,
-          background: 'rgba(255,255,255,0.72)', boxShadow: '0 4px 14px rgba(40,40,30,0.08)',
-          display: 'grid', placeItems: 'center', color: t.tinta,
-        }}><Icono size={27} weight="regular" /></span>
-      )}
+      {/* Las manchas: detrás del mensaje, se apagan hacia abajo. */}
+      <div aria-hidden="true" style={{
+        position: 'absolute', inset: '0 0 -48px 0', overflow: 'hidden', pointerEvents: 'none', background: t.base,
+        WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 55%, transparent 100%)',
+        maskImage: 'linear-gradient(180deg, #000 0%, #000 55%, transparent 100%)',
+      }}>
+        <div className="cab-m cab-m1" style={mancha(t.m1, { width: '95vw', height: '95vw', maxWidth: 520, maxHeight: 520, top: '-10%', right: '-32%' })} />
+        <div className="cab-m cab-m2" style={mancha(t.m2, { width: '80vw', height: '80vw', maxWidth: 440, maxHeight: 440, bottom: '-22%', left: '-34%' })} />
+        <div className="cab-m cab-m3" style={mancha(t.m3, { width: '58vw', height: '58vw', maxWidth: 320, maxHeight: 320, bottom: '-6%', right: '-20%', opacity: 0.75 })} />
+      </div>
+      {/* La banda delgada: solo detrás de la barra de arriba, borde curvo. */}
+      <div aria-hidden="true" data-banda style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: `calc(${arriba} + 14px)`, pointerEvents: 'none',
+        background: `linear-gradient(180deg, ${t.banda[0]} 0%, ${t.banda[1]} 100%)`,
+        WebkitMaskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
+        maskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
+      }} />
       {texto}
     </div>
   );

@@ -346,6 +346,8 @@ try {
     && /^(Hoy toca|Hecho por hoy|Día de descanso|Hoy no te toca|Semana completa|Tienes un entreno)/.test(await cabE.locator('[data-frase]').innerText()),
     `${await cabE.locator('[data-etiqueta]').innerText()} | ${await cabE.locator('[data-frase]').innerText()}`);
   ok('…firmada por el coach y sin personajes en la cabecera', await cabE.locator('[data-firma-coach]').isVisible() && (await cabE.locator('[data-dibujo]').count()) === 0);
+  ok('…con la banda delgada detrás de la barra y sin íconos', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('svg').count()) === 0
+    && await cabE.locator('[data-banda]').evaluate(el => el.getBoundingClientRect().height < 140));
   ok('…la segunda línea en el azul de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(47, 108, 196)'));
   ok('…y el color no se sale de la pantalla', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   // Unidades: una preferencia para toda la app
@@ -850,7 +852,7 @@ try {
   ok('el recordatorio de texto del coach NO se anuncia en el chat', (await oa.p.getByText(/tu coach te dejó/).count()) === 0
     && (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 0);
   await oa.p.getByRole('button', { name: /Recordat/ }).first().click();
-  await espera(500);
+  await oa.p.getByText('Haz 10 minutos de movilidad de cadera').waitFor({ timeout: 5000 }).catch(() => {});
   ok('…pero está en Recordatorios', (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 1);
   await foto(oa.p, '13c-otra-persona-recordatorios');
   ok('sin errores de JavaScript (otra persona, aviso)', oa.errores.length === 0, oa.errores.join(' | '));
