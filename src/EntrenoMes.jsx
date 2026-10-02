@@ -647,6 +647,49 @@ function FilaRegistro({ ev, fecha, nombre, futuro, v2, alCambio }) {
   );
 }
 
+// ── Al abrir la app: lo que toca registrar hoy (ver AvisoRegistro.jsx) ──
+// Las mismas filas del calendario: el peso se escribe aquí y las fotos o la
+// medición se marcan con un toque. El coach se entera igual que desde el día.
+export function HojaAvisoRegistro({ nombre, fecha, eventos, v2, alCerrar }) {
+  const [hechos, setHechos] = useState(() => new Set());
+  const todo = eventos.every(ev => hechos.has(ev.id));
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Para registrar hoy" data-aviso-registro onClick={alCerrar} style={{
+      position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(31,31,28,0.42)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#FFFFFF', borderRadius: 24, width: '100%', maxWidth: 400, maxHeight: '88vh', overflowY: 'auto',
+        padding: '22px 18px 18px', boxShadow: '0 20px 60px rgba(0,0,0,.22)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ width: 44, height: 44, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center', flex: 'none' }}>
+            <IconoEvento tipo={eventos[0]?.tipo} size={22} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+              {todo ? 'Listo, gracias' : 'Hoy te toca registrar'}
+            </div>
+            <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 2 }}>
+              {todo ? 'Tu coach ya lo sabe.' : 'Tu coach lo pidió para hoy. Es un minuto.'}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+          {eventos.map(ev => (
+            <FilaRegistro key={ev.id} ev={ev} fecha={fecha} nombre={nombre} futuro={false} v2={v2}
+              alCambio={() => setHechos(h => new Set([...h, ev.id]))} />
+          ))}
+        </div>
+        <button onClick={alCerrar} style={{
+          width: '100%', marginTop: 14, height: 46, borderRadius: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+          fontSize: 15, fontWeight: 700, background: todo ? TEXT : '#F2EFE8', color: todo ? '#FFFFFF' : TEXT,
+        }}>{todo ? 'Seguir' : 'Más tarde'}</button>
+      </div>
+    </div>
+  );
+}
+
 function Rot({ children }) {
   return (
     <div style={{

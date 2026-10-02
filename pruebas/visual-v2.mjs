@@ -107,6 +107,7 @@ function base() {
         { id: 'evp', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse en ayunas', fecha: hoy, visible_cliente: true },
         { id: 'evf', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Fotos de progreso', detalle: 'Frente, perfil y espalda', fecha: hoy, visible_cliente: true },
         { id: 'evm', cliente_id: 'c1', fase_id: null, tipo: 'medidas', titulo: 'Medición corporal', fecha: sumarDiasISO(hoy, 3), visible_cliente: true },
+        { id: 'evf2', cliente_id: 'c2', fase_id: null, tipo: 'fotos', titulo: 'Fotos de progreso', fecha: hoy, visible_cliente: true },
       ],
       mediciones_corporales: [
         { id: 'm1', cliente_id: 'c1', user_id: 'coach', fecha: hace(9), peso: 84.6, grasa_pct: 21.4 },
@@ -162,7 +163,10 @@ let fallos = 0;
 const ok = (nombre, c, extra = '') => { if (!c) fallos++; console.log(`  ${c ? 'ok ' : 'MAL'}  ${nombre}${c ? '' : '  ' + extra}`); };
 const espera = (ms) => new Promise(r => setTimeout(r, ms));
 
-async function abrir(nombre, { ancho = 390, pago = null } = {}) {
+// `aviso`: dejar que salga el aviso de «hoy te toca registrar» al abrir. Por
+// defecto se da por visto (si no, tapa todo lo que se prueba después).
+// `nube`: lo que tiene su cuenta en la nube (y la app con la nube aceptada).
+async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null } = {}) {
   const db = base();
   globalThis.fetch = db.fetch;
   const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota' });
@@ -171,11 +175,19 @@ async function abrir(nombre, { ancho = 390, pago = null } = {}) {
   const errores = [];
   p.on('pageerror', e => errores.push(e.message));
   await ctx.addInitScript((kv) => { for (const [k, v] of Object.entries(kv)) localStorage.setItem(k, v); }, almacen(nombre));
+  if (!aviso) await ctx.addInitScript((f) => sessionStorage.setItem('mt:avisoRegistro', f), hoy);
+  if (nube) await ctx.addInitScript(() => { localStorage.setItem('cloudConsent', 'accepted'); localStorage.setItem('cloudUserId', 'u-nube'); });
   await p.route('**/api/**', async (ruta) => {
     const u = new URL(ruta.request().url());
     if (u.pathname === '/api/training') {
       const r = await llamar(handler, JSON.parse(ruta.request().postData() || '{}'));
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(r) });
+    }
+    if (u.pathname === '/api/sync' && nube) {
+      const json = (o) => ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
+      if (ruta.request().method() === 'POST') return json({ ok: true });
+      if (u.searchParams.get('identity_for') != null) return json({ user_id: 'u-nube' });
+      return json({ name: nombre, data: nube, ...nube });
     }
     if (u.pathname === '/api/payment-status') {
       const estado = typeof pago === 'function' ? pago() : pago;
@@ -203,9 +215,26 @@ const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.
 
 try {
   // ── Mauro ──
-  const { p, ctx, errores, db } = await abrir('Mauro Morón');
+  const { p, ctx, errores, db } = await abrir('Mauro Morón', { aviso: true });
   await p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });
   ok('apertura fría: cae en el Dash', true);
+  // Peso y fotos para hoy: el aviso sale apenas abre, con las dos cosas
+  const av = p.locator('[data-aviso-registro]');
+  await av.waitFor({ timeout: 10000 });
+  ok('al abrir: «Hoy te toca registrar» con el peso y las fotos', (await av.getByText('Hoy te toca registrar').count()) === 1
+    && (await av.getByText('Peso', { exact: true }).count()) === 1 && (await av.getByText('Registro fotográfico').count()) === 1
+    && (await av.getByLabel('Tu peso en kg').count()) === 1);
+  ok('…y los recordatorios del coach no salen solos (ni en el chat)', (await p.getByText(/tu coach te dejó/).count()) === 0
+    && (await p.getByRole('dialog', { name: /Recordatorios/ }).count()) === 0);
+  await espera(300);
+  await foto(p, '00-aviso-registro');
+  await av.getByRole('button', { name: 'Más tarde' }).click();
+  await espera(300);
+  ok('«Más tarde» lo cierra', (await av.count()) === 0);
+  await p.reload();
+  await p.getByText('Días de cardio').waitFor({ timeout: 20000 });
+  await espera(1500);
+  ok('…y no vuelve a salir en la misma apertura', (await av.count()) === 0);
   await p.getByText('Días de cardio').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
@@ -800,6 +829,32 @@ try {
   await foto(o.p, '13-otra-persona');
   ok('sin errores de JavaScript (otra persona)', o.errores.length === 0, o.errores.join(' | '));
   await o.ctx.close();
+
+  // El aviso de registrar hoy es de todos: también con la app de siempre
+  const oa = await abrir('Ana Pérez', { aviso: true, nube: {
+    coach_reminders: [{ id: 'rc1', text: 'Haz 10 minutos de movilidad de cadera', created_at: '2026-09-29T09:00:00Z' }],
+    reminders_updated: { at: '2026-09-29T09:00:00Z', by: 'coach' },
+  } });
+  const avA = oa.p.locator('[data-aviso-registro]');
+  await avA.waitFor({ timeout: 25000 });
+  ok('otra persona: le sale el aviso de sus fotos al abrir', (await avA.getByText('Registro fotográfico').count()) === 1
+    && (await avA.getByText('Peso', { exact: true }).count()) === 0);
+  await foto(oa.p, '13b-otra-persona-aviso');
+  await avA.getByRole('button', { name: 'Ya envié mis fotos' }).click();
+  await avA.getByText('Listo, gracias').waitFor({ timeout: 5000 });
+  ok('otra persona: marcarlo ahí mismo avisa al coach', !!oa.db.db.evento_registros?.some(r => r.evento_id === 'evf2'));
+  await avA.getByRole('button', { name: 'Seguir' }).click();
+  await espera(300);
+  ok('otra persona: «Seguir» lo cierra', (await avA.count()) === 0);
+  await espera(1500);
+  ok('el recordatorio de texto del coach NO se anuncia en el chat', (await oa.p.getByText(/tu coach te dejó/).count()) === 0
+    && (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 0);
+  await oa.p.getByRole('button', { name: /Recordat/ }).first().click();
+  await espera(500);
+  ok('…pero está en Recordatorios', (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 1);
+  await foto(oa.p, '13c-otra-persona-recordatorios');
+  ok('sin errores de JavaScript (otra persona, aviso)', oa.errores.length === 0, oa.errores.join(' | '));
+  await oa.ctx.close();
 
   // El bloqueo por mora es de todos, no solo de la visual nueva.
   const ob = await abrir('Ana Pérez', { pago: { ...deuda, dias_vencido: 6, bloqueo: true } });

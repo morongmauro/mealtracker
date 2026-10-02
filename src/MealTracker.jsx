@@ -25,6 +25,7 @@ import { recibirMudanza, enDireccionVieja, urlDeLlegada } from './mudanza.js';
 import { Pastilla } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero } from './GraficasV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
+import AvisoRegistro from './AvisoRegistro.jsx';
 import { vozComida } from './vozCoach.js';
 import { Bell as BellV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
@@ -1306,50 +1307,19 @@ export default function MealTracker() {
 
   // Aplica recordatorios del coach que llegan del server (pull inicial o el
   // mismo sondeo de metas). Solo se aplican si la versión del server es más
-  // nueva que la local; los NUEVOS pendientes se anuncian en el chat una
-  // sola vez (registro de anunciados en localStorage).
+  // nueva que la local. NO se anuncian al abrir (ni en el chat ni en un
+  // aviso): viven en «Recordatorios», con su contador. Lo que sí sale apenas
+  // abre la app es lo que toca registrar hoy (peso, fotos, medidas: ver
+  // AvisoRegistro.jsx) y el aviso de pago. El sello «visto» (seen_at) lo
+  // pone abrir «Recordatorios».
   applyServerRemindersRef.current = (serverRem, serverMeta) => {
     if (!Array.isArray(serverRem)) return;
     const knownAt = remindersMetaRef.current?.at || '';
     const serverAt = serverMeta?.at || '';
     if (serverAt && serverAt <= knownAt) return; // ya tenemos esta versión (o una más nueva)
-
-    // Anunciar SOLO los pendientes que nunca se han anunciado en este equipo
-    let announced = [];
-    try { announced = JSON.parse(localStorage.getItem('remindersAnnounced') || '[]'); } catch (e) {}
-    const seen = new Set(Array.isArray(announced) ? announced : []);
-    const nuevos = serverRem.filter(r => r && r.id && !r.done_at && !seen.has(r.id));
-
-    // VISTO: al mostrarse el anuncio en el chat queda sellado seen_at — el
-    // próximo push lo lleva al server y el coach lo ve 👁 en su CRM. El
-    // sello {by:'cliente'} con hora actual hace que esta copia gane.
-    let adopted = serverRem;
-    if (nuevos.length > 0) {
-      const ahora = new Date().toISOString();
-      const nuevoIds = new Set(nuevos.map(r => r.id));
-      adopted = serverRem.map(r => (nuevoIds.has(r.id) && !r.seen_at) ? { ...r, seen_at: ahora } : r);
-      remindersMetaRef.current = { at: ahora, by: 'cliente' };
-    } else {
-      remindersMetaRef.current = serverMeta || { at: new Date().toISOString(), by: 'coach' };
-    }
+    remindersMetaRef.current = serverMeta || { at: new Date().toISOString(), by: 'coach' };
     window.storage.set('remindersMeta', JSON.stringify(remindersMetaRef.current)).catch(() => {});
-    setCoachReminders(adopted);
-
-    if (nuevos.length > 0) {
-      const firstName = name ? name.split(' ')[0] : '';
-      const lista = nuevos.map(r => `• ${r.text}`).join('\n');
-      setMessages(m => [...m, {
-        role: 'assistant',
-        isAnnouncement: true,
-        tag: 'Recordatorio de tu coach',
-        content: `${firstName ? firstName + ', ' : ''}tu coach te dejó ${nuevos.length === 1 ? 'un recordatorio' : nuevos.length + ' recordatorios'}:\n${lista}\n\nCuando lo cumplas, márcalo en Herramientas → Mis recordatorios y tu coach lo verá al instante.`,
-        ts: Date.now(),
-      }]);
-      haptic([20, 40, 20]);
-      try {
-        localStorage.setItem('remindersAnnounced', JSON.stringify([...seen, ...nuevos.map(r => r.id)].slice(-100)));
-      } catch (e) {}
-    }
+    setCoachReminders(serverRem);
   };
 
   // Aplica las ediciones de comidas que el COACH hizo desde su dashboard
@@ -6287,6 +6257,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {paymentDue && paymentDue.bloqueo && (
         <BloqueoPago info={paymentDue} alRevisar={() => revisarPagoRef.current && revisarPagoRef.current()} />
       )}
+
+      {/* Peso, fotos o medidas que el coach pidió para HOY: apenas abre la app
+          (a todos). Espera a que no haya otra cosa encima. */}
+      <AvisoRegistro nombre={name} v2={v2}
+        listo={view === 'main' && !!name && !(paymentDue && paymentDue.bloqueo) && cloudConsent !== null && !mudanza && !activeModal} />
 
       {activeModal === 'weekly' && (
         <WeeklyModal history={history} goals={goals} onClose={() => setActiveModal(null)} />
