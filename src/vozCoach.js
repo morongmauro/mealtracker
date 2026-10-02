@@ -24,6 +24,7 @@ const diaSemana = (fecha) => new Date(Date.parse(String(fecha).slice(0, 10) + 'T
 
 // Elige la variante del día. `sal` separa las secciones para que no roten
 // juntas (el lunes no dicen las tres «la primera»).
+export { V as VARIANTES };
 export function delDia(lista, fecha, sal = 0) {
   if (!lista.length) return '';
   const n = diaNum(fecha) + sal;
@@ -47,6 +48,28 @@ export function semanaDelPlan(plan) {
   const conRutina = dias.filter(d => d.rutina);
   return { planeados: conRutina.length, hechos: conRutina.filter(d => d.hecha).length };
 }
+
+// Cada situación tiene varias frases: rotan por día para no repetir siempre
+// la misma cuando la situación se repite (el lunes de cada semana, el día
+// sin registro…).
+const V = {
+  completa:      ['Todo lo del plan, hecho. Así se progresa.', 'Semana cumplida de punta a punta.', 'Cada entreno de la semana, hecho. Eso es constancia.'],
+  completaDesc:  ['Hoy descansas sin culpa.', 'Te lo ganaste: hoy toca recuperar.', 'Descansa: el trabajo ya está hecho.'],
+  aMedias:       ['Termínalo, ya hiciste lo difícil.', 'Te falta poco: ciérralo hoy.', 'Lo empezaste: lo que queda es lo más fácil.'],
+  cierra:        ['Con este cierras la semana.', 'El último de la semana: a cerrarla bien.', 'Este completa tu semana.'],
+  lunes:         ['Empieza la semana con fuerza.', 'Primer entreno de la semana: marca el ritmo.', 'Arrancar bien es la mitad del trabajo.'],
+  ayer:          ['Lo de ayer puedes moverlo a otro día.', 'Si ayer no se pudo, muévelo en tu calendario.', 'Ayer quedó algo: acomódalo en tu semana.'],
+  mitad:         ['Hoy pasas la mitad de la semana.', 'Con este ya vas más de la mitad.', 'Mitad de la semana: sigue igual.'],
+  libreAyer:     ['Buen día para lo que quedó de ayer.', 'Si quieres, recupera hoy lo de ayer.', 'Día libre: ideal para lo pendiente.'],
+  sinMeta:       ['Registra lo que comes y te guío.', 'Anota tus comidas y lo vemos juntos.'],
+  desayuno:      ['Empieza registrando tu desayuno.', 'Anota tu desayuno y arranca con datos.', 'Un registro temprano ordena el día.'],
+  primera:       ['Anota tu primera comida, es un minuto.', 'Registra lo que llevas, aunque sea en una línea.', 'Lo que no se anota no se puede ajustar.'],
+  sinRegistro:   ['Anota lo que comiste, aunque sea aproximado.', 'Un registro aproximado vale más que ninguno.', 'Anota lo principal; el detalle no importa hoy.'],
+  pasado:        ['Pasa. Mañana se equilibra.', 'Un día no define nada: mañana vuelves al plan.', 'Tranquilidad: lo que cuenta es la semana.'],
+  metaNoche:     ['Así se cierra un día.', 'Día cerrado en tu meta. Eso es constancia.', 'Así, día tras día.'],
+  metaDia:       ['Lo que queda, ligero y con proteína.', 'Vas justo: lo que falta, sencillo.', 'Bien encaminado: cierra con algo ligero.'],
+  cena:          ['Úsalas en una cena con proteína.', 'Una cena con proteína y verdura las cubre bien.', 'Cierra el día con una buena cena.'],
+};
 
 const RUTINA_GENERICA = [
   'La semana se gana aquí.',
@@ -92,26 +115,26 @@ export function vozEntreno({ plan, hoy }) {
   const ayerPendiente = !!(ayer && ayer.rutina && !ayer.hecha && !ayer.saltada);
 
   if (dia && dia.rutina && dia.hecha) {
-    if (planeados && hechos >= planeados) return { etiqueta, a: 'Semana completa.', b: 'Todo lo del plan, hecho. Así se progresa.' };
+    if (planeados && hechos >= planeados) return { etiqueta, a: 'Semana completa.', b: delDia(V.completa, hoy) };
     return { etiqueta, a: 'Hecho por hoy.', b: delDia(HECHO, hoy, 1) };
   }
   if (dia && dia.rutina && dia.en_curso) {
-    return { etiqueta, a: 'Tienes un entreno a medias.', b: 'Termínalo, ya hiciste lo difícil.' };
+    return { etiqueta, a: 'Tienes un entreno a medias.', b: delDia(V.aMedias, hoy) };
   }
   if (dia && dia.rutina) {
     const n = nombreParaFrase(dia.rutina.nombre);
     const a = n ? `Hoy toca ${n}.` : 'Hoy toca entrenar.';
     let b;
-    if (planeados > 1 && hechos === planeados - 1) b = 'Con este cierras la semana.';
-    else if (hechos === 0 && diaSemana(hoy) === 1) b = 'Empieza la semana con fuerza.';
-    else if (ayerPendiente) b = 'Lo de ayer puedes moverlo a otro día.';
-    else if (planeados >= 4 && hechos === Math.floor(planeados / 2)) b = 'Hoy pasas la mitad de la semana.';
+    if (planeados > 1 && hechos === planeados - 1) b = delDia(V.cierra, hoy);
+    else if (hechos === 0 && diaSemana(hoy) === 1) b = delDia(V.lunes, hoy);
+    else if (ayerPendiente) b = delDia(V.ayer, hoy);
+    else if (planeados >= 4 && hechos === Math.floor(planeados / 2)) b = delDia(V.mitad, hoy);
     else b = delDia(RUTINA_GENERICA, hoy);
     return { etiqueta, a, b };
   }
   // Descanso (o día sin rutina)
-  if (planeados && hechos >= planeados) return { etiqueta, a: 'Semana completa.', b: 'Hoy descansas sin culpa.' };
-  if (ayerPendiente) return { etiqueta, a: 'Hoy no te toca nada.', b: 'Buen día para lo que quedó de ayer.' };
+  if (planeados && hechos >= planeados) return { etiqueta, a: 'Semana completa.', b: delDia(V.completaDesc, hoy) };
+  if (ayerPendiente) return { etiqueta, a: 'Hoy no te toca nada.', b: delDia(V.libreAyer, hoy) };
   return { etiqueta, a: 'Día de descanso.', b: delDia(DESCANSO, hoy, 2) };
 }
 
@@ -128,17 +151,17 @@ const VAS_BIEN = [
 // cuántas registró hoy y `racha` los días seguidos registrando.
 export function vozComida({ hoy, hora, kcal = 0, meta = 0, comidas = 0, racha = 0 }) {
   const etiqueta = etiquetaDia(hoy, racha >= 3 ? `${racha} días registrando` : '');
-  if (!meta) return { etiqueta, a: 'Así va tu día.', b: 'Registra lo que comes y te guío.' };
+  if (!meta) return { etiqueta, a: 'Así va tu día.', b: delDia(V.sinMeta, hoy) };
   if (!comidas || kcal <= 0) {
-    if (hora < 11) return { etiqueta, a: 'Buen día.', b: 'Empieza registrando tu desayuno.' };
-    if (hora < 17) return { etiqueta, a: 'Empieza tu día.', b: 'Anota tu primera comida, es un minuto.' };
-    return { etiqueta, a: 'Hoy va sin registro.', b: 'Anota lo que comiste, aunque sea aproximado.' };
+    if (hora < 11) return { etiqueta, a: 'Buen día.', b: delDia(V.desayuno, hoy) };
+    if (hora < 17) return { etiqueta, a: 'Empieza tu día.', b: delDia(V.primera, hoy) };
+    return { etiqueta, a: 'Hoy va sin registro.', b: delDia(V.sinRegistro, hoy) };
   }
   const f = kcal / meta;
-  if (f > 1.1) return { etiqueta, a: 'Hoy te pasaste un poco.', b: 'Pasa. Mañana se equilibra.' };
-  if (f >= 0.9) return { etiqueta, a: 'Día en tu meta.', b: hora >= 18 ? 'Así se cierra un día.' : 'Lo que queda, ligero y con proteína.' };
+  if (f > 1.1) return { etiqueta, a: 'Hoy te pasaste un poco.', b: delDia(V.pasado, hoy) };
+  if (f >= 0.9) return { etiqueta, a: 'Día en tu meta.', b: delDia(hora >= 18 ? V.metaNoche : V.metaDia, hoy) };
   const a = `Te quedan ${miles(meta - kcal)} kcal.`;
-  if (hora >= 18) return { etiqueta, a, b: 'Úsalas en una cena con proteína.' };
+  if (hora >= 18) return { etiqueta, a, b: delDia(V.cena, hoy) };
   if (racha >= 3 && diaNum(hoy) % 3 === 0) return { etiqueta, a, b: `Llevas ${racha} días seguidos. Eso es lo que funciona.` };
   return { etiqueta, a, b: delDia(VAS_BIEN, hoy, 3) };
 }

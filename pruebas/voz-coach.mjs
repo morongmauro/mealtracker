@@ -1,6 +1,6 @@
 // Lo que dice el coach en la cabecera de cada «Hoy», según el día.
 //   node pruebas/voz-coach.mjs
-import { vozEntreno, vozComida, vozAprende, vozDash, vozFinEntreno, etiquetaDia, delDia, semanaDelPlan } from '../src/vozCoach.js';
+import { VARIANTES as V, vozEntreno, vozComida, vozAprende, vozDash, vozFinEntreno, etiquetaDia, delDia, semanaDelPlan } from '../src/vozCoach.js';
 
 let fallos = 0;
 const caso = (n, fn) => { try { fn(); console.log('  ok   ' + n); } catch (e) { fallos++; console.log('  MAL  ' + n + '\n         ' + e.message); } };
@@ -35,17 +35,17 @@ caso('le toca rutina: dice cuál', () => {
 });
 
 caso('lunes con la semana en cero: arranque', () => {
-  igual(vozEntreno({ plan: plan(LUN), hoy: LUN }).b, 'Empieza la semana con fuerza.', 'b');
+  cierto(V.lunes.includes(vozEntreno({ plan: plan(LUN), hoy: LUN }).b), 'lunes');
 });
 
 caso('ayer quedó pendiente: lo dice sin regañar', () => {
-  igual(vozEntreno({ plan: plan(MAR), hoy: MAR }).b, 'Lo de ayer puedes moverlo a otro día.', 'con rutina hoy');
+  cierto(V.ayer.includes(vozEntreno({ plan: plan(MAR), hoy: MAR }).b), 'con rutina hoy');
   igual(vozEntreno({ plan: plan(MIE, { [LUN]: { hecha: true } }), hoy: MIE }).a, 'Hoy no te toca nada.', 'descanso tras pendiente');
 });
 
 caso('la última de la semana: «con este cierras»', () => {
   const p = plan(SAB, { [LUN]: { hecha: true }, [MAR]: { hecha: true }, [JUE]: { hecha: true } });
-  igual(vozEntreno({ plan: p, hoy: SAB }).b, 'Con este cierras la semana.', 'b');
+  cierto(V.cierra.includes(vozEntreno({ plan: p, hoy: SAB }).b), 'cierra');
 });
 
 caso('ya entrenó hoy / semana completa', () => {
@@ -71,10 +71,10 @@ caso('nombre largo: la frase no lo nombra', () => {
 });
 
 caso('comida: según lo registrado y la hora', () => {
-  igual(vozComida({ hoy: MAR, hora: 8, kcal: 0, meta: 2000, comidas: 0 }).b, 'Empieza registrando tu desayuno.', 'mañana sin nada');
+  cierto(V.desayuno.includes(vozComida({ hoy: MAR, hora: 8, kcal: 0, meta: 2000, comidas: 0 }).b), 'mañana sin nada');
   igual(vozComida({ hoy: MAR, hora: 21, kcal: 0, meta: 2000, comidas: 0 }).a, 'Hoy va sin registro.', 'noche sin nada');
   igual(vozComida({ hoy: MAR, hora: 13, kcal: 1400, meta: 2000, comidas: 2 }).a, 'Te quedan 600 kcal.', 'quedan');
-  igual(vozComida({ hoy: MAR, hora: 19, kcal: 1400, meta: 2000, comidas: 2 }).b, 'Úsalas en una cena con proteína.', 'noche');
+  cierto(V.cena.includes(vozComida({ hoy: MAR, hora: 19, kcal: 1400, meta: 2000, comidas: 2 }).b), 'noche');
   igual(vozComida({ hoy: MAR, hora: 20, kcal: 1950, meta: 2000, comidas: 4 }).a, 'Día en tu meta.', 'en meta');
   igual(vozComida({ hoy: MAR, hora: 20, kcal: 2400, meta: 2000, comidas: 4 }).a, 'Hoy te pasaste un poco.', 'pasado');
   igual(vozComida({ hoy: MAR, hora: 9, meta: 0 }).a, 'Así va tu día.', 'sin meta');
@@ -112,6 +112,14 @@ caso('sin género: ninguna frase dice «tranquilo/a» ni «listo/a»', () => {
   }
   const mal = todas.filter(t => /\b(tranquil[oa]|list[oa]|cansad[oa])\b/i.test(t));
   igual(mal, [], 'frases con género');
+});
+
+caso('las frases de cada situación cambian de un día a otro', () => {
+  const dias = ['2026-09-28', '2026-10-05', '2026-10-12'];   // tres lunes seguidos
+  const lunes = dias.map(d => vozEntreno({ plan: { ...plan(LUN), dias: plan(LUN).dias.map((x, i) => ({ ...x, fecha: d.slice(0, 8) + String(Number(d.slice(8)) + i).padStart(2, '0'), es_hoy: i === 0 })) }, hoy: d }).b);
+  cierto(new Set(lunes).size === 3, 'los tres lunes dicen lo mismo: ' + lunes.join(' / '));
+  const noches = ['2026-09-29', '2026-09-30', '2026-10-01'].map(d => vozComida({ hoy: d, hora: 21, kcal: 0, meta: 2000, comidas: 0 }).b);
+  cierto(new Set(noches).size === 3 && noches.every(x => V.sinRegistro.includes(x)), noches.join(' / '));
 });
 
 console.log(fallos ? `\n${fallos} MAL` : '\ntodo bien');

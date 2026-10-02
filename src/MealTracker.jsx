@@ -10255,7 +10255,7 @@ function CapabilitiesModal({ onClose }) {
         accent={WARN}
         items={[
           'No te doy recetas. Pero si me dices qué ingredientes o alimentos te gustan o tienes disponibles, sí te ayudo a definir cómo distribuirlos para llegar a tu meta.',
-          'Si quieres recetas, tienes la galería de recetas en el módulo Meals de la app Trainerize.',
+          'Si quieres recetas, tienes el Recetario aquí mismo en la app.',
           'No reemplazo el criterio de un profesional de la salud.',
           'Si me preguntas "¿qué dieta hago?" o similar, te remito al coach.',
         ]} />
