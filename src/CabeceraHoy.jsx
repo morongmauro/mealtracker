@@ -4,7 +4,8 @@
 // La personalidad la pone lo que dice, no un dibujo: arriba el día (y la
 // semana de la fase o la racha), y una frase grande en dos tiempos, lo que
 // pasa hoy en negro y lo que diría el coach en el color de la sección
-// (las frases viven en vozCoach.js). Debajo, la firma del coach.
+// (las frases viven en vozCoach.js). Sin firma debajo: se quitó a pedido
+// del coach (`firma` la vuelve a poner si algún día se quiere).
 //
 // Dos capas, mezcla de los dos estilos que se probaron:
 //   · una BANDA delgada del color de la sección, solo detrás de la barra de
@@ -28,9 +29,10 @@ export const TEMAS = {
   entreno: { banda: ['#BFD5F4', '#D3E2F8'], m1: '#8FB3E8', m2: '#CFE0F7', m3: '#F6CFA9', base: '#EEF4FC', tinta: '#2F6CC4' },
   comida:  { banda: ['#C3E3CB', '#D6EDDC'], m1: '#9CCFA8', m2: '#D7EEDC', m3: '#F7E1A0', base: '#F0F8F1', tinta: '#2F7F45' },
   aprende: { banda: ['#F7CFAF', '#FADFCA'], m1: '#F6B98C', m2: '#FBE0CB', m3: '#A9C6EE', base: '#FDF3EA', tinta: '#C95F17' },
-  // El Dash junta las tres secciones: la banda pasa del verde de Comida al
-  // azul de Entrenamiento y al naranja de Aprendizaje, y las manchas igual.
-  dash:    { banda: ['#C3E3CB', '#C9DBF6', '#F7D3B6'], m1: '#9CCFA8', m2: '#A9C6EE', m3: '#F6B98C', base: '#F3F2EC', tinta: '#1F1F1F' },
+  // El Dash junta las secciones: sin banda curva, solo las manchas de los
+  // colores de Comida (verde), Entrenamiento (azul), Aprendizaje (naranja) y
+  // el amarillo de los recordatorios, mezcladas.
+  dash:    { banda: null, m1: '#9CCFA8', m2: '#A9C6EE', m3: '#F6B98C', m4: '#F5DC8A', base: '#F3F2EC', tinta: '#1F1F1F' },
 };
 
 const CSS = `
@@ -41,6 +43,7 @@ const CSS = `
 [data-cabecera-hoy] .cab-m1 { animation: cab-deriva-1 16s ease-in-out infinite alternate; }
 [data-cabecera-hoy] .cab-m2 { animation: cab-deriva-2 19s ease-in-out infinite alternate; }
 [data-cabecera-hoy] .cab-m3 { animation: cab-deriva-3 23s ease-in-out infinite alternate; }
+[data-cabecera-hoy] .cab-m4 { animation: cab-deriva-1 21s ease-in-out infinite alternate-reverse; }
 @keyframes cab-entra { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
 [data-cabecera-hoy] .cab-texto > * { animation: cab-entra .5s cubic-bezier(.2,.8,.2,1) both; }
 [data-cabecera-hoy] .cab-texto > *:nth-child(2) { animation-delay: .06s }
@@ -69,7 +72,7 @@ export function FirmaCoach({ claro = false, compacta = false }) {
 
 // `fondo={false}`: solo la letra (el Dash ya tiene sus manchas detrás).
 // `voz.sub`: una línea de texto normal debajo de la frase.
-export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = true, fondo = true, sangria = '20px', arriba = '0px', children }) {
+export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', children }) {
   const t = TEMAS[tema] || TEMAS.entreno;
   const texto = (
     <div className="cab-texto" style={{ position: 'relative' }}>
@@ -116,16 +119,15 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = tru
         <div className="cab-m cab-m1" style={mancha(t.m1, { width: '95vw', height: '95vw', maxWidth: 520, maxHeight: 520, top: '-10%', right: '-32%' })} />
         <div className="cab-m cab-m2" style={mancha(t.m2, { width: '80vw', height: '80vw', maxWidth: 440, maxHeight: 440, bottom: '-22%', left: '-34%' })} />
         <div className="cab-m cab-m3" style={mancha(t.m3, { width: '58vw', height: '58vw', maxWidth: 320, maxHeight: 320, bottom: '-6%', right: '-20%', opacity: 0.75 })} />
+        {t.m4 && <div className="cab-m cab-m4" style={mancha(t.m4, { width: '62vw', height: '62vw', maxWidth: 340, maxHeight: 340, top: '-18%', left: '18%', opacity: 0.8 })} />}
       </div>
       {/* La banda delgada: solo detrás de la barra de arriba, borde curvo. */}
-      <div aria-hidden="true" data-banda style={{
+      {t.banda && <div aria-hidden="true" data-banda style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: `calc(${arriba} + 14px)`, pointerEvents: 'none',
-        background: t.banda.length > 2
-          ? `linear-gradient(90deg, ${t.banda.join(', ')})`
-          : `linear-gradient(180deg, ${t.banda[0]} 0%, ${t.banda[1]} 100%)`,
+        background: `linear-gradient(180deg, ${t.banda[0]} 0%, ${t.banda[1]} 100%)`,
         WebkitMaskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
         maskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
-      }} />
+      }} />}
       {texto}
     </div>
   );

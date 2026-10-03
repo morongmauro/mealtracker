@@ -502,6 +502,18 @@ if (typeof window !== 'undefined' && !window.storage) {
 // su almacenamiento. Ver mudanza.js.
 recibirMudanza();
 
+// La dirección del centro de aprendizaje con quién entra y a qué pantalla va.
+function urlCentro(base, { uid, name, go, goId } = {}) {
+  try {
+    const u = new URL(base);
+    if (uid) u.searchParams.set('mt_user', uid);
+    if (name) u.searchParams.set('mt_name', name);
+    if (go) u.searchParams.set('mt_go', go);
+    if (goId) u.searchParams.set('mt_id', goId);
+    return u.toString();
+  } catch (e) { return base; /* URL inválida: se abre tal cual */ }
+}
+
 export default function MealTracker() {
   const [view, setView] = useState('loading');
   const [goals, setGoals] = useState(null);
@@ -2560,7 +2572,7 @@ export default function MealTracker() {
     haptic(8);
     let uid = cloudUserIdRef.current;
     if (!uid) { try { uid = localStorage.getItem('cloudUserId'); } catch (e) {} }
-    let url = learningUrl;
+    let url;
     // Los botones pasan su onClick directo, así que aquí puede llegar un
     // evento de clic en vez de un destino. Solo se acepta texto.
     const ir = typeof destino === 'string' ? destino : '';
@@ -2570,14 +2582,7 @@ export default function MealTracker() {
     else if (ir === 'podcast' || ir === 'capsulas' || ir === 'onboarding' || ir === 'guia') { go = ir; }
     // Una pieza del onboarding (Hoy de Aprendizaje): el centro abre esa pantalla.
     else if (ir.indexOf('hub:') === 0) { go = ir.slice(4); }
-    try {
-      const u = new URL(learningUrl);
-      if (uid) u.searchParams.set('mt_user', uid);
-      if (name) u.searchParams.set('mt_name', name);
-      if (go) u.searchParams.set('mt_go', go);
-      if (goId) u.searchParams.set('mt_id', goId);
-      url = u.toString();
-    } catch (e) { /* URL inválida: se abre tal cual */ }
+    url = urlCentro(learningUrl, { uid, name, go, goId });
     // Overlay interno (iframe), no window.open: así no aparece la barra de
     // URL del navegador y el centro se siente una sección más de la app.
     setLearningSrc(url);
@@ -5007,6 +5012,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       if (op === 'hoy') {
         setShowRecetario(false); setShowDash(false); setShowTraining(false);
         setAprendeSub('hoy'); setShowLearning(true);
+        // El centro se carga ya por detrás (escondido), en el Onboarding:
+        // al tocar Onboarding o Cápsulas solo se cambia de pantalla, sin
+        // esperar la carga.
+        if (!learningSrc && learningUrl) {
+          let uid = cloudUserIdRef.current;
+          if (!uid) { try { uid = localStorage.getItem('cloudUserId'); } catch (e) {} }
+          setLearningSrc(urlCentro(learningUrl, { uid, name, go: 'onboarding' }));
+        }
         return;
       }
       // Con el centro ya abierto no se recarga: se le pide que cambie de

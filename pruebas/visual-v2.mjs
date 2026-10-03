@@ -174,6 +174,7 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   await ctx.clock.setFixedTime(new DateReal(FIJO));
   const p = await ctx.newPage();
   const errores = [];
+  let pulls = 0;
   p.on('pageerror', e => errores.push(e.message));
   await ctx.addInitScript((kv) => { for (const [k, v] of Object.entries(kv)) localStorage.setItem(k, v); }, almacen(nombre));
   if (!aviso) await ctx.addInitScript((f) => sessionStorage.setItem('mt:avisoRegistro', f), hoy);
@@ -187,6 +188,7 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
       const r = await llamar(handler, cuerpo);
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(r) });
     }
+    if (u.pathname === '/api/sync' && nube && ruta.request().method() !== 'POST' && u.searchParams.get('identity_for') == null) pulls++;
     if (u.pathname === '/api/sync' && nube) {
       const json = (o) => ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
       if (ruta.request().method() === 'POST') return json({ ok: true });
@@ -213,7 +215,7 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   await p.route('https://centro.test/**', r => r.fulfill({ status: 200, contentType: 'text/html',
     body: `<body style="margin:0;font:600 20px sans-serif;background:#F4F1EA;color:#333;display:grid;place-items:center;height:100vh"><div id=t>Centro · ${'${location.search}'}</div><script>document.getElementById('t').textContent='Centro de aprendizaje · '+(new URLSearchParams(location.search).get('mt_go')||'inicio');addEventListener('message',e=>{if(e.data&&e.data.tipo==='em-ir')document.getElementById('t').textContent='Centro de aprendizaje · '+e.data.a})</script></body>` }));
   await p.goto('http://localhost:5198/');
-  return { p, ctx, errores, db };
+  return { p, ctx, errores, db, pulls: () => pulls };
 }
 const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.png') });
 
@@ -242,10 +244,12 @@ try {
   await p.getByText('Días de cardio').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
-  ok('Dash: el saludo con la letra de las cabeceras y la firma del coach', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
+  ok('Dash: el saludo con la letra de las cabeceras, sin firma, sin banda curva y con manchas de 4 colores', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
     && /^MARTES 29/.test(await p.locator('[data-cabecera-hoy="dash"] [data-etiqueta]').innerText())
     && (await p.locator('[data-cabecera-hoy="dash"] [data-sub]').innerText()).length > 10
-    && await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').isVisible());
+    && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
+    && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 0
+    && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
     const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));
     return getComputedStyle(el).transitionProperty.includes('stroke-dashoffset') && o < c;
@@ -349,7 +353,7 @@ try {
     && /^MARTES 29 · SEMANA \d+ DE \d+$/.test(await cabE.locator('[data-etiqueta]').innerText())
     && /^(Hoy toca|Hecho por hoy|Día de descanso|Hoy no te toca|Semana completa|Tienes un entreno)/.test(await cabE.locator('[data-frase]').innerText()),
     `${await cabE.locator('[data-etiqueta]').innerText()} | ${await cabE.locator('[data-frase]').innerText()}`);
-  ok('…firmada por el coach y sin personajes en la cabecera', await cabE.locator('[data-firma-coach]').isVisible() && (await cabE.locator('[data-dibujo]').count()) === 0);
+  ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);
   ok('…con la banda delgada detrás de la barra y sin íconos', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('svg').count()) === 0
     && await cabE.locator('[data-banda]').evaluate(el => el.getBoundingClientRect().height < 140));
   ok('…la segunda línea en el azul de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(47, 108, 196)'));
@@ -798,7 +802,7 @@ try {
   await fin.waitFor({ timeout: 8000 });
   await espera(900);
   ok('fin: «Entreno hecho.» con la frase del coach y lo que hizo', (await fin.getByText('Entreno hecho.').count()) === 1
-    && /1\/7\s*ejercicios/.test(await fin.innerText()) && await fin.locator('[data-firma-coach]').isVisible(), await fin.innerText());
+    && /1\/7\s*ejercicios/.test(await fin.innerText()) && (await fin.locator('[data-firma-coach]').count()) === 0, await fin.innerText());
   ok('fin: la kettlebell levantando la barra, sin cara, entera', await fin.locator('[data-dibujo="pesas"]').evaluate(el => {
     const r = el.getBoundingClientRect(); return r.width > 150 && r.left >= 0 && r.right <= innerWidth && !el.querySelector('[stroke="#2A2A28"]');
   }));
@@ -875,7 +879,9 @@ try {
     && (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 0);
   await oa.p.getByRole('button', { name: /Recordat/ }).first().click();
   await oa.p.getByText('Haz 10 minutos de movilidad de cadera').waitFor({ timeout: 5000 }).catch(() => {});
-  ok('…pero está en Recordatorios', (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 1);
+  const enRec = (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 1;
+  if (!enRec) await foto(oa.p, '13c-recordatorios-FALLO');
+  ok('…pero está en Recordatorios', enRec, `pulls de la nube: ${oa.pulls ? oa.pulls() : '?'} · botones: ${(await oa.p.getByRole('button', { name: /Recordat/ }).allInnerTexts()).join(' | ')}`);
   await foto(oa.p, '13c-otra-persona-recordatorios');
   ok('sin errores de JavaScript (otra persona, aviso)', oa.errores.length === 0, oa.errores.join(' | '));
   await oa.ctx.close();

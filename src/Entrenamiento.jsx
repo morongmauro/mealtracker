@@ -12,7 +12,7 @@ import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, con
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
-import CabeceraHoy, { FirmaCoach } from './CabeceraHoy.jsx';
+import CabeceraHoy from './CabeceraHoy.jsx';
 import { IlustracionPesas } from './IlustracionesHoy.jsx';
 import { vozEntreno, vozFinEntreno } from './vozCoach.js';
 import Firma from './Firma.jsx';
@@ -1130,7 +1130,6 @@ function HojaFin({ fin, alCerrar }) {
               ))}
             </div>
           )}
-          <FirmaCoach />
           <button onClick={alCerrar} style={{
             width: '100%', marginTop: 18, padding: '14px 18px', borderRadius: 14, border: 0,
             background: TEXT, color: '#fff', fontSize: 15.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
