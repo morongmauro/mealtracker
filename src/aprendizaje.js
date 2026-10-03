@@ -87,11 +87,11 @@ const PODCASTS = [
 ];
 
 export const BLOQUES = [
-  { k: 'hub', titulo: 'Onboarding', bajada: 'Cómo funciona tu programa y tus apps', fuentes: ['hub'], prefijo: /^$/,
+  { k: 'hub', titulo: 'Onboarding', bajada: 'Cómo funciona tu programa y tu app', fuentes: ['hub'], prefijo: /^$/,
     catalogo: HUB.map(([id, title]) => ({ id, title })) },
   { k: 'guia', titulo: 'Guía de alimentación', bajada: 'Los capítulos de la guía', fuentes: ['guia', 'ga'], prefijo: /^$/, catalogo: GUIA },
   { k: 'capsula', titulo: 'Cápsulas', bajada: 'Láminas cortas de entrenamiento, nutrición y bienestar', fuentes: ['capsula'], prefijo: /^cap:/, catalogo: CAPSULAS },
-  { k: 'podcast', titulo: 'Podcast', bajada: 'Episodios recomendados', fuentes: ['podcast'], prefijo: /^pod:/, catalogo: PODCASTS },
+  { k: 'podcast', titulo: 'Videos', bajada: 'Episodios y videos recomendados', fuentes: ['podcast'], prefijo: /^pod:/, catalogo: PODCASTS },
 ];
 
 const normal = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();

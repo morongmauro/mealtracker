@@ -39,6 +39,9 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
   // quedan solo en su ícono para dejarles sitio.
   const subsAbiertas = (secciones.find(x => x.id === seccion) || {}).subs || [];
   const apretada = subsAbiertas.length >= 4 || subsAbiertas.reduce((n, x) => n + String(x.label || '').length, 0) > 20;
+  // Cuatro opciones con texto (Aprendizaje): todavía más compacta y sin el
+  // ícono de la sección, para que quepan enteras en un teléfono de 375 px.
+  const muyApretada = subsAbiertas.filter(x => x.label).length >= 4;
   return (
     <div ref={barRef} className="fixed left-0 right-0 bottom-0" style={{
       zIndex: 45, pointerEvents: 'none',
@@ -79,7 +82,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                   // Se encogen antes que el grupo abierto: en un teléfono
                   // angosto ceden espacio a las opciones, que son las que
                   // tienen texto.
-                  flex: apretada ? '1 1 40px' : '1 1 48px', minWidth: apretada ? 38 : 47, height: 48, borderRadius: 999, border: 'none',
+                  flex: muyApretada ? '1 1 34px' : apretada ? '1 1 40px' : '1 1 48px', minWidth: muyApretada ? 34 : apretada ? 38 : 47, height: 48, borderRadius: 999, border: 'none',
                   background: 'transparent', color: '#6A6860', position: 'relative',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   gap: 1, cursor: 'pointer', padding: 0, fontFamily: 'inherit',
@@ -107,7 +110,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
               }}>
               {/* El ícono de la sección se queda a la vista con sus opciones
                   abiertas: se sabe en qué parte de la app se está. */}
-              {!sinSubs && (
+              {!sinSubs && !muyApretada && (
                 <span aria-hidden="true" data-icono-seccion={s.id} style={{
                   flex: 'none', display: 'grid', placeItems: 'center', width: 22, height: 38, marginLeft: 3, color: c.ink,
                 }}><Icono size={20} weight="fill" /></span>
@@ -122,12 +125,12 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                     aria-label={o.aria || o.label}
                     style={{
                       flex: 'none', height: 38, borderRadius: 999, border: 'none', cursor: 'pointer',
-                      padding: SubIcono && !o.label ? '0 9px' : SubIcono ? '0 12px 0 10px' : apretada ? '0 7px' : '0 9px',
+                      padding: SubIcono && !o.label ? '0 9px' : SubIcono ? '0 12px 0 10px' : muyApretada ? '0 6px' : apretada ? '0 7px' : '0 9px',
                       // La activa es una pastilla de cristal blanco con la letra
                       // en el color de la sección: se distingue sin gritar.
                       background: activo ? 'rgba(255,255,255,0.92)' : 'transparent',
                       color: c.ink, opacity: activo ? 1 : 0.8,
-                      fontFamily: 'inherit', fontSize: apretada ? 12.5 : 13, fontWeight: activo ? 700 : 600,
+                      fontFamily: 'inherit', fontSize: muyApretada ? 12 : apretada ? 12.5 : 13, fontWeight: activo ? 700 : 600,
                       letterSpacing: '-0.01em', whiteSpace: 'nowrap',
                       display: 'flex', alignItems: 'center', gap: 5,
                       boxShadow: activo ? '0 1px 2px rgba(40,40,30,0.06), 0 4px 12px rgba(40,40,30,0.08)' : 'none',

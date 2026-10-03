@@ -502,6 +502,14 @@ if (typeof window !== 'undefined' && !window.storage) {
 // su almacenamiento. Ver mudanza.js.
 recibirMudanza();
 
+// La opción de la barra de Aprendizaje que corresponde a un destino del centro.
+function subAprendeDe(go) {
+  if (go === 'podcast' || go === 'videos') return 'videos';
+  if (go === 'capsulas' || go === 'guia' || go === 'lecturas') return 'lecturas';
+  if (go === 'onboarding' || ['programa', 'app', 'meal-tracker', 'journey', 'faq'].includes(go)) return 'onboarding';
+  return 'centro';
+}
+
 // La dirección del centro de aprendizaje con quién entra y a qué pantalla va.
 function urlCentro(base, { uid, name, go, goId } = {}) {
   try {
@@ -2579,7 +2587,7 @@ export default function MealTracker() {
     let go = '', goId = '';
     if (ir.indexOf('pod:') === 0) { go = 'podcast'; goId = ir.slice(4); }
     else if (ir.indexOf('cap:') === 0) { go = 'capsulas'; goId = ir.slice(4); }
-    else if (ir === 'podcast' || ir === 'capsulas' || ir === 'onboarding' || ir === 'guia') { go = ir; }
+    else if (['podcast', 'capsulas', 'onboarding', 'guia', 'lecturas', 'videos'].includes(ir)) { go = ir; }
     // Una pieza del onboarding (Hoy de Aprendizaje): el centro abre esa pantalla.
     else if (ir.indexOf('hub:') === 0) { go = ir.slice(4); }
     url = urlCentro(learningUrl, { uid, name, go, goId });
@@ -2589,12 +2597,9 @@ export default function MealTracker() {
     setShowRecetario(false);
     setShowDash(false);
     setShowTraining(false);
-    // Qué opción de la barra queda marcada: las piezas del onboarding bajo
-    // «Onboarding», el podcast bajo «Cápsulas»; la guía, ninguna.
-    setAprendeSub(go === 'podcast' ? 'capsulas'
-      : (go === 'capsulas' || go === 'onboarding') ? go
-      : ['programa', 'app', 'meal-tracker', 'journey', 'faq'].includes(go) ? 'onboarding'
-      : 'centro');
+    // Qué opción de la barra queda marcada: cápsulas y guía bajo «Lecturas»,
+    // el podcast bajo «Videos», las piezas del onboarding bajo «Onboarding».
+    setAprendeSub(subAprendeDe(go));
     setShowLearning(true);
   }, [learningUrl, name]);
 
@@ -4969,7 +4974,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       { id: 'calendario', label: '', icono: CalendarV2, aria: 'Calendario' },
     ] },
     ...(learningUrl ? [{ id: 'aprende', subs: [
-      { id: 'hoy', label: 'Hoy' }, { id: 'onboarding', label: 'Onboarding' }, { id: 'capsulas', label: 'Cápsulas' },
+      // Lecturas: las Cápsulas y la Guía de alimentación, al mismo nivel.
+      // Videos: el podcast. Onboarding: el método.
+      { id: 'hoy', label: 'Hoy' }, { id: 'lecturas', label: 'Lecturas' }, { id: 'videos', label: 'Videos' }, { id: 'onboarding', label: 'Onboarding' },
     ] }] : []),
   ];
   const irSubV2 = (sec, op) => {

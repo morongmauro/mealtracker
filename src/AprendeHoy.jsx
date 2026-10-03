@@ -95,11 +95,13 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
           <div data-avance style={{ ...tarjeta, display: 'flex', gap: 16, alignItems: 'center' }}>
             <Anillo pct={avance.pct} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>{avance.vistas} de {avance.total} piezas vistas</div>
-              {avance.bloques.map(b => (
+              <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>
+                {avance.vistas} de {avance.total} vistas{avance.total > avance.vistas ? ` · te faltan ${avance.total - avance.vistas}` : ''}
+              </div>
+              {ordenAvance(avance.bloques).map(b => (
                 <div key={b.k} style={{ marginTop: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: TEXT }}>
-                    <span style={{ fontWeight: 600 }}>{b.titulo}</span>
+                    <span style={{ fontWeight: 600 }}>{b.titulo}{PARTE[b.k] ? <span style={{ color: TEXT_MUTED, fontWeight: 500 }}> · {PARTE[b.k]}</span> : null}</span>
                     <span style={{ color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{b.vistas}/{b.total}</span>
                   </div>
                   <div style={{ height: 6, borderRadius: 99, background: CREMA, marginTop: 4, overflow: 'hidden' }}>
@@ -116,10 +118,11 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
       <h2 style={titulo}>Explora</h2>
       <div data-explora style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {[
-          ['onboarding', 'Onboarding', 'hub', 'onboarding'],
+          // Las mismas partes que la barra: Lecturas tiene dos, al mismo nivel.
           ['capsulas', 'Cápsulas', 'capsula', 'capsulas'],
           ['guia', 'Guía de alimentación', 'guia', 'guia'],
-          ['podcast', 'Podcast', 'podcast', 'podcast'],
+          ['podcast', 'Videos', 'podcast', 'videos'],
+          ['onboarding', 'Onboarding', 'hub', 'onboarding'],
         ].map(([k, t, bk, destino]) => {
           const Icono = ICONO[bk];
           const b = bloque(bk);
@@ -139,6 +142,11 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
     </div>
   );
 }
+
+// En qué opción de la barra vive cada parte, y en ese orden.
+const PARTE = { capsula: 'Lecturas', guia: 'Lecturas' };   // las otras ya se llaman como su opción
+const ORDEN = ['hub', 'guia', 'capsula', 'podcast'];
+const ordenAvance = (bs) => [...bs].sort((a, b) => ORDEN.indexOf(a.k) - ORDEN.indexOf(b.k));
 
 function Anillo({ pct, tam = 104, grosor = 10 }) {
   return (
