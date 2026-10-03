@@ -12,7 +12,7 @@ No las inventa una IA cada vez: es una lista fija de frases. La app elige cuál 
 Primera línea (en negro): **Tu plan viene en camino.**
 
 Segunda línea (en color), una de estas según el día:
-1. Mientras, muévete a tu manera.
+1. ~~Mientras, muévete a tu manera.~~ (quitada: solo sale «Tu plan viene en camino.»)
 
 ### Le toca rutina hoy (caso general)
 *Cuándo sale:* Hoy tiene rutina y no aplica ninguno de los casos de abajo.
@@ -25,7 +25,7 @@ Segunda línea (en color), una de estas según el día:
 4. Técnica primero, el peso viene solo.
 5. Hoy suma. Siempre suma.
 6. Calienta bien y a lo tuyo.
-7. Que la última serie cueste.
+7. Cada serie, bien hecha. *(cambiada)*
 8. Hazlo bien antes que hacerlo pesado.
 
 ### Es su último entreno de la semana
@@ -46,7 +46,7 @@ Primera línea (en negro): **Hoy toca {rutina}.**
 Segunda línea (en color), una de estas según el día:
 12. Empieza la semana con fuerza.
 13. Primer entreno de la semana: marca el ritmo.
-14. Arrancar bien es la mitad del trabajo.
+14. Un buen lunes ordena toda la semana. *(cambiada)*
 
 ### Ayer no entrenó
 *Cuándo sale:* Ayer le tocaba y no lo hizo (hoy también tiene rutina).
@@ -54,7 +54,7 @@ Segunda línea (en color), una de estas según el día:
 Primera línea (en negro): **Hoy toca {rutina}.**
 
 Segunda línea (en color), una de estas según el día:
-15. Lo de ayer puedes moverlo a otro día.
+15. ¿Ayer no se pudo? Pásalo a otro día de esta semana. *(cambiada)*
 16. Si ayer no se pudo, muévelo en tu calendario.
 17. Ayer quedó algo: acomódalo en tu semana.
 
@@ -105,7 +105,7 @@ Segunda línea (en color), una de estas según el día:
 Primera línea (en negro): **Semana completa.**
 
 Segunda línea (en color), una de estas según el día:
-31. Hoy descansas sin culpa.
+31. ~~Hoy descansas sin culpa.~~ (quitada)
 32. Te lo ganaste: hoy toca recuperar.
 33. Descansa: el trabajo ya está hecho.
 
@@ -115,9 +115,9 @@ Segunda línea (en color), una de estas según el día:
 Primera línea (en negro): **Hoy no te toca nada.**
 
 Segunda línea (en color), una de estas según el día:
-34. Buen día para lo que quedó de ayer.
+34. Hoy tienes espacio para lo que quedó pendiente. *(cambiada)*
 35. Si quieres, recupera hoy lo de ayer.
-36. Día libre: ideal para lo pendiente.
+36. ~~Día libre: ideal para lo pendiente.~~ (quitada)
 
 ### Descanso normal
 *Cuándo sale:* Día sin rutina.
@@ -258,12 +258,12 @@ Segunda línea (en color), una de estas según el día:
 *Cuándo sale:* Siempre (con racha de 3 o más días, antepone «N días seguidos registrando.»; con 7 o más, cambia por «Llevas N días seguidos registrando. Eso ya es un hábito.»).
 
 Una de estas según el día:
-75. Hoy toca avanzar un poco. Con eso basta.
+75. ~~Hoy toca avanzar un poco. Con eso basta.~~ (quitada)
 76. Lo que hagas hoy es lo que se ve en un mes.
-77. Tienes tu plan y me tienes a mí. Vamos.
+77. Tienes tu plan para hoy. Vamos por él. *(cambiada)*
 78. Un buen día son pocas decisiones bien tomadas.
 79. La constancia gana. Siempre.
-80. Mejor que ayer. Ese es todo el juego.
+80. Un poco mejor que ayer. De eso se trata. *(cambiada)*
 81. Hoy no hace falta ser perfecto, hace falta estar.
 
 ## Al terminar un entreno

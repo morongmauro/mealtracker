@@ -54,13 +54,13 @@ export function semanaDelPlan(plan) {
 // sin registro…).
 const V = {
   completa:      ['Todo lo del plan, hecho. Así se progresa.', 'Semana cumplida de punta a punta.', 'Cada entreno de la semana, hecho. Eso es constancia.'],
-  completaDesc:  ['Hoy descansas sin culpa.', 'Te lo ganaste: hoy toca recuperar.', 'Descansa: el trabajo ya está hecho.'],
+  completaDesc:  ['Te lo ganaste: hoy toca recuperar.', 'Descansa: el trabajo ya está hecho.'],
   aMedias:       ['Termínalo, ya hiciste lo difícil.', 'Te falta poco: ciérralo hoy.', 'Lo empezaste: lo que queda es lo más fácil.'],
   cierra:        ['Con este cierras la semana.', 'El último de la semana: a cerrarla bien.', 'Este completa tu semana.'],
-  lunes:         ['Empieza la semana con fuerza.', 'Primer entreno de la semana: marca el ritmo.', 'Arrancar bien es la mitad del trabajo.'],
-  ayer:          ['Lo de ayer puedes moverlo a otro día.', 'Si ayer no se pudo, muévelo en tu calendario.', 'Ayer quedó algo: acomódalo en tu semana.'],
+  lunes:         ['Empieza la semana con fuerza.', 'Primer entreno de la semana: marca el ritmo.', 'Un buen lunes ordena toda la semana.'],
+  ayer:          ['¿Ayer no se pudo? Pásalo a otro día de esta semana.', 'Si ayer no se pudo, muévelo en tu calendario.', 'Ayer quedó algo: acomódalo en tu semana.'],
   mitad:         ['Hoy pasas la mitad de la semana.', 'Con este ya vas más de la mitad.', 'Mitad de la semana: sigue igual.'],
-  libreAyer:     ['Buen día para lo que quedó de ayer.', 'Si quieres, recupera hoy lo de ayer.', 'Día libre: ideal para lo pendiente.'],
+  libreAyer:     ['Hoy tienes espacio para lo que quedó pendiente.', 'Si quieres, recupera hoy lo de ayer.'],
   sinMeta:       ['Registra lo que comes y te guío.', 'Anota tus comidas y lo vemos juntos.'],
   desayuno:      ['Empieza registrando tu desayuno.', 'Anota tu desayuno y arranca con datos.', 'Un registro temprano ordena el día.'],
   primera:       ['Anota tu primera comida, es un minuto.', 'Registra lo que llevas, aunque sea en una línea.', 'Lo que no se anota no se puede ajustar.'],
@@ -77,7 +77,7 @@ const RUTINA_GENERICA = [
   'Técnica primero, el peso viene solo.',
   'Hoy suma. Siempre suma.',
   'Calienta bien y a lo tuyo.',
-  'Que la última serie cueste.',
+  'Cada serie, bien hecha.',
   'Hazlo bien antes que hacerlo pesado.',
 ];
 const DESCANSO = [
@@ -105,7 +105,7 @@ export function vozEntreno({ plan, hoy }) {
   const extra = fase && fase.semana_actual ? `Semana ${fase.semana_actual} de ${fase.semanas}` : '';
   const etiqueta = etiquetaDia(hoy, extra);
   if (!plan || !plan.ok || !fase) {
-    return { etiqueta, a: 'Tu plan viene en camino.', b: 'Mientras, muévete a tu manera.' };
+    return { etiqueta, a: 'Tu plan viene en camino.' };
   }
   const dias = plan.dias || [];
   const dia = dias.find(d => d.es_hoy) || dias.find(d => d.fecha === hoy) || null;
@@ -189,12 +189,11 @@ export function vozAprende({ hoy, avance, quedan = 0 }) {
 // ── DASH ──────────────────────────────────────────────────────────────────
 
 const ANIMO = [
-  'Hoy toca avanzar un poco. Con eso basta.',
   'Lo que hagas hoy es lo que se ve en un mes.',
-  'Tienes tu plan y me tienes a mí. Vamos.',
+  'Tienes tu plan para hoy. Vamos por él.',
   'Un buen día son pocas decisiones bien tomadas.',
   'La constancia gana. Siempre.',
-  'Mejor que ayer. Ese es todo el juego.',
+  'Un poco mejor que ayer. De eso se trata.',
   'Hoy no hace falta ser perfecto, hace falta estar.',
 ];
 
