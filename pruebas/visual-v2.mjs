@@ -24,6 +24,7 @@ catch { console.error('Falta playwright:  npm i -g playwright'); process.exit(2)
 // vale solo en la semana en curso, y así la prueba no depende del día.
 const FIJO = Date.parse('2026-09-29T17:00:00Z');
 const DateReal = Date;
+const lento = { accion: null, ms: 0 };
 globalThis.Date = class extends DateReal {
   constructor(...a) { super(...(a.length ? a : [FIJO])); }
   static now() { return FIJO; }
@@ -180,7 +181,10 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   await p.route('**/api/**', async (ruta) => {
     const u = new URL(ruta.request().url());
     if (u.pathname === '/api/training') {
-      const r = await llamar(handler, JSON.parse(ruta.request().postData() || '{}'));
+      const cuerpo = JSON.parse(ruta.request().postData() || '{}');
+      // Red lenta a propósito (solo donde la prueba lo pide).
+      if (lento.accion && cuerpo.accion === lento.accion) await new Promise(r => setTimeout(r, lento.ms));
+      const r = await llamar(handler, cuerpo);
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(r) });
     }
     if (u.pathname === '/api/sync' && nube) {
@@ -381,7 +385,17 @@ try {
   await foto(p, '04h-hoy-anadida');
   // La rutina por dentro: el Push del lunes, desde su día
   await hoyV.locator(`[data-vista="semana"] [data-fecha="${lunes}"]`).click();
+  // Con la red lenta: la rutina ya se precargó, así que abre al instante y
+  // dice «Actualizando…» mientras llega lo del servidor.
+  Object.assign(lento, { accion: 'rutina', ms: 2500 });
   await p.locator('[data-hoja-scroll]').getByText('Push', { exact: true }).click();
+  let alInstante = true;
+  await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 900 }).catch(() => { alInstante = false; });
+  ok('abrir una rutina con red lenta: se ve al instante (sin pantalla vacía)', alInstante);
+  ok('…con «Actualizando» mientras llega lo del servidor', (await p.locator('[data-aviso="actualizando"]').count()) === 1);
+  await foto(p, '04i-rutina-actualizando');
+  await p.locator('[data-aviso="actualizando"]').waitFor({ state: 'detached', timeout: 8000 });
+  Object.assign(lento, { accion: null, ms: 0 });
   await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
   ok('la rutina se parte en calentamiento, fuerza y enfriamiento',
     (await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()) === 1 && (await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()) === 1,
@@ -528,8 +542,16 @@ try {
   await p.mouse.move(aSab.x + aSab.width / 2, aSab.y + aSab.height / 2, { steps: 8 });
   await espera(150);
   await foto(p, '05d-arrastrando');
+  Object.assign(lento, { accion: 'mover', ms: 1800 });
   await p.mouse.up();
-  await espera(1000);
+  await espera(250);
+  ok('arrastrar con red lenta: el cuadrito cambia de día al instante', (await cal.locator(`[data-fecha="${d(5)}"]`).innerText()).includes('Pull')
+    && !(await cal.locator(`[data-fecha="${d(4)}"]`).innerText()).includes('Pull'));
+  ok('…y mientras guarda dice «Actualizando»', (await p.locator('[data-aviso="actualizando"]').count()) === 1);
+  await foto(p, '05d2-actualizando');
+  await p.locator('[data-aviso="listo"]').waitFor({ timeout: 5000 });
+  Object.assign(lento, { accion: null, ms: 0 });
+  await espera(500);
   ok('arrastrar: el Pull pasa al sábado', (await cal.locator(`[data-fecha="${d(5)}"]`).innerText()).includes('Pull'));
   // A la semana que viene no se puede
   const deJ = await cal.locator(`[data-fecha="${d(3)}"] [data-chip]`).first().boundingBox();

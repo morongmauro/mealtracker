@@ -28,7 +28,9 @@ export const TEMAS = {
   entreno: { banda: ['#BFD5F4', '#D3E2F8'], m1: '#8FB3E8', m2: '#CFE0F7', m3: '#F6CFA9', base: '#EEF4FC', tinta: '#2F6CC4' },
   comida:  { banda: ['#C3E3CB', '#D6EDDC'], m1: '#9CCFA8', m2: '#D7EEDC', m3: '#F7E1A0', base: '#F0F8F1', tinta: '#2F7F45' },
   aprende: { banda: ['#F7CFAF', '#FADFCA'], m1: '#F6B98C', m2: '#FBE0CB', m3: '#A9C6EE', base: '#FDF3EA', tinta: '#C95F17' },
-  dash:    { banda: ['#E9E6DC', '#F0EEE7'], m1: '#9CCFA8', m2: '#A9C6EE', m3: '#F6B98C', base: '#F3F2EC', tinta: '#1F1F1F' },
+  // El Dash junta las tres secciones: la banda pasa del verde de Comida al
+  // azul de Entrenamiento y al naranja de Aprendizaje, y las manchas igual.
+  dash:    { banda: ['#C3E3CB', '#C9DBF6', '#F7D3B6'], m1: '#9CCFA8', m2: '#A9C6EE', m3: '#F6B98C', base: '#F3F2EC', tinta: '#1F1F1F' },
 };
 
 const CSS = `
@@ -60,7 +62,7 @@ export function FirmaCoach({ claro = false, compacta = false }) {
         display: 'grid', placeItems: 'center', fontSize: compacta ? 9 : 10.5, fontWeight: 800, letterSpacing: '0.02em',
         boxShadow: '0 0 0 2px rgba(255,255,255,0.7)',
       }}>MM</span>
-      <span style={{ fontSize: compacta ? 12.5 : 13.5, fontWeight: 600, color: claro ? '#FFFFFF' : '#4A4A48' }}>Mauro, tu coach</span>
+      <span style={{ fontSize: compacta ? 12.5 : 13.5, fontWeight: 600, color: claro ? '#FFFFFF' : '#4A4A48' }}>— Mauro, tu coach</span>
     </div>
   );
 }
@@ -118,7 +120,9 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = tru
       {/* La banda delgada: solo detrás de la barra de arriba, borde curvo. */}
       <div aria-hidden="true" data-banda style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: `calc(${arriba} + 14px)`, pointerEvents: 'none',
-        background: `linear-gradient(180deg, ${t.banda[0]} 0%, ${t.banda[1]} 100%)`,
+        background: t.banda.length > 2
+          ? `linear-gradient(90deg, ${t.banda.join(', ')})`
+          : `linear-gradient(180deg, ${t.banda[0]} 0%, ${t.banda[1]} 100%)`,
         WebkitMaskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
         maskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
       }} />

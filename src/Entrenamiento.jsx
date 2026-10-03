@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import EntrenoMes, { HoySemana, precargarMeses } from './EntrenoMes.jsx';
+import EntrenoMes, { HoySemana, precargarMeses, AvisoFlotante, ACTUALIZANDO } from './EntrenoMes.jsx';
 import EntrenoRutinas from './EntrenoRutinas.jsx';
 import EntrenoResumen from './EntrenoResumen.jsx';
 import EntrenoFotos from './EntrenoFotos.jsx';
@@ -136,6 +136,22 @@ const SinNav = () => null;
 // vuelta mostraba el «cargando» aunque nada hubiera cambiado.
 const cachePlan = new Map();
 
+// Lo marcado de una rutina que sigue en el teléfono sin subir (es lo más nuevo).
+// Las desmarcadas quedan como `null` para que borren lo que diga el servidor.
+function marcadasDeCola(name, rutinaId, fecha) {
+  const m = {};
+  cola.pendientes(x => x.name === name && x.rutina_id === rutinaId && x.fecha === fecha).forEach(x => {
+    const k = `${x.datos.rutina_ejercicio_id}:${x.datos.serie_num}`;
+    m[k] = x.datos.completada === false ? null : { reps: x.datos.reps, peso: x.datos.peso, unidad: x.datos.unidad || 'kg' };
+  });
+  return m;
+}
+const sobre = (m, cambios) => {
+  const n = { ...m };
+  Object.entries(cambios).forEach(([k, v]) => { if (v) n[k] = v; else delete n[k]; });
+  return n;
+};
+
 // Lo llama la app al abrir (en un rato libre): deja el plan y la semana
 // listos antes de que el cliente toque Entrenamiento.
 export async function precargar(name) {
@@ -143,6 +159,27 @@ export async function precargar(name) {
   const r = await api({ accion: 'plan', name });
   if (r && r.ok && !cachePlan.has(name)) cachePlan.set(name, r);
   precargarMeses(name);
+  if (r && r.ok) precargarRutinas(name, r);
+}
+
+// Las rutinas de la semana quedan guardadas en el teléfono antes de tocarlas:
+// al abrir una se pinta al instante con esa copia y se actualiza por detrás.
+// Primero la de hoy; una tras otra, sin amontonar pedidos. Una vez por
+// rutina y por visita a la app.
+const rutinasTraidas = new Set();
+export async function precargarRutinas(name, plan) {
+  const dias = (plan && plan.dias) || [];
+  const ids = [];
+  [...dias.filter(d => d.es_hoy), ...dias].forEach(d => {
+    const id = d && d.rutina && d.rutina.id;
+    if (id && !ids.includes(id) && !rutinasTraidas.has(`${name}|${id}`)) ids.push(id);
+  });
+  for (const id of ids) {
+    rutinasTraidas.add(`${name}|${id}`);
+    const r = await api({ accion: 'rutina', name, id });
+    if (r && r.ok && r.rutina) guardarRutinaLocal(almacen, r.rutina);
+    else rutinasTraidas.delete(`${name}|${id}`);
+  }
 }
 
 export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, recordatorios = null, avisoPago = null }) {
@@ -159,7 +196,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   const cargarPlan = useCallback(async () => {
     if (!cachePlan.has(name)) setCargando(true);
     const r = await api({ accion: 'plan', name });
-    if (r && r.ok) cachePlan.set(name, r);
+    if (r && r.ok) { cachePlan.set(name, r); precargarRutinas(name, r); }
     // Sin red y con algo guardado: se queda lo guardado, no un «sin plan».
     setPlan(r && r.ok ? r : (cachePlan.get(name) || { ok: false }));
     setCargando(false);
@@ -515,11 +552,18 @@ function FilaDia({ d, onAbrir }) {
 
 // ── UNA RUTINA, Y SU EJECUCIÓN ────────────────────────────────────────────
 function VistaRutina({ name, rutinaId, onVolver }) {
-  const [datos, setDatos] = useState(null);
+  // Se abre AL INSTANTE con la copia guardada en el teléfono (la precarga deja
+  // las de la semana listas) y lo del servidor llega por detrás, con un
+  // «Actualizando…» pequeño mientras tanto. Antes había que esperar dos
+  // pedidos seguidos mirando una pantalla vacía.
+  const [datos, setDatos] = useState(() => leerRutinaLocal(almacen, rutinaId));
   const [sinRed, setSinRed] = useState(false);     // se abrió con la copia del teléfono
   const [sesion, setSesion] = useState(null);
-  const [marcadas, setMarcadas] = useState({});   // "reId:serie" → { reps, peso }
-  const [cargando, setCargando] = useState(true);
+  const [marcadas, setMarcadas] = useState(() => sobre({}, marcadasDeCola(name, rutinaId, hoyLocal())));   // "reId:serie" → { reps, peso }
+  const [cargando, setCargando] = useState(() => !leerRutinaLocal(almacen, rutinaId));
+  const [actualizando, setActualizando] = useState(true);
+  // Lo que marca o desmarca mientras llega lo del servidor: gana sobre eso.
+  const tocadas = useRef({});
   const [cerrando, setCerrando] = useState(false);
   const [cerrandoHoja, setCerrandoHoja] = useState(false);
   const [errorCierre, setErrorCierre] = useState(null);
@@ -603,7 +647,13 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   useEffect(() => {
     let vivo = true;
     (async () => {
-      let r = await api({ accion: 'rutina', name, id: rutinaId });
+      // La rutina y la sesión de hoy, a la vez (antes una detrás de otra).
+      // Mirar no es entrenar: se pregunta por la sesión SIN crearla; se crea
+      // al marcar la primera serie (o al decir "no pude entrenar").
+      const [r, s] = await Promise.all([
+        api({ accion: 'rutina', name, id: rutinaId }),
+        entrenoApi.abrir(name, rutinaId, { crear: false }),
+      ]);
       if (!vivo) return;
       let rutina = r && r.ok ? r.rutina : null;
       if (rutina) guardarRutinaLocal(almacen, rutina);
@@ -614,10 +664,6 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         if (rutina) setSinRed(true);
       }
       setDatos(rutina);
-      // Mirar no es entrenar: se pregunta por la sesión de hoy SIN crearla.
-      // Se crea al marcar la primera serie (o al decir "no pude entrenar").
-      const s = rutina ? await entrenoApi.abrir(name, rutinaId, { crear: false }) : null;
-      if (!vivo) return;
       const m = {};
       if (s && s.ok) {
         if (s.sesion) setSesion(s.sesion);
@@ -628,13 +674,9 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         });
       }
       // Lo que está en la cola manda sobre lo del servidor: es más nuevo.
-      cola.pendientes(deEsta).forEach(x => {
-        const k = `${x.datos.rutina_ejercicio_id}:${x.datos.serie_num}`;
-        if (x.datos.completada === false) delete m[k];
-        else m[k] = { reps: x.datos.reps, peso: x.datos.peso, unidad: x.datos.unidad || 'kg' };
-      });
-      setMarcadas(m);
+      setMarcadas(sobre(sobre(m, marcadasDeCola(name, rutinaId, fecha)), tocadas.current));
       setCargando(false);
+      setActualizando(false);
     })();
     return () => { vivo = false; };
   }, [name, rutinaId, deEsta]);
@@ -661,6 +703,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const marcar = useCallback((re, serie, reps, peso, descansoSeg, unidad = 'kg') => {
     const clave = `${re.id}:${serie}`;
     setMarcadas(m => ({ ...m, [clave]: { reps, peso, unidad } }));   // optimista: el check no espera a la red
+    tocadas.current[clave] = { reps, peso, unidad };
     // El descanso lo decide quien pinta la fila: entre series de un ejercicio
     // el del ejercicio; en un circuito, el corto entre estaciones o el largo
     // al terminar la vuelta.
@@ -675,6 +718,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const desmarcar = useCallback((re, serie) => {
     const clave = `${re.id}:${serie}`;
     setMarcadas(m => { const n = { ...m }; delete n[clave]; return n; });
+    tocadas.current[clave] = null;
     escribirSerie({
       rutina_ejercicio_id: re.id, ejercicio_id: re.ejercicio.id,
       serie_num: serie, reps: null, peso: null, completada: false,
@@ -719,7 +763,35 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     else setRemate(true);
   }, [cerrando, deEsta, asegurarSesion, name, onVolver]);
 
-  if (cargando) return <Centrado><Loader2 size={20} className="animate-spin" color={TEXT_LIGHT} /></Centrado>;
+  // Primera vez que abre esta rutina (no hay copia en el teléfono): la
+  // pantalla sale ya, con su nombre y la forma de las tarjetas, mientras llega.
+  if (cargando) {
+    const titulo = (cachePlan.get(name)?.dias || []).find(d => d.rutina && d.rutina.id === rutinaId)?.rutina.nombre || '';
+    const v2c = v2Activa();
+    return (
+      <div data-rutina-esqueleto>
+        <Volver onClick={onVolver} />
+        <div style={{ marginBottom: 16 }}>
+          {titulo
+            ? <div style={v2c ? { fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, color: TEXT }
+              : { fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em', textTransform: 'uppercase', lineHeight: 1, color: TEXT }}>{titulo}</div>
+            : <div className="mt-esq" style={{ height: 28, width: '60%', borderRadius: 8 }} />}
+          <div className="mt-esq" style={{ height: 12, width: '45%', borderRadius: 6, marginTop: 12 }} />
+        </div>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} style={{ background: SURFACE, borderRadius: 16, padding: 16, boxShadow: SHADOW_CARD, marginBottom: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div className="mt-esq" style={{ width: 56, height: 56, borderRadius: 12, flex: 'none' }} />
+            <div style={{ flex: 1 }}>
+              <div className="mt-esq" style={{ height: 14, width: `${70 - i * 8}%`, borderRadius: 6 }} />
+              <div className="mt-esq" style={{ height: 11, width: '40%', borderRadius: 6, marginTop: 9 }} />
+            </div>
+          </div>
+        ))}
+        <style>{'@keyframes mt-esq{0%{opacity:.55}50%{opacity:1}100%{opacity:.55}}.mt-esq{background:#ECEBE6;animation:mt-esq 1.4s ease-in-out infinite}@media (prefers-reduced-motion: reduce){.mt-esq{animation:none}}'}</style>
+        <AvisoFlotante aviso={ACTUALIZANDO} />
+      </div>
+    );
+  }
   if (!datos) {
     return (
       <>
@@ -763,6 +835,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   return (
     <>
       <Volver onClick={onVolver} />
+      {actualizando && <AvisoFlotante aviso={ACTUALIZANDO} />}
 
       {(sinRed || (pendientes > 0 && avisarPendientes)) && (
         <div style={{

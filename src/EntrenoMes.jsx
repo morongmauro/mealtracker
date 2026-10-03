@@ -57,6 +57,49 @@ export default function Mes(props) {
 }
 
 // Visual nueva: lo de hoy y la semana en curso, para la pantalla Hoy.
+// ── Cambios que se ven al instante ──
+// Al mover, añadir o quitar una rutina el calendario cambia YA (antes
+// esperaba la respuesta del servidor y parecía que no había pasado nada: la
+// gente volvía a arrastrar). Mientras se guarda sale «Actualizando…»; si el
+// servidor dice que no, todo vuelve a como estaba y se explica por qué.
+export const ACTUALIZANDO = { cargando: true, texto: 'Actualizando…' };
+
+// `cambios`: { fecha: { campos del día que cambian } } sobre la lista de días
+// de un mes. Devuelve la lista nueva (o la misma si no toca ese mes).
+export function aplicarCambios(dias, cambios) {
+  if (!dias || !dias.some(d => d.fecha in cambios)) return dias;
+  return dias.map(d => (d.fecha in cambios ? { ...d, ...cambios[d.fecha] } : d));
+}
+
+// Lo que cambia al mover `desde` → `hasta`: si el otro día tenía rutina, se
+// intercambian; las dos quedan marcadas como movidas.
+export function cambiosDeMover(dDesde, dHasta) {
+  const otra = dHasta && dHasta.rutina && !dHasta.extra ? dHasta.rutina : null;
+  return {
+    [dDesde.fecha]: { rutina: otra, movida: !!otra, estado: null },
+    [dHasta.fecha]: { rutina: dDesde.rutina, movida: true, extra: false, estado: null },
+  };
+}
+
+export function AvisoFlotante({ aviso }) {
+  if (!aviso) return null;
+  const cargando = typeof aviso === 'object' && aviso.cargando;
+  return (
+    <div role="status" data-aviso={cargando ? 'actualizando' : 'listo'} style={{
+      position: 'fixed', left: '50%', bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', transform: 'translateX(-50%)',
+      zIndex: 70, background: TEXT, color: '#fff', borderRadius: 999, padding: '10px 16px',
+      fontSize: 14, fontWeight: 650, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', maxWidth: '88vw', textAlign: 'center',
+      display: 'flex', alignItems: 'center', gap: 9, whiteSpace: cargando ? 'nowrap' : undefined,
+    }}>
+      {cargando && <span aria-hidden="true" className="mt-girando" style={{
+        width: 14, height: 14, borderRadius: 99, border: '2px solid rgba(255,255,255,0.35)', borderTopColor: '#fff', flex: 'none',
+      }} />}
+      <span>{cargando ? aviso.texto : aviso}</span>
+      <style>{'@keyframes mt-gira{to{transform:rotate(360deg)}}.mt-girando{animation:mt-gira .8s linear infinite}@media (prefers-reduced-motion: reduce){.mt-girando{animation-duration:2.4s}}'}</style>
+    </div>
+  );
+}
+
 export function HoySemana(props) {
   return <MesV2 {...props} modo="hoy" />;
 }
@@ -87,7 +130,7 @@ function MesClasico({ nombre, alEntrenar }) {
   useEffect(() => {
     api.catalogo(nombre).then(r => setCatalogo(r.ok && r.catalogo?.length ? r.catalogo : CATALOGO_MINIMO));
   }, [nombre]);
-  useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 3200); return () => clearTimeout(t); }, [aviso]);
+  useEffect(() => { if (!aviso || aviso.cargando) return; const t = setTimeout(() => setAviso(null), 3200); return () => clearTimeout(t); }, [aviso]);
 
   const mover = (delta) => {
     const [y, m] = ym.split('-').map(Number);
@@ -113,8 +156,13 @@ function MesClasico({ nombre, alEntrenar }) {
   const moverRutina = async (desde, hasta) => {
     const d = porFecha[desde];
     if (!d || !d.rutina || desde === hasta) return;
+    const antes = datos;
+    setDatos(x => (x ? { ...x, dias: aplicarCambios(x.dias, cambiosDeMover(d, porFecha[hasta] || { fecha: hasta })) } : x));
+    setAbierto(null);
+    setAviso(ACTUALIZANDO);
     const r = await api.mover(nombre, { desde, hasta, rutina_id: d.rutina.id });
     if (!r.ok) {
+      setDatos(antes);
       setAviso({
         pasado: 'Solo se mueven días de hoy en adelante.',
         fuera_de_fase: 'Ese día está fuera de tu fase.',
@@ -254,13 +302,7 @@ function MesClasico({ nombre, alEntrenar }) {
         }}>{arrastre.nombre}</div>
       )}
 
-      {aviso && (
-        <div role="status" style={{
-          position: 'fixed', left: '50%', bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', transform: 'translateX(-50%)',
-          zIndex: 70, background: TEXT, color: '#fff', borderRadius: 999, padding: '10px 16px',
-          fontSize: 14, fontWeight: 650, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', maxWidth: '88vw', textAlign: 'center',
-        }}>{aviso}</div>
-      )}
+      <AvisoFlotante aviso={aviso} />
 
       <HojaDia
         dia={diaAbierto}
@@ -307,7 +349,7 @@ function Celda({ dia, P, v2, sobre, origen, alTocar, alPresionar }) {
   return (
     <button data-fecha={dia.fecha} onClick={alTocar} style={{
       aspectRatio: v2 ? '1 / 1.3' : '1 / 1.15',
-      border: `${sobre ? 2 : 1}px ${sobre ? 'dashed' : 'solid'} ${sobre ? P.base : dia.es_hoy ? P.base : BORDER_SOFT}`,
+      border: `${sobre ? 2 : 1}px ${sobre ? 'dotted' : 'solid'} ${sobre ? P.base : dia.es_hoy ? P.base : BORDER_SOFT}`,
       background: sobre ? P.tint : dia.es_hoy ? P.tint : SURFACE,
       opacity: origen ? 0.45 : 1,
       borderRadius: 11, padding: '5px 4px 4px', cursor: 'pointer',
@@ -331,7 +373,7 @@ function Celda({ dia, P, v2, sobre, origen, alTocar, alPresionar }) {
           padding: v2 ? '3px 3px' : '2px 3px', overflow: 'hidden', textOverflow: 'ellipsis',
           whiteSpace: v2 ? 'normal' : 'nowrap', textAlign: 'left',
           display: v2 ? '-webkit-box' : 'block', WebkitLineClamp: v2 ? 2 : undefined, WebkitBoxOrient: v2 ? 'vertical' : undefined,
-          outline: dia.movida ? `1px dashed ${P.base}` : 'none', outlineOffset: 1,
+          outline: dia.movida ? `1.5px dotted ${P.base}` : 'none', outlineOffset: 1,
           touchAction: 'pan-y', WebkitTouchCallout: 'none',
         }}>{bloque.nombre}</div>
       )}
@@ -814,7 +856,8 @@ function ChipRutina({ nombre, hecha, movida, P, lineas, grande, arrastre }) {
       WebkitLineClamp: lineas || undefined, WebkitBoxOrient: lineas ? 'vertical' : undefined,
       overflow: 'hidden', wordBreak: 'normal', overflowWrap: 'break-word', letterSpacing: grande ? 'normal' : '-0.02em',
       background: hecha ? P.base : '#FFFFFF', color: hecha ? '#fff' : P.ink,
-      border: `1.5px ${movida && !hecha ? 'dashed' : 'solid'} ${P.base}`,
+      // Movida o añadida por el cliente: borde de puntitos (no rayas).
+      border: `${movida && !hecha ? 2 : 1.5}px ${movida && !hecha ? 'dotted' : 'solid'} ${P.base}`,
       borderRadius: grande ? 12 : 6, padding: grande ? '8px 11px' : '3px 2px',
       fontSize: grande ? 15 : 10, fontWeight: 750, lineHeight: 1.18, textAlign: 'left',
       WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', cursor: 'grab',
@@ -921,7 +964,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
       cacheCatalogo.set(nombre, c); setCatalogo(c);
     });
   }, [nombre]);
-  useEffect(() => { if (!aviso) return; const t = setTimeout(() => setAviso(null), 3600); return () => clearTimeout(t); }, [aviso]);
+  useEffect(() => { if (!aviso || aviso.cargando) return; const t = setTimeout(() => setAviso(null), 3600); return () => clearTimeout(t); }, [aviso]);
 
   const porFecha = useMemo(() => {
     const out = {};
@@ -961,10 +1004,27 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const textoChoque = (c, verbo) => `El ${c.dia} haces ${c.rutina}, que trabaja lo mismo${c.musculos.length ? ` (${c.musculos.join(', ')})` : ''}. `
     + `Lo ideal es dejar al menos un día de descanso entre rutinas que trabajan los mismos músculos. ¿${verbo} igual?`;
 
+  // Cambia el calendario ya y devuelve cómo deshacerlo.
+  const alInstante = (cambios) => {
+    const antes = {};
+    setCache(c => {
+      const n = { ...c };
+      Object.keys(n).forEach(m => {
+        const dias = aplicarCambios(n[m].dias, cambios);
+        if (dias !== n[m].dias) { antes[m] = n[m]; n[m] = { ...n[m], dias }; }
+      });
+      return n;
+    });
+    return () => setCache(c => ({ ...c, ...antes }));
+  };
   const hacerMover = async (desde, hasta) => {
     const d = porFecha[desde];
+    const deshacer = alInstante(cambiosDeMover(d, porFecha[hasta] || { fecha: hasta }));
+    setAbierto(null);
+    setAviso(ACTUALIZANDO);
     const r = await api.mover(nombre, { desde, hasta, rutina_id: d.rutina.id });
     if (!r.ok) {
+      deshacer();
       setAviso({
         otra_semana: 'Solo puedes mover rutinas dentro de esta semana.',
         fuera_de_fase: 'Ese día está fuera de tu ciclo.',
@@ -988,9 +1048,14 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     hacerMover(desde, hasta);
   };
   const hacerAgregar = async (fecha, rutinaId) => {
-    const r = await api.agregarRutina(nombre, { fecha, rutina_id: rutinaId });
+    const rut = rutinasCiclo.find(x => x.id === rutinaId);
+    const deshacer = alInstante({ [fecha]: { rutina: rut ? { id: rut.id, nombre: rut.nombre, corto: rut.corto } : { id: rutinaId, nombre: 'Rutina' }, extra: true, movida: true } });
     setEligiendo(null);
+    setAbierto(null);
+    setAviso(ACTUALIZANDO);
+    const r = await api.agregarRutina(nombre, { fecha, rutina_id: rutinaId });
     if (!r.ok) {
+      deshacer();
       setAviso({
         ocupado: 'Ese día ya tiene rutina.', otra_semana: 'Solo puedes añadir rutinas en esta semana.',
         sin_tabla: 'Añadir rutinas aún no está disponible. Avísale a tu coach.',
@@ -1007,8 +1072,11 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     hacerAgregar(fecha, rutinaId);
   };
   const quitarRutina = async (fecha) => {
+    const deshacer = alInstante({ [fecha]: { rutina: null, extra: false, movida: false } });
+    setAbierto(null);
+    setAviso(ACTUALIZANDO);
     const r = await api.quitarRutina(nombre, { fecha });
-    if (!r.ok) { setAviso(r.motivo === 'ya_entrenada' ? 'Ya la entrenaste: queda en tu registro.' : 'No se pudo quitar. Inténtalo otra vez.'); return; }
+    if (!r.ok) { deshacer(); setAviso(r.motivo === 'ya_entrenada' ? 'Ya la entrenaste: queda en tu registro.' : 'No se pudo quitar. Inténtalo otra vez.'); return; }
     setAviso('Rutina quitada. Ese día vuelve a estar libre.');
     setAbierto(null);
     recargar([fecha]);
@@ -1116,13 +1184,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
           fontSize: 14, fontWeight: 800, boxShadow: '0 10px 26px rgba(30,40,60,0.3)', whiteSpace: 'nowrap',
         }}>{nombreCorto(arrastre.nombre)}</div>
       )}
-      {aviso && (
-        <div role="status" style={{
-          position: 'fixed', left: '50%', bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', transform: 'translateX(-50%)',
-          zIndex: 70, background: TEXT, color: '#fff', borderRadius: 999, padding: '10px 16px',
-          fontSize: 14, fontWeight: 650, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', maxWidth: '88vw', textAlign: 'center',
-        }}>{aviso}</div>
-      )}
+      <AvisoFlotante aviso={aviso} />
 
       {/* Por portal: tiene que quedar encima de la hoja de elegir rutina,
           que también va a <body>. */}
@@ -1280,7 +1342,7 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
     <div data-fecha={fecha} role="button" tabIndex={0} onClick={alTocar} style={{
       display: 'flex', gap: 12, padding: '11px 12px', borderRadius: 18, cursor: dia ? 'pointer' : 'default',
       background: sobre ? P.tint : esHoy ? '#F4F8FE' : SURFACE, opacity: origen ? 0.5 : 1,
-      border: sobre ? `2px dashed ${P.base}` : esHoy ? `1.5px solid ${P.base}` : '1.5px solid transparent',
+      border: sobre ? `2px dotted ${P.base}` : esHoy ? `1.5px solid ${P.base}` : '1.5px solid transparent',
       boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)',
     }}>
       <div style={{ width: 42, flex: 'none', textAlign: 'center' }}>
@@ -1336,7 +1398,7 @@ function CeldaV2({ dia, P, hoy, sobre, origen, arrastrable, alTocar, semanaActua
       minHeight: 70, borderRadius: 11, padding: '4px 2px 3px', cursor: 'pointer', fontFamily: 'inherit',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3, overflow: 'hidden', minWidth: 0,
       background: sobre ? P.tint : esHoy ? '#F4F8FE' : ajeno ? 'rgba(255,255,255,0.55)' : SURFACE, opacity: origen ? 0.45 : 1,
-      border: sobre ? `2px dashed ${P.base}` : esHoy ? `1.5px solid ${P.base}` : `1px solid ${BORDER_SOFT}`,
+      border: sobre ? `2px dotted ${P.base}` : esHoy ? `1.5px solid ${P.base}` : `1px solid ${BORDER_SOFT}`,
       WebkitUserSelect: 'none', userSelect: 'none',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px' }}>
@@ -1374,7 +1436,7 @@ function LeyendaV2({ P }) {
     <div data-leyenda style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', fontSize: 11.5, color: TEXT_MUTED, marginTop: 8, lineHeight: 1.3 }}>
       {item(caja(false), 'Por hacer')}
       {item(caja(true), 'Hecho')}
-      {item(<span style={{ width: 13, height: 9, borderRadius: 3, background: '#fff', border: `1.5px dashed ${P.base}` }} />, 'Movida o añadida por ti')}
+      {item(<span style={{ width: 13, height: 9, borderRadius: 3, background: '#fff', border: `2px dotted ${P.base}` }} />, 'Movida o añadida por ti')}
       {item(<span style={{ width: 13, height: 13, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center' }}><IconoEvento tipo="peso" size={8} /></span>, 'Peso, medidas o fotos')}
       {item(<Flag size={11} weight="fill" color={P.base} />, 'Inicio de ciclo')}
       {item(<CurrencyCircleDollar size={12} weight="fill" color={AMBAR_PAGO} />, 'Corte de pago')}

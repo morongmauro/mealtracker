@@ -335,7 +335,7 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
   return (
     <Marco ref={raizRef}>
       {/* Saludo: con la misma letra y la voz del coach de las cabeceras de Hoy. */}
-      <CabeceraHoy tema="dash" fondo={false} sangria="16px"
+      <CabeceraHoy tema="dash" sangria="16px" arriba="calc(62px + env(safe-area-inset-top, 0px))"
         voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, sub: vozDash({ hoy, racha }) }} />
 
       {/* Atajos: en UNA sola línea y compactos, para no quitarle el
