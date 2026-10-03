@@ -40,7 +40,7 @@ function base({ conDescansoEntre = true } = {}) {
     porDefecto: { sesiones: { estado: 'en_curso' }, series_log: { completada: true } },
     tablas: {
       clientes: [{ id: 'c1', user_id: 'coach-1', nombre: 'Mauro Morón', estado: 'activo' }, { id: 'c2', nombre: 'Otra Persona', estado: 'activo' }],
-      fases: [{ id: 'f1', cliente_id: 'c1', nombre: 'Fase 1', estado: 'activa', visible_cliente: true, orden: 1,
+      fases: [{ id: 'f1', cliente_id: 'c1', nombre: 'Fase 1', objetivo: 'Bloque importado de Trainerize — la rutina que ya venía haciendo.', estado: 'activa', visible_cliente: true, orden: 1,
         fecha_inicio: mas(lunes, -14), semanas: 8, dias_semana: ['L', 'M', 'J', 'V'] }],
       rutinas: [
         { id: 'r1', cliente_id: 'c1', fase_id: 'f1', nombre: 'Push', dia_orden: 1, dias_semana: ['L', 'J'], archivada: false, visible_cliente: null },
@@ -171,6 +171,16 @@ await caso('la semana: el Push del lunes hecho el martes cuenta, y el martes no 
   const L = p.dias.find(d => d.dia === 'L'), M = p.dias.find(d => d.dia === 'M');
   igual([L.hecha, L.hecha_el], [true, mas(lunes, 1)], 'lunes');
   igual(M.hecha, false, 'martes (tocaba Lower)');
+});
+
+await caso('la nota de la importación no le llega al cliente', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  const p = await llamar(handler, { accion: 'plan', name: yo });
+  igual(p.fase.objetivo, null, 'objetivo en el plan');
+  const r = await llamar(handler, { accion: 'rutinas', name: yo });
+  igual(JSON.stringify(r).includes('rainerize') || JSON.stringify(r).includes('mportad'), false, 'nada en las rutinas');
+  sb.db.fases[0].objetivo = 'Ganar fuerza en los básicos';
+  igual((await llamar(handler, { accion: 'plan', name: yo })).fase.objetivo, 'Ganar fuerza en los básicos', 'un objetivo de verdad sí sale');
 });
 
 await caso('el mes: entrenar otra rutina ese día se ve', async () => {

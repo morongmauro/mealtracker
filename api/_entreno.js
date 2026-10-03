@@ -153,6 +153,15 @@ export const TIPOS_REGISTRO = ['medidas', 'peso', 'fotos', 'medicion'];
 // «Cycle 2» (lo que traía Trainerize) → «Ciclo 2». En español siempre.
 export const nombreFase = (n) => String(n || '').replace(/\bcycle\b/gi, 'Ciclo');
 
+// El objetivo de la fase tal como lo ve el cliente. Las fases que se cargaron
+// desde el programa anterior traían de objetivo una nota de la importación
+// («Bloque importado de …»): eso es del coach, no del cliente, y no sale.
+export const objetivoCliente = (t) => {
+  const s = String(t || '').trim();
+  if (!s || /trainerize|importad/i.test(s)) return null;
+  return s;
+};
+
 // La fase que el cliente puede ver: activa Y ENVIADA.
 //
 // `estado` y `visible_cliente` son dos cosas distintas y las dos tienen que

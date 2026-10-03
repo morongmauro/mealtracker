@@ -37,7 +37,7 @@ import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
   diasDeRutina, repartirPorDia, FASE_VISIBLE, rutinaVisible, finDeFase,
-  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, extrasDe, nombreCorto, TIPOS_REGISTRO, nombreFase,
+  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, extrasDe, nombreCorto, TIPOS_REGISTRO, nombreFase, objetivoCliente,
 } from './_entreno.js';
 import { alertarCoach } from './_alerta.js';
 import { whatsappCoach, textoNotaWhatsapp } from './_whatsapp.js';
@@ -193,7 +193,7 @@ async function verPlan(cliente, hoy) {
   return {
     ok: true, hoy, cliente: cliente.nombre,
     fase: {
-      nombre: nombreFase(fase.nombre), objetivo: fase.objetivo,
+      nombre: nombreFase(fase.nombre), objetivo: objetivoCliente(fase.objetivo),
       semanas: fase.semanas, semana_actual: semanaDeFase(fase, hoy),
       dias_semana: fase.dias_semana || [],
     },
@@ -1074,7 +1074,7 @@ async function verRutinas(cliente) {
   const rr = await sb(`rutinas?select=id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
     + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
   const rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
-  if (!rutinas.length) return { ok: true, fase: { nombre: nombreFase(fase.nombre), objetivo: fase.objetivo }, rutinas: [] };
+  if (!rutinas.length) return { ok: true, fase: { nombre: nombreFase(fase.nombre), objetivo: objetivoCliente(fase.objetivo) }, rutinas: [] };
 
   // Qué trabaja cada rutina: los músculos de sus ejercicios, para que se
   // distinga "Push" de "Pull" sin abrir ninguna.
@@ -1092,7 +1092,7 @@ async function verRutinas(cliente) {
   return {
     ok: true,
     fase: {
-      nombre: nombreFase(fase.nombre), objetivo: fase.objetivo,
+      nombre: nombreFase(fase.nombre), objetivo: objetivoCliente(fase.objetivo),
       semanas: fase.semanas, desde: fase.fecha_inicio, hasta: finDeFase(fase),
     },
     rutinas: rutinas.map(r => {
