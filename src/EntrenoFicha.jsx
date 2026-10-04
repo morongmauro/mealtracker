@@ -21,16 +21,16 @@ import { v2Activa, nombresEj } from './v2.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import { LABEL } from './taxonomia.js';
 import { miniatura, urlVideo, urlVideoLimpio, fechaLarga } from './entrenoDatos.js';
+import VideoLimpio from './VideoLimpio.jsx';
 
 export default function Ejercicio({ item, abierto, alCerrar }) {
   const [verVideo, setVerVideo] = useState(false);
-  const [conSonido, setConSonido] = useState(false);   // visual nueva: del bucle limpio al reproductor normal
   // Visual nueva: las características se ven de entrada (no hay que buscarlas).
   const [verCaracs, setVerCaracs] = useState(v2Activa());
 
   // El componente se desmonta al cerrar, pero por si acaso: cambiar de
   // ejercicio con el video abierto no debe heredar el reproductor anterior.
-  React.useEffect(() => { setVerVideo(false); setConSonido(false); setVerCaracs(v2Activa()); }, [item?.ejercicio?.id]);
+  React.useEffect(() => { setVerVideo(false); setVerCaracs(v2Activa()); }, [item?.ejercicio?.id]);
 
   const e = item?.ejercicio;
   if (!e) return null;
@@ -73,21 +73,12 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
           </span>
         </button>
       )}
-      {video && verVideo && v2Activa() && !conSonido && (
-        // Visual nueva: el ejercicio en bucle, sin el «ruido» de YouTube.
-        <div data-video-limpio style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', aspectRatio: '16 / 9', background: '#000' }}>
-          <iframe src={urlVideoLimpio(e)} title={e.nombre} tabIndex={-1}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  style={{ position: 'absolute', width: '100%', height: '100%', border: 'none', transform: 'scale(1.22)', transformOrigin: 'center', pointerEvents: 'none' }} />
-          <div aria-hidden="true" style={{ position: 'absolute', inset: 0 }} />
-          <button onClick={() => setConSonido(true)} style={{
-            position: 'absolute', right: 10, bottom: 10, height: 32, padding: '0 12px', borderRadius: 99, border: 0, cursor: 'pointer',
-            background: 'rgba(20,20,18,0.62)', color: '#fff', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700,
-            WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)',
-          }}>Con sonido</button>
-        </div>
+      {video && verVideo && v2Activa() && (
+        // Visual nueva: el ejercicio en bucle, sin el «ruido» de YouTube, con
+        // barrita para moverlo y sonido que se prende y se apaga.
+        <VideoLimpio src={urlVideoLimpio(e)} miniatura={thumb} titulo={e.nombre} />
       )}
-      {video && verVideo && (!v2Activa() || conSonido) && (
+      {video && verVideo && !v2Activa() && (
         <div style={{ borderRadius: 14, overflow: 'hidden', aspectRatio: '16 / 9', background: '#000' }}>
           <iframe src={`${video}&autoplay=1`} title={e.nombre} allowFullScreen
                   allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"

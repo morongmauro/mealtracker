@@ -10,7 +10,7 @@ import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
 import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
-import { nombresEj, v2Activa } from './v2.js';
+import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { IlustracionPesas } from './IlustracionesHoy.jsx';
@@ -18,7 +18,7 @@ import { vozEntreno, vozFinEntreno } from './vozCoach.js';
 import Firma from './Firma.jsx';
 import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
-import { Bell, Ruler, CheckCircle, PlayCircle } from '@phosphor-icons/react';
+import { Bell, Ruler, CheckCircle, WhatsappLogo } from '@phosphor-icons/react';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
@@ -263,7 +263,6 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         {seccionV2 && <CabeceraHoy tema="entreno" voz={vozEntreno({ plan, hoy: hoyLocal() })}
         arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} />}
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
-      {avisoPago}
         <Tarjeta>
           <Fila icono={<Info size={18} color={TEXT_LIGHT} />} titulo="Todavía no hay nada aquí" />
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
@@ -280,7 +279,6 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
       {seccionV2 && <CabeceraHoy tema="entreno" voz={vozEntreno({ plan, hoy: hoyLocal() })}
         arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} />}
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
-      {avisoPago}
       {v2Activa() ? (
         // Visual nueva: lo de HOY todo junto (fuerza, registros, lo del coach
         // y añadir actividad) y, debajo, la semana con el detalle de cada
@@ -896,19 +894,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
         <button onClick={() => setNota({ titulo: datos.nombre, rutina_id: rutinaId })} style={{
           marginTop: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
           fontSize: v2 ? 13.5 : 12.5, fontWeight: 700, color: v2 ? SECCION.entreno.ink : ACCENT_DARK, fontFamily: 'inherit',
-        }}>Escribirle a tu coach sobre esta rutina</button>
-        {/* Quien viene de otras apps busca un «Iniciar». Aquí no hace falta:
-            la sesión arranca sola con la primera serie. Se dice una vez,
-            mientras no haya nada marcado, y desaparece. */}
-        {v2 && hechas === 0 && datos.ejercicios.length > 0 && (
-          <div data-sin-iniciar style={{
-            marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-            borderRadius: 14, background: SECCION.entreno.tint, color: SECCION.entreno.ink, fontSize: 13.5, lineHeight: 1.4,
-          }}>
-            <PlayCircle size={22} weight="fill" style={{ flex: 'none' }} />
-            <span><b>No tienes que darle a iniciar.</b> Marca tu primera serie y el entreno arranca solo.</span>
-          </div>
-        )}
+        }}>{v2 ? '¿Escribirle al coach sobre esta rutina?' : 'Escribirle a tu coach sobre esta rutina'}</button>
         {totalSeries > 0 && !v2 && (
           <div style={{ marginTop: 11 }}>
             <div style={{ height: 5, borderRadius: 99, background: SURFACE_2, overflow: 'hidden' }}>
@@ -1064,7 +1050,10 @@ function PildoraRecordatorios({ pendientes = 0, abrir }) {
   const u = useUnidades();
   return (
     <div style={{ margin: '0 0 14px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      <Pastilla chica icono={Bell} color="#E0A21A" badge={pendientes} onClick={abrir}>Recordatorios</Pastilla>
+      {/* Los recordatorios y la mensualidad viven en el Dash; aquí, solo los
+          círculos de la campanita y de escribirle al coach. */}
+      <Pastilla chica soloIcono icono={Bell} color="#E0A21A" badge={pendientes} onClick={abrir}>Recordatorios</Pastilla>
+      {WHATSAPP_COACH && <Pastilla chica soloIcono icono={WhatsappLogo} color="#25A35A" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</Pastilla>}
       <Pastilla chica icono={Ruler} color={SECCION.entreno.base} onClick={() => setUnidadesAbiertas(true)}>Unidades · {u.peso || 'kg'}</Pastilla>
       <HojaUnidades abierta={unidadesAbiertas} alCerrar={() => setUnidadesAbiertas(false)} />
     </div>
@@ -1103,8 +1092,8 @@ export function agruparEnTramos(ejercicios, bloqueDe, clase = null) {
 
 // Lo que dice arriba el Calendario y la Galería (visual nueva).
 const VOZ_SECCION = {
-  mes: { etiqueta: 'CALENDARIO', a: 'Tu semana,', b: 'en orden.', sub: 'Lo que te toca cada día. Si algo cambia, muévelo y sigues.' },
-  galeria: { etiqueta: 'GALERÍA', a: 'Mira, aprende', b: 'y ejecuta.', sub: 'Cada ejercicio con su video: búscalo y mira cómo se hace.' },
+  mes: { etiqueta: 'CALENDARIO', a: 'Tu semana,', b: 'en orden.' },
+  galeria: { etiqueta: 'GALERÍA', a: 'Mira, aprende', b: 'y ejecuta.' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────

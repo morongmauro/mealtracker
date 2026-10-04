@@ -22,7 +22,7 @@ const AprendeHoy = lazy(() => import('./AprendeHoy.jsx'));
 const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
-import { esV2, v2Activa } from './v2.js';
+import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada } from './mudanza.js';
 import { Pastilla } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero } from './GraficasV2.jsx';
@@ -33,7 +33,7 @@ const MetaComida = lazy(() => import('./MetaComida.jsx'));
 import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
 import { hayNovedad, marcarVisto } from './novedades.js';
 import { vozComida } from './vozCoach.js';
-import { Bell as BellV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2 } from '@phosphor-icons/react';
+import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
 
 // Paleta y tipografía: única fuente de verdad en src/theme.js.
@@ -689,14 +689,14 @@ export default function MealTracker() {
   const learningFrameRef = useRef(null);
   const v2 = esV2(name);
   useEffect(() => { aplicarV2(v2); }, [v2]);
-  // Con la visual nueva, la apertura FRÍA (la misma regla de siempre: primera
-  // del día o más de una hora sin usarla) cae en el Dash, que es el que te
-  // reubica: cómo vas en todo. La caliente sigue donde estabas.
+  // Con la visual nueva, la app SIEMPRE abre en el Dash, que es el que te
+  // reubica: cómo vas en todo. (Comida queda en Hoy por debajo.)
   const dashInicialRef = useRef(false);
   useEffect(() => {
     if (!v2 || view !== 'main' || dashInicialRef.current) return;
     dashInicialRef.current = true;
-    if (tab === 'hoy') setShowDash(true);
+    setTab('hoy');
+    setShowDash(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v2, view]);
   // Visual nueva: al abrir la app, en un rato libre, se bajan los módulos
@@ -5687,8 +5687,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <CabeceraHoy tema="comida" sangria="20px" arriba={`${headerH + 16}px`}
                   voz={vozComida({ hoy: today, hora: new Date().getHours(), kcal: totals.kcal, meta: goals?.kcal || 0, comidas: entries.length, racha: streak })} />
                 <div style={{ marginTop: '-4px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Pastilla icono={BellV2} color="#E0A21A" badge={coachReminders.filter(r => !r.done_at).length}
+                  {/* Recordatorios y mensualidad viven en el Dash; aquí, solo los
+                      círculos de la campanita y de escribirle al coach. */}
+                  <Pastilla soloIcono icono={BellV2} color="#E0A21A" badge={coachReminders.filter(r => !r.done_at).length}
                     onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</Pastilla>
+                  {WHATSAPP_COACH && <Pastilla soloIcono icono={WhatsappV2} color="#25A35A" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</Pastilla>}
                   <Pastilla icono={OpcionesV2} color={SECCION.comida.base}
                     onClick={() => { haptic(8); openActionsSheet(); }}>Opciones</Pastilla>
                 </div>
@@ -5738,7 +5741,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
             {/* Aviso de pago también en Hoy (mismo componente que el chat):
                 es la pantalla de aterrizaje, no puede pasar desapercibido. */}
-            {paymentDue && <PaymentNotice v2={v2} info={paymentDue} style={{ marginTop: '16px', position: 'relative', zIndex: 2 }} />}
+            {paymentDue && !v2 && <PaymentNotice info={paymentDue} style={{ marginTop: '16px', position: 'relative', zIndex: 2 }} />}
 
             {/* Estado del día. Antes ocupaba muchísimo alto: un aro grande de
                 86px con su bloque de texto al lado, y DEBAJO otra fila con los
@@ -5867,9 +5870,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </>)}
 
             {/* Comidas de hoy */}
+            {v2 ? (
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED, margin: '22px 2px 8px' }}>LO QUE COMISTE HOY</div>
+            ) : (
             <div className="text-[13.5px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em', margin: '22px 0 10px' }}>
               Hoy
             </div>
+            )}
             {entries.length === 0 ? (
               <div className="rounded-[28px] p-5 text-center" style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 8px 22px rgba(96,102,72,0.10)' }}>
                 <div className="text-[14px] font-semibold" style={{ color: TEXT }}>Aún no registras nada hoy</div>
@@ -5879,6 +5886,33 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   style={{ background: TEXT, color: '#FFF' }}>
                   Ir al chat
                 </button>
+              </div>
+            ) : v2 ? (
+              // Visual nueva: las mismas tarjetas que el día del calendario —
+              // la comida en verde y mayúscula, el total a la derecha, los
+              // alimentos en filas cortas y los macros en sus colores.
+              <div data-comidas-hoy-v2 style={{ display: 'grid', gap: 8 }}>
+                {entries.map(e => (
+                  <div key={e.id} data-comida-hoy style={{ background: '#FFFFFF', borderRadius: 18, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', padding: '11px 13px 10px', lineHeight: 1.25 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal || 'comida'}</span>
+                      {e.time && <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{e.time}</span>}
+                      <span style={{ flex: 1 }} />
+                      <span className="num" style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{Math.round(e.kcal)} <span style={{ fontSize: 12, color: TEXT_MUTED }}>kcal</span></span>
+                    </div>
+                    <div style={{ marginTop: 6 }}>
+                      {(e.items || []).map((it, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '4px 0', borderTop: i ? '1px solid #F2EFE8' : 0 }}>
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: TEXT }}>{it.name}{it.amount ? <span style={{ fontWeight: 500, color: TEXT_MUTED }}> · {it.amount}</span> : null}</span>
+                          <span className="num" style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, flex: 'none' }}>{Math.round(it.kcal || 0)} kcal</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="num" style={{ display: 'flex', gap: 10, fontSize: 12, fontWeight: 700, marginTop: 6 }}>
+                      <span style={{ color: C_PROTEIN }}>P {fmt1(e.p)}g</span><span style={{ color: C_CARBS }}>C {fmt1(e.c)}g</span><span style={{ color: C_FAT }}>G {fmt1(e.g)}g</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="space-y-3">
@@ -5948,7 +5982,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           }} />}
           <Suspense fallback={null}>
             <Entrenamiento name={name} seccionV2={v2 ? entrenoSub : null} alSeccionV2={setEntrenoSub}
-              avisoPago={v2 && paymentDue && !paymentDue.bloqueo ? <PaymentNotice v2 info={paymentDue} style={{ marginBottom: '14px' }} /> : null}
               recordatorios={v2 ? { pendientes: coachReminders.filter(r => !r.done_at).length, abrir: () => { haptic(8); setActiveModal('reminders'); } } : null} />
           </Suspense>
         </div>
@@ -7503,6 +7536,23 @@ const CSS_CHAT_V2 = `
   box-shadow: 0 1px 2px rgba(40,40,30,0.05), 0 6px 18px rgba(60,60,40,0.07) !important; }
 [data-chat-v2] .fade-up[data-rol="user"] > div { background: #E3F0E6 !important; box-shadow: none !important; border-radius: 20px 20px 6px 20px !important; }
 [data-chat-v2] .shimmer-text { background-image: linear-gradient(90deg, #6B6B6B 0%, #2F7F45 50%, #6B6B6B 100%) !important; animation-duration: 2.6s !important; }
+/* Todas las respuestas (consultas, opciones, avisos, resúmenes): menos aire
+   y una jerarquía clara — etiqueta verde en mayúscula, título grande, texto
+   legible y lo secundario en gris. Sin oliva. */
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] { padding: 12px 14px !important; line-height: 1.38 !important; font-size: 14.5px !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] .text-\\[11\\.5px\\].font-semibold { font-size: 11.5px !important; font-weight: 800 !important; letter-spacing: .07em !important; text-transform: uppercase; color: #2F7F45 !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] :is(.text-\\[10px\\], .text-\\[10\\.5px\\], .text-\\[11px\\], .text-\\[12px\\]) { font-size: 12.5px !important; line-height: 1.38 !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] :is(.text-xs, .text-\\[12\\.5px\\], .text-\\[13px\\]) { font-size: 14px !important; line-height: 1.38 !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] .text-base { font-size: 19px !important; font-weight: 800 !important; letter-spacing: -0.02em; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] .leading-relaxed { line-height: 1.42 !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] .italic { font-style: normal !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] :is(.mb-3, .mb-4) { margin-bottom: 8px !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] :is(.mt-3, .mt-4, .pt-3) { margin-top: 8px !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] .space-y-3 > * + * { margin-top: 8px !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] [style*="background: rgb(239, 235, 224)"] { background: #F6F4EF !important; border-radius: 14px !important; box-shadow: none !important; }
+[data-chat-v2] [style*="color: rgb(138, 149, 88)"], [data-chat-v2] [style*="color: rgb(74, 82, 56)"], [data-chat-v2] [style*="color: rgb(169, 180, 120)"] { color: #2F7F45 !important; }
+[data-chat-v2] [style*="background: rgb(138, 149, 88)"], [data-chat-v2] [style*="background: rgb(74, 82, 56)"] { background: #2F7F45 !important; color: #fff !important; }
+[data-chat-v2] [style*="background: rgb(212, 218, 184)"], [data-chat-v2] [style*="background: rgba(212, 218, 184"] { background: #E3F0E6 !important; }
 `;
 
 // Visual nueva: la tarjeta de una comida registrada. Jerarquía clara y sin
@@ -7519,7 +7569,7 @@ function TarjetaComidaV2({ e, isHistorical, goals, totals, quantityWarning, esFa
   const meta = goals && goals.kcal ? goals.kcal : 0;
   const left = Math.round(meta - totals.kcal);
   const ratio = meta ? totals.kcal / meta : 0;
-  const nota = left < 0 ? 'Sin drama: mañana ajustas' : ratio >= 0.95 ? '¡Meta del día cerrada!' : ratio >= 0.6 ? 'Vas muy bien' : ratio >= 0.3 ? 'Buen ritmo' : 'Quedó registrado';
+  const nota = left < 0 ? '' : ratio >= 0.95 ? '¡Meta del día cerrada!' : ratio >= 0.6 ? 'Vas muy bien' : ratio >= 0.3 ? 'Buen ritmo' : 'Quedó registrado';
   const boton = { border: 0, background: 'transparent', padding: 6, borderRadius: 99, cursor: 'pointer', display: 'grid', placeItems: 'center' };
   return (
     <div className="flex justify-start fade-up">
@@ -7566,7 +7616,7 @@ function TarjetaComidaV2({ e, isHistorical, goals, totals, quantityWarning, esFa
             </div>
             <div className="num" style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 6, fontSize: 12.5 }}>
               <span style={{ color: TEXT_MUTED }}>Llevas <b style={{ color: TEXT }}>{Math.round(totals.kcal).toLocaleString('es-CO')}</b> de {Math.round(meta).toLocaleString('es-CO')} kcal</span>
-              <span style={{ color: '#2F7F45', fontWeight: 800, textAlign: 'right' }}>{nota}</span>
+              {nota && <span style={{ color: '#2F7F45', fontWeight: 800, textAlign: 'right' }}>{nota}</span>}
             </div>
           </div>
         )}

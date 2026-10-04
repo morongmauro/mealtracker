@@ -8,7 +8,7 @@
 //
 //   09:00 local → solo si el coach puso para hoy medición, peso o fotos
 //                 (el peso se toma en ayunas: tiene que llegar temprano).
-//   19:30 local → recordatorio de pago SOLO a quien está en deuda
+//   19:30 local → (apagado) recordatorio de pago a quien está en deuda
 //                 (misma regla que el banner de payment-status: corte
 //                 vencido y mes sin pago marcado en el CRM)
 //   20:00 local → CIERRE DEL DÍA, un solo mensaje que junta lo que falte:
@@ -49,6 +49,8 @@ import { leerContexto, evaluarCliente, normalizeName as normPagos, crmHeaders } 
 import { agendaDeHoy, cerrarOlvidadas, hoyBogota } from './_entreno.js';
 import { TRAINING_PARA_TODOS, TRAINING_BETA } from './_clients.js';
 
+// Recordatorio de pago automático (5:30pm a quien está en deuda): apagado.
+const PUSH_PAGO_AUTOMATICO = false;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const CRM_URL = (process.env.CRM_SUPABASE_URL || '').replace(/\/+$/, ''); // sin barra final: '...supabase.co/' rompia la URL (doble // -> 404)
@@ -463,10 +465,12 @@ export default async function handler(req, res) {
           }
         }
       } else if (slot === 'p') {
-        // Pago (5:30pm): DIARIO mientras dure la deuda (copys rotan por
-        // día). Desaparece solo al marcar el pago en el CRM.
-        await cargarDeudores();
-        if (deudores && s.name && deudores.has(normalizeName(s.name))) {
+        // Pago: APAGADO por decisión del coach. El aviso de la mensualidad
+        // vive en el Dash de la app (y el bloqueo después de 5 días de mora);
+        // la app ya no manda recordatorios de pago por su cuenta. El envío
+        // MANUAL desde el CRM («📲 Push») sigue disponible.
+        if (PUSH_PAGO_AUTOMATICO) await cargarDeudores();
+        if (PUSH_PAGO_AUTOMATICO && deudores && s.name && deudores.has(normalizeName(s.name))) {
           payloads.push({ title: 'Tu coach', body: pick(MSGS.payment), tag: 'ecm-p' });
         }
       } else if (slot === 'n') {

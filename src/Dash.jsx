@@ -862,24 +862,24 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cargandoMedidas, coac
   if (!items.length) return null;
   const visibles = todos ? items : items.slice(0, 2);
   return (
-    <section data-recordatorios-dash style={{ marginTop: 12, background: '#FFFFFF', borderRadius: 20, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', padding: '10px 6px 6px 14px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 8px 4px 0' }}>
-        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>RECORDATORIOS</span>
+    <section data-recordatorios-dash style={{ marginTop: 10, background: '#FFFFFF', borderRadius: 18, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', padding: '7px 6px 3px 14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 0 0', minHeight: 20 }}>
+        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>RECORDATORIOS</span>
         {items.length > 2 && (
-          <button data-ver-recordatorios onClick={() => setTodos(t => !t)} style={{ border: 0, background: 'none', padding: '2px 4px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>
+          <button data-ver-recordatorios onClick={() => setTodos(t => !t)} style={{ border: 0, background: 'none', padding: '0 4px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>
             {todos ? 'Ver menos' : `Ver todos (${items.length})`}
           </button>
         )}
       </div>
       {visibles.map((it, i) => (
-        <div key={it.id} data-recordatorio={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, borderTop: i ? '1px solid #F0EDE6' : 0 }}>
+        <div key={it.id} data-recordatorio={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 36, borderTop: i ? '1px solid #F0EDE6' : 0 }}>
           {it.marcar ? (
-            <button onClick={it.marcar} aria-label="Marcar como hecho" data-marcar style={{ width: 26, height: 26, flex: 'none', borderRadius: 99, border: `2px solid ${it.color}`, background: 'transparent', cursor: 'pointer', padding: 0 }} />
+            <button onClick={it.marcar} aria-label="Marcar como hecho" data-marcar style={{ width: 22, height: 22, flex: 'none', borderRadius: 99, border: `2px solid ${it.color}`, background: 'transparent', cursor: 'pointer', padding: 0 }} />
           ) : (
-            <span aria-hidden="true" style={{ width: 26, height: 26, flex: 'none', borderRadius: 99, background: `${it.color}1F`, color: it.color, display: 'grid', placeItems: 'center' }}><it.Icono size={15} weight="bold" /></span>
+            <span aria-hidden="true" style={{ width: 22, height: 22, flex: 'none', borderRadius: 99, background: `${it.color}1F`, color: it.color, display: 'grid', placeItems: 'center' }}><it.Icono size={13} weight="bold" /></span>
           )}
-          <button onClick={it.ir || it.marcar || undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: '8px 4px 8px 0', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.texto}</span>
+          <button onClick={it.ir || it.marcar || undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: '6px 4px 6px 0', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: TEXT, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.texto}</span>
             {it.ir && <CaretRight size={16} color={TEXT_LIGHT} style={{ flex: 'none' }} />}
           </button>
         </div>

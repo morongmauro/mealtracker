@@ -1,0 +1,93 @@
+// ─────────────────────────────────────────────────────────────────────────
+// VIDEO DEL EJERCICIO, LIMPIO · visual nueva
+//
+// El ejercicio en bucle, como un GIF, sin el «ruido» de YouTube:
+//   · arranca solo y sin sonido; el botón de sonido lo prende y lo apaga
+//     sin salir de este modo;
+//   · una barrita abajo para atrasarlo o adelantarlo (y ver el tiempo);
+//   · tocar el video lo pausa o lo sigue;
+//   · mientras arranca (que es cuando YouTube pinta su título, su logo y sus
+//     botones) y mientras está en pausa, lo tapa la miniatura del ejercicio.
+// Se habla con el reproductor por postMessage (la API de iframes de
+// YouTube), sin cargar ningún script extra.
+// ─────────────────────────────────────────────────────────────────────────
+import React, { useEffect, useRef, useState } from 'react';
+import { SpeakerSimpleSlash, SpeakerSimpleHigh, Play } from '@phosphor-icons/react';
+
+const mmss = (s) => { const t = Math.max(0, Math.floor(s || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+
+export default function VideoLimpio({ src, miniatura, titulo }) {
+  const marco = useRef(null);
+  const [listo, setListo] = useState(false);      // ya está reproduciendo (y pasó el título de YouTube)
+  const [pausado, setPausado] = useState(false);
+  const [sonido, setSonido] = useState(false);
+  const [t, setT] = useState(0);
+  const [dur, setDur] = useState(0);
+  const arrastrando = useRef(false);
+  const url = src + (src.includes('?') ? '&' : '?') + 'enablejsapi=1&origin=' + encodeURIComponent(window.location.origin);
+
+  const mandar = (func, args = []) => {
+    try { marco.current && marco.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*'); } catch (e) { /* sin reproductor */ }
+  };
+
+  useEffect(() => {
+    let tapa = null;
+    const alMensaje = (ev) => {
+      if (!marco.current || ev.source !== marco.current.contentWindow) return;
+      let d; try { d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch (e) { return; }
+      if (!d || (d.event !== 'infoDelivery' && d.event !== 'onStateChange' && d.event !== 'initialDelivery')) return;
+      const info = d.event === 'onStateChange' ? { playerState: d.info } : (d.info || {});
+      if (info.duration) setDur(info.duration);
+      if (info.currentTime != null && !arrastrando.current) setT(info.currentTime);
+      if (info.playerState === 1) {
+        setPausado(false);
+        // El título y los botones de YouTube salen los primeros segundos.
+        if (!tapa) tapa = setTimeout(() => setListo(true), 1600);
+      } else if (info.playerState === 2) setPausado(true);
+    };
+    window.addEventListener('message', alMensaje);
+    // Pedirle al reproductor que nos cuente cómo va.
+    const escuchar = () => { try { marco.current && marco.current.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'v' }), '*'); } catch (e) { /* nada */ } };
+    const iv = setInterval(escuchar, 500);
+    // Si el reproductor no responde (sin red), igual se destapa a los 4 s.
+    const respaldo = setTimeout(() => setListo(true), 4000);
+    return () => { window.removeEventListener('message', alMensaje); clearInterval(iv); clearTimeout(tapa); clearTimeout(respaldo); };
+  }, [src]);
+
+  const alternarPausa = () => { if (pausado) { mandar('playVideo'); setPausado(false); } else { mandar('pauseVideo'); setPausado(true); } };
+  const alternarSonido = () => { if (sonido) mandar('mute'); else { mandar('unMute'); mandar('setVolume', [100]); } setSonido(!sonido); };
+  const tapado = !listo || pausado;
+
+  return (
+    <div data-video-limpio style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', aspectRatio: '16 / 9', background: '#000' }}>
+      <iframe ref={marco} src={url} title={titulo} tabIndex={-1}
+        allow="autoplay; encrypted-media; picture-in-picture"
+        style={{ position: 'absolute', width: '100%', height: '100%', border: 'none', transform: 'scale(1.22)', transformOrigin: 'center', pointerEvents: 'none' }} />
+      {/* La tapa: la miniatura mientras arranca o está en pausa */}
+      <div aria-hidden="true" style={{
+        position: 'absolute', inset: 0, background: miniatura ? `#000 url(${miniatura}) center / cover` : '#000',
+        opacity: tapado ? 1 : 0, transition: 'opacity .35s ease', pointerEvents: 'none',
+      }} />
+      {/* Toque: pausa / sigue */}
+      <button data-video-pausa onClick={alternarPausa} aria-label={pausado ? 'Seguir' : 'Pausar'} style={{ position: 'absolute', inset: 0, border: 0, background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+        {pausado && <span style={{ width: 54, height: 54, borderRadius: 99, background: 'rgba(255,255,255,0.94)', display: 'grid', placeItems: 'center' }}><Play size={24} weight="fill" color="#1F1F1F" /></span>}
+        {!listo && !pausado && <span style={{ width: 24, height: 24, borderRadius: 99, border: '2.5px solid rgba(255,255,255,.3)', borderTopColor: '#fff', animation: 'vl-gira .8s linear infinite' }} />}
+      </button>
+      <style>{'@keyframes vl-gira { to { transform: rotate(360deg) } }'}</style>
+      {/* Abajo: tiempo, barrita y sonido */}
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '18px 10px 8px', display: 'flex', alignItems: 'center', gap: 9,
+        background: 'linear-gradient(0deg, rgba(0,0,0,.55), rgba(0,0,0,0))' }}>
+        <span className="num" style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', minWidth: 30 }}>{mmss(t)}</span>
+        <input data-video-barra type="range" min={0} max={Math.max(1, Math.round(dur))} step={0.5} value={Math.min(t, dur || t)} aria-label="Mover el video"
+          onPointerDown={() => { arrastrando.current = true; }}
+          onChange={ev => { const v = Number(ev.target.value); setT(v); mandar('seekTo', [v, true]); }}
+          onPointerUp={() => { arrastrando.current = false; }}
+          style={{ flex: 1, accentColor: '#FFFFFF', height: 18, cursor: 'pointer' }} />
+        <button data-video-sonido onClick={alternarSonido} aria-label={sonido ? 'Quitar sonido' : 'Poner sonido'} style={{
+          width: 32, height: 32, flex: 'none', borderRadius: 99, border: 0, cursor: 'pointer', display: 'grid', placeItems: 'center',
+          background: 'rgba(20,20,18,0.62)', color: '#fff', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)',
+        }}>{sonido ? <SpeakerSimpleHigh size={17} weight="fill" /> : <SpeakerSimpleSlash size={17} weight="fill" />}</button>
+      </div>
+    </div>
+  );
+}

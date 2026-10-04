@@ -106,7 +106,7 @@ function base() {
         ['e7', 'Carrera continua', [], 'cardio'], ['e8', 'Dislocaciones de hombro con banda', ['deltoide_posterior'], 'movilidad'],
         ['e9', 'Rotación torácica en cuadrupedia', [], 'movilidad'], ['e10', 'Postura del niño', [], 'estiramiento_pasivo'],
         ['e11', 'Flexión de brazos', ['pectoral_mayor', 'triceps']],
-      ].map(([id, nombre, mus, tipo], i) => ({ id, nombre, tipo: tipo || 'fuerza', musculos_primarios: mus, video_fuente: 'youtube', video_ref: yt[i % yt.length],
+      ].map(([id, nombre, mus, tipo], i) => ({ id, nombre, tipo: tipo || 'fuerza', patron: { e1: 'push', e2: 'rodilla', e3: 'pull', e4: 'push', e5: 'cadera', e6: 'pull', e11: 'push' }[id] || null, musculos_primarios: mus, video_fuente: 'youtube', video_ref: yt[i % yt.length],
         alias: { e1: 'Barbell Bench Press', e2: 'Barbell Back Squat', e3: 'Dumbbell Single Arm Row', e4: 'Dumbbell Lateral Raise', e5: 'Bench Single Leg Hip Thrust', e6: 'Wide Grip Lat Pulldown',
           e7: 'Running', e8: 'SuperBand Dislocates', e9: 'Table Top Half Arm Thoracic Rotation', e10: "Child's Pose", e11: 'Push Up' }[id],
         musculos_secundarios: id === 'e2' ? ['isquiotibiales', 'aductores', 'erectores'] : [] })),
@@ -177,7 +177,7 @@ const espera = (ms) => new Promise(r => setTimeout(r, ms));
 // `aviso`: dejar que salga el aviso de «hoy te toca registrar» al abrir. Por
 // defecto se da por visto (si no, tapa todo lo que se prueba después).
 // `nube`: lo que tiene su cuenta en la nube (y la app con la nube aceptada).
-async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null } = {}) {
+async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false } = {}) {
   const db = base();
   globalThis.fetch = db.fetch;
   const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota' });
@@ -188,6 +188,8 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   let pulls = 0;
   p.on('pageerror', e => errores.push(e.message));
   await ctx.addInitScript((kv) => { for (const [k, v] of Object.entries(kv)) localStorage.setItem(k, v); }, almacen(nombre));
+  // `caliente`: la usó hace un rato (antes caía en el Chat; ahora, en el Dash).
+  if (caliente) await ctx.addInitScript(() => localStorage.setItem('mt:lastActiveAt', String(Date.now() - 5 * 60 * 1000)));
   if (!aviso) await ctx.addInitScript((f) => sessionStorage.setItem('mt:avisoRegistro', f), hoy);
   if (nube) await ctx.addInitScript(() => { localStorage.setItem('cloudConsent', 'accepted'); localStorage.setItem('cloudUserId', 'u-nube'); });
   await p.route('**/api/**', async (ruta) => {
@@ -213,8 +215,17 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
     // El chat: «2 huevos» se registra como comida (para ver el «+kcal»).
     if (u.pathname === '/api/chat') {
       const huevos = { intent: 'log_meal', meal: 'snack', log_date: null, items: [{ name: 'Huevo', amount: '2 unidades', kcal: 156, p: 12.6, c: 1.1, g: 10.6, fiber: 0, omega3: 0, sugar: 0, needs_quantity: false }], message: null };
+      // Lo último que escribió el cliente (el resto del pedido trae el
+      // historial y el prompt, que pueden nombrar cualquier comida).
+      let ultimo = '';
+      try { const cuerpo = JSON.parse(ruta.request().postData() || '{}'); const ms = (cuerpo.messages || []).filter(m => m.role === 'user'); const c = ms.length ? ms[ms.length - 1].content : ''; ultimo = typeof c === 'string' ? c : JSON.stringify(c); } catch (e) { ultimo = ruta.request().postData() || ''; }
+      // Una consulta (no registra): para ver el estilo de las demás respuestas.
+      if (/manzana/.test(ultimo)) {
+        const consulta = { intent: 'nutrition_query', nutrition_response: { food: 'Manzana', amount: '1 mediana (180 g)', kcal: 95, p: 0.5, c: 25, g: 0.3 }, message: null };
+        return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(consulta) }] }) });
+      }
       // «almuerzo grande» llena el día: para ver la hoja de meta cumplida.
-      if (/almuerzo grande/.test(ruta.request().postData() || '')) {
+      if (/almuerzo grande/.test(ultimo)) {
         const grande = { intent: 'log_meal', meal: 'lunch', log_date: null, items: [{ name: 'Almuerzo', amount: '1 plato', kcal: 2300, p: 110, c: 240, g: 62, fiber: 0, omega3: 0, sugar: 0, needs_quantity: false }], message: null };
         return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(grande) }] }) });
       }
@@ -497,7 +508,15 @@ try {
   ok('la última vez ya no va escrita en la tarjeta', (await p.getByText(/^Serie 1: /).count()) === 0);
   ok('cada ejercicio de fuerza trae Ficha, Tu récord, Última vez y Nota', (await p.getByRole('button', { name: /Última vez/ }).count()) >= 3
     && (await p.getByRole('button', { name: /Tu récord/ }).count()) >= 3);
-  ok('no hay que darle a iniciar: se dice mientras no hay nada marcado', await p.locator('[data-sin-iniciar]').isVisible());
+  ok('sin el mensaje de «no tienes que darle a iniciar» (ocupaba espacio)', (await p.locator('[data-sin-iniciar]').count()) === 0);
+  ok('la nota de la rutina va como pregunta y la de cada ejercicio dice «Nota al coach»', (await p.getByText('¿Escribirle al coach sobre esta rutina?').count()) === 1
+    && (await p.getByRole('button', { name: /Nota al coach/ }).count()) >= 3
+    && await p.evaluate(() => [...document.querySelectorAll('[data-botones] button span')].filter(s => s.textContent === 'Nota al coach').every(s => s.scrollWidth <= s.clientWidth + 0.5)));
+  ok('los separadores de la rutina con tono propio (calentamiento cálido, fuerza azul, cierre verde)', await p.evaluate(() => {
+    const c = (f) => { const el = document.querySelector(`[data-momento="${f}"] span`); return el && getComputedStyle(el).color; };
+    const a = c('calentamiento'), b = c('fuerza');
+    return !!a && !!b && a !== b;
+  }));
   ok('el botón de terminar se ve (azul, no gris sobre gris)', await p.locator('[data-terminar]').evaluate(b => {
     const cs = getComputedStyle(b); return cs.borderTopColor === 'rgb(60, 123, 214)' && cs.color === 'rgb(30, 88, 166)';
   }));
@@ -532,7 +551,6 @@ try {
   await espera(300);
   ok('el calentamiento se marca con un toque y se pliega', (await p.getByText('1/3', { exact: true }).count()) === 1);
   ok('el avance sube por ejercicio terminado', (await p.getByText('1/7 ejercicios').count()) === 1);
-  ok('con la primera serie marcada ya no sale lo de iniciar', (await p.locator('[data-sin-iniciar]').count()) === 0);
   ok('con la primera serie arranca el reloj del entreno', await p.locator('[data-reloj-sesion]').isVisible());
   ok('…y la serie marcada «salta»', (await p.locator('[data-view="entrena"] .mt-pop').count()) >= 1);
   ok('…y el botón de terminar queda relleno de azul', await p.locator('[data-terminar]').evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(60, 123, 214)'));
@@ -553,7 +571,11 @@ try {
     await play.click(); await espera(400);
     const src = await p.locator('[data-video-limpio] iframe').getAttribute('src').catch(() => '');
     ok('video del ejercicio: en bucle, sin sonido, sin controles ni sugeridos', /autoplay=1/.test(src) && /mute=1/.test(src) && /loop=1/.test(src) && /controls=0/.test(src) && /rel=0/.test(src), src);
-    ok('video: con un botón para oírlo con sonido', (await p.locator('[data-video-limpio]').getByText('Con sonido').count()) === 1);
+    ok('video: botón de sonido (prende y apaga) y barrita para moverlo', (await p.locator('[data-video-limpio] [data-video-sonido]').count()) === 1
+      && (await p.locator('[data-video-limpio] [data-video-barra]').count()) === 1 && /enablejsapi=1/.test(src));
+    await p.locator('[data-video-limpio] [data-video-sonido]').click(); await espera(150);
+    ok('video: el sonido se prende sin salir del modo limpio', (await p.locator('[data-video-limpio]').count()) === 1
+      && (await p.locator('[data-video-sonido]').getAttribute('aria-label')) === 'Quitar sonido');
   }
   await p.keyboard.press('Escape');
   await espera(300);
@@ -687,6 +709,12 @@ try {
   await p.getByText('Sentadilla con barra').first().waitFor({ timeout: 10000 });
   await espera(600);
   await foto(p, '06-entreno-galeria');
+  ok('galería: cada tarjeta con el tono de su familia (empuje, tracción, pierna, cadera, movilidad, cardio…)', await p.evaluate(() => {
+    const fam = (t) => [...document.querySelectorAll('[data-familia]')].find(b => b.innerText.includes(t))?.getAttribute('data-familia');
+    return fam('Press banca') === 'empuje' && fam('Remo con mancuerna') === 'traccion' && fam('Sentadilla con barra') === 'pierna'
+      && fam('Hip thrust') === 'cadera' && fam('Carrera continua') === 'cardio' && fam('Dislocaciones') === 'movilidad'
+      && document.querySelectorAll('[data-familia-etiqueta]').length >= 8;
+  }));
   ok('entreno: la firma al final de la galería', (await p.locator('[data-view="entrena"] [data-firma]').count()) === 1);
   await p.getByText('Sentadilla con barra').first().click();
   await espera(700);
@@ -823,6 +851,23 @@ try {
   await foto(p, '09d-meta-comida');
   await metaC.getByRole('button', { name: 'Seguir' }).click(); await espera(400);
   ok('meta de comida: «Seguir» la cierra', (await metaC.count()) === 0);
+  // Las demás respuestas (una consulta) con la jerarquía de la marca.
+  await p.locator('.msg-input').click();
+  await p.keyboard.type('cuántas calorías tiene una manzana');
+  await p.keyboard.press('Enter');
+  await p.getByText('Manzana', { exact: true }).waitFor({ timeout: 8000 }).catch(() => {});
+  await espera(500);
+  ok('chat: la consulta con etiqueta verde en mayúscula, título grande y sin oliva', await p.evaluate(() => {
+    const t = [...document.querySelectorAll('[data-chat-v2] .fade-up')].pop();
+    if (!t) return false;
+    const etiqueta = [...t.querySelectorAll('span')].find(x => /Consulta nutricional/i.test(x.textContent));
+    const titulo = [...t.querySelectorAll('div')].find(x => x.textContent === 'Manzana');
+    const oliva = /rgb\((1[2-4]\d), (1[4-5]\d), (8\d|9\d)\)|rgb\(74, 82, 56\)/;
+    return !!etiqueta && getComputedStyle(etiqueta).textTransform === 'uppercase' && getComputedStyle(etiqueta).color === 'rgb(47, 127, 69)'
+      && !!titulo && parseFloat(getComputedStyle(titulo).fontSize) >= 18
+      && ![...t.querySelectorAll('*')].some(el => oliva.test(getComputedStyle(el).color));
+  }));
+  await foto(p, '09e-consulta');
   await p.locator('.msg-input').click();
   await espera(200);
   await p.mouse.click(195, 300);
@@ -930,8 +975,9 @@ try {
   await ctx.close();
 
   // ── Teléfono angosto ──
-  const n = await abrir('Mauro Morón', { ancho: 375 });
-  await n.p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });
+  const n = await abrir('Mauro Morón', { ancho: 375, caliente: true });
+  await n.p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 }).catch(() => {});
+  ok('apertura caliente (la usó hace 5 min): también abre en el Dash', await n.p.getByText('Tu performance semanal', { exact: true }).isVisible());
   await n.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await espera(900);
   const caja = await n.p.locator('nav[aria-label="Secciones"]').boundingBox();
@@ -999,7 +1045,9 @@ try {
   await foto(a.p, '14-pago-aviso-dash');
   await a.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await espera(1200);
-  ok('mora día 3: el aviso sale en Hoy de entrenamiento', await a.p.locator('[data-view="entrena"]').getByText('Mensualidad pendiente').isVisible());
+  ok('mora día 3: la mensualidad NO sale en Hoy de entrenamiento (solo en el Dash); ahí solo la campanita y WhatsApp', (await a.p.locator('[data-view="entrena"]').getByText(/Mensualidad pendiente/i).count()) === 0
+    && (await a.p.locator('[data-view="entrena"]').getByRole('button', { name: 'Recordatorios' }).count()) === 1
+    && (await a.p.locator('[data-view="entrena"]').getByRole('link', { name: 'Escribirle al coach' }).count()) === 1);
   await a.ctx.close();
 
   let pagado = false;

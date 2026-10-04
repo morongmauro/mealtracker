@@ -119,7 +119,7 @@
            2.65–2.95 s  se llena: ya es el cuerpo
            2.95 s       los ojitos y la sonrisa
            3.30–3.70 s  el asa, las piernas y los brazos
-           3.80–4.80 s  saluda
+           3.75–4.75 s  saluda (un saludo lento)
          La app espera a que termine (mínimo 5 s desde que se toca el ícono,
          ver main.jsx): nada se corta antes de verse. */
       @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: block;
@@ -156,9 +156,9 @@
       #splash2 .cara { opacity: 0; animation: s2in .25s ease-out 2.95s forwards; }
       #splash2 .asa { opacity: 0; stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: s2in .01s linear 3.3s forwards, s2traza .4s ease-out 3.3s forwards; }
       #splash2 .resto { opacity: 0; animation: s2in .3s ease-out 3.4s forwards; }
-      #splash2 .mano { transform-box: view-box; transform-origin: 45.6px 110.4px; animation: s2saluda .5s ease-in-out 3.8s 2; }
+      #splash2 .mano { transform-box: view-box; transform-origin: -34px 4px; animation: s2saluda 1s cubic-bezier(.45,0,.55,1) 3.75s 1; }
       @keyframes s2llena { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
-      @keyframes s2saluda { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(18deg); } }
+      @keyframes s2saluda { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(14deg); } }
       @keyframes s2traza { to { stroke-dashoffset: 0; } }
       @keyframes s2in { to { opacity: 1; } }
       @keyframes s2fuera { to { opacity: 0; } }
@@ -213,9 +213,9 @@
             <ellipse cx="-17" cy="44.5" rx="6.5" ry="3" fill="#4FA463"/><ellipse cx="17" cy="44.5" rx="6.5" ry="3" fill="#4FA463"/>
             <path d="M33 10 Q45 14 41 25" stroke="#4FA463" stroke-width="6" stroke-linecap="round"/>
           </g>
-          <path class="asa" d="M-25 -15C-32 -36 -24 -50 0 -50C24 -50 32 -36 25 -15" pathLength="100" stroke="#4FA463" stroke-width="11" stroke-linecap="round"/>
+          <path class="asa" d="M-21 -17C-27 -36 -20 -49 0 -49C20 -49 27 -36 21 -17" pathLength="100" stroke="#4FA463" stroke-width="11" stroke-linecap="round"/>
           <path class="cuerpo" d="M-22.6 32A36 36 0 1 1 22.6 32Z" fill="#4FA463"/>
-          <g class="cara" stroke="#1F1F1F" stroke-width="2.7" stroke-linecap="round"><path d="M-14 1 Q-10 5.5 -6 1"/><path d="M6 1 Q10 5.5 14 1"/><path d="M-15 9 Q0 21 15 9"/></g>
+          <g class="cara" stroke="#1F1F1F" stroke-width="2.7" stroke-linecap="round"><path d="M-11 -4 Q-7 0.5 -3 -4"/><path d="M3 -4 Q7 0.5 11 -4"/><path d="M-15 4 Q0 16 15 4"/></g>
           <g class="resto"><g class="mano"><path d="M-34 4 Q-48 -8 -50 -30" stroke="#4FA463" stroke-width="6" stroke-linecap="round"/><circle cx="-50" cy="-34" r="5" fill="#4FA463"/></g></g>
         </g>
       </svg>

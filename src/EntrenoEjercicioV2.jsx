@@ -61,10 +61,12 @@ export function fasesDeTramos(tramos) {
   });
 }
 
+// Cada momento con su tono, para distinguirlos de un vistazo: el
+// calentamiento cálido, la fuerza en el azul de Entreno y el cierre en verde.
 const MOMENTO = {
-  calentamiento: { titulo: 'Calentamiento y movilidad', bajada: 'Cardio suave, movilidad y activación', Icono: Fire },
-  fuerza:        { titulo: 'Fuerza', bajada: 'El trabajo principal', Icono: Barbell },
-  enfriamiento:  { titulo: 'Enfriamiento', bajada: 'Cardio de cierre y estiramientos', Icono: Wind },
+  calentamiento: { titulo: 'Calentamiento y movilidad', bajada: 'Cardio suave, movilidad y activación', Icono: Fire, color: '#C95F17', tinte: '#FBEADB' },
+  fuerza:        { titulo: 'Fuerza', bajada: 'El trabajo principal', Icono: Barbell, color: AZUL, tinte: SECCION.entreno.tint },
+  enfriamiento:  { titulo: 'Enfriamiento', bajada: 'Cardio de cierre y estiramientos', Icono: Wind, color: '#2F7F45', tinte: '#E3F1E6' },
 };
 
 export function SeparadorMomento({ fase, hechos, total }) {
@@ -72,13 +74,13 @@ export function SeparadorMomento({ fase, hechos, total }) {
   if (!m) return null;
   const listo = total > 0 && hechos >= total;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '22px 2px 10px' }}>
+    <div data-momento={fase} style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '22px 2px 10px', paddingBottom: 9, borderBottom: `2px solid ${m.tinte}` }}>
       <span style={{
         width: 34, height: 34, borderRadius: 999, flex: 'none', display: 'grid', placeItems: 'center',
-        background: listo ? AZUL : SECCION.entreno.tint, color: listo ? '#fff' : AZUL_TINTA,
+        background: listo ? m.color : m.tinte, color: listo ? '#fff' : m.color,
       }}>{listo ? <Check size={17} weight="bold" /> : <m.Icono size={18} weight="fill" />}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 17, fontWeight: 750, color: TEXT, letterSpacing: '-0.015em' }}>{m.titulo}</div>
+        <div style={{ fontSize: 17, fontWeight: 750, color: m.color, letterSpacing: '-0.015em' }}>{m.titulo}</div>
         <div style={{ fontSize: 13, color: TEXT_MUTED }}>{m.bajada}</div>
       </div>
       {total > 0 && (
@@ -168,7 +170,8 @@ function Botones({ items, chico = false }) {
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
           height: chico ? 42 : 46, padding: '0 2px', borderRadius: 12, border: 'none',
           background: chico ? '#EFEBE3' : CREMA, color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
-          fontSize: 11.5, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0,
+          // Con cuatro botones, un pelo más chica para que «Nota al coach» quepa entera.
+          fontSize: items.length >= 4 ? 10.5 : 11.5, letterSpacing: items.length >= 4 ? '-0.01em' : 0, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0,
         }}>
           <Icono size={chico ? 16 : 17} color={AZUL_TINTA} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{texto}</span>
@@ -185,7 +188,7 @@ function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota }) {
       { Icono: Trophy, texto: 'Tu récord', onClick: abrirRecord },
       { Icono: ClockCounterClockwise, texto: 'Última vez', onClick: abrirUltima },
     ]),
-    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota', onClick: onNota }] : []),
+    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', onClick: onNota }] : []),
   ];
 }
 
