@@ -6,13 +6,23 @@
 //     sin salir de este modo;
 //   · una barrita abajo para atrasarlo o adelantarlo (y ver el tiempo);
 //   · tocar el video lo pausa o lo sigue;
-//   · mientras arranca (que es cuando YouTube pinta su título, su logo y sus
-//     botones) y mientras está en pausa, lo tapa la miniatura del ejercicio.
+//   · el video va un poco ampliado, así el título y el logo de YouTube quedan
+//     fuera del cuadro; la miniatura lo tapa solo medio segundo al arrancar
+//     (y mientras está en pausa).
 // Se habla con el reproductor por postMessage (la API de iframes de
 // YouTube), sin cargar ningún script extra.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
 import { SpeakerSimpleSlash, SpeakerSimpleHigh, Play } from '@phosphor-icons/react';
+
+// La barrita: delgada, con las puntas redondas y lo ya visto en blanco.
+const CSS_VL = `@keyframes vl-gira { to { transform: rotate(360deg) } }
+.vl-barra { -webkit-appearance: none; appearance: none; height: 16px; margin: 0; background: transparent; cursor: pointer; }
+.vl-barra::-webkit-slider-runnable-track { height: 4px; border-radius: 99px; background: linear-gradient(90deg, #fff var(--vl-p), rgba(255,255,255,.35) var(--vl-p)); }
+.vl-barra::-moz-range-track { height: 4px; border-radius: 99px; background: rgba(255,255,255,.35); }
+.vl-barra::-moz-range-progress { height: 4px; border-radius: 99px; background: #fff; }
+.vl-barra::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border-radius: 99px; background: #fff; border: 0; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.vl-barra::-moz-range-thumb { width: 12px; height: 12px; border-radius: 99px; background: #fff; border: 0; }`;
 
 const mmss = (s) => { const t = Math.max(0, Math.floor(s || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 
@@ -41,16 +51,16 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
       if (info.currentTime != null && !arrastrando.current) setT(info.currentTime);
       if (info.playerState === 1) {
         setPausado(false);
-        // El título y los botones de YouTube salen los primeros segundos.
-        if (!tapa) tapa = setTimeout(() => setListo(true), 1600);
+        // Medio segundo basta: lo demás de YouTube queda fuera del cuadro.
+        if (!tapa) tapa = setTimeout(() => setListo(true), 500);
       } else if (info.playerState === 2) setPausado(true);
     };
     window.addEventListener('message', alMensaje);
     // Pedirle al reproductor que nos cuente cómo va.
     const escuchar = () => { try { marco.current && marco.current.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'v' }), '*'); } catch (e) { /* nada */ } };
     const iv = setInterval(escuchar, 500);
-    // Si el reproductor no responde (sin red), igual se destapa a los 4 s.
-    const respaldo = setTimeout(() => setListo(true), 4000);
+    // Si el reproductor no responde, igual se destapa a los 2,5 s.
+    const respaldo = setTimeout(() => setListo(true), 2500);
     return () => { window.removeEventListener('message', alMensaje); clearInterval(iv); clearTimeout(tapa); clearTimeout(respaldo); };
   }, [src]);
 
@@ -62,7 +72,7 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
     <div data-video-limpio style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', aspectRatio: '16 / 9', background: '#000' }}>
       <iframe ref={marco} src={url} title={titulo} tabIndex={-1}
         allow="autoplay; encrypted-media; picture-in-picture"
-        style={{ position: 'absolute', width: '100%', height: '100%', border: 'none', transform: 'scale(1.22)', transformOrigin: 'center', pointerEvents: 'none' }} />
+        style={{ position: 'absolute', width: '100%', height: '100%', border: 'none', transform: 'scale(1.36)', transformOrigin: 'center', pointerEvents: 'none' }} />
       {/* La tapa: la miniatura mientras arranca o está en pausa */}
       <div aria-hidden="true" style={{
         position: 'absolute', inset: 0, background: miniatura ? `#000 url(${miniatura}) center / cover` : '#000',
@@ -73,7 +83,7 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
         {pausado && <span style={{ width: 54, height: 54, borderRadius: 99, background: 'rgba(255,255,255,0.94)', display: 'grid', placeItems: 'center' }}><Play size={24} weight="fill" color="#1F1F1F" /></span>}
         {!listo && !pausado && <span style={{ width: 24, height: 24, borderRadius: 99, border: '2.5px solid rgba(255,255,255,.3)', borderTopColor: '#fff', animation: 'vl-gira .8s linear infinite' }} />}
       </button>
-      <style>{'@keyframes vl-gira { to { transform: rotate(360deg) } }'}</style>
+      <style>{CSS_VL}</style>
       {/* Abajo: tiempo, barrita y sonido */}
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '18px 10px 8px', display: 'flex', alignItems: 'center', gap: 9,
         background: 'linear-gradient(0deg, rgba(0,0,0,.55), rgba(0,0,0,0))' }}>
@@ -82,7 +92,7 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
           onPointerDown={() => { arrastrando.current = true; }}
           onChange={ev => { const v = Number(ev.target.value); setT(v); mandar('seekTo', [v, true]); }}
           onPointerUp={() => { arrastrando.current = false; }}
-          style={{ flex: 1, accentColor: '#FFFFFF', height: 18, cursor: 'pointer' }} />
+          className="vl-barra" style={{ flex: 1, '--vl-p': `${dur ? Math.min(100, (t / dur) * 100) : 0}%` }} />
         <button data-video-sonido onClick={alternarSonido} aria-label={sonido ? 'Quitar sonido' : 'Poner sonido'} style={{
           width: 32, height: 32, flex: 'none', borderRadius: 99, border: 0, cursor: 'pointer', display: 'grid', placeItems: 'center',
           background: 'rgba(20,20,18,0.62)', color: '#fff', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)',

@@ -251,6 +251,19 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   await p.goto('http://localhost:5198/');
   return { p, ctx, errores, db, pulls: () => pulls };
 }
+// La kettlebell de la cabecera: entera dentro de la pantalla y sin tapar la frase.
+const ilusBien = (p, tema) => p.evaluate((tema) => {
+  const caja = document.querySelector(`[data-cabecera-hoy="${tema}"] .cab-ilus svg`);
+  const frase = document.querySelector(`[data-cabecera-hoy="${tema}"] [data-frase]`);
+  if (!caja || !frase) return false;
+  // Lo dibujado (sin el lienzo vacío): el grupo del personaje.
+  const g = caja.querySelector('g').getBoundingClientRect();
+  const f = frase.getBoundingClientRect();
+  const r = document.createRange(); r.selectNodeContents(frase);
+  const lineas = [...r.getClientRects()];
+  const derechaTexto = Math.max(...lineas.map(l => l.right));
+  return g.left >= 0 && g.right <= innerWidth && g.top >= 0 && derechaTexto <= g.left + 4 && g.left - f.right < 40 && g.top < f.bottom;
+}, tema);
 const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.png') });
 
 try {
@@ -285,6 +298,7 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
+  ok('Dash: la kettlebell levanta la gráfica circular con los 4 colores, junto a la frase, entera y sin taparla', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] circle[stroke="#E8B931"]').count()) === 1 && await ilusBien(p, 'dash'));
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
     const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));
     return getComputedStyle(el).transitionProperty.includes('stroke-dashoffset') && o < c;
@@ -438,6 +452,7 @@ try {
   ok('Entrenamiento abre en Hoy', (await p.getByRole('button', { name: 'Hoy', exact: true }).first().getAttribute('aria-current')) === 'page');
   ok('sin la navegación de arriba del módulo', (await p.getByRole('button', { name: 'Resumen', exact: true }).count()) === 0);
   await foto(p, '04-entreno-hoy');
+  ok('Entreno: la kettlebell junto a la frase, entera y sin taparla', await ilusBien(p, 'entreno'));
   const cabE = p.locator('[data-cabecera-hoy="entreno"]');
   ok('Hoy de entreno: la voz del coach (el día, la semana y la frase de hoy)', await cabE.locator('[data-frase]').isVisible()
     && /^MARTES 29 · SEMANA \d+ DE \d+$/.test(await cabE.locator('[data-etiqueta]').innerText())
@@ -573,6 +588,10 @@ try {
     ok('video del ejercicio: en bucle, sin sonido, sin controles ni sugeridos', /autoplay=1/.test(src) && /mute=1/.test(src) && /loop=1/.test(src) && /controls=0/.test(src) && /rel=0/.test(src), src);
     ok('video: botón de sonido (prende y apaga) y barrita para moverlo', (await p.locator('[data-video-limpio] [data-video-sonido]').count()) === 1
       && (await p.locator('[data-video-limpio] [data-video-barra]').count()) === 1 && /enablejsapi=1/.test(src));
+    ok('video: la barrita es delgada (pista de 4 px, puntas redondas)', await p.locator('[data-video-barra]').evaluate(el => el.getBoundingClientRect().height <= 16 && getComputedStyle(el).appearance === 'none'));
+    await espera(3000);
+    await foto(p, '04j-video-barra');
+    ok('video: la miniatura destapa rápido (aun sin respuesta de YouTube, antes de 3 s)', await p.locator('[data-video-limpio] > div[aria-hidden]').evaluate(el => getComputedStyle(el).opacity === '0'));
     await p.locator('[data-video-limpio] [data-video-sonido]').click(); await espera(150);
     ok('video: el sonido se prende sin salir del modo limpio', (await p.locator('[data-video-limpio]').count()) === 1
       && (await p.locator('[data-video-sonido]').getAttribute('aria-label')) === 'Quitar sonido');
@@ -731,6 +750,7 @@ try {
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(1200);
   await foto(p, '08-comida-hoy');
+  ok('Comida: tenedor y plato en alto, junto a la frase, entera y sin taparla', (await p.locator('svg[data-ilustracion="comida"]').count()) >= 1 && await ilusBien(p, 'comida'));
   ok('Hoy de alimentación ya no saluda ni trae herramientas', (await p.getByText('Hola, Mauro').count()) === 0
     && (await p.getByText('Tus herramientas').count()) === 0);
   ok('Hoy de alimentación: la voz del coach según lo comido, sin personajes', await p.locator('[data-cabecera-hoy="comida"] [data-frase]').isVisible()

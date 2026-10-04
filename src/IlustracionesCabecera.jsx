@@ -5,13 +5,15 @@
 // las de verdad (bola con base plana y asa gruesa), con LA MISMA cara en
 // todas las secciones, al estilo Headspace: ojos cerrados en arco y una
 // sonrisa ancha. En cada sección hace lo suyo:
-//   Dash           saluda
+//   Dash           levanta la gráfica circular de la marca (los 4 colores)
 //   Entrenamiento  levanta la barra
-//   Alimentación   come: lleva el tenedor del plato a la boca
-//   Aprendizaje    lee un libro abierto
+//   Alimentación   tenedor con el bocado en una mano y el plato en la otra
+//   Aprendizaje    sostiene el libro abierto en alto; se le prende el foco
+// Todas con la misma composición: brazos largos hacia arriba y el objeto
+// grande en alto, que es lo que mejor se lee en la cabecera.
 // Al entrar a la sección se mueve un momento, sin que nada se despegue: el
-// cuerpo queda quieto y cada brazo gira desde su hombro (o se dobla, en la
-// barra). Los brazos van por fuera del cuerpo (blanco sobre blanco no se
+// cuerpo queda quieto y los brazos se doblan y estiran desde los hombros
+// (se anima el trazo del brazo, no se gira: así nunca se suelta). Los brazos van por fuera del cuerpo (blanco sobre blanco no se
 // vería); lo que cruza por delante va en el color de la sección.
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
@@ -22,13 +24,11 @@ const CARA = '#2B2A27';
 // izquierda, para que los pies nunca se corten con el borde de la cabecera).
 const X = 102, Y = 60;
 const CSS_KB = `
-@keyframes kb-saluda { 0%, 100% { transform: rotate(0) } 50% { transform: rotate(14deg) } }
-@keyframes kb-bocado { 0% { transform: rotate(-14deg) } 45%, 62% { transform: rotate(0) } 100% { transform: rotate(0) } }
 @keyframes kb-hoja { 0%, 100% { transform: scaleX(1) } 45%, 55% { transform: scaleX(-1) } }
+@keyframes kb-foco { 0% { transform: scale(0); opacity: 0 } 60% { transform: scale(1.15); opacity: 1 } 100% { transform: scale(1); opacity: 1 } }
 @keyframes kb-parpadea { 0%, 92%, 100% { transform: scaleY(1) } 96% { transform: scaleY(.15) } }
-[data-ilustracion] .kb-saluda { transform-box: view-box; animation: kb-saluda 1.2s cubic-bezier(.45,0,.55,1) .5s 3 both; }
-[data-ilustracion] .kb-bocado { transform-box: view-box; animation: kb-bocado 2.2s cubic-bezier(.45,0,.55,1) .5s 2 both; }
 [data-ilustracion] .kb-hoja { transform-box: fill-box; transform-origin: 0% 50%; animation: kb-hoja 1.8s ease-in-out .7s 2 both; }
+[data-ilustracion] .kb-foco > * { transform-box: fill-box; transform-origin: 50% 80%; animation: kb-foco .6s cubic-bezier(.3,1.4,.5,1) 1.1s both; }
 [data-ilustracion] .kb-ojos { transform-box: fill-box; transform-origin: 50% 50%; animation: kb-parpadea 4s ease-in-out 1.2s 2 both; }
 @media (prefers-reduced-motion: reduce) { [data-ilustracion] * { animation: none !important; } }`;
 
@@ -79,21 +79,37 @@ function Piernas() {
 }
 
 const brazo = { stroke: B, strokeWidth: 6, strokeLinecap: 'round', fill: 'none' };
-// El punto del hombro, para que el brazo gire desde ahí.
-// Ojo: en coordenadas del propio personaje (el grupo ya está trasladado),
-// no del lienzo; si no, el brazo gira desde un punto lejano y se despega.
-const hombro = (x, y) => `${x}px ${y}px`;
 
 export function IlusDash() {
-  // Saluda con la mano en alto; la otra en la cintura.
+  // Levanta la gráfica circular de la marca —un anillo con los colores de
+  // los cuatro módulos— como un trofeo: es el resumen de todo. El anillo se
+  // dibuja al entrar y sube un poco, con los brazos estirándose con él.
+  const abajo = ['M-35 2 Q-58 -18 -30 -62', 'M35 2 Q58 -18 30 -62'];
+  const arriba = ['M-35 2 Q-56 -24 -30 -70', 'M35 2 Q56 -24 30 -70'];
+  const anim = { dur: '2.4s', begin: '0.9s', repeatCount: '2', calcMode: 'spline', keyTimes: '0;0.5;1', keySplines: '0.45 0 0.55 1;0.45 0 0.55 1' };
+  const R = 21, L = 2 * Math.PI * R, tramo = L / 4;
+  const colores = ['#2F6CC4', '#46965A', '#D9732E', '#E8B931'];
   return (
     <Lienzo etiqueta="dash">
-      <Piernas />
-      <path d="M33 10 Q45 14 41 25" {...brazo} />
-      <Kettlebell><Cara y={-3} /></Kettlebell>
-      <g className="kb-saluda" style={{ transformOrigin: hombro(-34, 4) }}>
-        <path d="M-34 4 Q-48 -8 -50 -30" {...brazo} />
-        <circle cx="-50" cy="-34" r="5" fill={B} />
+      <g transform="translate(0 10) scale(0.86)">
+        <Piernas />
+        <Kettlebell><Cara y={-3} /></Kettlebell>
+        {abajo.map((d, i) => (
+          <path key={i} d={d} {...brazo}>
+            <animate attributeName="d" values={`${d};${arriba[i]};${d}`} {...anim} />
+          </path>
+        ))}
+        <g transform="translate(0 -66)">
+          <animateTransform attributeName="transform" type="translate" values="0 -66;0 -74;0 -66" {...anim} />
+          <circle r={R} fill="none" stroke={B} strokeWidth="13" />
+          {colores.map((c, i) => (
+            <circle key={c} r={R} fill="none" stroke={c} strokeWidth="8" strokeLinecap="butt"
+              strokeDasharray={`${tramo - 3} ${L}`} strokeDashoffset={-i * tramo} transform="rotate(-90)">
+              <animate attributeName="stroke-dasharray" values={`0 ${L};0 ${L};${tramo - 3} ${L}`} keyTimes={`0;${(i * 0.18).toFixed(2)};${(0.3 + i * 0.18).toFixed(2)}`} dur="1.1s" begin="0.2s" fill="freeze" />
+            </circle>
+          ))}
+          <circle cx="-30" cy="4" r="4.8" fill={B} /><circle cx="30" cy="4" r="4.8" fill={B} />
+        </g>
       </g>
     </Lienzo>
   );
@@ -130,24 +146,42 @@ export function IlusEntreno() {
 }
 
 export function IlusComida({ fuerte = '#3E8E57', comida = '#F2C14E' }) {
-  // Come: el plato hondo en la mano derecha, por fuera del cuerpo, con la
-  // comida servida pareja; con la otra mano lleva el tenedor a la boca.
+  // Come con ganas: en una mano el tenedor en alto con el bocado y en la
+  // otra el plato hondo servido parejo, los dos bien arriba (como la barra
+  // de Entrenamiento). Al entrar, los dos suben un poco, como un brindis.
+  const anim = { dur: '2.4s', begin: '0.5s', repeatCount: '2', calcMode: 'spline', keyTimes: '0;0.5;1', keySplines: '0.45 0 0.55 1;0.45 0 0.55 1' };
+  const tenedorArriba = 'M-35 2 Q-62 -18 -44 -56';
+  const tenedorMas = 'M-35 2 Q-60 -24 -44 -64';
+  const platoArriba = 'M35 2 Q60 -14 46 -40';
+  const platoMas = 'M35 2 Q60 -18 46 -45';
   return (
     <Lienzo etiqueta="comida">
-      <Piernas />
-      <path d="M34 8 Q44 14 47 9" {...brazo} />
-      <g transform="translate(60 8)">
-        <path d="M-15 0 C-15 -11 15 -11 15 0 Z" fill={comida} />
-        <path d="M-17 0 H17 A17 12 0 0 1 -17 0 Z" fill={fuerte} />
-      </g>
-      <Kettlebell><Cara y={-3} /></Kettlebell>
-      <g className="kb-bocado" style={{ transformOrigin: hombro(-35, 9) }}>
-        <path d="M-35 9 Q-45 11 -47 4" {...brazo} />
-        <circle cx="-47" cy="2" r="4.8" fill={B} />
-        <g transform="translate(-45 3) rotate(100)">
-          <path d="M0 0 V-29" stroke={fuerte} strokeWidth="3.4" strokeLinecap="round" />
-          <path d="M-4.5 -27 V-36 M0 -27 V-37 M4.5 -27 V-36 M-4.5 -27 H4.5" stroke={fuerte} strokeWidth="2.6" strokeLinecap="round" fill="none" />
-          <circle cx="0" cy="-40.5" r="4.4" fill={comida} />
+      <g transform="translate(0 10) scale(0.86)">
+        <Piernas />
+        <Kettlebell><Cara y={-3} /></Kettlebell>
+        {/* El plato, en la mano derecha */}
+        <path d={platoArriba} {...brazo}>
+          <animate attributeName="d" values={`${platoArriba};${platoMas};${platoArriba}`} {...anim} />
+        </path>
+        <g transform="translate(46 -52)">
+          <animateTransform attributeName="transform" type="translate" values="46 -52;46 -57;46 -52" {...anim} />
+          <path d="M-19 -4 C-19 -18 19 -18 19 -4 Z" fill={comida} />
+          <path d="M-22 -4 H22 A22 15 0 0 1 -22 -4 Z" fill={fuerte} />
+          <circle cx="0" cy="12" r="4.8" fill={B} />
+        </g>
+        {/* El tenedor con el bocado, en la izquierda */}
+        <path d={tenedorArriba} {...brazo}>
+          <animate attributeName="d" values={`${tenedorArriba};${tenedorMas};${tenedorArriba}`} {...anim} />
+        </path>
+        <g transform="translate(-44 -60)">
+          <animateTransform attributeName="transform" type="translate" values="-44 -60;-44 -68;-44 -60" {...anim} />
+          <g transform="rotate(12)">
+            <animateTransform attributeName="transform" type="rotate" values="12;-4;12" {...anim} />
+            <path d="M0 4 V-22" stroke={fuerte} strokeWidth="3.6" strokeLinecap="round" />
+            <path d="M-5 -20 V-30 M0 -20 V-31 M5 -20 V-30 M-5 -20 H5" stroke={fuerte} strokeWidth="2.8" strokeLinecap="round" fill="none" />
+            <circle cx="0" cy="-35" r="5.2" fill={comida} />
+          </g>
+          <circle cx="0" cy="4" r="4.8" fill={B} />
         </g>
       </g>
     </Lienzo>
@@ -155,19 +189,38 @@ export function IlusComida({ fuerte = '#3E8E57', comida = '#F2C14E' }) {
 }
 
 export function IlusAprende({ fuerte = '#D9732E' }) {
-  // Lee: el libro abierto en las dos manos, delante del cuerpo, con la tapa
-  // de color y las hojas lisas.
+  // Lee: el libro abierto, grande, sostenido con los brazos estirados hacia
+  // arriba (la misma energía que la barra de Entrenamiento); arriba, el
+  // foco de la idea se prende al entrar.
+  const anim = { dur: '2.4s', begin: '0.5s', repeatCount: '2', calcMode: 'spline', keyTimes: '0;0.5;1', keySplines: '0.45 0 0.55 1;0.45 0 0.55 1' };
+  const abajo = ['M-35 2 Q-58 -14 -40 -40', 'M35 2 Q58 -14 40 -40'];
+  const arriba = ['M-35 2 Q-57 -18 -40 -46', 'M35 2 Q57 -18 40 -46'];
   return (
     <Lienzo etiqueta="aprende">
-      <Piernas />
-      <Kettlebell><Cara y={-15} /></Kettlebell>
-      <g transform="translate(0 17)">
-        <path d="M-35 -10 Q-45 0 -37 8" {...brazo} /><path d="M35 -10 Q45 0 37 8" {...brazo} />
-        <path d="M0 -10 C-12 -17 -28 -17 -40 -11 V14 C-28 9 -12 9 0 15 C12 9 28 9 40 14 V-11 C28 -17 12 -17 0 -10 Z" fill={fuerte} />
-        <path d="M0 -13 C-11 -19 -25 -19 -35 -14 V9 C-25 4 -11 4 0 10 Z" fill={B} />
-        <path d="M0 -13 C11 -19 25 -19 35 -14 V9 C25 4 11 4 0 10 Z" fill={B} />
-        <path className="kb-hoja" d="M0 -13 C8 -18 18 -19 27 -16 V7 C18 5 8 6 0 10 Z" fill={B} stroke={fuerte} strokeOpacity="0.3" strokeWidth="1.4" />
-        <circle cx="-37" cy="8" r="4.5" fill={B} /><circle cx="37" cy="8" r="4.5" fill={B} />
+      <g transform="translate(0 10) scale(0.86)">
+        <Piernas />
+        <Kettlebell><Cara y={-3} /></Kettlebell>
+        {abajo.map((d, i) => (
+          <path key={i} d={d} {...brazo}>
+            <animate attributeName="d" values={`${d};${arriba[i]};${d}`} {...anim} />
+          </path>
+        ))}
+        <g transform="translate(0 -52)">
+          <animateTransform attributeName="transform" type="translate" values="0 -52;0 -58;0 -52" {...anim} />
+          <path d="M0 -10 C-14 -18 -32 -18 -46 -11 V18 C-32 12 -14 12 0 19 C14 12 32 12 46 18 V-11 C32 -18 14 -18 0 -10 Z" fill={fuerte} />
+          <path d="M0 -13 C-12 -20 -28 -20 -41 -14 V13 C-28 7 -12 7 0 14 Z" fill={B} />
+          <path d="M0 -13 C12 -20 28 -20 41 -14 V13 C28 7 12 7 0 14 Z" fill={B} />
+          <path className="kb-hoja" d="M0 -13 C9 -19 21 -20 31 -17 V10 C21 8 9 9 0 14 Z" fill={B} stroke={fuerte} strokeOpacity="0.3" strokeWidth="1.4" />
+          <circle cx="-40" cy="12" r="4.5" fill={B} /><circle cx="40" cy="12" r="4.5" fill={B} />
+        </g>
+        {/* El foco de la idea, arriba a la derecha */}
+        <g className="kb-foco" transform="translate(64 -66)">
+          <path d="M0 -12 C-8 -12 -12 -6 -12 -1 C-12 4 -8 7 -6 10 H6 C8 7 12 4 12 -1 C12 -6 8 -12 0 -12 Z" fill="#F2C14E" />
+          <rect x="-5" y="11" width="10" height="5" rx="2" fill={B} />
+          <g stroke="#F2C14E" strokeWidth="3" strokeLinecap="round">
+            <path d="M0 -18 V-23" /><path d="M-14 -12 L-18 -16" /><path d="M14 -12 L18 -16" />
+          </g>
+        </g>
       </g>
     </Lienzo>
   );

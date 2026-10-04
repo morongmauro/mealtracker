@@ -38,10 +38,18 @@
         try { crudo = JSON.parse(crudo); } catch (e) {}
         var n = String(crudo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
         if (['mauro moron'].indexOf(n) !== -1) document.documentElement.classList.add('splash-v2');
-        // La entrada nueva es negra: la barra del teléfono también, mientras dura.
-        if (document.documentElement.classList.contains('splash-v2') && !document.documentElement.classList.contains('warm-start')) {
-          var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#0C0C0B');
-          setTimeout(function(){ try { var t2 = document.querySelector('meta[name="theme-color"]'); if (t2 && !document.body.classList.contains('app-ready')) t2.setAttribute('content', '#F4F2EC'); } catch (e) {} }, 1600);
+        // Entrada COMPLETA solo la primera vez del día; el resto, la corta
+        // (la kettlebell saluda y se va al Dash).
+        var raiz = document.documentElement;
+        if (raiz.classList.contains('splash-v2') && !raiz.classList.contains('warm-start')) {
+          var d = new Date(), dia = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+          var completa = true;
+          try { completa = localStorage.getItem('mt:introDia') !== dia; localStorage.setItem('mt:introDia', dia); } catch (e) {}
+          raiz.classList.add(completa ? 'intro-completa' : 'intro-corta');
+          // La completa arranca en negro: la barra del teléfono también, mientras dura.
+          var tc = document.querySelector('meta[name="theme-color"]');
+          if (tc) tc.setAttribute('content', completa ? '#0C0C0B' : '#F4F2EC');
+          if (completa) setTimeout(function(){ try { var t2 = document.querySelector('meta[name="theme-color"]'); if (t2 && !document.body.classList.contains('app-ready')) t2.setAttribute('content', '#F4F2EC'); } catch (e) {} }, 1100);
         }
       } catch (e) {}
     </script>
@@ -107,63 +115,89 @@
       body.app-ready #splash { opacity: 0; pointer-events: none; }
       /* Arranque caliente (misma sesión): sin opener, directo a la app */
       html.warm-start #splash { display: none; }
-      /* ── Apertura de la visual nueva · «Las palabras» ───────────────────
-         Fondo negro y letra enorme; las cuatro frases se apilan rápido, cada
-         una en el color de su sección. Después sale de atrás un círculo
-         claro que se agranda y vuelve todo claro; en el centro se dibuja la
-         gráfica circular verde del programa, se llena, le salen los ojitos
-         (estilo Headspace) y se convierte en la kettlebell que saluda.
-           0.08–0.50 s  ENTRENA. · COME BIEN. · APRENDE. · CON MÉTODO.
-           1.15–1.75 s  el círculo claro cubre la pantalla
-           1.80–2.60 s  la gráfica circular se dibuja
-           2.65–2.95 s  se llena: ya es el cuerpo
-           2.95 s       los ojitos y la sonrisa
-           3.30–3.70 s  el asa, las piernas y los brazos
-           3.75–4.75 s  saluda (un saludo lento)
-         La app espera a que termine (mínimo 5 s desde que se toca el ícono,
-         ver main.jsx): nada se corta antes de verse. */
+      /* ── Apertura de la visual nueva ─────────────────────────────────────
+         COMPLETA (la primera vez del día, ~2,9 s):
+           0.05–0.70 s  ENTRENA. · COME BIEN. · APRENDE. · CON MÉTODO.,
+                        grandes, cada una en el color de su sección
+           0.90–1.40 s  las palabras suben y el círculo claro cubre todo
+           1.15–1.85 s  encima, sin pausa, el anillo con los 4 colores
+                        de los módulos se dibuja por cuartos
+           1.85–2.15 s  el anillo se vuelve el cuerpo de la kettlebell
+                        (grafito): asa, cara, piernas y brazo
+           2.15 s       «Entrena con Método» debajo
+           2.25–2.95 s  saluda
+         CORTA (el resto de aperturas del día, ~0,85 s): fondo claro, la
+         kettlebell aparece entera y saluda.
+         CIERRE (las dos): cuando la app está lista (body.app-ready), el
+         fondo se desvanece y la kettlebell vuela a la cabecera del Dash,
+         donde la espera la de la cabecera. Ver main.jsx (mínimos). */
       @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: block;
         src: url('/fonts/figtree.woff2') format('woff2-variations'), url('/fonts/figtree.woff2') format('woff2'); }
       #splash2 { display: none; }
       html.splash-v2 #splash { display: none; }
-      html.splash-v2 #splash2 {
-        position: fixed; inset: 0; z-index: 9999; display: block; overflow: hidden; background: #0C0C0B;
-        transition: opacity 0.45s ease-out;
-      }
-      body.app-ready #splash2 { opacity: 0; pointer-events: none; }
+      html.splash-v2 #splash2 { position: fixed; inset: 0; z-index: 9999; display: block; overflow: hidden; pointer-events: none;
+        transition: opacity .2s ease-out .5s; }
       html.warm-start #splash2 { display: none !important; }
-      #splash2 .pila { position: absolute; left: 24px; right: 16px; top: calc(20vh + env(safe-area-inset-top, 0px)); margin: 0;
-        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 900;
-        font-size: min(11.4vw, 62px); line-height: 0.98; letter-spacing: -0.035em; color: #FFFFFF; }
+      body.app-ready #splash2 { opacity: 0; }
+      #splash2 .fondo { position: absolute; inset: 0; background: #F4F2EC; transition: opacity .35s ease-out; }
+      html.intro-completa #splash2 .fondo { background: #0C0C0B; }
+      body.app-ready #splash2 .fondo, body.app-ready #splash2 .claro, body.app-ready #splash2 .nombre-caja { opacity: 0; transition: opacity .3s ease-out; }
+      /* Las palabras: grandes y centradas en la pantalla */
+      #splash2 .pila { display: none; }
+      html.intro-completa #splash2 .pila { display: block; position: absolute; left: 22px; right: 14px; top: 50%; margin: 0;
+        transform: translateY(-50%); font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 900;
+        font-size: min(12.8vw, 66px); line-height: 0.96; white-space: nowrap; letter-spacing: -0.04em; color: #FFFFFF;
+        animation: s2sube .45s cubic-bezier(.6,0,.4,1) .9s forwards; }
       #splash2 .w { display: block; overflow: hidden; padding: 0.06em 0 0.04em; margin-top: -0.06em; }
       #splash2 .w > span { display: block; transform: translateY(135%); animation: s2entra .3s cubic-bezier(.2,.8,.2,1) forwards; }
-      #splash2 .w1 > span { animation-delay: .08s; }
-      #splash2 .w2 > span { color: #5BB273; animation-delay: .22s; }
-      #splash2 .w3 > span { color: #F2964A; animation-delay: .36s; }
-      #splash2 .w4 > span { animation-delay: .50s; }
+      #splash2 .w1 > span { color: #7AA8EC; animation-delay: .05s; }
+      #splash2 .w2 > span { color: #5BB273; animation-delay: .17s; }
+      #splash2 .w3 > span { color: #F2964A; animation-delay: .29s; }
+      #splash2 .w4 > span { color: #F2C94C; animation-delay: .41s; }
       @keyframes s2entra { to { transform: translateY(0); } }
-      /* El círculo claro que sale de atrás y cubre todo */
-      #splash2 .claro { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%;
-        background: #F4F2EC; transform: scale(0); animation: s2claro .6s cubic-bezier(.65,0,.35,1) 1.15s forwards; }
+      @keyframes s2sube { to { transform: translateY(-62%); opacity: 0; } }
+      /* El círculo claro que sale de atrás y cubre todo (solo la completa) */
+      #splash2 .claro { display: none; }
+      html.intro-completa #splash2 .claro { display: block; position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%;
+        background: #F4F2EC; transform: scale(0); animation: s2claro .5s cubic-bezier(.65,0,.35,1) .9s forwards; }
       @keyframes s2claro { to { transform: scale(260); } }
-      /* La marca, en el centro */
-      #splash2 .marca { position: absolute; left: 50%; top: 50%; width: min(64vw, 280px); height: min(64vw, 280px);
-        transform: translate(-50%, -54%); overflow: visible; }
-      #splash2 .riel { opacity: 0; animation: s2in .25s ease-out 1.75s forwards; }
-      #splash2 .arco { opacity: 0; stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: s2in .01s linear 1.8s forwards, s2traza .8s cubic-bezier(.45,0,.25,1) 1.8s forwards, s2fuera .3s ease-out 2.7s forwards; }
-      #splash2 .riel { animation: s2in .25s ease-out 1.75s forwards, s2fuera .3s ease-out 2.7s forwards; }
-      #splash2 .cuerpo { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; animation: s2llena .32s cubic-bezier(.2,.9,.3,1.2) 2.65s forwards; }
-      #splash2 .cara { opacity: 0; animation: s2in .25s ease-out 2.95s forwards; }
-      #splash2 .asa { opacity: 0; stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: s2in .01s linear 3.3s forwards, s2traza .4s ease-out 3.3s forwards; }
-      #splash2 .resto { opacity: 0; animation: s2in .3s ease-out 3.4s forwards; }
-      #splash2 .mano { transform-box: view-box; transform-origin: -34px 4px; animation: s2saluda 1s cubic-bezier(.45,0,.55,1) 3.75s 1; }
-      @keyframes s2llena { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
-      @keyframes s2saluda { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(14deg); } }
+      /* La marca, en el centro; al final vuela a la cabecera del Dash */
+      #splash2 .marca { position: absolute; width: min(64vw, 280px); height: min(64vw, 280px);
+        left: calc(50% - min(32vw, 140px)); top: calc(46% - min(32vw, 140px)); overflow: visible;
+        transition: transform .5s cubic-bezier(.65,0,.35,1), opacity .2s ease-out .38s; }
+      body.app-ready #splash2 .marca { transform: translate(calc(50vw - 96px), calc(-46vh + 150px + env(safe-area-inset-top, 0px))) scale(.36); opacity: 0; }
+      #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(46% + min(30vw, 130px)); text-align: center;
+        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: 24px; letter-spacing: -0.02em; color: #2B2A27;
+        opacity: 0; animation: s2nombre .4s ease-out 2.15s forwards; }
+      html.intro-corta #splash2 .nombre { display: none; }
+      @keyframes s2nombre { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      /* El anillo de 4 colores (solo la completa) */
+      #splash2 .cuarto { opacity: 0; stroke-dasharray: 100 100; stroke-dashoffset: 100; }
+      html.intro-completa #splash2 .cuarto { animation: s2in .01s linear forwards, s2traza .26s cubic-bezier(.45,0,.25,1) forwards, s2fuera .25s ease-out 1.85s forwards; }
+      html.intro-completa #splash2 .c1 { animation-delay: 1.15s, 1.15s, 1.85s; }
+      html.intro-completa #splash2 .c2 { animation-delay: 1.32s, 1.32s, 1.85s; }
+      html.intro-completa #splash2 .c3 { animation-delay: 1.49s, 1.49s, 1.85s; }
+      html.intro-completa #splash2 .c4 { animation-delay: 1.66s, 1.66s, 1.85s; }
+      /* …que se vuelve la kettlebell */
+      #splash2 .cuerpo, #splash2 .cara, #splash2 .asa, #splash2 .resto { opacity: 0; }
+      #splash2 .cuerpo { transform-box: fill-box; transform-origin: 50% 50%; }
+      html.intro-completa #splash2 .cuerpo { animation: s2llena .3s cubic-bezier(.2,.9,.3,1.2) 1.85s forwards; }
+      html.intro-completa #splash2 .asa { stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: s2in .01s linear 1.95s forwards, s2traza .3s ease-out 1.95s forwards; }
+      html.intro-completa #splash2 .cara { animation: s2in .2s ease-out 2.05s forwards; }
+      html.intro-completa #splash2 .resto { animation: s2in .25s ease-out 2.0s forwards; }
+      #splash2 .mano { transform-box: view-box; transform-origin: -34px 4px; }
+      html.intro-completa #splash2 .mano { animation: s2saluda .7s cubic-bezier(.45,0,.55,1) 2.25s 1; }
+      /* La corta: aparece entera y saluda */
+      html.intro-corta #splash2 .kb { transform-box: fill-box; transform-origin: 50% 70%; animation: s2llena .3s cubic-bezier(.2,.9,.3,1.2) .02s both; }
+      html.intro-corta #splash2 .cuerpo, html.intro-corta #splash2 .cara, html.intro-corta #splash2 .asa, html.intro-corta #splash2 .resto { opacity: 1; }
+      html.intro-corta #splash2 .mano { animation: s2saluda .55s cubic-bezier(.45,0,.55,1) .25s 1; }
+      @keyframes s2llena { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: none; } }
+      @keyframes s2saluda { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(16deg); } }
       @keyframes s2traza { to { stroke-dashoffset: 0; } }
       @keyframes s2in { to { opacity: 1; } }
       @keyframes s2fuera { to { opacity: 0; } }
       @media (prefers-reduced-motion: reduce) {
-        #splash2 *, #splash2 .w > span { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+        #splash2 *, #splash2 .w > span { animation-duration: 0.01s !important; animation-delay: 0s !important; transition: none !important; }
       }
       @media (prefers-reduced-motion: reduce) {
         #splash .ring { animation-duration: 0.01s; }
@@ -200,25 +234,31 @@
       <div class="sub">Entrena con Método</div>
     </div>
     <div id="splash2" aria-label="Entrena con Método">
+      <div class="fondo"></div>
       <p class="pila"><span class="w w1"><span>ENTRENA.</span></span><span class="w w2"><span>COME BIEN.</span></span><span class="w w3"><span>APRENDE.</span></span><span class="w w4"><span>CON MÉTODO.</span></span></p>
       <div class="claro" aria-hidden="true"></div>
       <svg class="marca" viewBox="0 0 200 200" fill="none" aria-hidden="true">
         <g transform="translate(100 104) scale(1.6)">
-          <!-- La gráfica circular del programa -->
-          <circle class="riel" cx="0" cy="4" r="36" stroke="#1F1F1F" stroke-opacity="0.09" stroke-width="7"/>
-          <path class="arco" d="M0 -32 A36 36 0 1 1 -0.01 -32" pathLength="100" stroke="#4FA463" stroke-width="7" stroke-linecap="round"/>
-          <!-- …que se llena y se vuelve la kettlebell -->
-          <g class="resto">
-            <g stroke="#4FA463" stroke-width="6" stroke-linecap="round"><path d="M-11 31 L-14 43"/><path d="M11 31 L14 43"/></g>
-            <ellipse cx="-17" cy="44.5" rx="6.5" ry="3" fill="#4FA463"/><ellipse cx="17" cy="44.5" rx="6.5" ry="3" fill="#4FA463"/>
-            <path d="M33 10 Q45 14 41 25" stroke="#4FA463" stroke-width="6" stroke-linecap="round"/>
+          <!-- El anillo del programa: un cuarto por módulo -->
+          <path class="cuarto c1" d="M3.5 -31.8 A36 36 0 0 1 35.8 0.5" pathLength="100" stroke="#2F6CC4" stroke-width="7" stroke-linecap="round"/>
+          <path class="cuarto c2" d="M35.8 7.5 A36 36 0 0 1 3.5 39.8" pathLength="100" stroke="#46965A" stroke-width="7" stroke-linecap="round"/>
+          <path class="cuarto c3" d="M-3.5 39.8 A36 36 0 0 1 -35.8 7.5" pathLength="100" stroke="#D9732E" stroke-width="7" stroke-linecap="round"/>
+          <path class="cuarto c4" d="M-35.8 0.5 A36 36 0 0 1 -3.5 -31.8" pathLength="100" stroke="#E8B931" stroke-width="7" stroke-linecap="round"/>
+          <!-- …que se vuelve la kettlebell, en grafito -->
+          <g class="kb">
+            <g class="resto">
+              <g stroke="#2B2A27" stroke-width="6" stroke-linecap="round"><path d="M-11 31 L-14 43"/><path d="M11 31 L14 43"/></g>
+              <ellipse cx="-17" cy="44.5" rx="6.5" ry="3" fill="#2B2A27"/><ellipse cx="17" cy="44.5" rx="6.5" ry="3" fill="#2B2A27"/>
+              <path d="M33 10 Q45 14 41 25" stroke="#2B2A27" stroke-width="6" stroke-linecap="round"/>
+            </g>
+            <path class="asa" d="M-21 -17C-27 -36 -20 -49 0 -49C20 -49 27 -36 21 -17" pathLength="100" stroke="#2B2A27" stroke-width="11" stroke-linecap="round"/>
+            <path class="cuerpo" d="M-22.6 32A36 36 0 1 1 22.6 32Z" fill="#2B2A27"/>
+            <g class="cara" stroke="#F4F2EC" stroke-width="2.7" stroke-linecap="round"><path d="M-11 -4 Q-7 0.5 -3 -4"/><path d="M3 -4 Q7 0.5 11 -4"/><path d="M-15 4 Q0 16 15 4"/></g>
+            <g class="resto"><g class="mano"><path d="M-34 4 Q-48 -8 -50 -30" stroke="#2B2A27" stroke-width="6" stroke-linecap="round"/><circle cx="-50" cy="-34" r="5" fill="#2B2A27"/></g></g>
           </g>
-          <path class="asa" d="M-21 -17C-27 -36 -20 -49 0 -49C20 -49 27 -36 21 -17" pathLength="100" stroke="#4FA463" stroke-width="11" stroke-linecap="round"/>
-          <path class="cuerpo" d="M-22.6 32A36 36 0 1 1 22.6 32Z" fill="#4FA463"/>
-          <g class="cara" stroke="#1F1F1F" stroke-width="2.7" stroke-linecap="round"><path d="M-11 -4 Q-7 0.5 -3 -4"/><path d="M3 -4 Q7 0.5 11 -4"/><path d="M-15 4 Q0 16 15 4"/></g>
-          <g class="resto"><g class="mano"><path d="M-34 4 Q-48 -8 -50 -30" stroke="#4FA463" stroke-width="6" stroke-linecap="round"/><circle cx="-50" cy="-34" r="5" fill="#4FA463"/></g></g>
         </g>
       </svg>
+      <div class="nombre-caja"><div class="nombre">Entrena con Método</div></div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

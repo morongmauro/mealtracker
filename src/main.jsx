@@ -45,10 +45,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // index.html) y no se retiene nada — directo a la app.
 if (typeof window !== 'undefined') {
   const warmStart = (() => { try { return !!sessionStorage.getItem('mt:booted'); } catch (e) { return false; } })();
-  // Visual nueva: la entrada termina a los ~4,8 s (palabras, círculo claro,
-  // gráfica y kettlebell que saluda); se deja ver completa.
+  // Visual nueva: la entrada COMPLETA (primera del día) dura ~2,9 s y la
+  // CORTA ~0,85 s; después la kettlebell vuela al Dash (ver index.html).
   const splashV2 = document.documentElement.classList.contains('splash-v2');
-  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? 5000 : 2200;
+  const introCompleta = document.documentElement.classList.contains('intro-completa');
+  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? (introCompleta ? 2950 : 850) : 2200;
   requestAnimationFrame(() => {
     const holdLeft = Math.max(80, SPLASH_MIN_MS - performance.now());
     setTimeout(() => {

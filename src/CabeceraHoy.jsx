@@ -138,7 +138,9 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       {Ilus && (
         <div aria-hidden="true" data-ilus-cabecera={tema} style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
           <div className="cab-ilus" style={{
-            position: 'absolute', right: -18, top: `calc(${arriba} + 8px)`, width: 'min(42vw, 172px)', aspectRatio: '220 / 170',
+            // Junto a la frase (sin taparla: el texto le deja su espacio) y
+            // entera dentro de la pantalla, sin cortarse por el borde.
+            position: 'absolute', right: 14, top: `calc(${arriba} + 22px)`, width: 'min(40vw, 164px)', aspectRatio: '220 / 170',
             color: '#FFFFFF', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.10))',
           }}><Ilus /></div>
         </div>
