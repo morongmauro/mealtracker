@@ -45,9 +45,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // index.html) y no se retiene nada — directo a la app.
 if (typeof window !== 'undefined') {
   const warmStart = (() => { try { return !!sessionStorage.getItem('mt:booted'); } catch (e) { return false; } })();
-  // Visual nueva: la entrada (primera vez del día o tras 2 h sin usar la
-  // app, ver index.html) dura ~3,4 s; el fondo se desvanece y aparece la app.
-  // Si no toca entrada, no se retiene nada.
+  // Visual nueva: la entrada (cada vez que se abre la app, ver index.html)
+  // dura ~3,4 s; el fondo se desvanece y aparece la app.
   const raiz = document.documentElement;
   const splashV2 = raiz.classList.contains('splash-v2');
   const conEntrada = raiz.classList.contains('intro-completa');
@@ -76,7 +75,6 @@ if (typeof window !== 'undefined') {
       if (!viejo) return;
       // Un clon limpio y su reloj en cero: así todo arranca desde el inicio.
       const nuevo = viejo.cloneNode(true);
-      raiz.classList.remove('intro-nada');
       raiz.classList.add('intro-completa', 'intro-repite');
       document.body.classList.remove('app-ready');
       viejo.replaceWith(nuevo);

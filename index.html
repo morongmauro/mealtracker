@@ -38,18 +38,13 @@
         try { crudo = JSON.parse(crudo); } catch (e) {}
         var n = String(crudo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
         if (['mauro moron'].indexOf(n) !== -1) document.documentElement.classList.add('splash-v2');
-        // La entrada SOLO sale la primera vez del día o si hace un buen rato
-        // (2 h o más) que no se usa la app. Las demás veces, directo a la app.
+        // La entrada sale SIEMPRE que la app se abre de verdad (cerrada y
+        // vuelta a abrir). No sale en una recarga dentro de la misma sesión
+        // (warm-start: volver de Aprendizaje, una actualización). Al volver
+        // desde segundo plano (minimizada) sale si pasaron 2 h o más (main.jsx).
         var raiz = document.documentElement;
         if (raiz.classList.contains('splash-v2') && !raiz.classList.contains('warm-start')) {
-          var d = new Date(), dia = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
-          var sale = true;
-          try {
-            var ultima = Number(localStorage.getItem('mt:lastActiveAt') || 0);
-            sale = localStorage.getItem('mt:introDia') !== dia || !ultima || Date.now() - ultima >= 2 * 60 * 60 * 1000;
-            if (sale) localStorage.setItem('mt:introDia', dia);
-          } catch (e) {}
-          raiz.classList.add(sale ? 'intro-completa' : 'intro-nada');
+          raiz.classList.add('intro-completa');
           var tc = document.querySelector('meta[name="theme-color"]');
           if (tc) tc.setAttribute('content', '#EFECE5');
         }
@@ -118,9 +113,8 @@
       /* Arranque caliente (misma sesión): sin opener, directo a la app */
       html.warm-start #splash { display: none; }
       /* ── Apertura de la visual nueva ─────────────────────────────────────
-         Sale la primera vez del día o tras 2 h o más sin usar la app (también
-         al volver a ella desde segundo plano, ver main.jsx). Las demás
-         veces no hay entrada: directo a la app.
+         Sale siempre que la app se abre (cerrada y vuelta a abrir) y al
+         volver a ella desde segundo plano tras 2 h o más (ver main.jsx).
            0.00 s       el fondo: manchas orgánicas de los 4 módulos
            0.15–0.75 s  nace un círculo blanco y crece hasta su tamaño
            0.75–1.55 s  alrededor, la gráfica circular del Dash, en gris
@@ -139,8 +133,6 @@
       html.warm-start #splash2 { display: none !important; }
       html.warm-start.intro-repite #splash2 { display: block !important; }
       body.app-ready #splash2 { opacity: 0; }
-      /* Sin entrada: solo el fondo mientras carga, sin nada encima */
-      html.intro-nada #splash2 .marca, html.intro-nada #splash2 .nombre { display: none; }
       /* El fondo: manchas orgánicas, una por módulo, que se mecen despacio */
       #splash2 .fondo { position: absolute; inset: 0; overflow: hidden; background: #EFECE5; }
       #splash2 .fondo i { position: absolute; width: 95vmax; height: 95vmax; border-radius: 50%; opacity: .9;
