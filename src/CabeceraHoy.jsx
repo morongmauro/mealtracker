@@ -29,10 +29,8 @@ export const TEMAS = {
   entreno: { banda: ['#BFD5F4', '#D3E2F8'], m1: '#8FB3E8', m2: '#CFE0F7', m3: '#F6CFA9', base: '#EEF4FC', tinta: '#2F6CC4' },
   comida:  { banda: ['#C3E3CB', '#D6EDDC'], m1: '#9CCFA8', m2: '#D7EEDC', m3: '#F7E1A0', base: '#F0F8F1', tinta: '#2F7F45' },
   aprende: { banda: ['#F7CFAF', '#FADFCA'], m1: '#F6B98C', m2: '#FBE0CB', m3: '#A9C6EE', base: '#FDF3EA', tinta: '#C95F17' },
-  // El Dash junta las secciones: sin banda curva, solo las manchas de los
-  // colores de Comida (verde), Entrenamiento (azul), Aprendizaje (naranja) y
-  // el amarillo de los recordatorios, mezcladas.
-  dash:    { banda: null, m1: '#9CCFA8', m2: '#A9C6EE', m3: '#F6B98C', m4: '#F5DC8A', base: '#F3F2EC', tinta: '#1F1F1F' },
+  // El Dash: gris suave con un toque de amarillo, sin banda curva.
+  dash:    { banda: null, m1: '#D3D1C8', m2: '#E3E1D9', m3: '#F2D57A', m4: '#DCDAD2', base: '#EFEEEA', tinta: '#1F1F1F' },
 };
 
 const CSS = `
