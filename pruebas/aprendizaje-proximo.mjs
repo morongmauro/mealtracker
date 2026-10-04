@@ -7,11 +7,11 @@ const caso = (n, fn) => { casos++; try { fn(); console.log('  ok   ' + n); } cat
 const igual = (a, b, q) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${q}: esperaba ${JSON.stringify(b)}, salió ${JSON.stringify(a)}`); };
 const yo = 'Ana Prueba';
 const fila = (source, section_key) => ({ client_name: 'ana prueba', source, section_key });
-const hubCompleto = ['programa', 'app', 'meal-tracker', 'journey', 'faq'].map(k => fila('hub', k));
+const hubCompleto = ['programa', 'journey', 'faq', 'recorrido'].map(k => fila('hub', k));
 
-caso('sin nada visto: primero el onboarding, en su orden', () => {
+caso('sin nada visto: primero «Acerca del programa», en su orden', () => {
   const r = recomendarAprendizaje(avanceAprendizaje([], yo), 3);
-  igual(r.map(x => x.destino), ['hub:programa', 'hub:app', 'hub:meal-tracker'], 'destinos');
+  igual(r.map(x => x.destino), ['hub:programa', 'hub:journey', 'hub:faq'], 'destinos');
   igual(r[0].motivo, 'Empieza por aquí', 'motivo');
 });
 
@@ -41,6 +41,12 @@ caso('nada repetido y nunca algo ya visto', () => {
   const claves = r.map(x => x.bloque + x.id);
   igual(new Set(claves).size, claves.length, 'sin repetidos');
   igual(r.some(x => x.id === 'etiquetas-leer-1' || x.bloque === 'hub'), false, 'nada visto');
+});
+
+caso('lo leído en el centro viejo cuenta; las piezas de «cómo usar cada app» ya no', () => {
+  const a = avanceAprendizaje([fila('hub', 'programa'), fila('hub', 'app'), fila('hub', 'meal-tracker')], yo);
+  const hub = a.bloques.find(b => b.k === 'hub');
+  igual([hub.titulo, hub.vistas, hub.total], ['Acerca del programa', 1, 4], 'hub');
 });
 
 caso('sin datos: lista vacía', () => { igual(recomendarAprendizaje(null), [], 'vacío'); });

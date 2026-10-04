@@ -332,12 +332,12 @@ try {
   // Aprendizaje: la tarjeta y su «Profundiza»
   await p.locator('[data-aprende]').waitFor({ timeout: 8000 });
   ok('aprendizaje: % completado con lo que vio del centro', /\d+ %/.test(await p.locator('[data-aprende]').innerText())
-    && /Onboarding\s*2\/5/.test(await p.locator('[data-aprende]').innerText()), await p.locator('[data-aprende]').innerText());
+    && /Acerca del programa\s*1\/4/.test(await p.locator('[data-aprende]').innerText()), await p.locator('[data-aprende]').innerText());
   await p.locator('[data-aprende]').scrollIntoViewIfNeeded();
   await foto(p, '03e-dash-aprendizaje');
   await p.getByRole('button', { name: /Profundiza en tu aprendizaje/ }).click();
   await p.getByText('Tu aprendizaje', { exact: true }).waitFor({ timeout: 5000 });
-  ok('profundiza aprendizaje: pieza por pieza', (await p.getByText('Cómo funciona el programa').count()) === 1 && (await p.getByText('Seguir aprendiendo').count()) >= 1);
+  ok('profundiza aprendizaje: pieza por pieza', (await p.getByText('El método y sus pilares').count()) === 1 && (await p.getByText('Seguir aprendiendo').count()) >= 1);
   await espera(300);
   await foto(p, '03f-profundiza-aprendizaje');
   await p.getByRole('button', { name: /Dash/ }).first().click();
@@ -730,16 +730,18 @@ try {
   await p.locator('[data-proximo]').waitFor({ timeout: 8000 });
   ok('Aprendizaje abre en su Hoy, con la voz del coach según su avance', /^Llevas el \d+ %\./.test(await ah.locator('[data-cabecera-hoy="aprende"] [data-frase]').innerText())
     && (await ah.locator('[data-dibujo]').count()) === 0, await ah.locator('[data-cabecera-hoy="aprende"] [data-frase]').innerText());
-  ok('Aprendizaje: en la barra, Hoy · Lecturas · Videos · Onboarding', (await p.getByRole('button', { name: 'Hoy', exact: true }).count()) >= 1
+  ok('Aprendizaje: en la barra, Hoy · Lecturas · Videos · Programa', (await p.getByRole('button', { name: 'Hoy', exact: true }).count()) >= 1
     && (await p.getByRole('button', { name: 'Lecturas', exact: true }).count()) === 1
     && (await p.getByRole('button', { name: 'Videos', exact: true }).count()) === 1
+    && (await p.getByRole('button', { name: 'Programa', exact: true }).count()) === 1
+    && (await p.getByRole('button', { name: 'Onboarding', exact: true }).count()) === 0
     && (await p.getByRole('button', { name: 'Inicio', exact: true }).count()) === 0);
-  ok('lo próximo: lo que le falta del onboarding', /Cómo usar el Meal Tracker/.test(await p.locator('[data-proximo]').innerText()), await p.locator('[data-proximo]').innerText());
+  ok('lo próximo: lo que le falta de «Acerca del programa»', /Tu trayecto/.test(await p.locator('[data-proximo]').innerText()), await p.locator('[data-proximo]').innerText());
   ok('lo próximo en el naranja de la sección', await p.locator('[data-proximo]').evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(238, 132, 52)'));
   ok('después: tres recomendaciones más', (await p.locator('[data-despues] button').count()) === 3);
-  ok('su avance: 5 de 61, cuánto falta y en qué parte de la barra está cada cosa', /5 de 61 vistas · te faltan 56/.test(await p.locator('[data-avance]').innerText())
+  ok('su avance: 5 de 61, cuánto falta y en qué parte de la barra está cada cosa', /4 de 60 vistas · te faltan 56/.test(await p.locator('[data-avance]').innerText())
     && /Cápsulas · Lecturas/.test(await p.locator('[data-avance]').innerText()) && /Videos · Videos/.test(await p.locator('[data-avance]').innerText()) === false, await p.locator('[data-avance]').innerText());
-  ok('explora: cápsulas y guía (lecturas), videos y onboarding', (await p.locator('[data-explora] button').count()) === 4 && /Guía de alimentación/.test(await p.locator('[data-explora]').innerText()) && /Videos/.test(await p.locator('[data-explora]').innerText()));
+  ok('explora: cápsulas y guía (lecturas), videos y «Acerca del programa»', (await p.locator('[data-explora] button').count()) === 4 && /Guía de alimentación/.test(await p.locator('[data-explora]').innerText()) && /Acerca del programa/.test(await p.locator('[data-explora]').innerText()) && !/Onboarding/.test(await p.locator('[data-explora]').innerText()));
   ok('íconos de línea', await p.locator('[data-explora] svg').first().evaluate(el => el.getAttribute('fill') !== null || true));
   await foto(p, '10-aprende-hoy');
   await ah.locator('[data-avance]').scrollIntoViewIfNeeded();
@@ -747,26 +749,66 @@ try {
   await foto(p, '10a-aprende-hoy-abajo');
   await p.locator('[data-proximo]').scrollIntoViewIfNeeded();
   await p.locator('[data-proximo]').click();
+  await p.locator('[data-acerca-programa]').waitFor({ timeout: 8000 });
   await espera(1200);
   const marco = p.frameLocator('iframe[title="Centro de aprendizaje"]');
-  ok('lo próximo abre esa pieza en el centro', /meal-tracker/.test(await marco.locator('#t').textContent()), await marco.locator('#t').textContent());
-  await p.getByRole('button', { name: 'Onboarding' }).click();
-  await espera(500);
-  ok('Onboarding se pide al centro sin recargarlo', /onboarding/.test(await marco.locator('#t').textContent()));
+  ok('lo próximo («Tu trayecto») abre «Acerca del programa» en su parte, no el centro', await p.locator('[data-parte="trayecto"]').evaluate(el => { const r = el.getBoundingClientRect(); return r.top < innerHeight * 0.5 && r.bottom > 0; })
+    && await p.locator('iframe[title="Centro de aprendizaje"]').evaluate(el => getComputedStyle(el).visibility === 'hidden'));
+  ok('«Programa» queda marcado en la barra', await p.getByRole('button', { name: 'Programa', exact: true }).evaluate(b => b.dataset.activo === '1'));
+  await foto(p, '10b-programa-trayecto');
   await p.getByRole('button', { name: 'Lecturas', exact: true }).click();
   await espera(500);
   ok('Lecturas se pide al centro', /lecturas/.test(await marco.locator('#t').textContent()), await marco.locator('#t').textContent());
   await p.getByRole('button', { name: 'Videos', exact: true }).click();
   await espera(500);
   ok('Videos se pide al centro', /videos/.test(await marco.locator('#t').textContent()), await marco.locator('#t').textContent());
-  await p.getByRole('button', { name: 'Onboarding' }).click();
+  // ── «Acerca del programa»: el método, sin hablar de dos apps ──
+  await p.getByRole('button', { name: 'Programa', exact: true }).click();
+  const prog = p.locator('[data-acerca-programa]');
+  await prog.waitFor({ timeout: 8000 });
+  await espera(500);
+  const textoProg = await prog.innerText();
+  ok('Programa: el método, los 4 pilares, las 6 fases, las preguntas y las aclaraciones', (await prog.locator('[data-pilar]').count()) === 4
+    && (await prog.locator('[data-fase]').count()) === 6 && /Preguntas frecuentes/.test(textoProg) && /Aclaraciones/.test(textoProg) && /Se acabó la improvisación/.test(textoProg));
+  ok('Programa: habla de una sola app (sin «Meal Tracker» ni «dos apps»)', !/Meal Track|dos apps|app de entrenamiento|app de gesti/i.test(textoProg), (textoProg.match(/.{0,40}(Meal Track|dos apps|app de entrenamiento|app de gesti).{0,40}/i) || [''])[0]);
+  ok('Programa: el centro queda escondido detrás', await p.locator('iframe[title="Centro de aprendizaje"]').evaluate(el => getComputedStyle(el).visibility === 'hidden'));
+  await foto(p, '10-programa');
+  await prog.locator('[data-fase]').nth(2).getByRole('button').click();
+  await espera(300);
+  ok('Programa: una fase se abre con lo que haces tú y el resultado', /Lo que haces tú/.test(await prog.locator('[data-fase]').nth(2).innerText()));
+  await prog.locator('[data-parte="trayecto"]').scrollIntoViewIfNeeded();
+  await foto(p, '10c-programa-fase');
+  // ── El recorrido guiado: solo termina con «Finalizar» ──
+  await prog.locator('[data-abrir-recorrido]').scrollIntoViewIfNeeded();
+  await prog.locator('[data-abrir-recorrido]').click();
+  const rec = p.locator('[data-recorrido]');
+  await rec.waitFor({ timeout: 6000 });
   await espera(400);
-  await foto(p, '10-aprende');
+  await foto(p, '17a-recorrido-bienvenida');
+  await p.keyboard.press('Escape');
+  await p.mouse.click(30, 120);
+  await espera(300);
+  ok('recorrido: no se cierra con Escape ni tocando afuera, y no tiene X', (await rec.count()) === 1 && (await rec.getByRole('button', { name: /Cerrar|Saltar|Omitir/ }).count()) === 0);
+  await rec.locator('[data-rec-siguiente]').click(); await espera(800);
+  ok('recorrido: ilumina la barra', (await p.locator('[data-foco]').count()) === 1);
+  await foto(p, '17b-recorrido-barra');
+  await rec.locator('[data-rec-siguiente]').click(); await espera(1400);
+  ok('recorrido: en Entrenamiento abre la sección e ilumina su botón', /ENTRENAMIENTO/.test(await rec.innerText()) && (await p.locator('[data-foco]').count()) === 1
+    && await p.locator('[data-cabecera-hoy="entreno"]').isVisible());
+  await foto(p, '17c-recorrido-entreno');
+  for (let k = 0; k < 3; k++) { await rec.locator('[data-rec-siguiente]').click(); await espera(1100); }
+  ok('recorrido: llega al Dash', /DASH/.test(await rec.innerText()));
+  await foto(p, '17d-recorrido-dash');
+  await rec.locator('[data-rec-siguiente]').click(); await espera(500);
+  ok('recorrido: el último paso dice «Finalizar»', /Finalizar/.test(await rec.locator('[data-rec-siguiente]').innerText()));
+  await rec.locator('[data-rec-siguiente]').click(); await espera(900);
+  ok('recorrido: al finalizar se cierra, vuelve a «Acerca del programa» y queda hecho', (await rec.count()) === 0 && await p.locator('[data-acerca-programa]').isVisible()
+    && await p.evaluate(() => !!localStorage.getItem('mt:recorridoHecho')));
   await p.getByRole('button', { name: 'Hoy', exact: true }).first().click();
   await espera(600);
   ok('Aprendizaje: sus cuatro opciones se ven enteras en la barra', await p.evaluate(() => {
     const nav = document.querySelector('nav[aria-label="Secciones"]').getBoundingClientRect();
-    return ['Hoy', 'Lecturas', 'Videos', 'Onboarding'].every(t => { const b = [...document.querySelectorAll('nav[aria-label="Secciones"] button')].find(x => x.textContent.trim() === t);
+    return ['Hoy', 'Lecturas', 'Videos', 'Programa'].every(t => { const b = [...document.querySelectorAll('nav[aria-label="Secciones"] button')].find(x => x.textContent.trim() === t);
       const r = b && b.getBoundingClientRect(); return r && r.left >= nav.left - 0.5 && r.right <= nav.right + 0.5; });
   }));
   ok('volver a Hoy de Aprendizaje', await p.locator('[data-aprende-hoy]').isVisible()
@@ -810,7 +852,7 @@ try {
   await espera(900);
   ok('375 px: las cuatro opciones de Aprendizaje se ven enteras', await n.p.evaluate(() => {
     const nav = document.querySelector('nav[aria-label="Secciones"]').getBoundingClientRect();
-    return ['Hoy', 'Lecturas', 'Videos', 'Onboarding'].every(t => { const b = [...document.querySelectorAll('nav[aria-label="Secciones"] button')].find(x => x.textContent.trim() === t);
+    return ['Hoy', 'Lecturas', 'Videos', 'Programa'].every(t => { const b = [...document.querySelectorAll('nav[aria-label="Secciones"] button')].find(x => x.textContent.trim() === t);
       const r = b && b.getBoundingClientRect(); return r && r.left >= nav.left - 0.5 && r.right <= nav.right + 0.5; });
   }));
   await foto(n.p, '12-375-aprende');

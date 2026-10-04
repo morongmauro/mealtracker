@@ -19,6 +19,8 @@ const Entrenamiento = lazy(() => import('./Entrenamiento.jsx'));
 const Dash = lazy(() => import('./Dash.jsx'));
 // «Hoy» de Aprendizaje (visual nueva): lo próximo por leer, el avance y los accesos.
 const AprendeHoy = lazy(() => import('./AprendeHoy.jsx'));
+const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
+const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa } from './v2.js';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada } from './mudanza.js';
@@ -27,6 +29,7 @@ import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero } fr
 import CabeceraHoy from './CabeceraHoy.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
 import { AvisoSuma } from './Celebraciones.jsx';
+import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
 import { vozComida } from './vozCoach.js';
 import { Bell as BellV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
@@ -667,6 +670,14 @@ export default function MealTracker() {
   useEffect(() => { showDashRef.current = showDash; }, [showDash]);
   const [entrenoSub, setEntrenoSub] = useState('hoy');
   const [aprendeSub, setAprendeSub] = useState('hoy');
+  // Visual nueva: «Acerca del programa» (en vez del Onboarding del centro) y
+  // el recorrido guiado de la app.
+  const [programaParte, setProgramaParte] = useState(null);
+  const [recorrido, setRecorrido] = useState(false);
+  useEffect(() => {
+    // Apagado hasta que el coach diga: RECORRIDO_AUTO en recorridoEstado.js.
+    if (RECORRIDO_AUTO && view === 'main' && name && v2Activa() && !recorridoHecho()) setRecorrido(true);
+  }, [view, name]);   // eslint-disable-line react-hooks/exhaustive-deps
   const learningFrameRef = useRef(null);
   const v2 = esV2(name);
   useEffect(() => { aplicarV2(v2); }, [v2]);
@@ -2609,6 +2620,14 @@ export default function MealTracker() {
     // Los botones pasan su onClick directo, así que aquí puede llegar un
     // evento de clic en vez de un destino. Solo se acepta texto.
     const ir = typeof destino === 'string' ? destino : '';
+    // Visual nueva: el onboarding ya no está en el centro: es «Acerca del
+    // programa», aquí en la app (y cada pieza abre su parte).
+    if (v2Activa() && (ir === 'onboarding' || ir.indexOf('hub:') === 0)) {
+      setShowRecetario(false); setShowDash(false); setShowTraining(false);
+      setProgramaParte(ir.indexOf('hub:') === 0 ? ir.slice(4) : null);
+      setAprendeSub('programa'); setShowLearning(true);
+      return;
+    }
     let go = '', goId = '';
     if (ir.indexOf('pod:') === 0) { go = 'podcast'; goId = ir.slice(4); }
     else if (ir.indexOf('cap:') === 0) { go = 'capsulas'; goId = ir.slice(4); }
@@ -5001,8 +5020,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     ] },
     ...(learningUrl ? [{ id: 'aprende', subs: [
       // Lecturas: las Cápsulas y la Guía de alimentación, al mismo nivel.
-      // Videos: el podcast. Onboarding: el método.
-      { id: 'hoy', label: 'Hoy' }, { id: 'lecturas', label: 'Lecturas' }, { id: 'videos', label: 'Videos' }, { id: 'onboarding', label: 'Onboarding' },
+      // Videos: el podcast. Programa: «Acerca del programa» (el método).
+      { id: 'hoy', label: 'Hoy' }, { id: 'lecturas', label: 'Lecturas' }, { id: 'videos', label: 'Videos' }, { id: 'programa', label: 'Programa' },
     ] }] : []),
   ];
   const irSubV2 = (sec, op) => {
@@ -5040,6 +5059,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       return;
     }
     if (sec === 'aprende') {
+      if (op === 'programa') {
+        setShowRecetario(false); setShowDash(false); setShowTraining(false);
+        setProgramaParte(null); setAprendeSub('programa'); setShowLearning(true);
+        return;
+      }
       // «Hoy» es de la app (AprendeHoy); el centro, si ya estaba cargado, se
       // queda por detrás para volver a él sin recargar.
       if (op === 'hoy') {
@@ -5051,7 +5075,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         if (!learningSrc && learningUrl) {
           let uid = cloudUserIdRef.current;
           if (!uid) { try { uid = localStorage.getItem('cloudUserId'); } catch (e) {} }
-          setLearningSrc(urlCentro(learningUrl, { uid, name, go: 'onboarding' }));
+          setLearningSrc(urlCentro(learningUrl, { uid, name, go: 'lecturas' }));
         }
         return;
       }
@@ -5925,7 +5949,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               height: 'calc(100% - 64px - env(safe-area-inset-bottom, 0px))',
               border: 0, background: 'transparent',
               // Con «Hoy» abierto el centro sigue cargado por detrás.
-              visibility: v2 && aprendeSub === 'hoy' ? 'hidden' : 'visible',
+              visibility: v2 && (aprendeSub === 'hoy' || aprendeSub === 'programa') ? 'hidden' : 'visible',
             }}
           />
           )}
@@ -5933,6 +5957,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             <div data-view="aprende" className="absolute inset-0 overflow-y-auto" style={{ zIndex: 1, background: BG }}>
               <Suspense fallback={null}>
                 <AprendeHoy nombre={name} alAbrir={(destino) => openLearning(destino)}
+                  arriba="calc(62px + env(safe-area-inset-top, 0px))" />
+              </Suspense>
+            </div>
+          )}
+          {v2 && aprendeSub === 'programa' && (
+            <div data-view="aprende" className="absolute inset-0 overflow-y-auto" style={{ zIndex: 1, background: BG }}>
+              <Suspense fallback={null}>
+                <AcercaPrograma nombre={name} parte={programaParte} alRecorrido={() => { haptic(8); setRecorrido(true); }}
                   arriba="calc(62px + env(safe-area-inset-top, 0px))" />
               </Suspense>
             </div>
@@ -6302,6 +6334,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           volver a la app y con el botón). */}
       {paymentDue && paymentDue.bloqueo && (
         <BloqueoPago info={paymentDue} alRevisar={() => revisarPagoRef.current && revisarPagoRef.current()} />
+      )}
+
+      {recorrido && v2 && (
+        <Suspense fallback={null}>
+          <RecorridoApp nombre={name} alIr={(sec) => irSeccionV2(sec)}
+            alTerminar={() => { setRecorrido(false); irSubV2('aprende', 'programa'); }} />
+        </Suspense>
       )}
 
       {avisoSuma && <AvisoSuma key={avisoSuma.k} evento={avisoSuma} alCerrar={() => setAvisoSuma(null)} />}

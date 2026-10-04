@@ -43,7 +43,7 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
       ) : avance === null ? (
         <div style={{ ...tarjeta, fontSize: 15, color: TEXT_MUTED, lineHeight: 1.45 }}>
           No pude traer tu avance ahora. Igual puedes abrir el centro y seguir leyendo.
-          <button onClick={() => alAbrir('onboarding')} style={{ ...botonLinea, marginTop: 12 }}>Abrir el centro</button>
+          <button onClick={() => alAbrir('lecturas')} style={{ ...botonLinea, marginTop: 12 }}>Abrir Lecturas</button>
         </div>
       ) : !recs.length ? (
         // Un momento para celebrar: aquí sí sale el personaje.
@@ -122,7 +122,7 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
           ['capsulas', 'Cápsulas', 'capsula', 'capsulas'],
           ['guia', 'Guía de alimentación', 'guia', 'guia'],
           ['podcast', 'Videos', 'podcast', 'videos'],
-          ['onboarding', 'Onboarding', 'hub', 'onboarding'],
+          ['programa', 'Acerca del programa', 'hub', 'onboarding'],
         ].map(([k, t, bk, destino]) => {
           const Icono = ICONO[bk];
           const b = bloque(bk);

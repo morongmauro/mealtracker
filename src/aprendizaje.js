@@ -13,12 +13,16 @@
 const CENTRO_URL = 'https://kkoayfexdhpazufmyeoj.supabase.co';
 const CENTRO_KEY = 'sb_publishable_9UimuwTGp2aIhe-4oSwJpw_ORwmzzhn';
 
+// «Acerca del programa» (visual nueva): el método, el trayecto, las dudas y
+// el recorrido de la app. Las claves son las del centro (programa, journey,
+// faq), así lo que ya leyó allá cuenta aquí; «recorrido» se marca al
+// terminar el recorrido guiado. Las piezas viejas de «cómo usar cada app»
+// ya no existen: es una sola app y la explica el recorrido.
 const HUB = [
-  ['programa',     'Cómo funciona el programa'],
-  ['app',          'Cómo funciona la app de entrenamiento'],
-  ['meal-tracker', 'Cómo usar el Meal Tracker'],
-  ['journey',      'Tu Journey en el programa'],
-  ['faq',          'Preguntas frecuentes'],
+  ['programa',  'El método y sus pilares'],
+  ['journey',   'Tu trayecto: las 6 fases'],
+  ['faq',       'Preguntas frecuentes'],
+  ['recorrido', 'Recorrido de la app'],
 ];
 
 const CAPSULAS = [
@@ -87,7 +91,7 @@ const PODCASTS = [
 ];
 
 export const BLOQUES = [
-  { k: 'hub', titulo: 'Onboarding', bajada: 'Cómo funciona tu programa y tu app', fuentes: ['hub'], prefijo: /^$/,
+  { k: 'hub', titulo: 'Acerca del programa', bajada: 'El método, tu trayecto y la app', fuentes: ['hub'], prefijo: /^$/,
     catalogo: HUB.map(([id, title]) => ({ id, title })) },
   { k: 'guia', titulo: 'Guía de alimentación', bajada: 'Los capítulos de la guía', fuentes: ['guia', 'ga'], prefijo: /^$/, catalogo: GUIA },
   { k: 'capsula', titulo: 'Cápsulas', bajada: 'Láminas cortas de entrenamiento, nutrición y bienestar', fuentes: ['capsula'], prefijo: /^cap:/, catalogo: CAPSULAS },
@@ -191,4 +195,23 @@ export async function leerAprendizajeConCache(nombre) {
   const r = await leerAprendizaje(nombre);
   if (r) cacheAvance.set(nombre, r);
   return r || cacheAvance.get(nombre) || null;
+}
+
+// Marca una pieza como vista en el centro (la misma tabla que usa el centro
+// al leer: reading_events). Así cuenta en su avance y el coach la ve en el
+// CRM. Si no hay red no pasa nada: se vuelve a marcar la próxima vez.
+const marcadas = new Set();
+export function registrarLectura(nombre, source, key, label) {
+  if (!nombre || !key) return;
+  const id = `${nombre}|${source}|${key}`;
+  if (marcadas.has(id)) return;
+  marcadas.add(id);
+  cacheAvance.delete(nombre);
+  try {
+    fetch(`${CENTRO_URL}/rest/v1/reading_events`, {
+      method: 'POST', keepalive: true,
+      headers: { apikey: CENTRO_KEY, Authorization: `Bearer ${CENTRO_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ client_name: nombre, source, section_key: key, section_label: label || key }),
+    }).catch(() => { marcadas.delete(id); });
+  } catch (e) { marcadas.delete(id); }
 }
