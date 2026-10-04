@@ -56,6 +56,10 @@ export const api = {
   medida:  (name, datos) => pedir({ accion: 'medida', name, ...datos }),
   // Nota para el coach, sobre la rutina o sobre un ejercicio.
   nota:    (name, datos) => pedir({ accion: 'nota', name, ...datos }),
+  // Comunidad: lo que publica el coach, reaccionar y marcar visto.
+  comunidad: (name)        => pedir({ accion: 'comunidad', name }),
+  reaccionar: (name, datos) => pedir({ accion: 'reaccionar', name, ...datos }),
+  comunidadVisto: (name, ids) => pedir({ accion: 'comunidad_visto', name, ids }),
 
   // Fotos de progreso. Subir son DOS pasos a propósito: `fotoSubir` pide un
   // enlace firmado y el navegador manda el archivo directo al storage, sin
@@ -141,6 +145,18 @@ export const urlVideo = (ej) => {
   if (!ej || ej.video_fuente !== 'youtube' || !ej.video_ref) return null;
   const t = Number(ej.video_inicio_seg) || 0;
   return `https://www.youtube-nocookie.com/embed/${ej.video_ref}?rel=0&modestbranding=1${t ? `&start=${t}` : ''}`;
+};
+
+// Visual nueva: el video «limpio», como un GIF del ejercicio. Arranca solo,
+// sin sonido, en bucle, sin controles ni videos sugeridos. YouTube no deja
+// quitar del todo su título y su logo; por eso el reproductor se muestra un
+// poco ampliado (y recortado) y con una capa encima que no deja tocarlo.
+export const urlVideoLimpio = (ej) => {
+  if (!ej || ej.video_fuente !== 'youtube' || !ej.video_ref) return null;
+  const t = Number(ej.video_inicio_seg) || 0;
+  const id = ej.video_ref;
+  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&playsinline=1`
+    + `&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0${t ? `&start=${t}` : ''}`;
 };
 
 // ─────────────────────────────────────────────────────────────────────────

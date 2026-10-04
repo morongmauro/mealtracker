@@ -446,5 +446,39 @@ await caso('registrar: ni lo de otro cliente, ni una actividad, ni otro día, ni
   igual(sb.db.evento_registros[0].estado, 'saltado', 'desmarcar no borra: queda «saltado»');
 });
 
+await caso('comunidad: solo lo de su coach, con sus reacciones; reaccionar pone y quita', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.comunidad_posts = [
+    { id: 'p1', user_id: 'coach-1', texto: 'Semana nueva', fijado: false, publicado_en: '2026-09-28T10:00:00Z', borrado_en: null },
+    { id: 'p2', user_id: 'coach-1', texto: 'Fijado', fijado: true, publicado_en: '2026-09-20T10:00:00Z', borrado_en: null },
+    { id: 'p3', user_id: 'coach-1', texto: 'Borrado', fijado: false, publicado_en: '2026-09-27T10:00:00Z', borrado_en: '2026-09-27T11:00:00Z' },
+    { id: 'p9', user_id: 'otro-coach', texto: 'De otro coach', fijado: false, publicado_en: '2026-09-29T10:00:00Z', borrado_en: null },
+  ];
+  sb.db.comunidad_reacciones = [{ post_id: 'p1', cliente_id: 'cX', tipo: 'fuego' }];
+  sb.db.comunidad_vistas = [];
+  const r = await llamar(handler, { accion: 'comunidad', name: yo });
+  igual(r.posts.map(p => p.id), ['p2', 'p1'], 'fijado primero, sin borrados ni de otro coach');
+  igual([r.posts[1].reacciones.fuego, r.posts[1].mias], [1, []], 'cuenta las de otros');
+  igual((await llamar(handler, { accion: 'reaccionar', name: yo, post_id: 'p9', tipo: 'fuego' })).motivo, 'no_es_de_su_coach', 'de otro coach no');
+  igual((await llamar(handler, { accion: 'reaccionar', name: yo, post_id: 'p1', tipo: 'baile' })).motivo, 'tipo', 'tipo raro no');
+  await llamar(handler, { accion: 'reaccionar', name: yo, post_id: 'p1', tipo: 'fuerza' });
+  await llamar(handler, { accion: 'reaccionar', name: yo, post_id: 'p1', tipo: 'fuerza' });
+  igual(sb.db.comunidad_reacciones.filter(x => x.cliente_id === 'c1').length, 1, 'dos toques no duplican');
+  const r2 = await llamar(handler, { accion: 'comunidad', name: yo });
+  igual([r2.posts[1].reacciones.fuerza, r2.posts[1].mias], [1, ['fuerza']], 'la suya cuenta y se marca');
+  await llamar(handler, { accion: 'reaccionar', name: yo, post_id: 'p1', tipo: 'fuerza', quitar: true });
+  igual(sb.db.comunidad_reacciones.filter(x => x.cliente_id === 'c1').length, 0, 'y se quita');
+  await llamar(handler, { accion: 'comunidad_visto', name: yo, ids: ['p1', 'p2', 'p9'] });
+  await llamar(handler, { accion: 'comunidad_visto', name: yo, ids: ['p1'] });
+  igual(sb.db.comunidad_vistas.map(v => v.post_id).sort(), ['p1', 'p2'], 'vistas: las suyas, una vez, nunca las de otro coach');
+});
+
+await caso('comunidad: sin la tabla todavía, no se rompe', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  const f0 = sb.fetch;
+  globalThis.fetch = (u, o) => (String(u).includes('comunidad_posts') ? Promise.resolve({ ok: false, status: 404, text: async () => '' }) : f0(u, o));
+  igual((await llamar(handler, { accion: 'comunidad', name: yo })).ok, false, 'ok:false, sin error');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

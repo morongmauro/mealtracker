@@ -91,7 +91,7 @@ const PODCASTS = [
 ];
 
 export const BLOQUES = [
-  { k: 'hub', titulo: 'Acerca del programa', bajada: 'El método, tu trayecto y la app', fuentes: ['hub'], prefijo: /^$/,
+  { k: 'hub', titulo: 'Sobre el programa', bajada: 'El método, tu trayecto y la app', fuentes: ['hub'], prefijo: /^$/,
     catalogo: HUB.map(([id, title]) => ({ id, title })) },
   { k: 'guia', titulo: 'Guía de alimentación', bajada: 'Los capítulos de la guía', fuentes: ['guia', 'ga'], prefijo: /^$/, catalogo: GUIA },
   { k: 'capsula', titulo: 'Cápsulas', bajada: 'Láminas cortas de entrenamiento, nutrición y bienestar', fuentes: ['capsula'], prefijo: /^cap:/, catalogo: CAPSULAS },

@@ -18,7 +18,9 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Bell, Mountains, WhatsappLogo, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText } from '@phosphor-icons/react';
+import { Bell, Mountains, WhatsappLogo, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix } from '@phosphor-icons/react';
+import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
+import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje } from './aprendizaje.js';
 import { api, hoyLocal, sumarDias, aFecha } from './entrenoDatos.js';
 import { HojaMedida } from './EntrenoMedidas.jsx';
@@ -289,7 +291,35 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
   const [vista, setVista] = useState('inicio');
   const [sinRetos, setSinRetos] = useState(false);
   const [aprende, setAprende] = useState(() => (cacheAprende.has(name) ? cacheAprende.get(name) : undefined));   // undefined = cargando, null = sin datos
+  // Comunidad: cuántas publicaciones no ha visto (el número en su botón) y
+  // la firma de la más nueva (el puntito del Dash en la barra).
+  const [nuevosComunidad, setNuevosComunidad] = useState(0);
+  const [ultimaComunidad, setUltimaComunidad] = useState(null);
+  // Relojes: si hay uno conectado, su tarjeta con el último día.
+  const [reloj, setReloj] = useState(null);
+  useEffect(() => {
+    if (!name) return;
+    let vivo = true;
+    const q = encodeURIComponent(name);
+    fetch(`/api/relojes?accion=estado&name=${q}`).then(r => r.json()).then(r => {
+      if (!vivo || !r || !r.ok || !Object.keys(r.conectados || {}).length) return;
+      setReloj(r);
+      // Que traiga lo nuevo (el servidor lo hace como mucho cada 3 horas).
+      fetch('/api/relojes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'sincronizar', name }) }).catch(() => {});
+    }).catch(() => {});
+    return () => { vivo = false; };
+  }, [name]);
   const raizRef = useRef(null);
+  useEffect(() => {
+    let vivo = true;
+    if (name && vista === 'inicio') leerComunidad(name).then(r => {
+      if (!vivo || !r || !r.ok) return;
+      setNuevosComunidad(r.posts.filter(p => !p.visto).length);
+      setUltimaComunidad([...r.posts].sort((a, b) => String(b.publicado_en).localeCompare(String(a.publicado_en)))[0] || null);
+      if (acciones.firmaComunidad) acciones.firmaComunidad(firmaComunidad(r));
+    });
+    return () => { vivo = false; };
+  }, [name, vista]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let vivo = true;
     if (name) leerAprendizaje(name).then(r => {
@@ -325,6 +355,10 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
     <DetalleComida comida={comida} alCalendario={acciones.calendarioComida} /></Marco>;
   if (vista === 'aprende') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <DetalleAprende aprende={aprende} alIr={alIr} /></Marco>;
+  if (vista === 'comunidad') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
+    <Comunidad name={name} /></Marco>;
+  if (vista === 'config') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
+    <Configuracion name={name} whatsapp={wa} alRecorrido={acciones.recorrido} alPrograma={acciones.programa} alActivarPush={acciones.activarPush} /></Marco>;
 
   // Constancia del entrenamiento en las últimas 8 semanas (% de lo planeado).
   const ochoSemanas = (ent?.semanas || []).slice(-8).filter(w => w.planeados > 0)
@@ -337,6 +371,14 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
       {/* Saludo: con la misma letra y la voz del coach de las cabeceras de Hoy. */}
       <CabeceraHoy tema="dash" sangria="16px" arriba="calc(62px + env(safe-area-inset-top, 0px))"
         voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, sub: vozDash({ hoy, racha }) }} />
+      {/* Configuración: el engranaje, arriba a la derecha (a la altura de la
+          píldora de la sección) */}
+      <button data-abrir-config onClick={() => setVista('config')} aria-label="Configuración" style={{
+        position: 'absolute', top: 'calc(14px + env(safe-area-inset-top, 0px))', right: 16, zIndex: 5,
+        width: 40, height: 40, borderRadius: 99, border: 0, cursor: 'pointer', display: 'grid', placeItems: 'center',
+        background: 'rgba(255,255,255,0.86)', color: TEXT, boxShadow: '0 1px 2px rgba(40,40,30,0.05), 0 4px 12px rgba(60,60,40,0.08)',
+        WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)',
+      }}><GearSix size={20} /></button>
 
       {/* Atajos: en UNA sola línea y compactos, para no quitarle el
           protagonismo a las gráficas. Si un teléfono muy angosto no los
@@ -345,7 +387,28 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
         {acciones.recordatorios && <Pastilla mini icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
         <Pastilla mini icono={Mountains} color="#D9744A" onClick={() => setSinRetos(true)}>Reto</Pastilla>
         {wa && <Pastilla mini icono={WhatsappLogo} color="#25A35A" href={wa}>Coach</Pastilla>}
+
       </div>
+
+      {/* Comunidad: lo último que compartió el coach, con cuántas no ha visto */}
+      <button data-abrir-comunidad onClick={() => setVista('comunidad')} style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, padding: '12px 14px', border: 0, borderRadius: 20, cursor: 'pointer',
+        background: '#FFFFFF', boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', textAlign: 'left', fontFamily: 'inherit',
+      }}>
+        <span style={{ position: 'relative', width: 40, height: 40, borderRadius: 99, background: '#1F1F1F', color: '#fff', display: 'grid', placeItems: 'center', flex: 'none' }}>
+          <UsersThree size={21} />
+          {nuevosComunidad > 0 && <span data-nuevos-comunidad style={{ position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99, background: '#E0A21A', color: '#fff', fontSize: 11, fontWeight: 800, display: 'grid', placeItems: 'center', boxShadow: '0 0 0 2px #fff' }}>{nuevosComunidad}</span>}
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 15.5, fontWeight: 750, color: TEXT }}>Comunidad{nuevosComunidad > 0 ? ` · ${nuevosComunidad} ${nuevosComunidad === 1 ? 'nueva' : 'nuevas'}` : ''}</span>
+          <span style={{ display: 'block', fontSize: 13, color: TEXT_MUTED, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {ultimaComunidad ? ultimaComunidad.texto : 'Lo que comparto con todo el equipo'}
+          </span>
+        </span>
+        <CaretRight size={18} color={TEXT_LIGHT} />
+      </button>
+
+      {reloj && <TarjetaReloj reloj={reloj} />}
 
       {/* Mensualidad pendiente (primeros 5 días de mora). */}
       {avisoPago}
@@ -529,6 +592,32 @@ function Seccion({ children }) {
     <div style={{ marginTop: 26 }}>
       <div style={{ height: 1, background: 'rgba(31,31,31,0.09)', margin: '0 2px 16px' }} />
       <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '0 2px 2px' }}>{children}</h2>
+    </div>
+  );
+}
+
+// El último día que trajo el reloj (el más reciente con algún dato).
+function TarjetaReloj({ reloj }) {
+  const d = (reloj.dias || []).find(x => x.pasos != null || x.sueno_min != null || x.fc_reposo != null || x.recuperacion != null);
+  if (!d) return null;
+  const marcas = { fitbit: 'Fitbit', oura: 'Oura', whoop: 'Whoop', polar: 'Polar', garmin: 'Garmin', apple: 'Apple Watch' };
+  const datos = [
+    d.pasos != null && ['Pasos', Number(d.pasos).toLocaleString('es-CO')],
+    d.sueno_min != null && ['Sueño', `${Math.floor(d.sueno_min / 60)} h ${String(d.sueno_min % 60).padStart(2, '0')}`],
+    d.fc_reposo != null && ['Pulso en reposo', `${d.fc_reposo} lpm`],
+    d.recuperacion != null && ['Recuperación', `${d.recuperacion} %`],
+  ].filter(Boolean);
+  return (
+    <div data-tarjeta-reloj style={{ marginTop: 10, background: '#FFFFFF', borderRadius: 20, padding: '14px 16px', boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 15.5, fontWeight: 750, color: TEXT }}>Tu reloj · {marcas[d.proveedor] || d.proveedor}</span>
+        <span style={{ fontSize: 12.5, color: TEXT_LIGHT }}>{fechaCorta(d.fecha)}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(datos.length, 4)}, minmax(0, 1fr))`, gap: 8, marginTop: 10 }}>
+        {datos.map(([k, v]) => (
+          <div key={k}><div style={{ fontSize: 17, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>{v}</div><div style={{ fontSize: 12, color: TEXT_MUTED }}>{k}</div></div>
+        ))}
+      </div>
     </div>
   );
 }

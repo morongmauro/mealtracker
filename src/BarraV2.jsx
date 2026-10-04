@@ -12,7 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef } from 'react';
 import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour } from '@phosphor-icons/react';
-import { SECCION, DANGER } from './theme.js';
+import { SECCION } from './theme.js';
 
 export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: ForkKnife, aprende: GraduationCap };
 export const NOMBRE_SECCION = { dash: 'Dash', entreno: 'Entrenamiento', comida: 'Alimentación', aprende: 'Aprendizaje' };
@@ -93,9 +93,11 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                 <Icono size={21} weight="regular" />
                 {!apretada && <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{CORTO[s.id]}</span>}
                 {punto[s.id] && (
-                  <span aria-hidden="true" style={{
-                    position: 'absolute', top: 5, right: '50%', marginRight: -15, width: 8, height: 8, borderRadius: 99,
-                    background: DANGER, boxShadow: '0 0 0 2px rgba(255,255,255,0.9)',
+                  // El puntito de novedad, en el color de la sección: se queda
+                  // hasta que la persona entra a ver qué hay.
+                  <span aria-hidden="true" data-punto={s.id} style={{
+                    position: 'absolute', top: 5, right: '50%', marginRight: -15, width: 9, height: 9, borderRadius: 99,
+                    background: s.id === 'dash' ? '#E0A21A' : c.base, boxShadow: '0 0 0 2px rgba(255,255,255,0.95)',
                   }} />
                 )}
               </button>

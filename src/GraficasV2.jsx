@@ -33,7 +33,7 @@ export // Tarjeta blanca, esquinas amplias y sin borde: la sombra apenas la sepa
 // del fondo. Título en negrita y la explicación en gris normal debajo.
 function Tarjeta({ titulo, detalle, accion, children, style }) {
   return (
-    <section style={{
+    <section data-tarjeta={typeof titulo === 'string' ? titulo : undefined} style={{
       background: TARJETA, borderRadius: 24, padding: '18px 18px 16px', marginTop: 12,
       boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 10px 28px rgba(60,60,40,0.07)', ...style,
     }}>

@@ -46,7 +46,7 @@ caso('nada repetido y nunca algo ya visto', () => {
 caso('lo leído en el centro viejo cuenta; las piezas de «cómo usar cada app» ya no', () => {
   const a = avanceAprendizaje([fila('hub', 'programa'), fila('hub', 'app'), fila('hub', 'meal-tracker')], yo);
   const hub = a.bloques.find(b => b.k === 'hub');
-  igual([hub.titulo, hub.vistas, hub.total], ['Acerca del programa', 1, 4], 'hub');
+  igual([hub.titulo, hub.vistas, hub.total], ['Sobre el programa', 1, 4], 'hub');
 });
 
 caso('sin datos: lista vacía', () => { igual(recomendarAprendizaje(null), [], 'vacío'); });

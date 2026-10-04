@@ -29,6 +29,9 @@
 //                                     ejercicio y sus medidas (el Dash)
 // POST      { accion:'actividad', … }         → registra cardio/deporte/caminata
 // POST      { accion:'borrar_actividad', id } → la quita
+// GET|POST  { accion:'comunidad' }            → lo que publica su coach, con reacciones
+// POST      { accion:'reaccionar', post_id, tipo, quitar? }
+// POST      { accion:'comunidad_visto', ids } → lo que vio (alcance en el CRM)
 //
 // Fail-safe: ante cualquier problema devuelve { ok:false } y la app muestra
 // su estado vacío. Nunca rompe la pantalla.
@@ -108,6 +111,9 @@ export default async function handler(req, res) {
     if (accion === 'medidas') return res.status(200).json(await verMedidas(cliente));
     if (!esGet && accion === 'medida') return res.status(200).json(await guardarMedida(cliente, cuerpo, hoy));
     if (!esGet && accion === 'nota') return res.status(200).json(await guardarNota(cliente, cuerpo, hoy));
+    if (accion === 'comunidad') return res.status(200).json(await verComunidad(cliente));
+    if (!esGet && accion === 'reaccionar') return res.status(200).json(await reaccionarComunidad(cliente, cuerpo));
+    if (!esGet && accion === 'comunidad_visto') return res.status(200).json(await vistoComunidad(cliente, cuerpo));
     // Fotos de progreso: APAGADAS por decisión del coach (por ahora llegan por
     // WhatsApp). El código se queda para retomarlo; con esto en false nadie
     // puede ver, subir ni borrar fotos por esta puerta.
@@ -1583,3 +1589,70 @@ async function verDash(cliente, hoy) {
     categorias: Object.fromEntries((Array.isArray(catalogo) ? catalogo : []).map(c => [c.slug, c.categoria])),
   });
 }
+
+// ── COMUNIDAD ─────────────────────────────────────────────────────────────
+// Lo que publica SU coach (nadie más escribe). Cada publicación con el total
+// de cada reacción y las que puso esta persona. Sin la tabla (migración sin
+// correr) responde ok:false y la app dice que aún no hay nada.
+export const REACCIONES = ['fuego', 'fuerza', 'aplauso', 'corazon'];
+
+async function verComunidad(cliente) {
+  if (!cliente.user_id) return { ok: true, posts: [] };
+  let posts;
+  try {
+    posts = await sb(`comunidad_posts?select=id,texto,imagen_url,enlace_url,fijado,publicado_en`
+      + `&user_id=eq.${cliente.user_id}&borrado_en=is.null&order=fijado.desc,publicado_en.desc&limit=40`);
+  } catch (e) { return { ok: false, motivo: 'sin_tabla' }; }
+  posts = Array.isArray(posts) ? posts : [];
+  if (!posts.length) return { ok: true, posts: [] };
+  const ids = posts.map(p => p.id).join(',');
+  const rx = await sb(`comunidad_reacciones?select=post_id,cliente_id,tipo&post_id=in.(${ids})`).catch(() => []);
+  const vistos = await sb(`comunidad_vistas?select=post_id&cliente_id=eq.${cliente.id}&post_id=in.(${ids})`).catch(() => []);
+  const visto = new Set((Array.isArray(vistos) ? vistos : []).map(v => v.post_id));
+  return {
+    ok: true,
+    posts: posts.map(p => {
+      const delPost = (Array.isArray(rx) ? rx : []).filter(r => r.post_id === p.id);
+      const reacciones = Object.fromEntries(REACCIONES.map(t => [t, delPost.filter(r => r.tipo === t).length]));
+      return { ...p, reacciones, mias: delPost.filter(r => r.cliente_id === cliente.id).map(r => r.tipo), visto: visto.has(p.id) };
+    }),
+  };
+}
+
+// La publicación tiene que ser de SU coach y no estar borrada.
+async function postDeSuCoach(cliente, id) {
+  if (!id || !cliente.user_id) return null;
+  const r = await sb(`comunidad_posts?select=id&id=eq.${encodeURIComponent(id)}&user_id=eq.${cliente.user_id}&borrado_en=is.null&limit=1`).catch(() => null);
+  return Array.isArray(r) && r[0] ? r[0] : null;
+}
+
+// Poner o quitar una reacción (un toque la pone, otro la quita).
+async function reaccionarComunidad(cliente, cuerpo) {
+  const tipo = String(cuerpo.tipo || '');
+  if (!REACCIONES.includes(tipo)) return { ok: false, motivo: 'tipo' };
+  const post = await postDeSuCoach(cliente, cuerpo.post_id);
+  if (!post) return { ok: false, motivo: 'no_es_de_su_coach' };
+  const filtro = `post_id=eq.${post.id}&cliente_id=eq.${cliente.id}&tipo=eq.${tipo}`;
+  const ya = await sb(`comunidad_reacciones?select=tipo&${filtro}&limit=1`).catch(() => []);
+  const tiene = Array.isArray(ya) && ya.length > 0;
+  const quiere = cuerpo.quitar ? false : true;
+  if (quiere && !tiene) await sb('comunidad_reacciones', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ post_id: post.id, cliente_id: cliente.id, tipo }) });
+  if (!quiere && tiene) await sb(`comunidad_reacciones?${filtro}`, { method: 'DELETE' });
+  return { ok: true, tipo, puesta: quiere };
+}
+
+// Lo que vio (para el alcance en el CRM). Solo publicaciones de su coach.
+async function vistoComunidad(cliente, cuerpo) {
+  const pedidos = (Array.isArray(cuerpo.ids) ? cuerpo.ids : []).map(String).slice(0, 40);
+  if (!pedidos.length || !cliente.user_id) return { ok: true, nuevos: 0 };
+  const lista = pedidos.map(encodeURIComponent).join(',');
+  const suyos = await sb(`comunidad_posts?select=id&user_id=eq.${cliente.user_id}&id=in.(${lista})`).catch(() => []);
+  const ya = await sb(`comunidad_vistas?select=post_id&cliente_id=eq.${cliente.id}&post_id=in.(${lista})`).catch(() => []);
+  const vistos = new Set((Array.isArray(ya) ? ya : []).map(v => v.post_id));
+  const nuevos = (Array.isArray(suyos) ? suyos : []).map(p => p.id).filter(id => !vistos.has(id));
+  if (nuevos.length) {
+    await sb('comunidad_vistas', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(nuevos.map(id => ({ post_id: id, cliente_id: cliente.id }))) }).catch(() => {});
+  }
+  return { ok: true, nuevos: nuevos.length };
+}
+

@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 // RECORRIDO GUIADO DE LA APP · visual nueva
 //
-// La primera vez (y cuando la persona quiera repetirlo desde «Acerca del
-// programa»): paso a paso por la app de verdad. En cada paso se abre la
-// sección de la que se habla y se ilumina su botón en la barra; lo demás
-// queda en penumbra.
+// La primera vez (y cuando la persona quiera repetirlo desde «Sobre el
+// programa»): paso a paso por la app de verdad, parte por parte: rutina y
+// videos, calendario, galería, chat, recetas, lecturas, gráficas del Dash.
+// En cada paso se abre esa parte y se ilumina; lo demás queda en penumbra.
 //
 // No tiene «X» ni se cierra tocando afuera: termina solo con «Finalizar»
 // (así lo pidió el coach). Se puede ir hacia atrás.
@@ -20,21 +20,45 @@ import { TEXT, TEXT_MUTED, SECCION } from './theme.js';
 
 import { CLAVE_RECORRIDO as CLAVE } from './recorridoEstado.js';
 
-// sec: la sección que se abre en ese paso · foco: lo que se ilumina.
+// En cada paso: qué se abre (sec y op, como la barra) y qué se ilumina.
+//   foco: 'nav' · { barra: 'aria-label de un botón de la barra' } · { el: 'selector' }
+const E = SECCION.entreno.base, C = SECCION.comida.base, A = SECCION.aprende.base, D = SECCION.dash.base;
 const PASOS = [
-  { sec: null, foco: null, color: '#1F1F1F', etiqueta: 'BIENVENIDA', titulo: 'Esta es tu app del programa.',
-    texto: 'Tu entrenamiento, tu alimentación y tu aprendizaje, en un solo lugar. Te muestro dónde está cada cosa: son dos minutos.' },
-  { sec: null, foco: 'nav', color: '#1F1F1F', etiqueta: 'LA BARRA', titulo: 'Cuatro secciones, abajo.',
-    texto: 'Dash, Entrenamiento, Alimentación y Aprendizaje. Al tocar una se abre en su «Hoy», y a su lado aparecen sus opciones.' },
-  { sec: 'entreno', foco: 'Entrenamiento', color: SECCION.entreno.base, etiqueta: 'ENTRENAMIENTO', titulo: 'Lo que te toca hoy.',
-    texto: 'Abres tu rutina, ves el video de cada ejercicio y marcas cada serie con su peso y repeticiones. El entreno arranca solo con la primera serie. En Calendario ves tu semana y puedes mover un día.' },
-  { sec: 'comida', foco: 'Alimentación', color: SECCION.comida.base, etiqueta: 'ALIMENTACIÓN', titulo: 'Escribe o dicta lo que comiste.',
-    texto: 'Queda registrado frente a tu meta del día y ves cuánto llevas. En Recetas tienes ideas que encajan en tu meta; en el calendario, cómo te fue cada día.' },
-  { sec: 'aprende', foco: 'Aprendizaje', color: SECCION.aprende.base, etiqueta: 'APRENDIZAJE', titulo: 'Lo que te ayuda a entender.',
-    texto: 'Lecturas (cápsulas y guía de alimentación), Videos y «Acerca del programa». En «Hoy» te digo qué ver primero.' },
-  { sec: 'dash', foco: 'Dash', color: SECCION.dash.base, etiqueta: 'DASH', titulo: 'Tu avance, en números.',
-    texto: 'Tu constancia de entreno, qué tan cerca vas de tu meta de comida, tus pesos y tu composición corporal. Desde aquí también me escribes por WhatsApp.' },
-  { sec: null, foco: null, color: '#1F1F1F', etiqueta: 'LISTO', titulo: 'Ya conoces tu app.',
+  { color: '#1F1F1F', etiqueta: 'BIENVENIDA', titulo: 'Esta es tu app del programa.',
+    texto: 'Tu entrenamiento, tu alimentación y tu aprendizaje, en un solo lugar. Te muestro dónde está cada cosa.' },
+  { foco: 'nav', color: '#1F1F1F', etiqueta: 'LA BARRA', titulo: 'Cuatro secciones, abajo.',
+    texto: 'Dash, Entrenamiento, Alimentación y Aprendizaje. Al tocar una, a su lado aparecen sus opciones.' },
+  // Entrenamiento
+  { sec: 'entreno', op: 'hoy', foco: { barra: 'Hoy' }, color: E, etiqueta: 'ENTRENAMIENTO · HOY', titulo: 'Lo que te toca hoy.',
+    texto: 'Tu rutina del día y, debajo, cómo va tu semana.' },
+  { sec: 'entreno', op: 'hoy', foco: { el: '[data-hoy-rutina], [data-hoy-te-toca]' }, color: E, etiqueta: 'TU RUTINA', titulo: 'Tócala y entrenas.',
+    texto: 'Cada ejercicio con su video, sus series, repeticiones y descanso. Marcas cada serie con su peso y el entreno arranca solo.' },
+  { sec: 'entreno', op: 'mes', foco: { barra: 'Calendario' }, color: E, etiqueta: 'CALENDARIO', titulo: 'Tu mes y tu semana.',
+    texto: 'Lo que te toca cada día. Si algo cambia, mueves la rutina a otro día de la semana o añades un cardio o un deporte.' },
+  { sec: 'entreno', op: 'galeria', foco: { barra: 'Galería' }, color: E, etiqueta: 'GALERÍA', titulo: 'Todos tus ejercicios.',
+    texto: 'Cada ejercicio de tu plan con su video y los músculos que trabaja.' },
+  // Alimentación
+  { sec: 'comida', op: 'hoy', foco: { barra: 'Hoy' }, color: C, etiqueta: 'ALIMENTACIÓN · HOY', titulo: 'Cómo vas con tu meta.',
+    texto: 'Tus calorías y macros del día, en anillos que se llenan con cada comida.' },
+  { sec: 'comida', op: 'chat', foco: { el: '.msg-input' }, color: C, etiqueta: 'CHAT', titulo: 'Escribe o dicta lo que comiste.',
+    texto: '«Dos huevos y una arepa» y listo: queda registrado contra tu meta. También le puedes preguntar qué comer.' },
+  { sec: 'comida', op: 'recetas', foco: { barra: 'Recetas' }, color: C, etiqueta: 'RECETAS', titulo: 'Ideas que encajan en tu meta.',
+    texto: 'Cada receta al tamaño que te toca, y tu día o tu semana organizados con su lista de mercado.' },
+  { sec: 'comida', op: 'hoy', foco: { barra: 'Calendario' }, color: C, etiqueta: 'CALENDARIO DE COMIDAS', titulo: 'Cada día, cómo te fue.',
+    texto: 'Qué comiste cada día y qué tan cerca quedaste de tu meta, por mes, semana y día.' },
+  // Aprendizaje
+  { sec: 'aprende', op: 'lecturas', foco: { barra: 'Lecturas' }, color: A, etiqueta: 'LECTURAS', titulo: 'Cápsulas y guía de alimentación.',
+    texto: 'Temas cortos de entrenamiento, nutrición y bienestar, y la guía, capítulo a capítulo.' },
+  { sec: 'aprende', op: 'videos', foco: { barra: 'Videos' }, color: A, etiqueta: 'VIDEOS', titulo: 'Para ver o escuchar.',
+    texto: 'Los episodios que te recomiendo, cuando quieras.' },
+  { sec: 'aprende', op: 'programa', foco: { barra: 'Sobre el programa' }, color: A, etiqueta: 'SOBRE EL PROGRAMA', titulo: 'Cómo funciona tu proceso.',
+    texto: 'El método, sus pilares, las fases de tu trayecto y las preguntas frecuentes.' },
+  // Dash
+  { sec: 'dash', foco: { el: '[data-tarjeta="Entrenamiento"]' }, color: D, etiqueta: 'DASH', titulo: 'Tu avance, en gráficas.',
+    texto: 'Tu constancia de entreno y qué tan cerca vas de tu meta de comida, semana a semana.' },
+  { sec: 'dash', foco: { barra: 'Dash' }, color: D, etiqueta: 'DASH', titulo: 'Y mucho más.',
+    texto: 'Tus pesos, tu composición corporal, tu aprendizaje y el botón para escribirme por WhatsApp.' },
+  { color: '#1F1F1F', etiqueta: 'LISTO', titulo: 'Ya conoces tu app.',
     texto: 'Cuando el calendario te pida pesarte, fotos o medidas, la app te avisa al abrirla. Cualquier duda, me escribes. Vamos.' },
 ];
 
@@ -44,23 +68,31 @@ export default function RecorridoApp({ nombre, alIr, alTerminar }) {
   const paso = PASOS[i];
   const ultimo = i === PASOS.length - 1;
 
-  useEffect(() => { if (paso.sec && alIr) alIr(paso.sec); }, [i]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (paso.sec && alIr) alIr(paso.sec, paso.op); }, [i]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dónde está lo que se ilumina (se vuelve a medir al cambiar de paso y al
   // girar el teléfono; la barra se acomoda un instante después de abrir).
   useLayoutEffect(() => {
     if (!paso.foco) { setCaja(null); return; }
-    const medir = () => {
+    const buscar = () => {
       const nav = document.querySelector('nav[aria-label="Secciones"]');
-      const el = paso.foco === 'nav' ? nav : nav && nav.querySelector(`[aria-label="${paso.foco}"]`);
+      if (paso.foco === 'nav') return nav;
+      if (paso.foco.barra) return nav && nav.querySelector(`[aria-label="${paso.foco.barra}"]`);
+      return [...document.querySelectorAll(paso.foco.el)].find(x => x.getBoundingClientRect().height > 0) || null;
+    };
+    let movido = false;
+    const medir = () => {
+      const el = buscar();
       if (!el) { setCaja(null); return; }
+      // Lo de la pantalla se trae a la vista antes de iluminarlo.
+      if (paso.foco.el && !movido) { movido = true; try { el.scrollIntoView({ block: 'center' }); } catch (e) { /* nada */ } }
       const r = el.getBoundingClientRect();
-      setCaja({ x: r.left - 6, y: r.top - 6, w: r.width + 12, h: r.height + 12 });
+      setCaja({ x: r.left - 6, y: r.top - 6, w: r.width + 12, h: r.height + 12, redondo: !paso.foco.el });
     };
     medir();
-    const t1 = setTimeout(medir, 260), t2 = setTimeout(medir, 700);
+    const t1 = setTimeout(medir, 260), t2 = setTimeout(medir, 700), t3 = setTimeout(medir, 1300);
     window.addEventListener('resize', medir);
-    return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener('resize', medir); };
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); window.removeEventListener('resize', medir); };
   }, [i, paso.foco]);
 
   const terminar = () => {
@@ -76,7 +108,7 @@ export default function RecorridoApp({ nombre, alIr, alTerminar }) {
       {/* Penumbra con un hueco sobre lo que se explica */}
       {caja ? (
         <div data-foco style={{
-          position: 'fixed', left: caja.x, top: caja.y, width: caja.w, height: caja.h, borderRadius: 999,
+          position: 'fixed', left: caja.x, top: caja.y, width: caja.w, height: caja.h, borderRadius: caja.redondo ? 999 : 22,
           boxShadow: '0 0 0 9999px rgba(20,20,18,0.66)', outline: `3px solid ${paso.color}`, outlineOffset: 0,
           transition: 'left .35s cubic-bezier(.2,.8,.2,1), top .35s, width .35s, height .35s', pointerEvents: 'none',
         }} />
@@ -88,8 +120,10 @@ export default function RecorridoApp({ nombre, alIr, alTerminar }) {
 
       <div key={i} className="rec-tarjeta" style={{
         position: 'fixed', left: '50%', transform: 'translateX(-50%)', width: 'min(90vw, 380px)',
-        top: caja ? 'auto' : '50%', bottom: caja ? `calc(${Math.max(16, (window.innerHeight - caja.y) + 14)}px)` : 'auto',
-        marginTop: caja ? 0 : -150,
+        // Arriba de lo iluminado si está en la mitad de abajo; si no, debajo.
+        ...(!caja ? { top: '50%', marginTop: -150 }
+          : caja.y > window.innerHeight / 2 ? { bottom: Math.max(16, window.innerHeight - caja.y + 14) }
+          : { top: Math.min(window.innerHeight - 300, caja.y + caja.h + 14) }),
         background: '#FFFFFF', borderRadius: 24, padding: '20px 20px 16px', boxShadow: '0 20px 60px rgba(0,0,0,0.30)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

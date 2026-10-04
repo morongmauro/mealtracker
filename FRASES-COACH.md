@@ -281,3 +281,19 @@ Segunda línea (en color), una de estas según el día:
 86. (todo hecho) Completo. Eso es constancia.
 87. (parcial) Hecho lo que se pudo. Eso también cuenta.
 88. (nada marcado) Registrado. Mañana más.
+
+## Frases de cada sección (nuevas · pendientes de tu aprobación)
+
+*Cuándo salen:* arriba de cada parte, con la letra de la marca (la primera línea en negro y la segunda en color).
+
+89. Lecturas — **Lee poco,** / aplica mucho. · «Las cápsulas y la guía de alimentación, para leer a tu ritmo.»
+90. Videos — **Dale play** / y aprende escuchando. · «Los episodios que te recomiendo, para ver o escuchar cuando quieras.»
+91. Sobre el programa — **Tu progreso,** / con método. · «Cómo funciona tu proceso: qué hacemos, en qué orden y qué te toca a ti.»
+92. Recetas — **Comer bien** / también es rico. · «{N} recetas, cada una al tamaño que le toca dentro de tu meta.»
+93. Organiza tu día — **Tu día,** / resuelto. · «Las recetas repartidas en tu día o tu semana, con su lista de mercado.»
+94. Calendario de comidas — **Cada día suma.** / Mira cómo vas. · «Qué comiste cada día y qué tan cerca quedaste de tu meta.»
+95. Calendario de entreno — **Tu semana,** / en orden. · «Lo que te toca cada día. Si algo cambia, muévelo y sigues.»
+96. Galería — **Mira, aprende** / y ejecuta. · «Cada ejercicio con su video: búscalo y mira cómo se hace.»
+97. Comunidad — **Lo que comparto** / con todo el equipo. · «Tips, retos y novedades del programa. Reacciona con un toque.»
+98. Configuración — **Tu app,** / a tu manera.
+99. Relojes y anillos — **Conecta tu reloj** / y suma tus datos. · «Pasos, sueño, pulso y recuperación llegan solos a tu Dash y a tu coach.»

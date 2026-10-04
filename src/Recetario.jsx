@@ -1,3 +1,4 @@
+import CabeceraHoy from './CabeceraHoy.jsx';
 import React, { useState, useMemo, useRef, useEffect, startTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, Info, Clock, AlertTriangle, X, ShoppingCart, Copy } from 'lucide-react';
@@ -2725,8 +2726,10 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           queda el degradado oliva y nada se rompe. */}
       {v2 ? (
         <div className="relative max-w-xl mx-auto px-4" style={{ zIndex: 3, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 70px)' }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: TEXT_MUTED }}>{vista === 'menus' ? 'Organiza tu día o tu semana' : `${RECIPES.length} recetas ajustadas a tu meta`}</div>
-          <h1 style={{ margin: '2px 0 0', fontFamily: FONT_DISPLAY, fontSize: 32, fontWeight: 800, letterSpacing: '-0.025em', color: TEXT, lineHeight: 1.08 }}>Recetario</h1>
+          {/* La voz de la sección, con la letra de la marca y sin curva */}
+          <CabeceraHoy tema="comida" fondo={false} voz={vista === 'menus'
+            ? { etiqueta: 'ORGANIZA TU DÍA', a: 'Tu día,', b: 'resuelto.', sub: 'Las recetas repartidas en tu día o tu semana, con su lista de mercado.' }
+            : { etiqueta: 'RECETAS', a: 'Comer bien', b: 'también es rico.', sub: `${RECIPES.length} recetas, cada una al tamaño que le toca dentro de tu meta.` }} />
         </div>
       ) : (
       <div className="relative w-full overflow-hidden" style={{

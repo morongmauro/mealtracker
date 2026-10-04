@@ -32,7 +32,7 @@ export const TEMAS = {
   aprende: { banda: ['#F7CFAF', '#FADFCA'], m1: '#F6B98C', m2: '#FBE0CB', m3: '#A9C6EE', base: '#FDF3EA', tinta: '#C95F17' },
   // El Dash: como los demás módulos (banda curva y manchas), en gris suave
   // con un toque de amarillo.
-  dash:    { banda: ['#D8D6CE', '#E4E2DB'], m1: '#D3D1C8', m2: '#E3E1D9', m3: '#F2D57A', m4: '#DCDAD2', base: '#EFEEEA', tinta: '#1F1F1F' },
+  dash:    { banda: ['#C6C4BB', '#D5D3CB'], m1: '#B9B7AD', m2: '#CFCDC4', m3: '#F2D57A', m4: '#C4C2B9', base: '#E2E1DB', tinta: '#1F1F1F' },
 };
 
 const CSS = `

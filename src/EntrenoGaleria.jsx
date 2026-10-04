@@ -9,6 +9,7 @@
 // se hace, qué trabaja). Sale de las mismas rutinas que ya ve el cliente: no
 // hay una puerta nueva al catálogo del coach.
 // ─────────────────────────────────────────────────────────────────────────
+import { v2Activa } from './v2.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { api, miniatura } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
@@ -66,7 +67,7 @@ export default function Galeria({ nombre }) {
   if (!todos.length) {
     return (
       <div>
-        <Titulo>Galería</Titulo>
+        {!v2Activa() && <Titulo>Galería</Titulo>}
         <div style={{ marginTop: 14 }}>
           <Vacio icono="🎬" titulo="Aún no hay ejercicios"
             texto="Cuando tu coach te envíe el plan, aquí tienes cada ejercicio con su video." />
@@ -77,7 +78,7 @@ export default function Galeria({ nombre }) {
 
   return (
     <div>
-      <Titulo>Galería</Titulo>
+      {!v2Activa() && <Titulo>Galería</Titulo>}
       <div style={{ color: TEXT_MUTED, fontSize: 13.5 }}>
         {todos.length} ejercicio{todos.length === 1 ? '' : 's'} de tu plan · toca uno para ver su video y lo que trabaja
       </div>

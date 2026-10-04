@@ -68,6 +68,12 @@ function base() {
     tablas: {
       clientes: [{ id: 'c1', user_id: 'coach', nombre: 'Mauro Morón', estado: 'activo', dia_pago: Number(hoy.slice(8)) },
                  { id: 'c2', user_id: 'coach', nombre: 'Ana Pérez', estado: 'activo' }],
+      comunidad_posts: [
+        { id: 'cp1', user_id: 'coach', texto: 'Esta semana: 3 entrenos y 8 horas de sueño. Lo demás se acomoda.', fijado: false, publicado_en: hoy + 'T12:00:00Z', borrado_en: null },
+        { id: 'cp2', user_id: 'coach', texto: 'Bienvenidos a la comunidad del programa. Aquí comparto tips, retos y novedades.', fijado: true, publicado_en: hace(1, 0) + 'T12:00:00Z', borrado_en: null },
+      ],
+      comunidad_reacciones: [{ post_id: 'cp1', cliente_id: 'c2', tipo: 'fuego' }],
+      comunidad_vistas: [],
       fases: [{ id: 'f1', cliente_id: 'c1', nombre: 'Fase 2 · Fuerza', estado: 'activa', visible_cliente: true, orden: 2,
         fecha_inicio: hace(9), semanas: 12, dias_semana: ['L', 'X', 'V'], objetivo: 'Subir la fuerza en los básicos.' }],
       rutinas: [
@@ -174,6 +180,7 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   await ctx.clock.setFixedTime(new DateReal(FIJO));
   const p = await ctx.newPage();
   const errores = [];
+  globalThis.__errores = errores;   // para decir por qué se cortó, si se corta
   let pulls = 0;
   p.on('pageerror', e => errores.push(e.message));
   await ctx.addInitScript((kv) => { for (const [k, v] of Object.entries(kv)) localStorage.setItem(k, v); }, almacen(nombre));
@@ -208,6 +215,8 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
     if (u.pathname === '/api/authorize') return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authorized: true, status: 'activo' }) });
     return ruta.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
+  // El reproductor de YouTube: sin red en las pruebas, un cuadro negro.
+  await p.route('https://www.youtube-nocookie.com/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<html><body style="margin:0;background:#000"></body></html>' }));
   // Miniaturas de YouTube: sin red en las pruebas, un gris con el id.
   await p.route('https://i.ytimg.com/**', r => r.fulfill({ status: 200, contentType: 'image/svg+xml',
     body: `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="#8B8F80"/><text x="160" y="96" font-size="18" text-anchor="middle" fill="#fff" font-family="sans-serif">video</text></svg>` }));
@@ -322,7 +331,7 @@ try {
   await espera(400);
   await foto(p, '03c-profundiza-comida');
   await p.getByRole('button', { name: /calendario de comidas/ }).click();
-  await p.getByText(/Calendario de comidas|Mis gráficas/).first().waitFor({ timeout: 5000 });
+  await p.getByText(/Calendario de comidas|Mis gráficas/i).first().waitFor({ timeout: 5000 });
   await espera(900);
   await foto(p, '03d-calendario-comidas');
   ok('el calendario de comidas se abre desde el Dash', (await p.getByText(/Mes|Semana/).count()) > 0);
@@ -332,7 +341,7 @@ try {
   // Aprendizaje: la tarjeta y su «Profundiza»
   await p.locator('[data-aprende]').waitFor({ timeout: 8000 });
   ok('aprendizaje: % completado con lo que vio del centro', /\d+ %/.test(await p.locator('[data-aprende]').innerText())
-    && /Acerca del programa\s*1\/4/.test(await p.locator('[data-aprende]').innerText()), await p.locator('[data-aprende]').innerText());
+    && /Sobre el programa\s*1\/4/.test(await p.locator('[data-aprende]').innerText()), await p.locator('[data-aprende]').innerText());
   await p.locator('[data-aprende]').scrollIntoViewIfNeeded();
   await foto(p, '03e-dash-aprendizaje');
   await p.getByRole('button', { name: /Profundiza en tu aprendizaje/ }).click();
@@ -340,6 +349,36 @@ try {
   ok('profundiza aprendizaje: pieza por pieza', (await p.getByText('El método y sus pilares').count()) === 1 && (await p.getByText('Seguir aprendiendo').count()) >= 1);
   await espera(300);
   await foto(p, '03f-profundiza-aprendizaje');
+  // ── Comunidad y Configuración, desde el Dash ──
+  await p.getByRole('button', { name: 'Dash', exact: true }).click().catch(() => {});
+  await p.goto('http://localhost:5198/');
+  await p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });
+  await p.locator('[data-nuevos-comunidad]').waitFor({ timeout: 8000 }).catch(() => {});
+  ok('comunidad: su tarjeta en el Dash con lo último y cuántas no ha visto', /Comunidad · 2 nuevas/.test(await p.locator('[data-abrir-comunidad]').innerText())
+    && /3 entrenos/.test(await p.locator('[data-abrir-comunidad]').innerText()), await p.locator('[data-abrir-comunidad]').innerText());
+  await p.locator('[data-abrir-comunidad]').click();
+  const com = p.locator('[data-comunidad]');
+  await com.locator('[data-post]').first().waitFor({ timeout: 8000 });
+  ok('comunidad: las publicaciones del coach, la fijada primero', (await com.locator('[data-post]').count()) === 2 && /Bienvenidos/.test(await com.locator('[data-post]').first().innerText()));
+  await com.locator('[data-post="cp1"] [data-reaccion="fuego"]').click(); await espera(500);
+  ok('comunidad: reaccionar suma al instante y queda marcada', (await com.locator('[data-post="cp1"] [data-reaccion="fuego"]').getAttribute('aria-pressed')) === 'true'
+    && /2/.test(await com.locator('[data-post="cp1"] [data-reaccion="fuego"]').innerText()));
+  await espera(1200);
+  ok('comunidad: la reacción y las vistas llegan a la base', db.db.comunidad_reacciones.some(r => r.cliente_id === 'c1' && r.post_id === 'cp1' && r.tipo === 'fuego')
+    && (db.db.comunidad_vistas || []).filter(v => v.cliente_id === 'c1').length >= 1);
+  await foto(p, '19a-comunidad');
+  await p.getByRole('button', { name: /^Dash$/ }).first().click(); await espera(500);
+  await p.locator('[data-abrir-config]').click();
+  const conf = p.locator('[data-configuracion]');
+  await conf.waitFor({ timeout: 5000 });
+  ok('configuración: unidades, notificaciones, relojes, recorrido, programa y coach', JSON.stringify(await conf.locator('[data-config]').evaluateAll(els => els.map(e => e.dataset.config)))
+    === JSON.stringify(['unidades', 'notificaciones', 'relojes', 'recorrido', 'programa', 'coach']));
+  await foto(p, '19b-configuracion');
+  await conf.locator('[data-config="relojes"]').click();
+  await p.locator('[data-relojes]').waitFor({ timeout: 5000 });
+  ok('relojes: Fitbit, Oura, Whoop y Polar para conectar; Garmin y Apple Watch, pronto', (await p.locator('[data-reloj]').count()) === 6
+    && (await p.locator('[data-reloj="oura"]').getByText('Conectar').count()) === 1 && (await p.locator('[data-reloj="apple"]').getByText('Pronto').count()) >= 1);
+  await foto(p, '19c-relojes');
   await p.getByRole('button', { name: /Dash/ }).first().click();
 
   await p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
@@ -473,6 +512,14 @@ try {
   ok('la ficha se deja recorrer con scroll', await hs.evaluate(el => el.scrollHeight > el.clientHeight && el.scrollTop > 0));
   ok('características con los músculos marcados', await p.getByText(/^Principal:/).first().isVisible());
   await foto(p, '04e-ficha-scroll');
+  // El video del ejercicio: limpio, en bucle, sin sonido ni controles
+  const play = p.locator('[data-hoja-scroll] button').filter({ hasText: '▶' }).first();
+  if (await play.count()) {
+    await play.click(); await espera(400);
+    const src = await p.locator('[data-video-limpio] iframe').getAttribute('src').catch(() => '');
+    ok('video del ejercicio: en bucle, sin sonido, sin controles ni sugeridos', /autoplay=1/.test(src) && /mute=1/.test(src) && /loop=1/.test(src) && /controls=0/.test(src) && /rel=0/.test(src), src);
+    ok('video: con un botón para oírlo con sonido', (await p.locator('[data-video-limpio]').getByText('Con sonido').count()) === 1);
+  }
   await p.keyboard.press('Escape');
   await espera(300);
   // Tu récord abre su hoja y el scroll no se va a la rutina de atrás
@@ -493,7 +540,7 @@ try {
   await foto(p, '04f-ultima-vez');
   await p.keyboard.press('Escape');
   await espera(300);
-  await p.getByRole('button', { name: 'Hoy', exact: true }).first().click();
+  await p.locator('nav[aria-label="Secciones"]').getByRole('button', { name: 'Hoy', exact: true }).click();
   await espera(800);
   await p.getByRole('button', { name: 'Calendario' }).click();
   await espera(1500);
@@ -579,7 +626,7 @@ try {
   ok('el plan del coach no cambia', JSON.stringify(db.db.rutinas.find(r => r.id === 'r2').dias_semana) === '["X"]');
   await foto(p, '05e-movidas');
   // Con el dedo, en la semana de Hoy: el Pull del sábado al domingo
-  await p.getByRole('button', { name: 'Hoy', exact: true }).first().click();
+  await p.locator('nav[aria-label="Secciones"]').getByRole('button', { name: 'Hoy', exact: true }).click();
   await espera(1500);
   const cdp = await ctx.newCDPSession(p);
   const c0 = await cal.locator(`[data-vista="semana"] [data-fecha="${d(5)}"] [data-chip]`).first().boundingBox();
@@ -724,53 +771,35 @@ try {
   await espera(300);
   ok('chat: al salir del campo sin enviar también vuelve', await barraVisible());
 
+  // ── Aprendizaje: Lecturas · Videos · Sobre el programa (sin «Hoy») ──
   await p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
-  await p.locator('[data-aprende-hoy]').waitFor({ timeout: 8000 });
-  const ah = p.locator('[data-aprende-hoy]');
-  await p.locator('[data-proximo]').waitFor({ timeout: 8000 });
-  ok('Aprendizaje abre en su Hoy, con la voz del coach según su avance', /^Llevas el \d+ %\./.test(await ah.locator('[data-cabecera-hoy="aprende"] [data-frase]').innerText())
-    && (await ah.locator('[data-dibujo]').count()) === 0, await ah.locator('[data-cabecera-hoy="aprende"] [data-frase]').innerText());
-  ok('Aprendizaje: en la barra, Hoy · Lecturas · Videos · Programa', (await p.getByRole('button', { name: 'Hoy', exact: true }).count()) >= 1
-    && (await p.getByRole('button', { name: 'Lecturas', exact: true }).count()) === 1
-    && (await p.getByRole('button', { name: 'Videos', exact: true }).count()) === 1
-    && (await p.getByRole('button', { name: 'Programa', exact: true }).count()) === 1
-    && (await p.getByRole('button', { name: 'Onboarding', exact: true }).count()) === 0
-    && (await p.getByRole('button', { name: 'Inicio', exact: true }).count()) === 0);
-  ok('lo próximo: lo que le falta de «Acerca del programa»', /Tu trayecto/.test(await p.locator('[data-proximo]').innerText()), await p.locator('[data-proximo]').innerText());
-  ok('lo próximo en el naranja de la sección', await p.locator('[data-proximo]').evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(238, 132, 52)'));
-  ok('después: tres recomendaciones más', (await p.locator('[data-despues] button').count()) === 3);
-  ok('su avance: 5 de 61, cuánto falta y en qué parte de la barra está cada cosa', /4 de 60 vistas · te faltan 56/.test(await p.locator('[data-avance]').innerText())
-    && /Cápsulas · Lecturas/.test(await p.locator('[data-avance]').innerText()) && /Videos · Videos/.test(await p.locator('[data-avance]').innerText()) === false, await p.locator('[data-avance]').innerText());
-  ok('explora: cápsulas y guía (lecturas), videos y «Acerca del programa»', (await p.locator('[data-explora] button').count()) === 4 && /Guía de alimentación/.test(await p.locator('[data-explora]').innerText()) && /Acerca del programa/.test(await p.locator('[data-explora]').innerText()) && !/Onboarding/.test(await p.locator('[data-explora]').innerText()));
-  ok('íconos de línea', await p.locator('[data-explora] svg').first().evaluate(el => el.getAttribute('fill') !== null || true));
-  await foto(p, '10-aprende-hoy');
-  await ah.locator('[data-avance]').scrollIntoViewIfNeeded();
-  await espera(300);
-  await foto(p, '10a-aprende-hoy-abajo');
-  await p.locator('[data-proximo]').scrollIntoViewIfNeeded();
-  await p.locator('[data-proximo]').click();
-  await p.locator('[data-acerca-programa]').waitFor({ timeout: 8000 });
-  await espera(1200);
+  await espera(1400);
   const marco = p.frameLocator('iframe[title="Centro de aprendizaje"]');
-  ok('lo próximo («Tu trayecto») abre «Acerca del programa» en su parte, no el centro', await p.locator('[data-parte="trayecto"]').evaluate(el => { const r = el.getBoundingClientRect(); return r.top < innerHeight * 0.5 && r.bottom > 0; })
-    && await p.locator('iframe[title="Centro de aprendizaje"]').evaluate(el => getComputedStyle(el).visibility === 'hidden'));
-  ok('«Programa» queda marcado en la barra', await p.getByRole('button', { name: 'Programa', exact: true }).evaluate(b => b.dataset.activo === '1'));
-  await foto(p, '10b-programa-trayecto');
-  await p.getByRole('button', { name: 'Lecturas', exact: true }).click();
-  await espera(500);
-  ok('Lecturas se pide al centro', /lecturas/.test(await marco.locator('#t').textContent()), await marco.locator('#t').textContent());
+  const textosBarra = () => p.evaluate(() => [...document.querySelectorAll('nav[aria-label="Secciones"] [role="group"] button')].map(b => b.textContent.trim()));
+  ok('Aprendizaje abre en Lecturas, sin «Hoy»', /lecturas/.test(await marco.locator('#t').textContent())
+    && await p.locator('iframe[title="Centro de aprendizaje"]').evaluate(el => getComputedStyle(el).visibility === 'visible')
+    && JSON.stringify(await textosBarra()) === JSON.stringify(['Lecturas', 'Videos', 'Programa']), JSON.stringify(await textosBarra()));
+  ok('con Aprendizaje abierto se sigue viendo su ícono', await p.locator('[data-icono-seccion="aprende"]').isVisible());
+  ok('Aprendizaje: sus tres opciones se ven enteras en la barra', await p.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Secciones"]').getBoundingClientRect();
+    return ['Lecturas', 'Videos', 'Programa'].every(t => { const b = [...document.querySelectorAll('nav[aria-label="Secciones"] button')].find(x => x.textContent.trim() === t);
+      const r = b && b.getBoundingClientRect(); return r && r.left >= nav.left - 0.5 && r.right <= nav.right + 0.5; });
+  }));
+  await foto(p, '10-aprende-lecturas');
   await p.getByRole('button', { name: 'Videos', exact: true }).click();
   await espera(500);
   ok('Videos se pide al centro', /videos/.test(await marco.locator('#t').textContent()), await marco.locator('#t').textContent());
-  // ── «Acerca del programa»: el método, sin hablar de dos apps ──
-  await p.getByRole('button', { name: 'Programa', exact: true }).click();
+  // ── «Sobre el programa»: el método, sin hablar de dos apps ni de Instagram ──
+  await p.getByRole('button', { name: 'Sobre el programa', exact: true }).click();
   const prog = p.locator('[data-acerca-programa]');
   await prog.waitFor({ timeout: 8000 });
   await espera(500);
   const textoProg = await prog.innerText();
   ok('Programa: el método, los 4 pilares, las 6 fases, las preguntas y las aclaraciones', (await prog.locator('[data-pilar]').count()) === 4
     && (await prog.locator('[data-fase]').count()) === 6 && /Preguntas frecuentes/.test(textoProg) && /Aclaraciones/.test(textoProg) && /Se acabó la improvisación/.test(textoProg));
-  ok('Programa: habla de una sola app (sin «Meal Tracker» ni «dos apps»)', !/Meal Track|dos apps|app de entrenamiento|app de gesti/i.test(textoProg), (textoProg.match(/.{0,40}(Meal Track|dos apps|app de entrenamiento|app de gesti).{0,40}/i) || [''])[0]);
+  ok('Programa: solo lo que está en la app (sin «Meal Tracker», «dos apps» ni Instagram)', !/Meal Track|dos apps|app de entrenamiento|app de gesti|instagram/i.test(textoProg), (textoProg.match(/.{0,40}(Meal Track|dos apps|app de entrenamiento|app de gesti|instagram).{0,40}/i) || [''])[0]);
+  ok('Programa: separadores entre las partes y la frase sin curva (como Videos)', (await prog.locator('[data-separador]').count()) === 5
+    && (await prog.locator('[data-cabecera-hoy] [data-banda]').count()) === 0 && /Tu progreso/.test(await prog.locator('[data-cabecera-hoy] [data-frase]').innerText()));
   ok('Programa: el centro queda escondido detrás', await p.locator('iframe[title="Centro de aprendizaje"]').evaluate(el => getComputedStyle(el).visibility === 'hidden'));
   await foto(p, '10-programa');
   await prog.locator('[data-fase]').nth(2).getByRole('button').click();
@@ -778,7 +807,7 @@ try {
   ok('Programa: una fase se abre con lo que haces tú y el resultado', /Lo que haces tú/.test(await prog.locator('[data-fase]').nth(2).innerText()));
   await prog.locator('[data-parte="trayecto"]').scrollIntoViewIfNeeded();
   await foto(p, '10c-programa-fase');
-  // ── El recorrido guiado: solo termina con «Finalizar» ──
+  // ── El recorrido guiado: parte por parte, y solo termina con «Finalizar» ──
   await prog.locator('[data-abrir-recorrido]').scrollIntoViewIfNeeded();
   await prog.locator('[data-abrir-recorrido]').click();
   const rec = p.locator('[data-recorrido]');
@@ -789,30 +818,48 @@ try {
   await p.mouse.click(30, 120);
   await espera(300);
   ok('recorrido: no se cierra con Escape ni tocando afuera, y no tiene X', (await rec.count()) === 1 && (await rec.getByRole('button', { name: /Cerrar|Saltar|Omitir/ }).count()) === 0);
-  await rec.locator('[data-rec-siguiente]').click(); await espera(800);
-  ok('recorrido: ilumina la barra', (await p.locator('[data-foco]').count()) === 1);
-  await foto(p, '17b-recorrido-barra');
-  await rec.locator('[data-rec-siguiente]').click(); await espera(1400);
-  ok('recorrido: en Entrenamiento abre la sección e ilumina su botón', /ENTRENAMIENTO/.test(await rec.innerText()) && (await p.locator('[data-foco]').count()) === 1
-    && await p.locator('[data-cabecera-hoy="entreno"]').isVisible());
-  await foto(p, '17c-recorrido-entreno');
-  for (let k = 0; k < 3; k++) { await rec.locator('[data-rec-siguiente]').click(); await espera(1100); }
-  ok('recorrido: llega al Dash', /DASH/.test(await rec.innerText()));
-  await foto(p, '17d-recorrido-dash');
-  await rec.locator('[data-rec-siguiente]').click(); await espera(500);
+  const vistos = [];
+  const fotosRec = { 'TU RUTINA': '17c-recorrido-rutina', 'CHAT': '17e-recorrido-chat', 'RECETAS': '17f-recorrido-recetas', 'DASH': '17d-recorrido-dash' };
+  for (let k = 0; k < 20; k++) {
+    if (/Finalizar/.test(await rec.locator('[data-rec-siguiente]').innerText())) break;
+    await rec.locator('[data-rec-siguiente]').click(); await espera(1500);
+    const et = (await rec.innerText()).split('\n')[0].trim();
+    vistos.push({ et, foco: await p.locator('[data-foco]').count() });
+    if (fotosRec[et] && !vistos.some((v, n) => v.et === et && n < vistos.length - 1)) await foto(p, fotosRec[et]);
+  }
+  const ets = vistos.map(v => v.et);
+  ok('recorrido: muestra cada parte (rutina, calendario, galería, chat, recetas, calendario de comidas, lecturas, videos, programa, gráficas)',
+    ['ENTRENAMIENTO · HOY', 'TU RUTINA', 'CALENDARIO', 'GALERÍA', 'ALIMENTACIÓN · HOY', 'CHAT', 'RECETAS', 'CALENDARIO DE COMIDAS', 'LECTURAS', 'VIDEOS', 'SOBRE EL PROGRAMA', 'DASH'].every(e => ets.includes(e)), JSON.stringify(ets));
+  ok('recorrido: en cada parte se ilumina algo', vistos.filter(v => v.et !== 'LISTO').every(v => v.foco === 1), JSON.stringify(vistos));
   ok('recorrido: el último paso dice «Finalizar»', /Finalizar/.test(await rec.locator('[data-rec-siguiente]').innerText()));
   await rec.locator('[data-rec-siguiente]').click(); await espera(900);
-  ok('recorrido: al finalizar se cierra, vuelve a «Acerca del programa» y queda hecho', (await rec.count()) === 0 && await p.locator('[data-acerca-programa]').isVisible()
+  ok('recorrido: al finalizar se cierra, vuelve a «Sobre el programa» y queda hecho', (await rec.count()) === 0 && await p.locator('[data-acerca-programa]').isVisible()
     && await p.evaluate(() => !!localStorage.getItem('mt:recorridoHecho')));
-  await p.getByRole('button', { name: 'Hoy', exact: true }).first().click();
-  await espera(600);
-  ok('Aprendizaje: sus cuatro opciones se ven enteras en la barra', await p.evaluate(() => {
-    const nav = document.querySelector('nav[aria-label="Secciones"]').getBoundingClientRect();
-    return ['Hoy', 'Lecturas', 'Videos', 'Programa'].every(t => { const b = [...document.querySelectorAll('nav[aria-label="Secciones"] button')].find(x => x.textContent.trim() === t);
-      const r = b && b.getBoundingClientRect(); return r && r.left >= nav.left - 0.5 && r.right <= nav.right + 0.5; });
-  }));
-  ok('volver a Hoy de Aprendizaje', await p.locator('[data-aprende-hoy]').isVisible()
-    && await p.locator('iframe[title="Centro de aprendizaje"]').evaluate(el => getComputedStyle(el).visibility === 'hidden'));
+  // ── La voz de cada parte: Calendario, Galería, Recetas, Calendario de comidas ──
+  await p.locator('nav[aria-label="Secciones"]').getByRole('button', { name: 'Entrenamiento', exact: true }).click(); await espera(900);
+  await p.getByRole('button', { name: 'Calendario', exact: true }).click(); await espera(900);
+  ok('Calendario de entreno: su frase con la letra de la marca', /Tu semana,\s*en orden\./.test(await p.locator('[data-view="entrena"] [data-cabecera-hoy="entreno"] [data-frase]').first().innerText()));
+  await p.getByRole('button', { name: 'Galería', exact: true }).click(); await espera(900);
+  ok('Galería: su frase y sin el título viejo', /Mira, aprende/.test(await p.locator('[data-view="entrena"] [data-cabecera-hoy="entreno"] [data-frase]').first().innerText())
+    && (await p.locator('[data-view="entrena"]').getByText('Galería', { exact: true }).count()) === 0);
+  await foto(p, '18a-galeria-voz');
+  // El puntito de novedad: la meta de comida «cambió» desde la última vez
+  await p.evaluate(() => localStorage.setItem('mt:nov:comida', '1/1/1/1'));
+  await p.getByRole('button', { name: 'Hoy', exact: true }).click(); await espera(600);
+  ok('novedad: puntito verde en Alimentación', await p.locator('[data-punto="comida"]').evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(70, 150, 90)').catch(() => false));
+  await foto(p, '18b-punto-novedad');
+  await p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(700);
+  await p.getByRole('button', { name: 'Recetas', exact: true }).click(); await espera(1200);
+  ok('Recetas: su frase', /Comer bien\s*también es rico\./.test(await p.locator('[data-cabecera-hoy="comida"] [data-frase]').first().innerText()));
+  await foto(p, '18c-recetas-voz');
+  await p.getByRole('button', { name: 'Dash', exact: true }).click(); await espera(700);
+  ok('novedad: al entrar a Alimentación su puntito se va', (await p.locator('[data-punto="comida"]').count()) === 0);
+  await p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(700);
+  await p.getByRole('button', { name: 'Calendario', exact: true }).click(); await espera(1200);
+  ok('Calendario de comidas: su frase', /Cada día suma\./.test(await p.getByRole('dialog').or(p.locator('body')).locator('[data-cabecera-hoy="comida"] [data-frase]').last().innerText()));
+  await foto(p, '18d-calendario-comidas-voz');
+  await p.getByRole('button', { name: 'Cerrar' }).last().click(); await espera(500);
+  await p.getByRole('button', { name: 'Dash', exact: true }).click(); await espera(600);
   // Alimentación abre siempre en Hoy (aunque se haya quedado en el Chat)
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(700);
@@ -852,7 +899,7 @@ try {
   await espera(900);
   ok('375 px: las cuatro opciones de Aprendizaje se ven enteras', await n.p.evaluate(() => {
     const nav = document.querySelector('nav[aria-label="Secciones"]').getBoundingClientRect();
-    return ['Hoy', 'Lecturas', 'Videos', 'Programa'].every(t => { const b = [...document.querySelectorAll('nav[aria-label="Secciones"] button')].find(x => x.textContent.trim() === t);
+    return ['Lecturas', 'Videos', 'Programa'].every(t => { const b = [...document.querySelectorAll('nav[aria-label="Secciones"] button')].find(x => x.textContent.trim() === t);
       const r = b && b.getBoundingClientRect(); return r && r.left >= nav.left - 0.5 && r.right <= nav.right + 0.5; });
   }));
   await foto(n.p, '12-375-aprende');
@@ -966,6 +1013,7 @@ try {
 } catch (e) {
   fallos++;
   console.log('  MAL  se cortó: ' + e.message.split('\n').slice(0, 12).join(' | '));
+  if (globalThis.__errores && globalThis.__errores.length) console.log('       errores de la página: ' + globalThis.__errores.slice(0, 3).join(' | '));
 } finally {
   await b.close();
   await vite.close();

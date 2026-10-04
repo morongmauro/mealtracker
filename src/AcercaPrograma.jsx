@@ -31,9 +31,9 @@ const PILARES = [
   { icono: ChartLineUp, color: SECCION.dash, titulo: 'Seguimiento', frase: 'Decidir con datos, no con percepción.',
     texto: 'Lo que entrenas y lo que comes queda registrado, y esos datos los usamos los dos: tú para ver tu avance real y yo para ajustar tu proceso con criterio, no a ciegas.',
     esencia: ['Entreno: pesos, repeticiones y esfuerzo', 'Comida: lo que comes frente a tu meta', 'Cada mes: peso, % de grasa y fotos (la app te avisa)'] },
-  { icono: ChatsCircle, color: SECCION.aprende, titulo: 'Tu entorno', frase: 'Una app y dos canales. Nada más que aprender.',
-    texto: 'En la app tienes todo en un solo lugar: Entrenamiento, Alimentación, Aprendizaje y tu Dash. Por WhatsApp hablamos tú y yo: dudas y ajustes de tu proceso. En el grupo de Instagram está la comunidad del programa.',
-    esencia: ['La app: entreno, comida, aprendizaje y Dash', 'WhatsApp: lo tuyo, uno a uno', 'Instagram: la comunidad'] },
+  { icono: ChatsCircle, color: SECCION.aprende, titulo: 'Tu entorno', frase: 'Todo en un solo lugar.',
+    texto: 'En la app tienes tu entrenamiento, tu alimentación, tu aprendizaje y tu Dash con tu avance. Y desde el Dash me escribes por WhatsApp cuando tengas una duda o necesites un ajuste.',
+    esencia: ['Entrenamiento: rutinas, videos y calendario', 'Alimentación: registro, recetas y tu meta', 'Aprendizaje y Dash: lo que lees y cómo vas'] },
 ];
 
 const FASES = [
@@ -41,7 +41,7 @@ const FASES = [
     haces: 'Participas en la entrevista inicial y compartes tu contexto: trabajo, horarios, hábitos y lo que quieres lograr. Alineamos expectativas y definimos objetivos según tu realidad.',
     resultado: 'Sabes dónde estás y hacia dónde vas.' },
   { n: '01', nombre: 'Arranque', titulo: 'Activación', idea: 'Entras a la app y entiendes cómo está organizado todo.',
-    haces: 'Recibes tu acceso, entras a la app y haces el recorrido guiado. Lees «Acerca del programa» para entender cómo funciona tu proceso.',
+    haces: 'Recibes tu acceso, entras a la app y haces el recorrido guiado. Lees «Sobre el programa» para entender cómo funciona tu proceso.',
     resultado: 'Claridad para empezar. No improvisas.' },
   { n: '02', nombre: 'Comprensión', titulo: 'Aprendizaje', idea: 'Comprendes la lógica del método.',
     haces: 'Registras tu punto de partida (fotos y composición corporal). Revisas la estructura de tus rutinas y los videos de cada ejercicio para entender postura y ejecución. Conoces tu meta del día, el registro de comidas y las recetas.',
@@ -123,8 +123,9 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
 
   return (
     <div ref={raiz} data-acerca-programa style={{ maxWidth: 560, margin: '0 auto', padding: '0 20px', paddingTop: arriba, paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))' }}>
-      <CabeceraHoy tema="aprende" arriba={arriba} voz={{
-        etiqueta: 'ACERCA DEL PROGRAMA', a: 'Tu progreso,', b: 'con método.',
+      {/* Sin curva, como Videos: la cabecera curva es de Lecturas. */}
+      <CabeceraHoy tema="aprende" fondo={false} voz={{
+        etiqueta: 'SOBRE EL PROGRAMA', a: 'Tu progreso,', b: 'con método.',
         sub: 'Cómo funciona tu proceso: qué hacemos, en qué orden y qué te toca a ti.',
       }} />
 
@@ -139,7 +140,7 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
       </div>
 
       {/* 1 · La idea */}
-      <section data-parte="metodo" style={{ ...bloque, scrollMarginTop: 80 }}>
+      <section data-parte="metodo" style={{ ...bloque, marginTop: 18, scrollMarginTop: 80 }}>
         <div style={{ background: '#1F1F1F', color: '#fff', borderRadius: 22, padding: '20px 20px 22px' }}>
           <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.06em', color: '#F6B27D' }}>EL MÉTODO EN UNA IDEA</div>
           <div style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.15, marginTop: 8 }}>Se acabó la improvisación.</div>
@@ -153,6 +154,7 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
       </section>
 
       {/* 2 · Los pilares */}
+      <Separador />
       <section data-parte="pilares" data-lectura="programa" style={{ ...bloque, scrollMarginTop: 80 }}>
         <h2 style={titulo}>Los cuatro pilares</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -184,6 +186,7 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
       </section>
 
       {/* 3 · El trayecto: seis fases en una línea de tiempo */}
+      <Separador />
       <section data-parte="trayecto" data-lectura="journey" style={{ ...bloque, scrollMarginTop: 80 }}>
         <h2 style={titulo}>Tu trayecto</h2>
         <p style={bajada}>Seis fases. Cada una construye la siguiente. Toca una para ver qué haces tú y qué consigues.</p>
@@ -229,6 +232,7 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
       </section>
 
       {/* 4 · Preguntas frecuentes */}
+      <Separador />
       <section data-parte="preguntas" data-lectura="faq" style={{ ...bloque, scrollMarginTop: 80 }}>
         <h2 style={titulo}>Preguntas frecuentes</h2>
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -259,6 +263,7 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
       </section>
 
       {/* 5 · La app: el recorrido guiado */}
+      <Separador />
       <section data-parte="recorrido" style={{ ...bloque, scrollMarginTop: 80 }}>
         <button data-abrir-recorrido onClick={alRecorrido} style={{
           width: '100%', textAlign: 'left', border: 0, cursor: 'pointer', fontFamily: 'inherit',
@@ -278,6 +283,7 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
       </section>
 
       {/* 6 · Aclaraciones */}
+      <Separador />
       <section data-parte="aclaraciones" style={{ ...bloque, scrollMarginTop: 80 }}>
         <h2 style={titulo}>Aclaraciones</h2>
         <div style={tarjeta}>
@@ -298,7 +304,9 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
   );
 }
 
-const bloque = { marginTop: 22 };
+const bloque = { marginTop: 0 };
+// Una línea entre partes, para leer por bloques.
+const Separador = () => <div data-separador aria-hidden="true" style={{ height: 1, background: 'rgba(31,31,31,0.10)', margin: '28px 4px 24px' }} />;
 const titulo = { fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em', color: TEXT, margin: '0 2px 10px' };
 const bajada = { fontSize: 14.5, color: TEXT_MUTED, lineHeight: 1.45, margin: '-4px 2px 10px' };
 const tarjeta = { background: '#FFFFFF', borderRadius: 20, padding: '16px 16px', boxShadow: SOMBRA };

@@ -30,6 +30,7 @@ import CabeceraHoy from './CabeceraHoy.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
 import { AvisoSuma } from './Celebraciones.jsx';
 import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
+import { hayNovedad, marcarVisto } from './novedades.js';
 import { vozComida } from './vozCoach.js';
 import { Bell as BellV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
@@ -669,11 +670,15 @@ export default function MealTracker() {
   const [showDash, setShowDash] = useState(false);
   useEffect(() => { showDashRef.current = showDash; }, [showDash]);
   const [entrenoSub, setEntrenoSub] = useState('hoy');
-  const [aprendeSub, setAprendeSub] = useState('hoy');
+  const [aprendeSub, setAprendeSub] = useState('lecturas');
   // Visual nueva: «Acerca del programa» (en vez del Onboarding del centro) y
   // el recorrido guiado de la app.
   const [programaParte, setProgramaParte] = useState(null);
   const [recorrido, setRecorrido] = useState(false);
+  // Novedades por sección (el puntito de color en la barra): la firma de lo
+  // que hay en cada una. Ver novedades.js.
+  const [firmas, setFirmas] = useState({});
+  const [, setVistoTick] = useState(0);
   useEffect(() => {
     // Apagado hasta que el coach diga: RECORRIDO_AUTO en recorridoEstado.js.
     if (RECORRIDO_AUTO && view === 'main' && name && v2Activa() && !recorridoHecho()) setRecorrido(true);
@@ -701,10 +706,23 @@ export default function MealTracker() {
       import('./Dash.jsx').catch(() => {});
       import('./Recetario.jsx').catch(() => {});
       import('./AprendeHoy.jsx').catch(() => {});
-      if (trainingOn) import('./Entrenamiento.jsx').then(m => m.precargar && m.precargar(name)).catch(() => {});
+      if (trainingOn) import('./Entrenamiento.jsx').then(async m => {
+        const r = m.precargar && await m.precargar(name);
+        // La firma del plan, para el puntito de novedad de Entrenamiento.
+        if (r && m.firmaPlan) setFirmas(f => ({ ...f, entreno: m.firmaPlan(r) }));
+      }).catch(() => {});
     });
     return () => { if (window.cancelIdleCallback) try { window.cancelIdleCallback(t); } catch (e) {} };
   }, [v2, view, name, trainingOn]);
+  // Al entrar a una sección, lo que hay queda visto (se va su puntito).
+  // Va aquí arriba, antes de cualquier return: es un hook.
+  const seccionVista = showDash ? 'dash' : showTraining ? 'entreno' : showLearning ? 'aprende' : 'comida';
+  const firmaMetaComida = goals ? [goals.kcal, goals.p, goals.c, goals.g].map(x => Math.round(Number(x) || 0)).join('/') : null;
+  useEffect(() => {
+    if (!v2 || view !== 'main') return;
+    const f = seccionVista === 'comida' ? firmaMetaComida : firmas[seccionVista];
+    if (f != null) { marcarVisto(seccionVista, f); setVistoTick(t => t + 1); }
+  }, [v2, view, seccionVista, firmaMetaComida, firmas]);
   const initialLoadDone = useRef(false);
   // Copia viva de favoritesDeleted para closures async (pull del server).
   const favoritesDeletedRef = useRef([]);
@@ -5002,6 +5020,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
   // ── Visual nueva: en qué sección y opción de la barra se está ──────────
   const seccionV2 = showDash ? 'dash' : showTraining ? 'entreno' : showLearning ? 'aprende' : 'comida';
+  // La meta de comida (la cambia el coach): su firma.
+  const firmaComida = firmaMetaComida;
+  const remSinVer = coachReminders.some(r => !r.done_at && !r.seen_at);
   const subV2 = seccionV2 === 'entreno' ? entrenoSub
     : seccionV2 === 'aprende' ? aprendeSub
     : seccionV2 === 'comida' ? (showRecetario ? 'recetas' : tab) : null;
@@ -5020,8 +5041,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     ] },
     ...(learningUrl ? [{ id: 'aprende', subs: [
       // Lecturas: las Cápsulas y la Guía de alimentación, al mismo nivel.
-      // Videos: el podcast. Programa: «Acerca del programa» (el método).
-      { id: 'hoy', label: 'Hoy' }, { id: 'lecturas', label: 'Lecturas' }, { id: 'videos', label: 'Videos' }, { id: 'programa', label: 'Programa' },
+      // Videos: el podcast. «Sobre el programa»: el método. Sin «Hoy»: la
+      // sección abre en Lecturas.
+      { id: 'lecturas', label: 'Lecturas' }, { id: 'videos', label: 'Videos' }, { id: 'programa', label: 'Programa', aria: 'Sobre el programa' },
     ] }] : []),
   ];
   const irSubV2 = (sec, op) => {
@@ -5095,7 +5117,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     if (sec === 'dash') return irSubV2('dash');
     if (sec === 'entreno') return irSubV2('entreno', 'hoy');
     if (sec === 'comida') return irSubV2('comida', 'hoy');
-    if (sec === 'aprende') return irSubV2('aprende', 'hoy');
+    if (sec === 'aprende') return irSubV2('aprende', 'lecturas');
   };
 
   return (
@@ -5916,6 +5938,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               acciones={{
                 // Los atajos que antes vivían en «Tus herramientas» de Hoy.
                 recordatorios: () => { haptic(8); setActiveModal('reminders'); },
+                // Configuración y Comunidad (visual nueva)
+                recorrido: () => { haptic(8); setRecorrido(true); },
+                programa: () => irSubV2('aprende', 'programa'),
+                activarPush: () => activarPush(),
+                firmaComunidad: (f) => setFirmas(x => (x.dash === f ? x : { ...x, dash: f })),
                 calendarioComida: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); },
               }} />
           </Suspense>
@@ -6078,7 +6105,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           sub={subV2}
           alSeccion={irSeccionV2}
           alSub={irSubV2}
-          punto={{ aprende: learningPend > 0 && !showLearning }}
+          punto={{
+            aprende: learningPend > 0 && !showLearning,
+            // Recordatorios del coach sin ver: salen en el Hoy de las dos.
+            entreno: seccionV2 !== 'entreno' && (remSinVer || hayNovedad('entreno', firmas.entreno)),
+            comida: seccionV2 !== 'comida' && (remSinVer || hayNovedad('comida', firmaComida)),
+            dash: seccionV2 !== 'dash' && hayNovedad('dash', firmas.dash),
+          }}
         />
       )}
 
@@ -6338,7 +6371,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
       {recorrido && v2 && (
         <Suspense fallback={null}>
-          <RecorridoApp nombre={name} alIr={(sec) => irSeccionV2(sec)}
+          <RecorridoApp nombre={name} alIr={(sec, op) => (op ? irSubV2(sec, op) : irSeccionV2(sec))}
             alTerminar={() => { setRecorrido(false); irSubV2('aprende', 'programa'); }} />
         </Suspense>
       )}
@@ -9833,7 +9866,9 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
 
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-xl" fondo={v2p ? FONDO_V2 : null}>
-      <ModalHeader accent={v2p ? SECCION.comida.ink : TEXT_MUTED} label={v2p ? 'Calendario de comidas' : 'Mis gráficas'} title={name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido'} onClose={onClose} />
+      <ModalHeader accent={v2p ? SECCION.comida.ink : TEXT_MUTED} label={v2p ? 'CALENDARIO DE COMIDAS' : 'Mis gráficas'} title={v2p ? null : (name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido')} onClose={onClose} />
+      {/* Visual nueva: la voz de la sección, en dos tonos y sin curva */}
+      {v2p && <div style={{ marginTop: -26 }}><CabeceraHoy tema="comida" fondo={false} voz={{ a: 'Cada día suma.', b: 'Mira cómo vas.', sub: 'Qué comiste cada día y qué tan cerca quedaste de tu meta.' }} /></div>}
 
       {/* UNA sola sección, tres ventanas de tiempo. Antes esto vivía partido
           en dos botones —"Mi semana" y "Calendario"— que contaban lo mismo

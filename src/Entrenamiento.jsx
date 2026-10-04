@@ -156,11 +156,21 @@ const sobre = (m, cambios) => {
 // Lo llama la app al abrir (en un rato libre): deja el plan y la semana
 // listos antes de que el cliente toque Entrenamiento.
 export async function precargar(name) {
-  if (!name || cachePlan.has(name)) return;
+  if (!name) return null;
+  if (cachePlan.has(name)) return cachePlan.get(name);
   const r = await api({ accion: 'plan', name });
   if (r && r.ok && !cachePlan.has(name)) cachePlan.set(name, r);
   precargarMeses(name);
   if (r && r.ok) precargarRutinas(name, r);
+  return r && r.ok ? r : null;
+}
+
+// Lo que identifica el plan: la fase y sus rutinas. Si el coach cambia de
+// fase o de rutinas, cambia la firma y Entrenamiento muestra su puntito.
+export function firmaPlan(r) {
+  if (!r || !r.ok) return null;
+  const ids = [...new Set((r.dias || []).map(d => d.rutina && d.rutina.id).filter(Boolean))].sort();
+  return `${(r.fase && (r.fase.id || r.fase.nombre)) || ''}|${ids.join(',')}`;
 }
 
 // Las rutinas de la semana quedan guardadas en el teléfono antes de tocarlas:
@@ -234,6 +244,8 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     return (
       <Envoltorio>
         <NavSi seccion={seccion} setSeccion={setSeccion} />
+        {/* La voz de la sección, con la letra de la marca y sin curva */}
+        {seccionV2 && VOZ_SECCION[seccion] && <CabeceraHoy tema="entreno" fondo={false} voz={VOZ_SECCION[seccion]} />}
         {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={setRutinaId} />}
         {seccion === 'rutinas' && <EntrenoRutinas nombre={name} alEntrenar={setRutinaId} />}
         {seccion === 'resumen' && <EntrenoResumen nombre={name} />}
@@ -1088,6 +1100,12 @@ export function agruparEnTramos(ejercicios, bloqueDe, clase = null) {
     };
   });
 }
+
+// Lo que dice arriba el Calendario y la Galería (visual nueva).
+const VOZ_SECCION = {
+  mes: { etiqueta: 'CALENDARIO', a: 'Tu semana,', b: 'en orden.', sub: 'Lo que te toca cada día. Si algo cambia, muévelo y sigues.' },
+  galeria: { etiqueta: 'GALERÍA', a: 'Mira, aprende', b: 'y ejecuta.', sub: 'Cada ejercicio con su video: búscalo y mira cómo se hace.' },
+};
 
 // ─────────────────────────────────────────────────────────────────────────
 // LO QUE BATIÓ HOY
