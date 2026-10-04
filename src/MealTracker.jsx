@@ -5307,7 +5307,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         zIndex: 1,
         paddingTop: `${zoneH != null
           ? headerH + 6 + zoneH + 6
-          : headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0) + (pushPrompt ? 58 : 0)}px`,
+          : headerH + (cardCompact ? 56 : 158) + (pushPrompt ? 58 : 0)}px`,
         WebkitOverflowScrolling: 'touch',
         // Con el teclado abierto el scroller se bloquea desde el ESTADO, no
         // por JS: los re-renders que dispara el teclado pisaban el valor
@@ -5496,8 +5496,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             fuera de pantalla: se renderizaba pero nadie lo veía.) Un SOLO
             aviso, con el mismo tono premium en todos los casos — antes a los
             5 días saltaba a rojo alarma con ⚠️, que se sentía un grito. */}
-        {/* Visual nueva: el aviso vive en Dash, Hoy entreno y Hoy comida. */}
-        {paymentDue && !v2 && <PaymentNotice info={paymentDue} style={{ marginTop: '6px' }} />}
+        {/* El chat NO lleva el aviso de pago (pedido del coach): el aviso
+            vive en Hoy (visual de siempre) o en el Dash (visual nueva). El
+            push del teléfono y el bloqueo a los 5 días siguen igual. */}
 
         {/* Invitación a activar recordatorios push — misma zona fija del
             banner de pago; si ambos aplican se apilan (el cliente en deuda
@@ -5542,7 +5543,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         {(() => {
           const zb = zoneH != null
             ? headerH + 6 + zoneH
-            : headerH + (cardCompact ? 56 : 158) + (paymentDue ? 62 : 0) + (pushPrompt ? 58 : 0);
+            : headerH + (cardCompact ? 56 : 158) + (pushPrompt ? 58 : 0);
           return (
             <div className="fixed left-0 right-0 pointer-events-none" style={{
               zIndex: 25, top: 0, height: `${zb + 50}px`,

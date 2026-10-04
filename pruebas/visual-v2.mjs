@@ -1109,6 +1109,17 @@ try {
   ok('sin errores de JavaScript (otra persona, aviso)', oa.errores.length === 0, oa.errores.join(' | '));
   await oa.ctx.close();
 
+  // Mora sin bloqueo, con la app de siempre: el aviso sale en Hoy, NUNCA en el chat.
+  const oc = await abrir('Ana Pérez', { pago: { ...deuda, dias_vencido: 2, bloqueo: false } });
+  await oc.p.getByRole('button', { name: 'Herram.' }).waitFor({ timeout: 25000 });
+  await espera(1500);
+  await oc.p.getByRole('button', { name: 'Hoy', exact: true }).click(); await espera(900);
+  ok('otra persona en mora: el aviso de mensualidad sale en Hoy', await oc.p.getByText(/Mensualidad pendiente/).first().isVisible());
+  await oc.p.getByRole('button', { name: 'Chat', exact: true }).click(); await espera(900);
+  ok('…y en el chat NO sale ningún aviso de pago', (await oc.p.locator('[data-aviso-pago]').count()) === 0 && (await oc.p.getByText(/Mensualidad pendiente/).count()) === 0);
+  await foto(oc.p, '16b-pago-chat-sin-aviso');
+  await oc.ctx.close();
+
   // El bloqueo por mora es de todos, no solo de la visual nueva.
   const ob = await abrir('Ana Pérez', { pago: { ...deuda, dias_vencido: 6, bloqueo: true } });
   await ob.p.getByRole('alertdialog', { name: 'Pago pendiente' }).waitFor({ timeout: 25000 });
