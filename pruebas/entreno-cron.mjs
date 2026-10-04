@@ -159,6 +159,35 @@ function baseNoche() {
   return db;
 }
 
+// Pago: ya NO hay push automático (pedido del coach: el aviso vive en el Dash
+// y a los 5 días está el bloqueo). Mauro queda en mora de verdad y aun así,
+// a las 7:30pm ni a ninguna otra hora, le llega nada de pago.
+await caso('pago: aunque esté en mora, el cron ya no manda push de pago (a ninguna hora)', async () => {
+  const db = base();
+  const mesPasado = (() => { const d = new Date(Date.parse(hoy + 'T12:00:00Z')); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); })();
+  db.db.clientes[0].dia_pago = 1; db.db.clientes[0].monto = 250000; db.db.clientes[0].moneda = 'COP';
+  db.db.pagos = [{ id: 'p1', cliente_id: 'c1', mes: mesPasado, pagado: false, monto: 250000 }];
+  globalThis.fetch = db.fetch;
+  // Control: con la regla de cobro del CRM, Mauro SÍ está en mora.
+  const { leerContexto, evaluarCliente, crmHeaders } = await import('../api/_pagos.js');
+  const ctx = await leerContexto(crmHeaders());
+  const v = await evaluarCliente('Mauro Morón', ctx, crmHeaders());
+  if (!v.due) throw new Error('control: Mauro debía estar en mora: ' + JSON.stringify(v).slice(0, 300));
+  // El reloj fijo a las 7:40pm de Bogotá (el viejo turno de cobro era de
+  // 7:30 a 7:59pm) y, por si acaso, también la mañana y el cierre del día.
+  const DateReal = Date;
+  try {
+    for (const hora of ['19:40', '09:10', '20:10']) {
+      const fijo = DateReal.parse(`${hoy}T${hora}:00-05:00`);
+      globalThis.Date = class extends DateReal { constructor(...a) { if (a.length) super(...a); else super(fijo); } static now() { return fijo; } };
+      db.db.push_subs.forEach(s => { s.tz = 'America/Bogota'; s.last_slot = null; });
+      enviados.length = 0;
+      await correr();
+      igual(enviados.filter(e => e.tag === 'ecm-p').length, 0, `push de pago a las ${hora}`);
+    }
+  } finally { globalThis.Date = DateReal; }
+});
+
 await caso('cierre del día: entreno pendiente y comida sin registrar van en UN solo mensaje', async () => {
   const db = baseNoche();
   globalThis.fetch = db.fetch;

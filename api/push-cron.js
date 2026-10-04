@@ -8,9 +8,9 @@
 //
 //   09:00 local → solo si el coach puso para hoy medición, peso o fotos
 //                 (el peso se toma en ayunas: tiene que llegar temprano).
-//   19:30 local → recordatorio de pago SOLO a quien está en deuda
-//                 (misma regla que el banner de payment-status: corte
-//                 vencido y mes sin pago marcado en el CRM)
+//   (El recordatorio AUTOMÁTICO de pago de las 7:30pm se quitó por pedido
+//   del coach: el aviso de la mensualidad vive en el Dash de la app y, a
+//   los 5 días de mora, el bloqueo. El envío MANUAL desde el CRM sigue.)
 //   20:00 local → CIERRE DEL DÍA, un solo mensaje que junta lo que falte:
 //                 · entreno: tenía rutina hoy en su calendario, no la ha
 //                   hecho esta semana y hoy no entrenó nada;
@@ -417,32 +417,21 @@ export default async function handler(req, res) {
       try { agenda = await agendaDeHoy(sbCrm, hoyBogota()); } catch (e) { agenda = new Map(); }
     };
 
-    let deudores = null; // Set de nombres normalizados
-    const cargarDeudores = async () => {
-      if (deudores) return;
-      const lista = await fetchDeudores();
-      deudores = new Set(lista.map(d => d.nombreNorm));
-    };
-
     // Turnos con VENTANA de 2 horas (resiliencia a saltos del cron de GitHub).
     // El orden importa: son secuenciales en el día, así una sola marca
     // `last_slot` ("YYYY-MM-DD#id") basta para no duplicar dentro del turno.
     let sent = 0, removed = 0;
     for (const s of subs) {
-      const { hour, minute, date } = localNow(s.tz || 'America/Bogota');
+      const { hour, date } = localNow(s.tz || 'America/Bogota');
       const act = activity.get(s.user_id) || { date: '', count: 0 };
       const registrosHoy = act.date === date ? act.count : 0;
 
       // ¿Qué turno cae en esta hora? (ventana: hora objetivo o la siguiente)
       // La mañana apunta a las 9 para que el recordatorio llegue ANTES de
       // las 10 (su ventana de gracia es la hora 10 por si el cron saltó).
-      // La cobranza apunta a las 7:30pm HORA LOCAL del cliente: la corrida
-      // de las 19:37 la entrega (el cron corre a los minutos :07 y :37, así
-      // que 7:37pm es lo más cerca posible a las 7:30). Solo esa corrida, sin
-      // gracia en la hora 20 para no pisar el recordatorio nocturno de las 8.
+      // (Ya no hay turno de cobranza: el pago no se avisa por push automático.)
       let slot = null;
       if (hour === 9 || hour === 10) slot = 'm';
-      else if (hour === 19 && minute >= 30) slot = 'p';
       else if (hour === 20 || hour === 21) slot = 'n';
       if (!slot) continue;
 
@@ -461,13 +450,6 @@ export default async function handler(req, res) {
           if (hoyEs && hoyEs.medicion) {
             payloads.push({ title: 'Tu coach', body: textoRegistro(hoyEs.registros, beta), tag: 'ecm-med' });
           }
-        }
-      } else if (slot === 'p') {
-        // Pago (5:30pm): DIARIO mientras dure la deuda (copys rotan por
-        // día). Desaparece solo al marcar el pago en el CRM.
-        await cargarDeudores();
-        if (deudores && s.name && deudores.has(normalizeName(s.name))) {
-          payloads.push({ title: 'Tu coach', body: pick(MSGS.payment), tag: 'ecm-p' });
         }
       } else if (slot === 'n') {
         // Cierre del día (8pm): UN mensaje con lo que falte de comida y de
