@@ -26,6 +26,7 @@ import { Pastilla } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero } from './GraficasV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
+import { AvisoSuma } from './Celebraciones.jsx';
 import { vozComida } from './vozCoach.js';
 import { Bell as BellV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
@@ -546,6 +547,11 @@ export default function MealTracker() {
   const [activeModal, setActiveModal] = useState(null);
   const [showTutorial, setShowTutorial] = useState(false);
   const [perfectDayShown, setPerfectDayShown] = useState(false);
+  // Visual nueva: el «+420 kcal» que sube al registrar comida. Solo cuando la
+  // persona registra (no al cargar el día, sincronizar o mover una comida).
+  const [avisoSuma, setAvisoSuma] = useState(null);
+  const idsVistosRef = useRef(null);
+  const silenciarSumaRef = useRef(true);
   const [editingEntry, setEditingEntry] = useState(null);
   const [recording, setRecording] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -931,6 +937,7 @@ export default function MealTracker() {
             await window.storage.set('history', JSON.stringify(storedHistory));
             await window.storage.set('historyDetail', JSON.stringify(storedHistoryDetail));
           }
+          silenciarSumaRef.current = true;
           setEntries([]);
           setWater(0);
 
@@ -953,7 +960,7 @@ export default function MealTracker() {
         } else {
           const todayRes = await window.storage.get(`day:${today}`).catch(() => null);
           const todayWaterRes = await window.storage.get(`water:${today}`).catch(() => null);
-          if (todayRes?.value) setEntries(JSON.parse(todayRes.value));
+          if (todayRes?.value) { silenciarSumaRef.current = true; setEntries(JSON.parse(todayRes.value)); }
           if (todayWaterRes?.value) setWater(JSON.parse(todayWaterRes.value));
           if (storedMsgs.length > 0) setMessages(storedMsgs);
         }
@@ -1378,6 +1385,7 @@ export default function MealTracker() {
     for (const [dateStr, { adds, removeIds }] of Object.entries(byDate)) {
       const removeSet = new Set(removeIds);
       if (dateStr === todayNow) {
+        silenciarSumaRef.current = true;
         setEntries(es => {
           let next = es.filter(en => !removeSet.has(en.id));
           for (const en of adds) if (!next.some(x => x.id === en.id)) next = [...next, { ...en }];
@@ -1748,6 +1756,7 @@ export default function MealTracker() {
           setHistoryDetail(hd => ({ ...hd, [today]: entries }));
         }
         // Reset for new day
+        silenciarSumaRef.current = true;
         setEntries([]);
         setWater(0);
         setPerfectDayShown(false);
@@ -2067,6 +2076,17 @@ export default function MealTracker() {
     c: acc.c + (e.c || 0),
     g: acc.g + (e.g || 0),
   }), { kcal: 0, p: 0, c: 0, g: 0 }), [entries]);
+
+  useEffect(() => {
+    const prev = idsVistosRef.current;
+    idsVistosRef.current = new Set(entries.map(e => e.id));
+    if (!prev || silenciarSumaRef.current) { silenciarSumaRef.current = false; return; }
+    if (!v2Activa()) return;
+    const suma = entries.filter(e => !prev.has(e.id)).reduce((a, e) => a + (e.kcal || 0), 0);
+    if (suma <= 0) return;
+    const ahora = totals.kcal, antes = ahora - suma, meta = goals && goals.kcal ? goals.kcal : 0;
+    setAvisoSuma({ suma, antes, ahora, meta, enMeta: !!meta && antes < meta * 0.95 && ahora >= meta * 0.95, k: Date.now() });
+  }, [entries]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!goals || perfectDayShown || entries.length === 0) return;
@@ -4086,6 +4106,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
             // 2) Meterla en el día destino
             if (targetDate === today) {
               const movedEntry = { ...target, time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) };
+              silenciarSumaRef.current = true;
               setEntries(es => es.some(en => en.id === movedEntry.id) ? es : [...es, movedEntry]);
             } else {
               addEntriesToDate(targetDate, [{ ...target, time: '' }]);
@@ -6282,6 +6303,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {paymentDue && paymentDue.bloqueo && (
         <BloqueoPago info={paymentDue} alRevisar={() => revisarPagoRef.current && revisarPagoRef.current()} />
       )}
+
+      {avisoSuma && <AvisoSuma key={avisoSuma.k} evento={avisoSuma} alCerrar={() => setAvisoSuma(null)} />}
 
       {/* Peso, fotos o medidas que el coach pidió para HOY: apenas abre la app
           (a todos). Espera a que no haya otra cosa encima. */}

@@ -199,6 +199,11 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
       const estado = typeof pago === 'function' ? pago() : pago;
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(estado || { due: false }) });
     }
+    // El chat: «2 huevos» se registra como comida (para ver el «+kcal»).
+    if (u.pathname === '/api/chat') {
+      const huevos = { intent: 'log_meal', meal: 'snack', log_date: null, items: [{ name: 'Huevo', amount: '2 unidades', kcal: 156, p: 12.6, c: 1.1, g: 10.6, fiber: 0, omega3: 0, sugar: 0, needs_quantity: false }], message: null };
+      return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(huevos) }] }) });
+    }
     if (u.pathname === '/api/resources') return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: 'https://centro.test/', training: true }) });
     if (u.pathname === '/api/authorize') return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authorized: true, status: 'activo' }) });
     return ruta.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
@@ -454,6 +459,8 @@ try {
   ok('el calentamiento se marca con un toque y se pliega', (await p.getByText('1/3', { exact: true }).count()) === 1);
   ok('el avance sube por ejercicio terminado', (await p.getByText('1/7 ejercicios').count()) === 1);
   ok('con la primera serie marcada ya no sale lo de iniciar', (await p.locator('[data-sin-iniciar]').count()) === 0);
+  ok('con la primera serie arranca el reloj del entreno', await p.locator('[data-reloj-sesion]').isVisible());
+  ok('…y la serie marcada «salta»', (await p.locator('[data-view="entrena"] .mt-pop').count()) >= 1);
   ok('…y el botón de terminar queda relleno de azul', await p.locator('[data-terminar]').evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(60, 123, 214)'));
   // La ficha tiene scroll propio (el fallo del teléfono) y la silueta va en Características
   await p.getByRole('button', { name: 'Ficha' }).nth(3).click();
@@ -703,6 +710,14 @@ try {
   await p.keyboard.press('Enter');
   await espera(600);
   ok('chat: al enviar vuelve la barra', await barraVisible());
+  // Al registrar comida: sube el «+156 kcal» con cómo va el día.
+  const suma = p.locator('[data-aviso-suma]');
+  await suma.waitFor({ timeout: 6000 }).catch(() => {});
+  await espera(800);
+  ok('al registrar comida sale el «+kcal» con el avance del día', (await suma.count()) === 1 && /\+\d+ kcal/.test(await suma.innerText()) && /Vas en \d+ % de tu día/.test(await suma.innerText()), (await suma.count()) ? await suma.innerText() : 'no salió');
+  await foto(p, '09c-comida-suma');
+  await espera(2600);
+  ok('…y se va solo', (await suma.count()) === 0);
   await p.locator('.msg-input').click();
   await espera(200);
   await p.mouse.click(195, 300);
@@ -811,7 +826,9 @@ try {
   await n.p.getByRole('button', { name: 'Enviar a mi coach' }).click();
   const fin = n.p.locator('[data-fin-entreno]');
   await fin.waitFor({ timeout: 8000 });
-  await espera(900);
+  ok('fin: confeti con los colores de la marca', (await n.p.locator('.mt-confeti i').count()) > 20);
+  await espera(1500);
+  ok('fin: los números suben y dicen los minutos', /\d+\s*minutos?/.test(await fin.innerText()) && (await fin.locator('[data-fin-barra]').count()) === 1);
   ok('fin: «Entreno hecho.» con la frase del coach y lo que hizo', (await fin.getByText('Entreno hecho.').count()) === 1
     && /1\/7\s*ejercicios/.test(await fin.innerText()) && (await fin.locator('[data-firma-coach]').count()) === 0, await fin.innerText());
   ok('fin: la kettlebell levantando la barra, sin cara, entera', await fin.locator('[data-dibujo="pesas"]').evaluate(el => {

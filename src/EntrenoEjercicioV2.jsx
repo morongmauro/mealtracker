@@ -24,6 +24,7 @@ import { Hoja } from './entrenoUI.jsx';
 import { miniatura, numero, descansoEnCircuito, sinPeso, convertir } from './entrenoDatos.js';
 import { nombresEj } from './v2.js';
 import { SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, BORDER, SECCION } from './theme.js';
+import { asegurarCSS, vibrar } from './Celebraciones.jsx';
 
 const AZUL = SECCION.entreno.base;
 const AZUL_TINTA = SECCION.entreno.ink;
@@ -450,8 +451,12 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   const [reps, setReps] = useState(marcada?.reps != null ? String(marcada.reps) : '');
   const [peso, setPeso] = useState(marcada?.peso != null ? String(marcada.peso).replace('.', ',') : '');
   const [falta, setFalta] = useState(false);
+  // Al marcar: el check «salta», un brillo recorre la fila y vibra corto.
+  const [pop, setPop] = useState(0);
   const repsRef = useRef(null);
   const hecha = !!marcada;
+  useEffect(() => { asegurarCSS(); }, []);
+  const celebrar = () => { setPop(p => p + 1); vibrar(12); };
 
   useEffect(() => {
     if (marcada) {
@@ -466,6 +471,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       // «10» se guarda como 10; «3 min suave» o «30 s» no son reps: va vacío.
       const r = /^\s*\d+\s*$/.test(String(re.reps || '')) ? Number(re.reps) : null;
       onMarcar(re, n, r, null, descansoSeg, unidad);
+      celebrar();
       return;
     }
     const r = numero(reps);
@@ -475,7 +481,9 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
     // El peso va en blanco: si no lo escribe, se guarda sin peso (no se
     // copia el de la última vez, que confundía).
     onMarcar(re, n, r, soloReps ? null : numero(peso), descansoSeg, unidad);
+    celebrar();
   };
+  const brillo = pop > 0 && hecha ? <span key={pop} className="mt-barrido" aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none' }} /> : null;
 
   if (sinCarga) {
     return (
@@ -483,12 +491,13 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
         display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 38, padding: '0 6px 0 12px',
         borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         border: hecha ? '1px solid transparent' : '1px solid #E4E0D5',
-        background: hecha ? SECCION.entreno.tint : '#FFFFFF',
+        background: hecha ? SECCION.entreno.tint : '#FFFFFF', position: 'relative', overflow: 'hidden',
       }}>
+        {brillo}
         <span style={{ flex: 1, fontSize: 13.5, fontWeight: 650, color: hecha ? AZUL_TINTA : TEXT_MUTED }}>
           {hecha ? 'Hecho' : (re.series > 1 ? `Serie ${n} · ${textoReps(re)}` : textoReps(re) || 'Marcar hecho')}
         </span>
-        <span style={{
+        <span key={pop} className={pop && hecha ? 'mt-pop' : undefined} style={{
           width: 28, height: 28, borderRadius: 9, display: 'grid', placeItems: 'center', flex: 'none',
           background: hecha ? AZUL : 'transparent', border: hecha ? 0 : '1px solid #E4E0D5', color: hecha ? '#fff' : TEXT_LIGHT,
         }}><Check size={15} weight={hecha ? 'bold' : 'regular'} /></span>
@@ -508,7 +517,9 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
     <div style={{
       display: 'flex', alignItems: 'center', gap: 6,
       background: hecha ? SECCION.entreno.tint : 'transparent', borderRadius: 11, padding: hecha ? '0 2px' : 0,
+      position: 'relative', overflow: 'hidden',
     }}>
+      {brillo}
       <div style={{ width: 22, flex: 'none', textAlign: 'center', fontSize: 12.5, fontWeight: 750, color: hecha ? AZUL_TINTA : TEXT_LIGHT }}>{n}</div>
       <div style={{ flex: 1 }}>
         <input ref={repsRef} inputMode="numeric" value={reps}
@@ -523,7 +534,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
           aria-label={`Peso serie ${n}`} style={campo(false)} disabled={hecha} />
       </div>
       </>}
-      <button onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
+      <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
         flex: 'none', width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
         border: hecha ? 0 : '1px solid #E4E0D5', background: hecha ? AZUL : 'transparent',
         color: hecha ? '#fff' : TEXT_LIGHT, display: 'grid', placeItems: 'center',

@@ -16,6 +16,7 @@ import CabeceraHoy from './CabeceraHoy.jsx';
 import { IlustracionPesas } from './IlustracionesHoy.jsx';
 import { vozEntreno, vozFinEntreno } from './vozCoach.js';
 import Firma from './Firma.jsx';
+import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
 import { Bell, Ruler, CheckCircle, PlayCircle } from '@phosphor-icons/react';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
@@ -570,7 +571,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const [remate, setRemate] = useState(false);   // ofrecer cardio al cerrar
   const [records, setRecords] = useState(null);  // lo que batió hoy, si batió algo
   const [fin, setFin] = useState(null);           // visual nueva: la celebración al terminar
-  const conteoRef = useRef({ hechos: 0, total: 0, series: 0 });
+  const conteoRef = useRef({ hechos: 0, total: 0, series: 0, kilos: 0 });
   const [pendientes, setPendientes] = useState(0);
   const [nota, setNota] = useState(null);          // { titulo, rutina_id, rutina_ejercicio_id? }
   // kg o lb, POR EJERCICIO: las mancuernas de un gimnasio van en libras y las
@@ -603,6 +604,10 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     return () => clearTimeout(id);
   }, [pendientes > 0]);
   const fecha = useRef(hoyLocal()).current;       // el día en que se abrió, aunque pase medianoche
+  // Visual nueva: cuándo arrancó el entreno (la primera serie marcada), para
+  // el reloj de la sesión. Se recuerda en el teléfono por si cierra y vuelve.
+  const claveInicio = `mt:inicioEntreno:${rutinaId}:${fecha}`;
+  const [inicio, setInicio] = useState(() => { try { return Number(localStorage.getItem(claveInicio)) || null; } catch (e) { return null; } });
   // Descanso: { segundos, fin } — `fin` es un instante absoluto, no un
   // contador que se va restando. Con un contador, minimizar la app o apagar
   // la pantalla congela el intervalo y al volver marca de menos; con un
@@ -702,6 +707,10 @@ function VistaRutina({ name, rutinaId, onVolver }) {
 
   const marcar = useCallback((re, serie, reps, peso, descansoSeg, unidad = 'kg') => {
     const clave = `${re.id}:${serie}`;
+    if (!inicio && v2Activa()) {
+      const t = Date.now(); setInicio(t); vibrar([16, 40, 16]);
+      try { localStorage.setItem(claveInicio, String(t)); } catch (e) { /* sin almacenamiento: el reloj vive mientras esté abierta */ }
+    }
     setMarcadas(m => ({ ...m, [clave]: { reps, peso, unidad } }));   // optimista: el check no espera a la red
     tocadas.current[clave] = { reps, peso, unidad };
     // El descanso lo decide quien pinta la fila: entre series de un ejercicio
@@ -713,7 +722,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       rutina_ejercicio_id: re.id, ejercicio_id: re.ejercicio.id,
       serie_num: serie, reps, peso, unidad, completada: true,
     });
-  }, [escribirSerie]);
+  }, [escribirSerie, inicio, claveInicio]);
 
   const desmarcar = useCallback((re, serie) => {
     const clave = `${re.id}:${serie}`;
@@ -758,10 +767,15 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     // receta dentro de la rutina, y lo que el cliente haga aparte lo agrega
     // desde el calendario.
     // Visual nueva: siempre se celebra (y los récords van dentro).
-    if (v2Activa()) { setFin({ ...conteoRef.current, records: r.records || [] }); return; }
+    if (v2Activa()) {
+      const seg = r.sesion && r.sesion.duracion_seg != null ? r.sesion.duracion_seg : (inicio ? Math.round((Date.now() - inicio) / 1000) : null);
+      try { localStorage.removeItem(claveInicio); } catch (e) { /* nada */ }
+      setFin({ ...conteoRef.current, minutos: seg != null ? Math.max(1, Math.round(seg / 60)) : null, records: r.records || [] });
+      return;
+    }
     if (r.records?.length) setRecords(r.records);
     else setRemate(true);
-  }, [cerrando, deEsta, asegurarSesion, name, onVolver]);
+  }, [cerrando, deEsta, asegurarSesion, name, onVolver, inicio, claveInicio]);
 
   // Primera vez que abre esta rutina (no hay copia en el teléfono): la
   // pantalla sale ya, con su nombre y la forma de las tarjetas, mientras llega.
@@ -830,7 +844,12 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       if (c) { c.total++; if (listo) c.hechos++; }
     });
   });
-  conteoRef.current = { hechos: ejHechos, total: ejTotal, series: hechas };
+  // Kilos movidos hoy (reps × peso, todo pasado a kg), para el cierre.
+  const kilos = Object.values(marcadas).reduce((a, m) => {
+    const kg = Number(convertir(m.peso, m.unidad || 'kg', 'kg'));
+    return a + (Number.isFinite(kg) && m.reps ? kg * Number(m.reps) : 0);
+  }, 0);
+  conteoRef.current = { hechos: ejHechos, total: ejTotal, series: hechas, kilos: Math.round(kilos) };
 
   return (
     <>
@@ -908,6 +927,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
             <div style={{ height: '100%', width: `${ejTotal ? (ejHechos / ejTotal) * 100 : 0}%`, background: SECCION.entreno.base, borderRadius: 99, transition: 'width .25s ease' }} />
           </div>
           <span style={{ color: TEXT_MUTED, flex: 'none' }}>{ejTotal ? Math.round((ejHechos / ejTotal) * 100) : 0} %</span>
+          {inicio && hechas > 0 && <RelojSesion desde={inicio} />}
         </div>
       )}
 
@@ -1087,10 +1107,13 @@ const CSS_FIN = `
 [data-fin-entreno] { animation: fin-fondo .25s ease both }
 [data-fin-entreno] .fin-tarjeta { animation: fin-sube .45s cubic-bezier(.2,.8,.2,1) both }
 [data-fin-entreno] .fin-dibujo { animation: fin-salta .7s .12s cubic-bezier(.2,.8,.2,1) both }
+@keyframes fin-llena { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+[data-fin-entreno] .fin-llena { transform-origin: left center; animation: fin-llena 1.1s .25s cubic-bezier(.22,.8,.24,1) both }
 @media (prefers-reduced-motion: reduce) { [data-fin-entreno], [data-fin-entreno] * { animation: none !important } }`;
 
 function HojaFin({ fin, alCerrar }) {
   const A = SECCION.entreno;
+  useEffect(() => { asegurarCSS(); vibrar([20, 50, 20, 50, 40]); }, []);
   const marca = (r) => r.peso ? `${r.peso} ${r.unidad || 'kg'} × ${r.reps}` : `${r.reps} reps`;
   const frase = vozFinEntreno({ hoy: hoyLocal(), hechos: fin.hechos, total: fin.total, records: fin.records.length });
   return (
@@ -1099,6 +1122,7 @@ function HojaFin({ fin, alCerrar }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
     }}>
       <style>{CSS_FIN}</style>
+      <Confeti y="34%" piezas={36} />
       <div className="fin-tarjeta" onClick={e => e.stopPropagation()} style={{
         background: '#FFFFFF', borderRadius: 28, maxWidth: 380, width: '100%', overflow: 'hidden',
         boxShadow: '0 20px 60px rgba(0,0,0,.25)', maxHeight: '88vh', overflowY: 'auto',
@@ -1109,10 +1133,17 @@ function HojaFin({ fin, alCerrar }) {
         <div style={{ padding: '18px 20px 20px' }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.08 }}>Entreno hecho.</div>
           <div style={{ fontSize: 17, fontWeight: 700, color: '#2F6CC4', letterSpacing: '-0.01em', lineHeight: 1.3, marginTop: 4 }}>{frase}</div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <div style={datoFin}><b style={datoFinNum}>{fin.hechos}<span style={{ color: TEXT_LIGHT, fontWeight: 600 }}>/{fin.total}</span></b><span style={datoFinPie}>ejercicios</span></div>
-            <div style={datoFin}><b style={datoFinNum}>{fin.series}</b><span style={datoFinPie}>series</span></div>
-            {fin.records.length > 0 && <div style={{ ...datoFin, background: A.tint }}><b style={{ ...datoFinNum, color: A.ink }}>{fin.records.length}</b><span style={datoFinPie}>{fin.records.length === 1 ? 'récord' : 'récords'}</span></div>}
+          {/* Lo que hizo, subiendo desde cero; y la barra que se llena hasta
+              donde llegó. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))', gap: 8, marginTop: 16 }}>
+            <div style={datoFin}><b style={datoFinNum}><Conteo valor={fin.hechos} ms={900} /><span style={{ color: TEXT_LIGHT, fontWeight: 600 }}>/{fin.total}</span></b><span style={datoFinPie}>ejercicios</span></div>
+            <div style={datoFin}><b style={datoFinNum}><Conteo valor={fin.series} ms={900} /></b><span style={datoFinPie}>series</span></div>
+            {fin.minutos != null && <div style={datoFin}><b style={datoFinNum}><Conteo valor={fin.minutos} ms={900} /></b><span style={datoFinPie}>{fin.minutos === 1 ? 'minuto' : 'minutos'}</span></div>}
+            {fin.kilos > 0 && <div style={datoFin}><b style={datoFinNum}><Conteo valor={fin.kilos} ms={1100} /></b><span style={datoFinPie}>kg movidos</span></div>}
+            {fin.records.length > 0 && <div className="mt-pop" style={{ ...datoFin, background: A.tint, animationDelay: '.9s' }}><b style={{ ...datoFinNum, color: A.ink }}>{fin.records.length}</b><span style={datoFinPie}>{fin.records.length === 1 ? 'récord' : 'récords'}</span></div>}
+          </div>
+          <div data-fin-barra style={{ height: 8, borderRadius: 99, background: '#EEEAE1', marginTop: 12, overflow: 'hidden' }}>
+            <div className="fin-llena" style={{ height: '100%', width: `${fin.total ? Math.round((fin.hechos / fin.total) * 100) : 0}%`, borderRadius: 99, background: `linear-gradient(90deg, #8FB3E8, ${A.base})` }} />
           </div>
           {fin.records.length > 0 && (
             <div data-records style={{ marginTop: 14 }}>
@@ -1139,6 +1170,21 @@ function HojaFin({ fin, alCerrar }) {
     </div>
   );
 }
+// El reloj del entreno, en la barra de avance: arranca con la primera serie.
+// Va aparte para que el segundo que pasa no vuelva a pintar toda la rutina.
+function RelojSesion({ desde }) {
+  const [ahora, setAhora] = useState(Date.now());
+  useEffect(() => { asegurarCSS(); const id = setInterval(() => setAhora(Date.now()), 1000); return () => clearInterval(id); }, []);
+  const s = Math.max(0, Math.floor((ahora - desde) / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = String(s % 60).padStart(2, '0');
+  return (
+    <span data-reloj-sesion className="mt-pop" style={{
+      flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 99,
+      background: SECCION.entreno.base, color: '#fff', fontWeight: 750, fontVariantNumeric: 'tabular-nums',
+    }}><Timer size={13} strokeWidth={2.4} />{h ? `${h}:${String(m).padStart(2, '0')}` : m}:{ss}</span>
+  );
+}
+
 const datoFin = { flex: 1, background: '#F4F1EB', borderRadius: 14, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 };
 const datoFinNum = { fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.1 };
 const datoFinPie = { fontSize: 12, color: TEXT_MUTED, fontWeight: 600 };
