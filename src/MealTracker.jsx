@@ -1041,6 +1041,11 @@ export default function MealTracker() {
   // TODO solo después: el servidor reemplaza el historial con lo que llega, y
   // subir antes de fusionar pisaría lo que esté en la nube y no aquí.
   const pullListoRef = useRef(0);
+  // Si el pull se cancela con la respuesta ya en camino (cambió la vista), se
+  // vuelve a pedir: antes se soltaba el guard pero el efecto ya había corrido
+  // para la vista nueva, y lo que traía el servidor (recordatorios del coach,
+  // metas, ediciones) no se aplicaba hasta el siguiente cambio de vista.
+  const [pullReintento, setPullReintento] = useState(0);
   useEffect(() => {
     if (!initialLoadDone.current || cloudConsent !== 'accepted') return;
     if (cloudPullStartedRef.current) return;
@@ -1099,7 +1104,7 @@ export default function MealTracker() {
         // estado local — el server puede tener data aún sin fusionar y el
         // push la pisaría (teléfono nuevo = pisarla con vacío). Se libera el
         // guard para que el próximo cambio de vista reintente el pull.
-        if (cancelled) { cloudPullStartedRef.current = false; return; }
+        if (cancelled) { cloudPullStartedRef.current = false; setPullReintento(n => n + 1); return; }
         if (!row || !row.data) {
           // Server vacío → primer push con datos locales (migración invisible)
           pullListoRef.current = Date.now();
@@ -1281,7 +1286,7 @@ export default function MealTracker() {
     })();
 
     return () => { cancelled = true; };
-  }, [cloudConsent, view, name]);
+  }, [cloudConsent, view, name, pullReintento]);
 
   // Aplica metas que llegan del server (pull inicial o sondeo periódico).
   // Van versionadas con goals_updated { at, by }: solo se aplican si son más

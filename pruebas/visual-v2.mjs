@@ -244,11 +244,11 @@ try {
   await p.getByText('Días de cardio').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
-  ok('Dash: el saludo con la letra de las cabeceras, sin firma, sin banda curva y con manchas de 4 colores', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
+  ok('Dash: el saludo con la letra de las cabeceras, sin firma, con banda curva y manchas', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
     && /^MARTES 29/.test(await p.locator('[data-cabecera-hoy="dash"] [data-etiqueta]').innerText())
     && (await p.locator('[data-cabecera-hoy="dash"] [data-sub]').innerText()).length > 10
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
-    && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 0
+    && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
     const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));
