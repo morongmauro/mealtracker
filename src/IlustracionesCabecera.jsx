@@ -5,7 +5,7 @@
 // las de verdad (bola con base plana y asa gruesa), con LA MISMA cara en
 // todas las secciones, al estilo Headspace: ojos cerrados en arco y una
 // sonrisa ancha. En cada sección hace lo suyo:
-//   Dash           levanta la gráfica circular de la marca (los 4 colores)
+//   Dash           levanta la bandera «HEY CHAMP!» con papelillo de celebración
 //   Entrenamiento  levanta la barra
 //   Alimentación   tenedor con el bocado en una mano y el plato en la otra
 //   Aprendizaje    sostiene el libro abierto en alto; se le prende el foco
@@ -26,9 +26,11 @@ const X = 102, Y = 60;
 const CSS_KB = `
 @keyframes kb-hoja { 0%, 100% { transform: scaleX(1) } 45%, 55% { transform: scaleX(-1) } }
 @keyframes kb-foco { 0% { transform: scale(0); opacity: 0 } 60% { transform: scale(1.15); opacity: 1 } 100% { transform: scale(1); opacity: 1 } }
+@keyframes kb-papel { 0% { transform: translate(0, -40px) scale(.2); opacity: 0 } 15% { opacity: 1 } 70% { opacity: 1 } 100% { transform: translate(var(--x), calc(var(--y) + 14px)) scale(1); opacity: 0 } }
 @keyframes kb-parpadea { 0%, 92%, 100% { transform: scaleY(1) } 96% { transform: scaleY(.15) } }
 [data-ilustracion] .kb-hoja { transform-box: fill-box; transform-origin: 0% 50%; animation: kb-hoja 1.8s ease-in-out .7s 2 both; }
 [data-ilustracion] .kb-foco > * { transform-box: fill-box; transform-origin: 50% 80%; animation: kb-foco .6s cubic-bezier(.3,1.4,.5,1) 1.1s both; }
+[data-ilustracion] .kb-papel > g { opacity: 0; animation: kb-papel 1.5s cubic-bezier(.2,.7,.3,1) 2 both; }
 [data-ilustracion] .kb-ojos { transform-box: fill-box; transform-origin: 50% 50%; animation: kb-parpadea 4s ease-in-out 1.2s 2 both; }
 @media (prefers-reduced-motion: reduce) { [data-ilustracion] * { animation: none !important; } }`;
 
@@ -81,17 +83,29 @@ function Piernas() {
 const brazo = { stroke: B, strokeWidth: 6, strokeLinecap: 'round', fill: 'none' };
 
 export function IlusDash() {
-  // Levanta la gráfica circular de la marca —un anillo con los colores de
-  // los cuatro módulos— como un trofeo: es el resumen de todo. El anillo se
-  // dibuja al entrar y sube un poco, con los brazos estirándose con él.
-  const abajo = ['M-35 2 Q-58 -18 -30 -62', 'M35 2 Q58 -18 30 -62'];
-  const arriba = ['M-35 2 Q-56 -24 -30 -70', 'M35 2 Q56 -24 30 -70'];
-  const anim = { dur: '2.4s', begin: '0.9s', repeatCount: '2', calcMode: 'spline', keyTimes: '0;0.5;1', keySplines: '0.45 0 0.55 1;0.45 0 0.55 1' };
-  const R = 21, L = 2 * Math.PI * R, tramo = L / 4;
-  const colores = ['#2F6CC4', '#46965A', '#D9732E', '#E8B931'];
+  // Levanta una bandera de ánimo —«HEY CHAMP!»— con los dos brazos, como la
+  // barra de Entrenamiento, y a los lados salta papelillo de celebración en
+  // los colores de los cuatro módulos.
+  const abajo = ['M-35 2 Q-60 -18 -44 -58', 'M35 2 Q60 -18 44 -58'];
+  const arriba = ['M-35 2 Q-58 -24 -44 -67', 'M35 2 Q58 -24 44 -67'];
+  const anim = { dur: '2.4s', begin: '0.5s', repeatCount: '2', calcMode: 'spline', keyTimes: '0;0.5;1', keySplines: '0.45 0 0.55 1;0.45 0 0.55 1' };
+  // Papelillo: [x, y, color, forma, giro]; sale desde el centro hacia afuera.
+  const papel = [
+    [-86, -64, '#2F6CC4', 'r', 20], [-96, -38, '#E8B931', 'c', 0], [-80, -14, '#D9732E', 'r', -30], [-104, -60, '#46965A', 'c', 0],
+    [86, -66, '#46965A', 'r', -20], [98, -40, '#D9732E', 'c', 0], [82, -16, '#2F6CC4', 'r', 35], [104, -62, '#E8B931', 'r', 10],
+  ];
   return (
     <Lienzo etiqueta="dash">
       <g transform="translate(0 10) scale(0.86)">
+        <g className="kb-papel">
+          {papel.map(([x, y, c, forma, giro], i) => (
+            <g key={i} style={{ '--x': `${x}px`, '--y': `${y}px`, animationDelay: `${0.55 + (i % 4) * 0.06}s` }}>
+              {forma === 'r'
+                ? <rect x="-3.5" y="-6.5" width="7" height="13" rx="1.6" fill={c} transform={`rotate(${giro})`} />
+                : <circle r="4.3" fill={c} />}
+            </g>
+          ))}
+        </g>
         <Piernas />
         <Kettlebell><Cara y={-3} /></Kettlebell>
         {abajo.map((d, i) => (
@@ -99,16 +113,12 @@ export function IlusDash() {
             <animate attributeName="d" values={`${d};${arriba[i]};${d}`} {...anim} />
           </path>
         ))}
-        <g transform="translate(0 -66)">
-          <animateTransform attributeName="transform" type="translate" values="0 -66;0 -74;0 -66" {...anim} />
-          <circle r={R} fill="none" stroke={B} strokeWidth="13" />
-          {colores.map((c, i) => (
-            <circle key={c} r={R} fill="none" stroke={c} strokeWidth="8" strokeLinecap="butt"
-              strokeDasharray={`${tramo - 3} ${L}`} strokeDashoffset={-i * tramo} transform="rotate(-90)">
-              <animate attributeName="stroke-dasharray" values={`0 ${L};0 ${L};${tramo - 3} ${L}`} keyTimes={`0;${(i * 0.18).toFixed(2)};${(0.3 + i * 0.18).toFixed(2)}`} dur="1.1s" begin="0.2s" fill="freeze" />
-            </circle>
-          ))}
-          <circle cx="-30" cy="4" r="4.8" fill={B} /><circle cx="30" cy="4" r="4.8" fill={B} />
+        <g transform="translate(0 -70)">
+          <animateTransform attributeName="transform" type="translate" values="0 -70;0 -79;0 -70" {...anim} />
+          {/* La bandera: tela amarilla (el color del Dash), con un vaivén */}
+          <path d="M-60 -14 H60 L54 0 L60 14 H-60 L-54 0 Z" fill="#F2C94C" />
+          <text x="0" y="5.2" textAnchor="middle" fontFamily="'Figtree Variable', Figtree, system-ui, sans-serif" fontWeight="900" fontSize="14.5" letterSpacing="0.2" fill="#2B2A27">HEY CHAMP!</text>
+          <circle cx="-44" cy="12" r="4.8" fill={B} /><circle cx="44" cy="12" r="4.8" fill={B} />
         </g>
       </g>
     </Lienzo>

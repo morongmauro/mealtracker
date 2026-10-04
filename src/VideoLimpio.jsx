@@ -6,9 +6,14 @@
 //     sin salir de este modo;
 //   · una barrita abajo para atrasarlo o adelantarlo (y ver el tiempo);
 //   · tocar el video lo pausa o lo sigue;
-//   · el video va un poco ampliado, así el título y el logo de YouTube quedan
-//     fuera del cuadro; la miniatura lo tapa solo medio segundo al arrancar
-//     (y mientras está en pausa).
+//   · sin el «ruido» de YouTube y sin recortar el ejercicio: el reproductor
+//     es MÁS ALTO que el cuadro (el video 16:9 queda centrado, entero) y lo
+//     que sobra arriba y abajo —donde YouTube pinta el título, el canal, su
+//     logo y «ver en YouTube»— queda fuera del cuadro;
+//   · el bucle lo hacemos aquí: un poco antes del final vuelve al inicio, así
+//     no aparece la pantalla final con el siguiente video ni el ícono de
+//     repetir;
+//   · la miniatura tapa solo el arranque (el negro inicial) y la pausa.
 // Se habla con el reproductor por postMessage (la API de iframes de
 // YouTube), sin cargar ningún script extra.
 // ─────────────────────────────────────────────────────────────────────────
@@ -26,6 +31,9 @@ const CSS_VL = `@keyframes vl-gira { to { transform: rotate(360deg) } }
 
 const mmss = (s) => { const t = Math.max(0, Math.floor(s || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 
+// Lo que el reproductor tiene de más arriba y abajo (fuera del cuadro).
+const SOBRA = 72;
+
 export default function VideoLimpio({ src, miniatura, titulo }) {
   const marco = useRef(null);
   const [listo, setListo] = useState(false);      // ya está reproduciendo (y pasó el título de YouTube)
@@ -35,6 +43,8 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
   const [dur, setDur] = useState(0);
   const arrastrando = useRef(false);
   const url = src + (src.includes('?') ? '&' : '?') + 'enablejsapi=1&origin=' + encodeURIComponent(window.location.origin);
+  const inicio = Number((src.match(/[?&]start=(\d+)/) || [])[1]) || 0;
+  const durRef = useRef(0);
 
   const mandar = (func, args = []) => {
     try { marco.current && marco.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*'); } catch (e) { /* sin reproductor */ }
@@ -47,12 +57,18 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
       let d; try { d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch (e) { return; }
       if (!d || (d.event !== 'infoDelivery' && d.event !== 'onStateChange' && d.event !== 'initialDelivery')) return;
       const info = d.event === 'onStateChange' ? { playerState: d.info } : (d.info || {});
-      if (info.duration) setDur(info.duration);
+      if (info.duration) { setDur(info.duration); durRef.current = info.duration; }
       if (info.currentTime != null && !arrastrando.current) setT(info.currentTime);
+      // El bucle propio: antes de que termine, de vuelta al inicio.
+      const d0 = durRef.current;
+      if ((info.currentTime != null && d0 && info.currentTime >= d0 - 0.6) || info.playerState === 0) {
+        mandar('seekTo', [inicio, true]); mandar('playVideo');
+      }
       if (info.playerState === 1) {
         setPausado(false);
-        // Medio segundo basta: lo demás de YouTube queda fuera del cuadro.
-        if (!tapa) tapa = setTimeout(() => setListo(true), 500);
+        // Lo de YouTube queda fuera del cuadro: solo hay que tapar el negro
+        // del arranque.
+        if (!tapa) tapa = setTimeout(() => setListo(true), 250);
       } else if (info.playerState === 2) setPausado(true);
     };
     window.addEventListener('message', alMensaje);
@@ -72,7 +88,7 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
     <div data-video-limpio style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', aspectRatio: '16 / 9', background: '#000' }}>
       <iframe ref={marco} src={url} title={titulo} tabIndex={-1}
         allow="autoplay; encrypted-media; picture-in-picture"
-        style={{ position: 'absolute', width: '100%', height: '100%', border: 'none', transform: 'scale(1.36)', transformOrigin: 'center', pointerEvents: 'none' }} />
+        style={{ position: 'absolute', left: 0, width: '100%', top: -SOBRA, height: `calc(100% + ${2 * SOBRA}px)`, border: 'none', pointerEvents: 'none' }} />
       {/* La tapa: la miniatura mientras arranca o está en pausa */}
       <div aria-hidden="true" style={{
         position: 'absolute', inset: 0, background: miniatura ? `#000 url(${miniatura}) center / cover` : '#000',

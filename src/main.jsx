@@ -45,19 +45,61 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // index.html) y no se retiene nada — directo a la app.
 if (typeof window !== 'undefined') {
   const warmStart = (() => { try { return !!sessionStorage.getItem('mt:booted'); } catch (e) { return false; } })();
-  // Visual nueva: la entrada COMPLETA (primera del día) dura ~2,9 s y la
-  // CORTA ~0,85 s; después la kettlebell vuela al Dash (ver index.html).
-  const splashV2 = document.documentElement.classList.contains('splash-v2');
-  const introCompleta = document.documentElement.classList.contains('intro-completa');
-  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? (introCompleta ? 2950 : 850) : 2200;
+  // Visual nueva: la entrada LARGA (primera del día) dura ~2,7 s y la CORTA
+  // ~0,85 s; después la kettlebell vuela a la cabecera del Dash.
+  const raiz = document.documentElement;
+  const splashV2 = raiz.classList.contains('splash-v2');
+  const introCompleta = raiz.classList.contains('intro-completa');
+  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? (introCompleta ? 2750 : 850) : 2200;
+
+  // El vuelo: la kettlebell de la entrada va a parar justo encima de la de
+  // la cabecera del Dash (si el Dash está a la vista); el fondo se desvanece
+  // a la vez y la app aparece debajo. Si no hay Dash, solo se desvanece.
+  const volarAlDash = () => {
+    try {
+      const marca = document.querySelector('#splash2 .marca');
+      const suya = marca && marca.querySelector('.cuerpo');
+      const destino = document.querySelector('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] path[d^="M-22.6 32A36"]');
+      if (!suya || !destino) return;
+      const a = suya.getBoundingClientRect(), b = destino.getBoundingClientRect(), m = marca.getBoundingClientRect();
+      if (!a.width || !b.width) return;
+      const ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+      marca.style.transformOrigin = `${ax - m.left}px ${ay - m.top}px`;
+      marca.style.transform = `translate(${b.left + b.width / 2 - ax}px, ${b.top + b.height / 2 - ay}px) scale(${b.width / a.width})`;
+    } catch (e) { /* sin vuelo: solo se desvanece */ }
+  };
+  const cerrarEntrada = () => {
+    if (splashV2) volarAlDash();
+    document.body.classList.add('app-ready');
+    if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F1F0EA'); }
+    try { sessionStorage.setItem('mt:booted', '1'); } catch (e) {}
+  };
   requestAnimationFrame(() => {
     const holdLeft = Math.max(80, SPLASH_MIN_MS - performance.now());
-    setTimeout(() => {
-      document.body.classList.add('app-ready');
-      if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F1F0EA'); }
-      try { sessionStorage.setItem('mt:booted', '1'); } catch (e) {}
-    }, holdLeft);
+    setTimeout(cerrarEntrada, holdLeft);
   });
+
+  // La CORTA otra vez al volver a la app después de un rato minimizada
+  // (3 min o más). Nunca en medio de un entreno: ahí estorbaría.
+  if (splashV2) {
+    let ocultaDesde = 0;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') { ocultaDesde = Date.now(); return; }
+      if (!ocultaDesde || Date.now() - ocultaDesde < 3 * 60 * 1000) return;
+      ocultaDesde = 0;
+      if (document.querySelector('[data-reloj-sesion]')) return;
+      const viejo = document.getElementById('splash2');
+      if (!viejo) return;
+      // Un clon limpio: así las animaciones arrancan de cero.
+      const nuevo = viejo.cloneNode(true);
+      nuevo.querySelector('.marca')?.removeAttribute('style');
+      raiz.classList.remove('intro-completa');
+      raiz.classList.add('intro-corta', 'intro-repite');
+      document.body.classList.remove('app-ready');
+      viejo.replaceWith(nuevo);
+      setTimeout(cerrarEntrada, 850);
+    });
+  }
 }
 
 // ─── Auto-actualización sin refresh manual ────────────────────────────────

@@ -157,7 +157,10 @@ export const urlVideoLimpio = (ej) => {
   if (!ej || ej.video_fuente !== 'youtube' || !ej.video_ref) return null;
   const t = Number(ej.video_inicio_seg) || 0;
   const id = ej.video_ref;
-  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&playsinline=1`
+  // Sin loop=1/playlist: el bucle lo hace VideoLimpio (volviendo al inicio
+  // justo antes del final), así nunca sale la pantalla final de YouTube con
+  // «más videos» ni el ícono de repetir.
+  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&controls=0&playsinline=1`
     + `&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0${t ? `&start=${t}` : ''}`;
 };
 

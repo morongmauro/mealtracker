@@ -298,7 +298,8 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
-  ok('Dash: la kettlebell levanta la gráfica circular con los 4 colores, junto a la frase, entera y sin taparla', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] circle[stroke="#E8B931"]').count()) === 1 && await ilusBien(p, 'dash'));
+  ok('Dash: la kettlebell levanta la bandera «HEY CHAMP!» con papelillo, junto a la frase, entera y sin taparla', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] text').textContent()) === 'HEY CHAMP!'
+    && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] .kb-papel > g').count()) === 8 && await ilusBien(p, 'dash'));
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
     const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));
     return getComputedStyle(el).transitionProperty.includes('stroke-dashoffset') && o < c;
@@ -585,9 +586,14 @@ try {
   if (await play.count()) {
     await play.click(); await espera(400);
     const src = await p.locator('[data-video-limpio] iframe').getAttribute('src').catch(() => '');
-    ok('video del ejercicio: en bucle, sin sonido, sin controles ni sugeridos', /autoplay=1/.test(src) && /mute=1/.test(src) && /loop=1/.test(src) && /controls=0/.test(src) && /rel=0/.test(src), src);
+    // El bucle ya no es el de YouTube (dejaba ver su pantalla final): lo hace VideoLimpio.
+    ok('video del ejercicio: arranca solo, sin sonido, sin controles ni sugeridos', /autoplay=1/.test(src) && /mute=1/.test(src) && /controls=0/.test(src) && /rel=0/.test(src), src);
     ok('video: botón de sonido (prende y apaga) y barrita para moverlo', (await p.locator('[data-video-limpio] [data-video-sonido]').count()) === 1
       && (await p.locator('[data-video-limpio] [data-video-barra]').count()) === 1 && /enablejsapi=1/.test(src));
+    ok('video: sin zoom (el ejercicio entero) y lo de YouTube fuera del cuadro: el reproductor es más alto que el cuadro', await p.locator('[data-video-limpio] iframe').evaluate(el => {
+      const f = el.getBoundingClientRect(), c = el.parentElement.getBoundingClientRect();
+      return !/scale/.test(el.style.transform || '') && Math.abs(f.width - c.width) < 1 && f.top < c.top - 40 && f.bottom > c.bottom + 40;
+    }) && !/loop=1|playlist=/.test(src));
     ok('video: la barrita es delgada (pista de 4 px, puntas redondas)', await p.locator('[data-video-barra]').evaluate(el => el.getBoundingClientRect().height <= 16 && getComputedStyle(el).appearance === 'none'));
     await espera(3000);
     await foto(p, '04j-video-barra');
