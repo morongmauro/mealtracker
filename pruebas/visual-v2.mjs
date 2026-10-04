@@ -839,6 +839,17 @@ try {
   await p.getByRole('button', { name: 'Chat', exact: true }).click();
   await espera(900);
   await foto(p, '09-comida-chat');
+  // iPhone: la zona de la muesca a veces llega DESPUÉS de abrir. La tarjeta de
+  // macros tiene que bajar con la píldora, nunca quedar detrás de ella.
+  await p.addStyleTag({ content: 'div[style*="safe-area-inset-top, 0px) + 10px"] { padding-top: 57px !important; }' });
+  await espera(700);
+  ok('chat: si la muesca llega tarde, la tarjeta de macros sigue DEBAJO de la píldora «Alimentación»', await p.evaluate(() => {
+    const pild = [...document.querySelectorAll('span')].find(s => /^ALIMENTACIÓN$/i.test(s.textContent.trim())).closest('div.rounded-full').getBoundingClientRect();
+    const zona = [...document.querySelectorAll('div.fixed.left-0.right-0')].find(d => d.style.top && d.querySelector('.rounded-3xl'));
+    return zona.querySelector('.rounded-3xl').getBoundingClientRect().top >= pild.bottom;
+  }));
+  await p.evaluate(() => document.querySelectorAll('style').forEach(st => { if (st.textContent.includes('padding-top: 57px')) st.remove(); }));
+  await espera(500);
   ok('chat: burbujas blancas de marca, sin oliva', (await p.locator('[data-chat-v2]').count()) === 1 && await p.evaluate(() => {
     const oliva = /rgb\((1[2-4]\d), (1[4-5]\d), (8\d|9\d)\)|rgb\(212, 218, 184\)|rgb\(74, 82, 56\)/;
     const els = [...document.querySelectorAll('[data-chat-v2] *')];

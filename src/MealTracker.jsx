@@ -1815,10 +1815,27 @@ export default function MealTracker() {
     const el = headerRef.current;
     const measure = () => setHeaderH(el.offsetHeight || 40);
     measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
+    // En el iPhone, abriendo desde la pantalla de inicio, la zona de la
+    // muesca (safe-area) a veces llega DESPUÉS del primer pintado. Eso solo
+    // cambia el padding del header, y un ResizeObserver normal (content-box)
+    // no se entera: la tarjeta de macros se quedaba DETRÁS de la píldora.
+    // Por eso se observa la caja completa (border-box) y, por si acaso, se
+    // vuelve a medir un par de veces al arrancar y al volver a la app.
+    const tiempos = [250, 1000, 2500, 4000].map(ms => setTimeout(measure, ms));
+    const alVolver = () => { if (document.visibilityState === 'visible') measure(); };
+    document.addEventListener('visibilitychange', alVolver);
+    window.addEventListener('pageshow', measure);
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(measure);
+      try { ro.observe(el, { box: 'border-box' }); } catch (e) { ro.observe(el); }
+    }
+    return () => {
+      tiempos.forEach(clearTimeout);
+      document.removeEventListener('visibilitychange', alVolver);
+      window.removeEventListener('pageshow', measure);
+      if (ro) ro.disconnect();
+    };
   }, [view]);
 
   // Altura REAL de la zona fija de anuncios (tarjeta de anillos + banner de
@@ -1879,8 +1896,12 @@ export default function MealTracker() {
         if (r.current) { r.current.style.transform = ''; r.current.style.top = `${arribaPx}px`; }
       }
       if (goalsCardRef.current) {
+        // La altura del header se lee EN VIVO (no la guardada): si la zona
+        // de la muesca cambió y aún no se volvió a medir, la tarjeta igual
+        // queda debajo de la píldora.
+        const hh = (headerRef.current && headerRef.current.offsetHeight) || headerHRef.current;
         goalsCardRef.current.style.transform = '';
-        goalsCardRef.current.style.top = `${arribaPx + headerHRef.current + 6}px`;
+        goalsCardRef.current.style.top = `${arribaPx + hh + 6}px`;
       }
 
       // ── Pegadas al borde INFERIOR de lo visible ──
