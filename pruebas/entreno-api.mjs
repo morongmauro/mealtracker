@@ -473,6 +473,38 @@ await caso('comunidad: solo lo de su coach, con sus reacciones; reaccionar pone 
   igual(sb.db.comunidad_vistas.map(v => v.post_id).sort(), ['p1', 'p2'], 'vistas: las suyas, una vez, nunca las de otro coach');
 });
 
+await caso('comunidad: comentarios de todos visibles, miembros con nombre corto, borrar solo lo suyo', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.clientes.push({ id: 'c3', user_id: 'coach-1', nombre: 'laura méndez ruiz', estado: 'activo' },
+    { id: 'c4', user_id: 'coach-1', nombre: 'Pedro Gil', estado: 'pausa' }, { id: 'c5', user_id: 'otro-coach', nombre: 'Ana Ajena', estado: 'activo' });
+  sb.db.comunidad_posts = [
+    { id: 'p1', user_id: 'coach-1', texto: 'Semana nueva', fijado: false, publicado_en: '2026-09-28T10:00:00Z', borrado_en: null },
+    { id: 'p9', user_id: 'otro-coach', texto: 'De otro coach', fijado: false, publicado_en: '2026-09-29T10:00:00Z', borrado_en: null },
+  ];
+  sb.db.comunidad_reacciones = []; sb.db.comunidad_vistas = [];
+  sb.db.comunidad_comentarios = [
+    { id: 'k1', post_id: 'p1', cliente_id: 'c3', texto: '¡Vamos!', creado_en: '2026-09-28T11:00:00Z', borrado_en: null },
+    { id: 'k2', post_id: 'p1', cliente_id: null, texto: 'Así es, Laura', creado_en: '2026-09-28T12:00:00Z', borrado_en: null },
+    { id: 'k3', post_id: 'p1', cliente_id: 'c3', texto: 'borrado', creado_en: '2026-09-28T13:00:00Z', borrado_en: '2026-09-28T14:00:00Z' },
+  ];
+  const r = await llamar(handler, { accion: 'comunidad', name: yo });
+  igual(r.miembros.map(m => [m.nombre, m.iniciales, m.tu]), [['Mauro M.', 'MM', true], ['Laura M.', 'LM', false]], 'miembros: activos de su coach, tú primero, sin apellido');
+  igual(r.posts[0].comentarios.map(c => [c.autor, c.coach, c.mio, c.texto]), [['Laura M.', false, false, '¡Vamos!'], ['Mauro · coach', true, false, 'Así es, Laura']], 'comentarios sin borrados, con autor corto');
+  igual(JSON.stringify(r).includes('Méndez'), false, 'nunca el apellido completo');
+  igual((await llamar(handler, { accion: 'comentar', name: yo, post_id: 'p9', texto: 'hola' })).motivo, 'no_es_de_su_coach', 'no comenta en otro coach');
+  igual((await llamar(handler, { accion: 'comentar', name: yo, post_id: 'p1', texto: '   ' })).motivo, 'vacio', 'vacío no');
+  igual((await llamar(handler, { accion: 'comentar', name: yo, post_id: 'p1', texto: 'x'.repeat(601) })).motivo, 'largo', 'largo no');
+  const c = await llamar(handler, { accion: 'comentar', name: yo, post_id: 'p1', texto: ' Listo el reto ' });
+  igual([c.ok, c.comentario.autor, c.comentario.mio], [true, 'Mauro M.', true], 'comenta');
+  const nuevo = sb.db.comunidad_comentarios.find(x => x.texto === 'Listo el reto');
+  igual([nuevo.cliente_id, nuevo.post_id], ['c1', 'p1'], 'guardado a su nombre');
+  igual((await llamar(handler, { accion: 'borrar_comentario', name: yo, id: 'k1' })).motivo, 'no_es_suyo', 'no borra el de otra persona');
+  nuevo.id = 'k4';
+  igual((await llamar(handler, { accion: 'borrar_comentario', name: yo, id: 'k4' })).ok, true, 'borra el suyo');
+  igual(!!nuevo.borrado_en, true, 'queda marcado borrado');
+  igual((await llamar(handler, { accion: 'comunidad', name: yo })).posts[0].comentarios.length, 2, 'y ya no sale');
+});
+
 await caso('comunidad: sin la tabla todavía, no se rompe', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   const f0 = sb.fetch;

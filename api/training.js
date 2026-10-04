@@ -32,6 +32,8 @@
 // GET|POST  { accion:'comunidad' }            → lo que publica su coach, con reacciones
 // POST      { accion:'reaccionar', post_id, tipo, quitar? }
 // POST      { accion:'comunidad_visto', ids } → lo que vio (alcance en el CRM)
+// POST      { accion:'comentar', post_id, texto } → comenta (le llega al coach)
+// POST      { accion:'borrar_comentario', id }   → borra un comentario suyo
 //
 // Fail-safe: ante cualquier problema devuelve { ok:false } y la app muestra
 // su estado vacío. Nunca rompe la pantalla.
@@ -117,6 +119,8 @@ export default async function handler(req, res) {
     if (accion === 'comunidad') return res.status(200).json(await verComunidad(cliente));
     if (!esGet && accion === 'reaccionar') return res.status(200).json(await reaccionarComunidad(cliente, cuerpo));
     if (!esGet && accion === 'comunidad_visto') return res.status(200).json(await vistoComunidad(cliente, cuerpo));
+    if (!esGet && accion === 'comentar') return res.status(200).json(await comentarComunidad(cliente, cuerpo));
+    if (!esGet && accion === 'borrar_comentario') return res.status(200).json(await borrarComentario(cliente, cuerpo));
     // Fotos de progreso: APAGADAS por decisión del coach (por ahora llegan por
     // WhatsApp). El código se queda para retomarlo; con esto en false nadie
     // puede ver, subir ni borrar fotos por esta puerta.
@@ -1594,32 +1598,90 @@ async function verDash(cliente, hoy) {
 }
 
 // ── COMUNIDAD ─────────────────────────────────────────────────────────────
-// Lo que publica SU coach (nadie más escribe). Cada publicación con el total
-// de cada reacción y las que puso esta persona. Sin la tabla (migración sin
-// correr) responde ok:false y la app dice que aún no hay nada.
+// Lo que publica SU coach (solo él publica). Cada publicación con el total
+// de cada reacción, las que puso esta persona y sus comentarios. Los
+// comentarios los leen todos los del programa, pero a nadie se le avisa:
+// solo le llegan al coach (en el CRM). Los demás del programa salen como
+// «Nombre I.», sin apellido completo ni nada más. Sin la tabla (migración
+// sin correr) responde ok:false y la app dice que aún no hay nada.
 export const REACCIONES = ['fuego', 'fuerza', 'aplauso', 'corazon'];
+const MAX_COMENTARIO = 600;
+
+// «Laura Méndez Ruiz» → «Laura M.»; «Laura» → «Laura».
+export function nombreMiembro(nombre) {
+  const partes = String(nombre || '').trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return 'Alguien';
+  const primero = partes[0].charAt(0).toUpperCase() + partes[0].slice(1).toLowerCase();
+  return partes[1] ? `${primero} ${partes[1].charAt(0).toUpperCase()}.` : primero;
+}
+const iniciales = (corto) => corto.replace('.', '').split(' ').map(x => x.charAt(0)).join('').toUpperCase().slice(0, 2);
 
 async function verComunidad(cliente) {
-  if (!cliente.user_id) return { ok: true, posts: [] };
+  if (!cliente.user_id) return { ok: true, posts: [], miembros: [] };
   let posts;
   try {
-    posts = await sb(`comunidad_posts?select=id,texto,imagen_url,enlace_url,fijado,publicado_en`
+    posts = await sb(`comunidad_posts?select=id,texto,imagen_url,enlace_url,fijado,publicado_en,editado_en`
       + `&user_id=eq.${cliente.user_id}&borrado_en=is.null&order=fijado.desc,publicado_en.desc&limit=40`);
-  } catch (e) { return { ok: false, motivo: 'sin_tabla' }; }
+  } catch (e) {
+    // Sin la columna editado_en (migración vieja), igual se lee.
+    try {
+      posts = await sb(`comunidad_posts?select=id,texto,imagen_url,enlace_url,fijado,publicado_en`
+        + `&user_id=eq.${cliente.user_id}&borrado_en=is.null&order=fijado.desc,publicado_en.desc&limit=40`);
+    } catch (e2) { return { ok: false, motivo: 'sin_tabla' }; }
+  }
   posts = Array.isArray(posts) ? posts : [];
-  if (!posts.length) return { ok: true, posts: [] };
+  // Los del programa: los clientes activos de su coach, solo nombre corto.
+  const gente = await sb(`clientes?select=id,nombre,estado&user_id=eq.${cliente.user_id}`).catch(() => []);
+  const lista = Array.isArray(gente) ? gente : [];
+  const corto = new Map(lista.map(c => [c.id, nombreMiembro(c.nombre)]));
+  const miembros = lista.filter(c => (c.estado || 'activo') === 'activo')
+    .map(c => ({ nombre: corto.get(c.id), iniciales: iniciales(corto.get(c.id)), tu: c.id === cliente.id }))
+    .sort((a, b) => (b.tu - a.tu) || a.nombre.localeCompare(b.nombre, 'es'));
+  if (!posts.length) return { ok: true, posts: [], miembros };
   const ids = posts.map(p => p.id).join(',');
   const rx = await sb(`comunidad_reacciones?select=post_id,cliente_id,tipo&post_id=in.(${ids})`).catch(() => []);
   const vistos = await sb(`comunidad_vistas?select=post_id&cliente_id=eq.${cliente.id}&post_id=in.(${ids})`).catch(() => []);
+  const coms = await sb(`comunidad_comentarios?select=id,post_id,cliente_id,texto,creado_en&post_id=in.(${ids})&borrado_en=is.null&order=creado_en.asc&limit=1000`).catch(() => []);
   const visto = new Set((Array.isArray(vistos) ? vistos : []).map(v => v.post_id));
   return {
     ok: true,
+    miembros,
     posts: posts.map(p => {
       const delPost = (Array.isArray(rx) ? rx : []).filter(r => r.post_id === p.id);
       const reacciones = Object.fromEntries(REACCIONES.map(t => [t, delPost.filter(r => r.tipo === t).length]));
-      return { ...p, reacciones, mias: delPost.filter(r => r.cliente_id === cliente.id).map(r => r.tipo), visto: visto.has(p.id) };
+      const comentarios = (Array.isArray(coms) ? coms : []).filter(c => c.post_id === p.id).map(c => {
+        const autor = c.cliente_id ? (corto.get(c.cliente_id) || 'Alguien') : null;
+        return { id: c.id, texto: c.texto, creado_en: c.creado_en, coach: !c.cliente_id, mio: c.cliente_id === cliente.id,
+          autor: autor || 'Mauro · coach', iniciales: autor ? iniciales(autor) : 'M' };
+      });
+      return { ...p, reacciones, mias: delPost.filter(r => r.cliente_id === cliente.id).map(r => r.tipo), visto: visto.has(p.id), comentarios };
     }),
   };
+}
+
+// Comentar: solo en publicaciones de su coach. No avisa a nadie más; el
+// coach lo ve en el CRM (Comunidad · lo nuevo).
+async function comentarComunidad(cliente, cuerpo) {
+  const texto = String(cuerpo.texto || '').replace(/\s+$/g, '').trim();
+  if (!texto) return { ok: false, motivo: 'vacio' };
+  if (texto.length > MAX_COMENTARIO) return { ok: false, motivo: 'largo' };
+  const post = await postDeSuCoach(cliente, cuerpo.post_id);
+  if (!post) return { ok: false, motivo: 'no_es_de_su_coach' };
+  const r = await sb('comunidad_comentarios', { method: 'POST', headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ post_id: post.id, cliente_id: cliente.id, texto }) });
+  const fila = Array.isArray(r) ? r[0] : r;
+  const autor = nombreMiembro(cliente.nombre);
+  return { ok: true, comentario: { id: fila && fila.id, texto, creado_en: (fila && fila.creado_en) || new Date().toISOString(), coach: false, mio: true, autor, iniciales: iniciales(autor) } };
+}
+
+// Borrar un comentario: solo los suyos (los demás los modera el coach).
+async function borrarComentario(cliente, cuerpo) {
+  const id = String(cuerpo.id || '');
+  if (!id) return { ok: false };
+  const r = await sb(`comunidad_comentarios?select=id&id=eq.${encodeURIComponent(id)}&cliente_id=eq.${cliente.id}&borrado_en=is.null&limit=1`).catch(() => []);
+  if (!Array.isArray(r) || !r[0]) return { ok: false, motivo: 'no_es_suyo' };
+  await sb(`comunidad_comentarios?id=eq.${encodeURIComponent(id)}&cliente_id=eq.${cliente.id}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ borrado_en: new Date().toISOString() }) });
+  return { ok: true };
 }
 
 // La publicación tiene que ser de SU coach y no estar borrada.

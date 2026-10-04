@@ -56,10 +56,12 @@ export const api = {
   medida:  (name, datos) => pedir({ accion: 'medida', name, ...datos }),
   // Nota para el coach, sobre la rutina o sobre un ejercicio.
   nota:    (name, datos) => pedir({ accion: 'nota', name, ...datos }),
-  // Comunidad: lo que publica el coach, reaccionar y marcar visto.
+  // Comunidad: lo que publica el coach, reaccionar, comentar y marcar visto.
   comunidad: (name)        => pedir({ accion: 'comunidad', name }),
   reaccionar: (name, datos) => pedir({ accion: 'reaccionar', name, ...datos }),
   comunidadVisto: (name, ids) => pedir({ accion: 'comunidad_visto', name, ids }),
+  comentar: (name, post_id, texto) => pedir({ accion: 'comentar', name, post_id, texto }),
+  borrarComentario: (name, id) => pedir({ accion: 'borrar_comentario', name, id }),
 
   // Fotos de progreso. Subir son DOS pasos a propósito: `fotoSubir` pide un
   // enlace firmado y el navegador manda el archivo directo al storage, sin

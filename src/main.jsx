@@ -45,14 +45,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // index.html) y no se retiene nada — directo a la app.
 if (typeof window !== 'undefined') {
   const warmStart = (() => { try { return !!sessionStorage.getItem('mt:booted'); } catch (e) { return false; } })();
-  // Visual nueva: la apertura con el logo dura más (la secuencia termina a
-  // los ~3,3 s) para que se alcance a ver completa.
+  // Visual nueva: «Las palabras» termina a los ~2,6 s; se deja ver completa.
   const splashV2 = document.documentElement.classList.contains('splash-v2');
-  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? 3600 : 2200;
+  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? 2900 : 2200;
   requestAnimationFrame(() => {
     const holdLeft = Math.max(80, SPLASH_MIN_MS - performance.now());
     setTimeout(() => {
       document.body.classList.add('app-ready');
+      if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F1F0EA'); }
       try { sessionStorage.setItem('mt:booted', '1'); } catch (e) {}
     }, holdLeft);
   });

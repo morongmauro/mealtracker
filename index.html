@@ -38,6 +38,10 @@
         try { crudo = JSON.parse(crudo); } catch (e) {}
         var n = String(crudo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
         if (['mauro moron'].indexOf(n) !== -1) document.documentElement.classList.add('splash-v2');
+        // La entrada nueva es negra: la barra del teléfono también, mientras dura.
+        if (document.documentElement.classList.contains('splash-v2') && !document.documentElement.classList.contains('warm-start')) {
+          var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#0C0C0B');
+        }
       } catch (e) {}
     </script>
     <style>
@@ -102,100 +106,48 @@
       body.app-ready #splash { opacity: 0; pointer-events: none; }
       /* Arranque caliente (misma sesión): sin opener, directo a la app */
       html.warm-start #splash { display: none; }
-      /* ── Apertura de la visual nueva ─────────────────────────────────
-         Al estilo de las apps de referencia (Puntos, Headspace): fondo
-         blanco con manchas de color que flotan despacio (naranja, verde,
-         azul y amarillo, los de las secciones) y el logo encima: la M en
-         grafito y el anillo verde, grueso como los del Dash, igual que el
-         ícono.
-           0.10 s  aparece un punto verde en el centro
-           0.55 s  el punto sube a su sitio en el anillo
-           0.80 s  el anillo se dibuja con el punto en la punta
-           1.25 s  la M del logo se dibuja
-           1.95 s  un brillo recorre la M
-           2.15 s  el logo se hace chico a la izquierda y sale el nombre
-           2.75 s  el lema
-         Se queda quieto hasta que la app está lista (mínimo 3,6 s desde que
+      /* ── Apertura de la visual nueva · «Las palabras» ───────────────────
+         Fondo negro y letra enorme, una frase por golpe, cada una en el
+         color de su sección (el lenguaje de las campañas de Nike: dice qué
+         es la app sin explicarla):
+           0.15 s  ENTRENA.        blanco
+           0.70 s  COME BIEN.      verde
+           1.25 s  APRENDE.        naranja
+           1.80 s  CON MÉTODO.     blanco, y abajo se dibuja el anillo con la M
+         Se queda quieto hasta que la app está lista (mínimo 2,9 s desde que
          se toca el ícono, ver main.jsx) y se desvanece. */
       @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: block;
         src: url('/fonts/figtree.woff2') format('woff2-variations'), url('/fonts/figtree.woff2') format('woff2'); }
       #splash2 { display: none; }
       html.splash-v2 #splash { display: none; }
       html.splash-v2 #splash2 {
-        position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; overflow: hidden; background: #FFFFFF;
+        position: fixed; inset: 0; z-index: 9999; display: block; overflow: hidden; background: #0C0C0B;
         transition: opacity 0.45s ease-out;
       }
       body.app-ready #splash2 { opacity: 0; pointer-events: none; }
-      /* Manchas de color de las secciones (naranja, verde, azul y amarillo)
-         que flotan despacio sobre el blanco. Gradientes radiales, sin blur:
-         livianos en el teléfono. */
-      #splash2 .manchas { position: absolute; inset: 0; pointer-events: none; opacity: 0;
-        animation: s2in 0.9s ease-out 0.05s forwards; }
-      #splash2 .mancha { position: absolute; width: 100vw; height: 100vw; border-radius: 50%; will-change: transform; }
-      #splash2 .m1 { left: -34vw; top: -12vh; background: radial-gradient(closest-side, rgba(238,132,52,0.55), rgba(238,132,52,0) 72%);
-        animation: s2flota1 6s ease-in-out infinite alternate; }
-      #splash2 .m2 { right: -34vw; top: 6vh; background: radial-gradient(closest-side, rgba(60,123,214,0.50), rgba(60,123,214,0) 72%);
-        animation: s2flota2 7s ease-in-out infinite alternate; }
-      #splash2 .m3 { left: -34vw; bottom: 4vh; background: radial-gradient(closest-side, rgba(70,150,90,0.50), rgba(70,150,90,0) 72%);
-        animation: s2flota3 6.5s ease-in-out infinite alternate; }
-      #splash2 .m4 { right: -30vw; bottom: -14vh; background: radial-gradient(closest-side, rgba(242,196,60,0.58), rgba(242,196,60,0) 72%);
-        animation: s2flota4 5.5s ease-in-out infinite alternate; }
-      @keyframes s2flota1 { from { transform: translate(0, 0) scale(1); } to { transform: translate(7vw, 5vh) scale(1.1); } }
-      @keyframes s2flota2 { from { transform: translate(0, 0) scale(1.06); } to { transform: translate(-7vw, 6vh) scale(0.94); } }
-      @keyframes s2flota3 { from { transform: translate(0, 0) scale(0.96); } to { transform: translate(6vw, -6vh) scale(1.08); } }
-      @keyframes s2flota4 { from { transform: translate(0, 0) scale(1.08); } to { transform: translate(-6vw, -5vh) scale(0.96); } }
-      #splash2 .fila, #splash2 .lema { position: relative; z-index: 1; }
       html.warm-start #splash2 { display: none !important; }
-      #splash2 .fila { display: flex; align-items: center; transition: transform 0.45s cubic-bezier(.3,0,.2,1); }
-      body.app-ready #splash2 .fila { transform: scale(1.05); }
-      #splash2 .marca { width: 150px; height: 150px; flex: none; overflow: visible;
-        animation: s2chica 0.65s cubic-bezier(.65,0,.25,1) 2.15s forwards; }
-      @keyframes s2chica { to { width: 84px; height: 84px; } }
-      #splash2 .riel { opacity: 0; animation: s2in 0.45s ease-out 0.7s forwards; }
-      #splash2 .tramo1 { stroke-dasharray: 100 100; stroke-dashoffset: 100;
-        animation: s2traza 0.5s cubic-bezier(.55,0,1,1) 0.8s forwards; }
-      #splash2 .tramo2 { stroke-dasharray: 100 100; stroke-dashoffset: 100; opacity: 0;
-        animation: s2traza2 0.5s cubic-bezier(0,0,.3,1) 1.3s forwards; }
+      #splash2 .w { position: absolute; left: 24px; right: 16px; top: 50%; margin: 0;
+        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 900;
+        font-size: min(17.5vw, 96px); line-height: 0.94; letter-spacing: -0.035em; color: #FFFFFF;
+        opacity: 0; transform: translateY(-38%) scale(1.06); }
+      #splash2 .w1 { animation: s2entra .2s cubic-bezier(.2,.8,.2,1) .15s forwards, s2sale .1s ease-in .62s forwards; }
+      #splash2 .w2 { color: #5BB273; animation: s2entra .2s cubic-bezier(.2,.8,.2,1) .70s forwards, s2sale .1s ease-in 1.17s forwards; }
+      #splash2 .w3 { color: #F2964A; animation: s2entra .2s cubic-bezier(.2,.8,.2,1) 1.25s forwards, s2sale .1s ease-in 1.72s forwards; }
+      #splash2 .w4 { animation: s2entra .2s cubic-bezier(.2,.8,.2,1) 1.80s forwards; }
+      @keyframes s2entra { to { opacity: 1; transform: translateY(-50%) scale(1); } }
+      @keyframes s2sale { from { opacity: 1; transform: translateY(-50%) scale(1); } to { opacity: 0; transform: translateY(-56%) scale(0.98); } }
+      #splash2 .anillo { position: absolute; left: 24px; bottom: calc(44px + env(safe-area-inset-bottom, 0px)); width: 52px; height: 52px; overflow: visible;
+        opacity: 0; animation: s2in .25s ease-out 1.9s forwards; }
+      #splash2 .anillo .arco { stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: s2traza .6s cubic-bezier(.3,0,.2,1) 1.95s forwards; }
+      #splash2 .anillo .eme { opacity: 0; animation: s2in .3s ease-out 2.35s forwards; }
+      #splash2 .nombre { position: absolute; left: 88px; bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: 13px;
+        letter-spacing: 0.16em; color: rgba(255,255,255,0.62); opacity: 0; animation: s2in .4s ease-out 2.4s forwards; }
       @keyframes s2traza { to { stroke-dashoffset: 0; } }
-      @keyframes s2traza2 { 0% { opacity: 1; stroke-dashoffset: 100; } 100% { opacity: 1; stroke-dashoffset: 0; } }
-      /* El punto: nace grande en el centro, sube a lo alto del anillo y
-         luego gira con la punta del trazo (mismo ritmo que los dos tramos). */
-      #splash2 .gira { transform-origin: 256px 256px;
-        animation: s2gira 1s linear 0.8s forwards; }
-      @keyframes s2gira {
-        0% { transform: rotate(0deg); animation-timing-function: cubic-bezier(.55,0,1,1); }
-        50% { transform: rotate(120deg); animation-timing-function: cubic-bezier(0,0,.3,1); }
-        100% { transform: rotate(240deg); } }
-      #splash2 .semilla { transform-box: fill-box; transform-origin: center; transform: translateY(172px) scale(0);
-        animation: s2semilla 0.7s cubic-bezier(.3,0,.2,1) 0.1s forwards; }
-      @keyframes s2semilla {
-        0% { transform: translateY(172px) scale(0); fill: #4FA463; }
-        40% { transform: translateY(172px) scale(5.5); fill: #4FA463; }
-        62% { transform: translateY(172px) scale(5.5); fill: #4FA463; }
-        100% { transform: translateY(0) scale(1); fill: #4FA463; } }
-      #splash2 .gira .semilla { animation: s2semilla 0.7s cubic-bezier(.3,0,.2,1) 0.1s forwards, s2hueco 0.25s ease-out 0.85s forwards; }
-      @keyframes s2hueco { to { fill: #FFFFFF; } }
-      #splash2 .eme { stroke-dasharray: 100 100; stroke-dashoffset: 100; opacity: 0;
-        animation: s2eme 0.7s cubic-bezier(.6,0,.25,1) 1.25s forwards; }
-      @keyframes s2eme { 0% { opacity: 1; stroke-dashoffset: 100; } 100% { opacity: 1; stroke-dashoffset: 0; } }
-      #splash2 .brillo { stroke-dasharray: 18 100; stroke-dashoffset: 18; opacity: 0;
-        animation: s2brillo 0.6s ease-in-out 1.95s forwards; }
-      @keyframes s2brillo { 0% { opacity: 0; stroke-dashoffset: 18; } 20% { opacity: 0.85; } 80% { opacity: 0.85; } 100% { opacity: 0; stroke-dashoffset: -100; } }
-      #splash2 .palabra { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0;
-        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; color: #1F1F1F; line-height: 1.02;
-        animation: s2palabra 0.65s cubic-bezier(.65,0,.25,1) 2.15s forwards; }
-      @keyframes s2palabra { to { max-width: 230px; opacity: 1; padding-left: 16px; } }
-      #splash2 .palabra .p1 { font-size: 21px; font-weight: 600; color: #6B6B6B; letter-spacing: -0.01em; }
-      #splash2 .palabra .p2 { font-size: 38px; font-weight: 800; letter-spacing: -0.025em; }
-      #splash2 .lema { position: absolute !important; left: 0; right: 0; top: calc(50% + 70px); text-align: center;
-        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 500;
-        font-size: 14.5px; color: #6B6B6B; letter-spacing: 0.01em; opacity: 0; transform: translateY(6px);
-        animation: s2lema 0.6s ease-out 2.75s forwards; }
-      @keyframes s2lema { to { opacity: 1; transform: none; } }
       @keyframes s2in { to { opacity: 1; } }
       @media (prefers-reduced-motion: reduce) {
-        #splash2 *, #splash2 .marca { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+        #splash2 .w1, #splash2 .w2, #splash2 .w3 { display: none; }
+        #splash2 .w4, #splash2 .anillo, #splash2 .anillo .arco, #splash2 .anillo .eme, #splash2 .nombre { animation-duration: 0.01s !important; animation-delay: 0s !important; }
       }
       @media (prefers-reduced-motion: reduce) {
         #splash .ring { animation-duration: 0.01s; }
@@ -232,22 +184,16 @@
       <div class="sub">Entrena con Método</div>
     </div>
     <div id="splash2" aria-label="Entrena con Método">
-      <div class="manchas" aria-hidden="true"><div class="mancha m1"></div><div class="mancha m2"></div><div class="mancha m3"></div><div class="mancha m4"></div></div>
-      <div class="fila">
-        <svg class="marca" viewBox="0 0 512 512" fill="none" aria-hidden="true">
-          
-  <circle class="riel" cx="256" cy="256" r="172" stroke="#1F1F1F" stroke-opacity="0.08" stroke-width="42" fill="none"/>
-          <path class="tramo1" d="M256 84 A172 172 0 0 1 404.96 342" stroke="#4FA463" stroke-width="42" stroke-linecap="round" fill="none" pathLength="100"/>
-          <path class="tramo2" d="M404.96 342 A172 172 0 0 1 107.04 342" stroke="#4FA463" stroke-width="42" stroke-linecap="round" fill="none" pathLength="100"/>
-          <polyline class="eme" points="194,305 194,196 267,282 314,203" pathLength="100" stroke="#1F1F1F"
-                    stroke-width="24" stroke-linecap="square" stroke-linejoin="miter"/>
-          <polyline class="brillo" points="194,305 194,196 267,282 314,203" pathLength="100" stroke="#FFFFFF"
-                    stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-          <g class="gira"><circle class="semilla" cx="256" cy="84" r="14" fill="#4FA463"/></g>
-        </svg>
-        <div class="palabra"><div class="p1">Entrena con</div><div class="p2">Método</div></div>
-      </div>
-      <div class="lema">Tu progreso, con método</div>
+      <p class="w w1">ENTRENA.</p>
+      <p class="w w2">COME<br>BIEN.</p>
+      <p class="w w3">APRENDE.</p>
+      <p class="w w4">CON<br>MÉTODO.</p>
+      <svg class="anillo" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+        <circle cx="256" cy="256" r="172" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="44"/>
+        <path class="arco" d="M256 84 A172 172 0 1 1 107.04 342" pathLength="100" stroke="#4FA463" stroke-width="44" stroke-linecap="round"/>
+        <polyline class="eme" points="194,305 194,196 267,282 314,203" stroke="#FFFFFF" stroke-width="30" stroke-linecap="square" stroke-linejoin="miter"/>
+      </svg>
+      <div class="nombre">ENTRENA CON MÉTODO</div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

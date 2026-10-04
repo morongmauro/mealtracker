@@ -74,6 +74,10 @@ function base() {
       ],
       comunidad_reacciones: [{ post_id: 'cp1', cliente_id: 'c2', tipo: 'fuego' }],
       comunidad_vistas: [],
+      comunidad_comentarios: [
+        { id: 'k1', post_id: 'cp1', cliente_id: 'c2', texto: '¡Hecho! Ya llevo dos.', creado_en: hoy + 'T13:00:00Z', borrado_en: null },
+        { id: 'k2', post_id: 'cp1', cliente_id: null, texto: 'Así se hace, Ana', creado_en: hoy + 'T13:30:00Z', borrado_en: null },
+      ],
       fases: [{ id: 'f1', cliente_id: 'c1', nombre: 'Fase 2 · Fuerza', estado: 'activa', visible_cliente: true, orden: 2,
         fecha_inicio: hace(9), semanas: 12, dias_semana: ['L', 'X', 'V'], objetivo: 'Subir la fuerza en los básicos.' }],
       rutinas: [
@@ -366,7 +370,18 @@ try {
   await espera(1200);
   ok('comunidad: la reacción y las vistas llegan a la base', db.db.comunidad_reacciones.some(r => r.cliente_id === 'c1' && r.post_id === 'cp1' && r.tipo === 'fuego')
     && (db.db.comunidad_vistas || []).filter(v => v.cliente_id === 'c1').length >= 1);
+  ok('comunidad: el equipo con su circulito y nombre corto (sin apellido)', (await com.locator('[data-equipo] [data-miembro]').count()) === 2
+    && /Ana P\./.test(await com.locator('[data-equipo]').innerText()) && !/Pérez/.test(await com.locator('[data-equipo]').innerText()));
+  ok('comunidad: los comentarios se leen, con el del coach', (await com.locator('[data-post="cp1"] [data-comentario="otro"]').count()) === 1
+    && (await com.locator('[data-post="cp1"] [data-comentario="coach"]').count()) === 1 && /Ana P\./.test(await com.locator('[data-post="cp1"] [data-comentarios]').innerText()));
+  await com.locator('[data-post="cp1"] [data-escribir]').fill('Voy por el tercero');
+  await com.locator('[data-post="cp1"] [data-enviar-comentario]').click(); await espera(900);
+  ok('comunidad: comentar sale al instante y llega a la base a su nombre', (await com.locator('[data-post="cp1"] [data-comentario="mio"]').count()) === 1
+    && db.db.comunidad_comentarios.some(c => c.cliente_id === 'c1' && c.post_id === 'cp1' && c.texto === 'Voy por el tercero'));
   await foto(p, '19a-comunidad');
+  await com.locator('[data-post="cp1"] [data-borrar-comentario]').click(); await espera(700);
+  ok('comunidad: borrar su comentario', (await com.locator('[data-post="cp1"] [data-comentario="mio"]').count()) === 0
+    && !!db.db.comunidad_comentarios.find(c => c.texto === 'Voy por el tercero').borrado_en);
   await p.getByRole('button', { name: /^Dash$/ }).first().click(); await espera(500);
   await p.locator('[data-abrir-config]').click();
   const conf = p.locator('[data-configuracion]');
