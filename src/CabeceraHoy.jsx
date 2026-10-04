@@ -12,8 +12,8 @@
 //     arriba (la del nombre del módulo), con el borde de abajo curvo;
 //   · debajo, el mensaje sobre MANCHAS de color de la sección, difuminadas,
 //     con una deriva muy lenta, que se apagan hacia abajo sin cortes.
-// Sin íconos ni personajes. Quien pide menos movimiento ve las manchas
-// quietas.
+// A la derecha, la ilustración de la sección (IlustracionesCabecera.jsx) en
+// línea blanca. Quien pide menos movimiento ve todo quieto.
 //
 // `sangria` y `arriba` cancelan el relleno del contenedor para que el color
 // llegue a los bordes y al techo de la pantalla; `arriba` es también el alto
@@ -21,6 +21,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { TEXT, TEXT_MUTED } from './theme.js';
+import { ILUSTRACION } from './IlustracionesCabecera.jsx';
 
 // banda: degradado de la banda · m1/m2/m3: manchas · base: fondo detrás de
 // las manchas · tinta: la segunda línea de la frase (contraste para letra
@@ -47,8 +48,10 @@ const CSS = `
 [data-cabecera-hoy] .cab-texto > * { animation: cab-entra .5s cubic-bezier(.2,.8,.2,1) both; }
 [data-cabecera-hoy] .cab-texto > *:nth-child(2) { animation-delay: .06s }
 [data-cabecera-hoy] .cab-texto > *:nth-child(3) { animation-delay: .12s }
+@keyframes cab-ilus { from { opacity: 0; transform: translate3d(14px, 6px, 0) rotate(-3deg) } to { opacity: 1; transform: none } }
+[data-cabecera-hoy] .cab-ilus { animation: cab-ilus .7s cubic-bezier(.2,.8,.2,1) both .08s; }
 @media (prefers-reduced-motion: reduce) {
-  [data-cabecera-hoy] .cab-m, [data-cabecera-hoy] .cab-texto > * { animation: none !important; }
+  [data-cabecera-hoy] .cab-m, [data-cabecera-hoy] .cab-texto > *, [data-cabecera-hoy] .cab-ilus { animation: none !important; }
 }`;
 
 // Una mancha: un degradado radial que se apaga solo (sin filtros de
@@ -71,10 +74,13 @@ export function FirmaCoach({ claro = false, compacta = false }) {
 
 // `fondo={false}`: solo la letra (el Dash ya tiene sus manchas detrás).
 // `voz.sub`: una línea de texto normal debajo de la frase.
-export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', children }) {
+export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', ilustracion = true, children }) {
   const t = TEMAS[tema] || TEMAS.entreno;
+  // La ilustración de la sección va a la derecha, cortada por el borde de la
+  // pantalla; el texto deja su espacio para no pasar por encima.
+  const Ilus = fondo && ilustracion ? ILUSTRACION[tema] : null;
   const texto = (
-    <div className="cab-texto" style={{ position: 'relative' }}>
+    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? 'min(34vw, 150px)' : 0 }}>
       {voz?.etiqueta && (
         <div data-etiqueta style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
       )}
@@ -127,6 +133,14 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
         WebkitMaskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
         maskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
       }} />}
+      {Ilus && (
+        <div aria-hidden="true" data-ilus-cabecera={tema} style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+          <div className="cab-ilus" style={{
+            position: 'absolute', right: -18, top: `calc(${arriba} + 8px)`, width: 'min(42vw, 172px)', aspectRatio: '220 / 170',
+            color: '#FFFFFF', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.10))',
+          }}><Ilus /></div>
+        </div>
+      )}
       {texto}
     </div>
   );

@@ -354,7 +354,7 @@ try {
     && /^(Hoy toca|Hecho por hoy|Día de descanso|Hoy no te toca|Semana completa|Tienes un entreno)/.test(await cabE.locator('[data-frase]').innerText()),
     `${await cabE.locator('[data-etiqueta]').innerText()} | ${await cabE.locator('[data-frase]').innerText()}`);
   ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);
-  ok('…con la banda delgada detrás de la barra y sin íconos', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('svg').count()) === 0
+  ok('…con la banda delgada y la ilustración de la sección (kettlebell)', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('[data-ilustracion="entreno"]').count()) === 1
     && await cabE.locator('[data-banda]').evaluate(el => el.getBoundingClientRect().height < 140));
   ok('…la segunda línea en el azul de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(47, 108, 196)'));
   ok('…y el color no se sale de la pantalla', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
