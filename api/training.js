@@ -46,6 +46,7 @@ import { alertarCoach } from './_alerta.js';
 import { whatsappCoach, textoNotaWhatsapp } from './_whatsapp.js';
 import { completarMusculos } from './_musculos.js';
 import { fechaCorte } from './_pagos.js';
+import manejarRelojes from './_relojes.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
@@ -74,6 +75,8 @@ const CAMPOS_EJERCICIO = 'id,nombre,alias,descripcion,claves_tecnicas,patron,seg
   + 'video_fuente,video_url,video_ref,video_inicio_seg,poster_url';
 
 export default async function handler(req, res) {
+  // Relojes y anillos: /api/relojes llega aquí (ver vercel.json y _relojes.js).
+  if (req.query && req.query.modulo === 'relojes') return manejarRelojes(req, res);
   // El módulo de entrenamiento llama desde su propio dominio: hay que
   // contestarle el preflight y marcarle la respuesta como suya.
   if (cors(req, res)) return;

@@ -12,7 +12,10 @@ process.env.OURA_CLIENT_ID = 'oura-id'; process.env.OURA_CLIENT_SECRET = 'oura-s
 process.env.FITBIT_CLIENT_ID = 'fb-id'; process.env.FITBIT_CLIENT_SECRET = 'fb-secreto';
 delete process.env.WHOOP_CLIENT_ID; delete process.env.POLAR_CLIENT_ID;
 
-const { default: handler, firmarEstado, leerEstado } = await import('../api/relojes.js');
+const { firmarEstado, leerEstado } = await import('../api/_relojes.js');
+// Como en Vercel: /api/relojes llega a training.js con ?modulo=relojes.
+const { default: training } = await import('../api/training.js');
+const handler = (req, res) => training({ ...req, query: { ...(req.query || {}), modulo: 'relojes' } }, res);
 
 let casos = 0, fallos = 0;
 const igual = (a, b, q) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${q}: esperaba ${JSON.stringify(b)}, salió ${JSON.stringify(a)}`); };

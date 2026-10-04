@@ -1,6 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 // /api/relojes · Relojes y anillos (Fitbit, Oura, Whoop, Polar)
 //
+// No es una función aparte: el plan de Vercel permite 12 y ya estaban todas.
+// vercel.json lleva /api/relojes a /api/training?modulo=relojes y training.js
+// entrega la petición a este archivo (el _ delante = no es función propia).
+//
 //   GET  ?accion=estado&name=…              → qué tiene conectado, qué marcas
 //                                              están disponibles y los últimos
 //                                              7 días que trajeron los relojes
@@ -237,7 +241,7 @@ const paginaFin = (res, url, texto) => {
     + `<p style="font-size:18px;font-weight:700">${texto}</p></body>`);
 };
 
-export default async function handler(req, res) {
+export default async function manejarRelojes(req, res) {
   if (cors(req, res)) return;
   const esGet = req.method === 'GET';
   if (!esGet && req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
