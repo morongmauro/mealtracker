@@ -107,13 +107,15 @@
       /* Arranque caliente (misma sesión): sin opener, directo a la app */
       html.warm-start #splash { display: none; }
       /* ── Apertura de la visual nueva · «Las palabras» ───────────────────
-         Fondo negro y letra enorme, una frase por golpe, cada una en el
-         color de su sección (el lenguaje de las campañas de Nike: dice qué
-         es la app sin explicarla):
+         Fondo negro y letra enorme. Las cuatro frases se van apilando en la
+         misma pantalla, cada una en el color de su sección, y abajo aparece
+         la imagen de la marca: el anillo verde que se dibuja y, dentro, la
+         kettlebell que saluda.
            0.15 s  ENTRENA.        blanco
-           0.70 s  COME BIEN.      verde
-           1.25 s  APRENDE.        naranja
-           1.80 s  CON MÉTODO.     blanco, y abajo se dibuja el anillo con la M
+           0.55 s  COME BIEN.      verde
+           0.95 s  APRENDE.        naranja
+           1.35 s  CON MÉTODO.     blanco
+           1.75 s  el anillo se dibuja; 2.05 s sale la kettlebell
          Se queda quieto hasta que la app está lista (mínimo 2,9 s desde que
          se toca el ícono, ver main.jsx) y se desvanece. */
       @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: block;
@@ -126,28 +128,28 @@
       }
       body.app-ready #splash2 { opacity: 0; pointer-events: none; }
       html.warm-start #splash2 { display: none !important; }
-      #splash2 .w { position: absolute; left: 24px; right: 16px; top: 50%; margin: 0;
+      #splash2 .pila { position: absolute; left: 24px; right: 16px; top: calc(20vh + env(safe-area-inset-top, 0px)); margin: 0;
         font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 900;
-        font-size: min(17.5vw, 96px); line-height: 0.94; letter-spacing: -0.035em; color: #FFFFFF;
-        opacity: 0; transform: translateY(-38%) scale(1.06); }
-      #splash2 .w1 { animation: s2entra .2s cubic-bezier(.2,.8,.2,1) .15s forwards, s2sale .1s ease-in .62s forwards; }
-      #splash2 .w2 { color: #5BB273; animation: s2entra .2s cubic-bezier(.2,.8,.2,1) .70s forwards, s2sale .1s ease-in 1.17s forwards; }
-      #splash2 .w3 { color: #F2964A; animation: s2entra .2s cubic-bezier(.2,.8,.2,1) 1.25s forwards, s2sale .1s ease-in 1.72s forwards; }
-      #splash2 .w4 { animation: s2entra .2s cubic-bezier(.2,.8,.2,1) 1.80s forwards; }
-      @keyframes s2entra { to { opacity: 1; transform: translateY(-50%) scale(1); } }
-      @keyframes s2sale { from { opacity: 1; transform: translateY(-50%) scale(1); } to { opacity: 0; transform: translateY(-56%) scale(0.98); } }
-      #splash2 .anillo { position: absolute; left: 24px; bottom: calc(44px + env(safe-area-inset-bottom, 0px)); width: 52px; height: 52px; overflow: visible;
-        opacity: 0; animation: s2in .25s ease-out 1.9s forwards; }
-      #splash2 .anillo .arco { stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: s2traza .6s cubic-bezier(.3,0,.2,1) 1.95s forwards; }
-      #splash2 .anillo .eme { opacity: 0; animation: s2in .3s ease-out 2.35s forwards; }
-      #splash2 .nombre { position: absolute; left: 88px; bottom: calc(52px + env(safe-area-inset-bottom, 0px));
-        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: 13px;
-        letter-spacing: 0.16em; color: rgba(255,255,255,0.62); opacity: 0; animation: s2in .4s ease-out 2.4s forwards; }
+        font-size: min(11.4vw, 62px); line-height: 0.98; letter-spacing: -0.035em; color: #FFFFFF; }
+      #splash2 .w { display: block; overflow: hidden; padding: 0.06em 0 0.04em; margin-top: -0.06em; }
+      #splash2 .w > span { display: block; transform: translateY(135%); animation: s2entra .42s cubic-bezier(.2,.8,.2,1) forwards; }
+      #splash2 .w1 > span { animation-delay: .15s; }
+      #splash2 .w2 > span { color: #5BB273; animation-delay: .55s; }
+      #splash2 .w3 > span { color: #F2964A; animation-delay: .95s; }
+      #splash2 .w4 > span { animation-delay: 1.35s; }
+      @keyframes s2entra { to { transform: translateY(0); } }
+      #splash2 .marca { position: absolute; left: 50%; bottom: calc(9vh + env(safe-area-inset-bottom, 0px)); width: min(46vw, 210px); height: min(46vw, 210px);
+        margin-left: calc(min(46vw, 210px) / -2); overflow: visible; }
+      #splash2 .marca .riel { opacity: 0; animation: s2in .3s ease-out 1.7s forwards; }
+      #splash2 .marca .arco { stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: s2traza .8s cubic-bezier(.3,0,.2,1) 1.75s forwards; }
+      #splash2 .marca .kb { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; animation: s2kb .55s cubic-bezier(.2,.9,.3,1.25) 2.05s forwards; }
+      #splash2 .marca .mano { transform-box: fill-box; transform-origin: 50% 100%; animation: s2saluda .5s ease-in-out 2.5s 2; }
+      @keyframes s2kb { 0% { opacity: 0; transform: translateY(18px) scale(.8); } 100% { opacity: 1; transform: none; } }
+      @keyframes s2saluda { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(20deg); } }
       @keyframes s2traza { to { stroke-dashoffset: 0; } }
       @keyframes s2in { to { opacity: 1; } }
       @media (prefers-reduced-motion: reduce) {
-        #splash2 .w1, #splash2 .w2, #splash2 .w3 { display: none; }
-        #splash2 .w4, #splash2 .anillo, #splash2 .anillo .arco, #splash2 .anillo .eme, #splash2 .nombre { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+        #splash2 .w > span, #splash2 .marca .riel, #splash2 .marca .arco, #splash2 .marca .kb, #splash2 .marca .mano { animation-duration: 0.01s !important; animation-delay: 0s !important; }
       }
       @media (prefers-reduced-motion: reduce) {
         #splash .ring { animation-duration: 0.01s; }
@@ -184,16 +186,20 @@
       <div class="sub">Entrena con Método</div>
     </div>
     <div id="splash2" aria-label="Entrena con Método">
-      <p class="w w1">ENTRENA.</p>
-      <p class="w w2">COME<br>BIEN.</p>
-      <p class="w w3">APRENDE.</p>
-      <p class="w w4">CON<br>MÉTODO.</p>
-      <svg class="anillo" viewBox="0 0 512 512" fill="none" aria-hidden="true">
-        <circle cx="256" cy="256" r="172" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="44"/>
-        <path class="arco" d="M256 84 A172 172 0 1 1 107.04 342" pathLength="100" stroke="#4FA463" stroke-width="44" stroke-linecap="round"/>
-        <polyline class="eme" points="194,305 194,196 267,282 314,203" stroke="#FFFFFF" stroke-width="30" stroke-linecap="square" stroke-linejoin="miter"/>
+      <p class="pila"><span class="w w1"><span>ENTRENA.</span></span><span class="w w2"><span>COME BIEN.</span></span><span class="w w3"><span>APRENDE.</span></span><span class="w w4"><span>CON MÉTODO.</span></span></p>
+      <svg class="marca" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+        <circle class="riel" cx="100" cy="100" r="88" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="13"/>
+        <path class="arco" d="M100 12 A88 88 0 1 1 23.8 144" pathLength="100" stroke="#4FA463" stroke-width="13" stroke-linecap="round"/>
+        <g class="kb"><g transform="translate(100 112) scale(0.86)">
+          <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"><path d="M-11 31 L-14 43"/><path d="M11 31 L14 43"/></g>
+          <ellipse cx="-17" cy="44.5" rx="6.5" ry="3" fill="#FFFFFF"/><ellipse cx="17" cy="44.5" rx="6.5" ry="3" fill="#FFFFFF"/>
+          <path d="M33 10 Q45 14 41 25" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+          <path d="M-25 -15C-32 -36 -24 -50 0 -50C24 -50 32 -36 25 -15" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round"/>
+          <path d="M-22.6 32A36 36 0 1 1 22.6 32Z" fill="#FFFFFF"/>
+          <g stroke="#0C0C0B" stroke-width="2.8" stroke-linecap="round"><path d="M-13 3.5 Q-9 -1.5 -5 3.5"/><path d="M5 3.5 Q9 -1.5 13 3.5"/><path d="M-8 10 Q0 17 8 10"/></g>
+          <g class="mano"><path d="M-34 4 Q-48 -8 -50 -30" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/><circle cx="-50" cy="-34" r="5" fill="#FFFFFF"/></g>
+        </g></g>
       </svg>
-      <div class="nombre">ENTRENA CON MÉTODO</div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

@@ -213,6 +213,11 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
     // El chat: «2 huevos» se registra como comida (para ver el «+kcal»).
     if (u.pathname === '/api/chat') {
       const huevos = { intent: 'log_meal', meal: 'snack', log_date: null, items: [{ name: 'Huevo', amount: '2 unidades', kcal: 156, p: 12.6, c: 1.1, g: 10.6, fiber: 0, omega3: 0, sugar: 0, needs_quantity: false }], message: null };
+      // «almuerzo grande» llena el día: para ver la hoja de meta cumplida.
+      if (/almuerzo grande/.test(ruta.request().postData() || '')) {
+        const grande = { intent: 'log_meal', meal: 'lunch', log_date: null, items: [{ name: 'Almuerzo', amount: '1 plato', kcal: 2300, p: 110, c: 240, g: 62, fiber: 0, omega3: 0, sugar: 0, needs_quantity: false }], message: null };
+        return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(grande) }] }) });
+      }
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(huevos) }] }) });
     }
     if (u.pathname === '/api/resources') return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: 'https://centro.test/', training: true }) });
@@ -262,13 +267,13 @@ try {
   await p.getByText('Días de cardio').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
-  ok('Dash: el saludo como las demás cabeceras (dos líneas, la segunda en amarillo), sin firma, con banda curva y tres manchas', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
+  ok('Dash: el saludo como las demás cabeceras (dos líneas, la segunda en amarillo), sin firma, con banda curva y una mancha por color de la marca', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
     && /^MARTES 29/.test(await p.locator('[data-cabecera-hoy="dash"] [data-etiqueta]').innerText())
     && await p.locator('[data-cabecera-hoy="dash"] [data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(168, 116, 0)')
     && (await p.locator('[data-cabecera-hoy="dash"] [data-sub]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
-    && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 3);
+    && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
     const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));
     return getComputedStyle(el).transitionProperty.includes('stroke-dashoffset') && o < c;
@@ -784,6 +789,19 @@ try {
   await foto(p, '09c-comida-suma');
   await espera(2600);
   ok('…y se va solo', (await suma.count()) === 0);
+  // Al llegar a la meta de calorías: la hoja de celebración de comida.
+  await p.locator('.msg-input').click();
+  await p.keyboard.type('almuerzo grande');
+  await p.keyboard.press('Enter');
+  const metaC = p.locator('[data-meta-comida]');
+  await metaC.waitFor({ timeout: 8000 }).catch(() => {});
+  await espera(1400);
+  ok('meta de comida: sale la hoja con la kettlebell comiendo, sus macros y confeti verde', (await metaC.count()) === 1
+    && /Meta del día, cumplida/.test(await metaC.innerText()) && (await metaC.locator('svg[data-ilustracion="comida"]').count()) === 1
+    && (await metaC.locator('[data-meta-macros] > div').count()) === 3 && (await p.locator('[data-aviso-suma]').count()) === 0);
+  await foto(p, '09d-meta-comida');
+  await metaC.getByRole('button', { name: 'Seguir' }).click(); await espera(400);
+  ok('meta de comida: «Seguir» la cierra', (await metaC.count()) === 0);
   await p.locator('.msg-input').click();
   await espera(200);
   await p.mouse.click(195, 300);

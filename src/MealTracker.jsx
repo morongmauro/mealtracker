@@ -29,6 +29,7 @@ import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero } fr
 import CabeceraHoy from './CabeceraHoy.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
 import { AvisoSuma } from './Celebraciones.jsx';
+const MetaComida = lazy(() => import('./MetaComida.jsx'));
 import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
 import { hayNovedad, marcarVisto } from './novedades.js';
 import { vozComida } from './vozCoach.js';
@@ -554,7 +555,9 @@ export default function MealTracker() {
   // Visual nueva: el «+420 kcal» que sube al registrar comida. Solo cuando la
   // persona registra (no al cargar el día, sincronizar o mover una comida).
   const [avisoSuma, setAvisoSuma] = useState(null);
-  const idsVistosRef = useRef(null);
+  // Visual nueva: la hoja de «meta del día cumplida» (o «día perfecto»).
+  const [metaComida, setMetaComida] = useState(null);
+  const kcalVistasRef = useRef(null);
   const silenciarSumaRef = useRef(true);
   const [editingEntry, setEditingEntry] = useState(null);
   const [recording, setRecording] = useState(false);
@@ -2107,14 +2110,20 @@ export default function MealTracker() {
   }), { kcal: 0, p: 0, c: 0, g: 0 }), [entries]);
 
   useEffect(() => {
-    const prev = idsVistosRef.current;
-    idsVistosRef.current = new Set(entries.map(e => e.id));
-    if (!prev || silenciarSumaRef.current) { silenciarSumaRef.current = false; return; }
+    // Lo que sumó este cambio se mide por la diferencia de calorías del día
+    // (no por comidas nuevas): lo que se agrega a una comida que ya estaba
+    // también cuenta. Cargas y sincronizaciones no avisan (silenciarSumaRef).
+    const prev = kcalVistasRef.current;
+    kcalVistasRef.current = totals.kcal;
+    if (prev == null || silenciarSumaRef.current) { silenciarSumaRef.current = false; return; }
     if (!v2Activa()) return;
-    const suma = entries.filter(e => !prev.has(e.id)).reduce((a, e) => a + (e.kcal || 0), 0);
+    const suma = Math.round(totals.kcal - prev);
     if (suma <= 0) return;
-    const ahora = totals.kcal, antes = ahora - suma, meta = goals && goals.kcal ? goals.kcal : 0;
-    setAvisoSuma({ suma, antes, ahora, meta, enMeta: !!meta && antes < meta * 0.95 && ahora >= meta * 0.95, k: Date.now() });
+    const ahora = totals.kcal, antes = prev, meta = goals && goals.kcal ? goals.kcal : 0;
+    const enMeta = !!meta && antes < meta * 0.95 && ahora >= meta * 0.95;
+    // Al llegar a la meta, en vez del aviso chico sube la hoja de celebración.
+    if (enMeta) { setAvisoSuma(null); setMetaComida({ perfecto: false, k: Date.now() }); return; }
+    setAvisoSuma({ suma, antes, ahora, meta, enMeta, k: Date.now() });
   }, [entries]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -2123,9 +2132,9 @@ export default function MealTracker() {
     const isInRange = (val, goal) => val >= goal * (1 - tolerance) && val <= goal * (1 + tolerance);
     if (isInRange(totals.kcal, goals.kcal) && isInRange(totals.p, goals.p) &&
         isInRange(totals.c, goals.c) && isInRange(totals.g, goals.g)) {
-      haptic([30, 50, 30, 50, 60]);
-      setActiveModal('perfect');
       setPerfectDayShown(true);
+      if (v2Activa()) { setAvisoSuma(null); setMetaComida({ perfecto: true, k: Date.now() }); }
+      else { haptic([30, 50, 30, 50, 60]); setActiveModal('perfect'); }
       window.storage.get('perfectDays').then(res => {
         const arr = res?.value ? JSON.parse(res.value) : [];
         if (!arr.includes(today)) {
@@ -5201,8 +5210,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           72%  { transform: translate3d(0, -26%, 0) scale(1); filter: saturate(1.15) brightness(1); }
           100% { transform: translate3d(6%, -4%, 0) scale(1.55); filter: saturate(1.5) brightness(1.14); }
         }
+        .mt-pensando { opacity: 0; transition: opacity 0.8s ease; }
+        .mt-pensando.on { opacity: 1; animation: mtMece 5.5s ease-in-out infinite; }
+        @keyframes mtMece {
+          0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+          50% { transform: translate3d(3%, -2.5%, 0) scale(1.05); }
+        }
         @media (prefers-reduced-motion: reduce) {
-          .bg-stains-chat.thinking, .bg-stains-extra.on { animation: none; }
+          .bg-stains-chat.thinking, .bg-stains-extra.on, .mt-pensando.on { animation: none; }
         }
         .pulse-ring { animation: pulseRing 1.5s ease-in-out infinite; }
         .shimmer-text {
@@ -5304,7 +5319,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             agua a la izquierda, al revés. Cada pantalla se reconoce por su
             mezcla sin dejar de ser la misma app. Capa fixed aparte porque iOS
             ignora background-attachment dentro de scrollers. */}
-        <div className={`fixed pointer-events-none bg-stains-chat${loading ? ' thinking' : ''}`} style={{
+        <div className={`fixed pointer-events-none bg-stains-chat${loading && !v2 ? ' thinking' : ''}`} style={{
           top: '-16%', left: '-16%', right: '-16%', bottom: '-16%',
           background: BG_STAINS,
           willChange: loading ? 'transform' : 'auto',
@@ -5312,6 +5327,17 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
         {/* Capas de pensando (cálida + fría) — siempre montadas con opacity
             0 para que el encendido/apagado sea un fade y no un salto. */}
+        {/* Visual nueva: una sola capa, sobria, con los colores de la
+            sección (verde y su acento amarillo, un toque de azul) que se
+            mece despacio mientras piensa; nada de destellos ni saturación. */}
+        {v2 ? (
+          <div data-pensando-v2 className={`fixed pointer-events-none mt-pensando${loading ? ' on' : ''}`} style={{
+            top: '-12%', left: '-12%', right: '-12%', bottom: '-12%',
+            background: `radial-gradient(46% 36% at 28% 30%, rgba(124,196,146,0.42), transparent 70%),
+              radial-gradient(40% 32% at 76% 62%, rgba(242,213,122,0.36), transparent 70%),
+              radial-gradient(36% 30% at 70% 18%, rgba(169,198,238,0.26), transparent 70%)`,
+          }} />
+        ) : (<>
         <div className={`fixed pointer-events-none bg-stains-extra warm${loading ? ' on' : ''}`} style={{
           top: '-30%', left: '-30%', right: '-30%', bottom: '-30%',
           background: BG_STAINS_WARM,
@@ -5320,6 +5346,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           top: '-30%', left: '-30%', right: '-30%', bottom: '-30%',
           background: BG_STAINS_COOL,
         }} />
+        </>)}
 
         {/* Franja de color del chat — el mismo tratamiento que la portada de
             Hoy, con los colores en otro orden (durazno a la izquierda, verde
@@ -5710,7 +5737,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
             {/* Aviso de pago también en Hoy (mismo componente que el chat):
                 es la pantalla de aterrizaje, no puede pasar desapercibido. */}
-            {paymentDue && <PaymentNotice info={paymentDue} style={{ marginTop: '16px', position: 'relative', zIndex: 2 }} />}
+            {paymentDue && <PaymentNotice v2={v2} info={paymentDue} style={{ marginTop: '16px', position: 'relative', zIndex: 2 }} />}
 
             {/* Estado del día. Antes ocupaba muchísimo alto: un aro grande de
                 86px con su bloque de texto al lado, y DEBAJO otra fila con los
@@ -5920,7 +5947,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           }} />}
           <Suspense fallback={null}>
             <Entrenamiento name={name} seccionV2={v2 ? entrenoSub : null} alSeccionV2={setEntrenoSub}
-              avisoPago={v2 && paymentDue && !paymentDue.bloqueo ? <PaymentNotice info={paymentDue} style={{ marginBottom: '14px' }} /> : null}
+              avisoPago={v2 && paymentDue && !paymentDue.bloqueo ? <PaymentNotice v2 info={paymentDue} style={{ marginBottom: '14px' }} /> : null}
               recordatorios={v2 ? { pendientes: coachReminders.filter(r => !r.done_at).length, abrir: () => { haptic(8); setActiveModal('reminders'); } } : null} />
           </Suspense>
         </div>
@@ -5932,7 +5959,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
           <Suspense fallback={null}>
             <Dash name={name} history={history} goals={goals}
-              avisoPago={paymentDue && !paymentDue.bloqueo ? <PaymentNotice info={paymentDue} style={{ marginTop: '16px' }} /> : null}
+              avisoPago={paymentDue && !paymentDue.bloqueo ? <PaymentNotice v2={v2} info={paymentDue} style={{ marginTop: '16px' }} /> : null}
               alIr={(sec, op) => irSubV2(sec, op)} entrenoOn={trainingOn}
               racha={streak} pendientes={coachReminders.filter(r => !r.done_at).length}
               acciones={{
@@ -6366,7 +6393,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           quita solo cuando el coach marca el pago en el CRM (se revisa al
           volver a la app y con el botón). */}
       {paymentDue && paymentDue.bloqueo && (
-        <BloqueoPago info={paymentDue} alRevisar={() => revisarPagoRef.current && revisarPagoRef.current()} />
+        <BloqueoPago v2={v2} info={paymentDue} alRevisar={() => revisarPagoRef.current && revisarPagoRef.current()} />
       )}
 
       {recorrido && v2 && (
@@ -6377,6 +6404,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       )}
 
       {avisoSuma && <AvisoSuma key={avisoSuma.k} evento={avisoSuma} alCerrar={() => setAvisoSuma(null)} />}
+      {metaComida && <Suspense fallback={null}><MetaComida key={metaComida.k} perfecto={metaComida.perfecto} totals={totals} goals={goals} alCerrar={() => setMetaComida(null)} /></Suspense>}
 
       {/* Peso, fotos o medidas que el coach pidió para HOY: apenas abre la app
           (a todos). Espera a que no haya otra cosa encima. */}
@@ -7183,7 +7211,7 @@ function textoCorte(info) {
   return `Tu fecha de corte fue el ${dia} de ${nombreMes}${esteAnio ? '' : ` de ${anio}`}.`;
 }
 
-function BloqueoPago({ info, alRevisar }) {
+function BloqueoPago({ info, alRevisar, v2 = false }) {
   const [revisando, setRevisando] = useState(false);
   // Mientras está puesto, nada de atrás se mueve ni se toca.
   useEffect(() => {
@@ -7211,13 +7239,13 @@ function BloqueoPago({ info, alRevisar }) {
       }}>
         <div style={{
           width: 52, height: 52, borderRadius: 99, margin: '0 auto 14px', display: 'grid', placeItems: 'center',
-          background: 'rgba(224,171,158,0.28)', color: '#8A4A3C',
+          background: v2 ? '#F6E6B8' : 'rgba(224,171,158,0.28)', color: v2 ? '#7A5500' : '#8A4A3C',
         }}><CreditCard size={24} strokeWidth={2} /></div>
         <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
           Tu mensualidad está pendiente
         </div>
         {total ? (
-          <div className="num" style={{ fontSize: 26, fontWeight: 800, color: '#8A4A3C', marginTop: 10, letterSpacing: '-0.02em' }}>
+          <div className="num" style={{ fontSize: v2 ? 30 : 26, fontWeight: 800, color: v2 ? TEXT : '#8A4A3C', marginTop: 10, letterSpacing: '-0.02em' }}>
             {fmtMonto(total, info.moneda)}
           </div>
         ) : null}
@@ -7234,10 +7262,43 @@ function BloqueoPago({ info, alRevisar }) {
   );
 }
 
-function PaymentNotice({ info, style }) {
+function PaymentNotice({ info, style, v2 = false }) {
   if (!info) return null;
   const meses = info.meses_deuda || 1;
   const dias = info.dias_vencido || 0;
+  // Visual nueva: tarjeta blanca como las del Dash, el ícono en un círculo
+  // ámbar (el acento de la marca), el monto grande en grafito.
+  if (v2) {
+    const totalV2 = info.monto_total || info.monto;
+    return (
+      <div data-aviso-pago className="fade-up" style={{
+        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 22, background: '#FFFFFF',
+        boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', fontFamily: 'inherit', ...style,
+      }}>
+        <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 99, background: '#F6E6B8', color: '#7A5500', display: 'grid', placeItems: 'center', flex: 'none' }}>
+          <CreditCard size={19} strokeWidth={2.1} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>
+              {meses > 1 ? `${meses} MENSUALIDADES PENDIENTES` : 'MENSUALIDAD PENDIENTE'}
+            </span>
+            {dias > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: '#7A5500', background: '#FBF1D3', padding: '3px 8px', borderRadius: 99, whiteSpace: 'nowrap' }}>hace {dias} {dias === 1 ? 'día' : 'días'}</span>}
+          </div>
+          {totalV2 ? (
+            <div className="num" style={{ color: TEXT, fontSize: 24, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, marginTop: 4 }}>
+              {fmtMonto(totalV2, info.moneda)}
+            </div>
+          ) : null}
+          <div style={{ fontSize: 14, color: TEXT_MUTED, lineHeight: 1.45, marginTop: 4 }}>
+            {meses > 1
+              ? 'Es el total acumulado de tu programa. Cuando lo pongas al día, este aviso desaparece solo.'
+              : <>{textoCorte(info)} Al registrar el pago, este aviso desaparece solo.</>}
+          </div>
+        </div>
+      </div>
+    );
+  }
   // Dos niveles de tono, ambos serenos: miel para el mes en curso, terracota
   // suave cuando ya son varios meses. Ni uno solo grita.
   const serio = meses > 1 || dias >= 15;
@@ -7439,6 +7500,7 @@ const CSS_CHAT_V2 = `
 [data-chat-v2] .fade-up > .rounded-\\[22px\\] { background: #FFFFFF !important; border: none !important; border-radius: 20px 20px 20px 6px !important;
   box-shadow: 0 1px 2px rgba(40,40,30,0.05), 0 6px 18px rgba(60,60,40,0.07) !important; }
 [data-chat-v2] .fade-up[data-rol="user"] > div { background: #E3F0E6 !important; box-shadow: none !important; border-radius: 20px 20px 6px 20px !important; }
+[data-chat-v2] .shimmer-text { background-image: linear-gradient(90deg, #6B6B6B 0%, #2F7F45 50%, #6B6B6B 100%) !important; animation-duration: 2.6s !important; }
 `;
 
 const MessageBubble = memo(function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature, onOpenLearning, onOpenRecetario, v2 = false }) {

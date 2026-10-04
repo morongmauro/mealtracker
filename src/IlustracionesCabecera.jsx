@@ -1,30 +1,37 @@
 // ─────────────────────────────────────────────────────────────────────────
 // ILUSTRACIONES DE CABECERA · visual nueva
 //
-// Un solo personaje para toda la app: la kettlebell, en blanco y sin cara,
-// redonda como las de verdad (bola con base plana y asa gruesa). En cada
-// sección hace lo suyo:
-//   Dash           saluda
-//   Entrenamiento  levanta la barra
-//   Alimentación   come (tenedor del plato a la boca)
-//   Aprendizaje    lee un libro abierto
-// Al entrar a la sección se mueve un momento; los detalles van en un tono
-// suave del color de la sección.
+// Un solo personaje para toda la app: la kettlebell, blanca y redonda como
+// las de verdad (bola con base plana y asa gruesa), con una cara sencilla al
+// estilo Headspace: dos ojos y una boca, nada más. En cada sección hace lo
+// suyo:
+//   Dash           saluda, contenta
+//   Entrenamiento  levanta la barra, con esfuerzo
+//   Alimentación   come: el tenedor va del plato a la boca
+//   Aprendizaje    lee un libro abierto, mirando hacia abajo
+// Al entrar a la sección se mueve un momento. Los brazos van por fuera del
+// cuerpo (blanco sobre blanco no se vería); lo que cruza por delante (el
+// tenedor, el libro, el plato) va en el color de la sección.
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
 
 const B = '#FFFFFF';
+const CARA = '#2B2A27';
 const CSS_KB = `
 @keyframes kb-sube { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
 @keyframes kb-saluda { 0%, 100% { transform: rotate(0) } 50% { transform: rotate(18deg) } }
-@keyframes kb-come { 0%, 15%, 100% { transform: rotate(0) } 50%, 65% { transform: rotate(-38deg) } }
+@keyframes kb-bocado { 0% { transform: rotate(-18deg) } 40%, 60% { transform: rotate(0) } 80% { transform: rotate(-10deg) } 100% { transform: rotate(0) } }
+@keyframes kb-mastica { 0%, 100% { transform: scaleY(1) } 50% { transform: scaleY(.45) } }
 @keyframes kb-hoja { 0%, 100% { transform: scaleX(1) } 45%, 55% { transform: scaleX(-1) } }
 @keyframes kb-respira { 0%, 100% { transform: scale(1) } 50% { transform: scale(1.03) } }
+@keyframes kb-parpadea { 0%, 92%, 100% { transform: scaleY(1) } 96% { transform: scaleY(.1) } }
 [data-ilustracion] .kb-sube { animation: kb-sube 1.6s ease-in-out .5s 3 both; }
 [data-ilustracion] .kb-saluda { transform-box: fill-box; transform-origin: 50% 100%; animation: kb-saluda .6s ease-in-out .5s 5 both; }
-[data-ilustracion] .kb-come { transform-box: view-box; animation: kb-come 1.5s ease-in-out .5s 3 both; }
+[data-ilustracion] .kb-bocado { animation: kb-bocado 1.4s ease-in-out .5s 3 both; }
+[data-ilustracion] .kb-mastica { transform-box: fill-box; transform-origin: 50% 0%; animation: kb-mastica .35s ease-in-out 1.1s 6 both; }
 [data-ilustracion] .kb-hoja { transform-box: fill-box; transform-origin: 0% 50%; animation: kb-hoja 1.8s ease-in-out .7s 2 both; }
 [data-ilustracion] .kb-cuerpo { transform-box: fill-box; transform-origin: 50% 100%; animation: kb-respira 1.6s ease-in-out .5s 3 both; }
+[data-ilustracion] .kb-ojo { transform-box: fill-box; transform-origin: 50% 50%; animation: kb-parpadea 4s ease-in-out 1.2s 2 both; }
 @media (prefers-reduced-motion: reduce) { [data-ilustracion] * { animation: none !important; } }`;
 
 function Lienzo({ etiqueta, children }) {
@@ -37,18 +44,33 @@ function Lienzo({ etiqueta, children }) {
   );
 }
 
-// La kettlebell: bola casi completa con la base plana, asa gruesa que nace
-// de los hombros, un brillo y la línea de la base en el tono de la sección.
-function Kettlebell({ tono }) {
+// La kettlebell: bola casi completa con la base plana y el asa gruesa que
+// nace de los hombros. Lisa, sin brillos ni líneas de sombra.
+function Kettlebell({ children }) {
   return (
     <g className="kb-cuerpo">
       <path d="M-25 -15C-32 -36 -24 -50 0 -50C24 -50 32 -36 25 -15" fill="none" stroke={B} strokeWidth="11" strokeLinecap="round" />
       <path d="M-22.6 32A36 36 0 1 1 22.6 32Z" fill={B} />
-      <path d="M-25 2C-24 -11 -16 -21 -5 -24" fill="none" stroke={tono} strokeWidth="4" strokeLinecap="round" />
-      <path d="M-20 29H20" stroke={tono} strokeWidth="3.5" strokeLinecap="round" />
+      {children}
     </g>
   );
 }
+
+// Las caras: trazos simples en grafito.
+const trazo = { stroke: CARA, strokeWidth: 2.8, strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' };
+// Ojos felices (arquitos hacia arriba).
+const OjosFelices = ({ y = 0, dx = 9 }) => (
+  <g {...trazo}><path d={`M${-dx - 4} ${y + 1.5} Q${-dx} ${y - 3.5} ${-dx + 4} ${y + 1.5}`} /><path d={`M${dx - 4} ${y + 1.5} Q${dx} ${y - 3.5} ${dx + 4} ${y + 1.5}`} /></g>
+);
+// Ojos apretados por el esfuerzo (> <).
+const OjosEsfuerzo = ({ y = 0, dx = 9 }) => (
+  <g {...trazo}><path d={`M${-dx - 4} ${y - 3} L${-dx + 2} ${y} L${-dx - 4} ${y + 3}`} /><path d={`M${dx + 4} ${y - 3} L${dx - 2} ${y} L${dx + 4} ${y + 3}`} /></g>
+);
+// Ojos que miran hacia abajo (leyendo): medias lunas.
+const OjosLeyendo = ({ y = 0, dx = 9 }) => (
+  <g {...trazo}><path d={`M${-dx - 4} ${y} Q${-dx} ${y + 4} ${-dx + 4} ${y}`} /><path d={`M${dx - 4} ${y} Q${dx} ${y + 4} ${dx + 4} ${y}`} /></g>
+);
+const Sonrisa = ({ y = 10, w = 7 }) => <path d={`M${-w} ${y} Q0 ${y + 7} ${w} ${y}`} {...trazo} />;
 
 function Piernas() {
   return (
@@ -64,16 +86,19 @@ function Piernas() {
 
 const brazo = { stroke: B, strokeWidth: 6, strokeLinecap: 'round', fill: 'none' };
 
-export function IlusDash({ tono = 'rgba(122,85,0,0.30)' }) {
-  // Saluda con la mano en alto; la otra en la cintura.
+export function IlusDash() {
+  // Saluda con la mano en alto, contenta; la otra en la cintura.
   return (
     <Lienzo etiqueta="dash">
       <g transform="translate(110 70)">
         <Piernas />
-        <path d="M32 10 Q44 14 40 25" {...brazo} />
-        <Kettlebell tono={tono} />
+        <path d="M33 10 Q45 14 41 25" {...brazo} />
+        <Kettlebell>
+          <OjosFelices y={2} />
+          <Sonrisa y={10} w={8} />
+        </Kettlebell>
         <g className="kb-saluda">
-          <path d="M-33 4 Q-48 -8 -50 -30" {...brazo} />
+          <path d="M-34 4 Q-48 -8 -50 -30" {...brazo} />
           <circle cx="-50" cy="-34" r="5" fill={B} />
         </g>
       </g>
@@ -81,13 +106,16 @@ export function IlusDash({ tono = 'rgba(122,85,0,0.30)' }) {
   );
 }
 
-export function IlusEntreno({ tono = 'rgba(47,108,196,0.35)' }) {
-  // Levanta la barra por encima del asa.
+export function IlusEntreno() {
+  // Levanta la barra por encima del asa, con cara de esfuerzo.
   return (
     <Lienzo etiqueta="entreno">
       <g transform="translate(110 80) scale(0.86)">
         <Piernas />
-        <Kettlebell tono={tono} />
+        <Kettlebell>
+          <OjosEsfuerzo y={2} dx={10} />
+          <ellipse cx="0" cy="13" rx="4" ry="4.6" fill={CARA} />
+        </Kettlebell>
         <g className="kb-sube">
           <path d="M-35 2 Q-62 -18 -46 -62" {...brazo} /><path d="M35 2 Q62 -18 46 -62" {...brazo} />
           <g transform="translate(0 -66)">
@@ -104,29 +132,33 @@ export function IlusEntreno({ tono = 'rgba(47,108,196,0.35)' }) {
   );
 }
 
-export function IlusComida({ tono = 'rgba(47,127,69,0.35)', fuerte = '#3E8E57' }) {
-  // Come: el plato hondo delante, en una mano; el tenedor sube con el bocado.
+export function IlusComida({ fuerte = '#3E8E57', bocado = '#F2B544' }) {
+  // Come: el plato en la mano derecha, por fuera del cuerpo; con la otra
+  // mano lleva el tenedor (verde, para que se vea sobre el blanco) a la boca.
   return (
     <Lienzo etiqueta="comida">
-      <g transform="translate(110 70)">
+      <g transform="translate(104 70)">
         <Piernas />
-        <Kettlebell tono={tono} />
-        {/* El plato, delante del cuerpo */}
-        <g transform="translate(14 14)">
-          <circle cx="-8" cy="-3" r="6" fill={fuerte} opacity="0.55" /><circle cx="4" cy="-5" r="7" fill={fuerte} opacity="0.7" /><circle cx="14" cy="-2" r="4.5" fill={fuerte} opacity="0.55" />
-          <path d="M-21 0 H25 A23 15 0 0 1 -21 0 Z" fill={fuerte} />
-          <path d="M-14 5 Q2 10 17 5" stroke={B} strokeWidth="2.2" strokeLinecap="round" fill="none" opacity="0.5" />
+        {/* El plato: brazo por fuera y el plato al lado */}
+        <path d="M34 8 Q44 14 47 9" {...brazo} />
+        <g transform="translate(60 8)">
+          <circle cx="-8" cy="-4" r="5.5" fill={bocado} /><circle cx="2" cy="-6" r="6.5" fill={fuerte} opacity="0.75" /><circle cx="11" cy="-3.5" r="4.5" fill={bocado} opacity="0.85" />
+          <path d="M-16 0 H17 A16.5 12 0 0 1 -16 0 Z" fill={fuerte} />
         </g>
-        <path d="M35 4 Q46 14 38 20" {...brazo} />
-        <circle cx="38" cy="21" r="4.5" fill={B} />
-        {/* El brazo con el tenedor: baja al plato y sube con el bocado */}
-        <g className="kb-come" style={{ transformOrigin: '75px 74px' }}>
-          <path d="M-35 4 Q-50 -6 -46 -26" {...brazo} />
-          <circle cx="-45" cy="-29" r="4.5" fill={B} />
-          <g transform="translate(-44 -32) rotate(30)">
-            <path d="M0 0 V-18" stroke={B} strokeWidth="3.5" strokeLinecap="round" />
-            <path d="M-4.5 -16 V-26 M0 -16 V-27 M4.5 -16 V-26 M-4.5 -16 H4.5" stroke={B} strokeWidth="2.6" strokeLinecap="round" fill="none" />
-            <circle cx="0" cy="-30" r="5" fill={fuerte} />
+        <Kettlebell>
+          <OjosFelices y={-2} />
+          {/* La boca abierta, que mastica */}
+          <ellipse className="kb-mastica" cx="2" cy="11" rx="5.5" ry="5" fill={CARA} />
+        </Kettlebell>
+        {/* El brazo con el tenedor, por fuera del cuerpo: gira desde el
+            hombro y lleva el bocado hasta la boca */}
+        <g className="kb-bocado" style={{ transformOrigin: '69px 79px' }}>
+          <path d="M-35 9 Q-45 11 -47 4" {...brazo} />
+          <circle cx="-47" cy="2" r="4.8" fill={B} />
+          <g transform="translate(-45 3) rotate(100)">
+            <path d="M0 0 V-31" stroke={fuerte} strokeWidth="3.4" strokeLinecap="round" />
+            <path d="M-4.5 -29 V-38 M0 -29 V-39 M4.5 -29 V-38 M-4.5 -29 H4.5" stroke={fuerte} strokeWidth="2.6" strokeLinecap="round" fill="none" />
+            <circle cx="0" cy="-42" r="4.6" fill={bocado} />
           </g>
         </g>
       </g>
@@ -134,16 +166,19 @@ export function IlusComida({ tono = 'rgba(47,127,69,0.35)', fuerte = '#3E8E57' }
   );
 }
 
-export function IlusAprende({ tono = 'rgba(201,95,23,0.35)', fuerte = '#D9732E' }) {
+export function IlusAprende({ fuerte = '#D9732E' }) {
   // Lee: el libro abierto en las dos manos, delante del cuerpo, con la
-  // tapa de color para que se lea sobre el blanco.
+  // tapa de color; los ojos miran hacia abajo, a la página.
   return (
     <Lienzo etiqueta="aprende">
       <g transform="translate(110 70)">
         <Piernas />
-        <Kettlebell tono={tono} />
-        <g transform="translate(0 12)">
-          <path d="M-35 -8 Q-44 2 -36 8" {...brazo} /><path d="M35 -8 Q44 2 36 8" {...brazo} />
+        <Kettlebell>
+          <OjosLeyendo y={-9} />
+          <Sonrisa y={-1} w={5} />
+        </Kettlebell>
+        <g transform="translate(0 17)">
+          <path d="M-35 -10 Q-45 0 -37 8" {...brazo} /><path d="M35 -10 Q45 0 37 8" {...brazo} />
           {/* Tapa */}
           <path d="M0 -10 C-12 -17 -28 -17 -40 -11 V14 C-28 9 -12 9 0 15 C12 9 28 9 40 14 V-11 C28 -17 12 -17 0 -10 Z" fill={fuerte} />
           {/* Hojas */}
