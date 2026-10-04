@@ -45,31 +45,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // index.html) y no se retiene nada — directo a la app.
 if (typeof window !== 'undefined') {
   const warmStart = (() => { try { return !!sessionStorage.getItem('mt:booted'); } catch (e) { return false; } })();
-  // Visual nueva: la entrada LARGA (primera del día) dura ~2,7 s y la CORTA
-  // ~0,85 s; después la kettlebell vuela a la cabecera del Dash.
+  // Visual nueva: la entrada (primera vez del día o tras 2 h sin usar la
+  // app, ver index.html) dura ~3,4 s; el fondo se desvanece y aparece la app.
+  // Si no toca entrada, no se retiene nada.
   const raiz = document.documentElement;
   const splashV2 = raiz.classList.contains('splash-v2');
-  const introCompleta = raiz.classList.contains('intro-completa');
-  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? (introCompleta ? 2750 : 850) : 2200;
-
-  // El vuelo: la kettlebell de la entrada va a parar justo encima de la de
-  // la cabecera del Dash (si el Dash está a la vista); el fondo se desvanece
-  // a la vez y la app aparece debajo. Si no hay Dash, solo se desvanece.
-  const volarAlDash = () => {
-    try {
-      const marca = document.querySelector('#splash2 .marca');
-      const suya = marca && marca.querySelector('.cuerpo');
-      const destino = document.querySelector('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] path[d^="M-22.6 32A36"]');
-      if (!suya || !destino) return;
-      const a = suya.getBoundingClientRect(), b = destino.getBoundingClientRect(), m = marca.getBoundingClientRect();
-      if (!a.width || !b.width) return;
-      const ax = a.left + a.width / 2, ay = a.top + a.height / 2;
-      marca.style.transformOrigin = `${ax - m.left}px ${ay - m.top}px`;
-      marca.style.transform = `translate(${b.left + b.width / 2 - ax}px, ${b.top + b.height / 2 - ay}px) scale(${b.width / a.width})`;
-    } catch (e) { /* sin vuelo: solo se desvanece */ }
-  };
+  const conEntrada = raiz.classList.contains('intro-completa');
+  const ENTRADA_MS = 3400;
+  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? (conEntrada ? ENTRADA_MS : 0) : 2200;
   const cerrarEntrada = () => {
-    if (splashV2) volarAlDash();
     document.body.classList.add('app-ready');
     if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F1F0EA'); }
     try { sessionStorage.setItem('mt:booted', '1'); } catch (e) {}
@@ -79,25 +63,25 @@ if (typeof window !== 'undefined') {
     setTimeout(cerrarEntrada, holdLeft);
   });
 
-  // La CORTA otra vez al volver a la app después de un rato minimizada
-  // (3 min o más). Nunca en medio de un entreno: ahí estorbaría.
+  // La entrada otra vez al volver a la app tras 2 h o más en segundo plano
+  // (es «abrirla después de un buen rato»). Nunca en medio de un entreno.
   if (splashV2) {
     let ocultaDesde = 0;
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') { ocultaDesde = Date.now(); return; }
-      if (!ocultaDesde || Date.now() - ocultaDesde < 3 * 60 * 1000) return;
+      if (!ocultaDesde || Date.now() - ocultaDesde < 2 * 60 * 60 * 1000) return;
       ocultaDesde = 0;
       if (document.querySelector('[data-reloj-sesion]')) return;
       const viejo = document.getElementById('splash2');
       if (!viejo) return;
-      // Un clon limpio: así las animaciones arrancan de cero.
+      // Un clon limpio y su reloj en cero: así todo arranca desde el inicio.
       const nuevo = viejo.cloneNode(true);
-      nuevo.querySelector('.marca')?.removeAttribute('style');
-      raiz.classList.remove('intro-completa');
-      raiz.classList.add('intro-corta', 'intro-repite');
+      raiz.classList.remove('intro-nada');
+      raiz.classList.add('intro-completa', 'intro-repite');
       document.body.classList.remove('app-ready');
       viejo.replaceWith(nuevo);
-      setTimeout(cerrarEntrada, 850);
+      try { nuevo.querySelector('svg').setCurrentTime(0); } catch (e) { /* sin SMIL */ }
+      setTimeout(cerrarEntrada, ENTRADA_MS);
     });
   }
 }
