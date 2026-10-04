@@ -28,7 +28,7 @@ import { WHATSAPP_COACH, nombresEj } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
-import { etiquetaDia, vozDash } from './vozCoach.js';
+import { etiquetaDia } from './vozCoach.js';
 import { useAncho, Tarjeta, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca } from './GraficasV2.jsx';
 import {
   SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT,
@@ -291,10 +291,9 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
   const [vista, setVista] = useState('inicio');
   const [sinRetos, setSinRetos] = useState(false);
   const [aprende, setAprende] = useState(() => (cacheAprende.has(name) ? cacheAprende.get(name) : undefined));   // undefined = cargando, null = sin datos
-  // Comunidad: cuántas publicaciones no ha visto (el número en su botón) y
-  // la firma de la más nueva (el puntito del Dash en la barra).
+  // Comunidad: cuántas publicaciones no ha visto (el número en su pastilla)
+  // y la firma de la más nueva (el puntito del Dash en la barra).
   const [nuevosComunidad, setNuevosComunidad] = useState(0);
-  const [ultimaComunidad, setUltimaComunidad] = useState(null);
   // Relojes: si hay uno conectado, su tarjeta con el último día.
   const [reloj, setReloj] = useState(null);
   useEffect(() => {
@@ -315,7 +314,6 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
     if (name && vista === 'inicio') leerComunidad(name).then(r => {
       if (!vivo || !r || !r.ok) return;
       setNuevosComunidad(r.posts.filter(p => !p.visto).length);
-      setUltimaComunidad([...r.posts].sort((a, b) => String(b.publicado_en).localeCompare(String(a.publicado_en)))[0] || null);
       if (acciones.firmaComunidad) acciones.firmaComunidad(firmaComunidad(r));
     });
     return () => { vivo = false; };
@@ -370,43 +368,19 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
     <Marco ref={raizRef}>
       {/* Saludo: con la misma letra y la voz del coach de las cabeceras de Hoy. */}
       <CabeceraHoy tema="dash" sangria="16px" arriba="calc(62px + env(safe-area-inset-top, 0px))"
-        voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, sub: vozDash({ hoy, racha }) }} />
-      {/* Configuración: el engranaje, arriba a la derecha (a la altura de la
-          píldora de la sección) */}
-      <button data-abrir-config onClick={() => setVista('config')} aria-label="Configuración" style={{
-        position: 'absolute', top: 'calc(14px + env(safe-area-inset-top, 0px))', right: 16, zIndex: 5,
-        width: 40, height: 40, borderRadius: 99, border: 0, cursor: 'pointer', display: 'grid', placeItems: 'center',
-        background: 'rgba(255,255,255,0.86)', color: TEXT, boxShadow: '0 1px 2px rgba(40,40,30,0.05), 0 4px 12px rgba(60,60,40,0.08)',
-        WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)',
-      }}><GearSix size={20} /></button>
-
-      {/* Atajos: en UNA sola línea y compactos, para no quitarle el
-          protagonismo a las gráficas. Si un teléfono muy angosto no los
-          alcanza, la fila se desliza de lado en vez de partirse. */}
-      <div data-atajos style={{ display: 'flex', flexWrap: 'nowrap', gap: 6, marginTop: 14, overflowX: 'auto', scrollbarWidth: 'none', padding: '2px 0 6px' }}>
-        {acciones.recordatorios && <Pastilla mini icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
-        <Pastilla mini icono={Mountains} color="#D9744A" onClick={() => setSinRetos(true)}>Reto</Pastilla>
-        {wa && <Pastilla mini icono={WhatsappLogo} color="#25A35A" href={wa}>Coach</Pastilla>}
-
+        voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, b: racha >= 3 ? `${racha} días seguidos.` : 'Mira cómo vas.' }} />
+      {/* Atajos: en UNA sola línea y del mismo alto, para no quitarle el
+          protagonismo a las gráficas. Recordatorios y Configuración van
+          solo con su ícono (campana y tuerca) para que todo quepa. */}
+      <div data-atajos style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 5, marginTop: 14, overflowX: 'auto', scrollbarWidth: 'none', padding: '6px 6px 6px 0' }}>
+        <Pastilla mini apretada icono={Mountains} color="#D9744A" onClick={() => setSinRetos(true)}>Reto</Pastilla>
+        {wa && <Pastilla mini apretada icono={WhatsappLogo} color="#25A35A" href={wa}>Coach</Pastilla>}
+        <Pastilla mini apretada icono={UsersThree} color="#3C7BD6" badge={nuevosComunidad} badgeEncima data-abrir-comunidad
+          aria-label={`Comunidad${nuevosComunidad ? ` · ${nuevosComunidad} ${nuevosComunidad === 1 ? 'nueva' : 'nuevas'}` : ''}`}
+          onClick={() => setVista('comunidad')}>Comunidad</Pastilla>
+        {acciones.recordatorios && <Pastilla mini soloIcono icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
+        <Pastilla mini soloIcono icono={GearSix} color={TEXT} data-abrir-config onClick={() => setVista('config')}>Configuración</Pastilla>
       </div>
-
-      {/* Comunidad: lo último que compartió el coach, con cuántas no ha visto */}
-      <button data-abrir-comunidad onClick={() => setVista('comunidad')} style={{
-        width: '100%', display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, padding: '12px 14px', border: 0, borderRadius: 20, cursor: 'pointer',
-        background: '#FFFFFF', boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', textAlign: 'left', fontFamily: 'inherit',
-      }}>
-        <span style={{ position: 'relative', width: 40, height: 40, borderRadius: 99, background: '#1F1F1F', color: '#fff', display: 'grid', placeItems: 'center', flex: 'none' }}>
-          <UsersThree size={21} />
-          {nuevosComunidad > 0 && <span data-nuevos-comunidad style={{ position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99, background: '#E0A21A', color: '#fff', fontSize: 11, fontWeight: 800, display: 'grid', placeItems: 'center', boxShadow: '0 0 0 2px #fff' }}>{nuevosComunidad}</span>}
-        </span>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: 'block', fontSize: 15.5, fontWeight: 750, color: TEXT }}>Comunidad{nuevosComunidad > 0 ? ` · ${nuevosComunidad} ${nuevosComunidad === 1 ? 'nueva' : 'nuevas'}` : ''}</span>
-          <span style={{ display: 'block', fontSize: 13, color: TEXT_MUTED, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {ultimaComunidad ? ultimaComunidad.texto : 'Lo que comparto con todo el equipo'}
-          </span>
-        </span>
-        <CaretRight size={18} color={TEXT_LIGHT} />
-      </button>
 
       {reloj && <TarjetaReloj reloj={reloj} />}
 

@@ -262,12 +262,13 @@ try {
   await p.getByText('Días de cardio').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
-  ok('Dash: el saludo con la letra de las cabeceras, sin firma, con banda curva y manchas', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
+  ok('Dash: el saludo como las demás cabeceras (dos líneas, la segunda en amarillo), sin firma, con banda curva y tres manchas', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
     && /^MARTES 29/.test(await p.locator('[data-cabecera-hoy="dash"] [data-etiqueta]').innerText())
-    && (await p.locator('[data-cabecera-hoy="dash"] [data-sub]').innerText()).length > 10
+    && await p.locator('[data-cabecera-hoy="dash"] [data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(168, 116, 0)')
+    && (await p.locator('[data-cabecera-hoy="dash"] [data-sub]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
-    && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
+    && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 3);
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
     const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));
     return getComputedStyle(el).transitionProperty.includes('stroke-dashoffset') && o < c;
@@ -277,11 +278,14 @@ try {
     && (await dash.getByRole('button', { name: 'Reto' }).count()) === 1);
   await dash.getByRole('button', { name: 'Reto' }).click();
   const wa = await dash.getByRole('link', { name: /Coach/ }).getAttribute('href');
-  ok('los tres atajos van en UNA línea y enteros', await dash.evaluate(() => {
+  ok('los atajos (reto, coach, comunidad, recordatorios y la tuerca) van en UNA línea, enteros y del mismo alto', await dash.evaluate(() => {
     const bs = [...document.querySelectorAll('[data-atajos] > *')];
     const tops = new Set(bs.map(b => Math.round(b.getBoundingClientRect().top)));
-    return bs.length === 3 && tops.size === 1 && bs.every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; });
-  }));
+    const altos = new Set(bs.map(b => Math.round(b.getBoundingClientRect().height)));
+    return bs.length === 5 && tops.size === 1 && altos.size === 1 && bs.every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth - 16; });
+  }), await dash.evaluate(() => JSON.stringify([...document.querySelectorAll('[data-atajos] > *')].map(b => { const r = b.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), Math.round(r.height)]; }))));
+  ok('Comunidad ya no es una tarjeta grande arriba de las gráficas', (await dash.locator('[data-atajos] [data-abrir-comunidad]').count()) === 1
+    && (await dash.locator('[data-atajos] [data-abrir-config]').count()) === 1);
   ok('WhatsApp: el mensaje por defecto es «Hola Mau!»', wa === 'https://wa.me/573008527043?text=Hola%20Mau!', wa);
   ok('Unidades ya no está en el Dash', (await dash.getByRole('button', { name: /Unidades/ }).count()) === 0);
   ok('saludo que empuja (no «un día a la vez»)', (await dash.getByText(/Un día a la vez/).count()) === 0);
@@ -357,9 +361,9 @@ try {
   await p.getByRole('button', { name: 'Dash', exact: true }).click().catch(() => {});
   await p.goto('http://localhost:5198/');
   await p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });
-  await p.locator('[data-nuevos-comunidad]').waitFor({ timeout: 8000 }).catch(() => {});
-  ok('comunidad: su tarjeta en el Dash con lo último y cuántas no ha visto', /Comunidad · 2 nuevas/.test(await p.locator('[data-abrir-comunidad]').innerText())
-    && /3 entrenos/.test(await p.locator('[data-abrir-comunidad]').innerText()), await p.locator('[data-abrir-comunidad]').innerText());
+  await p.locator('[data-abrir-comunidad] [data-badge]').waitFor({ timeout: 8000 }).catch(() => {});
+  ok('comunidad: su pastilla en el Dash con cuántas no ha visto', (await p.locator('[data-abrir-comunidad] [data-badge]').innerText()) === '2'
+    && /Comunidad · 2 nuevas/.test(await p.locator('[data-abrir-comunidad]').getAttribute('aria-label')));
   await p.locator('[data-abrir-comunidad]').click();
   const com = p.locator('[data-comunidad]');
   await com.locator('[data-post]').first().waitFor({ timeout: 8000 });
