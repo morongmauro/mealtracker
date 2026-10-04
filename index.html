@@ -41,6 +41,7 @@
         // La entrada nueva es negra: la barra del teléfono también, mientras dura.
         if (document.documentElement.classList.contains('splash-v2') && !document.documentElement.classList.contains('warm-start')) {
           var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#0C0C0B');
+          setTimeout(function(){ try { var t2 = document.querySelector('meta[name="theme-color"]'); if (t2 && !document.body.classList.contains('app-ready')) t2.setAttribute('content', '#F4F2EC'); } catch (e) {} }, 1600);
         }
       } catch (e) {}
     </script>
@@ -107,17 +108,20 @@
       /* Arranque caliente (misma sesión): sin opener, directo a la app */
       html.warm-start #splash { display: none; }
       /* ── Apertura de la visual nueva · «Las palabras» ───────────────────
-         Fondo negro y letra enorme. Las cuatro frases se van apilando en la
-         misma pantalla, cada una en el color de su sección, y abajo aparece
-         la imagen de la marca: el anillo verde que se dibuja y, dentro, la
-         kettlebell que saluda.
-           0.15 s  ENTRENA.        blanco
-           0.55 s  COME BIEN.      verde
-           0.95 s  APRENDE.        naranja
-           1.35 s  CON MÉTODO.     blanco
-           1.75 s  el anillo se dibuja; 2.05 s sale la kettlebell
-         Se queda quieto hasta que la app está lista (mínimo 2,9 s desde que
-         se toca el ícono, ver main.jsx) y se desvanece. */
+         Fondo negro y letra enorme; las cuatro frases se apilan rápido, cada
+         una en el color de su sección. Después sale de atrás un círculo
+         claro que se agranda y vuelve todo claro; en el centro se dibuja la
+         gráfica circular verde del programa, se llena, le salen los ojitos
+         (estilo Headspace) y se convierte en la kettlebell que saluda.
+           0.08–0.50 s  ENTRENA. · COME BIEN. · APRENDE. · CON MÉTODO.
+           1.15–1.75 s  el círculo claro cubre la pantalla
+           1.80–2.60 s  la gráfica circular se dibuja
+           2.65–2.95 s  se llena: ya es el cuerpo
+           2.95 s       los ojitos y la sonrisa
+           3.30–3.70 s  el asa, las piernas y los brazos
+           3.80–4.80 s  saluda
+         La app espera a que termine (mínimo 5 s desde que se toca el ícono,
+         ver main.jsx): nada se corta antes de verse. */
       @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: block;
         src: url('/fonts/figtree.woff2') format('woff2-variations'), url('/fonts/figtree.woff2') format('woff2'); }
       #splash2 { display: none; }
@@ -132,24 +136,34 @@
         font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 900;
         font-size: min(11.4vw, 62px); line-height: 0.98; letter-spacing: -0.035em; color: #FFFFFF; }
       #splash2 .w { display: block; overflow: hidden; padding: 0.06em 0 0.04em; margin-top: -0.06em; }
-      #splash2 .w > span { display: block; transform: translateY(135%); animation: s2entra .42s cubic-bezier(.2,.8,.2,1) forwards; }
-      #splash2 .w1 > span { animation-delay: .15s; }
-      #splash2 .w2 > span { color: #5BB273; animation-delay: .55s; }
-      #splash2 .w3 > span { color: #F2964A; animation-delay: .95s; }
-      #splash2 .w4 > span { animation-delay: 1.35s; }
+      #splash2 .w > span { display: block; transform: translateY(135%); animation: s2entra .3s cubic-bezier(.2,.8,.2,1) forwards; }
+      #splash2 .w1 > span { animation-delay: .08s; }
+      #splash2 .w2 > span { color: #5BB273; animation-delay: .22s; }
+      #splash2 .w3 > span { color: #F2964A; animation-delay: .36s; }
+      #splash2 .w4 > span { animation-delay: .50s; }
       @keyframes s2entra { to { transform: translateY(0); } }
-      #splash2 .marca { position: absolute; left: 50%; bottom: calc(9vh + env(safe-area-inset-bottom, 0px)); width: min(46vw, 210px); height: min(46vw, 210px);
-        margin-left: calc(min(46vw, 210px) / -2); overflow: visible; }
-      #splash2 .marca .riel { opacity: 0; animation: s2in .3s ease-out 1.7s forwards; }
-      #splash2 .marca .arco { stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: s2traza .8s cubic-bezier(.3,0,.2,1) 1.75s forwards; }
-      #splash2 .marca .kb { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; animation: s2kb .55s cubic-bezier(.2,.9,.3,1.25) 2.05s forwards; }
-      #splash2 .marca .mano { transform-box: fill-box; transform-origin: 50% 100%; animation: s2saluda .5s ease-in-out 2.5s 2; }
-      @keyframes s2kb { 0% { opacity: 0; transform: translateY(18px) scale(.8); } 100% { opacity: 1; transform: none; } }
-      @keyframes s2saluda { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(20deg); } }
+      /* El círculo claro que sale de atrás y cubre todo */
+      #splash2 .claro { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%;
+        background: #F4F2EC; transform: scale(0); animation: s2claro .6s cubic-bezier(.65,0,.35,1) 1.15s forwards; }
+      @keyframes s2claro { to { transform: scale(260); } }
+      /* La marca, en el centro */
+      #splash2 .marca { position: absolute; left: 50%; top: 50%; width: min(64vw, 280px); height: min(64vw, 280px);
+        transform: translate(-50%, -54%); overflow: visible; }
+      #splash2 .riel { opacity: 0; animation: s2in .25s ease-out 1.75s forwards; }
+      #splash2 .arco { opacity: 0; stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: s2in .01s linear 1.8s forwards, s2traza .8s cubic-bezier(.45,0,.25,1) 1.8s forwards, s2fuera .3s ease-out 2.7s forwards; }
+      #splash2 .riel { animation: s2in .25s ease-out 1.75s forwards, s2fuera .3s ease-out 2.7s forwards; }
+      #splash2 .cuerpo { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; animation: s2llena .32s cubic-bezier(.2,.9,.3,1.2) 2.65s forwards; }
+      #splash2 .cara { opacity: 0; animation: s2in .25s ease-out 2.95s forwards; }
+      #splash2 .asa { opacity: 0; stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: s2in .01s linear 3.3s forwards, s2traza .4s ease-out 3.3s forwards; }
+      #splash2 .resto { opacity: 0; animation: s2in .3s ease-out 3.4s forwards; }
+      #splash2 .mano { transform-box: view-box; transform-origin: 45.6px 110.4px; animation: s2saluda .5s ease-in-out 3.8s 2; }
+      @keyframes s2llena { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+      @keyframes s2saluda { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(18deg); } }
       @keyframes s2traza { to { stroke-dashoffset: 0; } }
       @keyframes s2in { to { opacity: 1; } }
+      @keyframes s2fuera { to { opacity: 0; } }
       @media (prefers-reduced-motion: reduce) {
-        #splash2 .w > span, #splash2 .marca .riel, #splash2 .marca .arco, #splash2 .marca .kb, #splash2 .marca .mano { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+        #splash2 *, #splash2 .w > span { animation-duration: 0.01s !important; animation-delay: 0s !important; }
       }
       @media (prefers-reduced-motion: reduce) {
         #splash .ring { animation-duration: 0.01s; }
@@ -187,18 +201,23 @@
     </div>
     <div id="splash2" aria-label="Entrena con Método">
       <p class="pila"><span class="w w1"><span>ENTRENA.</span></span><span class="w w2"><span>COME BIEN.</span></span><span class="w w3"><span>APRENDE.</span></span><span class="w w4"><span>CON MÉTODO.</span></span></p>
+      <div class="claro" aria-hidden="true"></div>
       <svg class="marca" viewBox="0 0 200 200" fill="none" aria-hidden="true">
-        <circle class="riel" cx="100" cy="100" r="88" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="13"/>
-        <path class="arco" d="M100 12 A88 88 0 1 1 23.8 144" pathLength="100" stroke="#4FA463" stroke-width="13" stroke-linecap="round"/>
-        <g class="kb"><g transform="translate(100 112) scale(0.86)">
-          <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"><path d="M-11 31 L-14 43"/><path d="M11 31 L14 43"/></g>
-          <ellipse cx="-17" cy="44.5" rx="6.5" ry="3" fill="#FFFFFF"/><ellipse cx="17" cy="44.5" rx="6.5" ry="3" fill="#FFFFFF"/>
-          <path d="M33 10 Q45 14 41 25" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
-          <path d="M-25 -15C-32 -36 -24 -50 0 -50C24 -50 32 -36 25 -15" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round"/>
-          <path d="M-22.6 32A36 36 0 1 1 22.6 32Z" fill="#FFFFFF"/>
-          <g stroke="#0C0C0B" stroke-width="2.8" stroke-linecap="round"><path d="M-13 3.5 Q-9 -1.5 -5 3.5"/><path d="M5 3.5 Q9 -1.5 13 3.5"/><path d="M-8 10 Q0 17 8 10"/></g>
-          <g class="mano"><path d="M-34 4 Q-48 -8 -50 -30" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/><circle cx="-50" cy="-34" r="5" fill="#FFFFFF"/></g>
-        </g></g>
+        <g transform="translate(100 104) scale(1.6)">
+          <!-- La gráfica circular del programa -->
+          <circle class="riel" cx="0" cy="4" r="36" stroke="#1F1F1F" stroke-opacity="0.09" stroke-width="7"/>
+          <path class="arco" d="M0 -32 A36 36 0 1 1 -0.01 -32" pathLength="100" stroke="#4FA463" stroke-width="7" stroke-linecap="round"/>
+          <!-- …que se llena y se vuelve la kettlebell -->
+          <g class="resto">
+            <g stroke="#4FA463" stroke-width="6" stroke-linecap="round"><path d="M-11 31 L-14 43"/><path d="M11 31 L14 43"/></g>
+            <ellipse cx="-17" cy="44.5" rx="6.5" ry="3" fill="#4FA463"/><ellipse cx="17" cy="44.5" rx="6.5" ry="3" fill="#4FA463"/>
+            <path d="M33 10 Q45 14 41 25" stroke="#4FA463" stroke-width="6" stroke-linecap="round"/>
+          </g>
+          <path class="asa" d="M-25 -15C-32 -36 -24 -50 0 -50C24 -50 32 -36 25 -15" pathLength="100" stroke="#4FA463" stroke-width="11" stroke-linecap="round"/>
+          <path class="cuerpo" d="M-22.6 32A36 36 0 1 1 22.6 32Z" fill="#4FA463"/>
+          <g class="cara" stroke="#1F1F1F" stroke-width="2.7" stroke-linecap="round"><path d="M-14 1 Q-10 5.5 -6 1"/><path d="M6 1 Q10 5.5 14 1"/><path d="M-15 9 Q0 21 15 9"/></g>
+          <g class="resto"><g class="mano"><path d="M-34 4 Q-48 -8 -50 -30" stroke="#4FA463" stroke-width="6" stroke-linecap="round"/><circle cx="-50" cy="-34" r="5" fill="#4FA463"/></g></g>
+        </g>
       </svg>
     </div>
     <div id="root"></div>

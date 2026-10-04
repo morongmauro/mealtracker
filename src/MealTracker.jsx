@@ -5211,10 +5211,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           100% { transform: translate3d(6%, -4%, 0) scale(1.55); filter: saturate(1.5) brightness(1.14); }
         }
         .mt-pensando { opacity: 0; transition: opacity 0.8s ease; }
-        .mt-pensando.on { opacity: 1; animation: mtMece 5.5s ease-in-out infinite; }
+        .mt-pensando.on { opacity: 1; animation: mtMece 3.6s ease-in-out infinite; }
         @keyframes mtMece {
           0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-          50% { transform: translate3d(3%, -2.5%, 0) scale(1.05); }
+          33% { transform: translate3d(7%, -5%, 0) scale(1.1); }
+          66% { transform: translate3d(-6%, 4%, 0) scale(1.05); }
         }
         @media (prefers-reduced-motion: reduce) {
           .bg-stains-chat.thinking, .bg-stains-extra.on, .mt-pensando.on { animation: none; }
@@ -5333,9 +5334,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         {v2 ? (
           <div data-pensando-v2 className={`fixed pointer-events-none mt-pensando${loading ? ' on' : ''}`} style={{
             top: '-12%', left: '-12%', right: '-12%', bottom: '-12%',
-            background: `radial-gradient(46% 36% at 28% 30%, rgba(124,196,146,0.42), transparent 70%),
-              radial-gradient(40% 32% at 76% 62%, rgba(242,213,122,0.36), transparent 70%),
-              radial-gradient(36% 30% at 70% 18%, rgba(169,198,238,0.26), transparent 70%)`,
+            background: `radial-gradient(46% 36% at 28% 30%, rgba(124,196,146,0.55), transparent 70%),
+              radial-gradient(40% 32% at 76% 62%, rgba(242,213,122,0.48), transparent 70%),
+              radial-gradient(36% 30% at 70% 18%, rgba(169,198,238,0.34), transparent 70%)`,
           }} />
         ) : (<>
         <div className={`fixed pointer-events-none bg-stains-extra warm${loading ? ' on' : ''}`} style={{
@@ -5965,6 +5966,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               acciones={{
                 // Los atajos que antes vivían en «Tus herramientas» de Hoy.
                 recordatorios: () => { haptic(8); setActiveModal('reminders'); },
+                // La línea de recordatorios del Dash: los del coach y abrir
+                // una cápsula o un video concretos.
+                recordatoriosCoach: coachReminders,
+                marcarRecordatorio: (id) => toggleCoachReminder(id),
+                abrirAprendizaje: (destino) => openLearning(destino),
                 // Configuración y Comunidad (visual nueva)
                 recorrido: () => { haptic(8); setRecorrido(true); },
                 programa: () => irSubV2('aprende', 'programa'),
@@ -7270,32 +7276,28 @@ function PaymentNotice({ info, style, v2 = false }) {
   // ámbar (el acento de la marca), el monto grande en grafito.
   if (v2) {
     const totalV2 = info.monto_total || info.monto;
+    // Corte: «15 de septiembre» (sin el «Tu fecha de corte fue el…»).
+    const corte = textoCorte(info).replace(/^Tu fecha de corte fue el /, '').replace(/\.$/, '');
     return (
       <div data-aviso-pago className="fade-up" style={{
-        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 22, background: '#FFFFFF',
+        display: 'flex', alignItems: 'center', gap: 11, padding: '10px 14px', borderRadius: 18, background: '#FFFFFF',
         boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', fontFamily: 'inherit', ...style,
       }}>
-        <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 99, background: '#F6E6B8', color: '#7A5500', display: 'grid', placeItems: 'center', flex: 'none' }}>
-          <CreditCard size={19} strokeWidth={2.1} />
+        <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 99, background: '#F6E6B8', color: '#7A5500', display: 'grid', placeItems: 'center', flex: 'none' }}>
+          <CreditCard size={17} strokeWidth={2.1} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>
-              {meses > 1 ? `${meses} MENSUALIDADES PENDIENTES` : 'MENSUALIDAD PENDIENTE'}
-            </span>
-            {dias > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: '#7A5500', background: '#FBF1D3', padding: '3px 8px', borderRadius: 99, whiteSpace: 'nowrap' }}>hace {dias} {dias === 1 ? 'día' : 'días'}</span>}
+          <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {meses > 1 ? `${meses} MENSUALIDADES PENDIENTES` : 'MENSUALIDAD PENDIENTE'}
           </div>
-          {totalV2 ? (
-            <div className="num" style={{ color: TEXT, fontSize: 24, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, marginTop: 4 }}>
-              {fmtMonto(totalV2, info.moneda)}
-            </div>
-          ) : null}
-          <div style={{ fontSize: 14, color: TEXT_MUTED, lineHeight: 1.45, marginTop: 4 }}>
-            {meses > 1
-              ? 'Es el total acumulado de tu programa. Cuando lo pongas al día, este aviso desaparece solo.'
-              : <>{textoCorte(info)} Al registrar el pago, este aviso desaparece solo.</>}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 1, minWidth: 0 }}>
+            {totalV2 ? <span className="num" style={{ color: TEXT, fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', flex: 'none' }}>{fmtMonto(totalV2, info.moneda)}</span> : null}
+            <span style={{ fontSize: 13, color: TEXT_MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {meses > 1 ? 'total acumulado' : `corte ${corte}`}
+            </span>
           </div>
         </div>
+        {dias > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: '#7A5500', background: '#FBF1D3', padding: '4px 9px', borderRadius: 99, whiteSpace: 'nowrap', flex: 'none' }}>hace {dias} {dias === 1 ? 'día' : 'días'}</span>}
       </div>
     );
   }
@@ -7502,6 +7504,76 @@ const CSS_CHAT_V2 = `
 [data-chat-v2] .fade-up[data-rol="user"] > div { background: #E3F0E6 !important; box-shadow: none !important; border-radius: 20px 20px 6px 20px !important; }
 [data-chat-v2] .shimmer-text { background-image: linear-gradient(90deg, #6B6B6B 0%, #2F7F45 50%, #6B6B6B 100%) !important; animation-duration: 2.6s !important; }
 `;
+
+// Visual nueva: la tarjeta de una comida registrada. Jerarquía clara y sin
+// aire de más: arriba el momento (SNACK · 12:00) y las acciones; luego el
+// total grande con sus macros; los alimentos en filas compactas; y abajo
+// cómo va el día, con su barrita.
+function TarjetaComidaV2({ e, isHistorical, goals, totals, quantityWarning, esFavorita, onFavorite, onEdit, onDelete }) {
+  const r1 = (x) => Math.round((x ?? 0) * 10) / 10;
+  const macros = (o, tam = 12.5) => (
+    <span className="num" style={{ display: 'inline-flex', gap: 10, fontSize: tam, fontWeight: 700 }}>
+      <span style={{ color: C_PROTEIN }}>P {r1(o.p)}g</span><span style={{ color: C_CARBS }}>C {r1(o.c)}g</span><span style={{ color: C_FAT }}>G {r1(o.g)}g</span>
+    </span>
+  );
+  const meta = goals && goals.kcal ? goals.kcal : 0;
+  const left = Math.round(meta - totals.kcal);
+  const ratio = meta ? totals.kcal / meta : 0;
+  const nota = left < 0 ? 'Sin drama: mañana ajustas' : ratio >= 0.95 ? '¡Meta del día cerrada!' : ratio >= 0.6 ? 'Vas muy bien' : ratio >= 0.3 ? 'Buen ritmo' : 'Quedó registrado';
+  const boton = { border: 0, background: 'transparent', padding: 6, borderRadius: 99, cursor: 'pointer', display: 'grid', placeItems: 'center' };
+  return (
+    <div className="flex justify-start fade-up">
+      <div data-tarjeta-comida style={{ width: '100%', maxWidth: '92%', background: '#FFFFFF', borderRadius: '20px 20px 20px 6px', padding: '12px 14px 12px',
+        boxShadow: '0 1px 2px rgba(40,40,30,0.05), 0 6px 18px rgba(60,60,40,0.07)', fontFamily: 'inherit', lineHeight: 1.25 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal}</span>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{e.time}</span>
+          <span style={{ flex: 1 }} />
+          {onFavorite && <button onClick={() => onFavorite(e)} style={boton} aria-label={esFavorita ? 'Ya está en favoritos' : 'Guardar en favoritos'}><Star size={15} style={{ color: esFavorita ? C_CARBS : TEXT_LIGHT, fill: esFavorita ? C_CARBS : 'none' }} /></button>}
+          {!isHistorical && <>
+            <button onClick={() => onEdit(e.id)} style={boton} aria-label="Editar"><Pencil size={15} style={{ color: TEXT_LIGHT }} /></button>
+            <button onClick={() => onDelete(e.id)} style={boton} aria-label="Borrar"><Trash2 size={15} style={{ color: TEXT_LIGHT }} /></button>
+          </>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 12, rowGap: 2, marginTop: 8 }}>
+          <span className="num" style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.03em', color: TEXT }}>{Math.round(e.kcal ?? 0)}<span style={{ fontSize: 14, fontWeight: 700, color: TEXT_MUTED, marginLeft: 3 }}>kcal</span></span>
+          {macros(e, 13)}
+        </div>
+        {quantityWarning && (
+          <div style={{ marginTop: 8, padding: '7px 10px', borderRadius: 12, background: '#FBF1E5', color: WARN, fontSize: 12.5, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+            <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>{quantityWarning} <button onClick={() => onEdit(e.id)} style={{ border: 0, background: 'none', padding: 0, color: WARN, textDecoration: 'underline', fontWeight: 700, fontFamily: 'inherit', fontSize: 12.5, cursor: 'pointer' }}>Ajustar cantidad</button></span>
+          </div>
+        )}
+        <div style={{ marginTop: 8 }}>
+          {e.items.map((it, i) => (
+            <div key={i} data-alimento style={{ padding: '6px 0', borderTop: '1px solid #F0EDE6' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 650, color: TEXT }}>
+                  {it.name}{it.amount ? <span style={{ fontWeight: 500, color: TEXT_MUTED }}> · {it.amount}</span> : null}
+                  {it.needs_quantity && <span style={{ fontSize: 11.5, fontWeight: 700, color: WARN }}> · estimado</span>}
+                </span>
+                <span className="num" style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_MUTED, flex: 'none' }}>{it.kcal} kcal</span>
+              </div>
+              <div style={{ marginTop: 2 }}>{macros(it, 11.5)}</div>
+            </div>
+          ))}
+        </div>
+        {!isHistorical && meta > 0 && (
+          <div style={{ marginTop: 6, paddingTop: 9, borderTop: '1px solid #F0EDE6' }}>
+            <div style={{ height: 5, borderRadius: 99, background: '#EEEAE1', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${Math.min(100, Math.round(ratio * 100))}%`, borderRadius: 99, background: left < 0 ? '#D9A21E' : 'linear-gradient(90deg, #7CC492, #46965A)' }} />
+            </div>
+            <div className="num" style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 6, fontSize: 12.5 }}>
+              <span style={{ color: TEXT_MUTED }}>Llevas <b style={{ color: TEXT }}>{Math.round(totals.kcal).toLocaleString('es-CO')}</b> de {Math.round(meta).toLocaleString('es-CO')} kcal</span>
+              <span style={{ color: '#2F7F45', fontWeight: 800, textAlign: 'right' }}>{nota}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const MessageBubble = memo(function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature, onOpenLearning, onOpenRecetario, v2 = false }) {
   const { ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT, BORDER } = v2 ? PALETA_CHAT_V2 : PALETA_CHAT;
@@ -8052,6 +8124,11 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
       // Hide orphan messages silently (no more "Comida eliminada" ghost)
       return null;
     }
+    if (v2) return (
+      <TarjetaComidaV2 e={e} isHistorical={isHistorical} goals={goals} totals={totals} quantityWarning={message.quantityWarning}
+        esFavorita={!!(favoriteSignatures && favSignature && favoriteSignatures.has(favSignature(e)))}
+        onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} />
+    );
     return (
       <div className="flex justify-start fade-up">
         <div className="max-w-[90%] p-4 rounded-[22px] rounded-bl-lg text-sm w-full" style={{
@@ -10125,7 +10202,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           )}
 
           {alimTab === 'dia' && (
-            <VistaDia
+            <VistaDia v2={v2p}
               fecha={diaSel} setFecha={setDiaSel} hoy={today}
               historia={combinedHistory} detalle={combinedDetail} goals={goals}
               onBorrarComida={onBorrarComida} onBorrarDia={onBorrarDia}
@@ -10187,7 +10264,7 @@ function fraseFecha(fecha, hoy) {
   return js.toLocaleDateString('es', { day: 'numeric', month: 'long' });
 }
 
-function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComida, onBorrarDia, onEditar, onAgregar }) {
+function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComida, onBorrarDia, onEditar, onAgregar, v2 = false }) {
   const [armado, setArmado] = useState(null);   // 'dia' | id de la comida
   const temporizador = useRef(null);
   const armar = (k) => {
@@ -10211,6 +10288,116 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
   const comidas = detalle[fecha] || [];
   const esHoy = fecha === hoy;
   const pct = datos && goals?.kcal ? Math.round((datos.kcal / goals.kcal) * 100) : null;
+
+  // Visual nueva: tarjetas blancas, letra con jerarquía y los colores de
+  // la marca (verde de la sección y los de cada macro). Sin oliva.
+  if (v2) {
+    const sombra = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)';
+    const flecha = { width: 38, height: 38, borderRadius: 99, border: 0, background: '#FFFFFF', boxShadow: sombra, display: 'grid', placeItems: 'center', cursor: 'pointer' };
+    const r1 = (x) => Math.round((x ?? 0) * 10) / 10;
+    const MACRO = [
+      { k: 'kcal', t: 'Calorías', u: '', color: '#46965A' },
+      { k: 'p', t: 'Proteína', u: 'g', color: C_PROTEIN },
+      { k: 'c', t: 'Carbos', u: 'g', color: C_CARBS },
+      { k: 'g', t: 'Grasa', u: 'g', color: C_FAT },
+    ];
+    return (
+      <div data-vista-dia-v2 style={{ fontFamily: 'inherit' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <button onClick={() => mover(-1)} aria-label="Día anterior" style={flecha}><ChevronLeft size={18} style={{ color: TEXT }} /></button>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>{esHoy ? 'HOY' : 'DÍA'}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: TEXT }}>{(() => { const f = String(formatDate(fecha) || '').toLowerCase(); return f.charAt(0).toUpperCase() + f.slice(1); })()}</div>
+          </div>
+          <button onClick={() => mover(1)} disabled={esHoy} aria-label="Día siguiente" style={{ ...flecha, opacity: esHoy ? 0.35 : 1 }}><ChevronRight size={18} style={{ color: TEXT }} /></button>
+        </div>
+        {!datos ? (
+          <div style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: sombra, padding: '26px 18px', textAlign: 'center' }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: TEXT }}>Sin registro este día</div>
+            <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 4 }}>Si comiste algo, puedes agregarlo ahora.</div>
+            {typeof onAgregar === 'function' && (
+              <button onClick={() => onAgregar(fecha)} style={{ marginTop: 14, height: 44, padding: '0 20px', borderRadius: 999, border: 0, background: TEXT, color: '#fff', fontFamily: 'inherit', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>Agregar lo que comí</button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              {MACRO.map(m => {
+                const v = Math.round(datos[m.k] || 0), g = Math.round(goals?.[m.k] || 0);
+                return (
+                  <div key={m.k} data-dato-dia style={{ background: '#FFFFFF', borderRadius: 16, boxShadow: sombra, padding: '10px 10px 9px' }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_MUTED }}>{m.t}</div>
+                    <div className="num" style={{ fontSize: 18, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', marginTop: 2 }}>{v.toLocaleString('es-CO')}<span style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_LIGHT }}>{m.u}</span></div>
+                    {g > 0 && <div className="num" style={{ fontSize: 11.5, color: TEXT_LIGHT }}>de {g.toLocaleString('es-CO')}{m.u}</div>}
+                    <div style={{ height: 4, borderRadius: 99, background: '#EEEAE1', marginTop: 6, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${g ? Math.min(100, Math.round((v / g) * 100)) : 0}%`, background: m.color, borderRadius: 99 }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {pct != null && (
+              <div style={{ fontSize: 13.5, color: TEXT_MUTED, margin: '10px 2px 0' }}>
+                <b style={{ color: '#2F7F45' }}>{pct} %</b> de tu meta de calorías{datos.water ? ` · ${datos.water} ml de agua` : ''}
+              </div>
+            )}
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED, margin: '18px 2px 8px' }}>LO QUE COMISTE</div>
+            {comidas.length > 0 ? (
+              <div style={{ display: 'grid', gap: 8 }}>
+                {comidas.map((e, i) => (
+                  <div key={e.id ?? i} data-comida-dia style={{ background: '#FFFFFF', borderRadius: 18, boxShadow: sombra, padding: '11px 13px 10px', lineHeight: 1.25 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal}</span>
+                      {e.time && <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{e.time}</span>}
+                      <span style={{ flex: 1 }} />
+                      <span className="num" style={{ fontSize: 15, fontWeight: 800, color: TEXT }}>{Math.round(e.kcal ?? 0)} <span style={{ fontSize: 12, color: TEXT_MUTED }}>kcal</span></span>
+                      {typeof onEditar === 'function' && e.id != null && (
+                        <button onClick={() => onEditar(fecha, e.id)} aria-label={`Editar ${e.meal}`} style={{ border: 0, background: 'none', padding: 5, cursor: 'pointer', display: 'grid' }}><Pencil size={15} style={{ color: TEXT_LIGHT }} /></button>
+                      )}
+                      {typeof onBorrarComida === 'function' && e.id != null && (
+                        armado === e.id ? (
+                          <button onClick={() => { setArmado(null); onBorrarComida(fecha, e.id); }} style={{ border: 0, background: DANGER, color: '#fff', borderRadius: 99, padding: '4px 10px', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>¿Borrar?</button>
+                        ) : (
+                          <button onClick={() => armar(e.id)} aria-label={`Borrar ${e.meal}`} style={{ border: 0, background: 'none', padding: 5, cursor: 'pointer', display: 'grid' }}><Trash2 size={15} style={{ color: TEXT_LIGHT }} /></button>
+                        )
+                      )}
+                    </div>
+                    <div style={{ marginTop: 6 }}>
+                      {(e.items || []).map((it, j) => (
+                        <div key={j} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '4px 0', borderTop: j ? '1px solid #F2EFE8' : 0 }}>
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: TEXT }}>{it.name}{it.amount ? <span style={{ fontWeight: 500, color: TEXT_MUTED }}> · {it.amount}</span> : null}</span>
+                          <span className="num" style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, flex: 'none' }}>{Math.round(it.kcal || 0)} kcal</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="num" style={{ display: 'flex', gap: 10, fontSize: 12, fontWeight: 700, marginTop: 6 }}>
+                      <span style={{ color: C_PROTEIN }}>P {r1(e.p)}g</span><span style={{ color: C_CARBS }}>C {r1(e.c)}g</span><span style={{ color: C_FAT }}>G {r1(e.g)}g</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ background: '#FFFFFF', borderRadius: 18, boxShadow: sombra, padding: '13px 14px', fontSize: 14, color: TEXT_MUTED }}>
+                Ese día quedaron los totales, pero no el detalle de cada comida.
+              </div>
+            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+              {typeof onAgregar === 'function' && (
+                <button onClick={() => onAgregar(fecha)} style={{ height: 40, padding: '0 16px', borderRadius: 999, border: 0, background: '#FFFFFF', boxShadow: sombra, color: TEXT, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>+ Agregar comida</button>
+              )}
+              {typeof onBorrarDia === 'function' && (
+                armado === 'dia' ? (
+                  <button onClick={() => { setArmado(null); onBorrarDia(fecha); }} style={{ height: 40, padding: '0 16px', borderRadius: 999, border: 0, background: DANGER, color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>¿Seguro? Toca otra vez para borrar el día</button>
+                ) : (
+                  <button onClick={() => armar('dia')} style={{ height: 40, padding: '0 16px', borderRadius: 999, border: 0, background: `${DANGER}14`, color: DANGER, fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Trash2 size={14} /> Borrar todo el día</button>
+                )
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>

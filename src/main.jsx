@@ -45,9 +45,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 // index.html) y no se retiene nada — directo a la app.
 if (typeof window !== 'undefined') {
   const warmStart = (() => { try { return !!sessionStorage.getItem('mt:booted'); } catch (e) { return false; } })();
-  // Visual nueva: «Las palabras» termina a los ~2,6 s; se deja ver completa.
+  // Visual nueva: la entrada termina a los ~4,8 s (palabras, círculo claro,
+  // gráfica y kettlebell que saluda); se deja ver completa.
   const splashV2 = document.documentElement.classList.contains('splash-v2');
-  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? 2900 : 2200;
+  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? 5000 : 2200;
   requestAnimationFrame(() => {
     const holdLeft = Math.max(80, SPLASH_MIN_MS - performance.now());
     setTimeout(() => {

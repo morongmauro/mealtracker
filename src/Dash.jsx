@@ -21,7 +21,7 @@ import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 're
 import { Bell, Mountains, WhatsappLogo, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
-import { leerAprendizaje } from './aprendizaje.js';
+import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
 import { api, hoyLocal, sumarDias, aFecha } from './entrenoDatos.js';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
@@ -381,6 +381,12 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
         {acciones.recordatorios && <Pastilla mini soloIcono icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
         <Pastilla mini soloIcono icono={GearSix} color={TEXT} data-abrir-config onClick={() => setVista('config')}>Configuración</Pastilla>
       </div>
+
+      {/* Recordatorios a la vista: los dos primeros, y «Ver todos». La
+          campanita sigue; esto es una ayudita para quien no va a buscarla. */}
+      <RecordatoriosLinea name={name} hoy={hoy} aprende={aprende} medidas={ent?.medidas} cargandoMedidas={entrenoOn && !ent && !falloEnt}
+        coach={acciones.recordatoriosCoach || []} alMarcarCoach={acciones.marcarRecordatorio}
+        alPrograma={acciones.programa} alMedir={() => setMidiendo(true)} alAbrir={acciones.abrirAprendizaje} />
 
       {reloj && <TarjetaReloj reloj={reloj} />}
 
@@ -816,5 +822,68 @@ function Cuerpo({ medidas, cargando, alMedir }) {
         </>
       )}
     </Tarjeta>
+  );
+}
+
+// ── Recordatorios del Dash ────────────────────────────────────────────────
+// Una línea por recordatorio, dos a la vista y el resto con «Ver todos».
+// Además de los que pone el coach, la app recuerda sola:
+//   · leer «Sobre el programa», hasta que lo haya visto;
+//   · registrar el peso y la composición del mes, hasta que haya una medida
+//     este mes (o la marque como hecha);
+//   · leer las cápsulas y ver los videos, mientras falte alguno.
+// El círculo de la izquierda marca como hecho (los del coach y el del
+// mes); tocar la línea lleva a donde se hace.
+const CLAVE_MES = (ym) => `mt:medidaMes:${ym}`;
+function RecordatoriosLinea({ name, hoy, aprende, medidas, cargandoMedidas, coach, alMarcarCoach, alPrograma, alMedir, alAbrir }) {
+  const [todos, setTodos] = useState(false);
+  const [mesHecho, setMesHecho] = useState(() => { try { return localStorage.getItem(CLAVE_MES(hoy.slice(0, 7))) === '1'; } catch (e) { return false; } });
+  const ym = hoy.slice(0, 7);
+  const bloque = (k) => (aprende && aprende.bloques ? aprende.bloques.find(b => b.k === k) : null);
+  const items = [];
+  // Sobre el programa (para quien empieza).
+  const hub = bloque('hub');
+  const programaVisto = (hub && hub.piezas.some(p => p.id === 'programa' && p.vista)) || marcadaLocal(name, 'hub', 'programa');
+  if (aprende !== undefined && !programaVisto) items.push({ id: 'programa', texto: 'Lee «Sobre el programa»: cómo funciona tu proceso', ir: alPrograma, Icono: BookOpenText, color: '#C95F17' });
+  // Peso y composición del mes.
+  const medidaMes = (medidas || []).some(m => String(m.fecha || '').slice(0, 7) === ym);
+  if (!cargandoMedidas && medidas && !medidaMes && !mesHecho) items.push({ id: 'medida', texto: 'Registra tu peso y composición de este mes', ir: alMedir, marcar: () => {
+    try { localStorage.setItem(CLAVE_MES(ym), '1'); } catch (e) { /* sin almacenamiento */ }
+    setMesHecho(true);
+  }, Icono: Heartbeat, color: AMBAR });
+  // Los del coach, pendientes.
+  coach.filter(r => !r.done_at).forEach(r => items.push({ id: 'c-' + r.id, texto: r.text, marcar: alMarcarCoach ? () => alMarcarCoach(r.id) : null, Icono: Bell, color: '#E0A21A', coach: true }));
+  // Cápsulas y videos que faltan: el siguiente de cada uno.
+  const cap = bloque('capsula'), pod = bloque('podcast');
+  const sigCap = cap && cap.piezas.find(p => !p.vista);
+  const sigPod = pod && pod.piezas.find(p => !p.vista);
+  if (sigCap) items.push({ id: 'cap', texto: `Lee una cápsula: «${sigCap.title}»`, ir: alAbrir ? () => alAbrir(`cap:${sigCap.id}`) : null, Icono: BookOpenText, color: '#C95F17' });
+  if (sigPod) items.push({ id: 'pod', texto: `Mira un video: «${sigPod.title}»`, ir: alAbrir ? () => alAbrir(`pod:${sigPod.id}`) : null, Icono: Sparkle, color: '#C95F17' });
+  if (!items.length) return null;
+  const visibles = todos ? items : items.slice(0, 2);
+  return (
+    <section data-recordatorios-dash style={{ marginTop: 12, background: '#FFFFFF', borderRadius: 20, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', padding: '10px 6px 6px 14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 8px 4px 0' }}>
+        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>RECORDATORIOS</span>
+        {items.length > 2 && (
+          <button data-ver-recordatorios onClick={() => setTodos(t => !t)} style={{ border: 0, background: 'none', padding: '2px 4px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>
+            {todos ? 'Ver menos' : `Ver todos (${items.length})`}
+          </button>
+        )}
+      </div>
+      {visibles.map((it, i) => (
+        <div key={it.id} data-recordatorio={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, borderTop: i ? '1px solid #F0EDE6' : 0 }}>
+          {it.marcar ? (
+            <button onClick={it.marcar} aria-label="Marcar como hecho" data-marcar style={{ width: 26, height: 26, flex: 'none', borderRadius: 99, border: `2px solid ${it.color}`, background: 'transparent', cursor: 'pointer', padding: 0 }} />
+          ) : (
+            <span aria-hidden="true" style={{ width: 26, height: 26, flex: 'none', borderRadius: 99, background: `${it.color}1F`, color: it.color, display: 'grid', placeItems: 'center' }}><it.Icono size={15} weight="bold" /></span>
+          )}
+          <button onClick={it.ir || it.marcar || undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: '8px 4px 8px 0', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.texto}</span>
+            {it.ir && <CaretRight size={16} color={TEXT_LIGHT} style={{ flex: 'none' }} />}
+          </button>
+        </div>
+      ))}
+    </section>
   );
 }

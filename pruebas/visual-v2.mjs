@@ -283,6 +283,17 @@ try {
     && (await dash.getByRole('button', { name: 'Reto' }).count()) === 1);
   await dash.getByRole('button', { name: 'Reto' }).click();
   const wa = await dash.getByRole('link', { name: /Coach/ }).getAttribute('href');
+  // La línea de recordatorios: dos a la vista, «Ver todos» si hay más.
+  await dash.locator('[data-recordatorios-dash]').waitFor({ timeout: 6000 }).catch(() => {});
+  const nRec = await dash.locator('[data-recordatorio]').count();
+  const verTodos = dash.locator('[data-ver-recordatorios]');
+  ok('Dash: línea de recordatorios con dos a la vista (y «Ver todos» si hay más)', nRec >= 1 && nRec <= 2
+    && /Sobre el programa|peso y composición|cápsula|video/i.test(await dash.locator('[data-recordatorios-dash]').innerText()), `${nRec}`);
+  if (await verTodos.count()) {
+    await verTodos.click(); await espera(250);
+    ok('Dash: «Ver todos» muestra el resto de recordatorios', (await dash.locator('[data-recordatorio]').count()) > 2);
+    await verTodos.click(); await espera(150);
+  }
   ok('los atajos (reto, coach, comunidad, recordatorios y la tuerca) van en UNA línea, enteros y del mismo alto', await dash.evaluate(() => {
     const bs = [...document.querySelectorAll('[data-atajos] > *')];
     const tops = new Set(bs.map(b => Math.round(b.getBoundingClientRect().top)));
@@ -760,6 +771,14 @@ try {
   await p.locator('.fixed.inset-0.z-50 [data-grafica-comida]').first().scrollIntoViewIfNeeded();
   await espera(300);
   await foto(p, '10d-graficas-comidas');
+  // La vista de un día, con la estética de la marca.
+  await p.locator('[data-pestanas-comida] button', { hasText: 'Día' }).click(); await espera(500);
+  ok('calendario de comidas: el día con tarjetas blancas, sin oliva', (await p.locator('[data-vista-dia-v2]').count()) === 1 && await p.evaluate(() => {
+    const oliva = /rgb\((1[2-4]\d), (1[4-5]\d), (8\d|9\d)\)|rgb\(212, 218, 184\)|rgb\(74, 82, 56\)/;
+    const v = document.querySelector('[data-vista-dia-v2]');
+    return ![...v.querySelectorAll('*')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor));
+  }));
+  await foto(p, '10e-dia-comidas');
   ok('barra de Alimentación: Calendario abre el calendario de comidas', true);
   await p.getByRole('button', { name: 'Cerrar' }).last().dispatchEvent('pointerdown');
   await espera(800);
@@ -786,6 +805,8 @@ try {
   await suma.waitFor({ timeout: 6000 }).catch(() => {});
   await espera(800);
   ok('al registrar comida sale el «+kcal» con el avance del día', (await suma.count()) === 1 && /\+\d+ kcal/.test(await suma.innerText()) && /Vas en \d+ % de tu día/.test(await suma.innerText()), (await suma.count()) ? await suma.innerText() : 'no salió');
+  ok('chat: la comida registrada en tarjeta compacta (momento, total grande y alimentos)', (await p.locator('[data-tarjeta-comida]').count()) >= 1
+    && /kcal/.test(await p.locator('[data-tarjeta-comida]').last().innerText()) && (await p.locator('[data-tarjeta-comida] [data-alimento]').count()) >= 1);
   await foto(p, '09c-comida-suma');
   await espera(2600);
   ok('…y se va solo', (await suma.count()) === 0);

@@ -201,6 +201,9 @@ export async function leerAprendizajeConCache(nombre) {
 // al leer: reading_events). Así cuenta en su avance y el coach la ve en el
 // CRM. Si no hay red no pasa nada: se vuelve a marcar la próxima vez.
 const marcadas = new Set();
+// Lo que esta persona ya marcó como visto en esta sesión (aunque el centro
+// todavía no lo devuelva al leer).
+export const marcadaLocal = (nombre, source, key) => marcadas.has(`${nombre}|${source}|${key}`);
 export function registrarLectura(nombre, source, key, label) {
   if (!nombre || !key) return;
   const id = `${nombre}|${source}|${key}`;
