@@ -46,13 +46,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 if (typeof window !== 'undefined') {
   const warmStart = (() => { try { return !!sessionStorage.getItem('mt:booted'); } catch (e) { return false; } })();
   // Visual nueva: la entrada (cada vez que se abre la app, ver index.html)
-  // dura ~4,8 s desde que ARRANCA; el fondo se desvanece y aparece la app.
+  // dura ~2 s desde que ARRANCA; el fondo se desvanece y aparece la app.
   // Arranca cuando la app ya está armada debajo: mientras React monta, el
   // teléfono está ocupado y la animación se trabaría (se veía «congelada»).
   const raiz = document.documentElement;
   const splashV2 = raiz.classList.contains('splash-v2');
   const conEntrada = raiz.classList.contains('intro-completa');
-  const ENTRADA_MS = 4800;
+  const ENTRADA_MS = 2000;
   const cerrarEntrada = () => {
     document.body.classList.add('app-ready');
     if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F1F0EA'); }

@@ -141,16 +141,13 @@
          volver a ella desde segundo plano tras 2 h o más (ver main.jsx).
          Para que NO se trabe: mientras la app carga solo se ven el fondo y el
          riel del anillo; la secuencia arranca (html.intro-anda) cuando la app
-         ya está armada debajo. Ritmo suave, sin apuro:
-           0.20–1.60 s  la línea circular de progreso, gris oscuro, como las
+         ya está armada debajo. Rápida, como la de cualquier app:
+           0.05–0.75 s  la línea circular de progreso, gris oscuro, como las
                         del Dash, con el puntito en la punta, da la vuelta
-           0.30–1.40 s  «Entrena con Método.», palabra por palabra
-           1.60–2.20 s  se rellena con el círculo blanco
-           2.10–2.60 s  la línea se vuelve blanca y se desvanece
-           2.40–2.90 s  sale el asa
-           2.70–3.40 s  las piernas, los brazos con sus mancuernas y la cara
-           ~3.9 s       un parpadeo
-           4.80 s       el fondo se desvanece y aparece la app
+           0.10–0.70 s  «Entrena con / Método.» en dos líneas
+           0.75–1.10 s  se rellena con el círculo blanco
+           1.05–1.40 s  sale el asa: la kettlebell (sin cara ni brazos)
+           2.00 s       el fondo se desvanece y aparece la app
          El fondo cubre TODA la pantalla del teléfono, también la franja de
          abajo (en el iPhone «inset: 0» se quedaba corto y se veía la app), y
          se mide con la pantalla, no con la vista: al abrir desde el ícono el
@@ -178,45 +175,34 @@
       /* La escena: del tamaño de la pantalla visible (el contenedor es más
          grande que la pantalla, para tapar todo) */
       #splash2 .escena { position: absolute; left: 0; right: 0; top: 60px; height: 100vh; height: var(--alto-pantalla, 100lvh); }
-      /* La figura, en el centro (la sombra es una mancha fija debajo, no un
-         filtro: un filtro sobre algo que se anima cuesta en el teléfono) */
-      #splash2 .marca { position: absolute; left: 50%; top: 43%; width: min(88vw, 380px); height: min(88vw, 380px);
-        margin: calc(min(88vw, 380px) / -2) 0 0 calc(min(88vw, 380px) / -2); overflow: visible; }
-      #splash2 .sombra { position: absolute; left: 50%; top: calc(43% + min(19vw, 82px)); width: min(46vw, 200px); height: 28px; margin-left: calc(min(46vw, 200px) / -2);
-        border-radius: 50%; background: radial-gradient(closest-side, rgba(40,40,30,.18), rgba(40,40,30,0)); opacity: 0; }
+      /* La figura, en el centro */
+      #splash2 .marca { position: absolute; left: 50%; top: 40%; width: min(80vw, 340px); height: min(80vw, 340px);
+        margin: calc(min(80vw, 340px) / -2) 0 0 calc(min(80vw, 340px) / -2); overflow: visible; }
+      #splash2 .sombra { position: absolute; left: 50%; top: calc(40% + min(15vw, 64px)); width: min(40vw, 170px); height: 24px; margin-left: calc(min(40vw, 170px) / -2);
+        border-radius: 50%; background: radial-gradient(closest-side, rgba(40,40,30,.16), rgba(40,40,30,0)); opacity: 0; }
       /* Estado inicial (mientras carga): solo el riel */
       #splash2 .avance { opacity: 0; stroke-dasharray: 100 100; stroke-dashoffset: 100; }
-      #splash2 .punta, #splash2 .piernas, #splash2 .cara, #splash2 .brazos { opacity: 0; }
+      #splash2 .punta { opacity: 0; }
       #splash2 .cuerpo { transform-box: fill-box; transform-origin: 50% 50%; transform: scale(0); }
       #splash2 .asa { stroke-dasharray: 100 100; stroke-dashoffset: 100; }
-      #splash2 .brazos { transform: translateY(6px); }
-      #splash2 .ojos { transform-box: fill-box; transform-origin: 50% 50%; }
-      /* La secuencia, sin apuro */
-      html.intro-anda #splash2 .avance { animation: s2in .01s linear .2s forwards, s2traza 1.4s cubic-bezier(.45,0,.35,1) .2s forwards, s2blanco .35s ease-out 2.1s forwards; }
-      html.intro-anda #splash2 .riel { animation: s2blanco .35s ease-out 2.1s forwards; }
-      html.intro-anda #splash2 .punta { animation: s2in .01s linear .2s forwards, s2fuera .25s ease-out 1.5s forwards; }
-      html.intro-anda #splash2 .cuerpo { animation: s2nace .6s cubic-bezier(.3,1.12,.5,1) 1.6s forwards; }
-      html.intro-anda #splash2 .anillo { animation: s2fuera .4s ease-out 2.3s forwards; }
-      html.intro-anda #splash2 .sombra { animation: s2in .6s ease-out 1.8s forwards; }
-      html.intro-anda #splash2 .asa { animation: s2traza .5s cubic-bezier(.4,0,.3,1) 2.4s forwards; }
-      html.intro-anda #splash2 .piernas { animation: s2in .4s ease-out 2.7s forwards; }
-      html.intro-anda #splash2 .brazos { animation: s2brazos .5s cubic-bezier(.2,.8,.2,1) 2.85s forwards; }
-      html.intro-anda #splash2 .cara { animation: s2in .4s ease-out 3.0s forwards; }
-      html.intro-anda #splash2 .ojos { animation: s2parpadea .35s ease-in-out 3.9s 1; }
-      /* El nombre: la letra de las frases grandes de Hoy, en negro; sale casi al empezar */
-      #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(43% + min(37vw, 160px)); margin: 0; text-align: center;
-        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: clamp(28px, 8.4vw, 36px);
-        line-height: 1.08; letter-spacing: -0.03em; }
-      #splash2 .nombre span { display: inline-block; color: #1F1F1F; opacity: 0; transform: translateY(10px); }
-      html.intro-anda #splash2 .nombre span { animation: s2palabra .6s cubic-bezier(.2,.8,.2,1) forwards; }
-      html.intro-anda #splash2 .nombre .p1 { animation-delay: .3s; }
-      html.intro-anda #splash2 .nombre .p2 { animation-delay: .5s; }
-      html.intro-anda #splash2 .nombre .p3 { animation-delay: .7s; }
-      html.intro-anda #splash2 .nombre .p4 { animation-delay: .9s; }
+      /* La secuencia: rápida, como la de cualquier app (~2 s) */
+      html.intro-anda #splash2 .avance { animation: s2in .01s linear .05s forwards, s2traza .7s cubic-bezier(.45,0,.35,1) .05s forwards; }
+      html.intro-anda #splash2 .punta { animation: s2in .01s linear .05s forwards, s2fuera .15s ease-out .7s forwards; }
+      html.intro-anda #splash2 .cuerpo { animation: s2nace .35s cubic-bezier(.3,1.1,.5,1) .75s forwards; }
+      html.intro-anda #splash2 .anillo { animation: s2fuera .25s ease-out .95s forwards; }
+      html.intro-anda #splash2 .sombra { animation: s2in .3s ease-out .85s forwards; }
+      html.intro-anda #splash2 .asa { animation: s2traza .35s cubic-bezier(.4,0,.3,1) 1.05s forwards; }
+      /* El nombre en dos líneas, con la letra de las frases grandes de Hoy;
+         «Método.» en el gris de la línea circular */
+      #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(40% + min(28vw, 120px)); margin: 0; text-align: center;
+        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: clamp(30px, 9vw, 40px);
+        line-height: 1.04; letter-spacing: -0.035em; color: #1F1F1F; }
+      #splash2 .nombre span { display: block; opacity: 0; transform: translateY(8px); }
+      #splash2 .nombre .p2 { color: #4A4843; }
+      html.intro-anda #splash2 .nombre span { animation: s2palabra .45s cubic-bezier(.2,.8,.2,1) forwards; }
+      html.intro-anda #splash2 .nombre .p1 { animation-delay: .1s; }
+      html.intro-anda #splash2 .nombre .p2 { animation-delay: .22s; }
       @keyframes s2nace { to { transform: scale(1); } }
-      @keyframes s2brazos { to { opacity: 1; transform: none; } }
-      @keyframes s2parpadea { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.15); } }
-      @keyframes s2blanco { to { stroke: #FFFFFF; stroke-opacity: 1; } }
       @keyframes s2palabra { to { opacity: 1; transform: none; } }
       @keyframes s2traza { to { stroke-dashoffset: 0; } }
       @keyframes s2in { to { opacity: 1; } }
@@ -263,10 +249,6 @@
       <div class="escena">
       <div class="sombra"></div>
       <svg class="marca" viewBox="-100 -110 200 200" fill="none" aria-hidden="true">
-        <g class="piernas">
-          <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"><path d="M-11 31 L-14 43"/><path d="M11 31 L14 43"/></g>
-          <ellipse cx="-17" cy="44.5" rx="6.5" ry="3" fill="#FFFFFF"/><ellipse cx="17" cy="44.5" rx="6.5" ry="3" fill="#FFFFFF"/>
-        </g>
         <path class="asa" d="M-21 -17C-27 -36 -20 -49 0 -49C20 -49 27 -36 21 -17" pathLength="100" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round"/>
         <path class="cuerpo" d="M-22.6 32A36 36 0 1 1 22.6 32Z" fill="#FFFFFF"/>
         <!-- Primero: la línea circular de progreso del Dash, gris oscuro, con
@@ -274,22 +256,10 @@
         <g class="anillo">
           <circle class="riel" cx="0" cy="4" r="36" stroke="#2B2A27" stroke-opacity="0.13" stroke-width="7"/>
           <path class="avance" d="M0 -32 A36 36 0 1 1 -0.01 -32" pathLength="100" stroke="#4A4843" stroke-width="7" stroke-linecap="round"/>
-          <g class="punta"><circle cx="0" cy="-32" r="2.3" fill="#FFFFFF"/><animateTransform attributeName="transform" type="rotate" values="0 0 4;360 0 4" begin=".2s" dur="1.4s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".45 0 .35 1"/></g>
-        </g>
-        <!-- La cara de siempre: ojos cerrados en arco y sonrisa ancha -->
-        <g class="cara" stroke="#2B2A27" stroke-width="2.7" stroke-linecap="round">
-          <g class="ojos"><path d="M-11 -8 Q-7 -3.5 -3 -8"/><path d="M3 -8 Q7 -3.5 11 -8"/></g>
-          <path d="M-15 0 Q0 12 15 0"/>
-        </g>
-        <!-- Los brazos con sus mancuernas -->
-        <g class="brazos">
-          <path d="M-35 2 L-45 19 L-47 34" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M35 2 L45 19 L47 34" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-          <g transform="translate(-47 34)"><rect x="-12" y="-1.7" width="24" height="3.4" rx="1.7" fill="#3A3935"/><rect x="-14" y="-7" width="5.5" height="14" rx="2" fill="#3A3935"/><rect x="8.5" y="-7" width="5.5" height="14" rx="2" fill="#3A3935"/><rect x="-18.5" y="-4.5" width="4.5" height="9" rx="1.8" fill="#3A3935"/><rect x="14" y="-4.5" width="4.5" height="9" rx="1.8" fill="#3A3935"/></g>
-          <g transform="translate(47 34)"><rect x="-12" y="-1.7" width="24" height="3.4" rx="1.7" fill="#3A3935"/><rect x="-14" y="-7" width="5.5" height="14" rx="2" fill="#3A3935"/><rect x="8.5" y="-7" width="5.5" height="14" rx="2" fill="#3A3935"/><rect x="-18.5" y="-4.5" width="4.5" height="9" rx="1.8" fill="#3A3935"/><rect x="14" y="-4.5" width="4.5" height="9" rx="1.8" fill="#3A3935"/></g>
+          <g class="punta"><circle cx="0" cy="-32" r="2.3" fill="#FFFFFF"/><animateTransform attributeName="transform" type="rotate" values="0 0 4;360 0 4" begin=".05s" dur=".7s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".45 0 .35 1"/></g>
         </g>
       </svg>
-      <p class="nombre"><span class="p1">Entrena</span> <span class="p2">con</span> <span class="p3">Método</span><span class="p4">.</span></p>
+      <p class="nombre"><span class="p1">Entrena con</span><span class="p2">Método.</span></p>
       </div>
       <script>
         // La secuencia espera a que la app esté armada (main.jsx la arranca);

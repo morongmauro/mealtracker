@@ -298,7 +298,7 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
-  ok('Dash: la kettlebell levanta la bandera «HEY CHAMP!» con papelillo, junto a la frase, entera y sin taparla', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] text').textContent()) === 'HEY CHAMP!'
+  ok('Dash: la kettlebell levanta la bandera «¡HEY!» con papelillo, junto a la frase, entera y sin taparla', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] text').textContent()) === '¡HEY!'
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] .kb-papel > g').count()) === 8 && await ilusBien(p, 'dash'));
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
     const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));

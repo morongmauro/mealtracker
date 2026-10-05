@@ -5,7 +5,7 @@
 // las de verdad (bola con base plana y asa gruesa), con LA MISMA cara en
 // todas las secciones, al estilo Headspace: ojos cerrados en arco y una
 // sonrisa ancha. En cada sección hace lo suyo:
-//   Dash           levanta la bandera «HEY CHAMP!» con papelillo de celebración
+//   Dash           levanta la bandera «¡HEY!» con papelillo de celebración
 //   Entrenamiento  levanta la barra
 //   Alimentación   tenedor con el bocado en una mano y el plato en la otra
 //   Aprendizaje    sostiene el libro abierto en alto; se le prende el foco
@@ -86,7 +86,7 @@ function Piernas() {
 const brazo = { stroke: B, strokeWidth: 6, strokeLinecap: 'round', fill: 'none' };
 
 export function IlusDash() {
-  // Levanta una bandera de ánimo —«HEY CHAMP!»— con los dos brazos, como la
+  // Levanta una bandera de ánimo —«¡HEY!»— con los dos brazos, como la
   // barra de Entrenamiento, y a los lados salta papelillo de celebración en
   // los colores de los cuatro módulos.
   const abajo = ['M-35 2 Q-60 -18 -44 -58', 'M35 2 Q60 -18 44 -58'];
@@ -119,8 +119,8 @@ export function IlusDash() {
         <g transform="translate(0 -70)">
           <animateTransform attributeName="transform" type="translate" values="0 -70;0 -79;0 -70" {...anim} />
           {/* La bandera: tela amarilla (el color del Dash), con un vaivén */}
-          <path d="M-60 -14 H60 L54 0 L60 14 H-60 L-54 0 Z" fill="#F2C94C" />
-          <text x="0" y="5.2" textAnchor="middle" fontFamily="'Figtree Variable', Figtree, system-ui, sans-serif" fontWeight="900" fontSize="14.5" letterSpacing="0.2" fill="#2B2A27">HEY CHAMP!</text>
+          <path d="M-46 -14 H46 L40 0 L46 14 H-46 L-40 0 Z" fill="#F2C94C" />
+          <text x="0" y="5.2" textAnchor="middle" fontFamily="'Figtree Variable', Figtree, system-ui, sans-serif" fontWeight="900" fontSize="16" letterSpacing="0.4" fill="#2B2A27">¡HEY!</text>
           <circle cx="-44" cy="12" r="4.8" fill={B} /><circle cx="44" cy="12" r="4.8" fill={B} />
         </g>
       </g>
