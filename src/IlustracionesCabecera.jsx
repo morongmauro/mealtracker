@@ -46,9 +46,8 @@ function Lienzo({ etiqueta, children }) {
 
 // La cara de siempre, al estilo Headspace: dos ojos cerrados en arco y una
 // sonrisa ancha. `y` la sube o la baja (en Aprendizaje queda arriba del libro).
-// A PRUEBA (pedido de Mauro): sin ojos, solo la sonrisa, para ver si los
-// ojos la hacen infantil o agradable. Para volver a ponerlos: true.
-const CON_OJOS = false;
+// Los ojos van (se probó sin ellos y Mauro prefirió con). false = solo sonrisa.
+const CON_OJOS = true;
 
 export function Cara({ y = 0, color = CARA }) {
   const t = { stroke: color, strokeWidth: 2.7, strokeLinecap: 'round', fill: 'none' };
