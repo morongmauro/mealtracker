@@ -121,8 +121,8 @@
            1.55–1.90 s  el anillo se vuelve blanco y se funde con el círculo
            1.85–2.15 s  le salen el asa, las piernas y la cara
            2.05–2.55 s  los brazos suben sosteniendo dos mancuernas
-           2.35–2.70 s  abajo, «Entrena con Método.» con los colores de los
-                        módulos y la letra de las frases grandes de Hoy
+           2.35–2.70 s  abajo, «Entrena con Método.» en negro, con la letra
+                        de las frases grandes de Hoy
            ~3.4 s       el fondo se desvanece y aparece la app */
       @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: block;
         src: url('/fonts/figtree.woff2') format('woff2-variations'), url('/fonts/figtree.woff2') format('woff2'); }
@@ -157,15 +157,15 @@
       #splash2 .piernas { opacity: 0; animation: s2in .25s ease-out 1.9s forwards; }
       #splash2 .cara { opacity: 0; animation: s2in .25s ease-out 2.0s forwards; }
       #splash2 .brazos { opacity: 0; animation: s2in .15s ease-out 2.0s forwards; }
-      /* El nombre: la letra de las frases grandes de Hoy, una palabra por color */
+      /* El nombre: la letra de las frases grandes de Hoy, en negro */
       #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(43% + min(37vw, 160px)); margin: 0; text-align: center;
         font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: clamp(28px, 8.4vw, 36px);
         line-height: 1.08; letter-spacing: -0.03em; }
-      #splash2 .nombre span { display: inline-block; opacity: 0; transform: translateY(10px); animation: s2palabra .4s cubic-bezier(.2,.8,.2,1) forwards; }
-      #splash2 .nombre .p1 { color: #2F6CC4; animation-delay: 2.35s; }
-      #splash2 .nombre .p2 { color: #2F7F45; animation-delay: 2.45s; }
-      #splash2 .nombre .p3 { color: #C95F17; animation-delay: 2.55s; }
-      #splash2 .nombre .p4 { color: #D99A0B; animation-delay: 2.65s; }
+      #splash2 .nombre span { display: inline-block; color: #1F1F1F; opacity: 0; transform: translateY(10px); animation: s2palabra .4s cubic-bezier(.2,.8,.2,1) forwards; }
+      #splash2 .nombre .p1 { animation-delay: 2.35s; }
+      #splash2 .nombre .p2 { animation-delay: 2.45s; }
+      #splash2 .nombre .p3 { animation-delay: 2.55s; }
+      #splash2 .nombre .p4 { animation-delay: 2.65s; }
       @keyframes s2nace { to { transform: scale(1); } }
       @keyframes s2avance { to { stroke-dashoffset: 22; } }
       @keyframes s2blanco { to { stroke: #FFFFFF; stroke-opacity: 1; } }
