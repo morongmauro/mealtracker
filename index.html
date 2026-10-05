@@ -43,6 +43,14 @@
         // (warm-start: volver de Aprendizaje, una actualización). Al volver
         // desde segundo plano (minimizada) sale si pasaron 2 h o más (main.jsx).
         var raiz = document.documentElement;
+        // El tamaño de la PANTALLA (no de la vista): al abrir desde el ícono,
+        // el iPhone agranda la vista un instante después; si el fondo se
+        // midiera con la vista, «crecería» frente a los ojos.
+        try {
+          var lado = Math.max(screen.width || 0, screen.height || 0) || Math.max(innerWidth, innerHeight);
+          raiz.style.setProperty('--pantalla', lado + 'px');
+          raiz.style.setProperty('--alto-pantalla', (screen.height || innerHeight) + 'px');
+        } catch (e) {}
         if (raiz.classList.contains('splash-v2') && !raiz.classList.contains('warm-start')) {
           raiz.classList.add('intro-completa');
           var tc = document.querySelector('meta[name="theme-color"]');
@@ -128,7 +136,11 @@
            ~3.9 s       un parpadeo
            4.80 s       el fondo se desvanece y aparece la app
          El fondo cubre TODA la pantalla del teléfono, también la franja de
-         abajo (en el iPhone «inset: 0» se quedaba corto y se veía la app). */
+         abajo (en el iPhone «inset: 0» se quedaba corto y se veía la app), y
+         se mide con la pantalla, no con la vista: al abrir desde el ícono el
+         iPhone agranda la vista un instante después y el fondo «crecía».
+         El color del arranque (manifest.json, background_color) es el mismo
+         crema: antes era blanco y se veía una franja blanca abajo. */
       @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: block;
         src: url('/fonts/figtree.woff2') format('woff2-variations'), url('/fonts/figtree.woff2') format('woff2'); }
       #splash2 { display: none; }
@@ -140,16 +152,16 @@
       body.app-ready #splash2 { opacity: 0; }
       /* El fondo: manchas orgánicas, una por módulo, que se mecen despacio */
       #splash2 .fondo { position: absolute; inset: 0; overflow: hidden; background: #EFECE5; }
-      #splash2 .fondo i { position: absolute; width: 95vmax; height: 95vmax; border-radius: 50%; opacity: .9;
+      #splash2 .fondo i { position: absolute; width: calc(var(--pantalla, 100vmax) * .95); height: calc(var(--pantalla, 100vmax) * .95); border-radius: 50%; opacity: .9;
         will-change: transform; animation: s2mece 6s ease-in-out infinite alternate; }
-      #splash2 .fondo .m1 { left: -45vmax; top: -40vmax; background: radial-gradient(closest-side, #7FA6E3, rgba(127,166,227,0)); }
-      #splash2 .fondo .m2 { right: -45vmax; top: -30vmax; background: radial-gradient(closest-side, #F0CD5C, rgba(240,205,92,0)); animation-delay: -2s; }
-      #splash2 .fondo .m3 { left: -40vmax; bottom: -30vmax; background: radial-gradient(closest-side, #8CC79A, rgba(140,199,154,0)); animation-delay: -4s; }
-      #splash2 .fondo .m4 { right: -42vmax; bottom: -28vmax; background: radial-gradient(closest-side, #F2A877, rgba(242,168,119,0)); animation-delay: -1s; }
-      @keyframes s2mece { to { transform: translate3d(4vmax, 3vmax, 0) scale(1.06); } }
+      #splash2 .fondo .m1 { left: calc(var(--pantalla, 100vmax) * -.45); top: calc(var(--pantalla, 100vmax) * -.40); background: radial-gradient(closest-side, #7FA6E3, rgba(127,166,227,0)); }
+      #splash2 .fondo .m2 { right: calc(var(--pantalla, 100vmax) * -.45); top: calc(var(--pantalla, 100vmax) * -.30); background: radial-gradient(closest-side, #F0CD5C, rgba(240,205,92,0)); animation-delay: -2s; }
+      #splash2 .fondo .m3 { left: calc(var(--pantalla, 100vmax) * -.40); top: calc(var(--pantalla, 100vmax) * .55); background: radial-gradient(closest-side, #8CC79A, rgba(140,199,154,0)); animation-delay: -4s; }
+      #splash2 .fondo .m4 { right: calc(var(--pantalla, 100vmax) * -.42); top: calc(var(--pantalla, 100vmax) * .58); background: radial-gradient(closest-side, #F2A877, rgba(242,168,119,0)); animation-delay: -1s; }
+      @keyframes s2mece { to { transform: translate3d(calc(var(--pantalla, 100vmax) * .04), calc(var(--pantalla, 100vmax) * .03), 0) scale(1.06); } }
       /* La escena: del tamaño de la pantalla visible (el contenedor es más
          grande que la pantalla, para tapar todo) */
-      #splash2 .escena { position: absolute; left: 0; right: 0; top: 60px; height: 100vh; height: 100lvh; }
+      #splash2 .escena { position: absolute; left: 0; right: 0; top: 60px; height: 100vh; height: var(--alto-pantalla, 100lvh); }
       /* La figura, en el centro (la sombra es una mancha fija debajo, no un
          filtro: un filtro sobre algo que se anima cuesta en el teléfono) */
       #splash2 .marca { position: absolute; left: 50%; top: 43%; width: min(88vw, 380px); height: min(88vw, 380px);
