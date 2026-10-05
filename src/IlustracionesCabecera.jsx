@@ -46,11 +46,15 @@ function Lienzo({ etiqueta, children }) {
 
 // La cara de siempre, al estilo Headspace: dos ojos cerrados en arco y una
 // sonrisa ancha. `y` la sube o la baja (en Aprendizaje queda arriba del libro).
+// A PRUEBA (pedido de Mauro): sin ojos, solo la sonrisa, para ver si los
+// ojos la hacen infantil o agradable. Para volver a ponerlos: true.
+const CON_OJOS = false;
+
 export function Cara({ y = 0, color = CARA }) {
   const t = { stroke: color, strokeWidth: 2.7, strokeLinecap: 'round', fill: 'none' };
   return (
     <g transform={`translate(0 ${y})`}>
-      <g className="kb-ojos" {...t}><path d="M-11 -1 Q-7 3.5 -3 -1" /><path d="M3 -1 Q7 3.5 11 -1" /></g>
+      {CON_OJOS && <g className="kb-ojos" {...t}><path d="M-11 -1 Q-7 3.5 -3 -1" /><path d="M3 -1 Q7 3.5 11 -1" /></g>}
       <path d="M-15 7 Q0 19 15 7" {...t} />
     </g>
   );

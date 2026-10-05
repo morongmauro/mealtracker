@@ -46,21 +46,41 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 if (typeof window !== 'undefined') {
   const warmStart = (() => { try { return !!sessionStorage.getItem('mt:booted'); } catch (e) { return false; } })();
   // Visual nueva: la entrada (cada vez que se abre la app, ver index.html)
-  // dura ~3,4 s; el fondo se desvanece y aparece la app.
+  // dura ~3,4 s desde que ARRANCA; el fondo se desvanece y aparece la app.
+  // Arranca cuando la app ya está armada debajo: mientras React monta, el
+  // teléfono está ocupado y la animación se trabaría (se veía «congelada»).
   const raiz = document.documentElement;
   const splashV2 = raiz.classList.contains('splash-v2');
   const conEntrada = raiz.classList.contains('intro-completa');
   const ENTRADA_MS = 3400;
-  const SPLASH_MIN_MS = warmStart ? 0 : splashV2 ? (conEntrada ? ENTRADA_MS : 0) : 2200;
   const cerrarEntrada = () => {
     document.body.classList.add('app-ready');
     if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F1F0EA'); }
     try { sessionStorage.setItem('mt:booted', '1'); } catch (e) {}
   };
-  requestAnimationFrame(() => {
-    const holdLeft = Math.max(80, SPLASH_MIN_MS - performance.now());
-    setTimeout(cerrarEntrada, holdLeft);
-  });
+  // Arranca la secuencia (si no arrancó ya sola a los 2,5 s) y cierra 3,4 s
+  // después de su comienzo.
+  const correrEntrada = () => {
+    const desde = (window.__empezarIntro && window.__empezarIntro()) || performance.now();
+    setTimeout(cerrarEntrada, Math.max(80, desde + ENTRADA_MS - performance.now()));
+  };
+  if (warmStart || !splashV2) {
+    // La de siempre (otros clientes): mínimo 2,2 s; recarga en la misma sesión: nada.
+    const MIN = warmStart ? 0 : 2200;
+    requestAnimationFrame(() => setTimeout(cerrarEntrada, Math.max(80, MIN - performance.now())));
+  } else if (!conEntrada) {
+    requestAnimationFrame(() => setTimeout(cerrarEntrada, 80));
+  } else {
+    // «Armada» = React ya pintó algo en #root; dos cuadros más y un respiro
+    // para que terminen los efectos del primer render.
+    const root = document.getElementById('root');
+    const listo = () => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(correrEntrada, 120)));
+    if (root && root.childElementCount) listo();
+    else if (root && typeof MutationObserver !== 'undefined') {
+      const mo = new MutationObserver(() => { if (root.childElementCount) { mo.disconnect(); listo(); } });
+      mo.observe(root, { childList: true });
+    } else listo();
+  }
 
   // La entrada otra vez al volver a la app tras 2 h o más en segundo plano
   // (es «abrirla después de un buen rato»). Nunca en medio de un entreno.
@@ -73,13 +93,15 @@ if (typeof window !== 'undefined') {
       if (document.querySelector('[data-reloj-sesion]')) return;
       const viejo = document.getElementById('splash2');
       if (!viejo) return;
-      // Un clon limpio y su reloj en cero: así todo arranca desde el inicio.
+      // Un clon limpio y en cero: así todo arranca desde el inicio.
       const nuevo = viejo.cloneNode(true);
+      raiz.classList.remove('intro-anda');
       raiz.classList.add('intro-completa', 'intro-repite');
       document.body.classList.remove('app-ready');
       viejo.replaceWith(nuevo);
-      try { nuevo.querySelector('svg').setCurrentTime(0); } catch (e) { /* sin SMIL */ }
-      setTimeout(cerrarEntrada, ENTRADA_MS);
+      window.__introDesde = 0;
+      // Un cuadro para que el clon pinte su estado inicial y luego, a correr.
+      requestAnimationFrame(() => requestAnimationFrame(correrEntrada));
     });
   }
 }
