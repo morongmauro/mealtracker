@@ -107,7 +107,7 @@ export function IlusDash() {
           ))}
         </g>
         <Piernas />
-        <Kettlebell><Cara y={-3} /></Kettlebell>
+        <Kettlebell><Cara y={-7} /></Kettlebell>
         {abajo.map((d, i) => (
           <path key={i} d={d} {...brazo}>
             <animate attributeName="d" values={`${d};${arriba[i]};${d}`} {...anim} />
@@ -135,7 +135,7 @@ export function IlusEntreno() {
     <Lienzo etiqueta="entreno">
       <g transform="translate(0 10) scale(0.86)">
         <Piernas />
-        <Kettlebell><Cara y={-3} /></Kettlebell>
+        <Kettlebell><Cara y={-7} /></Kettlebell>
         {abajo.map((d, i) => (
           <path key={i} d={d} {...brazo}>
             <animate attributeName="d" values={`${d};${arriba[i]};${d}`} {...anim} />
@@ -168,7 +168,7 @@ export function IlusComida({ fuerte = '#3E8E57', comida = '#F2C14E' }) {
     <Lienzo etiqueta="comida">
       <g transform="translate(0 10) scale(0.86)">
         <Piernas />
-        <Kettlebell><Cara y={-3} /></Kettlebell>
+        <Kettlebell><Cara y={-7} /></Kettlebell>
         {/* El plato, en la mano derecha */}
         <path d={platoArriba} {...brazo}>
           <animate attributeName="d" values={`${platoArriba};${platoMas};${platoArriba}`} {...anim} />
@@ -209,7 +209,7 @@ export function IlusAprende({ fuerte = '#D9732E' }) {
     <Lienzo etiqueta="aprende">
       <g transform="translate(0 10) scale(0.86)">
         <Piernas />
-        <Kettlebell><Cara y={-3} /></Kettlebell>
+        <Kettlebell><Cara y={-7} /></Kettlebell>
         {abajo.map((d, i) => (
           <path key={i} d={d} {...brazo}>
             <animate attributeName="d" values={`${d};${arriba[i]};${d}`} {...anim} />
