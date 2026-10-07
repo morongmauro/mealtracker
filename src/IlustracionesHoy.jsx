@@ -3,16 +3,18 @@
 //
 // Ya no van en las cabeceras (allí habla el coach, ver CabeceraHoy.jsx):
 // salen cuando hay algo que celebrar (terminar el entreno, un récord, ver
-// todo el material). Formas planas y redondas, colores llenos, SIN CARA: sin
-// ojos ni boca se leen como un objeto con energía, no como un muñeco.
+// todo el material). Las kettlebells de «Entreno hecho» y de la meta de
+// comida llevan la cara (Mauro: les da personalidad en el momento del logro;
+// las de las cabeceras van sin cara).
 //
-//   Alimentación  — un AGUACATE saludando
+//   Alimentación  — un AGUACATE saludando / la KETTLEBELL verde comiendo
 //   Entrenamiento — una KETTLEBELL levantando una barra
 //   Aprendizaje   — un CEREBRO levantando dos mancuernas
 //
 // Mismo tamaño para todos: 200 × 124.
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
+import { Cara } from './IlustracionesCabecera.jsx';
 
 const PIEL = '#3F8A43';
 const PIEL_OSCURA = '#2F6F33';
@@ -134,6 +136,8 @@ export function IlustracionPesas() {
           <circle cx="-4" cy="-5" r="36" fill={KB_MEDIO} />
           <circle cx="-11" cy="-12" r="29" fill={KB_LUZ_G} />
         </g>
+        {/* la cara: solo en las celebraciones (las cabeceras van sin cara) */}
+        <Cara y={-7} />
         {/* manos sobre la barra */}
         <circle cx="-38" cy="-72" r="4.8" fill={NEGRO} />
         <circle cx="38" cy="-72" r="4.8" fill={NEGRO} />
@@ -176,6 +180,7 @@ export function IlustracionMetaComida() {
           <circle cx="-4" cy="-5" r="36" fill={KV_MEDIO} />
           <circle cx="-11" cy="-12" r="29" fill={KV_LUZ} />
         </g>
+        <Cara y={-7} />
         {/* el plato servido, en la mano derecha */}
         <g transform="translate(50 -52)">
           <path d="M-18 -3 C-18 -16 18 -16 18 -3 Z" fill="#F2C14E" />

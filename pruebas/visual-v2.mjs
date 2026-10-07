@@ -298,6 +298,8 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
+  ok('cabeceras: la kettlebell va sin cara (la cara queda para las celebraciones)', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion] .kb-ojos').count()) === 0
+    && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion] .kb-anda').count()) === 1);
   ok('Dash: la kettlebell levanta la bandera «¡HEY!» con papelillo, junto a la frase, entera y sin taparla', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] text').textContent()) === '¡HEY!'
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] .kb-papel > g').count()) === 8 && await ilusBien(p, 'dash'));
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
@@ -1044,7 +1046,7 @@ try {
       const r = b && b.getBoundingClientRect(); return r && r.left >= nav.left - 0.5 && r.right <= nav.right + 0.5; });
   }));
   await foto(n.p, '12-375-aprende');
-  // ── Al terminar un entreno: la celebración (con el personaje, sin cara) ──
+  // ── Al terminar un entreno: la celebración (con el personaje y su cara) ──
   await n.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await espera(1200);
   await n.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"]`).click();
@@ -1061,8 +1063,8 @@ try {
   ok('fin: los números suben y dicen los minutos', /\d+\s*minutos?/.test(await fin.innerText()) && (await fin.locator('[data-fin-barra]').count()) === 1);
   ok('fin: «Entreno hecho.» con la frase del coach y lo que hizo', (await fin.getByText('Entreno hecho.').count()) === 1
     && /1\/7\s*ejercicios/.test(await fin.innerText()) && (await fin.locator('[data-firma-coach]').count()) === 0, await fin.innerText());
-  ok('fin: la kettlebell levantando la barra, sin cara, entera', await fin.locator('[data-dibujo="pesas"]').evaluate(el => {
-    const r = el.getBoundingClientRect(); return r.width > 150 && r.left >= 0 && r.right <= innerWidth && !el.querySelector('[stroke="#2A2A28"]');
+  ok('fin: la kettlebell levantando la barra, con cara (para darle personalidad), entera', await fin.locator('[data-dibujo="pesas"]').evaluate(el => {
+    const r = el.getBoundingClientRect(); return r.width > 150 && r.left >= 0 && r.right <= innerWidth && !!el.querySelector('.kb-ojos');
   }));
   await foto(n.p, '16-fin-entreno');
   await fin.getByRole('button', { name: 'Seguir' }).click();
