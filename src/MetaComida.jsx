@@ -3,13 +3,14 @@
 //
 // La hermana de la hoja de «Entreno hecho»: cuando lo registrado llega a la
 // meta de calorías del día (o cierra las cuatro metas, el «día perfecto»),
-// sube una tarjeta con la kettlebell comiendo sobre las manchas verdes de
+// sube una tarjeta con la kettlebell verde comiendo (la hermana de la de
+// «Entreno hecho») sobre las manchas verdes de
 // Alimentación, confeti en los colores de la sección, las calorías contando
 // hasta la meta y cómo quedó cada macro.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect } from 'react';
 import { Confeti, Conteo, asegurarCSS, vibrar } from './Celebraciones.jsx';
-import { IlusComida } from './IlustracionesCabecera.jsx';
+import { IlustracionMetaComida } from './IlustracionesHoy.jsx';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT, C_PROTEIN, C_CARBS, C_FAT } from './theme.js';
 
 const VERDE = '#2F7F45';
@@ -47,7 +48,7 @@ export default function MetaComida({ totals, goals, perfecto = false, alCerrar }
         boxShadow: '0 20px 60px rgba(0,0,0,.25)', maxHeight: '88vh', overflowY: 'auto', fontFamily: 'inherit',
       }}>
         <div style={{ position: 'relative', height: 160, background: 'radial-gradient(70% 90% at 72% 12%, #9CCFA8 0%, rgba(156,207,168,0) 70%), radial-gradient(60% 80% at 12% 92%, #F7E1A0 0%, rgba(247,225,160,0) 70%), #EEF7F0', display: 'grid', placeItems: 'end center' }}>
-          <div className="mc-dibujo" style={{ width: 230, height: 142, marginBottom: 4, color: '#fff' }}><IlusComida /></div>
+          <div className="mc-dibujo" style={{ width: 230, height: 142, marginBottom: 4 }}><IlustracionMetaComida /></div>
         </div>
         <div style={{ padding: '18px 20px 20px' }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.08 }}>

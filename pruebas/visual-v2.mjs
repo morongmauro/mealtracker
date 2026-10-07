@@ -882,8 +882,8 @@ try {
   const metaC = p.locator('[data-meta-comida]');
   await metaC.waitFor({ timeout: 8000 }).catch(() => {});
   await espera(1400);
-  ok('meta de comida: sale la hoja con la kettlebell comiendo, sus macros y confeti verde', (await metaC.count()) === 1
-    && /Meta del día, cumplida/.test(await metaC.innerText()) && (await metaC.locator('svg[data-ilustracion="comida"]').count()) === 1
+  ok('meta de comida: sale la hoja con la kettlebell verde comiendo, sus macros y confeti verde', (await metaC.count()) === 1
+    && /Meta del día, cumplida/.test(await metaC.innerText()) && (await metaC.locator('svg[data-dibujo="meta-comida"]').count()) === 1
     && (await metaC.locator('[data-meta-macros] > div').count()) === 3 && (await p.locator('[data-aviso-suma]').count()) === 0);
   await foto(p, '09d-meta-comida');
   await metaC.getByRole('button', { name: 'Seguir' }).click(); await espera(400);

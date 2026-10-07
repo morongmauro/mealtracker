@@ -1254,16 +1254,18 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {r ? (
           <button onClick={() => alEntrenar(r.id)} data-hoy-rutina style={{
-            width: '100%', textAlign: 'left', border: hecha ? `1.5px solid ${P.base}` : 'none', cursor: 'pointer', fontFamily: 'inherit',
-            background: hecha ? '#fff' : P.base, color: hecha ? TEXT : '#fff', borderRadius: 20, padding: '16px 18px',
-            boxShadow: hecha ? 'none' : '0 8px 22px color-mix(in srgb, var(--ent-accent, #5F6670) 28%, transparent)',
+            // Siempre relleno del color de la sección (también ya hecha: con
+            // el chulo blanco), para que lo de hoy sea lo primero que se ve.
+            width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            background: P.base, color: '#fff', borderRadius: 20, padding: '16px 18px',
+            boxShadow: '0 8px 22px color-mix(in srgb, var(--ent-accent, #5F6670) 28%, transparent)',
           }}>
             <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.85 }}>
               {hecha ? 'Fuerza · ya la hiciste' : dia.estado === 'en_curso' ? 'Fuerza · a medias' : dia.extra ? 'Fuerza · la añadiste tú' : 'Fuerza'}
             </div>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginTop: 2 }}>{r.nombre}</div>
             <div style={{ fontSize: 13.5, marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
-              {hecha && <CheckCircle size={16} weight="fill" color={P.base} />}
+              {hecha && <CheckCircle size={16} weight="fill" color="#fff" />}
               {[n ? `${n} ejercicio${n === 1 ? '' : 's'}` : null, r.minutos ? `~${r.minutos} min` : null].filter(Boolean).join(' · ') || (hecha ? 'Toca para ver lo que hiciste' : 'Toca para empezar')}
             </div>
           </button>

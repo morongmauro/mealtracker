@@ -2,7 +2,7 @@
 // ILUSTRACIONES DE CABECERA · visual nueva
 //
 // Un solo personaje para toda la app: la kettlebell, blanca y redonda como
-// las de verdad (bola con base plana y asa gruesa), con LA MISMA cara en
+// las de verdad (bola apenas plana abajo y asa con cuernos y tope plano), con LA MISMA cara en
 // todas las secciones, al estilo Headspace: ojos cerrados en arco y una
 // sonrisa ancha. En cada sección hace lo suyo:
 //   Dash           levanta la bandera «¡HEY!» con papelillo de celebración
@@ -13,8 +13,9 @@
 // grande en alto, que es lo que mejor se lee en la cabecera.
 // Al entrar a la sección se mueve un momento, sin que nada se despegue: el
 // cuerpo queda quieto y los brazos se doblan y estiran desde los hombros
-// (se anima el trazo del brazo, no se gira: así nunca se suelta). Los brazos van por fuera del cuerpo (blanco sobre blanco no se
-// vería); lo que cruza por delante va en el color de la sección.
+// (se anima el trazo del brazo, no se gira: así nunca se suelta). Brazos
+// y piernas en línea negra, por detrás del cuerpo; el cuerpo, blanco con
+// manchas de sombra en gris (el mismo diseño de «Entreno hecho»).
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
 
@@ -59,13 +60,25 @@ export function Cara({ y = 0, color = CARA }) {
   );
 }
 
-// La kettlebell: bola casi completa con la base plana y el asa gruesa que
-// nace de los hombros. Lisa, sin brillos ni sombras, y quieta.
+// La kettlebell (el mismo diseño de «Entreno hecho»): cuerpo redondo apenas
+// plano abajo y asa de kettlebell de verdad (cuernos curvos y tope plano).
+// Blanca, con el volumen en manchas grandes de gris (cara iluminada, tono
+// medio y sombra abajo a la derecha), sin líneas de brillo. Brazos y
+// piernas en línea negra, por detrás del cuerpo.
+const MEDIO = '#E4E7EB', SOMBRA = '#CBD0D7', ASA_SOMBRA = '#D6DADF', NEGRO = '#23272D';
+const CUERPO = 'M-17 31 C-38 25 -42 -2 -31 -18 C-22 -31 -11 -35 0 -35 C11 -35 22 -31 31 -18 C42 -2 38 25 17 31 C6 33.4 -6 33.4 -17 31 Z';
 function Kettlebell({ children }) {
+  const id = React.useId().replace(/:/g, '');
   return (
     <g>
-      <path d="M-21 -17C-27 -36 -20 -49 0 -49C20 -49 27 -36 21 -17" fill="none" stroke={B} strokeWidth="11" strokeLinecap="round" />
-      <path d="M-22.6 32A36 36 0 1 1 22.6 32Z" fill={B} />
+      <defs><clipPath id={`${id}kb`}><path d={CUERPO} /></clipPath></defs>
+      <path d="M-20 -26 C-25.5 -38 -24 -50 -13 -55.5 L13 -55.5 C24 -50 25.5 -38 20 -26" fill="none" stroke={B} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 -55.5 L13 -55.5 C24 -50 25.5 -38 20 -26" fill="none" stroke={ASA_SOMBRA} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={CUERPO} fill={SOMBRA} />
+      <g clipPath={`url(#${id}kb)`}>
+        <circle cx="-4" cy="-5" r="36" fill={MEDIO} />
+        <circle cx="-11" cy="-12" r="29" fill={B} />
+      </g>
       {children}
     </g>
   );
@@ -74,23 +87,24 @@ function Kettlebell({ children }) {
 function Piernas() {
   return (
     <>
-      <g stroke={B} strokeWidth="6" strokeLinecap="round" fill="none">
-        <path d="M-11 31 L-14 43" /><path d="M11 31 L14 43" />
+      <g stroke={NEGRO} strokeWidth="5.5" strokeLinecap="round" fill="none">
+        <path d="M-11 30 L-14 43" /><path d="M11 30 L14 43" />
       </g>
-      <ellipse cx="-17" cy="44.5" rx="6.5" ry="3" fill={B} />
-      <ellipse cx="17" cy="44.5" rx="6.5" ry="3" fill={B} />
+      <ellipse cx="-18" cy="45.5" rx="7" ry="3.3" fill={NEGRO} />
+      <ellipse cx="18" cy="45.5" rx="7" ry="3.3" fill={NEGRO} />
     </>
   );
 }
 
-const brazo = { stroke: B, strokeWidth: 6, strokeLinecap: 'round', fill: 'none' };
+const brazo = { stroke: NEGRO, strokeWidth: 5.5, strokeLinecap: 'round', fill: 'none' };
+const MANO = NEGRO;
 
 export function IlusDash() {
   // Levanta una bandera de ánimo —«¡HEY!»— con los dos brazos, como la
   // barra de Entrenamiento, y a los lados salta papelillo de celebración en
   // los colores de los cuatro módulos.
-  const abajo = ['M-35 2 Q-60 -18 -44 -58', 'M35 2 Q60 -18 44 -58'];
-  const arriba = ['M-35 2 Q-58 -24 -44 -67', 'M35 2 Q58 -24 44 -67'];
+  const abajo = ['M-30 -6 Q-60 -26 -44 -64', 'M30 -6 Q60 -26 44 -64'];
+  const arriba = ['M-30 -6 Q-58 -32 -44 -72', 'M30 -6 Q58 -32 44 -72'];
   const anim = { dur: '2.4s', begin: '0.5s', repeatCount: '2', calcMode: 'spline', keyTimes: '0;0.5;1', keySplines: '0.45 0 0.55 1;0.45 0 0.55 1' };
   // Papelillo: [x, y, color, forma, giro]; sale desde el centro hacia afuera.
   const papel = [
@@ -99,7 +113,9 @@ export function IlusDash() {
   ];
   return (
     <Lienzo etiqueta="dash">
-      <g transform="translate(0 10) scale(0.86)">
+      {/* Un poco más chica y más arriba: la cabecera del Dash es más baja y
+          los pies no se pueden cortar. */}
+      <g transform="translate(0 2) scale(0.8)">
         <g className="kb-papel">
           {papel.map(([x, y, c, forma, giro], i) => (
             <g key={i} style={{ '--x': `${x}px`, '--y': `${y}px`, animationDelay: `${0.55 + (i % 4) * 0.06}s` }}>
@@ -110,18 +126,18 @@ export function IlusDash() {
           ))}
         </g>
         <Piernas />
-        <Kettlebell><Cara y={-7} /></Kettlebell>
         {abajo.map((d, i) => (
           <path key={i} d={d} {...brazo}>
             <animate attributeName="d" values={`${d};${arriba[i]};${d}`} {...anim} />
           </path>
         ))}
-        <g transform="translate(0 -70)">
-          <animateTransform attributeName="transform" type="translate" values="0 -70;0 -79;0 -70" {...anim} />
+        <Kettlebell><Cara y={-7} /></Kettlebell>
+        <g transform="translate(0 -76)">
+          <animateTransform attributeName="transform" type="translate" values="0 -76;0 -84;0 -76" {...anim} />
           {/* La bandera: tela amarilla (el color del Dash), con un vaivén */}
           <path d="M-46 -14 H46 L40 0 L46 14 H-46 L-40 0 Z" fill="#F2C94C" />
           <text x="0" y="5.2" textAnchor="middle" fontFamily="'Figtree Variable', Figtree, system-ui, sans-serif" fontWeight="900" fontSize="16" letterSpacing="0.4" fill="#2B2A27">¡HEY!</text>
-          <circle cx="-44" cy="12" r="4.8" fill={B} /><circle cx="44" cy="12" r="4.8" fill={B} />
+          <circle cx="-44" cy="12" r="4.8" fill={MANO} /><circle cx="44" cy="12" r="4.8" fill={MANO} />
         </g>
       </g>
     </Lienzo>
@@ -131,27 +147,33 @@ export function IlusDash() {
 export function IlusEntreno() {
   // Levanta la barra por encima del asa: la barra sube y los brazos se
   // estiran con ella, sin soltarse de los hombros.
-  const abajo = ['M-35 2 Q-62 -18 -46 -62', 'M35 2 Q62 -18 46 -62'];
-  const arriba = ['M-35 2 Q-60 -24 -46 -71', 'M35 2 Q60 -24 46 -71'];
+  const abajo = ['M-30 -6 Q-62 -26 -46 -66', 'M30 -6 Q62 -26 46 -66'];
+  const arriba = ['M-30 -6 Q-60 -32 -46 -75', 'M30 -6 Q60 -32 46 -75'];
   const anim = { dur: '2.4s', begin: '0.5s', repeatCount: '2', calcMode: 'spline', keyTimes: '0;0.5;1', keySplines: '0.45 0 0.55 1;0.45 0 0.55 1' };
   return (
     <Lienzo etiqueta="entreno">
       <g transform="translate(0 10) scale(0.86)">
         <Piernas />
-        <Kettlebell><Cara y={-7} /></Kettlebell>
         {abajo.map((d, i) => (
           <path key={i} d={d} {...brazo}>
             <animate attributeName="d" values={`${d};${arriba[i]};${d}`} {...anim} />
           </path>
         ))}
+        <Kettlebell><Cara y={-7} /></Kettlebell>
+        {/* La barra, bien arriba del asa, con discos que tienen su canto */}
         <g transform="translate(0 -66)">
           <animateTransform attributeName="transform" type="translate" values="0 -66;0 -75;0 -66" {...anim} />
-          <rect x="-74" y="-2.5" width="148" height="5" rx="2.5" fill={B} />
-          <rect x="-72" y="-15" width="9" height="30" rx="3.5" fill={B} />
-          <rect x="-62" y="-11" width="7" height="22" rx="3" fill={B} opacity="0.85" />
-          <rect x="63" y="-15" width="9" height="30" rx="3.5" fill={B} />
-          <rect x="55" y="-11" width="7" height="22" rx="3" fill={B} opacity="0.85" />
-          <circle cx="-46" cy="0" r="4.5" fill={B} /><circle cx="46" cy="0" r="4.5" fill={B} />
+          <rect x="-74" y="-2.6" width="148" height="5.2" rx="2.6" fill="#D5DAE0" />
+          <rect x="-74" y="0" width="148" height="2.6" rx="1.3" fill="#AEB6C0" />
+          <rect x="-70" y="-15" width="9" height="30" rx="3.5" fill="#1C2026" />
+          <rect x="-72" y="-15" width="9" height="30" rx="3.5" fill="#2E333B" />
+          <rect x="-60" y="-11" width="7" height="22" rx="3" fill="#D4A72C" />
+          <rect x="-62" y="-11" width="7" height="22" rx="3" fill="#F2C94C" />
+          <rect x="65" y="-15" width="9" height="30" rx="3.5" fill="#1C2026" />
+          <rect x="63" y="-15" width="9" height="30" rx="3.5" fill="#2E333B" />
+          <rect x="57" y="-11" width="7" height="22" rx="3" fill="#D4A72C" />
+          <rect x="55" y="-11" width="7" height="22" rx="3" fill="#F2C94C" />
+          <circle cx="-46" cy="0" r="4.6" fill={MANO} /><circle cx="46" cy="0" r="4.6" fill={MANO} />
         </g>
       </g>
     </Lienzo>
@@ -163,29 +185,29 @@ export function IlusComida({ fuerte = '#3E8E57', comida = '#F2C14E' }) {
   // otra el plato hondo servido parejo, los dos bien arriba (como la barra
   // de Entrenamiento). Al entrar, los dos suben un poco, como un brindis.
   const anim = { dur: '2.4s', begin: '0.5s', repeatCount: '2', calcMode: 'spline', keyTimes: '0;0.5;1', keySplines: '0.45 0 0.55 1;0.45 0 0.55 1' };
-  const tenedorArriba = 'M-35 2 Q-62 -18 -44 -56';
-  const tenedorMas = 'M-35 2 Q-60 -24 -44 -64';
-  const platoArriba = 'M35 2 Q60 -14 46 -40';
-  const platoMas = 'M35 2 Q60 -18 46 -45';
+  const tenedorArriba = 'M-30 -6 Q-62 -24 -44 -56';
+  const tenedorMas = 'M-30 -6 Q-60 -30 -44 -64';
+  const platoArriba = 'M30 -6 Q60 -20 46 -40';
+  const platoMas = 'M30 -6 Q60 -24 46 -45';
   return (
     <Lienzo etiqueta="comida">
       <g transform="translate(0 10) scale(0.86)">
         <Piernas />
-        <Kettlebell><Cara y={-7} /></Kettlebell>
-        {/* El plato, en la mano derecha */}
         <path d={platoArriba} {...brazo}>
           <animate attributeName="d" values={`${platoArriba};${platoMas};${platoArriba}`} {...anim} />
         </path>
+        <path d={tenedorArriba} {...brazo}>
+          <animate attributeName="d" values={`${tenedorArriba};${tenedorMas};${tenedorArriba}`} {...anim} />
+        </path>
+        <Kettlebell><Cara y={-7} /></Kettlebell>
+        {/* El plato, en la mano derecha */}
         <g transform="translate(46 -52)">
           <animateTransform attributeName="transform" type="translate" values="46 -52;46 -57;46 -52" {...anim} />
           <path d="M-19 -4 C-19 -18 19 -18 19 -4 Z" fill={comida} />
           <path d="M-22 -4 H22 A22 15 0 0 1 -22 -4 Z" fill={fuerte} />
-          <circle cx="0" cy="12" r="4.8" fill={B} />
+          <circle cx="0" cy="12" r="4.8" fill={MANO} />
         </g>
         {/* El tenedor con el bocado, en la izquierda */}
-        <path d={tenedorArriba} {...brazo}>
-          <animate attributeName="d" values={`${tenedorArriba};${tenedorMas};${tenedorArriba}`} {...anim} />
-        </path>
         <g transform="translate(-44 -60)">
           <animateTransform attributeName="transform" type="translate" values="-44 -60;-44 -68;-44 -60" {...anim} />
           <g transform="rotate(12)">
@@ -194,7 +216,7 @@ export function IlusComida({ fuerte = '#3E8E57', comida = '#F2C14E' }) {
             <path d="M-5 -20 V-30 M0 -20 V-31 M5 -20 V-30 M-5 -20 H5" stroke={fuerte} strokeWidth="2.8" strokeLinecap="round" fill="none" />
             <circle cx="0" cy="-35" r="5.2" fill={comida} />
           </g>
-          <circle cx="0" cy="4" r="4.8" fill={B} />
+          <circle cx="0" cy="4" r="4.8" fill={MANO} />
         </g>
       </g>
     </Lienzo>
@@ -206,25 +228,25 @@ export function IlusAprende({ fuerte = '#D9732E' }) {
   // arriba (la misma energía que la barra de Entrenamiento); arriba, el
   // foco de la idea se prende al entrar.
   const anim = { dur: '2.4s', begin: '0.5s', repeatCount: '2', calcMode: 'spline', keyTimes: '0;0.5;1', keySplines: '0.45 0 0.55 1;0.45 0 0.55 1' };
-  const abajo = ['M-35 2 Q-58 -14 -40 -40', 'M35 2 Q58 -14 40 -40'];
-  const arriba = ['M-35 2 Q-57 -18 -40 -46', 'M35 2 Q57 -18 40 -46'];
+  const abajo = ['M-30 -6 Q-58 -20 -40 -40', 'M30 -6 Q58 -20 40 -40'];
+  const arriba = ['M-30 -6 Q-57 -24 -40 -46', 'M30 -6 Q57 -24 40 -46'];
   return (
     <Lienzo etiqueta="aprende">
       <g transform="translate(0 10) scale(0.86)">
         <Piernas />
-        <Kettlebell><Cara y={-7} /></Kettlebell>
         {abajo.map((d, i) => (
           <path key={i} d={d} {...brazo}>
             <animate attributeName="d" values={`${d};${arriba[i]};${d}`} {...anim} />
           </path>
         ))}
+        <Kettlebell><Cara y={-7} /></Kettlebell>
         <g transform="translate(0 -52)">
           <animateTransform attributeName="transform" type="translate" values="0 -52;0 -58;0 -52" {...anim} />
           <path d="M0 -10 C-14 -18 -32 -18 -46 -11 V18 C-32 12 -14 12 0 19 C14 12 32 12 46 18 V-11 C32 -18 14 -18 0 -10 Z" fill={fuerte} />
           <path d="M0 -13 C-12 -20 -28 -20 -41 -14 V13 C-28 7 -12 7 0 14 Z" fill={B} />
           <path d="M0 -13 C12 -20 28 -20 41 -14 V13 C28 7 12 7 0 14 Z" fill={B} />
           <path className="kb-hoja" d="M0 -13 C9 -19 21 -20 31 -17 V10 C21 8 9 9 0 14 Z" fill={B} stroke={fuerte} strokeOpacity="0.3" strokeWidth="1.4" />
-          <circle cx="-40" cy="12" r="4.5" fill={B} /><circle cx="40" cy="12" r="4.5" fill={B} />
+          <circle cx="-40" cy="12" r="4.5" fill={MANO} /><circle cx="40" cy="12" r="4.5" fill={MANO} />
         </g>
         {/* El foco de la idea, arriba a la derecha */}
         <g className="kb-foco" transform="translate(64 -66)">

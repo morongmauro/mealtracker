@@ -142,6 +142,61 @@ export function IlustracionPesas() {
   );
 }
 
+// La hermana de la de «Entreno hecho», para la meta de comida cumplida: la
+// misma kettlebell (manchas grandes de sombra, sin brillos), en el verde de
+// Alimentación, con el tenedor y el bocado en alto en una mano y el plato
+// servido en la otra.
+const KV_LUZ = '#6DAF7E', KV_MEDIO = '#4F9462', KV_SOMBRA = '#3B7A4D';
+const KV_ASA = '#4A8C5C', KV_ASA_SOMBRA = '#386E48';
+
+export function IlustracionMetaComida() {
+  const id = React.useId().replace(/:/g, '');
+  return (
+    <svg viewBox="0 0 200 124" aria-hidden="true" data-dibujo="meta-comida" style={{ width: '100%', height: '100%', display: 'block', overflow: 'visible' }}>
+      <defs>
+        <clipPath id={`${id}c`}><path d={CUERPO_KB} /></clipPath>
+        <filter id={`${id}b`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" /></filter>
+      </defs>
+      <circle cx="100" cy="64" r="56" fill="#FFFFFF" opacity="0.45" />
+      <ellipse cx="100" cy="120.5" rx="32" ry="4.4" fill="#1E2228" opacity="0.16" filter={`url(#${id}b)`} />
+      <g transform="translate(100 76) scale(0.9)">
+        <path d="M-20 -26 C-25.5 -38 -24 -50 -13 -55.5 L13 -55.5 C24 -50 25.5 -38 20 -26" fill="none" stroke={KV_ASA} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M8 -55.5 L13 -55.5 C24 -50 25.5 -38 20 -26" fill="none" stroke={KV_ASA_SOMBRA} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" />
+        {/* brazos y piernas en línea negra, por detrás del cuerpo */}
+        <g stroke={NEGRO} strokeWidth="5.5" strokeLinecap="round" fill="none">
+          <path d="M-30 -6 Q-62 -28 -46 -58" />
+          <path d="M30 -6 Q62 -22 50 -44" />
+          <path d="M-11 30 L-14 43" />
+          <path d="M11 30 L14 43" />
+        </g>
+        <ellipse cx="-18" cy="45.5" rx="7" ry="3.3" fill={NEGRO} />
+        <ellipse cx="18" cy="45.5" rx="7" ry="3.3" fill={NEGRO} />
+        <path d={CUERPO_KB} fill={KV_SOMBRA} />
+        <g clipPath={`url(#${id}c)`}>
+          <circle cx="-4" cy="-5" r="36" fill={KV_MEDIO} />
+          <circle cx="-11" cy="-12" r="29" fill={KV_LUZ} />
+        </g>
+        {/* el plato servido, en la mano derecha */}
+        <g transform="translate(50 -52)">
+          <path d="M-18 -3 C-18 -16 18 -16 18 -3 Z" fill="#F2C14E" />
+          <path d="M2 -14.5 C12 -13 18 -9 18 -3 L2 -3 Z" fill="#E0A93A" />
+          <path d="M-22 -3 H22 A22 15 0 0 1 -22 -3 Z" fill="#F4EFE4" />
+          <path d="M4 -3 H22 A22 15 0 0 1 4 11.6 Z" fill="#DCD5C6" />
+          <circle cx="0" cy="8" r="4.8" fill={NEGRO} />
+        </g>
+        {/* el tenedor con el bocado, en la izquierda */}
+        <g transform="translate(-46 -62) rotate(10)">
+          <path d="M0 4 V-20" stroke="#3D434B" strokeWidth="3.6" strokeLinecap="round" />
+          <path d="M-5 -18 V-27 M0 -18 V-28 M5 -18 V-27 M-5 -18 H5" stroke="#3D434B" strokeWidth="2.8" strokeLinecap="round" fill="none" />
+          <circle cx="0" cy="-32" r="5.4" fill="#F2C14E" />
+          <path d="M0 -37.4 A5.4 5.4 0 0 1 0 -26.6 Z" fill="#E0A93A" />
+          <circle cx="0" cy="4" r="4.8" fill={NEGRO} />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 // ── Aprendizaje: el cerebro que entrena ──────────────────────────────────
 const SESO = '#F4A574';
 const SESO_PLIEGUE = '#DE7F45';
