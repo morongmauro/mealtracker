@@ -15,7 +15,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Barbell, ForkKnife, ChartLineUp, ChatsCircle, CaretDown, Compass, ArrowRight, Info } from '@phosphor-icons/react';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { registrarLectura } from './aprendizaje.js';
-import { TEXT, TEXT_MUTED, TEXT_LIGHT, SECCION } from './theme.js';
+import { TEXT, TEXT_MUTED, TEXT_LIGHT, SECCION, DASH_AZUL } from './theme.js';
 
 const N = SECCION.aprende;
 const CREMA = '#F4F1EB';
@@ -28,7 +28,7 @@ const PILARES = [
   { icono: ForkKnife, color: SECCION.comida, titulo: 'Alimentación', frase: 'No es restricción. Es gestión.',
     texto: 'No sigues menús rígidos: aprendes a tomar decisiones alineadas con tu objetivo. Tienes una meta nutricional diaria y, en la app, el registro de lo que comes, recetas que encajan en tu meta y la guía de alimentación.',
     esencia: ['Una meta diaria, no un menú', 'Consistencia antes que perfección', 'Registro, recetas y guía en la app'] },
-  { icono: ChartLineUp, color: SECCION.dash, titulo: 'Seguimiento', frase: 'Decidir con datos, no con percepción.',
+  { icono: ChartLineUp, color: DASH_AZUL, titulo: 'Seguimiento', frase: 'Decidir con datos, no con percepción.',
     texto: 'Lo que entrenas y lo que comes queda registrado, y esos datos los usamos los dos: tú para ver tu avance real y yo para ajustar tu proceso con criterio, no a ciegas.',
     esencia: ['Entreno: pesos, repeticiones y esfuerzo', 'Comida: lo que comes frente a tu meta', 'Cada mes: peso, % de grasa y fotos (la app te avisa)'] },
   { icono: ChatsCircle, color: SECCION.aprende, titulo: 'Tu entorno', frase: 'Todo en un solo lugar.',

@@ -43,7 +43,7 @@ const MORADO = '#6D4FC2';          // lo que se registra: medición, peso, fotos
 
 function paleta(v2) {
   return v2
-    ? { base: SECCION.entreno.base, ink: SECCION.entreno.ink, tint: SECCION.entreno.tint, suave: '#E4EDF9' }
+    ? { base: SECCION.entreno.base, ink: SECCION.entreno.ink, tint: SECCION.entreno.tint, suave: '#ECEDEF' }
     : { base: ACCENT, ink: ACCENT_DARK, tint: ACCENT_LIGHT, suave: ACCENT_PASTEL_SUAVE };
 }
 
@@ -1256,7 +1256,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
           <button onClick={() => alEntrenar(r.id)} data-hoy-rutina style={{
             width: '100%', textAlign: 'left', border: hecha ? `1.5px solid ${P.base}` : 'none', cursor: 'pointer', fontFamily: 'inherit',
             background: hecha ? '#fff' : P.base, color: hecha ? TEXT : '#fff', borderRadius: 20, padding: '16px 18px',
-            boxShadow: hecha ? 'none' : '0 8px 22px color-mix(in srgb, var(--ent-accent, #3C7BD6) 28%, transparent)',
+            boxShadow: hecha ? 'none' : '0 8px 22px color-mix(in srgb, var(--ent-accent, #5F6670) 28%, transparent)',
           }}>
             <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.85 }}>
               {hecha ? 'Fuerza · ya la hiciste' : dia.estado === 'en_curso' ? 'Fuerza · a medias' : dia.extra ? 'Fuerza · la añadiste tú' : 'Fuerza'}

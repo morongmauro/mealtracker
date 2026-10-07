@@ -27,14 +27,14 @@ import { ILUSTRACION } from './IlustracionesCabecera.jsx';
 // las manchas · tinta: la segunda línea de la frase (contraste para letra
 // grande sobre claro).
 export const TEMAS = {
-  entreno: { banda: ['#BFD5F4', '#D3E2F8'], m1: '#8FB3E8', m2: '#CFE0F7', m3: '#F6CFA9', base: '#EEF4FC', tinta: '#2F6CC4' },
+  entreno: { banda: ['#C5CAD1', '#D7DADF'], m1: '#A9AFB8', m2: '#DADDE2', m3: '#F6CFA9', base: '#F1F2F4', tinta: '#5F6670' },
   comida:  { banda: ['#C3E3CB', '#D6EDDC'], m1: '#9CCFA8', m2: '#D7EEDC', m3: '#F7E1A0', base: '#F0F8F1', tinta: '#2F7F45' },
   aprende: { banda: ['#F7CFAF', '#FADFCA'], m1: '#F6B98C', m2: '#FBE0CB', m3: '#A9C6EE', base: '#FDF3EA', tinta: '#C95F17' },
-  // El Dash es la marca completa: la banda en grafito y una mancha de cada
-  // módulo (azul de Entrenamiento, verde de Alimentación, naranja de
+  // El Dash es la marca completa: la banda en azul y una mancha de cada
+  // módulo (gris de Entrenamiento, verde de Alimentación, naranja de
   // Aprendizaje) más el amarillo de acento. La segunda línea de la frase,
   // en amarillo oscuro.
-  dash:    { banda: ['#A9A69C', '#BCB9AF'], m1: '#A9C6EE', m2: '#A8D5B3', m3: '#F6C39C', m4: '#F2D57A', base: '#F3F2EE', tinta: '#A87400' },
+  dash:    { banda: ['#BFD5F4', '#D3E2F8'], m1: '#B7BCC4', m2: '#A8D5B3', m3: '#F6C39C', m4: '#F2D57A', base: '#F3F2EE', tinta: '#A87400' },
 };
 
 const CSS = `

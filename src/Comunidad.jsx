@@ -17,7 +17,7 @@ import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
 
 export const REACCIONES = [
   { tipo: 'fuego', Icono: Fire, color: '#E8642C', nombre: 'Fuego' },
-  { tipo: 'fuerza', Icono: Barbell, color: '#3C7BD6', nombre: 'Fuerza' },
+  { tipo: 'fuerza', Icono: Barbell, color: '#5F6670', nombre: 'Fuerza' },
   { tipo: 'aplauso', Icono: HandsClapping, color: '#E0A21A', nombre: 'Aplauso' },
   { tipo: 'corazon', Icono: Heart, color: '#D2483B', nombre: 'Corazón' },
 ];

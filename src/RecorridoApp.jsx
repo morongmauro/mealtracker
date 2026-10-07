@@ -16,13 +16,13 @@ import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check } from '@phosphor-icons/react';
 import { registrarLectura } from './aprendizaje.js';
 import { vibrar } from './Celebraciones.jsx';
-import { TEXT, TEXT_MUTED, SECCION } from './theme.js';
+import { TEXT, TEXT_MUTED, SECCION, DASH_AZUL } from './theme.js';
 
 import { CLAVE_RECORRIDO as CLAVE } from './recorridoEstado.js';
 
 // En cada paso: qué se abre (sec y op, como la barra) y qué se ilumina.
 //   foco: 'nav' · { barra: 'aria-label de un botón de la barra' } · { el: 'selector' }
-const E = SECCION.entreno.base, C = SECCION.comida.base, A = SECCION.aprende.base, D = SECCION.dash.base;
+const E = SECCION.entreno.base, C = SECCION.comida.base, A = SECCION.aprende.base, D = DASH_AZUL.base;
 const PASOS = [
   { color: '#1F1F1F', etiqueta: 'BIENVENIDA', titulo: 'Esta es tu app del programa.',
     texto: 'Tu entrenamiento, tu alimentación y tu aprendizaje, en un solo lugar. Te muestro dónde está cada cosa.' },

@@ -997,7 +997,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
             border: hechas > 0 ? 0 : `1.5px solid ${SECCION.entreno.base}`,
             background: hechas > 0 ? SECCION.entreno.base : '#FFFFFF',
             color: hechas > 0 ? '#fff' : SECCION.entreno.ink,
-            boxShadow: hechas > 0 ? '0 6px 18px color-mix(in srgb, var(--ent-accent, #3C7BD6) 30%, transparent)' : 'none',
+            boxShadow: hechas > 0 ? '0 6px 18px color-mix(in srgb, var(--ent-accent, #5F6670) 30%, transparent)' : 'none',
             fontSize: 16, fontWeight: 750,
           }}>
           <CheckCircle size={20} weight="bold" />
@@ -1134,12 +1134,12 @@ function HojaFin({ fin, alCerrar }) {
         background: '#FFFFFF', borderRadius: 28, maxWidth: 380, width: '100%', overflow: 'hidden',
         boxShadow: '0 20px 60px rgba(0,0,0,.25)', maxHeight: '88vh', overflowY: 'auto',
       }}>
-        <div style={{ position: 'relative', height: 150, background: `radial-gradient(70% 90% at 70% 10%, #8FB3E8 0%, rgba(143,179,232,0) 70%), radial-gradient(60% 80% at 10% 90%, #F6CFA9 0%, rgba(246,207,169,0) 70%), #EAF1FB`, display: 'grid', placeItems: 'end center' }}>
+        <div style={{ position: 'relative', height: 150, background: `radial-gradient(70% 90% at 70% 10%, #B9BEC6 0%, rgba(185,190,198,0) 70%), radial-gradient(60% 80% at 10% 90%, #F6CFA9 0%, rgba(246,207,169,0) 70%), #EEEFF1`, display: 'grid', placeItems: 'end center' }}>
           <div className="fin-dibujo" style={{ width: 210, height: 130, marginBottom: 6, marginRight: 40 }}><IlustracionPesas /></div>
         </div>
         <div style={{ padding: '18px 20px 20px' }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.08 }}>Entreno hecho.</div>
-          <div style={{ fontSize: 17, fontWeight: 700, color: '#2F6CC4', letterSpacing: '-0.01em', lineHeight: 1.3, marginTop: 4 }}>{frase}</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: A.ink, letterSpacing: '-0.01em', lineHeight: 1.3, marginTop: 4 }}>{frase}</div>
           {/* Lo que hizo, subiendo desde cero; y la barra que se llena hasta
               donde llegó. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))', gap: 8, marginTop: 16 }}>
@@ -1150,7 +1150,7 @@ function HojaFin({ fin, alCerrar }) {
             {fin.records.length > 0 && <div className="mt-pop" style={{ ...datoFin, background: A.tint, animationDelay: '.9s' }}><b style={{ ...datoFinNum, color: A.ink }}>{fin.records.length}</b><span style={datoFinPie}>{fin.records.length === 1 ? 'récord' : 'récords'}</span></div>}
           </div>
           <div data-fin-barra style={{ height: 8, borderRadius: 99, background: '#EEEAE1', marginTop: 12, overflow: 'hidden' }}>
-            <div className="fin-llena" style={{ height: '100%', width: `${fin.total ? Math.round((fin.hechos / fin.total) * 100) : 0}%`, borderRadius: 99, background: `linear-gradient(90deg, #8FB3E8, ${A.base})` }} />
+            <div className="fin-llena" style={{ height: '100%', width: `${fin.total ? Math.round((fin.hechos / fin.total) * 100) : 0}%`, borderRadius: 99, background: `linear-gradient(90deg, #A9AFB8, ${A.base})` }} />
           </div>
           {fin.records.length > 0 && (
             <div data-records style={{ marginTop: 14 }}>

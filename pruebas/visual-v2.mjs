@@ -462,7 +462,7 @@ try {
   ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);
   ok('…con la banda delgada y la ilustración de la sección (kettlebell)', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('[data-ilustracion="entreno"]').count()) === 1
     && await cabE.locator('[data-banda]').evaluate(el => el.getBoundingClientRect().height < 140));
-  ok('…la segunda línea en el azul de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(47, 108, 196)'));
+  ok('…la segunda línea en el gris de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(95, 102, 112)'));
   ok('…y el color no se sale de la pantalla', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   // Unidades: una preferencia para toda la app
   await p.getByRole('button', { name: /Unidades · kg/ }).first().click();
@@ -533,8 +533,8 @@ try {
     const a = c('calentamiento'), b = c('fuerza');
     return !!a && !!b && a !== b;
   }));
-  ok('el botón de terminar se ve (azul, no gris sobre gris)', await p.locator('[data-terminar]').evaluate(b => {
-    const cs = getComputedStyle(b); return cs.borderTopColor === 'rgb(60, 123, 214)' && cs.color === 'rgb(30, 88, 166)';
+  ok('el botón de terminar se ve (gris de la sección, con borde)', await p.locator('[data-terminar]').evaluate(b => {
+    const cs = getComputedStyle(b); return cs.borderTopColor === 'rgb(95, 102, 112)' && cs.color === 'rgb(69, 75, 84)';
   }));
   // Peso corporal: solo reps
   const flex = p.locator('[data-ejercicio="Push Up"]');
@@ -569,7 +569,7 @@ try {
   ok('el avance sube por ejercicio terminado', (await p.getByText('1/7 ejercicios').count()) === 1);
   ok('con la primera serie arranca el reloj del entreno', await p.locator('[data-reloj-sesion]').isVisible());
   ok('…y la serie marcada «salta»', (await p.locator('[data-view="entrena"] .mt-pop').count()) >= 1);
-  ok('…y el botón de terminar queda relleno de azul', await p.locator('[data-terminar]').evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(60, 123, 214)'));
+  ok('…y el botón de terminar queda relleno del gris de la sección', await p.locator('[data-terminar]').evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(95, 102, 112)'));
   // La ficha tiene scroll propio (el fallo del teléfono) y la silueta va en Características
   await p.getByRole('button', { name: 'Ficha' }).nth(3).click();
   await p.locator('[data-hoja-scroll]').waitFor({ timeout: 5000 });
@@ -632,15 +632,15 @@ try {
   ok('calendario: es el mes (sin repetir la semana de Hoy)', (await cal.locator('[data-vista="mes"]').count()) === 1
     && (await cal.getByRole('tab').count()) === 0);
   ok('calendario: sin «la saltaste»', (await cal.getByText(/saltaste/).count()) === 0);
-  ok('mes: días de la semana en azul', await cal.getByText('Lun', { exact: true }).first().evaluate(el => getComputedStyle(el).color === 'rgb(60, 123, 214)'));
+  ok('mes: días de la semana en el gris de la sección', await cal.getByText('Lun', { exact: true }).first().evaluate(el => getComputedStyle(el).color === 'rgb(95, 102, 112)'));
   ok('mes: casillas compactas y nombres cortos', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => { const h = el.getBoundingClientRect().height; return h >= 66 && h <= 84; })
     && (await cal.getByText(/Training/).count()) === 0, String(await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => el.getBoundingClientRect().height)));
   ok('mes: la leyenda es pequeña y «ten en cuenta» asoma en la primera vista',
     await cal.locator('[data-leyenda]').evaluate(el => parseFloat(getComputedStyle(el).fontSize) <= 12)
     && await cal.locator('[data-ten-en-cuenta]').evaluate(el => el.getBoundingClientRect().top < innerHeight),
     String(await cal.locator('[data-ten-en-cuenta]').evaluate(el => [el.getBoundingClientRect().top, innerHeight])));
-  ok('por hacer con borde azul; hecho relleno de azul', await cal.locator('[data-chip="pendiente"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(el).borderTopColor === 'rgb(60, 123, 214)')
-    && await cal.locator('[data-chip="hecha"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(60, 123, 214)'));
+  ok('por hacer con borde gris; hecho relleno gris', await cal.locator('[data-chip="pendiente"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(el).borderTopColor === 'rgb(95, 102, 112)')
+    && await cal.locator('[data-chip="hecha"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(95, 102, 112)'));
   ok('mes: «Léelo · ten en cuenta» con mover, añadir, plan y descanso', /Léelo/.test(await cal.locator('[data-ten-en-cuenta]').innerText())
     && ['Mover', 'Añadir', 'Tu plan no cambia', 'Descanso'].every(t => (async () => true)()) && /Descanso\./.test(await cal.locator('[data-ten-en-cuenta]').innerText()));
   ok('calendario: sin oliva', await p.evaluate(() => {

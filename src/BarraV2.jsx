@@ -12,13 +12,13 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef } from 'react';
 import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour } from '@phosphor-icons/react';
-import { SECCION } from './theme.js';
+import { SECCION, DASH_AZUL } from './theme.js';
 
 export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: ForkKnife, aprende: GraduationCap };
 export const NOMBRE_SECCION = { dash: 'Dash', entreno: 'Entrenamiento', comida: 'Alimentación', aprende: 'Aprendizaje' };
 // Rótulo corto bajo el ícono de las secciones cerradas: un ícono solo no
 // siempre se entiende, y con el nombre se sabe dónde tocar.
-const DASH_GRIS = { base: '#6B6962', ink: '#3E3D39', tint: 'rgba(110,106,96,0.14)' };
+
 const CORTO = { dash: 'Dash', entreno: 'Entreno', comida: 'Comida', aprende: 'Aprende' };
 
 // secciones: [{ id, subs: [{ id, label, icono? }] }] en el orden de la barra.
@@ -72,9 +72,9 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
         display: 'flex', alignItems: 'center', gap: 4, padding: 5,
       }}>
         {secciones.map(s => {
-          // El Dash en la barra va en gris suave, como su cabecera (el amarillo
+          // El Dash en la barra va en azul, como su cabecera (el amarillo
           // de SECCION.dash queda para los recordatorios).
-          const c = s.id === 'dash' ? DASH_GRIS : SECCION[s.id];
+          const c = s.id === 'dash' ? DASH_AZUL : SECCION[s.id];
           const Icono = ICONO_SECCION[s.id];
           const abierta = s.id === seccion;
           if (!abierta) {

@@ -85,15 +85,18 @@ export const FONT_DISPLAY = "var(--f-display, 'Bebas Neue'), 'Inter', sans-serif
 
 // ── Visual nueva (v2): un color por sección de la barra ──────────────────
 // Suaves a propósito: la barra no grita, solo dice dónde estás.
-//   Dash          amarillo  lo luminoso, el resumen de todo
-//   Entrenamiento azul      foco, constancia, calma para empujar
+//   Dash          azul      el resumen de todo (su amarillo, para recordatorios)
+//   Entrenamiento gris      foco, constancia; sobrio para empujar
 //   Alimentación  verde     salud, lo natural
 //   Aprendizaje   naranja   curiosidad, calidez
 // `base` pinta iconos y marcas; `ink` es la letra de la opción activa (sobre
 // blanco pasa 4.5:1); `tint` es el cristal teñido del grupo abierto.
+// El Dash en la barra, su cabecera y sus pilares: azul. (SECCION.dash, el
+// amarillo, queda para los recordatorios.)
+export const DASH_AZUL = { base: '#3C7BD6', ink: '#1E58A6', tint: 'rgba(60,123,214,0.14)' };
 export const SECCION = {
   dash:    { base: '#E0A21A', ink: '#7A5500', tint: 'rgba(240,184,40,0.20)' },
-  entreno: { base: '#3C7BD6', ink: '#1E58A6', tint: 'rgba(60,123,214,0.14)' },
+  entreno: { base: '#5F6670', ink: '#454B54', tint: 'rgba(95,102,112,0.14)' },
   comida:  { base: '#46965A', ink: '#2A6A3A', tint: 'rgba(70,150,90,0.15)' },
   aprende: { base: '#EE8434', ink: '#A24F0E', tint: 'rgba(238,132,52,0.16)' },
 };
