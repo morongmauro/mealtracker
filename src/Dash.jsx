@@ -23,6 +23,7 @@ import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
 import { api, hoyLocal, sumarDias, aFecha } from './entrenoDatos.js';
+import { aroSemana } from './aros.js';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
 import { Pastilla } from './PastillaV2.jsx';
@@ -122,18 +123,6 @@ export function datosComida(history = {}, goals = {}, hoy = hoyLocal()) {
     lejos: cerca == null ? null : conDato7.length - cerca, sinRegistro: siete.length - conDato7.length,
     proteinaSemana: estaSemana.length ? Math.round(estaSemana.reduce((a, d) => a + d.p, 0) / estaSemana.length) : null,
   };
-}
-
-// El aro de la cabecera del Dash: cómo va la semana, sumando lo hecho del
-// entreno (rutinas hechas de las planeadas) y de la comida (días registrados
-// de los que van).
-export function aroSemana(semana, comida) {
-  const sc = comida?.semanas?.[comida.semanas.length - 1];
-  const hecho = (semana?.planeados ? semana.hechos : 0) + (sc ? sc.dias : 0);
-  const total = (semana?.planeados || 0) + (sc ? sc.transcurridos : 0);
-  if (!total) return null;
-  const frac = Math.min(1, hecho / total);
-  return { frac, centro: `${Math.round(frac * 100)}%`, pie: 'tu semana' };
 }
 
 // ── Lo que más come, de lo que registró ───────────────────────────────────
@@ -417,7 +406,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       {/* Saludo: con la misma letra y la voz del coach de las cabeceras de Hoy. */}
       <CabeceraHoy tema="dash" sangria="16px" arriba="calc(62px + env(safe-area-inset-top, 0px))"
         voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, b: racha >= 3 ? `${racha} días seguidos.` : 'Mira cómo vas.' }}
-        aro={aroSemana(semana, comida)} />
+        aro={aroSemana(semana, history, goals, aprende, hoy)} />
       {/* Atajos: en UNA sola línea y del mismo alto, para no quitarle el
           protagonismo a las gráficas. Recordatorios y Configuración van
           solo con su ícono (campana y tuerca) para que todo quepa. */}

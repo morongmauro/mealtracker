@@ -36,7 +36,7 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
   return (
     <div data-aprende-hoy style={{ maxWidth: 560, margin: '0 auto', padding: '0 20px', paddingTop: arriba, paddingBottom: 'calc(104px + env(safe-area-inset-bottom, 0px))' }}>
       <CabeceraHoy tema="aprende" voz={vozAprende({ hoy: hoyIso(), avance, quedan: recs.length })} arriba={arriba}
-        aro={avance && avance.pct != null ? { frac: avance.pct / 100, centro: `${avance.pct}%`, pie: 'tu avance' } : null} />
+        aro={avance && avance.pct != null ? { frac: avance.pct / 100, centro: `${avance.pct}%`, pie: 'Material visto' } : null} />
 
       <h2 style={titulo}>Recomendado para ti</h2>
       {avance === undefined ? (

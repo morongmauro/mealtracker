@@ -88,13 +88,13 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const Ilus = fondo && ilustracion ? ILUSTRACION[tema] : null;
   const conAro = !!(Ilus && aro);
   const texto = (
-    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? 'min(34vw, 150px)' : 0, minHeight: conAro ? 'calc(min(36vw, 146px) * 0.74 + 74px)' : undefined }}>
+    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (conAro ? 'min(46vw, 186px)' : 'min(34vw, 150px)') : 0, minHeight: conAro ? 118 : undefined }}>
       {voz?.etiqueta && (
         <div data-etiqueta style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
       )}
       {voz ? (
         <h1 data-frase style={{
-          margin: '8px 0 0', fontSize: fondo ? 'clamp(24px, 6.8vw, 29px)' : 'clamp(27px, 7.6vw, 34px)', fontWeight: 800, lineHeight: 1.08,
+          margin: '8px 0 0', fontSize: fondo ? (conAro ? 'clamp(21px, 5.9vw, 26px)' : 'clamp(24px, 6.8vw, 29px)') : 'clamp(27px, 7.6vw, 34px)', fontWeight: 800, lineHeight: 1.08,
           letterSpacing: '-0.03em', color: TEXT, textWrap: 'balance', maxWidth: 460,
         }}>
           {voz.a}{voz.b && <><br /><span style={{ color: t.tinta }}>{voz.b}</span></>}
@@ -146,20 +146,20 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
           <div className="cab-ilus" style={{
             // Junto a la frase (sin taparla: el texto le deja su espacio) y
             // entera dentro de la pantalla, sin cortarse por el borde.
-            // Con el aro: la kettlebell un poco más chica y más arriba, y el
-            // aro debajo, en la misma columna al lado del texto.
-            position: 'absolute', right: conAro ? 18 : 14, top: `calc(${arriba} + ${conAro ? 12 : 22}px)`, width: conAro ? 'min(36vw, 146px)' : 'min(40vw, 164px)', aspectRatio: '220 / 170',
+            // Con el aro: la kettlebell un poco más chica, y el aro a su
+            // lado, los dos junto al texto.
+            position: 'absolute', right: conAro ? 6 : 14, top: `calc(${arriba} + ${conAro ? 16 : 22}px)`, width: conAro ? 'min(28vw, 112px)' : 'min(40vw, 164px)', aspectRatio: '220 / 170',
             color: '#FFFFFF', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.10))',
           }}><Ilus /></div>
           {conAro && (
             <div className="cab-ilus" data-aro-cabecera={tema} style={{
-              position: 'absolute', right: 'calc(18px + min(36vw, 146px) * 0.42 - 35px)', top: `calc(${arriba} + 12px + min(36vw, 146px) * 0.74)`,
+              position: 'absolute', right: 'calc(min(28vw, 112px) + 4px)', top: `calc(${arriba} + 30px)`, width: 84,
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animationDelay: '.16s',
             }}>
-              <AnilloMarca frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={70} grosor={8} riel="rgba(255,255,255,0.75)" etiqueta={aro.pie}>
-                <div style={{ fontSize: 15.5, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>
+              <AnilloMarca frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={64} grosor={7.5} riel="rgba(255,255,255,0.75)" etiqueta={aro.pie}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>
               </AnilloMarca>
-              {aro.pie && <div style={{ fontSize: 10.5, fontWeight: 750, letterSpacing: '0.04em', color: TEXT_MUTED, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{aro.pie}</div>}
+              {aro.pie && <div data-aro-pie style={{ fontSize: 9.5, fontWeight: 750, letterSpacing: '0.03em', color: TEXT_MUTED, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.2 }}>{aro.pie}</div>}
             </div>
           )}
         </div>

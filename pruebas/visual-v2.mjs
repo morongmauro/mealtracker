@@ -281,7 +281,11 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const r = document.createRange(); r.selectNodeContents(frase);
   const lineas = [...r.getClientRects()];
   const derechaTexto = Math.max(...lineas.map(l => l.right));
-  const bien = g.left >= 0 && g.right <= innerWidth && g.top >= 0 && derechaTexto <= g.left + 4 && g.left - f.right < 40 && g.top < f.bottom;
+  // Con el aro al lado, lo que queda junto a la frase es el aro.
+  const aro = document.querySelector(`[data-cabecera-hoy="${tema}"] [data-aro-cabecera]`);
+  const izq = aro ? Math.min(aro.getBoundingClientRect().left, g.left) : g.left;
+  const bien = g.left >= 0 && g.right <= innerWidth && g.top >= 0 && derechaTexto <= izq + 4 && izq - f.right < 40 && g.top < f.bottom
+    && (!aro || aro.getBoundingClientRect().right <= g.left + 12);
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top], derechaTexto, fRight: f.right, fBottom: f.bottom, w: innerWidth }));
   return bien;
 }, tema);

@@ -46,6 +46,7 @@ import {
 } from './theme.js';
 import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
 import CuentaV2, { leerSesion, guardarSesion } from './CuentaV2.jsx';
+import { aroComida } from './aros.js';
 
 // ── Modelos: enrutamiento HÍBRIDO ────────────────────────────────────────
 // FAST (Haiku) clasifica y registra los mensajes del día a día (~85% del
@@ -5738,7 +5739,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               <div>
                 <CabeceraHoy tema="comida" sangria="20px" arriba={`${headerH + 16}px`}
                   voz={vozComida({ hoy: today, hora: new Date().getHours(), kcal: totals.kcal, meta: goals?.kcal || 0, comidas: entries.length, racha: streak })}
-                  aro={goals?.kcal ? { frac: Math.min(1, (totals.kcal || 0) / goals.kcal), centro: `${Math.round(((totals.kcal || 0) / goals.kcal) * 100)}%`, pie: 'kcal de hoy' } : null} />
+                  aro={aroComida(history, goals, today)} />
                 <div style={{ marginTop: '-4px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {/* Recordatorios y mensualidad viven en el Dash; aquí, solo los
                       círculos de la campanita y de escribirle al coach. */}

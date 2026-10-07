@@ -26,14 +26,14 @@ import {
   SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
   SHADOW_CARD, FONT_DISPLAY, SECCION,
 } from './theme.js';
-// El aro de la cabecera de Entrenamiento: las rutinas hechas de las que tocan
-// esta semana.
+// El aro de la cabecera de Entrenamiento: la adherencia de la semana (las
+// rutinas hechas de las que tocan).
 export function aroEntreno(plan) {
   const dias = (plan && plan.dias) || [];
   const planeadas = dias.filter(d => d.rutina).length;
   if (!planeadas) return null;
   const hechas = dias.filter(d => d.rutina && d.hecha).length;
-  return { frac: hechas / planeadas, centro: `${hechas}/${planeadas}`, pie: 'esta semana' };
+  return { frac: hechas / planeadas, centro: `${Math.round((hechas / planeadas) * 100)}%`, pie: 'Adherencia semanal' };
 }
 
 // El acento del módulo sale de entrenoUI: oliva de siempre, azul en la visual nueva.
