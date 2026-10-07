@@ -1107,7 +1107,8 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     <div data-calendario-v2={modo} style={{ touchAction: arrastre ? 'none' : undefined }}>
       {modo === 'mes' && (
         <>
-          <Titulo>Tu calendario</Titulo>
+          {/* Pegado a la frase grande de arriba (sin tanto aire entre los dos) */}
+          <Titulo style={{ marginTop: -14 }}>Tu calendario</Titulo>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '10px 0 2px' }}>
             <button onClick={() => cambiarMes(-1)} aria-label="Anterior" style={flechaV2}><CaretLeft size={18} weight="bold" /></button>
             <div style={{ textAlign: 'center' }}>
@@ -1141,10 +1142,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
       {listo && modo === 'hoy' && (
         <>
           <div style={{ height: 1, background: 'rgba(31,31,31,0.09)', margin: '26px 2px 16px' }} />
-          <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '0 2px 4px' }}>Tu semana</h2>
-          <div style={{ fontSize: 13.5, color: TEXT_MUTED, margin: '0 2px 12px', lineHeight: 1.45 }}>
-            Toca un día para ver todo. Mantén el dedo sobre una rutina para cambiarla de día.
-          </div>
+          <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '0 2px 12px' }}>Tu semana</h2>
           <div data-vista="semana" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {semana.map((f, i) => {
               const d = porFecha[f];

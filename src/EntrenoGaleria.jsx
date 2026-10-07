@@ -34,31 +34,33 @@ export function armarGaleria(rutinas) {
   return [...porId.values()];
 }
 
-// La familia de cada ejercicio, con su tono (visual nueva): así la rejilla
-// se lee de un vistazo —qué es empuje, qué es tracción, qué es movilidad—.
-// Sale del tipo y del patrón que el coach le puso en la galería.
+// El tipo de cada ejercicio, con su tono (visual nueva): Movilidad,
+// Resistencia, Potencia o Fuerza. La fuerza va toda en el mismo color y
+// dice además si es empuje o jalón, de tren superior o inferior. Sale del
+// tipo, el patrón y el segmento que el coach le puso en la galería.
 const FAMILIAS = {
-  empuje:    { texto: 'Empuje',    color: '#C95F17', tinte: '#FBEADB' },
-  traccion:  { texto: 'Tracción',  color: '#2F6CC4', tinte: '#E6EEF9' },
-  pierna:    { texto: 'Pierna',    color: '#2F7F45', tinte: '#E3F1E6' },
-  cadera:    { texto: 'Cadera',    color: '#7A55B8', tinte: '#EFE8F8' },
-  core:      { texto: 'Core',      color: '#A87400', tinte: '#FBF1D6' },
-  potencia:  { texto: 'Potencia',  color: '#C2413B', tinte: '#FAE5E3' },
-  movilidad: { texto: 'Movilidad', color: '#178A8F', tinte: '#DFF2F2' },
-  cardio:    { texto: 'Cardio',    color: '#C23D78', tinte: '#F9E3EE' },
-  fuerza:    { texto: 'Fuerza',    color: '#5B5A55', tinte: '#EFEDE8' },
+  movilidad:   { texto: 'Movilidad',   color: '#178A8F', tinte: '#DFF2F2' },
+  resistencia: { texto: 'Resistencia', color: '#C23D78', tinte: '#F9E3EE' },
+  potencia:    { texto: 'Potencia',    color: '#C2413B', tinte: '#FAE5E3' },
+  fuerza:      { texto: 'Fuerza',      color: '#454B54', tinte: '#E9EBEE' },
 };
 export function familiaDe(e) {
-  const tipo = e?.tipo, patron = e?.patron;
-  if (tipo === 'cardio') return 'cardio';
-  if (['movilidad', 'calentamiento', 'estiramiento', 'estiramiento_pasivo'].includes(tipo)) return 'movilidad';
+  const tipo = e?.tipo;
+  if (tipo === 'cardio') return 'resistencia';
+  if (['movilidad', 'calentamiento', 'estiramiento', 'estiramiento_pasivo', 'estiramiento_activo'].includes(tipo)) return 'movilidad';
   if (['potencia', 'pliometrico', 'agilidad'].includes(tipo)) return 'potencia';
-  if (tipo === 'core' || patron === 'core') return 'core';
-  if (patron === 'push') return 'empuje';
-  if (patron === 'pull') return 'traccion';
-  if (patron === 'rodilla') return 'pierna';
-  if (patron === 'cadera') return 'cadera';
   return 'fuerza';
+}
+// En la fuerza: empuje o jalón, de tren superior o inferior (sentadillas y
+// zancadas empujan con la pierna; bisagras y puentes jalan con la cadera).
+export function tipoFuerza(e) {
+  const patron = e?.patron, inferior = e?.segmento === 'tren_inferior';
+  if (patron === 'push') return inferior ? 'Empuje · tren inferior' : 'Empuje · tren superior';
+  if (patron === 'pull') return inferior ? 'Jalón · tren inferior' : 'Jalón · tren superior';
+  if (patron === 'rodilla') return 'Empuje · tren inferior';
+  if (patron === 'cadera') return 'Jalón · tren inferior';
+  if (patron === 'core' || e?.tipo === 'core') return 'Core';
+  return null;
 }
 
 // Lo último traído, por cliente: al volver a la Galería se pinta al instante
@@ -135,9 +137,12 @@ export default function Galeria({ nombre }) {
           const img = miniatura(e);
           const musculos = (e.musculos_primarios || []).map(s => MUSCULO_POR_SLUG[s]?.corto).filter(Boolean);
           const fam = v2 ? FAMILIAS[familiaDe(e)] : null;
+          const sub = fam && familiaDe(e) === 'fuerza' ? tipoFuerza(e) : null;
           return (
-            <button key={e.id} data-familia={fam ? familiaDe(e) : undefined} onClick={() => setAbierto(item)} style={{
-              textAlign: 'left', padding: 0, border: fam ? `1.5px solid ${fam.color}55` : `1px solid ${BORDER}`, borderRadius: 16,
+            <button key={e.id} data-familia={fam ? familiaDe(e) : undefined} data-fuerza={sub || undefined} onClick={() => setAbierto(item)} style={{
+              // El borde de color, alrededor de toda la tarjeta (sin línea en
+              // la mitad).
+              textAlign: 'left', padding: 0, border: fam ? `2px solid ${fam.color}AA` : `1px solid ${BORDER}`, borderRadius: 16,
               background: SURFACE, boxShadow: SHADOW_CARD, overflow: 'hidden', cursor: 'pointer',
               fontFamily: 'inherit', display: 'flex', flexDirection: 'column',
             }}>
@@ -153,9 +158,12 @@ export default function Galeria({ nombre }) {
                   }}>▶</span>
                 )}
               </div>
-              <div style={{ padding: '9px 10px 11px', borderTop: fam ? `3px solid ${fam.color}` : 0 }}>
+              <div style={{ padding: '9px 10px 11px' }}>
                 {fam && (
-                  <span data-familia-etiqueta style={{ display: 'inline-block', marginBottom: 5, padding: '2px 8px', borderRadius: 99, background: fam.tinte, color: fam.color, fontSize: 11, fontWeight: 800, letterSpacing: '0.02em' }}>{fam.texto}</span>
+                  <div style={{ marginBottom: 5 }}>
+                    <span data-familia-etiqueta style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, background: fam.tinte, color: fam.color, fontSize: 11, fontWeight: 800, letterSpacing: '0.02em' }}>{fam.texto}</span>
+                    {sub && <div style={{ fontSize: 11, fontWeight: 700, color: fam.color, marginTop: 3, marginLeft: 2 }}>{sub}</div>}
+                  </div>
                 )}
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT, lineHeight: 1.25 }}>{nombresEj(e).grande}</div>
                 {nombresEj(e).chico && <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 1, lineHeight: 1.25 }}>{nombresEj(e).chico}</div>}

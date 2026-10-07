@@ -736,10 +736,14 @@ try {
   await p.getByText('Sentadilla con barra').first().waitFor({ timeout: 10000 });
   await espera(600);
   await foto(p, '06-entreno-galeria');
-  ok('galería: cada tarjeta con el tono de su familia (empuje, tracción, pierna, cadera, movilidad, cardio…)', await p.evaluate(() => {
-    const fam = (t) => [...document.querySelectorAll('[data-familia]')].find(b => b.innerText.includes(t))?.getAttribute('data-familia');
-    return fam('Press banca') === 'empuje' && fam('Remo con mancuerna') === 'traccion' && fam('Sentadilla con barra') === 'pierna'
-      && fam('Hip thrust') === 'cadera' && fam('Carrera continua') === 'cardio' && fam('Dislocaciones') === 'movilidad'
+  ok('galería: cada tarjeta con su tipo (movilidad, resistencia, potencia, fuerza) y la fuerza dice empuje/jalón y tren', await p.evaluate(() => {
+    const tarjeta = (t) => [...document.querySelectorAll('[data-familia]')].find(b => b.innerText.includes(t));
+    const fam = (t) => tarjeta(t)?.getAttribute('data-familia'), fz = (t) => tarjeta(t)?.getAttribute('data-fuerza');
+    return fam('Press banca') === 'fuerza' && fz('Press banca') === 'Empuje · tren superior'
+      && fz('Remo con mancuerna') === 'Jalón · tren superior' && fz('Sentadilla con barra') === 'Empuje · tren inferior'
+      && fz('Hip thrust') === 'Jalón · tren inferior' && fam('Carrera continua') === 'resistencia' && fam('Dislocaciones') === 'movilidad'
+      && /Empuje · tren superior/.test(tarjeta('Press banca').innerText)
+      && getComputedStyle(tarjeta('Press banca')).borderTopColor === getComputedStyle(tarjeta('Sentadilla con barra')).borderTopColor
       && document.querySelectorAll('[data-familia-etiqueta]').length >= 8;
   }));
   ok('entreno: la firma al final de la galería', (await p.locator('[data-view="entrena"] [data-firma]').count()) === 1);
