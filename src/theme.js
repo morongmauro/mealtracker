@@ -50,6 +50,26 @@ export const BG_STAINS = `radial-gradient(48% 34% at 90% 0%, rgba(126,188,168,0.
 // encienden encima del fondo y derivan en direcciones opuestas — los tonos
 // cálidos y fríos se cruzan e iluminan (efecto Gemini). Al terminar se
 // apagan con un fade y queda solo BG_STAINS estático.
+// Visual nueva: el fondo de manchas en los tonos de la sección. El Dash,
+// todo en azules; Entrenamiento, grises con un toque de amarillo suave.
+export const BG_STAINS_DASH = `radial-gradient(48% 34% at 90% 0%, rgba(143,179,232,0.55), transparent 70%),
+  radial-gradient(42% 30% at -4% 14%, rgba(110,158,224,0.32), transparent 70%),
+  radial-gradient(40% 30% at 34% 10%, rgba(198,218,246,0.50), transparent 70%),
+  radial-gradient(50% 36% at 55% 36%, rgba(255,255,255,0.85), transparent 70%),
+  radial-gradient(44% 32% at 0% 66%, rgba(143,179,232,0.40), transparent 72%),
+  radial-gradient(48% 36% at 103% 54%, rgba(110,158,224,0.28), transparent 70%),
+  radial-gradient(42% 30% at 100% 84%, rgba(198,218,246,0.45), transparent 72%),
+  radial-gradient(44% 32% at 26% 100%, rgba(143,179,232,0.34), transparent 72%),
+  radial-gradient(42% 32% at 74% 96%, rgba(255,255,255,0.75), transparent 72%)`;
+export const BG_STAINS_ENTRENO = `radial-gradient(48% 34% at 90% 0%, rgba(169,175,184,0.50), transparent 70%),
+  radial-gradient(42% 30% at -4% 14%, rgba(244,220,147,0.40), transparent 70%),
+  radial-gradient(40% 30% at 34% 10%, rgba(205,210,216,0.45), transparent 70%),
+  radial-gradient(50% 36% at 55% 36%, rgba(255,255,255,0.85), transparent 70%),
+  radial-gradient(44% 32% at 0% 66%, rgba(169,175,184,0.40), transparent 72%),
+  radial-gradient(48% 36% at 103% 54%, rgba(244,220,147,0.30), transparent 70%),
+  radial-gradient(42% 30% at 100% 84%, rgba(205,210,216,0.40), transparent 72%),
+  radial-gradient(44% 32% at 26% 100%, rgba(244,220,147,0.28), transparent 72%),
+  radial-gradient(42% 32% at 74% 96%, rgba(255,255,255,0.75), transparent 72%)`;
 export const BG_STAINS_WARM = `radial-gradient(56% 44% at 78% 12%, rgba(248,196,96,0.85), transparent 68%),
   radial-gradient(52% 42% at 14% 42%, rgba(244,146,104,0.78), transparent 68%),
   radial-gradient(50% 40% at 62% 88%, rgba(248,206,120,0.70), transparent 70%)`;

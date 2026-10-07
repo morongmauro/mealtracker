@@ -462,7 +462,7 @@ try {
   ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);
   ok('…con la banda delgada y la ilustración de la sección (kettlebell)', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('[data-ilustracion="entreno"]').count()) === 1
     && await cabE.locator('[data-banda]').evaluate(el => el.getBoundingClientRect().height < 140));
-  ok('…la segunda línea en el gris de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(95, 102, 112)'));
+  ok('…la segunda línea en el amarillo de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(168, 122, 6)'));
   ok('…y el color no se sale de la pantalla', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   // Unidades: una preferencia para toda la app
   await p.getByRole('button', { name: /Unidades · kg/ }).first().click();

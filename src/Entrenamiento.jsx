@@ -1134,12 +1134,12 @@ function HojaFin({ fin, alCerrar }) {
         background: '#FFFFFF', borderRadius: 28, maxWidth: 380, width: '100%', overflow: 'hidden',
         boxShadow: '0 20px 60px rgba(0,0,0,.25)', maxHeight: '88vh', overflowY: 'auto',
       }}>
-        <div style={{ position: 'relative', height: 150, background: `radial-gradient(70% 90% at 70% 10%, #B9BEC6 0%, rgba(185,190,198,0) 70%), radial-gradient(60% 80% at 10% 90%, #F6CFA9 0%, rgba(246,207,169,0) 70%), #EEEFF1`, display: 'grid', placeItems: 'end center' }}>
+        <div style={{ position: 'relative', height: 150, background: `radial-gradient(70% 90% at 70% 10%, #B9BEC6 0%, rgba(185,190,198,0) 70%), radial-gradient(60% 80% at 10% 90%, #F4DC93 0%, rgba(244,220,147,0) 70%), #EEEFF1`, display: 'grid', placeItems: 'end center' }}>
           <div className="fin-dibujo" style={{ width: 210, height: 130, marginBottom: 6, marginRight: 40 }}><IlustracionPesas /></div>
         </div>
         <div style={{ padding: '18px 20px 20px' }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.08 }}>Entreno hecho.</div>
-          <div style={{ fontSize: 17, fontWeight: 700, color: A.ink, letterSpacing: '-0.01em', lineHeight: 1.3, marginTop: 4 }}>{frase}</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: '#A87A06', letterSpacing: '-0.01em', lineHeight: 1.3, marginTop: 4 }}>{frase}</div>
           {/* Lo que hizo, subiendo desde cero; y la barra que se llena hasta
               donde llegó. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))', gap: 8, marginTop: 16 }}>

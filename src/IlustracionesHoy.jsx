@@ -20,9 +20,6 @@ const PULPA = '#D2EA8C';
 const PULPA_BORDE = '#E6F4B6';
 const HUESO = '#9C6238';
 const HUESO_LUZ = '#BE8252';
-const KB = '#5B95E6';
-const KB_OSCURA = '#2F66B8';
-const KB_LUZ = '#8DB8F2';
 const DISCO = '#2C313A';
 const BARRA = '#B9C1CC';
 
@@ -84,51 +81,69 @@ export function IlustracionComida() {
   );
 }
 
-// La kettlebell: cuerpo redondo con la base plana, asa gruesa arriba y un
-// brillo. Centro del cuerpo en (0,0); mide ~70 × 96 con el asa.
-function Kettlebell() {
-  return (
-    <g>
-      <path d="M-15 -22 C-17 -52 17 -52 15 -22" fill="none" stroke={KB_OSCURA} strokeWidth="10" strokeLinecap="round" />
-      <path d="M-26 34 C-40 22 -40 -8 -26 -20 C-16 -28 16 -28 26 -20 C40 -8 40 22 26 34 Z" fill={KB} />
-      <path d="M-24 -10 C-20 -18 -12 -21 -6 -21" fill="none" stroke={KB_LUZ} strokeWidth="4" strokeLinecap="round" />
-      <rect x="-24" y="32" width="48" height="5" rx="2.5" fill={KB_OSCURA} />
-    </g>
-  );
-}
+// La kettlebell de «Entreno hecho»: cuerpo redondo apenas plano abajo, asa
+// de kettlebell de verdad (cuernos curvos y tope plano), brazos y piernas en
+// línea negra. Colores lisos; la profundidad solo donde hace falta: la
+// sombra propia del cuerpo (una media luna), el brillo arriba y la sombra en
+// el piso. Gris de Entrenamiento con el amarillo de la marca en los discos.
+const KB_G = '#6B737D', KB_G_SOMBRA = '#565D67', KB_G_LUZ = '#98A0AA', KB_ASA = '#4F565F', KB_ASA_LUZ = '#7F8791';
+const NEGRO = '#23272D';
+const CUERPO_KB = 'M-17 31 C-38 25 -42 -2 -31 -18 C-22 -31 -11 -35 0 -35 C11 -35 22 -31 31 -18 C42 -2 38 25 17 31 C6 33.4 -6 33.4 -17 31 Z';
 
 export function IlustracionPesas() {
+  const id = React.useId().replace(/:/g, '');
   return (
     <svg viewBox="0 0 200 124" aria-hidden="true" data-dibujo="pesas" style={{ width: '100%', height: '100%', display: 'block', overflow: 'visible' }}>
-      <Fondo color="#3C7BD6" />
-      <ellipse cx="120" cy="120" rx="30" ry="4" fill="#1E3F73" opacity="0.2" />
+      <defs>
+        <clipPath id={`${id}c`}><path d={CUERPO_KB} /></clipPath>
+        <filter id={`${id}b`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" /></filter>
+      </defs>
+      <circle cx="120" cy="62" r="56" fill="#FFFFFF" opacity="0.45" />
+      <circle cx="44" cy="32" r="5" fill="#FFFFFF" opacity="0.75" />
+      <circle cx="184" cy="96" r="4" fill="#F2C94C" opacity="0.55" />
+      {/* sombra en el piso, suave */}
+      <ellipse cx="120" cy="120.5" rx="34" ry="4.6" fill="#1E2228" opacity="0.16" filter={`url(#${id}b)`} />
       <g transform="translate(120 72)">
-        {/* piernas cortas, abiertas, bien plantadas */}
-        <g stroke={KB_OSCURA} strokeWidth="6" strokeLinecap="round" fill="none">
-          <path d="M-12 36 L-16 46" />
-          <path d="M12 36 L16 46" />
-        </g>
-        <ellipse cx="-19" cy="47.5" rx="6.5" ry="3" fill={KB_OSCURA} />
-        <ellipse cx="19" cy="47.5" rx="6.5" ry="3" fill={KB_OSCURA} />
-        {/* brazos arriba, sosteniendo la barra sobre el asa */}
-        <g stroke={KB_OSCURA} strokeWidth="6" strokeLinecap="round" fill="none">
-          <path d="M-33 0 Q-46 -26 -36 -58" />
-          <path d="M33 0 Q46 -26 36 -58" />
-        </g>
-        <Kettlebell />
-        {/* una gota de esfuerzo, fuera del cuerpo */}
-        <path d="M44 -30 q3 5 0 7 q-3 -2 0 -7 Z" fill="#7FB2F0" />
-        {/* la barra con sus discos */}
+        {/* asa: cuernos curvos y tope plano */}
+        <path d="M-20 -26 C-25.5 -38 -24 -50 -13 -55.5 L13 -55.5 C24 -50 25.5 -38 20 -26" fill="none" stroke={KB_ASA} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M-19.6 -33 C-21.4 -42 -18.5 -49.5 -11.5 -52.6 L2 -52.6" fill="none" stroke={KB_ASA_LUZ} strokeWidth="2.4" strokeLinecap="round" />
+        {/* la barra con sus discos (cada uno con su canto) */}
         <g transform="translate(0 -61)">
-          <rect x="-66" y="-2.5" width="132" height="5" rx="2.5" fill={BARRA} />
-          <rect x="-62" y="-15" width="9" height="30" rx="3.5" fill={DISCO} />
-          <rect x="-52" y="-11" width="7" height="22" rx="3" fill="#3C7BD6" />
-          <rect x="53" y="-15" width="9" height="30" rx="3.5" fill={DISCO} />
-          <rect x="45" y="-11" width="7" height="22" rx="3" fill="#3C7BD6" />
-          <circle cx="-36" cy="0" r="4.5" fill={KB_OSCURA} />
-          <circle cx="36" cy="0" r="4.5" fill={KB_OSCURA} />
+          <rect x="-70" y="-2.6" width="140" height="5.2" rx="2.6" fill="#B9C1CC" />
+          <rect x="-70" y="-2.6" width="140" height="1.8" rx="0.9" fill="#E3E8ED" />
+          <rect x="-60" y="-16" width="9" height="32" rx="4" fill="#1C2026" />
+          <rect x="-62" y="-16" width="9" height="32" rx="4" fill="#2E333B" />
+          <rect x="-50" y="-11.5" width="7" height="23" rx="3.2" fill="#D4A72C" />
+          <rect x="-52" y="-11.5" width="7" height="23" rx="3.2" fill="#F2C94C" />
+          <rect x="53" y="-16" width="9" height="32" rx="4" fill="#1C2026" />
+          <rect x="51" y="-16" width="9" height="32" rx="4" fill="#2E333B" />
+          <rect x="45" y="-11.5" width="7" height="23" rx="3.2" fill="#D4A72C" />
+          <rect x="43" y="-11.5" width="7" height="23" rx="3.2" fill="#F2C94C" />
         </g>
+        {/* brazos y piernas: una línea negra (detrás del cuerpo) */}
+        <g stroke={NEGRO} strokeWidth="5.5" strokeLinecap="round" fill="none">
+          <path d="M-30 -6 Q-52 -26 -38 -60" />
+          <path d="M30 -6 Q52 -26 38 -60" />
+          <path d="M-11 30 L-14 43" />
+          <path d="M11 30 L14 43" />
+        </g>
+        <ellipse cx="-18" cy="45.5" rx="7" ry="3.3" fill={NEGRO} />
+        <ellipse cx="18" cy="45.5" rx="7" ry="3.3" fill={NEGRO} />
+        {/* cuerpo liso + media luna de sombra abajo a la derecha */}
+        <path d={CUERPO_KB} fill={KB_G_SOMBRA} />
+        <g clipPath={`url(#${id}c)`}>
+          <circle cx="-5" cy="-6" r="36" fill={KB_G} />
+        </g>
+        {/* brillo: un trazo curvo y un punto */}
+        <path d="M-27 -8 C-24 -19 -15 -26 -5 -27.5" fill="none" stroke={KB_G_LUZ} strokeWidth="4.5" strokeLinecap="round" />
+        <circle cx="-26.5" cy="2" r="2.2" fill={KB_G_LUZ} />
+        {/* manos sobre la barra */}
+        <circle cx="-38" cy="-61" r="4.8" fill={NEGRO} />
+        <circle cx="38" cy="-61" r="4.8" fill={NEGRO} />
+        {/* gota de esfuerzo */}
+        <path d="M50 -32 c3.5 5.5 3 9 0 9 c-3 0 -3.5 -3.5 0 -9 Z" fill="#CFE0F2" />
       </g>
+      <path d="M26 32 l1.6 4 4 1.6 -4 1.6 -1.6 4 -1.6 -4 -4 -1.6 4 -1.6 Z" fill="#FFFFFF" opacity="0.95" />
     </svg>
   );
 }

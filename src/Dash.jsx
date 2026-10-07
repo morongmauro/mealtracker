@@ -373,7 +373,7 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
           protagonismo a las gráficas. Recordatorios y Configuración van
           solo con su ícono (campana y tuerca) para que todo quepa. */}
       <div data-atajos style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 5, marginTop: 14, overflowX: 'auto', scrollbarWidth: 'none', padding: '6px 6px 6px 0' }}>
-        <Pastilla mini apretada icono={Mountains} color="#D9744A" onClick={() => setSinRetos(true)}>Reto</Pastilla>
+        <Pastilla mini apretada icono={Mountains} color="#2F6CC4" onClick={() => setSinRetos(true)}>Reto</Pastilla>
         {wa && <Pastilla mini apretada icono={WhatsappLogo} color="#25A35A" href={wa}>Coach</Pastilla>}
         <Pastilla mini apretada icono={UsersThree} color="#3C7BD6" badge={nuevosComunidad} badgeEncima data-abrir-comunidad
           aria-label={`Comunidad${nuevosComunidad ? ` · ${nuevosComunidad} ${nuevosComunidad === 1 ? 'nueva' : 'nuevas'}` : ''}`}

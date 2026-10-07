@@ -40,7 +40,7 @@ import { aplicarV2 } from './v2-fuentes.js';
 import {
   ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
   C_PROTEIN, C_PROTEIN_PASTEL, C_CARBS, C_CARBS_PASTEL, C_FAT, C_FAT_PASTEL, C_WATER,
-  BG, BG_STAINS, BG_STAINS_WARM, BG_STAINS_COOL, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
+  BG, BG_STAINS, BG_STAINS_DASH, BG_STAINS_ENTRENO, BG_STAINS_WARM, BG_STAINS_COOL, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
   SUCCESS, WARN, DANGER, DANGER_SOFT, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
   SECCION,
 } from './theme.js';
@@ -5143,6 +5143,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
   };
   // Al tocar una sección se abre en su Hoy: Entrenamiento, Alimentación y
   // Aprendizaje, las tres igual.
+  // Visual nueva: las manchas del fondo de la pantalla en los tonos de la
+  // sección (el Dash, todo azules; Entrenamiento, grises con amarillo suave).
+  const MANCHAS_V2 = {
+    dash: ['rgba(143,179,232,0.40)', 'rgba(110,158,224,0.22)', 'rgba(198,218,246,0.50)'],
+    entreno: ['rgba(169,175,184,0.32)', 'rgba(244,220,147,0.30)', 'rgba(205,210,216,0.38)'],
+  };
   const irSeccionV2 = (sec) => {
     if (sec === 'dash') return irSubV2('dash');
     if (sec === 'entreno') return irSubV2('entreno', 'hoy');
@@ -5160,9 +5166,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         zIndex: 0,
         background: [
           `radial-gradient(55% 42% at 8% 0%, rgba(247,243,232,0.9), transparent 70%)`,
-          `radial-gradient(48% 40% at 96% 12%, ${ACCENT_PASTEL}4D, transparent 70%)`,
-          `radial-gradient(45% 38% at 22% 58%, ${C_PROTEIN_PASTEL}33, transparent 72%)`,
-          `radial-gradient(50% 42% at 96% 94%, ${C_FAT_PASTEL}30, transparent 72%)`,
+          ...((v2 && MANCHAS_V2[seccionV2]) || [`${ACCENT_PASTEL}4D`, `${C_PROTEIN_PASTEL}33`, `${C_FAT_PASTEL}30`]).map((c, i) => [
+            `radial-gradient(48% 40% at 96% 12%, ${c}, transparent 70%)`,
+            `radial-gradient(45% 38% at 22% 58%, ${c}, transparent 72%)`,
+            `radial-gradient(50% 42% at 96% 94%, ${c}, transparent 72%)`,
+          ][i]),
           `radial-gradient(55% 45% at 40% 102%, rgba(250,246,236,0.85), transparent 65%)`,
         ].join(', ')
       }} />
@@ -5994,7 +6002,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           la barra de URL del navegador y se sienta una sección más. */}
       {showTraining && (
         <div data-view="entrena" className="fixed inset-0 overflow-y-auto" style={{ zIndex: 37, background: BG }}>
-          <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
+          <div className="fixed inset-0 pointer-events-none" style={{ background: v2 ? BG_STAINS_ENTRENO : BG_STAINS }} />
           {/* Con la barra de cristal nueva lo de atrás tiene que verse: sin
               el difuminado de abajo. */}
           {!v2 && <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
@@ -6012,7 +6020,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {/* DASH (visual nueva): cómo vas en todo, en una pantalla. */}
       {showDash && (
         <div data-view="dash" className="fixed inset-0 overflow-y-auto" style={{ zIndex: 37, background: BG }}>
-          <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
+          <div className="fixed inset-0 pointer-events-none" style={{ background: v2 ? BG_STAINS_DASH : BG_STAINS }} />
           <Suspense fallback={null}>
             <Dash name={name} history={history} goals={goals}
               avisoPago={paymentDue && !paymentDue.bloqueo ? <PaymentNotice v2={v2} info={paymentDue} style={{ marginTop: '16px' }} /> : null}
