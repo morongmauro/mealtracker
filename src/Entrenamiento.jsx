@@ -33,7 +33,7 @@ export function aroEntreno(plan) {
   const planeadas = dias.filter(d => d.rutina).length;
   if (!planeadas) return null;
   const hechas = dias.filter(d => d.rutina && d.hecha).length;
-  return { frac: hechas / planeadas, centro: `${Math.round((hechas / planeadas) * 100)}%`, pie: 'Adherencia semanal' };
+  return { frac: hechas / planeadas, centro: `${Math.round((hechas / planeadas) * 100)}%`, pie: 'Performance semanal' };
 }
 
 // El acento del módulo sale de entrenoUI: oliva de siempre, azul en la visual nueva.
@@ -1064,7 +1064,8 @@ function PildoraRecordatorios({ pendientes = 0, abrir }) {
           círculos de la campanita y de escribirle al coach. */}
       <Pastilla chica soloIcono icono={Bell} color="#E0A21A" badge={pendientes} onClick={abrir}>Recordatorios</Pastilla>
       {WHATSAPP_COACH && <Pastilla chica soloIcono icono={WhatsappLogo} color="#25A35A" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</Pastilla>}
-      <Pastilla chica icono={Ruler} color={SECCION.entreno.base} onClick={() => setUnidadesAbiertas(true)}>Unidades · {u.peso || 'kg'}</Pastilla>
+      {/* Unidades: en la visual nueva viven en la configuración del Dash */}
+      {!v2Activa() && <Pastilla chica icono={Ruler} color={SECCION.entreno.base} onClick={() => setUnidadesAbiertas(true)}>Unidades · {u.peso || 'kg'}</Pastilla>}
       <HojaUnidades abierta={unidadesAbiertas} alCerrar={() => setUnidadesAbiertas(false)} />
     </div>
   );

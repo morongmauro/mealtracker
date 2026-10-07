@@ -369,6 +369,24 @@ try {
   await foto(p, '01b-reto');
   await p.getByRole('dialog', { name: 'Retos' }).click();
   ok('Reto: un toque lo cierra', (await p.getByRole('dialog', { name: 'Retos' }).count()) === 0);
+  // Deslizar de lado pasa de página (en el orden de la barra).
+  const deslizar = (x0, x1, sel = '[data-view="dash"] h1, [data-view="dash"]') => p.evaluate(([x0, x1, sel]) => {
+    const el = document.querySelector(sel);
+    const toque = (x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 420 });
+    el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [toque(x0)], changedTouches: [toque(x0)] }));
+    el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [toque(x1)] }));
+  }, [x0, x1, sel]);
+  await deslizar(320, 90);
+  await p.locator('[data-view="entrena"]').waitFor({ timeout: 8000 }).catch(() => {});
+  ok('deslizar a la izquierda: del Dash pasa a Entrenamiento', (await p.locator('[data-view="entrena"]').count()) === 1 && (await p.locator('[data-view="dash"]').count()) === 0);
+  await espera(400);
+  await deslizar(80, 330, '[data-view="entrena"]');
+  await p.locator('[data-view="dash"]').waitFor({ timeout: 8000 }).catch(() => {});
+  ok('deslizar a la derecha: vuelve al Dash', (await p.locator('[data-view="dash"]').count()) === 1);
+  await espera(400);
+  await deslizar(320, 270);
+  await espera(300);
+  ok('un movimiento corto no cambia de página', (await p.locator('[data-view="dash"]').count()) === 1);
   await dash.getByRole('button', { name: /Recordatorios/ }).click();
   await p.getByText('Mis recordatorios', { exact: true }).last().waitFor({ timeout: 5000 });
   ok('Recordatorios sin oliva', await p.evaluate(() => {
@@ -501,12 +519,16 @@ try {
     && await cabE.locator('[data-banda]').evaluate(el => el.getBoundingClientRect().height < 140));
   ok('…la segunda línea en el amarillo de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(201, 164, 62)'));
   ok('…y el color no se sale de la pantalla', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  // Unidades: una preferencia para toda la app
-  await p.getByRole('button', { name: /Unidades · kg/ }).first().click();
+  // Unidades: ya no hay botón en Entrenamiento (viven en la configuración del Dash)
+  ok('entreno: sin el botón de Unidades (está en la configuración del Dash)', (await p.locator('[data-view="entrena"]').getByRole('button', { name: /Unidades ·/ }).count()) === 0);
+  await p.getByRole('button', { name: /^Dash$/ }).first().click(); await espera(400);
+  await p.locator('[data-abrir-config]').click();
+  await p.locator('[data-config="unidades"]').click();
   await p.getByRole('radio', { name: 'Libras (lb)' }).click();
   await p.keyboard.press('Escape');
   await espera(300);
-  ok('unidades: la preferencia queda en lb', (await p.getByRole('button', { name: /Unidades · lb/ }).count()) > 0);
+  ok('unidades: la preferencia queda en lb', /Libras/.test(await p.locator('[data-config="unidades"]').innerText()));
+  await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(600);
   // Hoy: lo de hoy todo junto y la semana con detalle
   const hoyV = p.locator('[data-view="entrena"]');
   ok('hoy: «Hoy te toca» con registros y añadir actividad ahí mismo', (await hoyV.locator('[data-hoy-te-toca]').count()) === 1
@@ -778,8 +800,12 @@ try {
       && fz('Remo con mancuerna') === 'Jalón · tren superior' && fz('Sentadilla con barra') === 'Empuje · tren inferior'
       && fz('Hip thrust') === 'Jalón · tren inferior' && fam('Carrera continua') === 'resistencia' && fam('Dislocaciones') === 'movilidad'
       && /Empuje · tren superior/.test(tarjeta('Press banca').innerText)
-      && getComputedStyle(tarjeta('Press banca')).borderTopColor === getComputedStyle(tarjeta('Sentadilla con barra')).borderTopColor
+      && getComputedStyle(tarjeta('Press banca')).backgroundImage === getComputedStyle(tarjeta('Sentadilla con barra')).backgroundImage
       && document.querySelectorAll('[data-familia-etiqueta]').length >= 8;
+  }));
+  ok('galería: tarjetas sin borde, abajo el color del tipo con su circulito', await p.evaluate(() => {
+    const ts = [...document.querySelectorAll('[data-familia]')];
+    return ts.length >= 8 && ts.every(b => getComputedStyle(b).borderTopStyle === 'none' && /gradient/.test(getComputedStyle(b).backgroundImage) && b.querySelector('[data-familia-circulo]'));
   }));
   ok('entreno: la firma al final de la galería', (await p.locator('[data-view="entrena"] [data-firma]').count()) === 1);
   await p.getByText('Sentadilla con barra').first().click();

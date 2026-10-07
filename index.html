@@ -84,7 +84,7 @@
         if (raiz.classList.contains('splash-v2') && !raiz.classList.contains('warm-start')) {
           raiz.classList.add('intro-completa');
           var tc = document.querySelector('meta[name="theme-color"]');
-          if (tc) tc.setAttribute('content', '#0C0C0B');
+          if (tc) tc.setAttribute('content', '#4F89DC');
         }
       } catch (e) {}
     </script>
@@ -172,7 +172,7 @@
         src: url('/fonts/figtree.woff2') format('woff2-variations'), url('/fonts/figtree.woff2') format('woff2'); }
       #splash2 { display: none; }
       html.splash-v2 #splash { display: none; }
-      /* Entrada con el ÍCONO de la app (visual nueva): negro, como el ícono.
+      /* Entrada con el ÍCONO de la app (visual nueva): azul, como el ícono.
            0.05–0.85 s  la línea blanca de la gráfica del Dash da 3/4 de
                         vuelta, con el punto amarillo en la punta
            0.80–1.15 s  sale el asa: la gráfica se vuelve la kettlebell
@@ -180,12 +180,13 @@
            0.30–0.80 s  «Entrena con / Método.» (Método en el amarillo)
            2.20 s       se desvanece y aparece la app */
       html.splash-v2 #splash2 { position: fixed; top: -60px; left: 0; right: 0; bottom: -200px; z-index: 9999; display: block;
-        overflow: hidden; pointer-events: none; background: #0C0C0B; transition: opacity .6s ease-out; }
+        overflow: hidden; pointer-events: none; background: #2F6CC4; transition: opacity .6s ease-out; }
       html.warm-start #splash2 { display: none !important; }
       html.warm-start.intro-repite #splash2 { display: block !important; }
       body.app-ready #splash2 { opacity: 0; }
-      /* Un brillo muy suave detrás del ícono, para dar profundidad */
-      #splash2 .fondo { position: absolute; inset: 0; background: radial-gradient(calc(var(--pantalla, 100vmax) * .5) calc(var(--pantalla, 100vmax) * .5) at 50% 38%, #1E1E1C 0%, #0C0C0B 70%); }
+      /* El azul del Dash con manchas orgánicas muy sutiles de los colores de
+         la marca (verde, amarillo, naranja), como el ícono. */
+      #splash2 .fondo { position: absolute; inset: 0; background: radial-gradient(46% 30% at 10% 84%, rgba(70,150,90,0.30) 0%, rgba(70,150,90,0) 72%), radial-gradient(34% 24% at 30% 96%, rgba(242,201,76,0.20) 0%, rgba(242,201,76,0) 72%), radial-gradient(40% 26% at 94% 66%, rgba(238,132,52,0.22) 0%, rgba(238,132,52,0) 72%), radial-gradient(42% 24% at 90% 4%, rgba(255,216,102,0.22) 0%, rgba(255,216,102,0) 72%), radial-gradient(48% 32% at 6% 14%, rgba(170,200,240,0.32) 0%, rgba(170,200,240,0) 72%), linear-gradient(165deg, #5590E3 0%, #2F6CC4 55%, #1E4F9A 100%); }
       #splash2 .escena { position: absolute; left: 0; right: 0; top: 60px; height: 100vh; height: var(--alto-pantalla, 100lvh); }
       #splash2 .marca { position: absolute; left: 50%; top: 38%; width: min(62vw, 260px); height: min(62vw, 260px);
         margin: calc(min(62vw, 260px) / -2) 0 0 calc(min(62vw, 260px) / -2); overflow: visible; }

@@ -75,12 +75,14 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
     // Pedirle al reproductor que nos cuente cómo va.
     const escuchar = () => { try { marco.current && marco.current.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'v' }), '*'); } catch (e) { /* nada */ } };
     const iv = setInterval(escuchar, 500);
-    // Si el reproductor no responde, igual se destapa a los 2,5 s.
-    const respaldo = setTimeout(() => setListo(true), 2500);
+    // Si el reproductor no responde, igual se destapa a los 1,2 s.
+    const respaldo = setTimeout(() => setListo(true), 1200);
     return () => { window.removeEventListener('message', alMensaje); clearInterval(iv); clearTimeout(tapa); clearTimeout(respaldo); };
   }, [src]);
 
-  const alternarPausa = () => { if (pausado) { mandar('playVideo'); setPausado(false); } else { mandar('pauseVideo'); setPausado(true); } };
+  // Al darle play, el botón y la tapa se van AL INSTANTE (un video de 13 s no
+  // puede quedar 4 s tapado); tocar otra vez lo pausa y vuelve el botón.
+  const alternarPausa = () => { if (pausado) { mandar('playVideo'); setPausado(false); setListo(true); } else { mandar('pauseVideo'); setPausado(true); } };
   const alternarSonido = () => { if (sonido) mandar('mute'); else { mandar('unMute'); mandar('setVolume', [100]); } setSonido(!sonido); };
   const tapado = !listo || pausado;
 
@@ -92,7 +94,7 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
       {/* La tapa: la miniatura mientras arranca o está en pausa */}
       <div aria-hidden="true" style={{
         position: 'absolute', inset: 0, background: miniatura ? `#000 url(${miniatura}) center / cover` : '#000',
-        opacity: tapado ? 1 : 0, transition: 'opacity .35s ease', pointerEvents: 'none',
+        opacity: tapado ? 1 : 0, transition: tapado ? 'opacity .2s ease' : 'opacity .12s ease', pointerEvents: 'none',
       }} />
       {/* Toque: pausa / sigue */}
       <button data-video-pausa onClick={alternarPausa} aria-label={pausado ? 'Seguir' : 'Pausar'} style={{ position: 'absolute', inset: 0, border: 0, background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>

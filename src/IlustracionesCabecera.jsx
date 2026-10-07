@@ -65,10 +65,10 @@ export function Cara({ y = 0, color = CARA }) {
 // Blanca, con el volumen en manchas grandes de gris (cara iluminada, tono
 // medio y sombra abajo a la derecha), sin líneas de brillo. Brazos y
 // piernas en línea negra, por detrás del cuerpo.
-// Gris muy suave (no blanco puro): la cara iluminada, el tono medio y la
+// Gris suave (un poco más gris que blanco, para que se lea la kettlebell): la cara iluminada, el tono medio y la
 // sombra. Sin cara en las cabeceras (Mauro): la cara queda para las
 // celebraciones de «Entreno hecho» y la meta de comida.
-const LUZ = '#EEF0F3', MEDIO = '#DCE0E5', SOMBRA = '#C5CAD1', ASA = '#E7EAEE', ASA_SOMBRA = '#CFD4DA', NEGRO = '#23272D';
+const LUZ = '#E3E6EA', MEDIO = '#CDD2D8', SOMBRA = '#B2B8C0', ASA = '#DADEE3', ASA_SOMBRA = '#BFC5CC', NEGRO = '#23272D';
 const CUERPO = 'M-17 31 C-38 25 -42 -2 -31 -18 C-22 -31 -11 -35 0 -35 C11 -35 22 -31 31 -18 C42 -2 38 25 17 31 C6 33.4 -6 33.4 -17 31 Z';
 function Kettlebell({ children }) {
   const id = React.useId().replace(/:/g, '');

@@ -1875,6 +1875,120 @@ function SlotPicker({ slot, g, opts, onElegir, onCerrar }) {
   );
 }
 
+
+// ── Detalle de receta · visual nueva ───────────────────────────────────
+// Con la misma jerarquía del Dash y de Hoy: título grande en grafito, los
+// datos en una línea gris (sin pastillas de colores), tarjetas blancas con
+// su título en negrita, números grandes y barras en el verde de la sección.
+const VERDE_V2 = '#46965A', VERDE_OSC_V2 = '#2F7F45';
+const tarjetaV2 = { background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA_V2, padding: '18px 18px 16px' };
+const tituloV2 = { fontSize: 17, fontWeight: 800, color: TEXT, letterSpacing: '-0.015em', margin: '0 0 10px' };
+const botonRedondoV2 = { width: 36, height: 36, borderRadius: 999, border: 'none', background: CREMA_V2, color: TEXT, fontSize: 19, fontWeight: 700, cursor: 'pointer', display: 'grid', placeItems: 'center', fontFamily: 'inherit' };
+
+function DetalleRecetaV2({ open, detail, g, manualK, kSuggested, fitRemaining, hasEatenToday, remaining, menos, mas, sugerida, adaptar }) {
+  const t = detail.totals;
+  const datos = [displaySlot(open.slot), open.time, COST_LABELS[META[open.id].cost], META[open.id].diff].filter(Boolean);
+  const macros = [['Proteína', t.p, g.p], ['Carbos', t.c, g.c], ['Grasas', t.g, g.g]];
+  const pct = (v, m) => (m ? Math.min(100, Math.round((v / m) * 100)) : 0);
+  return (
+    <div data-receta-v2 style={{ display: 'grid', gap: 14 }}>
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+        <div style={{ width: 56, height: 56, borderRadius: 999, background: ACCENT_PASTEL, display: 'grid', placeItems: 'center', fontSize: 28, flex: 'none' }}>{open.icon}</div>
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ margin: 0, fontSize: 25, fontWeight: 800, color: TEXT, letterSpacing: '-0.025em', lineHeight: 1.12 }}>{open.name}</h1>
+          <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 5, lineHeight: 1.35 }}>
+            {datos.join(' · ')}{isHighProtein(open) && <> · <span style={{ color: VERDE_OSC_V2, fontWeight: 650 }}>Alta proteína</span></>}
+          </div>
+        </div>
+      </div>
+      {open.allergens.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: TEXT_MUTED }}>
+          <AlertTriangle size={14} style={{ color: '#C95F17', flex: 'none' }} /> Contiene {open.allergens.join(', ').toLowerCase()}
+        </div>
+      )}
+
+      {/* Tu porción */}
+      <div style={tarjetaV2} data-receta-porcion>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+          <h2 style={{ ...tituloV2, margin: 0 }}>Tu porción</h2>
+          <div className="num" style={{ fontSize: 15, color: TEXT_MUTED }}><b style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>{r0(t.kcal)}</b> kcal</div>
+        </div>
+        <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 4, lineHeight: 1.4 }}>
+          {fitRemaining ? `Adaptada a lo que te queda hoy (${r0(remaining.kcal)} kcal).` : `Ajustada a tu ${displaySlot(open.slot).toLowerCase()}: cerca del ${Math.round((SPLIT[open.slot] || 0.3) * 100)} % de tu meta del día.`}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 14 }}>
+          {macros.map(([n, v, m]) => (
+            <div key={n}>
+              <div className="num" style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>{r0(v)}<span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED }}> g</span></div>
+              <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 1 }}>{n}</div>
+              <div style={{ height: 6, borderRadius: 99, background: CREMA_V2, marginTop: 7, overflow: 'hidden' }}>
+                <div style={{ width: `${pct(v, m)}%`, height: '100%', borderRadius: 99, background: VERDE_V2 }} />
+              </div>
+              <div className="num" style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 4 }}>{pct(v, m)} % del día</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ height: 1, background: 'rgba(31,31,31,0.07)', margin: '16px 0 12px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>Cantidad</div>
+            <div style={{ fontSize: 12.5, color: TEXT_MUTED }}>{manualK == null ? 'La sugerida ya cuadra con tu meta' : 'Cambiaste la porción sugerida'}</div>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={menos} aria-label="Menos porción" style={botonRedondoV2}>−</button>
+            <span className="num" style={{ fontSize: 14, fontWeight: 700, color: TEXT, minWidth: 48, textAlign: 'center' }}>{manualK == null ? 'Normal' : `${Math.round((manualK / (kSuggested || 1)) * 100)} %`}</span>
+            <button onClick={mas} aria-label="Más porción" style={botonRedondoV2}>+</button>
+          </div>
+        </div>
+        {manualK != null && (
+          <button onClick={sugerida} style={{ marginTop: 8, border: 'none', background: 'none', padding: 0, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: TEXT_MUTED, cursor: 'pointer' }}>
+            <RotateCcw size={13} /> Volver a la sugerida
+          </button>
+        )}
+        {hasEatenToday && (
+          <button onClick={adaptar} style={{ marginTop: 12, width: '100%', height: 44, borderRadius: 999, border: 'none', fontFamily: 'inherit', fontSize: 14, fontWeight: 650, cursor: 'pointer',
+            background: fitRemaining ? 'rgba(70,150,90,0.14)' : CREMA_V2, color: fitRemaining ? VERDE_OSC_V2 : TEXT, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {fitRemaining ? <><Check size={15} /> Adaptada a lo que te queda</> : <>Adaptar a lo que me queda ({r0(remaining.kcal)} kcal)</>}
+          </button>
+        )}
+      </div>
+
+      {/* Ingredientes */}
+      <div style={tarjetaV2} data-receta-ingredientes>
+        <h2 style={tituloV2}>Ingredientes</h2>
+        {detail.main.map((i, idx) => (
+          <div key={idx} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderTop: idx ? '1px solid rgba(31,31,31,0.07)' : 'none' }}>
+            <span style={{ fontSize: 15, color: TEXT }}>{i.n}</span>
+            <span className="num" style={{ fontSize: 15, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap' }}>{i.q} {i.u}</span>
+          </div>
+        ))}
+      </div>
+
+      {open.season.length > 0 && (
+        <div style={tarjetaV2}>
+          <h2 style={tituloV2}>Para darle sabor</h2>
+          {open.season.map((s, idx) => (
+            <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'baseline', padding: '5px 0', fontSize: 15, color: TEXT }}>
+              <span style={{ width: 6, height: 6, borderRadius: 99, background: VERDE_V2, flex: 'none', transform: 'translateY(-2px)' }} /><span>{s}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Preparación */}
+      <div style={tarjetaV2} data-receta-pasos>
+        <h2 style={tituloV2}>Preparación</h2>
+        {open.steps.map((s, idx) => (
+          <div key={idx} style={{ display: 'flex', gap: 12, padding: '10px 0', borderTop: idx ? '1px solid rgba(31,31,31,0.07)' : 'none' }}>
+            <div className="num" style={{ width: 28, height: 28, borderRadius: 99, flex: 'none', display: 'grid', placeItems: 'center', background: 'rgba(70,150,90,0.14)', color: VERDE_OSC_V2, fontSize: 13.5, fontWeight: 800 }}>{idx + 1}</div>
+            <div style={{ fontSize: 15, lineHeight: 1.5, color: TEXT, paddingTop: 3 }}>{s}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Recetario({ goals, consumed, onClose, onRegister, onChangeGoal, scrollSignal, abrir }) {
   // El modo global "Ajustar recetas a mi día" se eliminó: confundía ("¿no
   // deberían venir TODAS ajustadas al día?"). Ahora toda receta llega
@@ -2112,6 +2226,14 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 58px)',
           paddingBottom: 'calc(170px + env(safe-area-inset-bottom, 0px))',
         }}>
+          {v2 ? (
+            <DetalleRecetaV2 open={open} detail={detail} g={g} manualK={manualK} kSuggested={kSuggested}
+              fitRemaining={fitRemaining} hasEatenToday={hasEatenToday} remaining={remaining}
+              menos={() => { haptic(6); const base = manualK ?? detail.k; setManualK(Math.max(kSuggested * 0.5, +(base / 1.15).toFixed(3))); }}
+              mas={() => { haptic(6); const base = manualK ?? detail.k; setManualK(Math.min(kSuggested * 2, +(base * 1.15).toFixed(3))); }}
+              sugerida={() => { haptic(6); setManualK(null); }}
+              adaptar={() => { haptic(8); setManualK(null); setFitRemaining(f => !f); }} />
+          ) : (<>
           <div style={{ color: TEXT, fontSize: '24px', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 }}>{open.name}</div>
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center rounded-2xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24 }}>{open.icon}</div>
@@ -2217,6 +2339,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               </div>
             ))}
           </div>
+          </>)}
 
         </div>
 
@@ -2693,7 +2816,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     // píldora de marca (z-50) del MealTracker — navegar desde la barra
     // cierra el Recetario, así que aquí no hay botón "atrás". El fondo usa
     // el mismo degradado orgánico de la vista Hoy (una sola app).
-    <div ref={rootRef} className="fixed inset-0 z-[38] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
+    <div ref={rootRef} data-capa-v2 className="fixed inset-0 z-[38] overflow-y-auto rec-slide-in" style={{ background: BG, fontFamily: FONT_UI }}>
       {/* Mismo degradado orgánico de la vista Hoy — capa fixed aparte (iOS
           ignora background-attachment en contenedores con scroll). */}
       <div className="fixed inset-0 pointer-events-none" style={{
@@ -2798,7 +2921,15 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       }}>
         {/* Meta nutricional — píldora compacta de UNA fila (la meta la
             administra el coach desde el CRM; aquí solo se consulta). */}
-        <div className="rounded-full px-4 py-2.5 flex items-center gap-2" style={v2 ? { background: '#FFFFFF', boxShadow: SOMBRA_V2 } : cardStyle}>
+        {v2 ? (
+        <div data-meta-v2 style={{ background: '#FFFFFF', boxShadow: SOMBRA_V2, borderRadius: 18, padding: '11px 16px', display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 650, color: TEXT_MUTED, flex: 'none' }}>Tu meta de hoy</span>
+          <span className="num" style={{ marginLeft: 'auto', fontSize: 13, color: TEXT_MUTED, whiteSpace: 'nowrap' }}>
+            <b style={{ fontSize: 15, fontWeight: 800, color: TEXT }}>{g.kcal}</b> kcal · P {g.p} · C {g.c} · G {g.g}
+          </span>
+        </div>
+        ) : (
+        <div className="rounded-full px-4 py-2.5 flex items-center gap-2" style={cardStyle}>
           <span className="text-[9.5px] font-bold flex-shrink-0" style={{ color: ACCENT }}>Tu meta de hoy</span>
           <div className="ml-auto flex items-center gap-2.5 num text-[12px] font-bold whitespace-nowrap">
             <span style={{ color: TEXT }}>{g.kcal}<span className="text-[9px] font-semibold" style={{ color: TEXT_LIGHT }}> kcal</span></span>
@@ -2807,6 +2938,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             <span style={{ color: C_FAT }}>G{g.g}</span>
           </div>
         </div>
+        )}
 
         {/* Portada: DOS caminos y nada más. Antes se entraba a un muro de
             buscador, filtros y tarjetas y no se sabía por dónde empezar.
@@ -2950,6 +3082,17 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               className="w-full text-left rounded-[20px] p-3 active:scale-[0.99] transition flex items-center gap-3"
               style={v2 ? { background: '#FFFFFF', borderRadius: 20, boxShadow: SOMBRA_V2, touchAction: 'manipulation' } : { ...cardStyle, touchAction: 'manipulation' }}>
               <div className="flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: v2 ? 999 : 12, background: v2 ? ACCENT_PASTEL : SURFACE_2, fontSize: 24, flexShrink: 0 }}>{recipe.icon}</div>
+              {v2 ? (
+                <div className="flex-1 min-w-0" data-receta-tarjeta-v2>
+                  <div className="truncate" style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em' }}>{recipe.name}</div>
+                  <div className="truncate" style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2 }}>
+                    {displaySlot(recipe.slot)} · {recipe.time} · {COST_LABELS[META[recipe.id].cost]}{isHighProtein(recipe) && <> · <span style={{ color: '#2F7F45', fontWeight: 650 }}>Alta proteína</span></>}
+                  </div>
+                  <div className="num" style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 4 }}>
+                    <b style={{ color: TEXT, fontWeight: 750 }}>{r0(sc.totals.kcal)} kcal</b> · P {r0(sc.totals.p)} · C {r0(sc.totals.c)} · G {r0(sc.totals.g)}
+                  </div>
+                </div>
+              ) : (
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{recipe.name}</div>
                 <div className="flex items-center gap-2 text-[10.5px] mt-1" style={{ color: TEXT_MUTED }}>
@@ -2965,6 +3108,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                   <span style={{ color: C_FAT }}>G{r0(sc.totals.g)}</span>
                 </div>
               </div>
+              )}
+              {v2 && <ChevronLeft size={18} style={{ color: TEXT_LIGHT, transform: 'rotate(180deg)', flex: 'none' }} />}
             </button>
           ))}
           {list.length === 0 && (

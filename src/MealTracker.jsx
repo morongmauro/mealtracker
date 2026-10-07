@@ -47,6 +47,8 @@ import {
 import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
 import CuentaV2, { leerSesion, guardarSesion } from './CuentaV2.jsx';
 import { aroComida } from './aros.js';
+import { leerAprendizajeConCache } from './aprendizaje.js';
+import { escucharDeslizar } from './deslizarV2.js';
 
 // ── Modelos: enrutamiento HÍBRIDO ────────────────────────────────────────
 // FAST (Haiku) clasifica y registra los mensajes del día a día (~85% del
@@ -694,7 +696,25 @@ export default function MealTracker() {
     if (RECORRIDO_AUTO && view === 'main' && name && v2Activa() && !recorridoHecho()) setRecorrido(true);
   }, [view, name]);   // eslint-disable-line react-hooks/exhaustive-deps
   const learningFrameRef = useRef(null);
+  // Visual nueva: deslizar entre páginas (ver paginasV2 y deslizarV2.js).
+  const deslizarRef = useRef(null);
   const v2 = esV2(name);
+  useEffect(() => {
+    if (!v2) return undefined;
+    const pasar = (dir) => {
+      const d = deslizarRef.current; if (!d) return;
+      const i = d.paginas.findIndex(([s, o]) => s === d.actual[0] && (o || null) === (d.actual[1] || null));
+      const sig = d.paginas[i + dir];
+      if (i < 0 || !sig) return;
+      d.ir(sig[0], sig[1] || undefined);
+    };
+    const quitar = escucharDeslizar(document, pasar);
+    // Desde el centro de aprendizaje (otro documento, en el iframe) llega
+    // como mensaje.
+    const alMensaje = (ev) => { const m = ev && ev.data; if (m && m.tipo === 'em-deslizar' && (m.dir === 1 || m.dir === -1)) pasar(m.dir); };
+    window.addEventListener('message', alMensaje);
+    return () => { quitar(); window.removeEventListener('message', alMensaje); };
+  }, [v2]);
   useEffect(() => { aplicarV2(v2); }, [v2]);
   // Con la visual nueva, la app SIEMPRE abre en el Dash, que es el que te
   // reubica: cómo vas en todo. (Comida queda en Hoy por debajo.)
@@ -5178,6 +5198,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     if (sec === 'comida') return irSubV2('comida', 'hoy');
     if (sec === 'aprende') return irSubV2('aprende', 'lecturas');
   };
+  // Deslizar el dedo pasa de página, en el orden de la barra: hacia la
+  // izquierda la siguiente, hacia la derecha la anterior (el calendario de
+  // comidas no cuenta: es una ventana, no una página).
+  const paginasV2 = seccionesV2.flatMap(s => s.subs.length ? s.subs.filter(o => o.id !== 'calendario').map(o => [s.id, o.id]) : [[s.id, null]]);
+  deslizarRef.current = { paginas: paginasV2, actual: [seccionV2, seccionV2 === 'dash' ? null : subV2], ir: irSubV2 };
 
   return (
     <div className="min-h-screen relative" style={{ background: BG, color: TEXT, fontFamily: FONT_UI }}>
@@ -6025,7 +6050,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           recursos: overlay con iframe, no window.open, para que no aparezca
           la barra de URL del navegador y se sienta una sección más. */}
       {showTraining && (
-        <div data-view="entrena" className="fixed inset-0 overflow-y-auto" style={{ zIndex: 37, background: BG }}>
+        <div data-view="entrena" data-capa-v2 className="fixed inset-0 overflow-y-auto" style={{ zIndex: 37, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: v2 ? BG_STAINS_ENTRENO : BG_STAINS }} />
           {/* Con la barra de cristal nueva lo de atrás tiene que verse: sin
               el difuminado de abajo. */}
@@ -6043,7 +6068,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
       {/* DASH (visual nueva): cómo vas en todo, en una pantalla. */}
       {showDash && (
-        <div data-view="dash" className="fixed inset-0 overflow-y-auto" style={{ zIndex: 37, background: BG }}>
+        <div data-view="dash" data-capa-v2 className="fixed inset-0 overflow-y-auto" style={{ zIndex: 37, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: v2 ? BG_STAINS_DASH : BG_STAINS }} />
           <Suspense fallback={null}>
             <Dash name={name} history={history} detalle={historyDetail} goals={goals}
@@ -6073,7 +6098,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       )}
 
       {showLearning && (
-        <div className="fixed inset-0" style={{ zIndex: 37, background: BG }}>
+        <div data-capa-v2 className="fixed inset-0" style={{ zIndex: 37, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
           {/* El difuminado SUPERIOR ya no se dibuja aquí: se pintaba encima
               del iframe y por tanto también sobre el botón de "volver" del
@@ -6094,6 +6119,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             key={learningKey}
             title="Centro de aprendizaje"
             src={learningSrc}
+            // Visual nueva: el aro «Material visto» de la cabecera de Lecturas
+            // muestra el mismo % que el Dash; se lo mandamos al centro.
+            onLoad={v2 ? (ev) => {
+              const w = ev.currentTarget.contentWindow;
+              leerAprendizajeConCache(name).then(a => { if (a && w) { try { w.postMessage({ tipo: 'em-aprende', pct: a.pct }, '*'); } catch (e) { /* sin centro */ } } }).catch(() => {});
+            } : undefined}
             style={{
               position: 'absolute', top: 0, left: 0, width: '100%',
               height: 'calc(100% - 64px - env(safe-area-inset-bottom, 0px))',

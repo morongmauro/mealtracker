@@ -39,10 +39,10 @@ export function armarGaleria(rutinas) {
 // dice además si es empuje o jalón, de tren superior o inferior. Sale del
 // tipo, el patrón y el segmento que el coach le puso en la galería.
 const FAMILIAS = {
-  movilidad:   { texto: 'Movilidad',   color: '#178A8F', tinte: '#DFF2F2' },
-  resistencia: { texto: 'Resistencia', color: '#C23D78', tinte: '#F9E3EE' },
-  potencia:    { texto: 'Potencia',    color: '#C2413B', tinte: '#FAE5E3' },
-  fuerza:      { texto: 'Fuerza',      color: '#454B54', tinte: '#E9EBEE' },
+  movilidad:   { texto: 'Movilidad',   color: '#178A8F', tinte: '#DFF2F2', fondo: ['#2CA5AA', '#137479'] },
+  resistencia: { texto: 'Resistencia', color: '#C23D78', tinte: '#F9E3EE', fondo: ['#D9599A', '#A92E66'] },
+  potencia:    { texto: 'Potencia',    color: '#C2413B', tinte: '#FAE5E3', fondo: ['#DA5E55', '#AA322C'] },
+  fuerza:      { texto: 'Fuerza',      color: '#454B54', tinte: '#E9EBEE', fondo: ['#6E757F', '#454B54'] },
 };
 export function familiaDe(e) {
   const tipo = e?.tipo;
@@ -140,10 +140,10 @@ export default function Galeria({ nombre }) {
           const sub = fam && familiaDe(e) === 'fuerza' ? tipoFuerza(e) : null;
           return (
             <button key={e.id} data-familia={fam ? familiaDe(e) : undefined} data-fuerza={sub || undefined} onClick={() => setAbierto(item)} style={{
-              // El borde de color, alrededor de toda la tarjeta (sin línea en
-              // la mitad).
-              textAlign: 'left', padding: 0, border: fam ? `2px solid ${fam.color}AA` : `1px solid ${BORDER}`, borderRadius: 16,
-              background: SURFACE, boxShadow: SHADOW_CARD, overflow: 'hidden', cursor: 'pointer',
+              // Visual nueva: sin borde; abajo del video, el color del tipo
+              // (como las tarjetas de las cápsulas).
+              textAlign: 'left', padding: 0, border: fam ? 'none' : `1px solid ${BORDER}`, borderRadius: 16,
+              background: fam ? `linear-gradient(160deg, ${fam.fondo[0]}, ${fam.fondo[1]})` : SURFACE, boxShadow: SHADOW_CARD, overflow: 'hidden', cursor: 'pointer',
               fontFamily: 'inherit', display: 'flex', flexDirection: 'column',
             }}>
               <div style={{ position: 'relative', aspectRatio: '16 / 10', background: SURFACE_2 }}>
@@ -158,18 +158,22 @@ export default function Galeria({ nombre }) {
                   }}>▶</span>
                 )}
               </div>
-              <div style={{ padding: '9px 10px 11px' }}>
-                {fam && (
-                  <div style={{ marginBottom: 5 }}>
-                    <span data-familia-etiqueta style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, background: fam.tinte, color: fam.color, fontSize: 11, fontWeight: 800, letterSpacing: '0.02em' }}>{fam.texto}</span>
-                    {sub && <div style={{ fontSize: 11, fontWeight: 700, color: fam.color, marginTop: 3, marginLeft: 2 }}>{sub}</div>}
-                  </div>
-                )}
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT, lineHeight: 1.25 }}>{nombresEj(e).grande}</div>
-                {nombresEj(e).chico && <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 1, lineHeight: 1.25 }}>{nombresEj(e).chico}</div>}
-                {musculos.length > 0 && (
-                  <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 3 }}>{musculos.slice(0, 2).join(' · ')}</div>
-                )}
+              <div style={{ position: 'relative', overflow: 'hidden', flex: 1, padding: '9px 10px 11px' }}>
+                {/* El circulito de tono más suave, en la esquina de abajo a la izquierda */}
+                {fam && <span aria-hidden="true" data-familia-circulo style={{ position: 'absolute', left: -34, bottom: -44, width: 112, height: 112, borderRadius: 99, background: 'rgba(255,255,255,0.13)', pointerEvents: 'none' }} />}
+                <div style={{ position: 'relative' }}>
+                  {fam && (
+                    <div style={{ marginBottom: 5 }}>
+                      <span data-familia-etiqueta style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.22)', color: '#FFFFFF', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em' }}>{fam.texto}</span>
+                      {sub && <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.86)', marginTop: 3, marginLeft: 2 }}>{sub}</div>}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 13.5, fontWeight: 750, color: fam ? '#FFFFFF' : TEXT, lineHeight: 1.25 }}>{nombresEj(e).grande}</div>
+                  {nombresEj(e).chico && <div style={{ fontSize: 11.5, color: fam ? 'rgba(255,255,255,0.8)' : TEXT_LIGHT, marginTop: 1, lineHeight: 1.25 }}>{nombresEj(e).chico}</div>}
+                  {musculos.length > 0 && (
+                    <div style={{ fontSize: 11.5, color: fam ? 'rgba(255,255,255,0.8)' : TEXT_LIGHT, marginTop: 3 }}>{musculos.slice(0, 2).join(' · ')}</div>
+                  )}
+                </div>
               </div>
             </button>
           );

@@ -81,6 +81,9 @@ export function FirmaCoach({ claro = false, compacta = false }) {
 // `voz.sub`: una línea de texto normal debajo de la frase.
 // `aro`: { frac (0–1), centro, pie } — la gráfica clave de la sección, en un
 // aro como los del Dash, al lado de la kettlebell; se llena al entrar.
+// El ancho de la kettlebell cuando va con el aro.
+const KB_ARO = 'min(40vw, 156px)';
+
 export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', ilustracion = true, aro = null, children }) {
   const t = TEMAS[tema] || TEMAS.entreno;
   // La ilustración de la sección va a la derecha, cortada por el borde de la
@@ -146,20 +149,24 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
           <div className="cab-ilus" style={{
             // Junto a la frase (sin taparla: el texto le deja su espacio) y
             // entera dentro de la pantalla, sin cortarse por el borde.
-            // Con el aro: la kettlebell un poco más chica, y el aro a su
-            // lado, los dos junto al texto.
-            position: 'absolute', right: conAro ? 6 : 14, top: `calc(${arriba} + ${conAro ? 16 : 22}px)`, width: conAro ? 'min(28vw, 112px)' : 'min(40vw, 164px)', aspectRatio: '220 / 170',
+            // Con el aro: la kettlebell (con lo que sostiene) más alta que el
+            // aro, y el aro a su lado, centrado a la altura de la figura.
+            // (La barra de Entrenamiento es más ancha: un poco más a la derecha,
+            // en el margen vacío del lienzo, para no rozar el aro.)
+            position: 'absolute', right: conAro ? (tema === 'entreno' ? -8 : 0) : 14, top: `calc(${arriba} + ${conAro ? 12 : 22}px)`, width: conAro ? KB_ARO : 'min(40vw, 164px)', aspectRatio: '220 / 170',
             color: '#FFFFFF', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.10))',
           }}><Ilus /></div>
           {conAro && (
             <div className="cab-ilus" data-aro-cabecera={tema} style={{
-              position: 'absolute', right: 'calc(min(28vw, 112px) + 4px)', top: `calc(${arriba} + 30px)`, width: 84,
+              // Pegado a la figura por la izquierda (en el margen vacío de su
+              // lienzo) y con su centro a la mitad de la figura entera.
+              position: 'absolute', right: `calc(${KB_ARO} * 0.75 - 6px)`, top: `calc(${arriba} + 12px + ${KB_ARO} * 0.3165 - 30px)`, width: 84,
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animationDelay: '.16s',
             }}>
-              <AnilloMarca frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={64} grosor={7.5} riel="rgba(255,255,255,0.75)" etiqueta={aro.pie}>
+              <AnilloMarca frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={60} grosor={7} riel="rgba(255,255,255,0.75)" etiqueta={aro.pie}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>
               </AnilloMarca>
-              {aro.pie && <div data-aro-pie style={{ fontSize: 9.5, fontWeight: 750, letterSpacing: '0.03em', color: TEXT_MUTED, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.2 }}>{aro.pie}</div>}
+              {aro.pie && <div data-aro-pie style={{ fontSize: 11, fontWeight: 500, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.2 }}>{aro.pie}</div>}
             </div>
           )}
         </div>

@@ -45,5 +45,5 @@ export function aroSemana(semana, history, goals, aprende, hoy) {
     .filter(x => x != null);
   return partes.length ? aroDe(partes.reduce((a, x) => a + x, 0) / partes.length, 'Performance global semanal') : null;
 }
-export const aroComida = (history, goals, hoy) => aroDe(cumplimientoComidaSemana(history, goals, hoy), 'Cumplimiento semanal');
+export const aroComida = (history, goals, hoy) => aroDe(cumplimientoComidaSemana(history, goals, hoy), 'Performance semanal');
 
