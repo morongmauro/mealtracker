@@ -32,7 +32,7 @@ import { etiquetaDia } from './vozCoach.js';
 import { useAncho, Tarjeta, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca } from './GraficasV2.jsx';
 import {
   SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT,
-  FONT_DISPLAY, C_PROTEIN, C_CARBS, C_FAT, SECCION,
+  FONT_DISPLAY, C_PROTEIN, C_CARBS, C_FAT, SECCION, DASH_AZUL,
 } from './theme.js';
 
 const AZUL = SECCION.entreno.base;       // el entrenamiento, en todo el Dash
@@ -193,7 +193,7 @@ function BarraPct({ etiqueta, pct, valor, meta, unidad = 'g', color }) {
 function FilaSemana({ Icono, etiqueta, valor }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: `1px solid ${CREMA}` }}>
-      <span style={{ width: 28, height: 28, borderRadius: 99, background: SECCION.entreno.tint, color: SECCION.entreno.ink, display: 'grid', placeItems: 'center', flex: 'none' }}>
+      <span style={{ width: 28, height: 28, borderRadius: 99, background: DASH_AZUL.tint, color: DASH_AZUL.ink, display: 'grid', placeItems: 'center', flex: 'none' }}>
         <Icono size={15} weight="bold" />
       </span>
       <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: TEXT_MUTED, lineHeight: 1.25 }}>{etiqueta}</span>

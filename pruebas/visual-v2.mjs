@@ -291,9 +291,9 @@ try {
   await p.getByText('Días de cardio').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
-  ok('Dash: el saludo como las demás cabeceras (dos líneas, la segunda en amarillo), sin firma, con banda curva y una mancha por color de la marca', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
+  ok('Dash: el saludo como las demás cabeceras (dos líneas, la segunda en azul), sin firma, con banda curva y cuatro manchas azules', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
     && /^MARTES 29/.test(await p.locator('[data-cabecera-hoy="dash"] [data-etiqueta]').innerText())
-    && await p.locator('[data-cabecera-hoy="dash"] [data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(168, 116, 0)')
+    && await p.locator('[data-cabecera-hoy="dash"] [data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(47, 108, 196)')
     && (await p.locator('[data-cabecera-hoy="dash"] [data-sub]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
@@ -462,7 +462,7 @@ try {
   ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);
   ok('…con la banda delgada y la ilustración de la sección (kettlebell)', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('[data-ilustracion="entreno"]').count()) === 1
     && await cabE.locator('[data-banda]').evaluate(el => el.getBoundingClientRect().height < 140));
-  ok('…la segunda línea en el amarillo de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(168, 122, 6)'));
+  ok('…la segunda línea en el amarillo de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(201, 164, 62)'));
   ok('…y el color no se sale de la pantalla', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   // Unidades: una preferencia para toda la app
   await p.getByRole('button', { name: /Unidades · kg/ }).first().click();

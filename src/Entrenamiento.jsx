@@ -1139,7 +1139,7 @@ function HojaFin({ fin, alCerrar }) {
         </div>
         <div style={{ padding: '18px 20px 20px' }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.08 }}>Entreno hecho.</div>
-          <div style={{ fontSize: 17, fontWeight: 700, color: '#A87A06', letterSpacing: '-0.01em', lineHeight: 1.3, marginTop: 4 }}>{frase}</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: '#C9A43E', letterSpacing: '-0.01em', lineHeight: 1.3, marginTop: 4 }}>{frase}</div>
           {/* Lo que hizo, subiendo desde cero; y la barra que se llena hasta
               donde llegó. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))', gap: 8, marginTop: 16 }}>

@@ -83,10 +83,11 @@ export function IlustracionComida() {
 
 // La kettlebell de «Entreno hecho»: cuerpo redondo apenas plano abajo, asa
 // de kettlebell de verdad (cuernos curvos y tope plano), brazos y piernas en
-// línea negra. Colores lisos; la profundidad solo donde hace falta: la
-// sombra propia del cuerpo (una media luna), el brillo arriba y la sombra en
-// el piso. Gris de Entrenamiento con el amarillo de la marca en los discos.
-const KB_G = '#6B737D', KB_G_SOMBRA = '#565D67', KB_G_LUZ = '#98A0AA', KB_ASA = '#4F565F', KB_ASA_LUZ = '#7F8791';
+// línea negra y la barra bien arriba, separada del asa. Colores lisos: el
+// volumen lo dan manchas grandes de sombra en grises distintos (luz, medio y
+// sombra), sin líneas de brillo. Sin puntitos flotando alrededor.
+const KB_LUZ_G = '#7E8690', KB_MEDIO = '#646C76', KB_SOMBRA = '#4E555E';
+const ASA_G = '#5D646E', ASA_SOMBRA = '#464C55';
 const NEGRO = '#23272D';
 const CUERPO_KB = 'M-17 31 C-38 25 -42 -2 -31 -18 C-22 -31 -11 -35 0 -35 C11 -35 22 -31 31 -18 C42 -2 38 25 17 31 C6 33.4 -6 33.4 -17 31 Z';
 
@@ -98,19 +99,17 @@ export function IlustracionPesas() {
         <clipPath id={`${id}c`}><path d={CUERPO_KB} /></clipPath>
         <filter id={`${id}b`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" /></filter>
       </defs>
-      <circle cx="120" cy="62" r="56" fill="#FFFFFF" opacity="0.45" />
-      <circle cx="44" cy="32" r="5" fill="#FFFFFF" opacity="0.75" />
-      <circle cx="184" cy="96" r="4" fill="#F2C94C" opacity="0.55" />
+      <circle cx="120" cy="64" r="56" fill="#FFFFFF" opacity="0.45" />
       {/* sombra en el piso, suave */}
-      <ellipse cx="120" cy="120.5" rx="34" ry="4.6" fill="#1E2228" opacity="0.16" filter={`url(#${id}b)`} />
-      <g transform="translate(120 72)">
-        {/* asa: cuernos curvos y tope plano */}
-        <path d="M-20 -26 C-25.5 -38 -24 -50 -13 -55.5 L13 -55.5 C24 -50 25.5 -38 20 -26" fill="none" stroke={KB_ASA} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M-19.6 -33 C-21.4 -42 -18.5 -49.5 -11.5 -52.6 L2 -52.6" fill="none" stroke={KB_ASA_LUZ} strokeWidth="2.4" strokeLinecap="round" />
-        {/* la barra con sus discos (cada uno con su canto) */}
-        <g transform="translate(0 -61)">
+      <ellipse cx="120" cy="120.5" rx="32" ry="4.4" fill="#1E2228" opacity="0.16" filter={`url(#${id}b)`} />
+      <g transform="translate(120 76) scale(0.9)">
+        {/* asa: cuernos curvos y tope plano; el cuerno derecho, en sombra */}
+        <path d="M-20 -26 C-25.5 -38 -24 -50 -13 -55.5 L13 -55.5 C24 -50 25.5 -38 20 -26" fill="none" stroke={ASA_G} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M8 -55.5 L13 -55.5 C24 -50 25.5 -38 20 -26" fill="none" stroke={ASA_SOMBRA} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" />
+        {/* la barra, bien arriba, con sus discos (cada uno con su canto) */}
+        <g transform="translate(0 -72)">
           <rect x="-70" y="-2.6" width="140" height="5.2" rx="2.6" fill="#B9C1CC" />
-          <rect x="-70" y="-2.6" width="140" height="1.8" rx="0.9" fill="#E3E8ED" />
+          <rect x="-70" y="0" width="140" height="2.6" rx="1.3" fill="#9AA3AE" />
           <rect x="-60" y="-16" width="9" height="32" rx="4" fill="#1C2026" />
           <rect x="-62" y="-16" width="9" height="32" rx="4" fill="#2E333B" />
           <rect x="-50" y="-11.5" width="7" height="23" rx="3.2" fill="#D4A72C" />
@@ -122,28 +121,23 @@ export function IlustracionPesas() {
         </g>
         {/* brazos y piernas: una línea negra (detrás del cuerpo) */}
         <g stroke={NEGRO} strokeWidth="5.5" strokeLinecap="round" fill="none">
-          <path d="M-30 -6 Q-52 -26 -38 -60" />
-          <path d="M30 -6 Q52 -26 38 -60" />
+          <path d="M-30 -6 Q-56 -34 -38 -71" />
+          <path d="M30 -6 Q56 -34 38 -71" />
           <path d="M-11 30 L-14 43" />
           <path d="M11 30 L14 43" />
         </g>
         <ellipse cx="-18" cy="45.5" rx="7" ry="3.3" fill={NEGRO} />
         <ellipse cx="18" cy="45.5" rx="7" ry="3.3" fill={NEGRO} />
-        {/* cuerpo liso + media luna de sombra abajo a la derecha */}
-        <path d={CUERPO_KB} fill={KB_G_SOMBRA} />
+        {/* cuerpo: sombra abajo a la derecha, tono medio y la cara iluminada */}
+        <path d={CUERPO_KB} fill={KB_SOMBRA} />
         <g clipPath={`url(#${id}c)`}>
-          <circle cx="-5" cy="-6" r="36" fill={KB_G} />
+          <circle cx="-4" cy="-5" r="36" fill={KB_MEDIO} />
+          <circle cx="-11" cy="-12" r="29" fill={KB_LUZ_G} />
         </g>
-        {/* brillo: un trazo curvo y un punto */}
-        <path d="M-27 -8 C-24 -19 -15 -26 -5 -27.5" fill="none" stroke={KB_G_LUZ} strokeWidth="4.5" strokeLinecap="round" />
-        <circle cx="-26.5" cy="2" r="2.2" fill={KB_G_LUZ} />
         {/* manos sobre la barra */}
-        <circle cx="-38" cy="-61" r="4.8" fill={NEGRO} />
-        <circle cx="38" cy="-61" r="4.8" fill={NEGRO} />
-        {/* gota de esfuerzo */}
-        <path d="M50 -32 c3.5 5.5 3 9 0 9 c-3 0 -3.5 -3.5 0 -9 Z" fill="#CFE0F2" />
+        <circle cx="-38" cy="-72" r="4.8" fill={NEGRO} />
+        <circle cx="38" cy="-72" r="4.8" fill={NEGRO} />
       </g>
-      <path d="M26 32 l1.6 4 4 1.6 -4 1.6 -1.6 4 -1.6 -4 -4 -1.6 4 -1.6 Z" fill="#FFFFFF" opacity="0.95" />
     </svg>
   );
 }

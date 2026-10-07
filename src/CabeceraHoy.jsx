@@ -28,13 +28,12 @@ import { ILUSTRACION } from './IlustracionesCabecera.jsx';
 // grande sobre claro).
 export const TEMAS = {
   // Entrenamiento: grises con un toque de amarillo suave (mancha y frase).
-  entreno: { banda: ['#B9BFC7', '#CDD1D7'], m1: '#A3AAB3', m2: '#D5D9DE', m3: '#F4DC93', base: '#EFF0F2', tinta: '#A87A06' },
+  entreno: { banda: ['#B9BFC7', '#CDD1D7'], m1: '#A3AAB3', m2: '#D5D9DE', m3: '#F4DC93', base: '#EFF0F2', tinta: '#C9A43E' },
   comida:  { banda: ['#C3E3CB', '#D6EDDC'], m1: '#9CCFA8', m2: '#D7EEDC', m3: '#F7E1A0', base: '#F0F8F1', tinta: '#2F7F45' },
   aprende: { banda: ['#F7CFAF', '#FADFCA'], m1: '#F6B98C', m2: '#FBE0CB', m3: '#A9C6EE', base: '#FDF3EA', tinta: '#C95F17' },
   // El Dash, todo en azules: banda más intensa y manchas de varios tonos
-  // de azul. La segunda línea de la frase, en amarillo oscuro, para que
-  // contraste con el azul.
-  dash:    { banda: ['#9CBDEB', '#B6CFF2'], m1: '#8FB3E8', m2: '#C6DAF6', m3: '#6E9EE0', m4: '#DCE7F8', base: '#EAF1FB', tinta: '#A87400' },
+  // de azul; la segunda línea de la frase, en el azul de la sección.
+  dash:    { banda: ['#86ADE5', '#A3C2EE'], m1: '#7FA6E2', m2: '#B9D0F3', m3: '#5E92DA', m4: '#D0DFF6', base: '#E3ECF9', tinta: '#2F6CC4' },
 };
 
 const CSS = `
