@@ -22,6 +22,10 @@
 import React from 'react';
 import { TEXT, TEXT_MUTED } from './theme.js';
 import { ILUSTRACION } from './IlustracionesCabecera.jsx';
+import { AnilloMarca } from './GraficasV2.jsx';
+
+// El aro de la gráfica más importante de cada sección, en su color.
+const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
 
 // banda: degradado de la banda · m1/m2/m3: manchas · base: fondo detrás de
 // las manchas · tinta: la segunda línea de la frase (contraste para letra
@@ -75,13 +79,16 @@ export function FirmaCoach({ claro = false, compacta = false }) {
 
 // `fondo={false}`: solo la letra (el Dash ya tiene sus manchas detrás).
 // `voz.sub`: una línea de texto normal debajo de la frase.
-export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', ilustracion = true, children }) {
+// `aro`: { frac (0–1), centro, pie } — la gráfica clave de la sección, en un
+// aro como los del Dash, al lado de la kettlebell; se llena al entrar.
+export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', ilustracion = true, aro = null, children }) {
   const t = TEMAS[tema] || TEMAS.entreno;
   // La ilustración de la sección va a la derecha, cortada por el borde de la
   // pantalla; el texto deja su espacio para no pasar por encima.
   const Ilus = fondo && ilustracion ? ILUSTRACION[tema] : null;
+  const conAro = !!(Ilus && aro);
   const texto = (
-    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? 'min(34vw, 150px)' : 0 }}>
+    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? 'min(34vw, 150px)' : 0, minHeight: conAro ? 'calc(min(36vw, 146px) * 0.74 + 74px)' : undefined }}>
       {voz?.etiqueta && (
         <div data-etiqueta style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
       )}
@@ -139,9 +146,22 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
           <div className="cab-ilus" style={{
             // Junto a la frase (sin taparla: el texto le deja su espacio) y
             // entera dentro de la pantalla, sin cortarse por el borde.
-            position: 'absolute', right: 14, top: `calc(${arriba} + 22px)`, width: 'min(40vw, 164px)', aspectRatio: '220 / 170',
+            // Con el aro: la kettlebell un poco más chica y más arriba, y el
+            // aro debajo, en la misma columna al lado del texto.
+            position: 'absolute', right: conAro ? 18 : 14, top: `calc(${arriba} + ${conAro ? 12 : 22}px)`, width: conAro ? 'min(36vw, 146px)' : 'min(40vw, 164px)', aspectRatio: '220 / 170',
             color: '#FFFFFF', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.10))',
           }}><Ilus /></div>
+          {conAro && (
+            <div className="cab-ilus" data-aro-cabecera={tema} style={{
+              position: 'absolute', right: 'calc(18px + min(36vw, 146px) * 0.42 - 35px)', top: `calc(${arriba} + 12px + min(36vw, 146px) * 0.74)`,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animationDelay: '.16s',
+            }}>
+              <AnilloMarca frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={70} grosor={8} riel="rgba(255,255,255,0.75)" etiqueta={aro.pie}>
+                <div style={{ fontSize: 15.5, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>
+              </AnilloMarca>
+              {aro.pie && <div style={{ fontSize: 10.5, fontWeight: 750, letterSpacing: '0.04em', color: TEXT_MUTED, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{aro.pie}</div>}
+            </div>
+          )}
         </div>
       )}
       {texto}

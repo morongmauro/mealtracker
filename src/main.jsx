@@ -52,7 +52,7 @@ if (typeof window !== 'undefined') {
   const raiz = document.documentElement;
   const splashV2 = raiz.classList.contains('splash-v2');
   const conEntrada = raiz.classList.contains('intro-completa');
-  const ENTRADA_MS = 2000;
+  const ENTRADA_MS = 2200;
   const cerrarEntrada = () => {
     document.body.classList.add('app-ready');
     if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F1F0EA'); }

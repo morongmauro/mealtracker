@@ -20,8 +20,21 @@
 // esto, arreglar una errata en el nombre dejaba al cliente fuera de su app.
 //
 // POST { name } → { authorized: true|false, status: 'activo'|'pausa'|'finalizado'|'not_found'|'list' }
+//
+// CUENTA CON CONTRASEÑA (visual nueva, por ahora solo Mauro). La llave sigue
+// siendo el NOMBRE; la contraseña va encima, atada al correo que el cliente
+// ya tiene en el CRM. No se crea un usuario nuevo ni se toca su información.
+// Se guarda solo el hash (scrypt + sal) en clientes.app_clave_hash
+// (migración: CRM_entrenaconmetodo/migraciones/app-contrasena.sql).
+//   POST { accion: 'cuenta', name }               → { ok, nombre, email, tieneClave }
+//   POST { accion: 'crear',  name, clave, email? } → { ok, sesion, nombre }
+//   POST { accion: 'entrar', name|email, clave }   → { ok, sesion, nombre }
+//   POST { name, sesion }                          → … + { sesion: 'ok'|'invalida' }
+// La sesión es un sello HMAC (nombre + fecha + hash de la clave) firmado con
+// la llave del servidor: no caduca sola, y cambiar la contraseña la anula.
 
 import { guard, checkOrigin } from './_guard.js';
+import { scryptSync, randomBytes, timingSafeEqual, createHmac } from 'node:crypto';
 import { AUTHORIZED_CLIENTS as CLIENTS_FILE } from './_clients.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
@@ -59,6 +72,80 @@ async function fetchCrmClients() {
   }
 }
 
+// ── Cuenta con contraseña ──────────────────────────────────────────────
+const enCrm = (ruta, opts = {}) => fetch(`${CRM_URL}/rest/v1/${ruta}`, {
+  ...opts,
+  headers: { apikey: CRM_KEY, Authorization: `Bearer ${CRM_KEY}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+});
+
+// La fila del cliente (sin caché: la clave puede haber cambiado hace un
+// segundo), por nombre (actual o anterior) o por correo.
+async function filaCliente({ name, email }) {
+  const r = await enCrm('clientes?select=id,nombre,email,estado,nombres_alternos,app_clave_hash');
+  if (!r.ok) return { error: r.status === 400 ? 'sin_migracion' : 'crm' };
+  const filas = await r.json();
+  const n = normalizeName(name), e = String(email || '').trim().toLowerCase();
+  const fila = filas.find(c => (n && (normalizeName(c.nombre) === n
+      || (Array.isArray(c.nombres_alternos) && c.nombres_alternos.some(a => normalizeName(a) === n))))
+    || (e && String(c.email || '').trim().toLowerCase() === e));
+  return { fila: fila || null };
+}
+
+export function hashClave(clave, sal = randomBytes(16).toString('hex')) {
+  return `scrypt$${sal}$${scryptSync(String(clave), sal, 32).toString('hex')}`;
+}
+export function claveCorrecta(clave, guardado) {
+  const [tipo, sal, hash] = String(guardado || '').split('$');
+  if (tipo !== 'scrypt' || !sal || !hash) return false;
+  const a = Buffer.from(hashClave(clave, sal).split('$')[2], 'hex'), b = Buffer.from(hash, 'hex');
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+const firma = (nombre, ts, hash) => createHmac('sha256', String(CRM_KEY || 'sin-llave'))
+  .update(`${normalizeName(nombre)}|${ts}|${hash || ''}`).digest('base64url');
+export const crearSesion = (nombre, hash) => {
+  const ts = Date.now().toString(36);
+  return `v1.${Buffer.from(normalizeName(nombre)).toString('base64url')}.${ts}.${firma(nombre, ts, hash)}`;
+};
+export function sesionValida(sesion, nombre, hash) {
+  const [v, n, ts, sello] = String(sesion || '').split('.');
+  if (v !== 'v1' || !n || !ts || !sello || !hash) return false;
+  if (Buffer.from(n, 'base64url').toString() !== normalizeName(nombre)) return false;
+  const a = Buffer.from(firma(nombre, ts, hash)), b = Buffer.from(sello);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+async function cuenta(req, res, body) {
+  if (!CRM_URL || !CRM_KEY) return res.status(200).json({ ok: false, error: 'crm' });
+  const { accion, name, email, clave } = body;
+  const { fila, error } = await filaCliente({ name, email: accion === 'entrar' ? email : null });
+  if (error) return res.status(200).json({ ok: false, error });
+  if (!fila) return res.status(200).json({ ok: false, error: 'no_existe' });
+  if (String(fila.estado || 'activo').toLowerCase() !== 'activo') return res.status(200).json({ ok: false, error: 'inactivo', estado: fila.estado });
+
+  if (accion === 'cuenta') {
+    return res.status(200).json({ ok: true, nombre: fila.nombre, email: fila.email || null, tieneClave: !!fila.app_clave_hash });
+  }
+  const c = String(clave || '');
+  if (accion === 'crear') {
+    if (fila.app_clave_hash) return res.status(200).json({ ok: false, error: 'ya_tiene' });
+    if (c.length < 6) return res.status(200).json({ ok: false, error: 'corta' });
+    const hash = hashClave(c);
+    const cambios = { app_clave_hash: hash, app_clave_at: new Date().toISOString() };
+    // Si en el CRM no había correo, se guarda el que puso el cliente.
+    const correo = String(email || '').trim().toLowerCase();
+    if (!fila.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) cambios.email = correo;
+    const r = await enCrm(`clientes?id=eq.${encodeURIComponent(fila.id)}`, { method: 'PATCH', body: JSON.stringify(cambios) });
+    if (!r.ok) return res.status(200).json({ ok: false, error: 'crm' });
+    return res.status(200).json({ ok: true, nombre: fila.nombre, sesion: crearSesion(fila.nombre, hash) });
+  }
+  if (accion === 'entrar') {
+    if (!fila.app_clave_hash) return res.status(200).json({ ok: false, error: 'sin_clave', nombre: fila.nombre });
+    if (!claveCorrecta(c, fila.app_clave_hash)) return res.status(200).json({ ok: false, error: 'clave' });
+    return res.status(200).json({ ok: true, nombre: fila.nombre, sesion: crearSesion(fila.nombre, fila.app_clave_hash) });
+  }
+  return res.status(400).json({ ok: false, error: 'accion' });
+}
+
 // CORS: el CENTRO DE RECURSOS (otro dominio) valida el acceso contra este
 // mismo endpoint — una sola lista (el CRM) para todo el ecosistema. Para
 // habilitarlo: agrega el dominio del centro a la variable ALLOWED_ORIGINS
@@ -85,7 +172,9 @@ export default async function handler(req, res) {
   }
   if (!guard(req, res, { key: 'authorize', limit: 20 })) return;
 
-  const { name } = req.body || {};
+  const body = req.body || {};
+  if (body.accion) return cuenta(req, res, body);
+  const { name, sesion } = body;
   const normalized = normalizeName(name);
   if (!normalized) return res.status(200).json({ authorized: false, status: 'not_found' });
 
@@ -104,7 +193,14 @@ export default async function handler(req, res) {
       // El CRM manda: activo pasa; pausa/finalizado bloquea (aunque el
       // nombre siga en la lista vieja del archivo).
       const estado = String(match.estado || 'activo').toLowerCase();
-      return res.status(200).json({ authorized: estado === 'activo', status: estado });
+      // Con cuenta: ¿la sesión del teléfono sigue valiendo? (si cambió la
+      // contraseña, ya no). Solo se mira si el teléfono manda una.
+      let estadoSesion;
+      if (sesion) {
+        const { fila } = await filaCliente({ name }).catch(() => ({}));
+        if (fila) estadoSesion = sesionValida(sesion, fila.nombre, fila.app_clave_hash) || sesionValida(sesion, name, fila.app_clave_hash) ? 'ok' : 'invalida';
+      }
+      return res.status(200).json({ authorized: estado === 'activo', status: estado, ...(estadoSesion ? { sesion: estadoSesion } : {}) });
     }
     // No está en el CRM: la lista del archivo sirve de puente mientras migras.
     if (inFileList) return res.status(200).json({ authorized: true, status: 'list' });

@@ -27,7 +27,7 @@ export const RELOJES = [
   { id: 'apple', nombre: 'Apple Watch', detalle: 'Pronto', listo: false },
 ];
 
-export default function Configuracion({ name, arriba = 0, alRecorrido, alPrograma, whatsapp, alActivarPush }) {
+export default function Configuracion({ name, arriba = 0, alRecorrido, alPrograma, whatsapp, alActivarPush, alCerrarSesion }) {
   const [vista, setVista] = useState('inicio');
   const [unidadesAbierta, setUnidadesAbierta] = useState(false);
   const unidad = useUnidades();
@@ -68,6 +68,14 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
           );
         })}
       </div>
+      {/* Cerrar sesión (con cuenta): la información no se borra; para volver
+          a entrar se pide la contraseña. */}
+      {alCerrarSesion && (
+        <button data-cerrar-sesion onClick={() => { if (window.confirm('¿Cerrar sesión? Tu información queda guardada; para volver a entrar te pido tu contraseña.')) alCerrarSesion(); }} style={{
+          width: '100%', marginTop: 14, padding: '14px 16px', borderRadius: 18, border: 0, background: '#FFFFFF', boxShadow: SOMBRA,
+          fontFamily: 'inherit', fontSize: 15.5, fontWeight: 700, color: '#B23B30', cursor: 'pointer',
+        }}>Cerrar sesión</button>
+      )}
       <HojaUnidades abierta={unidadesAbierta} alCerrar={() => setUnidadesAbierta(false)} />
     </div>
   );

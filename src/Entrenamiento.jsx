@@ -26,6 +26,16 @@ import {
   SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
   SHADOW_CARD, FONT_DISPLAY, SECCION,
 } from './theme.js';
+// El aro de la cabecera de Entrenamiento: las rutinas hechas de las que tocan
+// esta semana.
+export function aroEntreno(plan) {
+  const dias = (plan && plan.dias) || [];
+  const planeadas = dias.filter(d => d.rutina).length;
+  if (!planeadas) return null;
+  const hechas = dias.filter(d => d.rutina && d.hecha).length;
+  return { frac: hechas / planeadas, centro: `${hechas}/${planeadas}`, pie: 'esta semana' };
+}
+
 // El acento del módulo sale de entrenoUI: oliva de siempre, azul en la visual nueva.
 import { ACCENT, ACCENT_DARK, ACCENT_PASTEL, SUCCESS } from './entrenoUI.jsx';
 
@@ -277,7 +287,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     <Envoltorio>
       <NavSi seccion={seccion} setSeccion={setSeccion} />
       {seccionV2 && <CabeceraHoy tema="entreno" voz={vozEntreno({ plan, hoy: hoyLocal() })}
-        arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} />}
+        arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} aro={aroEntreno(plan)} />}
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
       {v2Activa() ? (
         // Visual nueva: lo de HOY todo junto (fuerza, registros, lo del coach

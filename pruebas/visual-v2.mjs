@@ -187,7 +187,7 @@ const espera = (ms) => new Promise(r => setTimeout(r, ms));
 // `aviso`: dejar que salga el aviso de «hoy te toca registrar» al abrir. Por
 // defecto se da por visto (si no, tapa todo lo que se prueba después).
 // `nube`: lo que tiene su cuenta en la nube (y la app con la nube aceptada).
-async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false } = {}) {
+async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null } = {}) {
   const db = base();
   globalThis.fetch = db.fetch;
   const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota' });
@@ -197,7 +197,12 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   globalThis.__errores = errores;   // para decir por qué se cortó, si se corta
   let pulls = 0;
   p.on('pageerror', e => errores.push(e.message));
-  await ctx.addInitScript((kv) => { for (const [k, v] of Object.entries(kv)) localStorage.setItem(k, v); }, almacen(nombre));
+  p.on('console', m => { if (m.text().startsWith('ilusBien')) console.log('   ' + m.text()); });
+  const guardado = almacen(nombre);
+  if (sinNombre) { delete guardado['mt:name']; delete guardado['mt:goals']; }
+  // Mauro ya entró con su contraseña (la cuenta se prueba aparte, sinSesion)
+  if (!sinSesion) guardado['mt:sesion'] = 'v1.prueba';
+  await ctx.addInitScript((kv) => { for (const [k, v] of Object.entries(kv)) localStorage.setItem(k, v); }, guardado);
   // `caliente`: la usó hace un rato (antes caía en el Chat; ahora, en el Dash).
   if (caliente) await ctx.addInitScript(() => localStorage.setItem('mt:lastActiveAt', String(Date.now() - 5 * 60 * 1000)));
   if (!aviso) await ctx.addInitScript((f) => sessionStorage.setItem('mt:avisoRegistro', f), hoy);
@@ -242,7 +247,11 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(huevos) }] }) });
     }
     if (u.pathname === '/api/resources') return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: 'https://centro.test/', training: true }) });
-    if (u.pathname === '/api/authorize') return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authorized: true, status: 'activo' }) });
+    if (u.pathname === '/api/authorize') {
+      const cuerpo = JSON.parse(ruta.request().postData() || '{}');
+      if (cuerpo.accion && cuenta) return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cuenta(cuerpo)) });
+      return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authorized: true, status: 'activo' }) });
+    }
     return ruta.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
   // El reproductor de YouTube: sin red en las pruebas, un cuadro negro.
@@ -258,7 +267,7 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   ]) }));
   await p.route('https://centro.test/**', r => r.fulfill({ status: 200, contentType: 'text/html',
     body: `<body style="margin:0;font:600 20px sans-serif;background:#F4F1EA;color:#333;display:grid;place-items:center;height:100vh"><div id=t>Centro · ${'${location.search}'}</div><script>document.getElementById('t').textContent='Centro de aprendizaje · '+(new URLSearchParams(location.search).get('mt_go')||'inicio');addEventListener('message',e=>{if(e.data&&e.data.tipo==='em-ir')document.getElementById('t').textContent='Centro de aprendizaje · '+e.data.a})</script></body>` }));
-  await p.goto('http://localhost:5198/');
+  await p.goto('http://localhost:5198' + url);
   return { p, ctx, errores, db, pulls: () => pulls };
 }
 // La kettlebell de la cabecera: entera dentro de la pantalla y sin tapar la frase.
@@ -272,7 +281,9 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const r = document.createRange(); r.selectNodeContents(frase);
   const lineas = [...r.getClientRects()];
   const derechaTexto = Math.max(...lineas.map(l => l.right));
-  return g.left >= 0 && g.right <= innerWidth && g.top >= 0 && derechaTexto <= g.left + 4 && g.left - f.right < 40 && g.top < f.bottom;
+  const bien = g.left >= 0 && g.right <= innerWidth && g.top >= 0 && derechaTexto <= g.left + 4 && g.left - f.right < 40 && g.top < f.bottom;
+  if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top], derechaTexto, fRight: f.right, fBottom: f.bottom, w: innerWidth }));
+  return bien;
 }, tema);
 const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.png') });
 
@@ -309,7 +320,7 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
   ok('cabeceras: la kettlebell va sin cara (la cara queda para las celebraciones)', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion] .kb-ojos').count()) === 0
-    && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion] .kb-anda').count()) === 1);
+    && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion] .kb-anda').count()) === 0);
   ok('Dash: la kettlebell levanta la bandera «¡HEY!» con papelillo, junto a la frase, entera y sin taparla', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] text').textContent()) === '¡HEY!'
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] .kb-papel > g').count()) === 8 && await ilusBien(p, 'dash'));
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
@@ -1111,6 +1122,88 @@ try {
   ok('fin: la cabecera ya dice que entrenó hoy… o lo que sigue', (await n.p.locator('[data-cabecera-hoy="entreno"] [data-frase]').innerText()).length > 5);
   ok('sin errores de JavaScript (375 y fin de entreno)', n.errores.length === 0, n.errores.join(' | '));
   await n.ctx.close();
+
+  // ── Cuenta con contraseña (solo Mauro): activarla, datos, avisos, cerrar sesión ──
+  {
+    let tiene = false, creadas = 0;
+    const cuenta = (c) => {
+      if (c.accion === 'cuenta') return { ok: true, nombre: 'Mauro Morón', email: 'mauro@correo.com', tieneClave: tiene };
+      if (c.accion === 'crear') { creadas++; tiene = true; return c.clave === 'kettlebell24' ? { ok: true, nombre: 'Mauro Morón', sesion: 'v1.nueva' } : { ok: false, error: 'corta' }; }
+      if (c.accion === 'entrar') return c.clave === 'kettlebell24' ? { ok: true, nombre: 'Mauro Morón', sesion: 'v1.otra' } : { ok: false, error: 'clave' };
+      return { ok: false };
+    };
+    const k = await abrir('Mauro Morón', { sinSesion: true, cuenta });
+    const cv = k.p.locator('[data-cuenta-v2]');
+    await k.p.locator('[data-cuenta-v2="activar"]').waitFor({ timeout: 10000 });
+    await espera(900);
+    await foto(k.p, '22a-cuenta-activar');
+    ok('cuenta: sin contraseña aún, pide activarla con su nombre y el correo del CRM', /Mauro Morón/.test(await cv.innerText()) && /mauro@correo\.com/.test(await cv.innerText()));
+    await k.p.getByLabel('Crea tu contraseña').fill('kettlebell24');
+    await k.p.getByLabel('Repítela').fill('otra-cosa');
+    await k.p.locator('[data-activar]').click();
+    ok('cuenta: si las dos contraseñas no coinciden, lo dice y no crea nada', /no coinciden/.test(await cv.innerText()) && creadas === 0);
+    await k.p.getByLabel('Repítela').fill('kettlebell24');
+    await k.p.locator('[data-activar]').click();
+    await k.p.locator('[data-cuenta-v2="datos"]').waitFor({ timeout: 5000 });
+    await espera(600);
+    await foto(k.p, '22b-cuenta-datos');
+    ok('cuenta: creada, guarda la sesión y sigue con «Tus datos, protegidos»', creadas === 1 && await k.p.evaluate(() => localStorage.getItem('mt:sesion')) === 'v1.nueva');
+    await k.p.locator('[data-aceptar-datos]').click();
+    await espera(500);
+    if (await k.p.locator('[data-cuenta-v2="avisos"]').count()) {
+      await foto(k.p, '22c-cuenta-avisos');
+      await k.p.getByRole('button', { name: 'Ahora no' }).click();
+    }
+    await espera(500);
+    ok('cuenta: al terminar se ve la app, con la nube aceptada', (await cv.count()) === 0 && await k.p.evaluate(() => localStorage.getItem('cloudConsent')) === 'accepted');
+    // Cerrar sesión desde la configuración del Dash
+    k.p.on('dialog', d => d.accept());
+    await k.p.getByRole('button', { name: /^Dash$/ }).first().click(); await espera(500);
+    await k.p.locator('[data-abrir-config]').click();
+    await k.p.locator('[data-cerrar-sesion]').click();
+    await k.p.locator('[data-cuenta-v2="entrar"]').waitFor({ timeout: 5000 });
+    await espera(900);
+    await foto(k.p, '22d-cuenta-entrar');
+    ok('cerrar sesión: pide la contraseña («Hola, Mauro.») sin borrar nada', !(await k.p.evaluate(() => localStorage.getItem('mt:sesion'))) && /Hola,\s*Mauro\./.test(await cv.innerText())
+      && (await k.p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('mt:history') || '{}')).length)) > 10);
+    await k.p.getByLabel('Contraseña').fill('mala');
+    await k.p.locator('[data-entrar]').click();
+    await espera(300);
+    ok('entrar: con la contraseña mala no entra', /no es/.test(await cv.innerText()));
+    await k.p.getByLabel('Contraseña').fill('kettlebell24');
+    await k.p.locator('[data-entrar]').click();
+    await espera(600);
+    ok('entrar: con la buena vuelve a la app', (await cv.count()) === 0 && await k.p.evaluate(() => localStorage.getItem('mt:sesion')) === 'v1.otra');
+    ok('cuenta: sin errores de JavaScript', k.errores.length === 0, k.errores.join(' | '));
+    await k.ctx.close();
+
+    // Teléfono nuevo (instalada con ?v2=1, sin nombre): la entrada en negro
+    const e = await abrir('Mauro Morón', { sinSesion: true, sinNombre: true, url: '/?v2=1', cuenta });
+    await e.p.locator('[data-cuenta-v2="entrada"]').waitFor({ timeout: 10000 });
+    await espera(900);
+    await foto(e.p, '22e-entrada-nueva');
+    ok('entrada nueva: correo y contraseña, y «Primera vez en la app»', /Primera vez en la app/.test(await e.p.locator('[data-cuenta-v2]').innerText())
+      && await e.p.evaluate(() => document.querySelector('meta[name="apple-mobile-web-app-title"]').content) === 'EntrenaMétodo'
+      && await e.p.evaluate(() => document.querySelector('link[rel="manifest"]').getAttribute('href')) === '/manifest-v2.json');
+    await e.p.getByLabel('Correo').fill('mauro@correo.com');
+    await e.p.getByLabel('Contraseña').fill('kettlebell24');
+    await e.p.locator('[data-entrar]').click();
+    await e.p.locator('[data-cuenta-v2="datos"]').waitFor({ timeout: 5000 });
+    await e.p.locator('[data-aceptar-datos]').click();
+    await espera(400);
+    if (await e.p.locator('[data-cuenta-v2="avisos"]').count()) await e.p.getByRole('button', { name: 'Ahora no' }).click();
+    await espera(1200);
+    ok('entrada nueva: entra con su correo, queda con su nombre y su sesión', await e.p.evaluate(() => JSON.parse(localStorage.getItem('mt:name') || 'null')) === 'Mauro Morón'
+      && await e.p.evaluate(() => localStorage.getItem('mt:sesion')) === 'v1.otra' && (await e.p.locator('[data-cuenta-v2]').count()) === 0);
+    await e.ctx.close();
+
+    // Otra persona (sin la visual nueva): ni cuenta ni nombre nuevo
+    const o = await abrir('Ana Gómez', { sinSesion: true, cuenta });
+    await espera(1500);
+    ok('otra persona: no ve la cuenta ni el nombre nuevo de la app', (await o.p.locator('[data-cuenta-v2]').count()) === 0
+      && await o.p.evaluate(() => document.querySelector('meta[name="apple-mobile-web-app-title"]').content) === 'Método');
+    await o.ctx.close();
+  }
 
   // ── Mensualidad pendiente: aviso los primeros 5 días, bloqueo después ──
   const deuda = { due: true, dia_corte: 15, monto: 250000, moneda: 'COP', meses_deuda: 1, meses: [new Date().toISOString().slice(0, 7)] };

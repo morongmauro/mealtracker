@@ -45,6 +45,7 @@ import {
   SECCION,
 } from './theme.js';
 import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
+import CuentaV2, { leerSesion, guardarSesion } from './CuentaV2.jsx';
 
 // ── Modelos: enrutamiento HÍBRIDO ────────────────────────────────────────
 // FAST (Haiku) clasifica y registra los mensajes del día a día (~85% del
@@ -89,16 +90,16 @@ const fmt0 = (n) => {
 // la validación es una puerta de cortesía, no un control de seguridad.
 // Devuelve { ok, status }. status viene del CRM: 'activo' | 'pausa' |
 // 'finalizado' | 'not_found' | 'list' (autorizado por la lista de respaldo).
-const checkAccess = async (name) => {
+const checkAccess = async (name, sesion) => {
   try {
     const r = await fetch('/api/authorize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(sesion ? { name, sesion } : { name }),
     });
     if (!r.ok) return { ok: true, status: 'offline' };
     const data = await r.json();
-    return { ok: data.authorized === true, status: data.status || (data.authorized ? 'activo' : 'not_found') };
+    return { ok: data.authorized === true, status: data.status || (data.authorized ? 'activo' : 'not_found'), sesion: data.sesion };
   } catch (e) {
     return { ok: true, status: 'offline' };
   }
@@ -545,6 +546,11 @@ export default function MealTracker() {
   const [favoritesDeleted, setFavoritesDeleted] = useState([]);
   const [history, setHistory] = useState({});
   const [historyDetail, setHistoryDetail] = useState({});
+  // Cuenta con contraseña (visual nueva): la sesión guardada en el teléfono
+  // y si la pantalla de cuenta sigue abierta (sus pasos de datos y avisos).
+  const [sesionV2, setSesionV2] = useState(leerSesion);
+  const [cuentaAbierta, setCuentaAbierta] = useState(false);
+  const [cuentaSaltada, setCuentaSaltada] = useState(() => { try { return sessionStorage.getItem('mt:cuentaSaltada') === '1'; } catch (e) { return false; } });
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState('');
@@ -2422,8 +2428,12 @@ export default function MealTracker() {
     if (view !== 'main' || !name) return;
     let cancelled = false;
     (async () => {
-      const a = await checkAccess(name);
+      const conCuenta = esV2(name) ? leerSesion() : '';
+      const a = await checkAccess(name, conCuenta || undefined);
       if (cancelled) return;
+      // Con cuenta (visual nueva): si cambió la contraseña, la sesión vieja
+      // ya no vale y se pide entrar de nuevo. Sin red o sin respuesta, nada.
+      if (conCuenta && a.sesion === 'invalida') { guardarSesion(''); setSesionV2(''); }
       // Solo los estados EXPLÍCITOS del CRM bloquean a un usuario que ya
       // está dentro. 'not_found' (nombre que no aparece en CRM ni lista,
       // p.ej. por un desfase de ortografía o una migración a medias) NUNCA
@@ -5002,6 +5012,18 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     );
   }
 
+  // Visual nueva (instalada con ?v2=1, o un teléfono que ya fue de Mauro):
+  // la entrada es la de la cuenta, en negro, con correo y contraseña.
+  if (view === 'welcome' && typeof document !== 'undefined' && document.documentElement.classList.contains('marca-v2')) {
+    return <CuentaV2 nombre={null} datosAceptados={cloudConsent === 'accepted'}
+      alSesion={(s, n) => {
+        guardarSesion(s); setSesionV2(s); setCuentaAbierta(true);
+        if (n) { setName(n); window.storage.set('name', JSON.stringify(n)).catch(() => {}); }
+      }}
+      alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush}
+      alListo={() => { setCuentaAbierta(false); setView('main'); }} />;
+  }
+
   if (view === 'welcome') {
     return <Welcome
       onContinue={() => setView('onboarding')}
@@ -5715,7 +5737,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             {v2 ? (
               <div>
                 <CabeceraHoy tema="comida" sangria="20px" arriba={`${headerH + 16}px`}
-                  voz={vozComida({ hoy: today, hora: new Date().getHours(), kcal: totals.kcal, meta: goals?.kcal || 0, comidas: entries.length, racha: streak })} />
+                  voz={vozComida({ hoy: today, hora: new Date().getHours(), kcal: totals.kcal, meta: goals?.kcal || 0, comidas: entries.length, racha: streak })}
+                  aro={goals?.kcal ? { frac: Math.min(1, (totals.kcal || 0) / goals.kcal), centro: `${Math.round(((totals.kcal || 0) / goals.kcal) * 100)}%`, pie: 'kcal de hoy' } : null} />
                 <div style={{ marginTop: '-4px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {/* Recordatorios y mensualidad viven en el Dash; aquí, solo los
                       círculos de la campanita y de escribirle al coach. */}
@@ -6039,6 +6062,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 programa: () => irSubV2('aprende', 'programa'),
                 activarPush: () => activarPush(),
                 firmaComunidad: (f) => setFirmas(x => (x.dash === f ? x : { ...x, dash: f })),
+                // Cerrar sesión: la información queda en el teléfono y en la
+                // nube; solo pide la contraseña para volver a entrar.
+                cerrarSesion: sesionV2 ? () => { haptic(8); guardarSesion(''); setSesionV2(''); try { sessionStorage.removeItem('mt:cuentaSaltada'); } catch (e) {} setCuentaSaltada(false); } : null,
                 calendarioComida: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); },
               }} />
           </Suspense>
@@ -6606,6 +6632,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       )}
 
       {/* Cloud sync consent — solo una vez, cuando el cliente entró por primera vez al main */}
+      {/* Cuenta con contraseña (visual nueva): activarla la primera vez, o
+          entrar de nuevo tras cerrar sesión. Encima de todo. */}
+      {view === 'main' && v2 && name && !cuentaSaltada && (!sesionV2 || cuentaAbierta) && (
+        <CuentaV2 nombre={name} datosAceptados={cloudConsent === 'accepted'}
+          alSesion={(s) => { guardarSesion(s); setSesionV2(s); setCuentaAbierta(true); }}
+          alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush}
+          alListo={() => setCuentaAbierta(false)}
+          alSaltar={() => { try { sessionStorage.setItem('mt:cuentaSaltada', '1'); } catch (e) {} setCuentaSaltada(true); setCuentaAbierta(false); }} />
+      )}
       {view === 'main' && cloudConsent === null && cuentaRevisada && !mudanza && (
         <CloudConsentModal onAccept={acceptCloudConsent} onDecline={declineCloudConsent} />
       )}

@@ -124,6 +124,18 @@ export function datosComida(history = {}, goals = {}, hoy = hoyLocal()) {
   };
 }
 
+// El aro de la cabecera del Dash: cómo va la semana, sumando lo hecho del
+// entreno (rutinas hechas de las planeadas) y de la comida (días registrados
+// de los que van).
+export function aroSemana(semana, comida) {
+  const sc = comida?.semanas?.[comida.semanas.length - 1];
+  const hecho = (semana?.planeados ? semana.hechos : 0) + (sc ? sc.dias : 0);
+  const total = (semana?.planeados || 0) + (sc ? sc.transcurridos : 0);
+  if (!total) return null;
+  const frac = Math.min(1, hecho / total);
+  return { frac, centro: `${Math.round(frac * 100)}%`, pie: 'tu semana' };
+}
+
 // ── Lo que más come, de lo que registró ───────────────────────────────────
 // Sale del detalle de cada comida (`historyDetail[fecha]` → comidas →
 // alimentos), de los últimos `dias`. Un alimento se agrupa por su nombre
@@ -392,7 +404,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   if (vista === 'comunidad') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <Comunidad name={name} /></Marco>;
   if (vista === 'config') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
-    <Configuracion name={name} whatsapp={wa} alRecorrido={acciones.recorrido} alPrograma={acciones.programa} alActivarPush={acciones.activarPush} /></Marco>;
+    <Configuracion name={name} whatsapp={wa} alRecorrido={acciones.recorrido} alPrograma={acciones.programa} alActivarPush={acciones.activarPush} alCerrarSesion={acciones.cerrarSesion} /></Marco>;
 
   // Constancia del entrenamiento en las últimas 8 semanas (% de lo planeado).
   const ochoSemanas = (ent?.semanas || []).slice(-8).filter(w => w.planeados > 0)
@@ -404,7 +416,8 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
     <Marco ref={raizRef}>
       {/* Saludo: con la misma letra y la voz del coach de las cabeceras de Hoy. */}
       <CabeceraHoy tema="dash" sangria="16px" arriba="calc(62px + env(safe-area-inset-top, 0px))"
-        voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, b: racha >= 3 ? `${racha} días seguidos.` : 'Mira cómo vas.' }} />
+        voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, b: racha >= 3 ? `${racha} días seguidos.` : 'Mira cómo vas.' }}
+        aro={aroSemana(semana, comida)} />
       {/* Atajos: en UNA sola línea y del mismo alto, para no quitarle el
           protagonismo a las gráficas. Recordatorios y Configuración van
           solo con su ícono (campana y tuerca) para que todo quepa. */}
