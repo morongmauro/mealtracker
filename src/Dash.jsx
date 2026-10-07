@@ -124,6 +124,41 @@ export function datosComida(history = {}, goals = {}, hoy = hoyLocal()) {
   };
 }
 
+// ── Lo que más come, de lo que registró ───────────────────────────────────
+// Sale del detalle de cada comida (`historyDetail[fecha]` → comidas →
+// alimentos), de los últimos `dias`. Un alimento se agrupa por su nombre
+// (sin mayúsculas ni tildes). Cada lista trae los 3 primeros.
+//   repetido  el que más veces aparece (al menos 2)
+//   calorico  el de más calorías en una sola porción
+//   proteina / carbos / grasa / azucar (añadida) / omega3 / fibra: el que más
+//             aportó en total en esos días
+export function alimentosDestacados(detalle = {}, hoy = hoyLocal(), dias = 30) {
+  const porNombre = new Map();
+  let porciones = 0;
+  for (let i = 0; i < dias; i++) {
+    const f = sumarDias(hoy, -i);
+    (Array.isArray(detalle[f]) ? detalle[f] : []).forEach(en => (Array.isArray(en?.items) ? en.items : []).forEach(it => {
+      const nombre = String(it?.name || '').trim();
+      if (!nombre) return;
+      const k = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const a = porNombre.get(k) || { nombre, veces: 0, kcal: 0, p: 0, c: 0, g: 0, sugar: 0, omega3: 0, fiber: 0, maxKcal: 0 };
+      a.veces++;
+      ['kcal', 'p', 'c', 'g', 'sugar', 'omega3', 'fiber'].forEach(m => { a[m] += Number(it[m]) || 0; });
+      a.maxKcal = Math.max(a.maxKcal, Number(it.kcal) || 0);
+      porNombre.set(k, a);
+      porciones++;
+    }));
+  }
+  const lista = [...porNombre.values()];
+  const top = (fn, min = 0) => lista.filter(x => fn(x) > min).sort((a, b) => fn(b) - fn(a)).slice(0, 3);
+  return {
+    dias, porciones, alimentos: lista.length,
+    repetido: top(x => x.veces, 1), calorico: top(x => x.maxKcal),
+    proteina: top(x => x.p, 1), carbos: top(x => x.c, 1), grasa: top(x => x.g, 1),
+    azucar: top(x => x.sugar, 0.5), omega3: top(x => x.omega3, 0.05), fibra: top(x => x.fiber, 0.5),
+  };
+}
+
 // ── Piezas ────────────────────────────────────────────────────────────────
 // Cifra compacta: la etiqueta con el número al lado, y el cambio debajo.
 function Dato({ etiqueta, valor, unidad, pie, color }) {
@@ -283,7 +318,7 @@ const Marco = React.forwardRef(({ children }, ref) => (
 const cacheDash = new Map();
 const cacheAprende = new Map();
 
-export default function Dash({ name, history, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null }) {
+export default function Dash({ name, history, detalle = {}, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null }) {
   const hoy = hoyLocal();
   const [ent, setEnt] = useState(() => cacheDash.get(name) || null);
   const [falloEnt, setFalloEnt] = useState(false);
@@ -341,6 +376,7 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
   }, [vista]);
 
   const comida = useMemo(() => datosComida(history, goals, hoy), [history, goals, hoy]);
+  const destacados = useMemo(() => alimentosDestacados(detalle, hoy), [detalle, hoy]);
   const semana = ent?.semanas?.[ent.semanas.length - 1];
   const nombre = String(name || '').split(' ')[0];
   const wa = WHATSAPP_COACH
@@ -350,7 +386,7 @@ export default function Dash({ name, history, goals, entrenoOn = true, alIr, rac
   if (vista === 'entreno') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <DetalleEntreno ent={ent} falloEnt={falloEnt} cargar={cargar} /></Marco>;
   if (vista === 'comida') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
-    <DetalleComida comida={comida} alCalendario={acciones.calendarioComida} /></Marco>;
+    <DetalleComida comida={comida} destacados={destacados} alCalendario={acciones.calendarioComida} /></Marco>;
   if (vista === 'aprende') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <DetalleAprende aprende={aprende} alIr={alIr} /></Marco>;
   if (vista === 'comunidad') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
@@ -690,10 +726,44 @@ function DetalleEntreno({ ent, falloEnt, cargar }) {
 }
 
 // ── Profundiza: alimentación ──────────────────────────────────────────────
-function DetalleComida({ comida, alCalendario }) {
+function DetalleComida({ comida, destacados, alCalendario }) {
   return (
     <>
       <Titular bajada="Tus metas de calorías y macros, día a día.">Tus gráficas de alimentación</Titular>
+
+      {/* Qué tan cerca de cada meta: el promedio de los días registrados y
+          cuántos de los 7 cumplieron. */}
+      {comida.metaK && comida.registrados7 > 0 && (
+        <Tarjeta titulo="Qué tan cerca estuviste" detalle={`Promedio de los ${comida.registrados7} días que registraste de los últimos 7.`}>
+          <div data-cercania style={{ marginTop: 6 }}>
+            {[
+              { k: 'kcal', nombre: 'Calorías', color: VERDE, u: 'kcal' },
+              { k: 'p', nombre: 'Proteína', color: C_PROTEIN, u: 'g' },
+              { k: 'c', nombre: 'Carbohidratos', color: C_CARBS, u: 'g' },
+              { k: 'g', nombre: 'Grasas', color: C_FAT, u: 'g' },
+            ].filter(m => comida.meta[m.k] && comida.promedio[m.k]).map(m => {
+              const pr = comida.promedio[m.k];
+              return (
+                <div key={m.k} style={{ padding: '10px 0', borderTop: `1px solid ${CREMA}` }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontSize: 14.5, fontWeight: 700, color: TEXT }}>{m.nombre}</span>
+                    <span style={{ fontSize: 13.5, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>
+                      <b style={{ color: TEXT }}>{fmt(pr.valor)}</b> / {fmt(comida.meta[m.k])} {m.u} · <b style={{ color: m.color }}>{pr.pct} %</b>
+                    </span>
+                  </div>
+                  <div style={{ position: 'relative', height: 8, borderRadius: 99, background: CREMA, marginTop: 7, overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.min(100, (pr.pct / 130) * 100)}%`, height: '100%', borderRadius: 99, background: m.color }} />
+                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(100 / 130) * 100}%`, width: 2, background: TEXT, opacity: 0.55 }} />
+                  </div>
+                  <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 5 }}>
+                    {comida.cumplidos[m.k]} de {comida.registrados7} días en meta
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Tarjeta>
+      )}
 
       {comida.metaK && comida.conDato > 0 && (
         <Tarjeta titulo="Calorías" detalle={`Últimos 14 días. La franja es tu meta de ${fmt(comida.metaK)} kcal, ±10 %.`}>
@@ -721,6 +791,23 @@ function DetalleComida({ comida, alCalendario }) {
         )}
       </Tarjeta>
 
+      {[
+        { k: 'c', titulo: 'Carbohidratos', color: C_CARBS, meta: comida.meta.c },
+        { k: 'g', titulo: 'Grasas', color: C_FAT, meta: comida.meta.g },
+      ].filter(() => comida.conDato > 0).map(m => (
+        <Tarjeta key={m.k} titulo={m.titulo} detalle={m.meta ? `Últimos 14 días. La raya es tu meta de ${fmt(m.meta)} g.` : 'Últimos 14 días.'}>
+          <Columnas
+            datos={comida.ultimos.map(d => ({ ...d, valor: d[m.k] }))}
+            color={m.color}
+            marca={() => m.meta}
+            etiquetaX={(d) => DIA_LETRA[aFecha(d.fecha).getDay()]}
+            textoValor={(d) => (d[m.k] == null ? `${fechaCorta(d.fecha)}: sin registro` : `${fechaCorta(d.fecha)}: ${fmt(d[m.k])} g`)}
+          />
+        </Tarjeta>
+      ))}
+
+      {destacados && destacados.porciones > 0 && <TusAlimentos d={destacados} />}
+
       <Tarjeta titulo="Días registrados" detalle="Días de cada semana con tu comida registrada.">
         <Columnas
           datos={comida.semanas.map(w => ({ ...w, valor: w.dias }))}
@@ -740,6 +827,48 @@ function DetalleComida({ comida, alCalendario }) {
         </Profundiza>
       )}
     </>
+  );
+}
+
+// Lo que más come y lo que más le aporta, de lo que registró. Cada fila: qué
+// mide, el alimento que encabeza y los dos que le siguen.
+function TusAlimentos({ d }) {
+  const g = (v) => `${fmt(Math.round(v))} g`;
+  const filas = [
+    { id: 'repetido', titulo: 'El que más repites', color: VERDE, lista: d.repetido, valor: (x) => `${x.veces} veces` },
+    { id: 'calorico', titulo: 'El más calórico por porción', color: '#C95F17', lista: d.calorico, valor: (x) => `${fmt(Math.round(x.maxKcal))} kcal` },
+    { id: 'proteina', titulo: 'El que más proteína te dio', color: C_PROTEIN, lista: d.proteina, valor: (x) => g(x.p) },
+    { id: 'carbos', titulo: 'El que más carbohidratos te dio', color: C_CARBS, lista: d.carbos, valor: (x) => g(x.c) },
+    { id: 'grasa', titulo: 'El que más grasa te dio', color: C_FAT, lista: d.grasa, valor: (x) => g(x.g) },
+    { id: 'omega3', titulo: 'Grasa buena (omega-3)', color: '#178A8F', lista: d.omega3, valor: (x) => `${fmt(Math.round(x.omega3 * 10) / 10)} g` },
+    { id: 'fibra', titulo: 'El que más fibra te dio', color: '#2F7F45', lista: d.fibra, valor: (x) => g(x.fiber) },
+    { id: 'azucar', titulo: 'El de más azúcar añadida', color: '#C2413B', lista: d.azucar, valor: (x) => g(x.sugar) },
+  ].filter(f => f.lista.length);
+  return (
+    <Tarjeta titulo="Tus alimentos" detalle={`Lo que registraste en los últimos ${d.dias} días: ${d.alimentos} alimentos distintos.`}>
+      <div data-tus-alimentos style={{ marginTop: 6 }}>
+        {filas.map(f => {
+          const [uno, ...resto] = f.lista;
+          return (
+            <div key={f.id} data-alimento={f.id} style={{ display: 'flex', gap: 10, padding: '10px 0', borderTop: `1px solid ${CREMA}` }}>
+              <span style={{ width: 8, height: 8, borderRadius: 99, background: f.color, marginTop: 6, flex: 'none' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_MUTED }}>{f.titulo}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 1 }}>
+                  <span style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{uno.nombre}</span>
+                  <span style={{ fontSize: 14, fontWeight: 750, color: f.color, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{f.valor(uno)}</span>
+                </div>
+                {resto.length > 0 && (
+                  <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 2 }}>
+                    Le siguen: {resto.map(x => `${x.nombre} (${f.valor(x)})`).join(' · ')}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Tarjeta>
   );
 }
 

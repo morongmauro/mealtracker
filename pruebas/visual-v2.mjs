@@ -132,7 +132,7 @@ function base() {
 
 // Lo que el teléfono tiene guardado del mealtracker.
 function almacen(nombre) {
-  const history = {};
+  const history = {}, historyDetail = {};
   const hoyLocal = new Date();
   for (let i = 0; i < 84; i++) {
     const d = new Date(hoyLocal); d.setDate(d.getDate() - i);
@@ -140,11 +140,21 @@ function almacen(nombre) {
     if ((i * 7) % 5 === 3 && i > 0) continue;            // días sin registrar
     const kcal = Math.round(2300 + Math.sin(i * 1.7) * 260 + (i % 4) * 40);
     history[f] = { kcal, p: Math.round(150 + Math.cos(i * 1.3) * 28), c: 240, g: 70, water: 0 };
+    // El detalle de las comidas (para «Tus alimentos»): huevo casi a diario,
+    // salmón algunos días, una gaseosa de vez en cuando.
+    const items = [{ name: 'Huevo', kcal: 156, p: 12.6, c: 1.1, g: 10.6, fiber: 0, omega3: 0.1, sugar: 0 },
+      { name: 'Arroz blanco', kcal: 260, p: 5, c: 57, g: 0.5, fiber: 0.6, omega3: 0, sugar: 0 },
+      { name: 'Pechuga de pollo', kcal: 280, p: 52, c: 0, g: 6, fiber: 0, omega3: 0.05, sugar: 0 }];
+    if (i % 3 === 0) items.push({ name: 'Salmón', kcal: 412, p: 40, c: 0, g: 26, fiber: 0, omega3: 2.4, sugar: 0 });
+    if (i % 5 === 1) items.push({ name: 'Gaseosa', kcal: 140, p: 0, c: 39, g: 0, fiber: 0, omega3: 0, sugar: 39 });
+    if (i % 4 === 2) items.push({ name: 'Lentejas', kcal: 230, p: 18, c: 40, g: 0.8, fiber: 15.6, omega3: 0.1, sugar: 0 });
+    historyDetail[f] = [{ id: i + 1, meal: 'almuerzo', items, kcal: items.reduce((a, x) => a + x.kcal, 0) }];
   }
   return {
     'mt:name': JSON.stringify(nombre),
     'mt:goals': JSON.stringify({ kcal: 2400, p: 165, c: 250, g: 70 }),
     'mt:history': JSON.stringify(history),
+    'mt:historyDetail': JSON.stringify(historyDetail),
     'mt:lastActiveAt': '0',
     cloudConsent: 'declined',
     'mt:novedadesVistas': JSON.stringify(['2026-08-26-aprendizaje-y-recetas']),
@@ -382,6 +392,16 @@ try {
   await p.getByText('Días registrados', { exact: true }).waitFor({ timeout: 10000 });
   await espera(400);
   await foto(p, '03c-profundiza-comida');
+  ok('profundiza comida: cercanía a cada meta y carbos y grasas día a día', (await p.locator('[data-cercania] > div').count()) === 4
+    && (await p.getByText('Carbohidratos', { exact: true }).count()) >= 1 && (await p.getByText('Grasas', { exact: true }).count()) >= 1);
+  ok('profundiza comida: «Tus alimentos» con el más repetido, el más calórico, el de más azúcar y la grasa buena', await p.evaluate(() => {
+    const fila = (id) => document.querySelector(`[data-alimento="${id}"]`)?.innerText || '';
+    return /Huevo/.test(fila('repetido')) && /Salmón/.test(fila('calorico')) && /Gaseosa/.test(fila('azucar'))
+      && /Salmón/.test(fila('omega3')) && /Lentejas/.test(fila('fibra')) && /Pechuga/.test(fila('proteina'));
+  }));
+  await p.locator('[data-tus-alimentos]').scrollIntoViewIfNeeded();
+  await espera(300);
+  await foto(p, '03c2-tus-alimentos');
   await p.getByRole('button', { name: /calendario de comidas/ }).click();
   await p.getByText(/Calendario de comidas|Mis gráficas/i).first().waitFor({ timeout: 5000 });
   await espera(900);
@@ -799,6 +819,20 @@ try {
   ok('recetario: una línea separa los botones de las recetas', (await p.locator('[data-recetario-separador]').count()) === 1);
   ok('recetario: sin la foto de portada', (await p.locator('img[src*="recetario-hero"]').count()) === 0);
   ok('recetario: las recetas se ven de una', (await p.getByText('Wrap crujiente de atún').count()) >= 1);
+  // El detalle de una receta, con la visual de la app
+  await p.getByText('Wrap crujiente de atún').first().click();
+  await espera(700);
+  await foto(p, '10f-receta-detalle');
+  await p.mouse.move(195, 600); await p.mouse.wheel(0, 900);
+  await espera(500);
+  await foto(p, '10g-receta-detalle-abajo');
+  await p.mouse.wheel(0, 900);
+  await espera(500);
+  await foto(p, '10h-receta-detalle-final');
+  await p.mouse.wheel(0, -3000);
+  await espera(300);
+  await p.getByRole('button', { name: 'Volver al recetario' }).click();
+  await espera(700);
   await p.getByRole('button', { name: /Búsqueda avanzada/ }).click();
   await p.locator('[data-busqueda-avanzada]').waitFor({ timeout: 5000 });
   await p.getByRole('button', { name: 'Snack', exact: true }).click();
