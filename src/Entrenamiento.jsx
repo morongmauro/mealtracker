@@ -870,6 +870,16 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     return a + (Number.isFinite(kg) && m.reps ? kg * Number(m.reps) : 0);
   }, 0);
   conteoRef.current = { hechos: ejHechos, total: ejTotal, series: hechas, kilos: Math.round(kilos) };
+  // Visual nueva: el ejercicio que toca ahora (el primero suelto sin terminar)
+  // lleva su marca «AHORA».
+  let ahoraId = null;
+  if (v2) {
+    for (const tr of tramos) {
+      if (tr.vueltas.length > 1) continue;
+      const re = tr.vueltas[0].find(x => !Array.from({ length: Math.max(1, x.series || 1) }, (_, k) => k + 1).every(n => marcadas[`${x.id}:${n}`]));
+      if (re) { ahoraId = re.id; break; }
+    }
+  }
 
   return (
     <>
@@ -923,19 +933,29 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       {/* Visual nueva: el avance se queda pegado arriba mientras se baja, para
           saber siempre cuánto falta sin volver al principio. */}
       {totalSeries > 0 && v2 && (
-        <div style={{
+        // Estilo Apple: vidrio, el avance dicho en claro y un segmento por
+        // ejercicio que se va llenando; el reloj del entreno a la derecha.
+        <div data-avance-rutina style={{
           position: 'sticky', top: 'calc(58px + env(safe-area-inset-top, 0px))', zIndex: 20,
-          margin: '0 -4px 4px', padding: '8px 12px', borderRadius: 14,
-          background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-          boxShadow: '0 1px 2px rgba(40,40,30,0.05), 0 6px 16px rgba(60,60,40,0.06)',
-          display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5,
+          margin: '0 -4px 6px', padding: '10px 14px 11px', borderRadius: 18,
+          background: 'rgba(250,250,252,0.86)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.05), 0 8px 20px -10px rgba(0,0,0,0.18)',
         }}>
-          <span style={{ fontWeight: 650, color: TEXT, flex: 'none' }}>{ejHechos}/{ejTotal} ejercicios</span>
-          <div style={{ flex: 1, height: 6, borderRadius: 99, background: '#EEEAE1', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${ejTotal ? (ejHechos / ejTotal) * 100 : 0}%`, background: SECCION.entreno.base, borderRadius: 99, transition: 'width .25s ease' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, minHeight: 24 }}>
+            <span style={{ fontWeight: 700, color: TEXT, flex: 1 }}>{ejHechos}/{ejTotal} ejercicios</span>
+            {inicio && hechas > 0 && <RelojSesion desde={inicio} v2 />}
           </div>
-          <span style={{ color: TEXT_MUTED, flex: 'none' }}>{ejTotal ? Math.round((ejHechos / ejTotal) * 100) : 0} %</span>
-          {inicio && hechas > 0 && <RelojSesion desde={inicio} />}
+          {ejTotal <= 16 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${ejTotal}, 1fr)`, gap: 4, marginTop: 8 }}>
+              {Array.from({ length: ejTotal }, (_, i) => (
+                <span key={i} data-segmento={i < ejHechos ? 'hecho' : 'falta'} style={{ height: 4, borderRadius: 9, background: i < ejHechos ? '#1D1D1F' : 'rgba(118,118,128,0.18)', transition: 'background .25s ease' }} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ height: 4, borderRadius: 99, background: 'rgba(118,118,128,0.18)', overflow: 'hidden', marginTop: 8 }}>
+              <div style={{ height: '100%', width: `${(ejHechos / ejTotal) * 100}%`, background: '#1D1D1F', borderRadius: 99, transition: 'width .25s ease' }} />
+            </div>
+          )}
         </div>
       )}
 
@@ -979,6 +999,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
                   compacto={vi > 0}
                   unidad={unidadDe(re)} onUnidad={() => cambiarUnidad(re)}
                   onNota={() => setNota({ titulo: re.ejercicio.nombre, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })}
+                  ahora={re.id === ahoraId}
                   marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />
               ))}
             </React.Fragment>
@@ -988,7 +1009,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       ))}
 
       {descanso && (
-        <BarraDescanso
+        <BarraDescanso v2={v2}
           segundos={descanso.segundos}
           restante={restante}
           onSaltar={() => setDescanso(null)}
@@ -997,17 +1018,16 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       )}
 
       {datos.ejercicios.length > 0 && v2 && (
-        // Visual nueva: el cierre se tiene que ver. Azul de entreno, con su
-        // check; antes era gris sobre gris y se perdía con el fondo.
+        // Visual nueva (estilo Apple): cápsula grafito que se ve siempre; antes
+        // de la primera serie, con contorno, y rellena en cuanto se entrena.
         <button data-terminar
           onClick={() => { setDescanso(null); setErrorCierre(null); setCerrandoHoja(true); }}
           style={{
-            width: '100%', marginTop: 10, height: 54, borderRadius: 18, cursor: 'pointer', fontFamily: 'inherit',
+            width: '100%', marginTop: 14, height: 54, borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            border: hechas > 0 ? 0 : `1.5px solid ${SECCION.entreno.base}`,
-            background: hechas > 0 ? SECCION.entreno.base : '#FFFFFF',
-            color: hechas > 0 ? '#fff' : SECCION.entreno.ink,
-            boxShadow: hechas > 0 ? '0 6px 18px color-mix(in srgb, var(--ent-accent, #5F6670) 30%, transparent)' : 'none',
+            border: 0, boxShadow: hechas > 0 ? '0 10px 24px -10px rgba(0,0,0,0.45)' : 'inset 0 0 0 1.5px #1D1D1F',
+            background: hechas > 0 ? '#1D1D1F' : '#FFFFFF',
+            color: hechas > 0 ? '#fff' : '#1D1D1F',
             fontSize: 16, fontWeight: 750,
           }}>
           <CheckCircle size={20} weight="bold" />
@@ -1190,7 +1210,7 @@ function HojaFin({ fin, alCerrar }) {
 }
 // El reloj del entreno, en la barra de avance: arranca con la primera serie.
 // Va aparte para que el segundo que pasa no vuelva a pintar toda la rutina.
-function RelojSesion({ desde }) {
+function RelojSesion({ desde, v2 = false }) {
   const [ahora, setAhora] = useState(Date.now());
   useEffect(() => { asegurarCSS(); const id = setInterval(() => setAhora(Date.now()), 1000); return () => clearInterval(id); }, []);
   const s = Math.max(0, Math.floor((ahora - desde) / 1000));
@@ -1198,7 +1218,8 @@ function RelojSesion({ desde }) {
   return (
     <span data-reloj-sesion className="mt-pop" style={{
       flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 99,
-      background: SECCION.entreno.base, color: '#fff', fontWeight: 750, fontVariantNumeric: 'tabular-nums',
+      background: v2 ? 'rgba(118,118,128,0.12)' : SECCION.entreno.base, color: v2 ? TEXT : '#fff', fontWeight: 750, fontVariantNumeric: 'tabular-nums',
+      fontSize: v2 ? 14 : undefined,
     }}><Timer size={13} strokeWidth={2.4} />{h ? `${h}:${String(m).padStart(2, '0')}` : m}:{ss}</span>
   );
 }
@@ -1653,11 +1674,36 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
 // para que se vea mientras se hace scroll por los ejercicios. Cuando llega a
 // cero se queda en 0:00 un momento con el aviso, en vez de desaparecer sola:
 // si desapareciera, quien no estaba mirando no se entera de nada.
-function BarraDescanso({ segundos, restante, onSaltar, onMas }) {
+function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
   const listo = restante <= 0;
   const mm = Math.floor(Math.max(0, restante) / 60);
   const ss = String(Math.max(0, restante) % 60).padStart(2, '0');
   const pct = segundos > 0 ? Math.max(0, Math.min(100, (restante / segundos) * 100)) : 0;
+  if (v2) {
+    // Estilo Apple: cápsula grafito con el anillo amarillo que se vacía.
+    const r = 11, c = 2 * Math.PI * r;
+    return (
+      <div data-descanso={listo ? 'listo' : 'contando'} style={{
+        position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 3,
+        borderRadius: 20, background: '#1D1D1F', color: '#fff', boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+        display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px 10px 14px',
+      }}>
+        <svg width="28" height="28" viewBox="0 0 28 28" style={{ flex: 'none' }} aria-hidden="true">
+          <circle cx="14" cy="14" r={r} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="3" />
+          <circle cx="14" cy="14" r={r} fill="none" stroke="#F2C94C" strokeWidth="3" strokeLinecap="round"
+            strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} transform="rotate(-90 14 14)" style={{ transition: 'stroke-dashoffset 1s linear' }} />
+        </svg>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.6 }}>{listo ? 'Listo' : 'Descanso'}</div>
+          <div style={{ fontSize: 18, fontWeight: 750, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15, color: listo ? '#F2C94C' : '#fff' }}>
+            {listo ? 'A la siguiente' : `${mm}:${ss}`}
+          </div>
+        </div>
+        {!listo && <button onClick={onMas} style={btnDescansoV2}>+15s</button>}
+        <button onClick={onSaltar} style={btnDescansoV2}>{listo ? 'Cerrar' : 'Saltar'}</button>
+      </div>
+    );
+  }
 
   return (
     <div data-descanso={listo ? 'listo' : 'contando'} style={{
@@ -1689,6 +1735,10 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas }) {
     </div>
   );
 }
+const btnDescansoV2 = {
+  flexShrink: 0, padding: '7px 12px', borderRadius: 999, cursor: 'pointer', border: 'none',
+  background: 'rgba(255,255,255,0.14)', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+};
 const btnDescanso = {
   flexShrink: 0, padding: '7px 12px', borderRadius: 999, cursor: 'pointer',
   border: '1px solid rgba(255,255,255,0.28)', background: 'rgba(255,255,255,0.10)',

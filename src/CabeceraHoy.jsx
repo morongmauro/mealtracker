@@ -21,8 +21,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { TEXT, TEXT_MUTED } from './theme.js';
-import { BODEGON } from './BodegonCabecera.jsx';
-import { AnilloMarca, rielDe } from './GraficasV2.jsx';
+import ObjetoCabecera from './ObjetoCabecera.jsx';
+import { AnilloMarca } from './GraficasV2.jsx';
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
@@ -77,20 +77,39 @@ export function FirmaCoach({ claro = false, compacta = false }) {
   );
 }
 
+// La marca, muy tenue, en la esquina de arriba a la derecha de las páginas sin
+// objeto en la cabecera: el asa y el aro del ícono, en el tono de la sección.
+// Se corta apenas por el borde, lo justo para que se siga reconociendo.
+function MarcaEsquina({ color }) {
+  return (
+    // La caja llega hasta el borde de la pantalla (20 px de margen) y recorta
+    // ahí, para que la página no se deslice de lado.
+    <div aria-hidden="true" style={{ position: 'absolute', top: 0, right: -20, width: 150, height: 140, overflow: 'hidden', pointerEvents: 'none' }}>
+    <svg data-marca-esquina viewBox="0 0 512 512" width="132" height="132" style={{ position: 'absolute', top: 2, right: -22, opacity: 0.075 }}>
+      <g transform="translate(256 262) scale(0.86) translate(-256 -248)" fill="none" stroke={color} strokeWidth="40" strokeLinecap="round">
+        <path d="M128 162 C96 72 160 18 256 18 C352 18 416 72 384 162" />
+        <circle cx="256" cy="300" r="136" strokeDasharray="640.88 854.51" transform="rotate(-90 256 300)" />
+        <circle cx="120" cy="300" r="28.8" fill={color} stroke="none" />
+      </g>
+    </svg>
+    </div>
+  );
+}
+
 // `fondo={false}`: solo la letra (el Dash ya tiene sus manchas detrás).
 // `voz.sub`: una línea de texto normal debajo de la frase.
 // `aro`: { frac (0–1), centro, pie } — la gráfica clave de la sección, en un
 // aro como los del Dash, al lado de la kettlebell; se llena al entrar.
-// El ancho de la kettlebell cuando va con el aro.
-const KB_ARO = 'min(40vw, 156px)';
+// El lado del cuadro del objeto 3D (lleva aire transparente alrededor).
+const OBJ = 'min(46vw, 180px)';
 
 export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', ilustracion = true, aro = null, children }) {
   const t = TEMAS[tema] || TEMAS.entreno;
   // La ilustración de la sección va a la derecha, cortada por el borde de la
   // pantalla; el texto deja su espacio para no pasar por encima.
-  // El objeto de la sección (bodegón): la kettlebell, el bowl, el libro o el
-  // cronómetro, con su movimiento al entrar.
-  const Ilus = fondo && ilustracion ? BODEGON[tema] : null;
+  // El objeto de la sección, en 3D: la kettlebell, el plato, el libro o la
+  // brújula, con su movimiento al entrar.
+  const Ilus = fondo && ilustracion;
   const conAro = !!(Ilus && aro);
   const texto = (
     <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (conAro ? 'min(46vw, 186px)' : 'min(34vw, 150px)') : 0, minHeight: conAro ? 118 : undefined }}>
@@ -117,6 +136,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
     return (
       <div data-cabecera-hoy={tema} style={{ position: 'relative', margin: '0 0 18px', padding: '16px 0 4px' }}>
         <style>{CSS}</style>
+        <MarcaEsquina color={t.tinta} />
         {texto}
       </div>
     );
@@ -148,26 +168,29 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       }} />}
       {Ilus && (
         <div aria-hidden="true" data-ilus-cabecera={tema} style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-          <div className="cab-ilus" style={{
-            // Junto a la frase (sin taparla: el texto le deja su espacio) y
-            // entera dentro de la pantalla, sin cortarse por el borde.
-            // Con el aro: la kettlebell (con lo que sostiene) más alta que el
-            // aro, y el aro a su lado, centrado a la altura de la figura.
-            // (La barra de Entrenamiento es más ancha: un poco más a la derecha,
-            // en el margen vacío del lienzo, para no rozar el aro.)
-            position: 'absolute', right: conAro ? (tema === 'entreno' ? -8 : 0) : 14, top: `calc(${arriba} + ${conAro ? 12 : 22}px)`, width: conAro ? KB_ARO : 'min(40vw, 164px)', aspectRatio: '220 / 170',
-            color: '#FFFFFF', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.10))',
-          }}><Ilus /></div>
+          <div style={{
+            // A la derecha, junto a la frase y entero dentro de la pantalla.
+            position: 'absolute', right: -8, top: `calc(${arriba} - 4px)`, width: OBJ, aspectRatio: '1 / 1',
+          }}><ObjetoCabecera tema={tema} /></div>
           {conAro && (
             <div className="cab-ilus" data-aro-cabecera={tema} style={{
-              // Pegado a la figura por la izquierda (en el margen vacío de su
-              // lienzo) y con su centro a la mitad de la figura entera.
-              position: 'absolute', right: `calc(${KB_ARO} * 0.75 - 6px)`, top: `calc(${arriba} + 12px + ${KB_ARO} * 0.3165 - 30px)`, width: 84,
+              // Delante del objeto, abajo a la izquierda, apoyado en el mismo
+              // piso: con la misma luz (arriba a la izquierda) y su sombra
+              // suave hacia la derecha, para que no se vea pegado encima.
+              position: 'absolute', right: `calc(${OBJ} * 0.66)`, top: `calc(${arriba} - 4px + ${OBJ} * 0.5)`, width: 84,
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animationDelay: '.16s',
             }}>
-              <AnilloMarca frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={60} grosor={7} riel={rielDe(COLOR_ARO[tema] || TEXT, 0.1)} etiqueta={aro.pie}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>
-              </AnilloMarca>
+              <div style={{ position: 'relative' }}>
+                <span aria-hidden="true" data-aro-piso style={{
+                  position: 'absolute', left: 4, right: -8, bottom: -7, height: 10, borderRadius: '50%',
+                  background: 'radial-gradient(closest-side, rgba(0,0,0,0.2), rgba(0,0,0,0))',
+                }} />
+                <div style={{ position: 'relative', filter: 'drop-shadow(1.5px 3px 2.2px rgba(0,0,0,0.16))' }}>
+                  <AnilloMarca frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={60} grosor={7} riel="rgba(255,255,255,0.55)" etiqueta={aro.pie}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>
+                  </AnilloMarca>
+                </div>
+              </div>
               {aro.pie && <div data-aro-pie style={{ fontSize: 11, fontWeight: 500, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.2 }}>{aro.pie}</div>}
             </div>
           )}

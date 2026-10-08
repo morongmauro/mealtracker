@@ -272,11 +272,12 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
 }
 // La kettlebell de la cabecera: entera dentro de la pantalla y sin tapar la frase.
 const ilusBien = (p, tema) => p.evaluate((tema) => {
-  const caja = document.querySelector(`[data-cabecera-hoy="${tema}"] .cab-ilus svg`);
+  const caja = document.querySelector(`[data-cabecera-hoy="${tema}"] [data-objeto-cabecera]`);
   const frase = document.querySelector(`[data-cabecera-hoy="${tema}"] [data-frase]`);
   if (!caja || !frase) return false;
-  // Lo dibujado (sin el lienzo vacío): el grupo del personaje.
-  const g = caja.querySelector('g').getBoundingClientRect();
+  // Lo dibujado (sin el aire transparente del cuadro): la caja del objeto.
+  const c = caja.getBoundingClientRect(), [fl, ft, fr, fb] = caja.dataset.caja.split(',').map(Number);
+  const g = { left: c.left + fl * c.width, top: c.top + ft * c.height, right: c.left + fr * c.width, bottom: c.top + fb * c.height };
   const f = frase.getBoundingClientRect();
   const r = document.createRange(); r.selectNodeContents(frase);
   const lineas = [...r.getClientRects()];
@@ -285,7 +286,7 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const aro = document.querySelector(`[data-cabecera-hoy="${tema}"] [data-aro-cabecera]`);
   const izq = aro ? Math.min(aro.getBoundingClientRect().left, g.left) : g.left;
   const bien = g.left >= 0 && g.right <= innerWidth && g.top >= 0 && derechaTexto <= izq + 4 && izq - f.right < 40 && g.top < f.bottom
-    && (!aro || aro.getBoundingClientRect().right <= g.left + 12);
+    && (!aro || aro.getBoundingClientRect().right <= g.left + 44);
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top], derechaTexto, fRight: f.right, fBottom: f.bottom, w: innerWidth }));
   return bien;
 }, tema);
@@ -323,9 +324,17 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
-  ok('cabeceras: un objeto por sección (bodegón), sin personaje', (await p.locator('[data-cabecera-hoy="dash"] svg[data-bodegon="dash"]').count()) === 1
-    && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion] .kb-ojos').count()) === 0);
-  ok('Dash: el cronómetro con el aro azul, junto a la frase, entero y sin taparla', (await p.locator('[data-cabecera-hoy="dash"] svg[data-bodegon="dash"] .bd-arco').count()) === 1 && await ilusBien(p, 'dash'));
+  ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0)
+    && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
+  ok('Dash: la brújula con el aro azul, junto a la frase, entera y sin taparla', await ilusBien(p, 'dash'));
+  ok('aro de la cabecera: misma luz que el objeto (sombra suave hacia la derecha y apoyado en el piso), riel claro', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
+    const sombra = [...a.querySelectorAll('div')].some(d => /drop-shadow/.test(getComputedStyle(d).filter));
+    const piso = a.querySelector('[data-aro-piso]');
+    const riel = [...a.querySelectorAll('[data-anillo] svg circle')].some(c => /rgba\(255, ?255, ?255, ?0\.55\)/.test(c.getAttribute('stroke') || ''));
+    return sombra && !!piso && riel;
+  }));
+  await espera(2600);
+  ok('…y al terminar la animación, el objeto flota suave', await p.locator('[data-objeto-cabecera="dash"]').evaluate(d => d.classList.contains('flota') && getComputedStyle(d).animationName === 'obj-flota'));
   ok('aros de las cabeceras: el punto de la punta es blanco y sin borde', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera] [data-anillo] svg').evaluate(s => {
     const blancos = [...s.querySelectorAll('circle')].filter(c => (c.getAttribute('fill') || '').toUpperCase() === '#FFFFFF');
     return blancos.length >= 1 && blancos.every(c => !c.getAttribute('stroke'));
@@ -518,7 +527,7 @@ try {
     && /^(Hoy toca|Hecho por hoy|Día de descanso|Hoy no te toca|Semana completa|Tienes un entreno)/.test(await cabE.locator('[data-frase]').innerText()),
     `${await cabE.locator('[data-etiqueta]').innerText()} | ${await cabE.locator('[data-frase]').innerText()}`);
   ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);
-  ok('…con la banda delgada y el objeto de la sección (kettlebell de grafito)', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('[data-ilustracion="entreno"]').count()) === 1
+  ok('…con la banda delgada y el objeto de la sección (kettlebell de grafito)', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('[data-objeto-cabecera="entreno"]').count()) === 1
     && await cabE.locator('[data-banda]').evaluate(el => el.getBoundingClientRect().height < 140));
   ok('…la segunda línea en el amarillo de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(201, 164, 62)'));
   ok('…y el color no se sale de la pantalla', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -595,9 +604,17 @@ try {
     const a = c('calentamiento'), b = c('fuerza');
     return !!a && !!b && a !== b;
   }));
-  ok('el botón de terminar se ve (gris de la sección, con borde)', await p.locator('[data-terminar]').evaluate(b => {
-    const cs = getComputedStyle(b); return cs.borderTopColor === 'rgb(95, 102, 112)' && cs.color === 'rgb(69, 75, 84)';
+  ok('el botón de terminar se ve (cápsula con contorno grafito antes de empezar)', await p.locator('[data-terminar]').evaluate(b => {
+    const cs = getComputedStyle(b); return /inset/.test(cs.boxShadow) && cs.color === 'rgb(29, 29, 31)' && parseFloat(cs.borderTopLeftRadius) >= 27;
   }));
+  ok('rutina estilo Apple: el primer ejercicio sin terminar dice AHORA, video chico al lado, campos grises sin borde', await p.evaluate(() => {
+    const ahora = document.querySelectorAll('[data-ahora="1"]');
+    const t = ahora[0]; if (ahora.length !== 1 || !/AHORA/.test(t.innerText)) return false;
+    const mini = t.querySelector('button[aria-label^="Ver "]').getBoundingClientRect();
+    const campo = document.querySelector('[data-ejercicio] input[aria-label^="Repeticiones"]'), cs = getComputedStyle(campo);
+    return mini.width <= 80 && mini.height <= 62 && cs.borderTopStyle === 'none' && cs.backgroundColor === 'rgb(242, 242, 244)';
+  }));
+  ok('rutina estilo Apple: el avance con un segmento por ejercicio', (await p.locator('[data-avance-rutina] [data-segmento]').count()) === 7);
   // Peso corporal: solo reps
   const flex = p.locator('[data-ejercicio="Push Up"]');
   ok('peso corporal (Push Up): pide reps y NO pide peso', (await flex.getByLabel(/Repeticiones serie/).count()) === 3 && (await flex.getByLabel(/Peso serie/).count()) === 0,
@@ -612,9 +629,9 @@ try {
         && bs.every(b => { const t = b.querySelector('span'); return t.scrollWidth <= t.clientWidth + 1; });
     });
   }));
-  ok('descansos: el que tiene dice sus segundos', (await p.getByText('Descanso 120 s entre series').count()) === 1);
+  ok('descansos: el que tiene lo dice como se piensa (120 s → 2 min)', (await p.getByText('Descanso 2 min').count()) === 1);
   ok('descansos: el que no tiene lo dice', (await p.getByText('Sin descanso').count()) > 0);
-  ok('unidades: la rutina abre en lb', (await p.getByText('Peso (lb) ⇄').count()) > 0);
+  ok('unidades: la rutina abre en lb', (await p.getByText('LB ⇄').count()) > 0);
   ok('el avance cuenta ejercicios', (await p.getByText('0/7 ejercicios').count()) === 1);
   await espera(500);
   await foto(p, '04b-rutina-arriba');
@@ -627,11 +644,13 @@ try {
   ok('sin reps no se marca la serie', (await p.locator('[aria-label="Deshacer serie 1"]').count()) === 0);
   await p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
   await espera(300);
-  ok('el calentamiento se marca con un toque y se pliega', (await p.getByText('1/3', { exact: true }).count()) === 1);
+  ok('el calentamiento se marca con un toque y se pliega', (await p.getByText('1 de 3', { exact: true }).count()) === 1 && (await p.locator('[data-plegado]').count()) >= 1);
   ok('el avance sube por ejercicio terminado', (await p.getByText('1/7 ejercicios').count()) === 1);
   ok('con la primera serie arranca el reloj del entreno', await p.locator('[data-reloj-sesion]').isVisible());
   ok('…y la serie marcada «salta»', (await p.locator('[data-view="entrena"] .mt-pop').count()) >= 1);
-  ok('…y el botón de terminar queda relleno del gris de la sección', await p.locator('[data-terminar]').evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(95, 102, 112)'));
+  ok('…y el botón de terminar queda relleno en grafito', await p.locator('[data-terminar]').evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(29, 29, 31)'));
+  ok('…lo hecho: check grafito con la palomita amarilla, y un segmento lleno', await p.locator('[data-plegado] > span').first().evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(29, 29, 31)' && getComputedStyle(b).color === 'rgb(242, 201, 76)')
+    && (await p.locator('[data-avance-rutina] [data-segmento="hecho"]').count()) >= 1);
   // La ficha tiene scroll propio (el fallo del teléfono) y la silueta va en Características
   await p.getByRole('button', { name: 'Ficha' }).nth(3).click();
   await p.locator('[data-hoja-scroll]').waitFor({ timeout: 5000 });
@@ -847,7 +866,7 @@ try {
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(1200);
   await foto(p, '08-comida-hoy');
-  ok('Comida: el bowl, junto a la frase, entero y sin taparla', (await p.locator('svg[data-ilustracion="comida"]').count()) >= 1 && await ilusBien(p, 'comida'));
+  ok('Comida: el plato, junto a la frase, entero y sin taparla', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
   ok('Hoy de alimentación ya no saluda ni trae herramientas', (await p.getByText('Hola, Mauro').count()) === 0
     && (await p.getByText('Tus herramientas').count()) === 0);
   ok('Hoy de alimentación: la voz del coach según lo comido, sin personajes', await p.locator('[data-cabecera-hoy="comida"] [data-frase]').isVisible()
@@ -881,6 +900,12 @@ try {
   await p.locator('[data-recetario-botones]').waitFor({ timeout: 8000 });
   await espera(500);
   await foto(p, '10-recetario');
+  ok('Recetas: la marca muy tenue en la esquina de arriba a la derecha, apenas cortada por el borde y sin desplazar la página', await p.evaluate(() => {
+    const m = document.querySelector('[data-cabecera-hoy="comida"] [data-marca-esquina]'); if (!m) return false;
+    const r = m.getBoundingClientRect(), op = Number(getComputedStyle(m).opacity);
+    const fuera = Math.max(0, r.right - innerWidth) / r.width;
+    return op > 0 && op <= 0.09 && fuera > 0 && fuera <= 0.2 && r.top < 260 && document.documentElement.scrollWidth <= innerWidth;
+  }));
   ok('recetario: una línea separa los botones de las recetas', (await p.locator('[data-recetario-separador]').count()) === 1);
   ok('recetario: sin la foto de portada', (await p.locator('img[src*="recetario-hero"]').count()) === 0);
   ok('recetario: las recetas se ven de una', (await p.getByText('Wrap crujiente de atún').count()) >= 1);

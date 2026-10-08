@@ -18,7 +18,7 @@
 // de peso corporal solo se piden reps.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
-import { Play, Check, CaretDown, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise } from '@phosphor-icons/react';
+import { Play, Check, CaretDown, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets } from '@phosphor-icons/react';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { Hoja } from './entrenoUI.jsx';
 import { miniatura, numero, descansoEnCircuito, sinPeso, convertir } from './entrenoDatos.js';
@@ -29,10 +29,19 @@ import { asegurarCSS, vibrar } from './Celebraciones.jsx';
 const AZUL = SECCION.entreno.base;
 const AZUL_TINTA = SECCION.entreno.ink;
 const CREMA = '#F4F1EB';
+// Estilo Apple: tarjetas blancas muy redondeadas, campos grises sin borde, el
+// check en grafito con la palomita amarilla de la marca.
+const GRAFITO = '#1D1D1F';
+const AMARILLO = '#F2C94C';
+const CAMPO = '#F2F2F4';
+const GRIS = '#8E8E93';
 const TARJETA = {
-  background: SURFACE, borderRadius: 18, marginBottom: 10,
-  boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 18px rgba(60,60,40,0.06)',
+  background: SURFACE, borderRadius: 22, marginBottom: 12,
+  boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 8px 22px -12px rgba(0,0,0,0.16)',
 };
+const CSS_RUTINA = `
+.rv2-campo:focus { background: #FFFFFF !important; box-shadow: inset 0 0 0 2px ${'#1D1D1F'} !important; }
+`;
 
 // ── Los tres momentos ─────────────────────────────────────────────────────
 // Por el TIPO de cada ejercicio (lo pone el coach en la galería) y por dónde
@@ -74,17 +83,14 @@ export function SeparadorMomento({ fase, hechos, total }) {
   if (!m) return null;
   const listo = total > 0 && hechos >= total;
   return (
-    <div data-momento={fase} style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '22px 2px 10px', paddingBottom: 9, borderBottom: `2px solid ${m.tinte}` }}>
+    <div data-momento={fase} style={{ display: 'flex', alignItems: 'center', gap: 9, margin: '24px 4px 10px' }}>
       <span style={{
-        width: 34, height: 34, borderRadius: 999, flex: 'none', display: 'grid', placeItems: 'center',
-        background: listo ? m.color : m.tinte, color: listo ? '#fff' : m.color,
-      }}>{listo ? <Check size={17} weight="bold" /> : <m.Icono size={18} weight="fill" />}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 17, fontWeight: 750, color: m.color, letterSpacing: '-0.015em' }}>{m.titulo}</div>
-        <div style={{ fontSize: 13, color: TEXT_MUTED }}>{m.bajada}</div>
-      </div>
+        width: 26, height: 26, borderRadius: 999, flex: 'none', display: 'grid', placeItems: 'center',
+        background: listo ? GRAFITO : m.tinte, color: listo ? AMARILLO : m.color,
+      }}>{listo ? <Check size={14} weight="bold" /> : <m.Icono size={14} weight="fill" />}</span>
+      <div style={{ flex: 1, minWidth: 0, fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>{m.titulo}</div>
       {total > 0 && (
-        <div style={{ fontSize: 13, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums', flex: 'none' }}>{hechos}/{total}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: GRIS, fontVariantNumeric: 'tabular-nums', flex: 'none' }}>{listo ? 'Hecho ✓' : `${hechos} de ${total}`}</div>
       )}
     </div>
   );
@@ -128,35 +134,49 @@ export function textoUltima(series) {
   return lineasUltima(series, false).map(l => l.replace(/^Serie \d+: /, '')).join(' · ');
 }
 
-function Miniatura({ e, alTocar, ancho = 60, alto = 46 }) {
+// El video, chico y al lado: está a mano para quien lo quiera ver, sin
+// comerse la pantalla de quien ya se sabe el ejercicio.
+function Miniatura({ e, alTocar, ancho = 76, alto = 58 }) {
   const n = nombresEj(e);
   const thumb = miniatura(e);
+  const chica = ancho < 60;
   return (
     <button onClick={alTocar} aria-label={`Ver ${n.grande}`} style={{
-      flex: 'none', width: ancho, height: alto, borderRadius: 11, overflow: 'hidden', border: 'none', padding: 0,
+      flex: 'none', width: ancho, height: alto, borderRadius: chica ? 11 : 14, overflow: 'hidden', border: 'none', padding: 0,
       cursor: 'pointer', background: CREMA, position: 'relative', display: 'block',
     }}>
       {thumb
         ? <img src={thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         : <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: TEXT_LIGHT }}><Barbell size={20} /></span>}
       {thumb && (
-        <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(20,20,18,0.18)' }}>
-          <Play size={13} weight="fill" color="#fff" />
+        <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+          <span style={{
+            width: chica ? 22 : 26, height: chica ? 22 : 26, borderRadius: 99, display: 'grid', placeItems: 'center', paddingLeft: 1,
+            background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          }}><Play size={chica ? 10 : 12} weight="fill" color={GRAFITO} /></span>
         </span>
       )}
     </button>
   );
 }
 
-function Nombres({ e, tam = 15.5 }) {
+function Nombres({ e, tam = 18 }) {
   const n = nombresEj(e);
   return (
     <>
-      <div style={{ fontSize: tam, fontWeight: 750, color: TEXT, lineHeight: 1.2, letterSpacing: '-0.01em' }}>{n.grande}</div>
-      {n.chico && <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 1 }}>{n.chico}</div>}
+      <div style={{ fontSize: tam, fontWeight: 800, color: TEXT, lineHeight: 1.18, letterSpacing: '-0.02em' }}>{n.grande}</div>
+      {n.chico && <div style={{ fontSize: 13, color: GRIS, marginTop: 2 }}>{n.chico}</div>}
     </>
   );
 }
+
+// El descanso dicho como se piensa: «90 s», «2 min», «1:30 min».
+const textoDescansoCorto = (seg) => {
+  const x = Number(seg);
+  if (!(x > 0)) return 'Sin descanso';
+  if (x < 60) return `Descanso ${x} s`;
+  return x % 60 ? `Descanso ${Math.floor(x / 60)}:${String(x % 60).padStart(2, '0')} min` : `Descanso ${x / 60} min`;
+};
 
 // ── Los botones de cada ejercicio ─────────────────────────────────────────
 // Ficha, Tu récord, Última vez y Nota, en una fila pareja. «La última vez»
@@ -164,16 +184,16 @@ function Nombres({ e, tam = 15.5 }) {
 // consulta quien la necesita.
 function Botones({ items, chico = false }) {
   return (
-    <div data-botones style={{ display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 6, marginTop: chico ? 8 : 10 }}>
+    <div data-botones style={{ display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 7, marginTop: chico ? 8 : 12 }}>
       {items.map(({ Icono, texto, onClick }) => (
         <button key={texto} onClick={onClick} style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-          height: chico ? 42 : 46, padding: '0 2px', borderRadius: 12, border: 'none',
-          background: chico ? '#EFEBE3' : CREMA, color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
+          height: chico ? 44 : 52, padding: '0 2px', borderRadius: 14, border: 'none',
+          background: CAMPO, color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
           // Con cuatro botones, un pelo más chica para que «Nota al coach» quepa entera.
           fontSize: items.length >= 4 ? 10.5 : 11.5, letterSpacing: items.length >= 4 ? '-0.01em' : 0, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0,
         }}>
-          <Icono size={chico ? 16 : 17} color={AZUL_TINTA} />
+          <Icono size={chico ? 17 : 19} color={GRAFITO} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{texto}</span>
         </button>
       ))}
@@ -266,26 +286,25 @@ export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
 function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 4,
-      fontSize: 11, fontWeight: 700, color: TEXT_LIGHT, letterSpacing: '.02em',
+      display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 2,
+      fontSize: 11.5, fontWeight: 700, color: GRIS, letterSpacing: '.04em',
     }}>
       <div style={{ width: 22, flex: 'none' }} />
-      <div style={{ flex: 1, textAlign: 'center' }}>{lado ? 'Reps por lado' : 'Reps'}</div>
+      <div style={{ flex: 1, textAlign: 'center' }}>{lado ? 'REPS POR LADO' : 'REPS'}</div>
       {!soloReps && <>
-      <div style={{ width: 10, flex: 'none' }} />
       <div style={{ flex: 1, textAlign: 'center' }}>
         <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
-          border: `1px solid ${BORDER}`, background: 'transparent', borderRadius: 999, padding: '0 8px',
-          height: 20, fontSize: 11, fontWeight: 700, color: AZUL_TINTA, cursor: 'pointer', fontFamily: 'inherit',
-        }}>Peso ({unidad}) ⇄</button>
+          border: 'none', background: 'transparent', borderRadius: 999, padding: '2px 6px',
+          fontSize: 11.5, fontWeight: 700, color: GRIS, letterSpacing: '.04em', cursor: 'pointer', fontFamily: 'inherit',
+        }}>{unidad.toUpperCase()} ⇄</button>
       </div>
       </>}
-      <div style={{ width: 32, flex: 'none' }} />
+      <div style={{ width: 38, flex: 'none' }} />
     </div>
   );
 }
 
-export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg', onUnidad, onNota }) {
+export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg', onUnidad, onNota, ahora = false }) {
   const e = re.ejercicio;
   const n = nombresEj(e);
   const [ficha, setFicha] = useState(false);
@@ -308,38 +327,46 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
 
   if (plegado) {
     return (
-      <button onClick={() => setPlegado(false)} style={{
+      <button data-plegado onClick={() => setPlegado(false)} style={{
         ...TARJETA, width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', marginBottom: 8,
+        display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', marginBottom: 10,
       }}>
-        <span style={{ width: 24, height: 24, borderRadius: 99, background: AZUL, color: '#fff', display: 'grid', placeItems: 'center', flex: 'none' }}>
+        <span style={{ width: 26, height: 26, borderRadius: 99, background: GRAFITO, color: AMARILLO, display: 'grid', placeItems: 'center', flex: 'none' }}>
           <Check size={14} weight="bold" />
         </span>
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.grande}</span>
-          {n.chico && <span style={{ display: 'block', fontSize: 12, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.chico}</span>}
+          <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.grande}</span>
+          <span style={{ display: 'block', fontSize: 13, color: GRIS, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {`${series.length} serie${series.length === 1 ? '' : 's'} · hecho`}
+          </span>
         </span>
-        <span style={{ fontSize: 12.5, color: TEXT_MUTED, flex: 'none' }}>{`${series.length}/${series.length}`}</span>
-        <CaretDown size={15} color={TEXT_LIGHT} />
+        <span style={{ fontSize: 12.5, color: GRIS, flex: 'none' }}>{`${series.length}/${series.length}`}</span>
+        <CaretDown size={15} color="#C7C7CC" />
       </button>
     );
   }
 
   return (
-    <div data-ejercicio={e?.alias || e?.nombre} style={{ ...TARJETA, padding: '12px 12px 12px' }}>
-      <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+    <div data-ejercicio={e?.alias || e?.nombre} data-ahora={ahora ? '1' : undefined} style={{ ...TARJETA, padding: '14px 14px 14px' }}>
+      <style>{CSS_RUTINA}</style>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <Miniatura e={e} alTocar={() => setFicha(true)} />
         <div style={{ flex: 1, minWidth: 0 }}>
+          {ahora && <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
           <Nombres e={e} />
-          <div style={{ fontSize: 13, color: AZUL_TINTA, fontWeight: 650, marginTop: 3 }}>
-            {re.series > 1 ? `${re.series} series × ` : ''}{textoReps(re)}
-            {re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}
-            {re.rir != null ? ` · RIR ${re.rir}` : ''}
-          </div>
-          <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Timer size={13} /> {textoDescanso(re.descanso_seg)}{Number(re.descanso_seg) > 0 && re.series > 1 ? ' entre series' : ''}
-          </div>
         </div>
+      </div>
+      {/* Lo recetado, en una línea con sus íconos. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 10, fontSize: 13.5, color: '#3A3A3C', fontWeight: 600 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <ListBullets size={15} />
+          {re.series > 1 ? `${re.series} series × ` : ''}{textoReps(re)}
+          {re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}
+          {re.rir != null ? ` · RIR ${re.rir}` : ''}
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <Timer size={15} /> {textoDescansoCorto(re.descanso_seg)}
+        </span>
       </div>
 
       <Botones items={botonesDe({
@@ -352,8 +379,8 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </div>
       )}
 
-      {sinCarga ? <div style={{ height: 8 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} soloReps={soloReps} />}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {sinCarga ? <div style={{ height: 12 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} soloReps={soloReps} />}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: sinCarga ? 6 : 2 }}>
         {series.map(s => (
           <SerieFilaV2 key={s} n={s} re={re} unidad={unidad} sinCarga={sinCarga} soloReps={soloReps}
             marcada={marcadas[`${re.id}:${s}`]}
@@ -384,6 +411,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
   const total = vueltas.reduce((t, v) => t + v.length, 0);
   return (
     <div style={{ ...TARJETA, padding: '14px 12px 10px' }}>
+      <style>{CSS_RUTINA}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ width: 30, height: 30, borderRadius: 99, background: SECCION.entreno.tint, color: AZUL_TINTA, display: 'grid', placeItems: 'center', flex: 'none' }}>
           <ArrowsClockwise size={16} weight="bold" />
@@ -413,12 +441,12 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
               const desc = descansoEnCircuito(b, k, vuelta.length, vi, vueltas.length);
               const unidad = unidadDe(re);
               return (
-                <div key={re.id} style={{ borderRadius: 14, background: '#FAF9F6', padding: '10px 10px 9px' }}>
+                <div key={re.id} style={{ borderRadius: 16, background: '#FAF9F6', padding: '10px 10px 9px' }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Miniatura e={e} ancho={54} alto={42} alTocar={() => setFicha(re)} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <Nombres e={e} tam={14.5} />
-                      <div style={{ fontSize: 12.5, color: AZUL_TINTA, fontWeight: 650, marginTop: 2 }}>{textoReps(re)}</div>
+                      <Nombres e={e} tam={15} />
+                      <div style={{ fontSize: 13, color: '#3A3A3C', fontWeight: 600, marginTop: 3 }}>{textoReps(re)}</div>
                     </div>
                   </div>
                   {vi === 0 && (
@@ -491,57 +519,57 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   if (sinCarga) {
     return (
       <button onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
-        display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 38, padding: '0 6px 0 12px',
-        borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-        border: hecha ? '1px solid transparent' : '1px solid #E4E0D5',
-        background: hecha ? SECCION.entreno.tint : '#FFFFFF', position: 'relative', overflow: 'hidden',
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 46, padding: '0 6px 0 14px',
+        borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', border: 'none',
+        background: hecha ? 'transparent' : CAMPO, boxShadow: hecha ? `inset 0 0 0 1px ${'#E5E5EA'}` : 'none',
+        position: 'relative', overflow: 'hidden',
       }}>
         {brillo}
-        <span style={{ flex: 1, fontSize: 13.5, fontWeight: 650, color: hecha ? AZUL_TINTA : TEXT_MUTED }}>
+        <span style={{ flex: 1, fontSize: 14.5, fontWeight: hecha ? 700 : 600, color: hecha ? TEXT : '#3A3A3C' }}>
           {hecha ? 'Hecho' : (re.series > 1 ? `Serie ${n} · ${textoReps(re)}` : textoReps(re) || 'Marcar hecho')}
         </span>
         <span key={pop} className={pop && hecha ? 'mt-pop' : undefined} style={{
-          width: 28, height: 28, borderRadius: 9, display: 'grid', placeItems: 'center', flex: 'none',
-          background: hecha ? AZUL : 'transparent', border: hecha ? 0 : '1px solid #E4E0D5', color: hecha ? '#fff' : TEXT_LIGHT,
-        }}><Check size={15} weight={hecha ? 'bold' : 'regular'} /></span>
+          width: 34, height: 34, borderRadius: 99, display: 'grid', placeItems: 'center', flex: 'none',
+          background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6', color: hecha ? AMARILLO : '#C7C7CC',
+        }}><Check size={15} weight="bold" /></span>
       </button>
     );
   }
 
+  // Campos grises sin borde; al tocarlos, blancos con contorno grafito. Ya
+  // marcada, la serie queda en limpio: los números en negrita, sin caja.
   const campo = (malo) => ({
-    width: '100%', height: 32, padding: '0 6px', borderRadius: 9, textAlign: 'center',
-    border: `1px solid ${malo ? '#D9785F' : hecha ? 'transparent' : '#E4E0D5'}`,
-    background: hecha ? 'transparent' : '#FFFFFF',
-    fontSize: 15, fontWeight: 650, color: TEXT, outline: 'none',
+    width: '100%', height: 42, padding: '0 6px', borderRadius: 12, textAlign: 'center', border: 'none',
+    background: hecha ? 'transparent' : CAMPO,
+    boxShadow: malo ? 'inset 0 0 0 1.5px #D9785F' : 'none',
+    fontSize: 17, fontWeight: 700, color: TEXT, outline: 'none', opacity: 1, WebkitTextFillColor: TEXT,
     fontFamily: 'inherit', WebkitAppearance: 'none', boxSizing: 'border-box',
   });
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 6,
-      background: hecha ? SECCION.entreno.tint : 'transparent', borderRadius: 11, padding: hecha ? '0 2px' : 0,
-      position: 'relative', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0',
+      borderRadius: 14, position: 'relative', overflow: 'hidden',
     }}>
       {brillo}
-      <div style={{ width: 22, flex: 'none', textAlign: 'center', fontSize: 12.5, fontWeight: 750, color: hecha ? AZUL_TINTA : TEXT_LIGHT }}>{n}</div>
+      <div style={{ width: 22, flex: 'none', textAlign: 'center', fontSize: 14, fontWeight: 700, color: hecha ? TEXT : '#AEAEB2' }}>{n}</div>
       <div style={{ flex: 1 }}>
-        <input ref={repsRef} inputMode="numeric" value={reps}
+        <input ref={repsRef} inputMode="numeric" value={reps} className="rv2-campo"
           onChange={ev => { setReps(ev.target.value); if (falta) setFalta(false); }}
           aria-label={`Repeticiones serie ${n}`}
           style={campo(falta)} disabled={hecha} />
       </div>
-      {!soloReps && <>
-      <div style={{ width: 10, flex: 'none', textAlign: 'center', fontSize: 12, color: TEXT_LIGHT }}>×</div>
+      {!soloReps && (
       <div style={{ flex: 1 }}>
-        <input inputMode="decimal" value={peso} onChange={ev => setPeso(ev.target.value)}
+        <input inputMode="decimal" value={peso} onChange={ev => setPeso(ev.target.value)} className="rv2-campo"
           aria-label={`Peso serie ${n}`} style={campo(false)} disabled={hecha} />
       </div>
-      </>}
+      )}
       <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
-        flex: 'none', width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
-        border: hecha ? 0 : '1px solid #E4E0D5', background: hecha ? AZUL : 'transparent',
-        color: hecha ? '#fff' : TEXT_LIGHT, display: 'grid', placeItems: 'center',
-      }}><Check size={15} weight={hecha ? 'bold' : 'regular'} /></button>
+        flex: 'none', width: 38, height: 38, borderRadius: 99, cursor: 'pointer', border: 'none',
+        background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
+        color: hecha ? AMARILLO : '#C7C7CC', display: 'grid', placeItems: 'center',
+      }}><Check size={16} weight="bold" /></button>
     </div>
   );
 }
