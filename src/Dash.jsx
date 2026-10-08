@@ -218,7 +218,7 @@ function BarraPct({ etiqueta, pct, valor, meta, unidad = 'g', color }) {
           {pct == null ? '—' : <><b style={{ color: TEXT }}>{pct} %</b> · {fmt(valor)}/{fmt(meta)} {unidad}</>}
         </span>
       </div>
-      <div style={{ height: 6, borderRadius: 99, background: rielDe(color, 0.16, CREMA), marginTop: 5, overflow: 'hidden' }}>
+      <div style={{ height: 6, borderRadius: 99, background: rielDe(color, 0.07, CREMA), marginTop: 5, overflow: 'hidden' }}>
         <div style={{ width: `${pct == null ? 0 : Math.min(100, pct)}%`, height: '100%', borderRadius: 99, background: color }} />
       </div>
     </div>
@@ -548,7 +548,7 @@ function TarjetaAprende({ aprende, alProfundizar }) {
                   <span style={{ fontWeight: 600 }}>{b.titulo}</span>
                   <span style={{ color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{b.vistas}/{b.total}</span>
                 </div>
-                <div style={{ height: 6, borderRadius: 99, background: rielDe(NARANJA, 0.16, CREMA), marginTop: 4, overflow: 'hidden' }}>
+                <div style={{ height: 6, borderRadius: 99, background: rielDe(NARANJA, 0.07, CREMA), marginTop: 4, overflow: 'hidden' }}>
                   <div style={{ width: `${b.total ? (b.vistas / b.total) * 100 : 0}%`, height: '100%', borderRadius: 99, background: NARANJA }} />
                 </div>
               </div>
@@ -575,7 +575,7 @@ function DetalleAprende({ aprende, alIr }) {
         return (
           <Tarjeta key={b.k} titulo={b.titulo} detalle={b.bajada}
             accion={<span style={{ fontSize: 15, fontWeight: 750, color: NARANJA, fontVariantNumeric: 'tabular-nums' }}>{b.vistas}/{b.total}</span>}>
-            <div style={{ height: 8, borderRadius: 99, background: rielDe(NARANJA, 0.16, CREMA), marginTop: 12, overflow: 'hidden' }}>
+            <div style={{ height: 8, borderRadius: 99, background: rielDe(NARANJA, 0.07, CREMA), marginTop: 12, overflow: 'hidden' }}>
               <div style={{ width: `${b.total ? (b.vistas / b.total) * 100 : 0}%`, height: '100%', borderRadius: 99, background: NARANJA }} />
             </div>
             <div style={{ marginTop: 10 }}>
@@ -754,7 +754,7 @@ function DetalleComida({ comida, destacados, alCalendario }) {
                       <b style={{ color: TEXT }}>{fmt(pr.valor)}</b> / {fmt(comida.meta[m.k])} {m.u} · <b style={{ color: m.color }}>{pr.pct} %</b>
                     </span>
                   </div>
-                  <div style={{ position: 'relative', height: 8, borderRadius: 99, background: rielDe(m.color, 0.16, CREMA), marginTop: 7, overflow: 'hidden' }}>
+                  <div style={{ position: 'relative', height: 8, borderRadius: 99, background: rielDe(m.color, 0.07, CREMA), marginTop: 7, overflow: 'hidden' }}>
                     <div style={{ width: `${Math.min(100, (pr.pct / 130) * 100)}%`, height: '100%', borderRadius: 99, background: m.color }} />
                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(100 / 130) * 100}%`, width: 2, background: TEXT, opacity: 0.55 }} />
                   </div>

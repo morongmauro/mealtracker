@@ -366,11 +366,20 @@ await caso('mover de día: un día que ya pasó de ESTA semana sí se mueve (par
   igual([dias[lunes].rutina, dias[X].rutina && dias[X].rutina.nombre], [null, 'Push'], 'lunes libre, miércoles con Push');
 });
 
-await caso('mover de día: ni otra semana, ni lo que no está ese día', async () => {
+await caso('mover de día: también en las semanas que vienen, dentro del ciclo', async () => {
+  let sb = base(); globalThis.fetch = sb.fetch;
+  const r1 = await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 7), hasta: mas(lunes, 9) });
+  igual([r1.ok, r1.movida && r1.movida.nombre], [true, 'Push'], 'el lunes que viene pasa al miércoles que viene');
+  sb = base(); globalThis.fetch = sb.fetch;
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 3), hasta: mas(lunes, 8) })).ok, true, 'de esta semana a la otra');
+  sb = base(); globalThis.fetch = sb.fetch;
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 35), hasta: mas(lunes, 44) })).motivo, 'fuera_de_fase', 'no más allá del ciclo');
+});
+
+await caso('mover de día: ni las semanas que ya pasaron, ni lo que no está ese día', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
-  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, -7), hasta: mas(lunes, 2) })).motivo, 'otra_semana', 'de la semana pasada');
-  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 7), hasta: mas(lunes, 9) })).motivo, 'otra_semana', 'la semana que viene');
-  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 3), hasta: mas(lunes, 8) })).motivo, 'otra_semana', 'de esta a la otra');
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, -7), hasta: mas(lunes, 2) })).motivo, 'semana_pasada', 'de la semana pasada');
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 3), hasta: mas(lunes, -1) })).motivo, 'semana_pasada', 'al domingo pasado');
   igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 2), hasta: mas(lunes, 5) })).motivo, 'no_esta_ese_dia', 'miércoles vacío');
   igual((await llamar(handler, { accion: 'mover', name: yo, desde: mas(lunes, 3), hasta: mas(lunes, 2), rutina_id: 'r2' })).motivo, 'no_esta_ese_dia', 'otra rutina');
   igual((sb.db.rutina_movimientos || []).length, 0, 'no se guardó nada');
@@ -395,13 +404,25 @@ await caso('añadir rutina: a un día libre de esta semana, sin tocar el plan', 
   igual(m2.dias.find(x => x.fecha === S).rutina, null, 'y el sábado vuelve a estar libre');
 });
 
-await caso('añadir rutina: ni en un día con rutina, ni otra semana, ni una rutina ajena', async () => {
+await caso('añadir rutina: ni en un día con rutina, ni en semanas que ya pasaron, ni fuera del ciclo, ni una rutina ajena', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   igual((await llamar(handler, { accion: 'agregar_rutina', name: yo, fecha: mas(lunes, 3), rutina_id: 'r2' })).motivo, 'ocupado', 'jueves tiene Push');
-  igual((await llamar(handler, { accion: 'agregar_rutina', name: yo, fecha: mas(lunes, 12), rutina_id: 'r1' })).motivo, 'otra_semana', 'la otra semana');
   igual((await llamar(handler, { accion: 'agregar_rutina', name: yo, fecha: mas(lunes, 5), rutina_id: 'r9' })).motivo, 'no_es_suya', 'de otro cliente');
-  igual((await llamar(handler, { accion: 'agregar_rutina', name: yo, fecha: mas(lunes, -3), rutina_id: 'r1' })).motivo, 'otra_semana', 'la semana pasada');
+  igual((await llamar(handler, { accion: 'agregar_rutina', name: yo, fecha: mas(lunes, -3), rutina_id: 'r1' })).motivo, 'semana_pasada', 'la semana pasada');
+  igual((await llamar(handler, { accion: 'agregar_rutina', name: yo, fecha: mas(lunes, 44), rutina_id: 'r1' })).motivo, 'fuera_de_fase', 'después del ciclo');
   igual((sb.db.rutina_extras || []).length, 0, 'no se guardó nada');
+});
+
+await caso('añadir rutina: en la semana que viene sí', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  const r = await llamar(handler, { accion: 'agregar_rutina', name: yo, fecha: mas(lunes, 12), rutina_id: 'r1' });
+  igual([r.ok, r.agregada && r.agregada.fecha], [true, mas(lunes, 12)], 'el sábado que viene');
+});
+
+await caso('semanas que ya pasaron: no se llenan (actividad ni registro)', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  igual((await llamar(handler, { accion: 'actividad', name: yo, tipo: 'caminata', fecha: mas(lunes, -1), duracion_min: 30 })).motivo, 'semana_pasada', 'caminata del domingo pasado');
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'x', fecha: mas(lunes, -2) })).motivo, 'semana_pasada', 'registro del sábado pasado');
 });
 
 await caso('el mes trae los músculos de cada rutina (para avisar si se repiten días seguidos)', async () => {

@@ -469,6 +469,8 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
   if (!dia) return null;
   const hoy = hoyLocal();
   const futuro = dia.fecha > hoy;
+  // Las semanas que ya pasaron quedan como quedaron: no se llenan ni se cambian.
+  const pasada = dia.fecha < lunesDeLocal(hoy);
   // A dónde se puede mover: los 10 días siguientes a hoy, dentro del mes cargado.
   const destinos = (destinosSemana || Array.from({ length: 10 }, (_, i) => sumarDias(hoy, i)))
     .filter(f => f !== dia.fecha && porFecha[f] && porFecha[f].semana && !porFecha[f].hecho && porFecha[f].estado !== 'completada');
@@ -486,14 +488,14 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
       {/* Visual nueva: al tocar un día, lo primero son las dos cosas que se
           pueden añadir. Cardio o deporte solo cuando el día ya llegó (lo que
           se registra es lo hecho); la rutina, en un día libre de esta semana. */}
-      {v2 && (alAgregarRutina || !futuro) && (
+      {v2 && (alAgregarRutina || (!futuro && !pasada)) && (
         <div data-acciones-dia style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           {alAgregarRutina && (
             <button onClick={alAgregarRutina} data-accion="rutina" style={{ ...botonAccion, background: P.base, color: '#fff', border: 'none' }}>
               <Plus size={16} weight="bold" /> Añadir rutina
             </button>
           )}
-          {!futuro && (
+          {!futuro && !pasada && (
             <button onClick={() => alRegistrar(dia.fecha)} data-accion="actividad" style={{ ...botonAccion, background: '#fff', color: P.ink, border: `1.5px solid ${P.base}` }}>
               <Plus size={16} weight="bold" /> Cardio o deporte
             </button>
@@ -551,7 +553,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
                     <div style={{ fontSize: 11.5, color: TEXT_LIGHT }}>{porFecha[f].rutina ? (v2 ? nombreCorto(porFecha[f].rutina.nombre) : porFecha[f].rutina.nombre) : 'libre'}</div>
                   </button>
                 ))}
-                {!destinos.length && <div style={{ fontSize: t.chico, color: TEXT_LIGHT }}>{destinosSemana ? 'No quedan otros días en esta semana.' : 'No hay días libres cerca en este mes.'}</div>}
+                {!destinos.length && <div style={{ fontSize: t.chico, color: TEXT_LIGHT }}>{destinosSemana ? 'No quedan otros días libres cerca.' : 'No hay días libres cerca en este mes.'}</div>}
               </div>
             </div>
           )}
@@ -570,7 +572,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
           <Rot>Para registrar</Rot>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {dia.eventos.filter(e => e.registra).map(ev => (
-              <FilaRegistro key={ev.id} ev={ev} fecha={dia.fecha} nombre={nombre} futuro={dia.fecha > sumarDias(hoy, 1)} v2={v2} alCambio={alCambio} />
+              <FilaRegistro key={ev.id} ev={ev} fecha={dia.fecha} nombre={nombre} futuro={dia.fecha > sumarDias(hoy, 1)} pasada={pasada} v2={v2} alCambio={alCambio} />
             ))}
           </div>
         </>
@@ -605,7 +607,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
         </>
       )}
 
-      {!futuro && !v2 && (
+      {!futuro && !pasada && !v2 && (
         <div style={{ marginTop: 18 }}>
           <Boton ancho variante="suave" onClick={() => alRegistrar(dia.fecha)}>
             + Registrar cardio o deporte
@@ -617,12 +619,17 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
           El cardio o deporte lo registras cuando llegue el día.
         </div>
       )}
+      {pasada && (
+        <div data-semana-pasada style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 16, textAlign: 'center' }}>
+          Esta semana ya pasó: queda como quedó.
+        </div>
+      )}
     </Hoja>
   );
 }
 
 // ── Medición corporal, peso o fotos: «ya lo hice» ────────────────────────
-function FilaRegistro({ ev, fecha, nombre, futuro, v2, alCambio }) {
+function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio }) {
   const q = REGISTRO[ev.tipo] || REGISTRO.medicion;
   const [hecho, setHecho] = useState(!!ev.hecho);
   const [peso, setPeso] = useState(ev.valor != null ? String(ev.valor).replace('.', ',') : '');
@@ -657,7 +664,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, v2, alCambio }) {
         {hecho && <CheckCircle size={22} weight="fill" color={MORADO} aria-label="Hecho" />}
       </div>
 
-      {!hecho && !futuro && (
+      {!hecho && !futuro && !pasada && (
         ev.tipo === 'peso' ? (
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <input inputMode="decimal" value={peso} onChange={e => setPeso(e.target.value)} placeholder="Tu peso en kg"
@@ -977,13 +984,16 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const musculosDe = useMemo(() => Object.fromEntries(rutinasCiclo.map(r => [r.id, r.musculos || []])), [rutinasCiclo]);
   const listo = necesarios.every(m => cache[m]);
   const enSemana = (f) => f >= semana[0] && f <= semana[6];
+  // Se puede cambiar de esta semana en adelante (dentro del ciclo: los días
+  // del ciclo traen su número de semana). Las semanas que ya pasaron, no.
+  const editable = (f) => !!f && f >= semana[0];
   const recargar = (fechas) => unicos(fechas.map(f => f.slice(0, 7))).forEach(cargar);
 
-  // Se mueve lo de ESTA semana (también un día que ya pasó: si perdiste el
-  // lunes, lo pasas al jueves para compensar), sin hacer, y que sea del plan
-  // (lo añadido se quita y se vuelve a añadir).
-  const puedeMover = (d) => !!(d && d.rutina && !d.extra && !d.hecho && d.estado !== 'completada' && enSemana(d.fecha));
-  const puedeAgregar = (d) => !!(d && !d.rutina && !d.hecho && d.semana && enSemana(d.fecha) && rutinasCiclo.length);
+  // Se mueve lo de esta semana (también un día que ya pasó: si perdiste el
+  // lunes, lo pasas al jueves para compensar) y lo de las semanas que vienen,
+  // sin hacer, y que sea del plan (lo añadido se quita y se vuelve a añadir).
+  const puedeMover = (d) => !!(d && d.rutina && !d.extra && !d.hecho && d.estado !== 'completada' && editable(d.fecha));
+  const puedeAgregar = (d) => !!(d && !d.rutina && !d.hecho && d.semana && editable(d.fecha) && rutinasCiclo.length);
 
   // ¿Queda pegada a una rutina que trabaja lo mismo? Mira el día anterior y
   // el siguiente (como quedarían después del cambio). No bloquea: avisa.
@@ -1026,7 +1036,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     if (!r.ok) {
       deshacer();
       setAviso({
-        otra_semana: 'Solo puedes mover rutinas dentro de esta semana.',
+        semana_pasada: 'Las semanas que ya pasaron no se cambian.',
         fuera_de_fase: 'Ese día está fuera de tu ciclo.',
         ya_entrenada: 'Ese día ya tiene un entreno hecho.',
         es_extra: 'Una rutina que añadiste no se mueve: quítala y añádela en el otro día.',
@@ -1041,7 +1051,8 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const moverRutina = (desde, hasta) => {
     const d = porFecha[desde];
     if (!d || !d.rutina || desde === hasta) return;
-    if (!enSemana(hasta)) { setAviso('Solo puedes mover rutinas dentro de esta semana.'); return; }
+    if (!editable(hasta)) { setAviso('Las semanas que ya pasaron no se cambian.'); return; }
+    if (porFecha[hasta] && !porFecha[hasta].semana) { setAviso('Ese día está fuera de tu ciclo.'); return; }
     const destino = porFecha[hasta]?.rutina?.id || null;
     const c = choque(hasta, d.rutina.id, { [desde]: destino, [hasta]: d.rutina.id });
     if (c) { setConfirmar({ texto: textoChoque(c, 'Moverla'), si: 'Moverla igual', accion: () => hacerMover(desde, hasta) }); return; }
@@ -1057,7 +1068,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     if (!r.ok) {
       deshacer();
       setAviso({
-        ocupado: 'Ese día ya tiene rutina.', otra_semana: 'Solo puedes añadir rutinas en esta semana.',
+        ocupado: 'Ese día ya tiene rutina.', semana_pasada: 'Las semanas que ya pasaron no se cambian.', fuera_de_fase: 'Ese día está fuera de tu ciclo.',
         sin_tabla: 'Añadir rutinas aún no está disponible. Avísale a tu coach.',
       }[r.motivo] || 'No se pudo añadir. Inténtalo otra vez.');
       return;
@@ -1222,7 +1233,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
         dia={abierto ? porFecha[abierto] : null} P={P} v2 fase={fase}
         nombre={nombre} catalogo={catalogo} porFecha={porFecha}
         puedeMover={puedeMover(abierto ? porFecha[abierto] : null)}
-        destinosSemana={semana}
+        destinosSemana={abierto ? Array.from({ length: 14 }, (_, i) => sumarDias(lunesDeLocal(abierto), i)).filter(editable) : semana}
         alAgregarRutina={abierto && puedeAgregar(porFecha[abierto]) ? () => setEligiendo(abierto) : null}
         alQuitarRutina={abierto && porFecha[abierto]?.extra ? () => quitarRutina(abierto) : null}
         alCerrar={() => setAbierto(null)}

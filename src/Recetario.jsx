@@ -1921,7 +1921,7 @@ function DetalleRecetaV2({ open, detail, g, manualK, kSuggested, fitRemaining, h
             <div key={n}>
               <div className="num" style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>{r0(v)}<span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED }}> g</span></div>
               <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 1 }}>{n}</div>
-              <div style={{ height: 6, borderRadius: 99, background: 'rgba(70,150,90,0.16)', marginTop: 7, overflow: 'hidden' }}>
+              <div style={{ height: 6, borderRadius: 99, background: 'rgba(70,150,90,0.07)', marginTop: 7, overflow: 'hidden' }}>
                 <div style={{ width: `${pct(v, m)}%`, height: '100%', borderRadius: 99, background: VERDE_V2 }} />
               </div>
               <div className="num" style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 4 }}>{pct(v, m)} % del día</div>

@@ -176,7 +176,7 @@ const aRGB = (c) => {
 };
 const mezcla = (a, b, t) => `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(', ')})`;
 // El riel (o el fondo de una barrita): su mismo color, muy suave.
-export const rielDe = (color, alfa = 0.16, porDefecto = '#F4F1EB') => {
+export const rielDe = (color, alfa = 0.07, porDefecto = '#F4F1EB') => {
   const c = aRGB(color);
   return c ? `rgba(${c.join(', ')}, ${alfa})` : porDefecto;
 };
@@ -250,7 +250,7 @@ export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = null, 
   return (
     <div data-anillo style={{ position: 'relative', width: tam, height: tam, flex: 'none' }}>
       <svg width={tam} height={tam} role="img" aria-label={etiqueta} style={{ overflow: 'visible' }}>
-        <circle cx={m} cy={m} r={r} fill="none" stroke={riel || rielDe(color, 0.16, RIEL)} strokeWidth={grosor} />
+        <circle cx={m} cy={m} r={r} fill="none" stroke={riel || rielDe(color, 0.07, RIEL)} strokeWidth={grosor} />
         <ArcoApple m={m} r={r} grosor={grosor} frac={f} objetivo={objetivo} color={color} transicion={`stroke-dashoffset ${curva}`} />
         <g transform={`rotate(-90 ${m} ${m})`}>
           <PuntaApple m={m} r={r} grosor={grosor} frac={f} color={color} transicion={curva} />

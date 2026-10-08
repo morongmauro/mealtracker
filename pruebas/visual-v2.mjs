@@ -724,10 +724,12 @@ try {
   ok('…y la hoja lo dice', (await p.getByText(/Hecho\. Tu coach ya lo sabe/).count()) === 2);
   await p.getByRole('button', { name: 'Cerrar' }).first().click();
   await espera(400);
-  // Mover con el botón: el Lower del miércoles al jueves (solo esta semana)
+  // Mover con el botón: el Lower del miércoles al jueves (de esta semana en
+  // adelante; nunca a una semana que ya pasó)
   await cal.locator(`[data-vista="mes"] [data-fecha="${d(2)}"]`).click();
   await p.getByRole('button', { name: /Mover a otro día/ }).click();
-  ok('mover: solo ofrece días de esta semana', (await p.getByRole('button', { name: /^Lun / }).count()) === 0);
+  ok('mover: no ofrece días de la semana pasada', (await p.getByRole('button', { name: new RegExp('^(Dom ' + Number(d(-1).slice(8)) + '|Sáb ' + Number(d(-2).slice(8)) + ')\\b') }).count()) === 0
+    && (await p.getByRole('button', { name: new RegExp('^Jue ' + Number(d(3).slice(8))) }).count()) === 1);
   await p.getByRole('button', { name: new RegExp('^Jue ' + Number(d(3).slice(8))) }).click();
   await espera(900);
   ok('mover con el botón: el Lower pasa al jueves', (await cal.locator(`[data-fecha="${d(3)}"]`).innerText()).includes('Lower')

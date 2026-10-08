@@ -7225,7 +7225,7 @@ function CompactMacro({ val, goal, color, label, unit = '' }) {
           {v2Activa() ? (
             // Estilo Apple: riel de su color, degradado a lo largo y punta con sombrita.
             <>
-              <circle cx={center} cy={center} r={radius} fill="none" stroke={rielDe(color, 0.16, PISTA_V2)} strokeWidth={stroke} />
+              <circle cx={center} cy={center} r={radius} fill="none" stroke={rielDe(color, 0.07, PISTA_V2)} strokeWidth={stroke} />
               <ArcoApple m={center} r={radius} grosor={stroke} frac={pct} color={color} transicion="stroke-dashoffset 0.6s ease" />
               <g transform={`rotate(-90 ${center} ${center})`}>
                 <PuntaApple m={center} r={radius} grosor={stroke} frac={pct} color={color} transicion="0.6s ease" radioPunto={Math.max(1.1, stroke / 2 - 1.6)} />
@@ -7269,7 +7269,7 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
         {v2 ? (
           // Estilo Apple: riel de su color, degradado a lo largo y punta con sombrita.
           <>
-            <circle cx={center} cy={center} r={radius} fill="none" stroke={rielDe(color, 0.16, PISTA_V2)} strokeWidth={stroke} />
+            <circle cx={center} cy={center} r={radius} fill="none" stroke={rielDe(color, 0.07, PISTA_V2)} strokeWidth={stroke} />
             <ArcoApple m={center} r={radius} grosor={stroke} frac={pct} objetivo={pctReal} color={color} transicion={`stroke-dashoffset ${CURVA_ARO}`} />
             <g transform={`rotate(-90 ${center} ${center})`}>
               <PuntaApple m={center} r={radius} grosor={stroke} frac={pct} color={color} transicion={CURVA_ARO} radioPunto={Math.max(1.1, stroke / 2 - 1.6)} />
@@ -7308,7 +7308,7 @@ function RingGauge({ size = 78, stroke = 6, pct = 0, color = ACCENT, track = 'rg
     return (
       <div className="relative grid place-items-center flex-shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} style={{ overflow: 'visible' }}>
-          <circle cx={m} cy={m} r={r} fill="none" stroke={rielDe(color, 0.16, PISTA_V2)} strokeWidth={stroke} />
+          <circle cx={m} cy={m} r={r} fill="none" stroke={rielDe(color, 0.07, PISTA_V2)} strokeWidth={stroke} />
           <ArcoApple m={m} r={r} grosor={stroke} frac={p / 100} color={color} transicion="stroke-dashoffset 0.7s cubic-bezier(0.2, 0, 0, 1)" />
           <g transform={`rotate(-90 ${m} ${m})`}>
             <PuntaApple m={m} r={r} grosor={stroke} frac={p / 100} color={color} transicion="0.7s cubic-bezier(0.2, 0, 0, 1)" radioPunto={Math.max(1.1, stroke / 2 - 1.6)} />

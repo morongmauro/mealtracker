@@ -105,7 +105,7 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
                     <span style={{ fontWeight: 600 }}>{b.titulo}{PARTE[b.k] ? <span style={{ color: TEXT_MUTED, fontWeight: 500 }}> · {PARTE[b.k]}</span> : null}</span>
                     <span style={{ color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{b.vistas}/{b.total}</span>
                   </div>
-                  <div style={{ height: 6, borderRadius: 99, background: rielDe(N.base, 0.16, CREMA), marginTop: 4, overflow: 'hidden' }}>
+                  <div style={{ height: 6, borderRadius: 99, background: rielDe(N.base, 0.07, CREMA), marginTop: 4, overflow: 'hidden' }}>
                     <div style={{ width: `${b.total ? (b.vistas / b.total) * 100 : 0}%`, height: '100%', borderRadius: 99, background: N.base }} />
                   </div>
                 </div>
