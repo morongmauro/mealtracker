@@ -808,10 +808,29 @@ try {
       && getComputedStyle(tarjeta('Press banca')).backgroundImage === getComputedStyle(tarjeta('Sentadilla con barra')).backgroundImage
       && document.querySelectorAll('[data-familia-etiqueta]').length >= 8;
   }));
-  ok('galería: tarjetas sin borde, abajo el color del tipo con su circulito', await p.evaluate(() => {
+  ok('galería: tarjetas sin borde, con el cuadro a todo el ancho y el velo del color del tipo', await p.evaluate(() => {
     const ts = [...document.querySelectorAll('[data-familia]')];
-    return ts.length >= 8 && ts.every(b => getComputedStyle(b).borderTopStyle === 'none' && /gradient/.test(getComputedStyle(b).backgroundImage) && b.querySelector('[data-familia-circulo]'));
+    return ts.length >= 8 && ts.every(b => getComputedStyle(b).borderTopStyle === 'none' && /gradient/.test(getComputedStyle(b).backgroundImage) && b.querySelector('[data-familia-velo]'));
   }));
+  ok('galería: un estante por tipo (movilidad, fuerza…, resistencia) en ese orden, la fuerza en rejilla de dos', await p.evaluate(() => {
+    const est = [...document.querySelectorAll('[data-estante]')].map(e => e.dataset.estante);
+    const fz = document.querySelector('[data-estante="fuerza"] > div:last-child');
+    const orden = ['movilidad', 'fuerza', 'potencia', 'resistencia'].filter(f => est.includes(f));
+    return est.length >= 3 && est.join() === orden.join() && getComputedStyle(fz).gridTemplateColumns.split(' ').length === 2
+      && [...document.querySelectorAll('[data-estante]')].every(e => [...e.querySelectorAll('[data-familia]')].every(b => b.dataset.familia === e.dataset.estante));
+  }));
+  ok('galería: la etiqueta es de vidrio con su punto y el nombre va en blanco sobre el cuadro', await p.evaluate(() => {
+    const b = [...document.querySelectorAll('[data-familia]')].find(x => x.innerText.includes('Press banca'));
+    const et = b.querySelector('[data-familia-etiqueta]');
+    return /blur/.test(getComputedStyle(et).backdropFilter || getComputedStyle(et).webkitBackdropFilter || '') && !!et.querySelector('i')
+      && [...b.querySelectorAll('span')].some(s => s.textContent === 'Barbell Bench Press' && getComputedStyle(s).color === 'rgb(255, 255, 255)');
+  }));
+  ok('galería: el estante que se desliza arranca alineado con el margen de la página', await p.evaluate(() => {
+    const fila = document.querySelector('[data-estante="movilidad"] > div:last-child');
+    const t = fila.querySelector('[data-familia]').getBoundingClientRect(), tit = document.querySelector('[data-estante="movilidad"] > div:first-child').getBoundingClientRect();
+    return Math.abs(t.left - tit.left) < 1.5;
+  }));
+  ok('galería: los filtros sin borde', await p.evaluate(() => [...document.querySelectorAll('[data-view="entrena"] button')].filter(b => b.textContent === 'Todas').every(b => getComputedStyle(b).borderTopStyle === 'none')));
   ok('entreno: la firma al final de la galería', (await p.locator('[data-view="entrena"] [data-firma]').count()) === 1);
   await p.getByText('Sentadilla con barra').first().click();
   await espera(700);

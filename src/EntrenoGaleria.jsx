@@ -44,6 +44,13 @@ const FAMILIAS = {
   potencia:    { texto: 'Potencia',    color: '#C2413B', tinte: '#FAE5E3', fondo: ['#DA5E55', '#AA322C'] },
   fuerza:      { texto: 'Fuerza',      color: '#454B54', tinte: '#E9EBEE', fondo: ['#6E757F', '#454B54'] },
 };
+// El velo de abajo de cada tarjeta (visual nueva): el tono oscuro del tipo,
+// para que el texto blanco se lea sobre cualquier cuadro del video. El punto
+// de la etiqueta va en el tono vivo.
+const VELO = { movilidad: '19,116,121', resistencia: '169,46,102', potencia: '170,50,44', fuerza: '52,57,64' };
+const PUNTO = { movilidad: '#2CA5AA', resistencia: '#D9599A', potencia: '#DA5E55', fuerza: '#9AA1AA' };
+// Los estantes, en este orden: lo que prepara, lo principal y lo de cierre.
+const ORDEN_FAMILIAS = ['movilidad', 'fuerza', 'potencia', 'resistencia'];
 export function familiaDe(e) {
   const tipo = e?.tipo;
   if (tipo === 'cardio') return 'resistencia';
@@ -61,6 +68,73 @@ export function tipoFuerza(e) {
   if (patron === 'cadera') return 'Jalón · tren inferior';
   if (patron === 'core' || e?.tipo === 'core') return 'Core';
   return null;
+}
+
+// ── Tarjeta de la visual nueva ─────────────────────────────────────────────
+// El cuadro del video ocupa toda la tarjeta; abajo, un velo del color del
+// tipo con el nombre en blanco; arriba, la etiqueta de vidrio con su punto.
+function TarjetaV2({ item, alto, alTocar }) {
+  const e = item.ejercicio;
+  const img = miniatura(e);
+  const f = familiaDe(e), fam = FAMILIAS[f];
+  const sub = f === 'fuerza' ? tipoFuerza(e) : null;
+  const musculos = (e.musculos_primarios || []).map(s => MUSCULO_POR_SLUG[s]?.corto).filter(Boolean);
+  const n = nombresEj(e);
+  return (
+    <button data-familia={f} data-fuerza={sub || undefined} onClick={alTocar} style={{
+      position: 'relative', display: 'block', width: '100%', height: alto, padding: 0, border: 'none', borderRadius: 22,
+      overflow: 'hidden', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+      background: `linear-gradient(160deg, ${fam.fondo[0]}, ${fam.fondo[1]})`,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 10px 24px -10px rgba(0,0,0,0.25)',
+    }}>
+      {img && <img src={img} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+      <span aria-hidden="true" data-familia-velo style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: `linear-gradient(180deg, rgba(${VELO[f]},0) 34%, rgba(${VELO[f]},0.62) 62%, rgba(${VELO[f]},0.94) 100%)`,
+      }} />
+      <span data-familia-etiqueta style={{
+        position: 'absolute', left: 10, top: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '5px 10px 5px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.72)',
+        backdropFilter: 'blur(14px) saturate(1.6)', WebkitBackdropFilter: 'blur(14px) saturate(1.6)',
+        fontSize: 11.5, fontWeight: 700, color: TEXT, letterSpacing: '0.01em',
+      }}>
+        <i style={{ width: 7, height: 7, borderRadius: 9, background: PUNTO[f] }} />{fam.texto}
+      </span>
+      <span style={{ position: 'absolute', left: 12, right: 12, bottom: 12, color: '#FFFFFF', display: 'block' }}>
+        {sub && <span style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', opacity: 0.78, marginBottom: 3 }}>{sub}</span>}
+        <span style={{ display: 'block', fontSize: 15.5, fontWeight: 750, lineHeight: 1.18, letterSpacing: '-0.01em' }}>{n.grande}</span>
+        {n.chico && <span style={{ display: 'block', fontSize: 12, opacity: 0.82, marginTop: 2, lineHeight: 1.25 }}>{n.chico}</span>}
+        {musculos.length > 0 && <span style={{ display: 'block', fontSize: 11.5, fontWeight: 600, opacity: 0.7, marginTop: 5 }}>{musculos.slice(0, 2).join(' · ')}</span>}
+      </span>
+    </button>
+  );
+}
+
+// Un estante por tipo: la fuerza (lo principal) en rejilla de dos; el resto
+// en fila que se desliza, o a lo ancho si es uno solo.
+function EstantesV2({ visibles, alAbrir }) {
+  const grupos = ORDEN_FAMILIAS.map(f => ({ f, items: visibles.filter(x => familiaDe(x.item.ejercicio) === f) })).filter(g => g.items.length);
+  return grupos.map(({ f, items }) => (
+    <section key={f} data-estante={f}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '22px 0 10px' }}>
+        <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', color: TEXT }}>{FAMILIAS[f].texto}</span>
+        <span style={{ fontSize: 15, fontWeight: 600, color: TEXT_LIGHT }}>{items.length}</span>
+      </div>
+      {f === 'fuerza'
+        ? <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {items.map(({ item }) => <TarjetaV2 key={item.ejercicio.id} item={item} alto={214} alTocar={() => alAbrir(item)} />)}
+          </div>
+        : items.length === 1
+          ? <TarjetaV2 item={items[0].item} alto={150} alTocar={() => alAbrir(items[0].item)} />
+          : <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -20px', padding: '0 20px 6px', scrollbarWidth: 'none', scrollSnapType: 'x mandatory', scrollPaddingInline: 20 }}>
+              {items.map(({ item }) => (
+                <div key={item.ejercicio.id} style={{ flex: 'none', width: 236, scrollSnapAlign: 'start' }}>
+                  <TarjetaV2 item={item} alto={158} alTocar={() => alAbrir(item)} />
+                </div>
+              ))}
+            </div>}
+    </section>
+  ));
 }
 
 // Lo último traído, por cliente: al volver a la Galería se pinta al instante
@@ -109,8 +183,8 @@ export default function Galeria({ nombre }) {
   return (
     <div>
       {!v2Activa() && <Titulo>Galería</Titulo>}
-      <div style={{ color: TEXT_MUTED, fontSize: 13.5 }}>
-        {todos.length} ejercicio{todos.length === 1 ? '' : 's'} de tu plan · toca uno para ver su video y lo que trabaja
+      <div style={{ color: v2 ? TEXT_LIGHT : TEXT_MUTED, fontSize: v2 ? 14 : 13.5 }}>
+        {todos.length} ejercicio{todos.length === 1 ? '' : 's'} de tu plan{v2 ? '' : ' · toca uno para ver su video y lo que trabaja'}
       </div>
 
       {rutinas.length > 1 && (
@@ -119,16 +193,16 @@ export default function Galeria({ nombre }) {
             const activo = filtro === r.id;
             return (
               <button key={r.id} onClick={() => setFiltro(r.id)} style={{
-                flex: 'none', border: `1px solid ${activo ? TEXT : BORDER}`, borderRadius: 999,
-                background: activo ? TEXT : 'rgba(255,255,255,0.7)', color: activo ? '#fff' : TEXT_MUTED,
-                padding: '7px 13px', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+                flex: 'none', border: v2 ? 'none' : `1px solid ${activo ? TEXT : BORDER}`, borderRadius: 999,
+                background: activo ? TEXT : (v2 ? 'rgba(118,118,128,0.12)' : 'rgba(255,255,255,0.7)'), color: activo ? '#fff' : (v2 ? TEXT : TEXT_MUTED),
+                padding: v2 ? '8px 15px' : '7px 13px', fontSize: v2 ? 14 : 13, fontWeight: v2 ? 650 : 700, fontFamily: 'inherit', cursor: 'pointer',
               }}>{r.nombre}</button>
             );
           })}
         </div>
       )}
 
-      <div style={{
+      {v2 ? <EstantesV2 visibles={visibles} alAbrir={setAbierto} /> : <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
         gap: 10, marginTop: 12,
       }}>
@@ -178,7 +252,7 @@ export default function Galeria({ nombre }) {
             </button>
           );
         })}
-      </div>
+      </div>}
 
       <EntrenoFicha item={abierto} abierto={!!abierto} alCerrar={() => setAbierto(null)} />
     </div>
