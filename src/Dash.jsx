@@ -32,7 +32,7 @@ import CabeceraHoy from './CabeceraHoy.jsx';
 import { etiquetaDia } from './vozCoach.js';
 import { useAncho, Tarjeta, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe, curvaSuave } from './GraficasV2.jsx';
 import {
-  SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT,
+  TEXT, TEXT_MUTED, TEXT_LIGHT,
   FONT_DISPLAY, C_PROTEIN, C_CARBS, C_FAT, SECCION, DASH_AZUL,
 } from './theme.js';
 
@@ -283,7 +283,7 @@ function Linea({ puntos, color, alto = 46, textoValor }) {
         <path d={area} fill={`url(#g-${color.slice(1)})`} />
         <path d={d} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
         {sel != null && <line x1={x(sel)} x2={x(sel)} y1={0} y2={alto} stroke={REJILLA} strokeWidth="1" />}
-        <circle cx={x(sel ?? ult)} cy={y(puntos[sel ?? ult].v)} r="4.5" fill={color} stroke={SURFACE} strokeWidth="2" />
+        <circle cx={x(sel ?? ult)} cy={y(puntos[sel ?? ult].v)} r="4.5" fill={color} />
       </svg>}
       {textoValor && sel != null && <Globo x={x(sel)} ancho={ancho} texto={textoValor(puntos[sel])} />}
     </div>
@@ -898,7 +898,7 @@ function Alineacion({ dias, meta }) {
             {d.kcal != null && (
               <>
                 <line x1={cx(i)} x2={cx(i)} y1={y(meta)} y2={y(d.kcal)} stroke={VERDE} strokeWidth="2" opacity="0.35" />
-                <circle cx={cx(i)} cy={y(d.kcal)} r={sel === i ? 5.5 : 4.5} fill={VERDE} stroke={SURFACE} strokeWidth="2" />
+                <circle cx={cx(i)} cy={y(d.kcal)} r={sel === i ? 5.5 : 4.5} fill={VERDE} />
               </>
             )}
             <text x={cx(i)} y={alto - 5} textAnchor="middle" fontSize="10" fill={TEXT_LIGHT}>{DIA_LETRA[aFecha(d.fecha).getDay()]}</text>

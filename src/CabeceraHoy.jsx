@@ -21,7 +21,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { TEXT, TEXT_MUTED } from './theme.js';
-import { ILUSTRACION } from './IlustracionesCabecera.jsx';
+import { BODEGON } from './BodegonCabecera.jsx';
 import { AnilloMarca, rielDe } from './GraficasV2.jsx';
 
 // El aro de la gráfica más importante de cada sección, en su color.
@@ -88,7 +88,9 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const t = TEMAS[tema] || TEMAS.entreno;
   // La ilustración de la sección va a la derecha, cortada por el borde de la
   // pantalla; el texto deja su espacio para no pasar por encima.
-  const Ilus = fondo && ilustracion ? ILUSTRACION[tema] : null;
+  // El objeto de la sección (bodegón): la kettlebell, el bowl, el libro o el
+  // cronómetro, con su movimiento al entrar.
+  const Ilus = fondo && ilustracion ? BODEGON[tema] : null;
   const conAro = !!(Ilus && aro);
   const texto = (
     <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (conAro ? 'min(46vw, 186px)' : 'min(34vw, 150px)') : 0, minHeight: conAro ? 118 : undefined }}>

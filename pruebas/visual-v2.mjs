@@ -323,10 +323,13 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
-  ok('cabeceras: la kettlebell va sin cara (la cara queda para las celebraciones)', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion] .kb-ojos').count()) === 0
-    && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion] .kb-anda').count()) === 0);
-  ok('Dash: la kettlebell levanta la bandera «¡HEY!» con papelillo, junto a la frase, entera y sin taparla', (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] text').textContent()) === '¡HEY!'
-    && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion="dash"] .kb-papel > g').count()) === 8 && await ilusBien(p, 'dash'));
+  ok('cabeceras: un objeto por sección (bodegón), sin personaje', (await p.locator('[data-cabecera-hoy="dash"] svg[data-bodegon="dash"]').count()) === 1
+    && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion] .kb-ojos').count()) === 0);
+  ok('Dash: el cronómetro con el aro azul, junto a la frase, entero y sin taparla', (await p.locator('[data-cabecera-hoy="dash"] svg[data-bodegon="dash"] .bd-arco').count()) === 1 && await ilusBien(p, 'dash'));
+  ok('aros de las cabeceras: el punto de la punta es blanco y sin borde', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera] [data-anillo] svg').evaluate(s => {
+    const blancos = [...s.querySelectorAll('circle')].filter(c => (c.getAttribute('fill') || '').toUpperCase() === '#FFFFFF');
+    return blancos.length >= 1 && blancos.every(c => !c.getAttribute('stroke'));
+  }));
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
     const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));
     return getComputedStyle(el).transitionProperty.includes('stroke-dashoffset') && o < c;
@@ -515,7 +518,7 @@ try {
     && /^(Hoy toca|Hecho por hoy|Día de descanso|Hoy no te toca|Semana completa|Tienes un entreno)/.test(await cabE.locator('[data-frase]').innerText()),
     `${await cabE.locator('[data-etiqueta]').innerText()} | ${await cabE.locator('[data-frase]').innerText()}`);
   ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);
-  ok('…con la banda delgada y la ilustración de la sección (kettlebell)', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('[data-ilustracion="entreno"]').count()) === 1
+  ok('…con la banda delgada y el objeto de la sección (kettlebell de grafito)', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('[data-ilustracion="entreno"]').count()) === 1
     && await cabE.locator('[data-banda]').evaluate(el => el.getBoundingClientRect().height < 140));
   ok('…la segunda línea en el amarillo de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(201, 164, 62)'));
   ok('…y el color no se sale de la pantalla', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -825,7 +828,7 @@ try {
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(1200);
   await foto(p, '08-comida-hoy');
-  ok('Comida: tenedor y plato en alto, junto a la frase, entera y sin taparla', (await p.locator('svg[data-ilustracion="comida"]').count()) >= 1 && await ilusBien(p, 'comida'));
+  ok('Comida: el bowl, junto a la frase, entero y sin taparla', (await p.locator('svg[data-ilustracion="comida"]').count()) >= 1 && await ilusBien(p, 'comida'));
   ok('Hoy de alimentación ya no saluda ni trae herramientas', (await p.getByText('Hola, Mauro').count()) === 0
     && (await p.getByText('Tus herramientas').count()) === 0);
   ok('Hoy de alimentación: la voz del coach según lo comido, sin personajes', await p.locator('[data-cabecera-hoy="comida"] [data-frase]').isVisible()
