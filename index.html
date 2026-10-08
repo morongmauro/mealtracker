@@ -84,7 +84,7 @@
         if (raiz.classList.contains('splash-v2') && !raiz.classList.contains('warm-start')) {
           raiz.classList.add('intro-completa');
           var tc = document.querySelector('meta[name="theme-color"]');
-          if (tc) tc.setAttribute('content', '#4F89DC');
+          if (tc) tc.setAttribute('content', '#F7F6F2');
         }
       } catch (e) {}
     </script>
@@ -172,46 +172,55 @@
         src: url('/fonts/figtree.woff2') format('woff2-variations'), url('/fonts/figtree.woff2') format('woff2'); }
       #splash2 { display: none; }
       html.splash-v2 #splash { display: none; }
-      /* Entrada con el ÍCONO de la app (visual nueva): azul, como el ícono.
-           0.05–0.85 s  la línea blanca de la gráfica del Dash da 3/4 de
-                        vuelta, con el punto amarillo en la punta
-           0.80–1.15 s  sale el asa: la gráfica se vuelve la kettlebell
-           1.15–1.55 s  un pulso (el ícono late y suelta una onda)
-           0.30–0.80 s  «Entrena con / Método.» (Método en el amarillo)
-           2.20 s       se desvanece y aparece la app */
+      /* Entrada con el ÍCONO de la app (visual nueva), como la haría Apple:
+           0.00–0.80 s  el fondo blanco cálido con las manchas de la marca se
+                        asienta (respira de 108 % a 100 %)
+           0.15–1.10 s  el aro se dibuja en grafito y el punto amarillo viaja
+                        en la punta
+           0.95–1.37 s  sale el asa: la gráfica se vuelve la kettlebell
+           1.10–1.60 s  el dibujo se asienta con un rebote mínimo y gana su sombra
+           1.35–2.25 s  una luz cruza el dibujo (como el vidrio de iOS)
+           1.05–1.65 s  «Entrena con Método.» letra por letra, de desenfocada a
+                        nítida, con el punto final en amarillo
+           2.40 s       todo crece apenas, se desenfoca y aparece la app */
       html.splash-v2 #splash2 { position: fixed; top: -60px; left: 0; right: 0; bottom: -200px; z-index: 9999; display: block;
-        overflow: hidden; pointer-events: none; background: #2F6CC4; transition: opacity .6s ease-out; }
+        overflow: hidden; pointer-events: none; background: #F7F6F2; transition: opacity .6s cubic-bezier(.4,0,.2,1); }
       html.warm-start #splash2 { display: none !important; }
       html.warm-start.intro-repite #splash2 { display: block !important; }
       body.app-ready #splash2 { opacity: 0; }
-      /* El azul del Dash con manchas orgánicas muy sutiles de los colores de
-         la marca (verde, amarillo, naranja), como el ícono. */
-      #splash2 .fondo { position: absolute; inset: 0; background: radial-gradient(46% 30% at 10% 84%, rgba(70,150,90,0.30) 0%, rgba(70,150,90,0) 72%), radial-gradient(34% 24% at 30% 96%, rgba(242,201,76,0.20) 0%, rgba(242,201,76,0) 72%), radial-gradient(40% 26% at 94% 66%, rgba(238,132,52,0.22) 0%, rgba(238,132,52,0) 72%), radial-gradient(42% 24% at 90% 4%, rgba(255,216,102,0.22) 0%, rgba(255,216,102,0) 72%), radial-gradient(48% 32% at 6% 14%, rgba(170,200,240,0.32) 0%, rgba(170,200,240,0) 72%), linear-gradient(165deg, #5590E3 0%, #2F6CC4 55%, #1E4F9A 100%); }
-      #splash2 .escena { position: absolute; left: 0; right: 0; top: 60px; height: 100vh; height: var(--alto-pantalla, 100lvh); }
-      #splash2 .marca { position: absolute; left: 50%; top: 38%; width: min(62vw, 260px); height: min(62vw, 260px);
-        margin: calc(min(62vw, 260px) / -2) 0 0 calc(min(62vw, 260px) / -2); overflow: visible; }
-      #splash2 .icono { transform-box: view-box; transform-origin: 50% 50%; }
+      #splash2 .fondo { position: absolute; inset: -6%; background:
+        radial-gradient(40% 28% at 10% 18%, rgba(60,123,214,.16), rgba(60,123,214,0) 70%),
+        radial-gradient(42% 28% at 12% 86%, rgba(70,150,90,.14), rgba(70,150,90,0) 70%),
+        radial-gradient(36% 24% at 92% 70%, rgba(238,132,52,.12), rgba(238,132,52,0) 70%),
+        radial-gradient(40% 26% at 90% 12%, rgba(242,201,76,.18), rgba(242,201,76,0) 70%),
+        linear-gradient(180deg, #FFFFFF, #EEECE7); transform: scale(1.08); }
+      html.intro-anda #splash2 .fondo { animation: s2respira 1.6s cubic-bezier(.4,0,.2,1) forwards; }
+      #splash2 .escena { position: absolute; left: 0; right: 0; top: 60px; height: 100vh; height: var(--alto-pantalla, 100lvh);
+        transition: transform .6s cubic-bezier(.4,0,.2,1), filter .6s cubic-bezier(.4,0,.2,1); }
+      body.app-ready #splash2 .escena { transform: scale(1.06); filter: blur(6px); }
+      #splash2 .marca { position: absolute; left: 50%; top: 40%; width: min(42vw, 170px); height: min(42vw, 170px);
+        margin: calc(min(42vw, 170px) / -2) 0 0 calc(min(42vw, 170px) / -2); overflow: visible; }
+      #splash2 .icono { transform-box: view-box; transform-origin: 50% 50%; transform: scale(.86); }
       #splash2 .traza, #splash2 .asa { stroke-dasharray: 100 100; stroke-dashoffset: 100; }
-      #splash2 .punto { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; }
-      #splash2 .onda { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; }
-      html.intro-anda #splash2 .traza { animation: s2traza .8s cubic-bezier(.45,0,.3,1) .05s forwards; }
-      html.intro-anda #splash2 .punto { animation: s2punto .3s cubic-bezier(.3,1.4,.5,1) .05s forwards; }
-      html.intro-anda #splash2 .asa { animation: s2traza .35s cubic-bezier(.4,0,.3,1) .8s forwards; }
-      html.intro-anda #splash2 .icono { animation: s2late .4s cubic-bezier(.3,1.3,.5,1) 1.15s; }
-      html.intro-anda #splash2 .onda { animation: s2onda .8s cubic-bezier(.2,.7,.3,1) 1.15s forwards; }
-      #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(38% + min(31vw, 130px) + 18px); margin: 0; text-align: center;
-        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: clamp(30px, 9vw, 40px);
-        line-height: 1.04; letter-spacing: -0.035em; color: #FFFFFF; }
-      #splash2 .nombre span { display: block; opacity: 0; transform: translateY(10px); }
-      #splash2 .nombre .p2 { color: #F2C94C; }
-      html.intro-anda #splash2 .nombre span { animation: s2palabra .5s cubic-bezier(.2,.8,.2,1) forwards; }
-      html.intro-anda #splash2 .nombre .p1 { animation-delay: .3s; }
-      html.intro-anda #splash2 .nombre .p2 { animation-delay: .42s; }
+      #splash2 .punto { opacity: 0; }
+      #splash2 .brillo { transform: translateX(-520px); }
+      html.intro-anda #splash2 .traza { animation: s2traza .95s cubic-bezier(.65,0,.35,1) .15s forwards; }
+      html.intro-anda #splash2 .punto { animation: s2aparece .2s ease .15s forwards; }
+      html.intro-anda #splash2 .asa { animation: s2traza .42s cubic-bezier(.3,0,.2,1) .95s forwards; }
+      html.intro-anda #splash2 .icono { animation: s2asienta 1.6s cubic-bezier(.34,1.3,.5,1) forwards; }
+      html.intro-anda #splash2 .brillo { animation: s2barre .9s cubic-bezier(.4,0,.2,1) 1.35s forwards; }
+      #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(40% + min(21vw, 85px) + 22px); margin: 0; text-align: center;
+        font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 750; font-size: clamp(26px, 7.6vw, 32px);
+        letter-spacing: -0.03em; color: #1F1E1C; white-space: nowrap; }
+      #splash2 .nombre span { display: inline-block; opacity: 0; filter: blur(10px); transform: translateY(8px); }
+      #splash2 .nombre .pto { color: #F2C94C; }
+      html.intro-anda #splash2 .nombre span { animation: s2letra .7s cubic-bezier(.2,.8,.2,1) forwards; }
+      @keyframes s2respira { to { transform: scale(1); } }
       @keyframes s2traza { to { stroke-dashoffset: 0; } }
-      @keyframes s2punto { from { opacity: 1; transform: scale(.2); } to { opacity: 1; transform: scale(1); } }
-      @keyframes s2late { 0% { transform: scale(1); } 45% { transform: scale(1.06); } 100% { transform: scale(1); } }
-      @keyframes s2onda { 0% { opacity: .35; transform: scale(1); } 100% { opacity: 0; transform: scale(1.7); } }
-      @keyframes s2palabra { to { opacity: 1; transform: none; } }
+      @keyframes s2aparece { to { opacity: 1; } }
+      @keyframes s2asienta { 0%, 60% { transform: scale(.86); } 78% { transform: scale(1.035); } 90% { transform: scale(.995); } 100% { transform: scale(1); } }
+      @keyframes s2barre { to { transform: translateX(520px); } }
+      @keyframes s2letra { to { opacity: 1; filter: blur(0); transform: none; } }
       @media (prefers-reduced-motion: reduce) {
         #splash2 * { animation-duration: 0.01s !important; animation-delay: 0s !important; transition: none !important; }
       }
@@ -253,17 +262,30 @@
       <div class="fondo"></div>
       <div class="escena">
       <!-- El ícono de la app: la línea de la gráfica es el cuerpo de la
-           kettlebell, con el asa encima y el punto amarillo en la punta -->
+           kettlebell, con el asa encima y el punto amarillo en la punta.
+           Grafito con volumen (sombra suave) y una luz que lo cruza. -->
       <svg class="marca" viewBox="0 0 512 512" fill="none" aria-hidden="true">
-        <g class="icono"><g transform="translate(256 262) scale(0.9) translate(-256 -248)">
-          <circle class="onda" cx="256" cy="300" r="136" stroke="#FFFFFF" stroke-width="10"/>
-          <path class="asa" d="M128 162 C96 72 160 18 256 18 C352 18 416 72 384 162" pathLength="100" stroke="#FFFFFF" stroke-width="34" stroke-linecap="round"/>
-          <path class="traza" d="M256 164 A136 136 0 1 1 120 300" pathLength="100" stroke="#FFFFFF" stroke-width="37" stroke-linecap="round"/>
-          <g><circle class="punto" cx="120" cy="300" r="26.6" fill="#F2C94C"/>
-            <animateTransform attributeName="transform" type="rotate" values="-270 256 300;0 256 300" begin=".05s" dur=".8s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".45 0 .3 1"/></g>
-        </g></g>
+        <defs>
+          <linearGradient id="s2t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3B3A37"/><stop offset="1" stop-color="#1F1E1C"/></linearGradient>
+          <filter id="s2s" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#000" flood-opacity=".18"/></filter>
+          <linearGradient id="s2l" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+          <mask id="s2m"><g transform="translate(256 262) scale(.9) translate(-256 -248)">
+            <path d="M128 162 C96 72 160 18 256 18 C352 18 416 72 384 162" stroke="#fff" stroke-width="40" stroke-linecap="round"/>
+            <path d="M256 164 A136 136 0 1 1 120 300" stroke="#fff" stroke-width="40" stroke-linecap="round"/></g></mask>
+        </defs>
+        <g class="icono">
+          <g transform="translate(256 262) scale(.9) translate(-256 -248)">
+            <g filter="url(#s2s)">
+              <path class="asa" d="M128 162 C96 72 160 18 256 18 C352 18 416 72 384 162" pathLength="100" stroke="url(#s2t)" stroke-width="40" stroke-linecap="round"/>
+              <path class="traza" d="M256 164 A136 136 0 1 1 120 300" pathLength="100" stroke="url(#s2t)" stroke-width="40" stroke-linecap="round"/>
+            </g>
+            <g><circle class="punto" cx="120" cy="300" r="28.8" fill="#F2C94C"/>
+              <animateTransform attributeName="transform" type="rotate" values="-270 256 300;0 256 300" begin=".15s" dur=".95s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".65 0 .35 1"/></g>
+          </g>
+          <g mask="url(#s2m)"><rect class="brillo" x="-60" y="0" width="180" height="512" fill="url(#s2l)" transform="skewX(-18)"/></g>
+        </g>
       </svg>
-      <p class="nombre"><span class="p1">Entrena con</span><span class="p2">Método.</span></p>
+      <p class="nombre"><span style="animation-delay:1.050s">E</span><span style="animation-delay:1.078s">n</span><span style="animation-delay:1.106s">t</span><span style="animation-delay:1.134s">r</span><span style="animation-delay:1.162s">e</span><span style="animation-delay:1.190s">n</span><span style="animation-delay:1.218s">a</span><span style="animation-delay:1.246s">&nbsp;</span><span style="animation-delay:1.274s">c</span><span style="animation-delay:1.302s">o</span><span style="animation-delay:1.330s">n</span><span style="animation-delay:1.358s">&nbsp;</span><span style="animation-delay:1.386s">M</span><span style="animation-delay:1.414s">é</span><span style="animation-delay:1.442s">t</span><span style="animation-delay:1.470s">o</span><span style="animation-delay:1.498s">d</span><span style="animation-delay:1.526s">o</span><span class="pto" style="animation-delay:1.634s">.</span></p>
       </div>
       <script>
         // La secuencia espera a que la app esté armada (main.jsx la arranca);
