@@ -22,7 +22,7 @@
 import React from 'react';
 import { TEXT, TEXT_MUTED } from './theme.js';
 import { ILUSTRACION } from './IlustracionesCabecera.jsx';
-import { AnilloMarca } from './GraficasV2.jsx';
+import { AnilloMarca, rielDe } from './GraficasV2.jsx';
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
@@ -163,7 +163,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
               position: 'absolute', right: `calc(${KB_ARO} * 0.75 - 6px)`, top: `calc(${arriba} + 12px + ${KB_ARO} * 0.3165 - 30px)`, width: 84,
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animationDelay: '.16s',
             }}>
-              <AnilloMarca frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={60} grosor={7} riel="rgba(255,255,255,0.75)" etiqueta={aro.pie}>
+              <AnilloMarca frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={60} grosor={7} riel={rielDe(COLOR_ARO[tema] || TEXT, 0.2)} etiqueta={aro.pie}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>
               </AnilloMarca>
               {aro.pie && <div data-aro-pie style={{ fontSize: 11, fontWeight: 500, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.2 }}>{aro.pie}</div>}

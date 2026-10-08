@@ -5,7 +5,7 @@
 // aparte para que el calendario de comidas use EXACTAMENTE las mismas: el
 // Dash va en su propio chunk y el calendario vive en la app principal.
 // ─────────────────────────────────────────────────────────────────────────
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
 
 export const REJILLA = '#E7E3D9';
@@ -99,7 +99,7 @@ export function Columnas({ datos, color, alto = 128, marca, etiquetaX, textoValo
       {ancho > 0 && <svg width={ancho} height={alto} style={{ display: 'block', overflow: 'visible' }}>
         {marcas.map(m => (
           <g key={m}>
-            <line x1={izq} x2={ancho} y1={y(m)} y2={y(m)} stroke={REJILLA} strokeWidth="1" />
+            <line x1={izq} x2={ancho} y1={y(m)} y2={y(m)} stroke={REJILLA} strokeWidth="1" strokeOpacity="0.6" />
             <text x={izq - 6} y={y(m) + 3.5} textAnchor="end" fontSize="10" fill={TEXT_LIGHT} style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(m)}</text>
           </g>
         ))}
@@ -115,7 +115,7 @@ export function Columnas({ datos, color, alto = 128, marca, etiquetaX, textoValo
               <rect x={cx - paso / 2} y={arriba - 6} width={paso} height={alturaUtil + 6} fill="transparent" />
               {v > 0 && (
                 <path d={`M${x0},${y(0)} V${y0 + r} Q${x0},${y0} ${x0 + r},${y0} H${x0 + barra - r} Q${x0 + barra},${y0} ${x0 + barra},${y0 + r} V${y(0)} Z`}
-                  fill={color} opacity={sel == null || sel === i ? 1 : 0.45} />
+                  fill={color} opacity={(sel == null ? i === datos.length - 1 : sel === i) ? 1 : 0.42} />
               )}
               {meta > 0 && (
                 <line x1={cx - barra / 2 - 3} x2={cx + barra / 2 + 3} y1={y(meta)} y2={y(meta)} stroke={TEXT} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
@@ -159,23 +159,101 @@ export function useDesdeCero(valor, retardo = 60) {
   return v;
 }
 
-export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = RIEL, etiqueta, children }) {
-  const f = useDesdeCero(Math.max(0, Math.min(1, Number(frac) || 0)));
-  const r = (tam - grosor) / 2, c = 2 * Math.PI * r, m = tam / 2;
+// ── ESTILO APPLE ──────────────────────────────────────────────────────────
+// Como los anillos de Actividad: el aro lleva un degradado A LO LARGO del
+// trazo (del tono oscuro al claro de su color), el riel es su mismo color muy
+// suave y la punta tiene una sombrita; el punto blanco de la marca sigue en
+// la punta. Sin vidrio: los datos van nítidos.
+const aRGB = (c) => {
+  const s = String(c || '').trim();
+  let m = s.match(/^#([0-9a-f]{3})$/i);
+  if (m) return m[1].split('').map(h => parseInt(h + h, 16));
+  m = s.match(/^#([0-9a-f]{6})/i);
+  if (m) return [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16));
+  m = s.match(/^rgba?\(([^)]+)\)/i);
+  if (m) return m[1].split(',').slice(0, 3).map(Number);
+  return null;
+};
+const mezcla = (a, b, t) => `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(', ')})`;
+// El riel (o el fondo de una barrita): su mismo color, muy suave.
+export const rielDe = (color, alfa = 0.16, porDefecto = '#F4F1EB') => {
+  const c = aRGB(color);
+  return c ? `rgba(${c.join(', ')}, ${alfa})` : porDefecto;
+};
+const tonos = (color) => {
+  const c = aRGB(color);
+  return c ? { osc: mezcla(c, [0, 0, 0], 0.18), cla: mezcla(c, [255, 255, 255], 0.3) } : null;
+};
+
+// El trazo del aro con su degradado. `frac` es lo que se ve (se anima);
+// `objetivo`, hasta dónde llega (de ahí sale el degradado). El centro en
+// (m, m); empieza arriba y va en el sentido del reloj.
+export function ArcoApple({ m, r, grosor, frac, objetivo = frac, color, transicion }) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const t = tonos(color);
+  const L = 2 * Math.PI * r;
+  const visible = frac > 0 ? 1 : 0;
+  if (!t) {
+    return <circle cx={m} cy={m} r={r} fill="none" stroke={color} strokeWidth={grosor} strokeLinecap="round" transform={`rotate(-90 ${m} ${m})`}
+      strokeDasharray={L} strokeDashoffset={L * (1 - frac)} style={{ transition: transicion, opacity: visible }} />;
+  }
+  const G = Math.max(0.0001, Math.min(1, objetivo)) * 360;
+  const capa = ((grosor / 2) / r) * (180 / Math.PI) + 2;
+  const R = r + grosor;
+  const p = (a) => { const rad = a * Math.PI / 180; return `${(m + R * Math.sin(rad)).toFixed(2)},${(m - R * Math.cos(rad)).toFixed(2)}`; };
+  const cuñas = [];
+  for (let a = 0; a < 360; a += 4) {
+    const medio = a + 2;
+    const fill = medio <= G ? mezcla(aRGB(t.osc), aRGB(t.cla), medio / G) : medio <= G + capa ? t.cla : t.osc;
+    cuñas.push(<path key={a} d={`M${m},${m} L${p(a)} A${R},${R} 0 0 1 ${p(Math.min(360, a + 4.6))} Z`} fill={fill} />);
+  }
+  return (
+    <g>
+      <defs>
+        <mask id={`ma${id}`} maskUnits="userSpaceOnUse" x={m - R} y={m - R} width={2 * R} height={2 * R}>
+          <circle cx={m} cy={m} r={r} fill="none" stroke="#fff" strokeWidth={grosor} strokeLinecap="round" transform={`rotate(-90 ${m} ${m})`}
+            strokeDasharray={L} strokeDashoffset={L * (1 - frac)} style={{ transition: transicion }} />
+        </mask>
+      </defs>
+      <g mask={`url(#ma${id})`} style={{ opacity: visible, transition: 'opacity .2s' }}>{cuñas}</g>
+    </g>
+  );
+}
+
+// La punta: la tapa redonda con su sombrita y, encima, el punto blanco.
+// Va dentro de un grupo ya girado -90° (la punta en (m + r, m) al inicio).
+export function PuntaApple({ m, r, grosor, frac, color, transicion, radioPunto }) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const t = tonos(color);
+  return (
+    <g style={{ transform: `rotate(${frac * 360}deg)`, transformOrigin: `${m}px ${m}px`, transition: `transform ${transicion}, opacity .2s`, opacity: frac > 0.02 ? 1 : 0 }}>
+      {t && (
+        <>
+          <defs>
+            <filter id={`so${id}`} x="-100%" y="-100%" width="300%" height="300%">
+              <feDropShadow dx="0" dy="0" stdDeviation={Math.max(0.6, grosor * 0.16)} floodColor="#000" floodOpacity="0.3" />
+            </filter>
+          </defs>
+          <circle cx={m + r} cy={m} r={grosor / 2} fill={t.cla} filter={`url(#so${id})`} />
+        </>
+      )}
+      <circle cx={m + r} cy={m} r={radioPunto ?? Math.max(1.5, grosor / 2 - 2.5)} fill="#FFFFFF" style={{ opacity: frac < 1 ? 1 : 0, transition: 'opacity .2s' }} />
+    </g>
+  );
+}
+
+export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = null, etiqueta, children }) {
+  const objetivo = Math.max(0, Math.min(1, Number(frac) || 0));
+  const f = useDesdeCero(objetivo);
+  const r = (tam - grosor) / 2, m = tam / 2;
   const curva = '1s cubic-bezier(.22,.8,.24,1)';
   return (
     <div data-anillo style={{ position: 'relative', width: tam, height: tam, flex: 'none' }}>
-      <svg width={tam} height={tam} role="img" aria-label={etiqueta}>
-        <circle cx={m} cy={m} r={r} fill="none" stroke={riel} strokeWidth={grosor} />
+      <svg width={tam} height={tam} role="img" aria-label={etiqueta} style={{ overflow: 'visible' }}>
+        <circle cx={m} cy={m} r={r} fill="none" stroke={riel || rielDe(color, 0.16, RIEL)} strokeWidth={grosor} />
+        <ArcoApple m={m} r={r} grosor={grosor} frac={f} objetivo={objetivo} color={color} transicion={`stroke-dashoffset ${curva}`} />
         <g transform={`rotate(-90 ${m} ${m})`}>
-          <circle cx={m} cy={m} r={r} fill="none" stroke={color} strokeWidth={grosor} strokeLinecap="round"
-            strokeDasharray={c} strokeDashoffset={c * (1 - f)}
-            style={{ transition: `stroke-dashoffset ${curva}`, opacity: f > 0 ? 1 : 0 }} />
-          {/* el punto: gira con la punta (una rotación sí se anima en todos lados) */}
-          <g style={{ transform: `rotate(${f * 360}deg)`, transformOrigin: `${m}px ${m}px`, transition: `transform ${curva}, opacity .2s`,
-            opacity: f > 0.02 && f < 1 ? 1 : 0 }}>
-            <circle cx={m + r} cy={m} r={Math.max(1.5, grosor / 2 - 2.5)} fill="#FFFFFF" />
-          </g>
+          <PuntaApple m={m} r={r} grosor={grosor} frac={f} color={color} transicion={curva} />
         </g>
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
@@ -183,4 +261,23 @@ export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = RIEL, 
       </div>
     </div>
   );
+}
+
+// Una línea suave entre puntos (sin picos): curva monotónica, que nunca se
+// pasa por encima ni por debajo de los valores reales.
+export function curvaSuave(pts) {
+  const n = pts.length;
+  if (!n) return '';
+  if (n === 1) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  const dx = [], dy = [], s = [];
+  for (let i = 0; i < n - 1; i++) { dx[i] = pts[i + 1][0] - pts[i][0]; dy[i] = pts[i + 1][1] - pts[i][1]; s[i] = dx[i] ? dy[i] / dx[i] : 0; }
+  const tg = [s[0]];
+  for (let i = 1; i < n - 1; i++) tg[i] = s[i - 1] * s[i] <= 0 ? 0 : (3 * (dx[i - 1] + dx[i])) / ((2 * dx[i] + dx[i - 1]) / s[i - 1] + (dx[i] + 2 * dx[i - 1]) / s[i]);
+  tg[n - 1] = s[n - 2];
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i] / 3;
+    d += ` C${(pts[i][0] + h).toFixed(1)},${(pts[i][1] + tg[i] * h).toFixed(1)} ${(pts[i + 1][0] - h).toFixed(1)},${(pts[i + 1][1] - tg[i + 1] * h).toFixed(1)} ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`;
+  }
+  return d;
 }

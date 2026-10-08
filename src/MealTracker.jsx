@@ -25,7 +25,7 @@ import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada } from './mudanza.js';
 import { Pastilla } from './PastillaV2.jsx';
-import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero } from './GraficasV2.jsx';
+import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero, ArcoApple, PuntaApple, rielDe } from './GraficasV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
 import { AvisoSuma } from './Celebraciones.jsx';
@@ -5886,7 +5886,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       grande (es la cifra que manda), luego los tres macros. */}
                   <div className="relative flex items-start mt-3.5">
                     {[
-                      { k: 'kcal', v: totals.kcal, g: goals.kcal, c: ACCENT, size: 62, u: '', grad: true },
+                      { k: 'kcal', v: totals.kcal, g: goals.kcal, c: v2 ? '#46965A' : ACCENT, size: 62, u: '', grad: true },
                       { k: 'Proteína', v: totals.p, g: goals.p, c: C_PROTEIN, size: 54, u: 'g' },
                       { k: 'Carbos', v: totals.c, g: goals.c, c: C_CARBS, size: 54, u: 'g' },
                       { k: 'Grasas', v: totals.g, g: goals.g, c: C_FAT, size: 54, u: 'g' },
@@ -7198,19 +7198,10 @@ function formatDateShort(iso) {
   return d.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-// Visual nueva: los aros como los del Dash — pista crema lisa y un punto
-// blanco en la punta del trazo. Mismos tamaños y colores de siempre.
-const PISTA_V2 = '#F4F1EB';   // la misma crema del Dash
-// El punto gira con la punta (una rotación se anima igual en todos lados).
+// Visual nueva: los aros como los del Dash, estilo Apple (ArcoApple y
+// PuntaApple en GraficasV2.jsx). La crema queda de respaldo para el riel.
+const PISTA_V2 = '#F4F1EB';
 const CURVA_ARO = '1s cubic-bezier(.22,.8,.24,1)';
-function PuntaAro({ c, r, frac, grosor }) {
-  const visible = frac > 0.02 && frac < 1;
-  return (
-    <g style={{ transform: `rotate(${frac * 360}deg)`, transformOrigin: `${c}px ${c}px`, transition: `transform ${CURVA_ARO}, opacity .2s`, opacity: visible ? 1 : 0 }}>
-      <circle cx={c + r} cy={c} r={Math.max(1.1, grosor / 2 - 1.6)} fill="#FFFFFF" />
-    </g>
-  );
-}
 
 // True Apple-style glass ring — the chart is the focal element
 function CompactMacro({ val, goal, color, label, unit = '' }) {
@@ -7231,14 +7222,22 @@ function CompactMacro({ val, goal, color, label, unit = '' }) {
     <div className="flex-1 min-w-0 flex flex-col items-center" style={{ gap: '3px' }}>
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size}>
-          {v2Activa()
-            ? <circle cx={center} cy={center} r={radius} fill="none" stroke={PISTA_V2} strokeWidth={stroke} />
-            : <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.16" strokeWidth={stroke} />}
+          {v2Activa() ? (
+            // Estilo Apple: riel de su color, degradado a lo largo y punta con sombrita.
+            <>
+              <circle cx={center} cy={center} r={radius} fill="none" stroke={rielDe(color, 0.16, PISTA_V2)} strokeWidth={stroke} />
+              <ArcoApple m={center} r={radius} grosor={stroke} frac={pct} color={color} transicion="stroke-dashoffset 0.6s ease" />
+              <g transform={`rotate(-90 ${center} ${center})`}>
+                <PuntaApple m={center} r={radius} grosor={stroke} frac={pct} color={color} transicion="0.6s ease" radioPunto={Math.max(1.1, stroke / 2 - 1.6)} />
+              </g>
+            </>
+          ) : (<>
+          <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.16" strokeWidth={stroke} />
           <g transform={`rotate(-90 ${center} ${center})`}>
             <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
               strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 0.6s ease' }} />
-            {v2Activa() && <PuntaAro c={center} r={radius} frac={pct} grosor={stroke} />}
           </g>
+          </>)}
         </svg>
         <div className="absolute inset-0 grid place-items-center text-[8px] font-bold" style={{ color: TEXT_LIGHT }}>{label}</div>
       </div>
@@ -7267,14 +7266,22 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
   return (
     <div className="flex flex-col items-center min-w-0 w-full">
       <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: 'auto', maxWidth: size, display: 'block' }}>
-        {v2Activa()
-          ? <circle cx={center} cy={center} r={radius} fill="none" stroke={PISTA_V2} strokeWidth={stroke} />
-          : <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.14" strokeWidth={stroke} />}
+        {v2 ? (
+          // Estilo Apple: riel de su color, degradado a lo largo y punta con sombrita.
+          <>
+            <circle cx={center} cy={center} r={radius} fill="none" stroke={rielDe(color, 0.16, PISTA_V2)} strokeWidth={stroke} />
+            <ArcoApple m={center} r={radius} grosor={stroke} frac={pct} objetivo={pctReal} color={color} transicion={`stroke-dashoffset ${CURVA_ARO}`} />
+            <g transform={`rotate(-90 ${center} ${center})`}>
+              <PuntaApple m={center} r={radius} grosor={stroke} frac={pct} color={color} transicion={CURVA_ARO} radioPunto={Math.max(1.1, stroke / 2 - 1.6)} />
+            </g>
+          </>
+        ) : (<>
+        <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeOpacity="0.14" strokeWidth={stroke} />
         <g transform={`rotate(-90 ${center} ${center})`}>
           <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-            strokeDasharray={`${dash} ${circ}`} style={{ transition: v2 ? `stroke-dasharray ${CURVA_ARO}` : 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)', opacity: v2 && dash <= 0 ? 0 : 1 }} />
-          {v2 && <PuntaAro c={center} r={radius} frac={pct} grosor={stroke} />}
+            strokeDasharray={`${dash} ${circ}`} style={{ transition: 'stroke-dasharray 1.1s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
         </g>
+        </>)}
         <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 20, fill: goal > 0 && val > goal * 1.05 ? DANGER_SOFT : TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
         <text x={center} y={center + 13} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10.5, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
       </svg>
@@ -7294,6 +7301,23 @@ function RingGauge({ size = 78, stroke = 6, pct = 0, color = ACCENT, track = 'rg
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const p = Math.max(0, Math.min(100, pct));
+  // Visual nueva, estilo Apple: riel de su color, degradado a lo largo del
+  // aro, punta con sombrita y el punto blanco.
+  if (v2Activa()) {
+    const m = size / 2;
+    return (
+      <div className="relative grid place-items-center flex-shrink-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} style={{ overflow: 'visible' }}>
+          <circle cx={m} cy={m} r={r} fill="none" stroke={rielDe(color, 0.16, PISTA_V2)} strokeWidth={stroke} />
+          <ArcoApple m={m} r={r} grosor={stroke} frac={p / 100} color={color} transicion="stroke-dashoffset 0.7s cubic-bezier(0.2, 0, 0, 1)" />
+          <g transform={`rotate(-90 ${m} ${m})`}>
+            <PuntaApple m={m} r={r} grosor={stroke} frac={p / 100} color={color} transicion="0.7s cubic-bezier(0.2, 0, 0, 1)" radioPunto={Math.max(1.1, stroke / 2 - 1.6)} />
+          </g>
+        </svg>
+        <div className="absolute inset-0 grid place-items-center">{children}</div>
+      </div>
+    );
+  }
   return (
     <div className="relative grid place-items-center flex-shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', filter: shadow || undefined, overflow: 'visible' }}>
@@ -7312,7 +7336,6 @@ function RingGauge({ size = 78, stroke = 6, pct = 0, color = ACCENT, track = 'rg
             strokeDasharray={circ} strokeDashoffset={circ * (1 - p / 100)}
             style={{ transition: 'stroke-dashoffset 0.7s cubic-bezier(0.2, 0, 0, 1)' }} />
         )}
-        {v2Activa() && <PuntaAro c={size / 2} r={r} frac={p / 100} grosor={stroke} />}
       </svg>
       <div className="absolute inset-0 grid place-items-center">{children}</div>
     </div>

@@ -30,7 +30,7 @@ import { Pastilla } from './PastillaV2.jsx';
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { etiquetaDia } from './vozCoach.js';
-import { useAncho, Tarjeta, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca } from './GraficasV2.jsx';
+import { useAncho, Tarjeta, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe, curvaSuave } from './GraficasV2.jsx';
 import {
   SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT,
   FONT_DISPLAY, C_PROTEIN, C_CARBS, C_FAT, SECCION, DASH_AZUL,
@@ -218,7 +218,7 @@ function BarraPct({ etiqueta, pct, valor, meta, unidad = 'g', color }) {
           {pct == null ? '—' : <><b style={{ color: TEXT }}>{pct} %</b> · {fmt(valor)}/{fmt(meta)} {unidad}</>}
         </span>
       </div>
-      <div style={{ height: 6, borderRadius: 99, background: CREMA, marginTop: 5, overflow: 'hidden' }}>
+      <div style={{ height: 6, borderRadius: 99, background: rielDe(color, 0.16, CREMA), marginTop: 5, overflow: 'hidden' }}>
         <div style={{ width: `${pct == null ? 0 : Math.min(100, pct)}%`, height: '100%', borderRadius: 99, background: color }} />
       </div>
     </div>
@@ -259,7 +259,8 @@ function Linea({ puntos, color, alto = 46, textoValor }) {
   const pad = 6;
   const x = (i) => pad + (puntos.length === 1 ? 0 : (i / (puntos.length - 1)) * (ancho - pad * 2));
   const y = (v) => pad + (1 - (v - min) / rango) * (alto - pad * 2);
-  const d = puntos.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+  // Curva suave, sin picos (estilo Apple).
+  const d = curvaSuave(puntos.map((p, i) => [x(i), y(p.v)]));
   const ult = puntos.length - 1;
   const area = `${d} L${x(ult)},${alto} L${x(0)},${alto} Z`;
   const tocar = (e) => {
@@ -280,7 +281,7 @@ function Linea({ puntos, color, alto = 46, textoValor }) {
           </linearGradient>
         </defs>
         <path d={area} fill={`url(#g-${color.slice(1)})`} />
-        <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={d} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
         {sel != null && <line x1={x(sel)} x2={x(sel)} y1={0} y2={alto} stroke={REJILLA} strokeWidth="1" />}
         <circle cx={x(sel ?? ult)} cy={y(puntos[sel ?? ult].v)} r="4.5" fill={color} stroke={SURFACE} strokeWidth="2" />
       </svg>}
@@ -547,7 +548,7 @@ function TarjetaAprende({ aprende, alProfundizar }) {
                   <span style={{ fontWeight: 600 }}>{b.titulo}</span>
                   <span style={{ color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{b.vistas}/{b.total}</span>
                 </div>
-                <div style={{ height: 6, borderRadius: 99, background: CREMA, marginTop: 4, overflow: 'hidden' }}>
+                <div style={{ height: 6, borderRadius: 99, background: rielDe(NARANJA, 0.16, CREMA), marginTop: 4, overflow: 'hidden' }}>
                   <div style={{ width: `${b.total ? (b.vistas / b.total) * 100 : 0}%`, height: '100%', borderRadius: 99, background: NARANJA }} />
                 </div>
               </div>
@@ -574,7 +575,7 @@ function DetalleAprende({ aprende, alIr }) {
         return (
           <Tarjeta key={b.k} titulo={b.titulo} detalle={b.bajada}
             accion={<span style={{ fontSize: 15, fontWeight: 750, color: NARANJA, fontVariantNumeric: 'tabular-nums' }}>{b.vistas}/{b.total}</span>}>
-            <div style={{ height: 8, borderRadius: 99, background: CREMA, marginTop: 12, overflow: 'hidden' }}>
+            <div style={{ height: 8, borderRadius: 99, background: rielDe(NARANJA, 0.16, CREMA), marginTop: 12, overflow: 'hidden' }}>
               <div style={{ width: `${b.total ? (b.vistas / b.total) * 100 : 0}%`, height: '100%', borderRadius: 99, background: NARANJA }} />
             </div>
             <div style={{ marginTop: 10 }}>
@@ -753,7 +754,7 @@ function DetalleComida({ comida, destacados, alCalendario }) {
                       <b style={{ color: TEXT }}>{fmt(pr.valor)}</b> / {fmt(comida.meta[m.k])} {m.u} · <b style={{ color: m.color }}>{pr.pct} %</b>
                     </span>
                   </div>
-                  <div style={{ position: 'relative', height: 8, borderRadius: 99, background: CREMA, marginTop: 7, overflow: 'hidden' }}>
+                  <div style={{ position: 'relative', height: 8, borderRadius: 99, background: rielDe(m.color, 0.16, CREMA), marginTop: 7, overflow: 'hidden' }}>
                     <div style={{ width: `${Math.min(100, (pr.pct / 130) * 100)}%`, height: '100%', borderRadius: 99, background: m.color }} />
                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(100 / 130) * 100}%`, width: 2, background: TEXT, opacity: 0.55 }} />
                   </div>
@@ -888,8 +889,8 @@ function Alineacion({ dias, meta }) {
   return (
     <div ref={ref} style={{ position: 'relative', marginTop: 8, width: '100%', minWidth: 0, minHeight: alto }}>
       {ancho > 0 && <svg width={ancho} height={alto} style={{ display: 'block', overflow: 'visible' }}>
-        <rect x={izq} width={ancho - izq} y={y(meta * 1.1)} height={y(meta * 0.9) - y(meta * 1.1)} fill="rgba(79,106,28,0.14)" rx="6" />
-        <line x1={izq} x2={ancho} y1={y(meta)} y2={y(meta)} stroke="rgba(79,106,28,0.35)" strokeWidth="1" />
+        <rect x={izq} width={ancho - izq} y={y(meta * 1.1)} height={y(meta * 0.9) - y(meta * 1.1)} fill="rgba(70,150,90,0.12)" rx="6" />
+        <line x1={izq} x2={ancho} y1={y(meta)} y2={y(meta)} stroke="rgba(70,150,90,0.35)" strokeWidth="1" />
         <text x={izq - 6} y={y(meta) + 3.5} textAnchor="end" fontSize="10" fill={TEXT_LIGHT}>{fmt(meta)}</text>
         {dias.map((d, i) => (
           <g key={d.fecha} onClick={() => setSel(sel === i ? null : i)} style={{ cursor: 'pointer' }}>

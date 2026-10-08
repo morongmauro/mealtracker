@@ -11,7 +11,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CaretRight, Compass, Cards, BookOpenText, Headphones, PlayCircle } from '@phosphor-icons/react';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { IlustracionCerebro } from './IlustracionesHoy.jsx';
-import { AnilloMarca } from './GraficasV2.jsx';
+import { AnilloMarca, rielDe } from './GraficasV2.jsx';
 import { vozAprende } from './vozCoach.js';
 import Firma from './Firma.jsx';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT, SECCION } from './theme.js';
@@ -105,7 +105,7 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
                     <span style={{ fontWeight: 600 }}>{b.titulo}{PARTE[b.k] ? <span style={{ color: TEXT_MUTED, fontWeight: 500 }}> · {PARTE[b.k]}</span> : null}</span>
                     <span style={{ color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{b.vistas}/{b.total}</span>
                   </div>
-                  <div style={{ height: 6, borderRadius: 99, background: CREMA, marginTop: 4, overflow: 'hidden' }}>
+                  <div style={{ height: 6, borderRadius: 99, background: rielDe(N.base, 0.16, CREMA), marginTop: 4, overflow: 'hidden' }}>
                     <div style={{ width: `${b.total ? (b.vistas / b.total) * 100 : 0}%`, height: '100%', borderRadius: 99, background: N.base }} />
                   </div>
                 </div>
@@ -151,7 +151,7 @@ const ordenAvance = (bs) => [...bs].sort((a, b) => ORDEN.indexOf(a.k) - ORDEN.in
 
 function Anillo({ pct, tam = 104, grosor = 10 }) {
   return (
-    <AnilloMarca frac={(pct || 0) / 100} color={N.base} tam={tam} grosor={grosor} riel={CREMA} etiqueta={`${pct} % completado`}>
+    <AnilloMarca frac={(pct || 0) / 100} color={N.base} tam={tam} grosor={grosor} etiqueta={`${pct} % completado`}>
       <div style={{ fontSize: 24, fontWeight: 800, color: TEXT, lineHeight: 1, letterSpacing: '-0.02em' }}>{pct}%</div>
       <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginTop: 3, fontWeight: 600 }}>completado</div>
     </AnilloMarca>
