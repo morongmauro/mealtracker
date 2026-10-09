@@ -286,7 +286,8 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const aro = document.querySelector(`[data-cabecera-hoy="${tema}"] [data-aro-cabecera]`);
   const izq = aro ? Math.min(aro.getBoundingClientRect().left, g.left) : g.left;
   const bien = g.left >= 0 && g.right <= innerWidth && g.top >= 0 && derechaTexto <= izq + 4 && izq - f.right < 40 && g.top < f.bottom
-    && (!aro || aro.getBoundingClientRect().right <= g.left + 44);
+    // El aro, al lado del objeto: sin taparse.
+    && (!aro || aro.querySelector('[data-anillo]').getBoundingClientRect().right <= g.left + 1);
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top], derechaTexto, fRight: f.right, fBottom: f.bottom, w: innerWidth }));
   return bien;
 }, tema);
@@ -381,24 +382,16 @@ try {
   await foto(p, '01b-reto');
   await p.getByRole('dialog', { name: 'Retos' }).click();
   ok('Reto: un toque lo cierra', (await p.getByRole('dialog', { name: 'Retos' }).count()) === 0);
-  // Deslizar de lado pasa de página (en el orden de la barra).
-  const deslizar = (x0, x1, sel = '[data-view="dash"] h1, [data-view="dash"]') => p.evaluate(([x0, x1, sel]) => {
-    const el = document.querySelector(sel);
+  // Deslizar de lado ya NO cambia de sección (chocaba con el scroll de lado
+  // del calendario, la galería y los videos): se navega con la barra.
+  await p.evaluate(() => {
+    const el = document.querySelector('[data-view="dash"] h1, [data-view="dash"]');
     const toque = (x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 420 });
-    el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [toque(x0)], changedTouches: [toque(x0)] }));
-    el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [toque(x1)] }));
-  }, [x0, x1, sel]);
-  await deslizar(320, 90);
-  await p.locator('[data-view="entrena"]').waitFor({ timeout: 8000 }).catch(() => {});
-  ok('deslizar a la izquierda: del Dash pasa a Entrenamiento', (await p.locator('[data-view="entrena"]').count()) === 1 && (await p.locator('[data-view="dash"]').count()) === 0);
-  await espera(400);
-  await deslizar(80, 330, '[data-view="entrena"]');
-  await p.locator('[data-view="dash"]').waitFor({ timeout: 8000 }).catch(() => {});
-  ok('deslizar a la derecha: vuelve al Dash', (await p.locator('[data-view="dash"]').count()) === 1);
-  await espera(400);
-  await deslizar(320, 270);
-  await espera(300);
-  ok('un movimiento corto no cambia de página', (await p.locator('[data-view="dash"]').count()) === 1);
+    el.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [toque(320)], changedTouches: [toque(320)] }));
+    el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [toque(60)] }));
+  });
+  await espera(600);
+  ok('deslizar de lado no cambia de sección', (await p.locator('[data-view="dash"]').count()) === 1 && (await p.locator('[data-view="entrena"]').count()) === 0);
   await dash.getByRole('button', { name: /Recordatorios/ }).click();
   await p.getByText('Mis recordatorios', { exact: true }).last().waitFor({ timeout: 5000 });
   ok('Recordatorios sin oliva', await p.evaluate(() => {
@@ -867,6 +860,7 @@ try {
   await espera(1200);
   await foto(p, '08-comida-hoy');
   ok('Comida: el plato, junto a la frase, entero y sin taparla', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
+  ok('Comida: al llegar a Alimentación, el plato se anima ahí (no escondido por debajo de otra sección)', await p.locator('[data-objeto-cabecera="comida"] img').first().evaluate(i => i.src.startsWith('blob:')));
   ok('Hoy de alimentación ya no saluda ni trae herramientas', (await p.getByText('Hola, Mauro').count()) === 0
     && (await p.getByText('Tus herramientas').count()) === 0);
   ok('Hoy de alimentación: la voz del coach según lo comido, sin personajes', await p.locator('[data-cabecera-hoy="comida"] [data-frase]').isVisible()
@@ -900,11 +894,11 @@ try {
   await p.locator('[data-recetario-botones]').waitFor({ timeout: 8000 });
   await espera(500);
   await foto(p, '10-recetario');
-  ok('Recetas: la marca muy tenue en la esquina de arriba a la derecha, apenas cortada por el borde y sin desplazar la página', await p.evaluate(() => {
+  ok('Recetas: la marca grande (editorial) y muy tenue en la esquina de arriba a la derecha, apenas cortada por el borde y sin desplazar la página', await p.evaluate(() => {
     const m = document.querySelector('[data-cabecera-hoy="comida"] [data-marca-esquina]'); if (!m) return false;
     const r = m.getBoundingClientRect(), op = Number(getComputedStyle(m).opacity);
     const fuera = Math.max(0, r.right - innerWidth) / r.width;
-    return op > 0 && op <= 0.09 && fuera > 0 && fuera <= 0.2 && r.top < 260 && document.documentElement.scrollWidth <= innerWidth;
+    return op > 0 && op <= 0.07 && r.width >= 220 && fuera > 0 && fuera <= 0.2 && r.top < 260 && document.documentElement.scrollWidth <= innerWidth;
   }));
   ok('recetario: una línea separa los botones de las recetas', (await p.locator('[data-recetario-separador]').count()) === 1);
   ok('recetario: sin la foto de portada', (await p.locator('img[src*="recetario-hero"]').count()) === 0);

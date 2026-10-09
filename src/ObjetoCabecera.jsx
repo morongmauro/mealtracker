@@ -48,20 +48,38 @@ const traer = (tema) => {
 };
 const quieto = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
-export default function ObjetoCabecera({ tema, style }) {
+// La animación arranca cuando el objeto de verdad se ve: después de la
+// pantalla de entrada (si no, corre escondida detrás) y cada vez que su
+// sección queda al frente (`activo`). Alimentación vive por debajo de las
+// otras secciones: sin esto el plato se animaba sin que nadie lo viera.
+const entradaLista = () => typeof document === 'undefined' || document.body.classList.contains('app-ready');
+const esperarEntrada = (fn) => {
+  if (entradaLista()) { fn(); return () => {}; }
+  // La entrada se desvanece en ~0,3 s después de marcar «lista».
+  let t = null;
+  const ob = new MutationObserver(() => { if (entradaLista()) { ob.disconnect(); t = setTimeout(fn, 280); } });
+  ob.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  return () => { ob.disconnect(); clearTimeout(t); };
+};
+
+export default function ObjetoCabecera({ tema, activo = true, style }) {
   const [src, setSrc] = useState(null);
   const [flota, setFlota] = useState(false);
   useEffect(() => {
     if (!ANIM[tema]) return undefined;
-    if (quieto()) { setSrc(FIN[tema]); return undefined; }
+    // Sin ver la sección: el último cuadro, quieto (así no hay hueco).
+    if (!activo || quieto()) { setSrc(FIN[tema]); setFlota(!activo ? false : true); return undefined; }
     let vivo = true, url = null, reloj = null;
-    traer(tema).then(blob => {
-      if (!vivo) return;
-      url = URL.createObjectURL(blob); setSrc(url);
-      reloj = setTimeout(() => vivo && setFlota(true), DURA[tema]);
-    }).catch(() => { if (vivo) { setSrc(FIN[tema]); setFlota(true); } });
-    return () => { vivo = false; clearTimeout(reloj); if (url) setTimeout(() => URL.revokeObjectURL(url), 0); };
-  }, [tema]);
+    setFlota(false);
+    const soltar = esperarEntrada(() => {
+      traer(tema).then(blob => {
+        if (!vivo) return;
+        url = URL.createObjectURL(blob); setSrc(url);
+        reloj = setTimeout(() => vivo && setFlota(true), DURA[tema]);
+      }).catch(() => { if (vivo) { setSrc(FIN[tema]); setFlota(true); } });
+    });
+    return () => { vivo = false; soltar(); clearTimeout(reloj); if (url) setTimeout(() => URL.revokeObjectURL(url), 0); };
+  }, [tema, activo]);
   if (!ANIM[tema]) return null;
   return (
     <div data-objeto-cabecera={tema} data-caja={CAJA[tema].join(',')} className={flota ? 'flota' : undefined} style={{ width: '100%', height: '100%', ...style }}>

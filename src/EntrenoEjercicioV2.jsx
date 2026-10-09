@@ -35,6 +35,9 @@ const GRAFITO = '#1D1D1F';
 const AMARILLO = '#F2C94C';
 const CAMPO = '#F2F2F4';
 const GRIS = '#8E8E93';
+const HECHO_FONDO = '#FBF5E2';
+const HECHO_BORDE = 'rgba(242,201,76,0.45)';
+const HECHO_TINTA = '#8A6A12';
 const TARJETA = {
   background: SURFACE, borderRadius: 22, marginBottom: 12,
   boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 8px 22px -12px rgba(0,0,0,0.16)',
@@ -136,7 +139,7 @@ export function textoUltima(series) {
 
 // El video, chico y al lado: está a mano para quien lo quiera ver, sin
 // comerse la pantalla de quien ya se sabe el ejercicio.
-function Miniatura({ e, alTocar, ancho = 76, alto = 58 }) {
+function Miniatura({ e, alTocar, ancho = 68, alto = 52 }) {
   const n = nombresEj(e);
   const thumb = miniatura(e);
   const chica = ancho < 60;
@@ -160,7 +163,7 @@ function Miniatura({ e, alTocar, ancho = 76, alto = 58 }) {
   );
 }
 
-function Nombres({ e, tam = 18 }) {
+function Nombres({ e, tam = 17 }) {
   const n = nombresEj(e);
   return (
     <>
@@ -184,16 +187,16 @@ const textoDescansoCorto = (seg) => {
 // consulta quien la necesita.
 function Botones({ items, chico = false }) {
   return (
-    <div data-botones style={{ display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 7, marginTop: chico ? 8 : 12 }}>
+    <div data-botones style={{ display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 7, marginTop: chico ? 8 : 10 }}>
       {items.map(({ Icono, texto, onClick }) => (
         <button key={texto} onClick={onClick} style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-          height: chico ? 44 : 52, padding: '0 2px', borderRadius: 14, border: 'none',
+          height: chico ? 40 : 44, padding: '0 2px', borderRadius: 13, border: 'none', gap: 1,
           background: CAMPO, color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
           // Con cuatro botones, un pelo más chica para que «Nota al coach» quepa entera.
           fontSize: items.length >= 4 ? 10.5 : 11.5, letterSpacing: items.length >= 4 ? '-0.01em' : 0, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0,
         }}>
-          <Icono size={chico ? 17 : 19} color={GRAFITO} />
+          <Icono size={chico ? 16 : 17} color={GRAFITO} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{texto}</span>
         </button>
       ))}
@@ -286,7 +289,7 @@ export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
 function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 2,
+      display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 1,
       fontSize: 11.5, fontWeight: 700, color: GRIS, letterSpacing: '.04em',
     }}>
       <div style={{ width: 22, flex: 'none' }} />
@@ -299,7 +302,7 @@ function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false }) {
         }}>{unidad.toUpperCase()} ⇄</button>
       </div>
       </>}
-      <div style={{ width: 38, flex: 'none' }} />
+      <div style={{ width: 34, flex: 'none' }} />
     </div>
   );
 }
@@ -327,16 +330,19 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
 
   if (plegado) {
     return (
+      // Hecho = otro color: la tarjeta plegada se tiñe del amarillo suave de
+      // la marca, para ver de un vistazo qué ya está.
       <button data-plegado onClick={() => setPlegado(false)} style={{
-        ...TARJETA, width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-        display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', marginBottom: 10,
+        ...TARJETA, background: HECHO_FONDO, boxShadow: `inset 0 0 0 1px ${HECHO_BORDE}`,
+        width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+        display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 10,
       }}>
         <span style={{ width: 26, height: 26, borderRadius: 99, background: GRAFITO, color: AMARILLO, display: 'grid', placeItems: 'center', flex: 'none' }}>
           <Check size={14} weight="bold" />
         </span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.grande}</span>
-          <span style={{ display: 'block', fontSize: 13, color: GRIS, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span style={{ display: 'block', fontSize: 13, color: HECHO_TINTA, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {`${series.length} serie${series.length === 1 ? '' : 's'} · hecho`}
           </span>
         </span>
@@ -347,7 +353,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
   }
 
   return (
-    <div data-ejercicio={e?.alias || e?.nombre} data-ahora={ahora ? '1' : undefined} style={{ ...TARJETA, padding: '14px 14px 14px' }}>
+    <div data-ejercicio={e?.alias || e?.nombre} data-ahora={ahora ? '1' : undefined} style={{ ...TARJETA, padding: '12px 13px 11px' }}>
       <style>{CSS_RUTINA}</style>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <Miniatura e={e} alTocar={() => setFicha(true)} />
@@ -357,7 +363,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </div>
       </div>
       {/* Lo recetado, en una línea con sus íconos. */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 10, fontSize: 13.5, color: '#3A3A3C', fontWeight: 600 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 8, fontSize: 13.5, color: '#3A3A3C', fontWeight: 600 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           <ListBullets size={15} />
           {re.series > 1 ? `${re.series} series × ` : ''}{textoReps(re)}
@@ -379,7 +385,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </div>
       )}
 
-      {sinCarga ? <div style={{ height: 12 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} soloReps={soloReps} />}
+      {sinCarga ? <div style={{ height: 10 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} soloReps={soloReps} />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: sinCarga ? 6 : 2 }}>
         {series.map(s => (
           <SerieFilaV2 key={s} n={s} re={re} unidad={unidad} sinCarga={sinCarga} soloReps={soloReps}
@@ -519,7 +525,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   if (sinCarga) {
     return (
       <button onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
-        display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 46, padding: '0 6px 0 14px',
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 40, padding: '0 5px 0 14px',
         borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', border: 'none',
         background: hecha ? 'transparent' : CAMPO, boxShadow: hecha ? `inset 0 0 0 1px ${'#E5E5EA'}` : 'none',
         position: 'relative', overflow: 'hidden',
@@ -529,7 +535,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
           {hecha ? 'Hecho' : (re.series > 1 ? `Serie ${n} · ${textoReps(re)}` : textoReps(re) || 'Marcar hecho')}
         </span>
         <span key={pop} className={pop && hecha ? 'mt-pop' : undefined} style={{
-          width: 34, height: 34, borderRadius: 99, display: 'grid', placeItems: 'center', flex: 'none',
+          width: 30, height: 30, borderRadius: 99, display: 'grid', placeItems: 'center', flex: 'none',
           background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6', color: hecha ? AMARILLO : '#C7C7CC',
         }}><Check size={15} weight="bold" /></span>
       </button>
@@ -539,16 +545,16 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   // Campos grises sin borde; al tocarlos, blancos con contorno grafito. Ya
   // marcada, la serie queda en limpio: los números en negrita, sin caja.
   const campo = (malo) => ({
-    width: '100%', height: 42, padding: '0 6px', borderRadius: 12, textAlign: 'center', border: 'none',
+    width: '100%', height: 36, padding: '0 6px', borderRadius: 11, textAlign: 'center', border: 'none',
     background: hecha ? 'transparent' : CAMPO,
     boxShadow: malo ? 'inset 0 0 0 1.5px #D9785F' : 'none',
-    fontSize: 17, fontWeight: 700, color: TEXT, outline: 'none', opacity: 1, WebkitTextFillColor: TEXT,
+    fontSize: 16, fontWeight: 700, color: TEXT, outline: 'none', opacity: 1, WebkitTextFillColor: TEXT,
     fontFamily: 'inherit', WebkitAppearance: 'none', boxSizing: 'border-box',
   });
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0',
+      display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0',
       borderRadius: 14, position: 'relative', overflow: 'hidden',
     }}>
       {brillo}
@@ -566,7 +572,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       </div>
       )}
       <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
-        flex: 'none', width: 38, height: 38, borderRadius: 99, cursor: 'pointer', border: 'none',
+        flex: 'none', width: 34, height: 34, borderRadius: 99, cursor: 'pointer', border: 'none',
         background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
         color: hecha ? AMARILLO : '#C7C7CC', display: 'grid', placeItems: 'center',
       }}><Check size={16} weight="bold" /></button>

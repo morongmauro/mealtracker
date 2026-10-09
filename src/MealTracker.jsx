@@ -48,7 +48,6 @@ import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
 import CuentaV2, { leerSesion, guardarSesion } from './CuentaV2.jsx';
 import { aroComida } from './aros.js';
 import { leerAprendizajeConCache } from './aprendizaje.js';
-import { escucharDeslizar } from './deslizarV2.js';
 
 // ── Modelos: enrutamiento HÍBRIDO ────────────────────────────────────────
 // FAST (Haiku) clasifica y registra los mensajes del día a día (~85% del
@@ -696,25 +695,9 @@ export default function MealTracker() {
     if (RECORRIDO_AUTO && view === 'main' && name && v2Activa() && !recorridoHecho()) setRecorrido(true);
   }, [view, name]);   // eslint-disable-line react-hooks/exhaustive-deps
   const learningFrameRef = useRef(null);
-  // Visual nueva: deslizar entre páginas (ver paginasV2 y deslizarV2.js).
-  const deslizarRef = useRef(null);
+  // (Deslizar entre páginas se quitó: chocaba con el scroll de lado del
+  // calendario, la galería y los videos. Se navega con la barra.)
   const v2 = esV2(name);
-  useEffect(() => {
-    if (!v2) return undefined;
-    const pasar = (dir) => {
-      const d = deslizarRef.current; if (!d) return;
-      const i = d.paginas.findIndex(([s, o]) => s === d.actual[0] && (o || null) === (d.actual[1] || null));
-      const sig = d.paginas[i + dir];
-      if (i < 0 || !sig) return;
-      d.ir(sig[0], sig[1] || undefined);
-    };
-    const quitar = escucharDeslizar(document, pasar);
-    // Desde el centro de aprendizaje (otro documento, en el iframe) llega
-    // como mensaje.
-    const alMensaje = (ev) => { const m = ev && ev.data; if (m && m.tipo === 'em-deslizar' && (m.dir === 1 || m.dir === -1)) pasar(m.dir); };
-    window.addEventListener('message', alMensaje);
-    return () => { quitar(); window.removeEventListener('message', alMensaje); };
-  }, [v2]);
   useEffect(() => { aplicarV2(v2); }, [v2]);
   // Con la visual nueva, la app SIEMPRE abre en el Dash, que es el que te
   // reubica: cómo vas en todo. (Comida queda en Hoy por debajo.)
@@ -5198,11 +5181,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     if (sec === 'comida') return irSubV2('comida', 'hoy');
     if (sec === 'aprende') return irSubV2('aprende', 'lecturas');
   };
-  // Deslizar el dedo pasa de página, en el orden de la barra: hacia la
-  // izquierda la siguiente, hacia la derecha la anterior (el calendario de
-  // comidas no cuenta: es una ventana, no una página).
-  const paginasV2 = seccionesV2.flatMap(s => s.subs.length ? s.subs.filter(o => o.id !== 'calendario').map(o => [s.id, o.id]) : [[s.id, null]]);
-  deslizarRef.current = { paginas: paginasV2, actual: [seccionV2, seccionV2 === 'dash' ? null : subV2], ir: irSubV2 };
 
   return (
     <div className="min-h-screen relative" style={{ background: BG, color: TEXT, fontFamily: FONT_UI }}>
@@ -5516,7 +5494,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             // funciona igual (registra comida y lleva totales); los anillos
             // aparecen solos cuando la meta llegue con su anuncio.
             <div className="text-center py-2">
-              <div className="text-[13px] font-semibold" style={{ color: TEXT }}>🎯 Tu coach está preparando tu meta nutricional</div>
+              <div className="text-[13px] font-semibold" style={{ color: TEXT }}>{v2 ? '' : '🎯 '}Tu coach está preparando tu meta nutricional</div>
               <div className="text-[11px] mt-1" style={{ color: TEXT_MUTED }}>
                 Te avisaré aquí cuando llegue. Mientras tanto cuéntame qué comes y voy llevando tus totales{totals.kcal > 0 ? ` — hoy: ${Math.round(totals.kcal)} kcal · P${Math.round(totals.p)} C${Math.round(totals.c)} G${Math.round(totals.g)}` : ''}.
               </div>
@@ -5592,7 +5570,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             border: '1px solid rgba(255,255,255,0.65)',
             boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(60,70,50,0.14), 0 1px 4px rgba(0,0,0,0.05)',
           }}>
-            <span style={{ fontSize: '16px', flexShrink: 0 }}>🔔</span>
+            <span style={{ fontSize: '16px', flexShrink: 0, display: 'inline-flex' }}>{v2 ? <BellV2 size={17} weight="regular" /> : '🔔'}</span>
             <div className="flex-1 min-w-0" style={{ fontSize: '12px', color: TEXT_MUTED, lineHeight: 1.3 }}>
               <strong style={{ color: TEXT }}>Recordatorios del día</strong> — te avisamos para que ningún registro se te pase.
             </div>
@@ -5693,7 +5671,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             border: '1px solid rgba(255,255,255,0.7)',
             boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 24px 64px rgba(20,25,15,0.35)',
           }}>
-            <div style={{ fontSize: '44px', lineHeight: 1, marginBottom: '12px' }}>🔔</div>
+            <div style={{ fontSize: '44px', lineHeight: 1, marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>{v2 ? <BellV2 size={40} weight="regular" /> : '🔔'}</div>
             <div style={{ fontSize: '17px', fontWeight: 700, color: TEXT, fontFamily: FONT_DISPLAY, marginBottom: '8px' }}>
               Que ningún registro se te pase
             </div>
@@ -5763,6 +5741,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             {v2 ? (
               <div>
                 <CabeceraHoy tema="comida" sangria="20px" arriba={`${headerH + 16}px`}
+                  activo={seccionV2 === 'comida' && !showRecetario}
                   voz={vozComida({ hoy: today, hora: new Date().getHours(), kcal: totals.kcal, meta: goals?.kcal || 0, comidas: entries.length, racha: streak })}
                   aro={aroComida(history, goals, today)} />
                 <div style={{ marginTop: '-4px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -5837,7 +5816,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             }}>
               {!goals ? (
                 <div className="relative text-center py-3">
-                  <div className="text-[14px] font-bold" style={{ color: TEXT }}>🎯 Tu coach está preparando tu meta</div>
+                  <div className="text-[14px] font-bold" style={{ color: TEXT }}>{v2 ? '' : '🎯 '}Tu coach está preparando tu meta</div>
                   <div className="text-[12px] mt-1" style={{ color: TEXT_MUTED }}>Mientras tanto, cuéntame en el chat qué comes y llevo tus totales.</div>
                 </div>
               ) : (
@@ -5864,7 +5843,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       </div>
                     );
                     if (ratio >= 0.95 && pOk) return (
-                      <div className="text-[12px] px-1" style={{ color: TEXT_MUTED, marginTop: '3px' }}>Meta del día completa 🎉</div>
+                      <div className="text-[12px] px-1" style={{ color: TEXT_MUTED, marginTop: '3px' }}>Meta del día completa{v2 ? '' : ' 🎉'}</div>
                     );
                     if (ratio >= 0.95) return (
                       <div className="text-[12px] px-1" style={{ color: TEXT_MUTED, marginTop: '3px' }}>Calorías al día — revisa tu proteína</div>
@@ -7745,7 +7724,42 @@ function TarjetaComidaV2({ e, isHistorical, goals, totals, quantityWarning, esFa
   );
 }
 
-const MessageBubble = memo(function MessageBubble({ message, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature, onOpenLearning, onOpenRecetario, v2 = false }) {
+// ── Chat (visual nueva): sin emojis y con jerarquía ─────────────────────
+// La IA (y algunos textos viejos) traen emojis; en la visual nueva la
+// iconografía es la de la marca, así que se quitan de todo lo que pinta el
+// chat. Y el texto suelto se lee con jerarquía: **negritas**, listas con el
+// punto de la marca y subtítulos cortos que terminan en «:».
+const RE_EMOJI = /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}\uFE0F\u200D\u20E3]/gu;
+const sinEmoji = (t) => (typeof t === 'string'
+  ? t.replace(RE_EMOJI, '').replace(/[ \t]{2,}/g, ' ').replace(/ +([,.;:!?)])/g, '$1').replace(/^[ \t]+|[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim()
+  : t);
+const limpiarEmojis = (x, prof = 0) => {
+  if (typeof x === 'string') return sinEmoji(x);
+  if (prof > 4 || x == null || typeof x !== 'object' || React.isValidElement(x)) return x;
+  if (Array.isArray(x)) return x.map(v => limpiarEmojis(v, prof + 1));
+  const o = {}; for (const k in x) o[k] = limpiarEmojis(x[k], prof + 1); return o;
+};
+const negritas = (t, k0) => String(t).split(/(\*\*[^*]+\*\*)/g).map((p, i) => (/^\*\*[^*]+\*\*$/.test(p)
+  ? <b key={k0 + '-' + i} style={{ fontWeight: 700 }}>{p.slice(2, -2)}</b> : p));
+function TextoChatV2({ texto }) {
+  const lineas = String(texto || '').split('\n');
+  return lineas.map((l, i) => {
+    const vineta = l.match(/^\s*(?:[-•*·]|\d+[.)])\s+(.*)$/);
+    if (vineta) return (
+      <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'baseline', margin: '3px 0' }}>
+        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 9, background: '#F2C94C', flex: 'none', transform: 'translateY(-2px)' }} />
+        <span>{negritas(vineta[1], i)}</span>
+      </div>
+    );
+    if (!l.trim()) return <div key={i} style={{ height: 8 }} />;
+    const sub = l.trim().length <= 48 && /:$/.test(l.trim()) && !/\*\*/.test(l);
+    if (sub) return <div key={i} style={{ fontSize: 13, fontWeight: 750, letterSpacing: '0.01em', color: TEXT, marginTop: i ? 6 : 0, marginBottom: 2 }}>{l.trim().slice(0, -1)}</div>;
+    return <div key={i}>{negritas(l, i)}</div>;
+  });
+}
+
+const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, goals, totals, entries, historyDetail, onEdit, onDelete, onFavorite, onAcceptFavSuggestion, onDismissFavSuggestion, onAcceptAutoFav, onDismissAutoFav, favoriteIngredients = [], onOpenPerformance, onSeparateAppended, favoriteSignatures, favSignature, onOpenLearning, onOpenRecetario, v2 = false }) {
+  const message = v2 ? limpiarEmojis(mensajeOriginal) : mensajeOriginal;
   const { ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT, BORDER } = v2 ? PALETA_CHAT_V2 : PALETA_CHAT;
   // ── PROPUESTAS DEL RECETARIO ─────────────────────────────────────────
   // Tarjetas TOCABLES, no un párrafo de texto: cada receta abre su ficha
@@ -7801,7 +7815,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
                   <button key={r.id} onClick={() => abrir({ id: r.id, query: consulta, slot: slotKey })}
                     className="w-full text-left p-3 rounded-[18px] flex items-center gap-3 active:scale-[0.98] transition"
                     style={{ background: '#FFFFFF', boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 4px 14px rgba(96,102,72,0.12)' }}>
-                    <span className="flex items-center justify-center rounded-[13px] flex-shrink-0" style={{ width: 42, height: 42, background: ACCENT_PASTEL + '70', fontSize: 21 }}>{r.icon}</span>
+                    <span className="flex items-center justify-center rounded-[13px] flex-shrink-0" style={{ width: 42, height: 42, background: ACCENT_PASTEL + '70', fontSize: 21, color: ACCENT_DARK }}>{v2 ? <ChefHatV2 size={21} weight="regular" /> : r.icon}</span>
                     <span className="flex-1 min-w-0">
                       <span className="block text-[13.5px] font-bold truncate" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{r.name}</span>
                       <span className="block text-[10.5px] mt-0.5" style={{ color: TEXT_LIGHT }}>{r.slot} · {r.time}</span>
@@ -8145,7 +8159,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </div>
           )}
           {d.tip && (
-            <div className="mt-3 text-[11px] italic leading-relaxed" style={{ color: TEXT_MUTED }}>💡 {d.tip}</div>
+            <div className="mt-3 text-[11px] italic leading-relaxed" style={{ color: TEXT_MUTED }}>{v2 ? '' : '💡 '}{d.tip}</div>
           )}
           <div className="mt-3 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
             Solo aprendizaje — no se modifica tu registro de hoy.
@@ -8271,7 +8285,7 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
             </div>
           )}
           {d.tip && (
-            <div className="mt-3 text-[11px] italic leading-relaxed" style={{ color: TEXT_MUTED }}>💡 {d.tip}</div>
+            <div className="mt-3 text-[11px] italic leading-relaxed" style={{ color: TEXT_MUTED }}>{v2 ? '' : '💡 '}{d.tip}</div>
           )}
           <div className="mt-3 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
             Propuesta visual — tus favoritos originales siguen guardados intactos.
@@ -8779,6 +8793,16 @@ const MessageBubble = memo(function MessageBubble({ message, goals, totals, entr
     );
   }
 
+  if (v2) return (
+    <div className="flex justify-start fade-up" data-rol="assistant">
+      <div data-texto-chat className="max-w-[86%] px-4 py-3 rounded-[22px] rounded-bl-lg" style={{
+        background: '#FFFFFF', color: TEXT, fontSize: 15, lineHeight: 1.5,
+        boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 8px 22px -12px rgba(0,0,0,0.16)',
+      }}>
+        <TextoChatV2 texto={message.content} />
+      </div>
+    </div>
+  );
   return (
     <div className="flex justify-start fade-up">
       <div className="max-w-[85%] px-4 py-3 rounded-[22px] rounded-bl-lg text-[15px] whitespace-pre-wrap" style={{
