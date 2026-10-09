@@ -58,11 +58,18 @@ import { leerAprendizajeConCache } from './aprendizaje.js';
 // recetario) van SIEMPRE por SMART. El proxy /api/chat ajusta parámetros
 // según modelo (Haiku: temperature 0; Sonnet 5: thinking off + effort).
 // Apagar el híbrido (todo Sonnet): HYBRID_MODELS = false.
-// Validación: node scripts/bateria.mjs --model=both  compara ambos modelos.
-const MODEL_SMART = 'claude-sonnet-5';
-const MODEL_FAST = 'claude-haiku-4-5-20251001';
+// Validación: node scripts/bateria.mjs --model=both  compara ambos modelos
+// (--model=todos --repetir=3: los de hoy contra los 5.5, con constancia y costo).
+const MODELOS_ACTUALES = { smart: 'claude-sonnet-5', fast: 'claude-haiku-4-5-20251001' };
+// En prueba (solo la visual nueva, hoy Mauro): Sonnet 5.5 y Haiku 5.5. El
+// proxy /api/chat les pone los parámetros que aceptan (ver paramsNuevos).
+const MODELOS_55 = { smart: 'claude-sonnet-5-5', fast: 'claude-haiku-5-5' };
+const modelos = () => (v2Activa() ? MODELOS_55 : MODELOS_ACTUALES);
+// Si un 5.5 se niega a responder (filtros de seguridad: stop_reason
+// «refusal»), se reintenta con el de siempre: el cliente nunca se queda sin
+// respuesta. (Haiku 5.5 no tiene respaldo automático del lado de Anthropic.)
+const RESPALDO = { 'claude-sonnet-5-5': 'claude-sonnet-5', 'claude-haiku-5-5': 'claude-haiku-4-5-20251001' };
 const HYBRID_MODELS = true;
-const CHAT_MODEL = MODEL_SMART; // compatibilidad con llamadas existentes
 
 // ─── Salida estructurada (JSON garantizado por la API) ───────────────────
 // Con este schema, la API OBLIGA al modelo a devolver JSON válido con esta
@@ -2246,6 +2253,8 @@ export default function MealTracker() {
         if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
           text += ev.delta.text || '';
           if (onDelta) { try { onDelta(text); } catch (e) {} }
+        } else if (ev.type === 'message_delta' && ev.delta?.stop_reason === 'refusal') {
+          throw new Error('refusal');
         } else if (ev.type === 'error') {
           throw new Error(`stream:${ev.error?.message || 'error'}`);
         }
@@ -2268,6 +2277,7 @@ export default function MealTracker() {
     // escritura a caché de 1h cuesta 2x (vs 1.25x del de 5min) pero con
     // comidas espaciadas horas, el de 5min nunca pegaba y este sí.
     const systemBlocks = [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral', ttl: '1h' } }];
+    let modeloActual = modelOpt || modelos().smart;
     for (let i = 0; i <= retries; i++) {
       // Se evalúa DENTRO del loop: si la API rechaza el schema (400), el flag
       // se apaga y el siguiente intento sale sin él — la app nunca se cae por
@@ -2278,7 +2288,7 @@ export default function MealTracker() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: modelOpt || CHAT_MODEL,
+            model: modeloActual,
             // 8000 (antes 5000): tope de salida generoso para que un dictado
             // MUY largo (la comida de toda la semana, recetas de 15+ items)
             // no corte el JSON a la mitad. Es un TECHO, no un objetivo: las
@@ -2315,9 +2325,11 @@ export default function MealTracker() {
         }
         // Respuesta clásica (sin streaming, o servidor aún sin la versión nueva).
         const data = await response.json();
-        return data.content.map(c => c.text || '').join('');
+        if (data.stop_reason === 'refusal') throw new Error('refusal');
+        return (data.content || []).map(c => c.text || '').join('');
       } catch (e) {
         lastError = e;
+        if (String(e?.message || '') === 'refusal' && RESPALDO[modeloActual]) modeloActual = RESPALDO[modeloActual];
         if (i < retries) {
           // 429 = límite por minuto del guard (caso F26): esperar de verdad
           // antes de reintentar — con 300ms el reintento caía en el mismo
@@ -3446,6 +3458,7 @@ ${dateTable}${pastDaysBlock}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}
 
     // Enrutamiento híbrido: Haiku clasifica lo cotidiano; los dictados
     // largos (recetas, día completo) van directo a Sonnet.
+    const { smart: MODEL_SMART, fast: MODEL_FAST } = modelos();
     const modeloParse = (!HYBRID_MODELS || text.length > 220) ? MODEL_SMART : MODEL_FAST;
     const aJson = (raw) => {
       const clean = raw.replace(/```json|```/g, '').trim();
@@ -4571,7 +4584,7 @@ SCHEMA:
 
 EJEMPLO INPUT: "desayuno con 4 huevos revueltos, 2 tostadas integrales con manteca, café negro, creatina con cacao"
 EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo revuelto","amount":"4 unidades (~200g)","kcal":280,"p":24,"c":2,"g":20},{"name":"Pan integral tostado","amount":"2 unidades (~50g)","kcal":130,"p":5,"c":24,"g":2},{"name":"Manteca","amount":"~10g","kcal":72,"p":0,"c":0,"g":8},{"name":"Café negro","amount":"240ml","kcal":2,"p":0,"c":0,"g":0},{"name":"Creatina","amount":"5g","kcal":0,"p":0,"c":0,"g":0},{"name":"Cacao en polvo","amount":"2 cdas (~10g)","kcal":23,"p":2,"c":6,"g":1}],"quantity_warning":"asumí cantidades estándar; ajusta si difiere"}`;
-          const forcedResult = await callClaude(userMsg, forcedSys, { schema: PARSE_SCHEMA, clientText: userMsg, model: MODEL_SMART });
+          const forcedResult = await callClaude(userMsg, forcedSys, { schema: PARSE_SCHEMA, clientText: userMsg, model: modelos().smart });
           const cleanF = forcedResult.replace(/```json|```/g, '').trim();
           const matchF = cleanF.match(/\{[\s\S]*\}/);
           const forced = JSON.parse(matchF ? matchF[0] : cleanF);
@@ -11164,7 +11177,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: CHAT_MODEL,
+          model: modelos().smart,
           max_tokens: 300,
           system: sys,
           messages: [{ role: "user", content: `${item.name}: ${newAmount}` }],

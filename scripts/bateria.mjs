@@ -14,6 +14,11 @@
 //   ANTHROPIC_API_KEY=sk-... node scripts/bateria.mjs --model=both
 //   ... --solo=A2            # un solo caso
 //   ... --grupo=protegidas   # un grupo
+//   ... --model=todos        # los de hoy contra los 5.5 (sonnet,haiku,sonnet55,haiku55)
+//   ... --model=haiku,haiku55 --repetir=3   # cada caso 3 veces: mide constancia
+//
+// Al final de cada modelo imprime aciertos, constancia (mismas respuestas al
+// repetir), JSON inválidos, latencia (mediana y p90) y costo por mensaje.
 //
 // Nota: valida la CLASIFICACIÓN del modelo (intents/comandos/fechas), que es
 // lo que varía entre modelos y versiones de prompt. Las guardias
@@ -26,10 +31,26 @@ import { CHAT_SYSTEM_PROMPT, PARSE_SCHEMA } from '../src/chatSpec.js';
 const API_KEY = process.env.ANTHROPIC_API_KEY;
 if (!API_KEY) { console.error('Falta ANTHROPIC_API_KEY'); process.exit(1); }
 
-const MODELS = { sonnet: 'claude-sonnet-5', haiku: 'claude-haiku-4-5-20251001' };
+const MODELS = {
+  sonnet: 'claude-sonnet-5', haiku: 'claude-haiku-4-5-20251001',
+  sonnet55: 'claude-sonnet-5-5', haiku55: 'claude-haiku-5-5',
+};
+// USD por millón de tokens (cache de 1 h, igual que api/chat.js).
+const PRECIOS = {
+  'claude-sonnet-5': { in: 2, out: 10, cw: 4, cr: 0.2 },
+  'claude-haiku-4-5-20251001': { in: 1, out: 5, cw: 2, cr: 0.1 },
+  'claude-sonnet-5-5': { in: 2, out: 10, cw: 4, cr: 0.2 },
+  'claude-haiku-5-5': { in: 0.1, out: 0.5, cw: 0.2, cr: 0.01 },
+};
+const costo = (model, u = {}) => {
+  const p = PRECIOS[model];
+  return ((u.input_tokens || 0) * p.in + (u.output_tokens || 0) * p.out
+    + (u.cache_creation_input_tokens || 0) * p.cw + (u.cache_read_input_tokens || 0) * p.cr) / 1e6;
+};
 const args = Object.fromEntries(process.argv.slice(2).map(a => a.replace(/^--/, '').split('=')));
 const modelArg = args.model || 'sonnet';
 const CONCURRENCY = Number(args.concurrencia) || 4;
+const REPETIR = Math.max(1, Number(args.repetir) || 1);
 
 // ── Fechas de referencia (hoy real, igual que la app) ──────────────────────
 const getLocalDate = (d = new Date()) => {
@@ -205,18 +226,21 @@ const CASES = [
 
 // ── Llamada a la API (mismos parámetros por modelo que api/chat.js) ────────
 async function callModel(model, userMessage) {
+  const formato = { format: { type: 'json_schema', schema: PARSE_SCHEMA } };
+  let extra;
+  if (model.startsWith('claude-sonnet-5-5')) extra = { thinking: { type: 'between_tools' }, output_config: { effort: 'low', ...formato } };
+  else if (model.startsWith('claude-haiku-5-5')) extra = { thinking: { type: 'disabled' }, output_config: { effort: 'low', ...formato } };
+  else if (model.startsWith('claude-sonnet-5')) extra = { thinking: { type: 'disabled' }, output_config: { effort: 'low', ...formato } };
+  else extra = { temperature: 0, output_config: formato };
   const body = {
     model,
     max_tokens: 4000,
-    system: [{ type: 'text', text: CHAT_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+    system: [{ type: 'text', text: CHAT_SYSTEM_PROMPT, cache_control: { type: 'ephemeral', ttl: '1h' } }],
     messages: [{ role: 'user', content: userMessage }],
-    output_config: {
-      ...(model.startsWith('claude-sonnet-5') ? { effort: 'low' } : {}),
-      format: { type: 'json_schema', schema: PARSE_SCHEMA },
-    },
-    ...(model.startsWith('claude-sonnet-5') ? { thinking: { type: 'disabled' } } : { temperature: 0 }),
+    ...extra,
   };
   for (let i = 0; i < 3; i++) {
+    const t0 = Date.now();
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
@@ -225,11 +249,23 @@ async function callModel(model, userMessage) {
     if (r.status === 429 || r.status === 529 || r.status >= 500) { await new Promise(s => setTimeout(s, 2000 * (i + 1))); continue; }
     if (!r.ok) throw new Error(`HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
     const data = await r.json();
-    const text = data.content.map(c => c.text || '').join('');
-    return { parsed: JSON.parse(text.replace(/```json|```/g, '').trim()), usage: data.usage };
+    const ms = Date.now() - t0;
+    if (data.stop_reason === 'refusal') throw Object.assign(new Error('rechazo del modelo'), { usage: data.usage, ms });
+    const text = data.content.filter(c => c.type === 'text').map(c => c.text).join('');
+    let parsed;
+    try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); }
+    catch { throw Object.assign(new Error('JSON inválido'), { json: true, usage: data.usage, ms }); }
+    return { parsed, usage: data.usage, ms };
   }
   throw new Error('reintentos agotados');
 }
+
+// Lo que tiene que salir igual al repetir un mensaje: la decisión y los números.
+const huella = (p) => JSON.stringify({
+  intent: p.intent, command: p.command, meal: p.meal, log_date: p.log_date, idx: p.edit_entry_index,
+  items: (p.items || []).map(i => [String(i.name || '').toLowerCase(), Math.round(Number(i.kcal) || 0), Math.round(Number(i.p) || 0)]),
+});
+const percentil = (xs, q) => { const a = [...xs].sort((x, y) => x - y); return a.length ? a[Math.min(a.length - 1, Math.floor(q * a.length))] : 0; };
 
 // ── Runner ─────────────────────────────────────────────────────────────────
 async function runSuite(modelKey) {
@@ -240,21 +276,37 @@ async function runSuite(modelKey) {
   console.log(`\n═══ ${model} · ${cases.length} casos ═══\n`);
 
   const results = [];
+  const medidas = { ms: [], usd: 0, llamadas: 0, json: 0, errores: 0, constantes: 0, repetidos: 0 };
   let idx = 0;
   const worker = async () => {
     while (idx < cases.length) {
       const c = cases[idx++];
       const userMessage = `${buildContext(c.fx)}\n\n═══ MENSAJE ACTUAL DEL CLIENTE ═══\n${c.msg}`;
-      try {
-        const { parsed } = await callModel(model, userMessage);
-        const r = c.check(parsed);
-        const ok = r === true;
-        results.push({ ...c, ok, why: ok ? '' : r, got: parsed });
-        console.log(`${ok ? '✓' : '✗'} ${c.id.padEnd(4)} ${c.msg.slice(0, 58)}${ok ? '' : `\n     → ${r}\n     → recibido: intent=${parsed.intent} command=${parsed.command} meal=${parsed.meal} log_date=${parsed.log_date} move_from=${parsed.move_from} idx=${parsed.edit_entry_index}`}`);
-      } catch (e) {
-        results.push({ ...c, ok: false, why: `ERROR: ${e.message}` });
-        console.log(`✗ ${c.id.padEnd(4)} ERROR: ${e.message}`);
+      const vueltas = [];
+      for (let k = 0; k < REPETIR; k++) {
+        try {
+          const { parsed, usage, ms } = await callModel(model, userMessage);
+          medidas.ms.push(ms); medidas.usd += costo(model, usage); medidas.llamadas++;
+          const r = c.check(parsed);
+          vueltas.push({ ok: r === true, why: r === true ? '' : r, parsed });
+        } catch (e) {
+          medidas.llamadas++; medidas.errores++; if (e.json) medidas.json++;
+          if (e.usage) medidas.usd += costo(model, e.usage);
+          vueltas.push({ ok: false, why: `ERROR: ${e.message}` });
+        }
       }
+      const ok = vueltas.every(v => v.ok);
+      const malo = vueltas.find(v => !v.ok);
+      let constante = true;
+      if (REPETIR > 1) {
+        const hs = vueltas.map(v => (v.parsed ? huella(v.parsed) : 'error'));
+        constante = hs.every(h => h === hs[0]);
+        medidas.repetidos++; if (constante) medidas.constantes++;
+      }
+      results.push({ ...c, ok, constante, why: ok ? '' : malo.why, got: malo?.parsed });
+      const g = malo?.parsed;
+      const marca = REPETIR > 1 ? ` ${vueltas.filter(v => v.ok).length}/${REPETIR}${constante ? '' : ' ≠'}` : '';
+      console.log(`${ok ? '✓' : '✗'} ${c.id.padEnd(4)}${marca} ${c.msg.slice(0, 58)}${ok ? '' : `\n     → ${malo.why}${g ? `\n     → recibido: intent=${g.intent} command=${g.command} meal=${g.meal} log_date=${g.log_date} move_from=${g.move_from} idx=${g.edit_entry_index}` : ''}`}`);
     }
   };
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
@@ -266,16 +318,30 @@ async function runSuite(modelKey) {
     console.log(`  ${g.padEnd(12)} ${rs.filter(r => r.ok).length}/${rs.length}`);
   }
   const total = results.filter(r => r.ok).length;
-  console.log(`  TOTAL        ${total}/${results.length} (${Math.round(total / results.length * 100)}%)\n`);
-  return { model: modelKey, total, n: results.length, results };
+  console.log(`  TOTAL        ${total}/${results.length} (${Math.round(total / results.length * 100)}%)`);
+  if (REPETIR > 1) console.log(`  CONSTANCIA   ${medidas.constantes}/${medidas.repetidos} casos dieron lo mismo las ${REPETIR} veces`);
+  console.log(`  JSON MALO    ${medidas.json} · otros errores ${medidas.errores - medidas.json}`);
+  console.log(`  LATENCIA     mediana ${(percentil(medidas.ms, 0.5) / 1000).toFixed(1)} s · p90 ${(percentil(medidas.ms, 0.9) / 1000).toFixed(1)} s`);
+  console.log(`  COSTO        $${medidas.usd.toFixed(4)} en ${medidas.llamadas} llamadas · $${(medidas.usd / Math.max(1, medidas.llamadas) * 1000).toFixed(2)} por 1.000 mensajes\n`);
+  return { model: modelKey, total, n: results.length, results, medidas };
 }
 
-const suites = modelArg === 'both' ? ['sonnet', 'haiku'] : [modelArg];
+const LISTAS = { both: ['sonnet', 'haiku'], todos: ['sonnet', 'haiku', 'sonnet55', 'haiku55'] };
+const suites = LISTAS[modelArg] || modelArg.split(',');
+for (const s of suites) if (!MODELS[s]) { console.error(`Modelo desconocido: ${s} (usa ${Object.keys(MODELS).join(', ')})`); process.exit(1); }
 let failed = false;
+const tabla = [];
 for (const s of suites) {
   const r = await runSuite(s);
-  // Las protegidas son bloqueantes SOLO para el modelo de producción (sonnet)
-  if (s === 'sonnet' && r.results.some(x => !x.ok && x.grupo === 'protegidas')) failed = true;
+  tabla.push(r);
+  // Las protegidas son bloqueantes SOLO para los modelos "inteligentes" (Sonnet)
+  if (s.startsWith('sonnet') && r.results.some(x => !x.ok && x.grupo === 'protegidas')) failed = true;
 }
-if (suites.length === 2) console.log('Comparativo listo: usa los resúmenes de arriba para decidir el enrutamiento híbrido.');
+if (tabla.length > 1) {
+  console.log('═══ Comparativo ═══');
+  console.log('  modelo                        aciertos   constancia  JSON malo  mediana   $ / 1.000');
+  for (const { model, total, n, medidas: m } of tabla) {
+    console.log(`  ${MODELS[model].padEnd(29)} ${`${total}/${n}`.padEnd(10)} ${(REPETIR > 1 ? `${m.constantes}/${m.repetidos}` : '—').padEnd(11)} ${String(m.json).padEnd(10)} ${`${(percentil(m.ms, 0.5) / 1000).toFixed(1)} s`.padEnd(9)} $${(m.usd / Math.max(1, m.llamadas) * 1000).toFixed(2)}`);
+  }
+}
 process.exit(failed ? 1 : 0);

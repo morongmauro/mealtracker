@@ -24,15 +24,40 @@ const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
 // para que el costo guardado sea el real de ese día.
 function pricingFor(model) {
   const m = String(model || '');
+  // Haiku 5.5: hasta 100K tokens de prompt (el chat nunca pasa de ~15K).
+  // (Escritura de caché a precio de 1 hora, que es el que usa la app: 2×.)
+  if (m.startsWith('claude-haiku-5-5')) return { in: 0.10, out: 0.50, cacheWrite: 0.20, cacheRead: 0.01 };
   if (m.startsWith('claude-haiku-')) {
     return { in: 1, out: 5, cacheWrite: 1.25, cacheRead: 0.10 };
   }
+  // Sonnet 5.5: mismo precio que Sonnet 5 hoy.
+  if (m.startsWith('claude-sonnet-5-5')) return { in: 2, out: 10, cacheWrite: 4.00, cacheRead: 0.20 };
   // Sonnet 5
   const introHasta = Date.UTC(2026, 7, 31, 23, 59, 59); // 31 ago 2026
   const intro = Date.now() <= introHasta;
   return intro
     ? { in: 2, out: 10, cacheWrite: 2.50, cacheRead: 0.20 }
     : { in: 3, out: 15, cacheWrite: 3.75, cacheRead: 0.30 };
+}
+
+// ── Modelos 5.5 (en prueba, solo para la visual nueva) ───────────────────
+// Haiku 5.5 y Sonnet 5.5 cambian lo que aceptan:
+//   · Sonnet 5.5 rechaza thinking 'disabled' (400): lo más bajo es
+//     'between_tools' (sin razonamiento extendido), con esfuerzo high o menos.
+//   · Haiku 5.5 rechaza temperature/top_p (400) y razona por defecto: se
+//     apaga el razonamiento (vale con esfuerzo high o menos) para que
+//     responda rápido y no cobre tokens de más. La consistencia que antes
+//     daba temperature 0 la da ahora la salida estructurada (JSON con forma
+//     fija), que Haiku 5.5 sí acepta (Haiku 4.5 no).
+// Devuelve null para los modelos de siempre (siguen como estaban).
+function paramsNuevos(model, accion, output_config) {
+  const m = String(model || '');
+  const formato = output_config && output_config.format && output_config.format.type === 'json_schema'
+    ? { format: output_config.format } : {};
+  const effort = accion === 'plan' ? 'medium' : 'low';
+  if (m.startsWith('claude-sonnet-5-5')) return { thinking: { type: 'between_tools' }, output_config: { effort, ...formato } };
+  if (m.startsWith('claude-haiku-5-5')) return { thinking: { type: 'disabled' }, output_config: { effort, ...formato } };
+  return null;
 }
 
 function costoUSD(model, u) {
@@ -230,7 +255,7 @@ export default async function handler(req, res) {
 
     // ¿Esta llamada va a salir con la forma del JSON garantizada por la API?
     // Solo entonces entra la guía del coach (ver el comentario de arriba).
-    const esSonnet = String(model || '').startsWith('claude-sonnet-5');
+    const esSonnet = String(model || '').startsWith('claude-sonnet-5') || String(model || '').startsWith('claude-haiku-5-5');
     const salidaGarantizada = esSonnet
       && !!(output_config && output_config.format && output_config.format.type === 'json_schema');
     const guia = salidaGarantizada ? await guiaDelCoach() : '';
@@ -281,7 +306,7 @@ ${guia}`,
         // - Haiku sigue con temperature 0: el mismo "arepa mediana" daba
         //   números distintos cada día con la temperature por defecto (1.0) —
         //   el reporte de inconsistencia de los clientes. Determinismo primero.
-        ...(String(model || '').startsWith('claude-sonnet-5')
+        ...(paramsNuevos(model, accion, output_config) || (String(model || '').startsWith('claude-sonnet-5')
           ? {
               thinking: { type: 'disabled' },
               // Con el thinking ya apagado, el esfuerzo controla cuántos tokens
@@ -296,7 +321,7 @@ ${guia}`,
                   ? { format: output_config.format } : {}),
               },
             }
-          : { temperature: 0 }),
+          : { temperature: 0 })),
         system: systemFinal,
         messages: cleanedMessages,
         ...(stream ? { stream: true } : {}),
