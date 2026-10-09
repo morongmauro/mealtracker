@@ -286,8 +286,11 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const aro = document.querySelector(`[data-cabecera-hoy="${tema}"] [data-aro-cabecera]`);
   const izq = aro ? Math.min(aro.getBoundingClientRect().left, g.left) : g.left;
   const bien = g.left >= 0 && g.right <= innerWidth && g.top >= 0 && derechaTexto <= izq + 4 && izq - f.right < 40 && g.top < f.bottom
-    // El aro, al lado del objeto: sin taparse.
-    && (!aro || aro.querySelector('[data-anillo]').getBoundingClientRect().right <= g.left + 1);
+    // El aro, al lado del objeto: sin taparse, a la misma altura (centros) y
+    // con la misma separación en todas las cabeceras; el objeto, del alto del aro o menos.
+    && (!aro || (() => { const a = aro.querySelector('[data-anillo]').getBoundingClientRect();
+      const sep = g.left - a.right, dy = Math.abs((a.top + a.bottom) / 2 - (g.top + g.bottom) / 2);
+      return sep >= 8 && sep <= 34 && dy <= 4 && (g.bottom - g.top) <= 64 && innerWidth - g.right >= 14; })());
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top], derechaTexto, fRight: f.right, fBottom: f.bottom, w: innerWidth }));
   return bien;
 }, tema);
@@ -328,12 +331,13 @@ try {
   ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0)
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
   ok('Dash: la brújula con el aro azul, junto a la frase, entera y sin taparla', await ilusBien(p, 'dash'));
-  ok('aro de la cabecera: misma luz que el objeto (sombra suave hacia la derecha y apoyado en el piso), riel claro', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
-    const sombra = [...a.querySelectorAll('div')].some(d => /drop-shadow/.test(getComputedStyle(d).filter));
-    const piso = a.querySelector('[data-aro-piso]');
-    const riel = [...a.querySelectorAll('[data-anillo] svg circle')].some(c => /rgba\(255, ?255, ?255, ?0\.55\)/.test(c.getAttribute('stroke') || ''));
-    return sombra && !!piso && riel;
+  ok('aro de la cabecera: plano (un color, sin degradado ni sombras) y el riel casi blanco', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
+    const an = a.querySelector('[data-anillo]');
+    const sinSombra = ![...a.querySelectorAll('*')].some(d => /drop-shadow/.test(getComputedStyle(d).filter)) && !a.querySelector('[data-aro-piso]') && !an.querySelector('filter, mask');
+    const riel = [...an.querySelectorAll('svg circle')].some(c => /rgba\(255, ?255, ?255, ?0\.9\)/.test(c.getAttribute('stroke') || ''));
+    return an.dataset.plano === '1' && sinSombra && riel;
   }));
+
   await espera(2600);
   ok('…y al terminar la animación, el objeto flota suave', await p.locator('[data-objeto-cabecera="dash"]').evaluate(d => d.classList.contains('flota') && getComputedStyle(d).animationName === 'obj-flota'));
   ok('aros de las cabeceras: el punto de la punta es blanco y sin borde', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera] [data-anillo] svg').evaluate(s => {

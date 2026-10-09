@@ -18,7 +18,7 @@
 // de peso corporal solo se piden reps.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
-import { Play, Check, CaretDown, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets } from '@phosphor-icons/react';
+import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets } from '@phosphor-icons/react';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { Hoja } from './entrenoUI.jsx';
 import { miniatura, numero, descansoEnCircuito, sinPeso, convertir } from './entrenoDatos.js';
@@ -357,6 +357,13 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
       <style>{CSS_RUTINA}</style>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <Miniatura e={e} alTocar={() => setFicha(true)} />
+        {/* Terminado y abierto: la flechita para volver a plegarlo. */}
+        {completo && (
+          <button data-plegar onClick={() => setPlegado(true)} aria-label="Plegar ejercicio" style={{
+            order: 3, flex: 'none', width: 32, height: 32, borderRadius: 99, border: 'none', cursor: 'pointer',
+            background: CAMPO, color: GRAFITO, display: 'grid', placeItems: 'center',
+          }}><CaretUp size={16} weight="bold" /></button>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           {ahora && <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
           <Nombres e={e} />

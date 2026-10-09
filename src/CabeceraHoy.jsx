@@ -101,9 +101,20 @@ function MarcaEsquina({ color }) {
 // `voz.sub`: una línea de texto normal debajo de la frase.
 // `aro`: { frac (0–1), centro, pie } — la gráfica clave de la sección, en un
 // aro como los del Dash, al lado de la kettlebell; se llena al entrar.
-// El lado del cuadro del objeto 3D (lleva aire transparente alrededor).
-// Más chico que la frase, para que objeto y aro convivan lado a lado.
-const OBJ = 'min(34vw, 132px)';
+// El espacio del objeto 3D, igual en todas las cabeceras: del mismo alto que
+// el aro (60 px) y a su derecha, con la misma separación. Cada objeto se
+// agranda hasta llenarlo sin pasarse (la kettlebell y la brújula, por alto;
+// el plato y el libro, por ancho) y queda centrado en él.
+const ESPACIO = { margen: 20, ancho: 74, alto: 62, separacion: 16, centro: 66 };
+function lugarDelObjeto(caja) {
+  const [l, t, r, b] = caja;
+  const lado = Math.min(ESPACIO.ancho / (r - l), ESPACIO.alto / (b - t));
+  return {
+    lado,
+    derecha: ESPACIO.margen + ESPACIO.ancho / 2 - lado * (1 - (l + r) / 2),
+    arriba: ESPACIO.centro - lado * (t + b) / 2,
+  };
+}
 
 export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', ilustracion = true, aro = null, activo = true, children }) {
   // `activo`: la sección está al frente. Alimentación queda montada por debajo
@@ -119,9 +130,9 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   // brújula, con su movimiento al entrar.
   const Ilus = fondo && ilustracion;
   const conAro = !!(Ilus && aro);
-  const caja = CAJA[tema] || CAJA.entreno;
+  const lugar = lugarDelObjeto(CAJA[tema] || CAJA.entreno);
   const texto = (
-    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (conAro ? 'min(44vw, 176px)' : 'min(30vw, 120px)') : 0, minHeight: conAro ? 118 : undefined }}>
+    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (conAro ? 'min(44vw, 162px)' : 'min(30vw, 104px)') : 0, minHeight: conAro ? 118 : undefined }}>
       {voz?.etiqueta && (
         <div data-etiqueta style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
       )}
@@ -178,30 +189,21 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       {Ilus && (
         <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
           <div style={{
-            // A la derecha, junto a la frase y entero dentro de la pantalla.
-            position: 'absolute', right: -6, top: `calc(${arriba} + 6px)`, width: OBJ, aspectRatio: '1 / 1',
+            // El objeto, metido en su espacio (mismo alto que el aro) y
+            // centrado en él: igual en todas las cabeceras.
+            position: 'absolute', right: lugar.derecha, top: `calc(${arriba} + ${lugar.arriba}px)`, width: lugar.lado, height: lugar.lado,
           }}><ObjetoCabecera tema={tema} activo={activo} /></div>
           {conAro && (
             <div className="cab-ilus" data-aro-cabecera={tema} style={{
-              // Al lado del objeto, sin taparse: termina justo donde empieza
-              // lo dibujado y va centrado a su altura. Con la misma luz
-              // (arriba a la izquierda) y su sombra suave hacia la derecha,
-              // apoyado en el mismo piso, para que no se vea pegado.
-              position: 'absolute', right: `calc(${OBJ} * ${(1 - caja[0]).toFixed(3)} - 14px)`,
-              top: `calc(${arriba} + 6px + ${OBJ} * ${((caja[1] + caja[3]) / 2).toFixed(3)} - 30px)`, width: 84,
+              // A su izquierda, a la misma altura y con la misma separación en
+              // todas las cabeceras. Plano: un color, riel casi blanco.
+              position: 'absolute', right: ESPACIO.margen + ESPACIO.ancho + ESPACIO.separacion - 12,
+              top: `calc(${arriba} + ${ESPACIO.centro - 30}px)`, width: 84,
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animationDelay: '.16s',
             }}>
-              <div style={{ position: 'relative' }}>
-                <span aria-hidden="true" data-aro-piso style={{
-                  position: 'absolute', left: 4, right: -8, bottom: -7, height: 10, borderRadius: '50%',
-                  background: 'radial-gradient(closest-side, rgba(0,0,0,0.2), rgba(0,0,0,0))',
-                }} />
-                <div style={{ position: 'relative', filter: 'drop-shadow(1.5px 3px 2.2px rgba(0,0,0,0.16))' }}>
-                  <AnilloMarca frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={60} grosor={7} riel="rgba(255,255,255,0.55)" etiqueta={aro.pie}>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>
-                  </AnilloMarca>
-                </div>
-              </div>
+              <AnilloMarca plano frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={60} grosor={7} riel="rgba(255,255,255,0.9)" etiqueta={aro.pie}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>
+              </AnilloMarca>
               {aro.pie && <div data-aro-pie style={{ fontSize: 11, fontWeight: 500, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.2 }}>{aro.pie}</div>}
             </div>
           )}

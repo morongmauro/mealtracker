@@ -7389,7 +7389,6 @@ function BloqueoPago({ info, alRevisar, v2 = false }) {
         ) : null}
         <div style={{ fontSize: 15, color: TEXT_MUTED, lineHeight: 1.5, marginTop: 10 }}>
           {textoCorte(info)} Pasaron {info.dias_vencido} días, así que la app queda en pausa hasta registrar el pago.
-          Cuando tu coach lo marque, se abre sola.
         </div>
         <button onClick={revisar} disabled={revisando} style={{
           marginTop: 20, width: '100%', height: 50, borderRadius: 999, border: 'none', cursor: 'pointer',

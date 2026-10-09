@@ -242,19 +242,34 @@ export function PuntaApple({ m, r, grosor, frac, color, transicion, radioPunto }
   );
 }
 
-export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = null, etiqueta, children }) {
+// `plano`: sin degradado ni sombras, un solo color y su riel casi blanco
+// (las cabeceras, junto al objeto 3D). El punto blanco de la punta se queda.
+export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = null, etiqueta, plano = false, children }) {
   const objetivo = Math.max(0, Math.min(1, Number(frac) || 0));
   const f = useDesdeCero(objetivo);
   const r = (tam - grosor) / 2, m = tam / 2;
   const curva = '1s cubic-bezier(.22,.8,.24,1)';
+  const L = 2 * Math.PI * r;
   return (
-    <div data-anillo style={{ position: 'relative', width: tam, height: tam, flex: 'none' }}>
+    <div data-anillo data-plano={plano ? '1' : undefined} style={{ position: 'relative', width: tam, height: tam, flex: 'none' }}>
       <svg width={tam} height={tam} role="img" aria-label={etiqueta} style={{ overflow: 'visible' }}>
         <circle cx={m} cy={m} r={r} fill="none" stroke={riel || rielDe(color, 0.07, RIEL)} strokeWidth={grosor} />
-        <ArcoApple m={m} r={r} grosor={grosor} frac={f} objetivo={objetivo} color={color} transicion={`stroke-dashoffset ${curva}`} />
-        <g transform={`rotate(-90 ${m} ${m})`}>
-          <PuntaApple m={m} r={r} grosor={grosor} frac={f} color={color} transicion={curva} />
-        </g>
+        {plano ? (
+          <g transform={`rotate(-90 ${m} ${m})`}>
+            {f > 0.001 && <circle cx={m} cy={m} r={r} fill="none" stroke={color} strokeWidth={grosor} strokeLinecap="round"
+              strokeDasharray={`${L * f} ${L}`} style={{ transition: `stroke-dasharray ${curva}` }} />}
+            {f > 0.001 && f < 0.999 && (
+              <g style={{ transform: `rotate(${f * 360}deg)`, transformOrigin: `${m}px ${m}px`, transition: `transform ${curva}` }}>
+                <circle cx={m + r} cy={m} r={grosor * 0.2} fill="#FFFFFF" />
+              </g>
+            )}
+          </g>
+        ) : (<>
+          <ArcoApple m={m} r={r} grosor={grosor} frac={f} objetivo={objetivo} color={color} transicion={`stroke-dashoffset ${curva}`} />
+          <g transform={`rotate(-90 ${m} ${m})`}>
+            <PuntaApple m={m} r={r} grosor={grosor} frac={f} color={color} transicion={curva} />
+          </g>
+        </>)}
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
         <div>{children}</div>

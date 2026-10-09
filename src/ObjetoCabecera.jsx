@@ -28,10 +28,11 @@ const DURA = { entreno: 2200, comida: 2400, aprende: 2600, dash: 2400 };
 // Lo dibujado dentro del cuadro (sin el aire transparente), en fracciones
 // del lado: izquierda, arriba, derecha, abajo. Para ubicar el aro y la frase.
 export const CAJA = {
-  entreno: [0.2, 0.148, 0.85, 0.806],
-  comida: [0.154, 0.279, 0.867, 0.715],
-  aprende: [0.127, 0.308, 0.792, 0.69],
-  dash: [0.181, 0.285, 0.838, 0.783],
+  // El objeto sin su sombra (la sombra sale hacia la derecha y abajo).
+  entreno: [0.2, 0.148, 0.644, 0.785],
+  comida: [0.154, 0.281, 0.779, 0.694],
+  aprende: [0.129, 0.31, 0.79, 0.69],
+  dash: [0.181, 0.285, 0.819, 0.781],
 };
 
 const CSS = `
