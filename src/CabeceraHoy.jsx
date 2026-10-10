@@ -96,10 +96,9 @@ function lugarDelObjeto(caja) {
   };
 }
 
-// PRUEBA (solo vista previa, apagada): la gráfica grande y protagonista, con
-// el objeto tenue y chico adentro, y el porcentaje y su texto debajo.
-// Se enciende en un teléfono con localStorage «mt:prueba:aroGrande» = 1.
-const aroGrandePrueba = () => { try { return localStorage.getItem('mt:prueba:aroGrande') === '1'; } catch (e) { return false; } };
+// Con gráfica (las cabeceras de la visual nueva): la gráfica grande es la
+// protagonista, con el objeto 3D chico y tenue adentro, y el porcentaje y su
+// texto debajo.
 const ARO_G = { tam: 112, grosor: 10, objAncho: 58, objAlto: 46 };
 function lugarEnCaja(caja, ancho, alto) {
   const [l, t, r, b] = caja;
@@ -122,7 +121,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const Ilus = fondo && ilustracion;
   const conAro = !!(Ilus && aro);
   const lugar = lugarDelObjeto(CAJA[tema] || CAJA.entreno);
-  const grande = conAro && aroGrandePrueba();
+  const grande = conAro;
   const texto = (
     <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (grande ? 'min(38vw, 138px)' : conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: grande ? 168 : conAro ? 118 : undefined }}>
       {voz?.etiqueta && (

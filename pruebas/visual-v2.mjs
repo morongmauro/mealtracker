@@ -303,16 +303,19 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const r = document.createRange(); r.selectNodeContents(frase);
   const lineas = [...r.getClientRects()];
   const derechaTexto = Math.max(...lineas.map(l => l.right));
-  // Con el aro al lado, lo que queda junto a la frase es el aro.
+  // La gráfica grande a la derecha de la frase, sin taparla y entera en la
+  // pantalla; el objeto, chico y tenue, ADENTRO de la gráfica; el porcentaje
+  // y su texto, debajo de la gráfica.
   const aro = document.querySelector(`[data-cabecera-hoy="${tema}"] [data-aro-cabecera]`);
-  const izq = aro ? Math.min(aro.getBoundingClientRect().left, g.left) : g.left;
-  const bien = g.left >= 0 && g.right <= innerWidth && g.top >= 0 && derechaTexto <= izq + 4 && izq - f.right < 40 && g.top < f.bottom
-    // El aro, al lado del objeto: sin taparse, a la misma altura (centros) y
-    // con la misma separación en todas las cabeceras; el objeto, del alto del aro o menos.
-    && (!aro || (() => { const a = aro.querySelector('[data-anillo]').getBoundingClientRect();
-      const sep = g.left - a.right, dy = Math.abs((a.top + a.bottom) / 2 - (g.top + g.bottom) / 2);
-      return sep >= 8 && sep <= 34 && dy <= 4 && (g.bottom - g.top) <= 64 && innerWidth - g.right >= 14; })());
-  if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top], derechaTexto, fRight: f.right, fBottom: f.bottom, w: innerWidth }));
+  const an = aro && aro.querySelector('[data-anillo]');
+  const centro = aro && aro.querySelector('[data-aro-centro]');
+  if (!an || !centro) { console.log('ilusBien', tema, 'sin gráfica'); return false; }
+  const a = an.getBoundingClientRect(), k = centro.getBoundingClientRect();
+  const opac = Number(getComputedStyle(caja.parentElement.parentElement).opacity);
+  const bien = a.width >= 100 && a.left >= 0 && a.right <= innerWidth - 8 && derechaTexto <= a.left + 4
+    && g.left >= a.left && g.right <= a.right && g.top >= a.top && g.bottom <= a.bottom && (g.right - g.left) <= 64 && opac < 0.8
+    && k.top >= a.bottom - 1 && Math.abs((k.left + k.right) / 2 - (a.left + a.right) / 2) <= 4 && f.top < a.bottom;
+  if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top, g.bottom], a: [a.left, a.right, a.top, a.bottom], derechaTexto, opac, k: [k.left, k.top] }));
   return bien;
 }, tema);
 const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.png') });
@@ -320,7 +323,7 @@ const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.
 try {
   // VISTA=1: solo las fotos de la prueba de la gráfica grande en las cabeceras.
   if (process.env.VISTA) {
-    const pv = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:prueba:aroGrande': '1' } });
+    const pv = await abrir('Mauro Morón', { caliente: true, });
     await espera(4500);
     const cab = async (n) => { await espera(2600); await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-${n}.png`), clip: { x: 0, y: 0, width: 390, height: 300 } }); };
     await cab('dash');
@@ -364,7 +367,7 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
   ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0)
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
-  ok('Dash: la brújula con el aro azul, junto a la frase, entera y sin taparla', await ilusBien(p, 'dash'));
+  ok('Dash: la gráfica grande junto a la frase, con la brújula tenue adentro y el porcentaje debajo', await ilusBien(p, 'dash'));
   ok('aro de la cabecera: plano (un color, sin degradado ni sombras) y el riel casi blanco', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
     const an = a.querySelector('[data-anillo]');
     const sinSombra = ![...a.querySelectorAll('*')].some(d => /drop-shadow/.test(getComputedStyle(d).filter)) && !a.querySelector('[data-aro-piso]') && !an.querySelector('filter, mask');
@@ -580,7 +583,7 @@ try {
   ok('Entrenamiento abre en Hoy', (await p.getByRole('button', { name: 'Hoy', exact: true }).first().getAttribute('aria-current')) === 'page');
   ok('sin la navegación de arriba del módulo', (await p.getByRole('button', { name: 'Resumen', exact: true }).count()) === 0);
   await foto(p, '04-entreno-hoy');
-  ok('Entreno: la kettlebell junto a la frase, entera y sin taparla', await ilusBien(p, 'entreno'));
+  ok('Entreno: la gráfica grande junto a la frase, con la kettlebell tenue adentro', await ilusBien(p, 'entreno'));
   const cabE = p.locator('[data-cabecera-hoy="entreno"]');
   ok('Hoy de entreno: la voz del coach (el día, la semana y la frase de hoy)', await cabE.locator('[data-frase]').isVisible()
     && /^MARTES 29 · SEMANA \d+ DE \d+$/.test(await cabE.locator('[data-etiqueta]').innerText())
@@ -949,7 +952,7 @@ try {
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(1200);
   await foto(p, '08-comida-hoy');
-  ok('Comida: el plato, junto a la frase, entero y sin taparla', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
+  ok('Comida: la gráfica grande junto a la frase, con el plato tenue adentro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
   ok('Comida: al llegar a Alimentación, el plato se anima ahí (no escondido por debajo de otra sección)', await p.locator('[data-objeto-cabecera="comida"] img').first().evaluate(i => i.src.startsWith('blob:')));
   ok('Hoy de alimentación ya no saluda ni trae herramientas', (await p.getByText('Hola, Mauro').count()) === 0
     && (await p.getByText('Tus herramientas').count()) === 0);
