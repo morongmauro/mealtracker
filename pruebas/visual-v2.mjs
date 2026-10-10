@@ -1519,6 +1519,29 @@ try {
     ok('sin errores de JavaScript (crudo)', pc.errores.length === 0, pc.errores.join(' | '));
     await pc.ctx.close();
   }
+  // Circuito terminado: se pliega como un ejercicio suelto, con su flechita.
+  {
+    const pq = await abrir('Mauro Morón', { caliente: true });
+    await pq.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(800);
+    await pq.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"]`).click();
+    await pq.p.locator('[data-hoja-scroll]').getByText('Push', { exact: true }).click();
+    await pq.p.locator('[data-circuito]').waitFor({ timeout: 10000 });
+    for (let i = 0; i < 4; i++) {
+      const b = pq.p.locator('[data-circuito]').getByRole('button', { name: /^Marcar serie/ }).first();
+      if (!(await b.count())) break;
+      await b.click(); await espera(350);
+    }
+    const pleg = pq.p.locator('[data-circuito-plegado]');
+    await pleg.waitFor({ timeout: 4000 }).catch(() => {});
+    ok('circuito: al terminar todas las vueltas se pliega, con el color de hecho', (await pleg.count()) === 1
+      && /Circuito · 2 vueltas · hecho/.test(await pleg.innerText()) && (await pq.p.locator('[data-circuito]').count()) === 0);
+    await foto(pq.p, '04j-circuito-plegado');
+    await pleg.click(); await espera(300);
+    ok('circuito: un toque lo vuelve a abrir y la flechita lo pliega otra vez', (await pq.p.locator('[data-circuito]').count()) === 1
+      && await (async () => { await pq.p.locator('[data-circuito] [data-plegar]').click(); await espera(300); return (await pq.p.locator('[data-circuito-plegado]').count()) === 1; })());
+    ok('sin errores de JavaScript (circuito plegado)', pq.errores.length === 0, pq.errores.join(' | '));
+    await pq.ctx.close();
+  }
   // PRIMERA VEZ en la app nueva con cuenta ya activa: le salen solas las
   // ventanas que le falten y la invitación al recorrido; una sola vez.
   const pv = await abrir('Mauro Morón', { extra: { 'mt:primeraVezVista': null } });

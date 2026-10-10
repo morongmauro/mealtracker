@@ -22,7 +22,7 @@
 // usándola con todo, y los enlaces viejos siguen funcionando.
 // ─────────────────────────────────────────────────────────────────────────
 
-export const DOMINIO_NUEVO = 'entrenaconmetodo.vercel.app';
+export const DOMINIO_NUEVO = 'entrenaconmetodoapp.vercel.app';
 export const MUDANZA_ACTIVA = false;
 
 const PRUEBA = 'mt:probarMudanza';   // solo pruebas: enciende el aviso en localhost

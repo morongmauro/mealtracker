@@ -422,8 +422,43 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
   const [verUltima, setVerUltima] = useState(null);
   const hechas = vueltas.reduce((t, v, vi) => t + v.filter(re => marcadas[`${re.id}:${vi + 1}`]).length, 0);
   const total = vueltas.reduce((t, v) => t + v.length, 0);
+  const completo = total > 0 && hechas === total;
+
+  // Igual que un ejercicio suelto: terminado → se pliega solo, con el color
+  // de «hecho», y se vuelve a abrir con un toque.
+  const [plegado, setPlegado] = useState(completo);
+  const antes = useRef(completo);
+  useEffect(() => {
+    if (completo && !antes.current) setPlegado(true);
+    if (!completo) setPlegado(false);
+    antes.current = completo;
+  }, [completo]);
+
+  if (plegado) {
+    const nombres = (vueltas[0] || []).map(re => nombresEj(re.ejercicio).grande).join(' · ');
+    return (
+      <button data-plegado data-circuito-plegado onClick={() => setPlegado(false)} style={{
+        ...TARJETA, background: HECHO_FONDO, boxShadow: `inset 0 0 0 1px ${HECHO_BORDE}`,
+        width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+        display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 10,
+      }}>
+        <span style={{ width: 26, height: 26, borderRadius: 99, background: GRAFITO, color: AMARILLO, display: 'grid', placeItems: 'center', flex: 'none' }}>
+          <Check size={14} weight="bold" />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {`${tipo} · ${vueltas.length} ${vueltas.length === 1 ? 'vuelta' : 'vueltas'} · hecho`}
+          </span>
+          <span style={{ display: 'block', fontSize: 13, color: HECHO_TINTA, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombres}</span>
+        </span>
+        <span style={{ fontSize: 12.5, color: GRIS, flex: 'none' }}>{`${hechas}/${total}`}</span>
+        <CaretDown size={15} color="#C7C7CC" />
+      </button>
+    );
+  }
+
   return (
-    <div style={{ ...TARJETA, padding: '14px 12px 10px' }}>
+    <div data-circuito style={{ ...TARJETA, padding: '14px 12px 10px' }}>
       <style>{CSS_RUTINA}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ width: 30, height: 30, borderRadius: 99, background: SECCION.entreno.tint, color: AZUL_TINTA, display: 'grid', placeItems: 'center', flex: 'none' }}>
@@ -437,6 +472,12 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
           </div>
         </div>
         <div style={{ fontSize: 13, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{hechas}/{total}</div>
+        {completo && (
+          <button data-plegar onClick={() => setPlegado(true)} aria-label="Plegar circuito" style={{
+            flex: 'none', width: 32, height: 32, borderRadius: 99, border: 'none', cursor: 'pointer',
+            background: CAMPO, color: GRAFITO, display: 'grid', placeItems: 'center',
+          }}><CaretUp size={16} weight="bold" /></button>
+        )}
       </div>
 
       {vueltas.map((vuelta, vi) => (
