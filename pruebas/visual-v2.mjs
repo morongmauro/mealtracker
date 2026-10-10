@@ -318,6 +318,19 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
 const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.png') });
 
 try {
+  // VISTA=1: solo las fotos de la prueba de la gráfica grande en las cabeceras.
+  if (process.env.VISTA) {
+    const pv = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:prueba:aroGrande': '1' } });
+    await espera(4500);
+    const cab = async (n) => { await espera(2600); await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-${n}.png`), clip: { x: 0, y: 0, width: 390, height: 300 } }); };
+    await cab('dash');
+    await pv.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await cab('entreno');
+    await pv.p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(600);
+    await pv.p.getByRole('button', { name: 'Hoy', exact: true }).click().catch(() => {}); await cab('comida');
+    await pv.p.getByRole('button', { name: 'Aprendizaje', exact: true }).click(); await pv.p.locator('[data-cabecera-hoy="aprende"]').waitFor({ timeout: 15000 }).catch(() => {}); await espera(2000); await cab('aprende');
+    console.log('errores', pv.errores.slice(0, 3));
+    await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
   // ── Mauro ──
   const { p, ctx, errores, db } = await abrir('Mauro Morón', { aviso: true });
   await p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });

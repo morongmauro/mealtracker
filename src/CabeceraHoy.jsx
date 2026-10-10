@@ -96,6 +96,17 @@ function lugarDelObjeto(caja) {
   };
 }
 
+// PRUEBA (solo vista previa, apagada): la gráfica grande y protagonista, con
+// el objeto tenue y chico adentro, y el porcentaje y su texto debajo.
+// Se enciende en un teléfono con localStorage «mt:prueba:aroGrande» = 1.
+const aroGrandePrueba = () => { try { return localStorage.getItem('mt:prueba:aroGrande') === '1'; } catch (e) { return false; } };
+const ARO_G = { tam: 112, grosor: 10, objAncho: 58, objAlto: 46 };
+function lugarEnCaja(caja, ancho, alto) {
+  const [l, t, r, b] = caja;
+  const lado = Math.min(ancho / (r - l), alto / (b - t));
+  return { lado, left: ancho / 2 - lado * (l + r) / 2, top: alto / 2 - lado * (t + b) / 2 };
+}
+
 export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', ilustracion = true, aro = null, activo = true, children }) {
   // `activo`: la sección está al frente. Alimentación queda montada por debajo
   // de las demás; cada vez que vuelve al frente, el objeto y el aro se
@@ -111,8 +122,9 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const Ilus = fondo && ilustracion;
   const conAro = !!(Ilus && aro);
   const lugar = lugarDelObjeto(CAJA[tema] || CAJA.entreno);
+  const grande = conAro && aroGrandePrueba();
   const texto = (
-    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: conAro ? 118 : undefined }}>
+    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (grande ? 'min(38vw, 138px)' : conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: grande ? 168 : conAro ? 118 : undefined }}>
       {voz?.etiqueta && (
         <div data-etiqueta style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
       )}
@@ -165,7 +177,28 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
         WebkitMaskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
         maskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
       }} />}
-      {Ilus && (
+      {grande && (() => {
+        const dentro = lugarEnCaja(CAJA[tema] || CAJA.entreno, ARO_G.objAncho, ARO_G.objAlto);
+        return (
+          <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} data-aro-grande style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+            <div className="cab-ilus" data-aro-cabecera={tema} style={{
+              position: 'absolute', right: 16, top: `calc(${arriba} + 2px)`, width: 128,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', animationDelay: '.1s',
+            }}>
+              <div style={{ position: 'relative', width: ARO_G.tam, height: ARO_G.tam }}>
+                <AnilloMarca plano frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.9)" etiqueta={aro.pie} />
+                {/* El objeto, chico y tenue, adentro de la gráfica. */}
+                <div style={{ position: 'absolute', left: (ARO_G.tam - ARO_G.objAncho) / 2, top: (ARO_G.tam - ARO_G.objAlto) / 2, width: ARO_G.objAncho, height: ARO_G.objAlto, opacity: 0.5 }}>
+                  <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={activo} /></div>
+                </div>
+              </div>
+              <div data-aro-centro style={{ marginTop: 6, fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
+              {aro.pie && <div data-aro-pie style={{ marginTop: 3, fontSize: 11.5, fontWeight: 600, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.2 }}>{aro.pie}</div>}
+            </div>
+          </div>
+        );
+      })()}
+      {Ilus && !grande && (
         <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
           <div style={{
             // El objeto, metido en su espacio (mismo alto que el aro) y
