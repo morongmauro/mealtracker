@@ -99,7 +99,7 @@ function lugarDelObjeto(caja) {
 // Con gráfica (las cabeceras de la visual nueva): la gráfica grande es la
 // protagonista, con el objeto 3D chico y tenue adentro, y el porcentaje y su
 // texto debajo.
-const ARO_G = { tam: 112, grosor: 10, objAncho: 58, objAlto: 46 };
+const ARO_G = { tam: 112, grosor: 8, objAncho: 58, objAlto: 46 };
 function lugarEnCaja(caja, ancho, alto) {
   const [l, t, r, b] = caja;
   const lado = Math.min(ancho / (r - l), alto / (b - t));
@@ -123,7 +123,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const lugar = lugarDelObjeto(CAJA[tema] || CAJA.entreno);
   const grande = conAro;
   const texto = (
-    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (grande ? 'min(38vw, 138px)' : conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: grande ? 168 : conAro ? 118 : undefined }}>
+    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (grande ? 'min(38vw, 138px)' : conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: grande ? 182 : conAro ? 118 : undefined }}>
       {voz?.etiqueta && (
         <div data-etiqueta style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
       )}
@@ -181,18 +181,20 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
         return (
           <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} data-aro-grande style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
             <div className="cab-ilus" data-aro-cabecera={tema} style={{
-              position: 'absolute', right: 16, top: `calc(${arriba} + 2px)`, width: 128,
+              position: 'absolute', right: 26, top: `calc(${arriba} + 16px)`, width: 128,
               display: 'flex', flexDirection: 'column', alignItems: 'center', animationDelay: '.1s',
             }}>
               <div style={{ position: 'relative', width: ARO_G.tam, height: ARO_G.tam }}>
-                <AnilloMarca plano frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.9)" etiqueta={aro.pie} />
+                {/* Tenue: protagonista sobre el objeto, pero sin robarle el
+                    protagonismo a la sección. */}
+                <div style={{ opacity: 0.72 }}><AnilloMarca plano frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.9)" etiqueta={aro.pie} /></div>
                 {/* El objeto, chico y tenue, adentro de la gráfica. */}
                 <div style={{ position: 'absolute', left: (ARO_G.tam - ARO_G.objAncho) / 2, top: (ARO_G.tam - ARO_G.objAlto) / 2, width: ARO_G.objAncho, height: ARO_G.objAlto, opacity: 0.5 }}>
                   <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={activo} /></div>
                 </div>
               </div>
-              <div data-aro-centro style={{ marginTop: 6, fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
-              {aro.pie && <div data-aro-pie style={{ marginTop: 3, fontSize: 11.5, fontWeight: 600, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.2 }}>{aro.pie}</div>}
+              <div data-aro-centro style={{ marginTop: 8, fontSize: 17, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
+              {aro.pie && <div data-aro-pie style={{ marginTop: 3, fontSize: 11, fontWeight: 500, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.25 }}>{aro.pie}</div>}
             </div>
           </div>
         );

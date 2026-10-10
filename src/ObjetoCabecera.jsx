@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 // EL OBJETO DE CADA SECCIÓN, EN 3D (visual nueva)
 //
-// La kettlebell (entrenamiento), el plato (alimentación), el libro
+// La kettlebell (entrenamiento), el aguacate (alimentación), el libro
 // (aprendizaje) y la brújula (Dash): modelados y animados en 3D, con la misma
 // luz de estudio y su sombra en el piso. Cada animación es un WebP animado que
 // suena una sola vez al entrar (cae, rebota, se abre…) y se queda en su último
@@ -30,7 +30,7 @@ const DURA = { entreno: 2200, comida: 2400, aprende: 2600, dash: 2400 };
 export const CAJA = {
   // El objeto sin su sombra (la sombra sale hacia la derecha y abajo).
   entreno: [0.2, 0.148, 0.644, 0.785],
-  comida: [0.154, 0.281, 0.779, 0.694],
+  comida: [0.239, 0.376, 0.676, 0.767],   // el aguacate
   aprende: [0.129, 0.31, 0.79, 0.69],
   dash: [0.181, 0.285, 0.819, 0.781],
 };
