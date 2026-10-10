@@ -573,6 +573,8 @@ function urlCentro(base, { uid, name, go, goId } = {}) {
     if (name) u.searchParams.set('mt_name', name);
     if (go) u.searchParams.set('mt_go', go);
     if (goId) u.searchParams.set('mt_id', goId);
+    // Visual nueva: el centro también la muestra (sin depender del nombre).
+    if (v2Activa()) u.searchParams.set('mt_v2', '1');
     return u.toString();
   } catch (e) { return base; /* URL inválida: se abre tal cual */ }
 }

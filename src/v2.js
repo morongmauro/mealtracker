@@ -1,10 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────
-// VISUAL NUEVA (v2) · en prueba
+// VISUAL NUEVA (v2)
 //
-// La barra de secciones, la letra y el Dash nuevos los ve SOLO quien esté en
-// esta lista. El resto sigue con la app de siempre, byte a byte. Para
-// abrírsela a todos: VISUAL_V2_TODOS = true.
+// La ve TODO el que abra la app en la dirección nueva (DOMINIO_NUEVO, la que
+// se instala desde el link que manda el coach), y quien esté en esta lista
+// (también en la dirección vieja). En la dirección vieja, el resto sigue con
+// la app de siempre, byte a byte. Si cambias esto, cambia también el filtro
+// de index.html.
 // ─────────────────────────────────────────────────────────────────────────
+import { enDireccionNueva } from './mudanza.js';
 
 export const VISUAL_V2 = ['mauro moron'];
 export const VISUAL_V2_TODOS = false;
@@ -16,7 +19,7 @@ export const WHATSAPP_COACH = '573008527043';   // +57 300 852 7043 (@mauromoron
 const normal = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/\s+/g, ' ').trim();
 
-export const esV2 = (nombre) => VISUAL_V2_TODOS || VISUAL_V2.includes(normal(nombre));
+export const esV2 = (nombre) => VISUAL_V2_TODOS || enDireccionNueva() || VISUAL_V2.includes(normal(nombre));
 
 // Para los componentes que no reciben el nombre (la figura muscular): ¿está
 // encendida la visual nueva en este documento?

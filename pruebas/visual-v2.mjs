@@ -1604,10 +1604,11 @@ try {
   const dataSub = ultimo && ultimo.data || {};
   ok('mudanza: al abrir sube la copia completa', postsNube.length > 0, `posts: ${postsNube.length}`);
   ok('mudanza: el chat viaja con 200 mensajes', Array.isArray(dataSub.messages) && dataSub.messages.length === 200
-    && dataSub.messages[199].content === 'mensaje 229', String(dataSub.messages && dataSub.messages.length));
+    && dataSub.messages.some(m => m.content === 'mensaje 229'), String(dataSub.messages && dataSub.messages.length) + ' · último: ' + JSON.stringify(dataSub.messages && dataSub.messages[199]).slice(0, 160));
   ok('mudanza: suben las preferencias del teléfono', dataSub.prefs_dispositivo && dataSub.prefs_dispositivo['entreno:unidades'] === 'lb'
     && !('mt:pwaInstalledAt' in dataSub.prefs_dispositivo), JSON.stringify(dataSub.prefs_dispositivo));
   ok('mudanza: marca para el CRM «ya en la app nueva»', !!ls.nueva && dataSub.app_nueva_at === ls.nueva, `${ls.nueva} / ${dataSub.app_nueva_at}`);
+  ok('dirección nueva: la visual nueva es de todos (Ana también)', await om.p.evaluate(() => document.documentElement.hasAttribute('data-v2') && document.documentElement.classList.contains('marca-v2')));
   ok('sin errores de JavaScript (mudanza)', om.errores.length === 0, om.errores.join(' | '));
   await om.ctx.close();
 

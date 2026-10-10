@@ -53,7 +53,10 @@
         var crudo = localStorage.getItem('mt:name') || '';
         try { crudo = JSON.parse(crudo); } catch (e) {}
         var n = String(crudo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
-        if (['mauro moron'].indexOf(n) !== -1) document.documentElement.classList.add('splash-v2');
+        // En la dirección nueva, la visual nueva es de todos (mudanza.js →
+        // DOMINIO_NUEVO; mt:probarDireccionNueva, solo pruebas).
+        var nueva = location.host === 'entrenaconmetodoapp.vercel.app' || localStorage.getItem('mt:probarDireccionNueva') === '1';
+        if (nueva || ['mauro moron'].indexOf(n) !== -1) document.documentElement.classList.add('splash-v2');
         // Visual nueva en este teléfono (su nombre está en la lista, o se abrió
         // con ?v2=1 para instalarla antes de entrar): el nombre de la app en
         // la pantalla de inicio es «EntrenaMétodo», y al instalarla abre con
@@ -61,7 +64,7 @@
         // aunque el teléfono aún no sepa quién es.
         var v2url = /[?&]v2=1\b/.test(location.search);
         if (v2url) { try { localStorage.setItem('mt:v2', '1'); } catch (e) {} }
-        if (v2url || document.documentElement.classList.contains('splash-v2') || localStorage.getItem('mt:v2') === '1') {
+        if (nueva || v2url || document.documentElement.classList.contains('splash-v2') || localStorage.getItem('mt:v2') === '1') {
           document.documentElement.classList.add('marca-v2');
           var tt = document.querySelector('meta[name="apple-mobile-web-app-title"]');
           if (tt) tt.setAttribute('content', 'EntrenaMétodo');
