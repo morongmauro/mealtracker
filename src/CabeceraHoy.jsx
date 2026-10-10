@@ -85,7 +85,7 @@ export function FirmaCoach({ claro = false, compacta = false }) {
 // el aro (60 px) y a su derecha, con la misma separación. Cada objeto se
 // agranda hasta llenarlo sin pasarse (la kettlebell y la brújula, por alto;
 // el plato y el libro, por ancho) y queda centrado en él.
-const ESPACIO = { margen: 20, ancho: 74, alto: 62, separacion: 16, centro: 66 };
+const ESPACIO = { margen: 32, ancho: 68, alto: 54, separacion: 16, centro: 66 };
 function lugarDelObjeto(caja) {
   const [l, t, r, b] = caja;
   const lado = Math.min(ESPACIO.ancho / (r - l), ESPACIO.alto / (b - t));
@@ -112,7 +112,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const conAro = !!(Ilus && aro);
   const lugar = lugarDelObjeto(CAJA[tema] || CAJA.entreno);
   const texto = (
-    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (conAro ? 'min(44vw, 162px)' : 'min(30vw, 104px)') : 0, minHeight: conAro ? 118 : undefined }}>
+    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: conAro ? 118 : undefined }}>
       {voz?.etiqueta && (
         <div data-etiqueta style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
       )}

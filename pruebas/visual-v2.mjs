@@ -370,6 +370,12 @@ try {
     const altos = new Set(bs.map(b => Math.round(b.getBoundingClientRect().height)));
     return bs.length === 5 && tops.size === 1 && altos.size === 1 && bs.every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth - 16; });
   }), await dash.evaluate(() => JSON.stringify([...document.querySelectorAll('[data-atajos] > *')].map(b => { const r = b.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), Math.round(r.height)]; }))));
+  ok('atajos del Dash: botones de cristal chicos (círculo de 46 px con el símbolo y la palabra debajo)', await dash.evaluate(() => {
+    const bs = [...document.querySelectorAll('[data-atajos] [data-boton-cristal]')];
+    return bs.length === 5 && bs.every(b => { const c = b.querySelector('[data-circulo]').getBoundingClientRect(); const t = b.lastElementChild.getBoundingClientRect();
+      return Math.round(c.width) === 46 && Math.round(c.height) === 46 && t.top >= c.bottom && t.height > 0; })
+      && bs.map(b => b.lastElementChild.textContent).join(',') === 'Reto,Coach,Comunidad,Avisos,Ajustes';
+  }));
   ok('Comunidad ya no es una tarjeta grande arriba de las gráficas', (await dash.locator('[data-atajos] [data-abrir-comunidad]').count()) === 1
     && (await dash.locator('[data-atajos] [data-abrir-config]').count()) === 1);
   ok('WhatsApp: el mensaje por defecto es «Hola Mau!»', wa === 'https://wa.me/573008527043?text=Hola%20Mau!', wa);

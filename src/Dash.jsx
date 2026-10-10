@@ -18,7 +18,7 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Bell, Mountains, WhatsappLogo, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix } from '@phosphor-icons/react';
+import { Bell, Mountains, WhatsappLogo, Flag, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
@@ -26,7 +26,7 @@ import { api, hoyLocal, sumarDias, aFecha } from './entrenoDatos.js';
 import { aroSemana } from './aros.js';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
-import { Pastilla } from './PastillaV2.jsx';
+import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { etiquetaDia } from './vozCoach.js';
@@ -408,18 +408,18 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       <CabeceraHoy tema="dash" sangria="16px" arriba="calc(62px + env(safe-area-inset-top, 0px))"
         voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, b: racha >= 3 ? `${racha} días seguidos.` : 'Mira cómo vas.' }}
         aro={aroSemana(semana, history, goals, aprende, hoy)} />
-      {/* Atajos: en UNA sola línea y del mismo alto, para no quitarle el
-          protagonismo a las gráficas. Recordatorios y Configuración van
-          solo con su ícono (campana y tuerca) para que todo quepa. */}
-      <div data-atajos style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 5, marginTop: 14, overflowX: 'auto', scrollbarWidth: 'none', padding: '6px 6px 6px 0' }}>
-        <Pastilla mini apretada icono={Mountains} color="#2F6CC4" onClick={() => setSinRetos(true)}>Reto</Pastilla>
-        {wa && <Pastilla mini apretada icono={WhatsappLogo} color="#25A35A" href={wa}>Coach</Pastilla>}
-        <Pastilla mini apretada icono={UsersThree} color="#3C7BD6" badge={nuevosComunidad} badgeEncima data-abrir-comunidad
+      {/* Atajos: botones de cristal chicos (círculo con el símbolo y la
+          palabra debajo), en una sola línea, para no quitarle el
+          protagonismo a las gráficas. */}
+      <FilaCristal data-atajos style={{ marginTop: 14 }}>
+        <BotonCristal icono={Flag} color="#8A6A12" onClick={() => setSinRetos(true)}>Reto</BotonCristal>
+        {wa && <BotonCristal icono={ChatCircle} color="#25A35A" href={wa}>Coach</BotonCristal>}
+        <BotonCristal icono={UsersThree} color="#2F6CC4" badge={nuevosComunidad} data-abrir-comunidad rotulo="Comunidad"
           aria-label={`Comunidad${nuevosComunidad ? ` · ${nuevosComunidad} ${nuevosComunidad === 1 ? 'nueva' : 'nuevas'}` : ''}`}
-          onClick={() => setVista('comunidad')}>Comunidad</Pastilla>
-        {acciones.recordatorios && <Pastilla mini soloIcono icono={Bell} color="#E0A21A" badge={pendientes} onClick={acciones.recordatorios}>Recordatorios</Pastilla>}
-        <Pastilla mini soloIcono icono={GearSix} color={TEXT} data-abrir-config onClick={() => setVista('config')}>Configuración</Pastilla>
-      </div>
+          onClick={() => setVista('comunidad')}>Comunidad</BotonCristal>
+        {acciones.recordatorios && <BotonCristal icono={Bell} color="#C95F17" badge={pendientes} rotulo="Avisos" onClick={acciones.recordatorios}>Recordatorios</BotonCristal>}
+        <BotonCristal icono={GearSix} color="#636366" data-abrir-config rotulo="Ajustes" onClick={() => setVista('config')}>Configuración</BotonCristal>
+      </FilaCristal>
 
       {/* Recordatorios a la vista: los dos primeros, y «Ver todos». La
           campanita sigue; esto es una ayudita para quien no va a buscarla. */}

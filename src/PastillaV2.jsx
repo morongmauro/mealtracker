@@ -35,3 +35,40 @@ export function Pastilla({ icono: Icono, children, onClick, href, badge, color =
     </Tag>
   );
 }
+
+// Botón de cristal (visual nueva): un círculo con el símbolo en el color del
+// atajo y su palabra debajo, como los de Fitness o el Centro de control.
+// Chico a propósito, para no quitarle protagonismo a la cabecera.
+// `rotulo`: la palabra corta de abajo; `children` queda como nombre completo
+// para el lector de pantalla (p. ej. «Escribirle al coach»).
+export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, badge, color = TEXT, ...resto }) {
+  const Tag = href ? 'a' : 'button';
+  return (
+    <Tag onClick={onClick} href={href} target={href ? '_blank' : undefined} rel={href ? 'noopener noreferrer' : undefined}
+      aria-label={typeof children === 'string' ? children : undefined} data-boton-cristal {...resto}
+      style={{
+        display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 5, width: 60, flex: 'none',
+        padding: 0, border: 'none', background: 'none', cursor: 'pointer', textDecoration: 'none', fontFamily: 'inherit',
+      }}>
+      <span data-circulo style={{
+        position: 'relative', width: 46, height: 46, borderRadius: '50%', display: 'grid', placeItems: 'center',
+        background: 'rgba(255,255,255,0.78)', WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)',
+        boxShadow: '0 5px 14px rgba(30,40,60,0.09), inset 0 0 0 0.5px rgba(255,255,255,0.9)',
+      }}>
+        <Icono size={21} weight="fill" color={color} />
+        {badge > 0 && (
+          <span data-badge style={{
+            position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99,
+            background: DANGER, color: '#fff', fontSize: 11, fontWeight: 700, display: 'grid', placeItems: 'center', boxShadow: '0 0 0 2px #fff',
+          }}>{badge}</span>
+        )}
+      </span>
+      <span style={{ fontSize: 11.5, fontWeight: 600, color: '#3A3A3C', whiteSpace: 'nowrap', lineHeight: 1.1 }}>{rotulo || children}</span>
+    </Tag>
+  );
+}
+
+// La fila de botones de cristal debajo de una cabecera.
+export function FilaCristal({ children, style, ...resto }) {
+  return <div data-fila-cristal {...resto} style={{ display: 'flex', alignItems: 'flex-start', gap: 4, ...style }}>{children}</div>;
+}

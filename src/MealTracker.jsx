@@ -24,7 +24,7 @@ const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada } from './mudanza.js';
-import { Pastilla } from './PastillaV2.jsx';
+import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero, ArcoApple, PuntaApple, rielDe } from './GraficasV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
@@ -33,7 +33,7 @@ const MetaComida = lazy(() => import('./MetaComida.jsx'));
 import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
 import { hayNovedad, marcarVisto } from './novedades.js';
 import { vozComida } from './vozCoach.js';
-import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2 } from '@phosphor-icons/react';
+import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2, ChatCircle as ChatV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
 
 // Paleta y tipografía: única fuente de verdad en src/theme.js.
@@ -5757,15 +5757,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   activo={seccionV2 === 'comida' && !showRecetario}
                   voz={vozComida({ hoy: today, hora: new Date().getHours(), kcal: totals.kcal, meta: goals?.kcal || 0, comidas: entries.length, racha: streak })}
                   aro={aroComida(history, goals, today)} />
-                <div style={{ marginTop: '-4px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {/* Recordatorios y mensualidad viven en el Dash; aquí, solo los
-                      círculos de la campanita y de escribirle al coach. */}
-                  <Pastilla soloIcono icono={BellV2} color="#E0A21A" badge={coachReminders.filter(r => !r.done_at).length}
-                    onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</Pastilla>
-                  {WHATSAPP_COACH && <Pastilla soloIcono icono={WhatsappV2} color="#25A35A" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</Pastilla>}
-                  <Pastilla icono={OpcionesV2} color={SECCION.comida.base}
-                    onClick={() => { haptic(8); openActionsSheet(); }}>Opciones</Pastilla>
-                </div>
+                <FilaCristal style={{ marginTop: '-4px' }}>
+                  {/* Recordatorios y mensualidad viven en el Dash; aquí, solo la
+                      campanita, escribirle al coach y las opciones. */}
+                  <BotonCristal icono={BellV2} color="#C95F17" rotulo="Avisos" badge={coachReminders.filter(r => !r.done_at).length}
+                    onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</BotonCristal>
+                  {WHATSAPP_COACH && <BotonCristal icono={ChatV2} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
+                  <BotonCristal icono={OpcionesV2} color={SECCION.comida.base}
+                    onClick={() => { haptic(8); openActionsSheet(); }}>Opciones</BotonCristal>
+                </FilaCristal>
               </div>
             ) : (
             <div style={{

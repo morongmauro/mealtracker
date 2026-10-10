@@ -11,14 +11,14 @@ import HojaNota from './EntrenoNota.jsx';
 import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
-import { Pastilla } from './PastillaV2.jsx';
+import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { IlustracionPesas } from './IlustracionesHoy.jsx';
 import { vozEntreno, vozFinEntreno } from './vozCoach.js';
 import Firma from './Firma.jsx';
 import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
-import { Bell, Ruler, CheckCircle, WhatsappLogo } from '@phosphor-icons/react';
+import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle } from '@phosphor-icons/react';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
@@ -1078,6 +1078,13 @@ function VistaRutina({ name, rutinaId, onVolver }) {
 function PildoraRecordatorios({ pendientes = 0, abrir }) {
   const [unidadesAbiertas, setUnidadesAbiertas] = useState(false);
   const u = useUnidades();
+  // Visual nueva: los botones de cristal (círculo y palabra debajo).
+  if (v2Activa()) return (
+    <FilaCristal style={{ margin: '0 0 14px' }}>
+      <BotonCristal icono={Bell} color="#C95F17" badge={pendientes} rotulo="Avisos" onClick={abrir}>Recordatorios</BotonCristal>
+      {WHATSAPP_COACH && <BotonCristal icono={ChatCircle} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
+    </FilaCristal>
+  );
   return (
     <div style={{ margin: '0 0 14px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {/* Los recordatorios y la mensualidad viven en el Dash; aquí, solo los
