@@ -25,6 +25,8 @@ catch { console.error('Falta playwright:  npm i -g playwright'); process.exit(2)
 const FIJO = Date.parse('2026-09-29T17:00:00Z');
 const DateReal = Date;
 const lento = { accion: null, ms: 0 };
+const modelosPedidos = [];
+const falla55 = { on: false };
 globalThis.Date = class extends DateReal {
   constructor(...a) { super(...(a.length ? a : [FIJO])); }
   static now() { return FIJO; }
@@ -229,6 +231,12 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
     }
     // El chat: «2 huevos» se registra como comida (para ver el «+kcal»).
     if (u.pathname === '/api/chat') {
+      // Modelos pedidos (para la prueba del respaldo). Con `falla55`, los
+      // 5.5 contestan 400 como si la API no los aceptara.
+      let pedido = {};
+      try { pedido = JSON.parse(ruta.request().postData() || '{}'); } catch (e) {}
+      modelosPedidos.push(pedido.model);
+      if (falla55.on && /^claude-(haiku|sonnet)-5-5/.test(pedido.model || '')) return ruta.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'modelo no disponible' }) });
       const huevos = { intent: 'log_meal', meal: 'snack', log_date: null, items: [{ name: 'Huevo', amount: '2 unidades', kcal: 156, p: 12.6, c: 1.1, g: 10.6, fiber: 0, omega3: 0, sugar: 0, needs_quantity: false }], message: null };
       // Lo último que escribió el cliente (el resto del pedido trae el
       // historial y el prompt, que pueden nombrar cualquier comida).
@@ -1013,6 +1021,8 @@ try {
   await espera(300);
   ok('chat: al tocar el campo de texto la barra se esconde', !(await barraVisible()));
   await foto(p, '09b-chat-escribiendo');
+  // Con el 5.5 caído, el chat igual responde: la consulta va al de siempre.
+  falla55.on = true; modelosPedidos.length = 0;
   await p.keyboard.type('2 huevos');
   await p.keyboard.press('Enter');
   await espera(600);
@@ -1024,6 +1034,9 @@ try {
   ok('al registrar comida sale el «+kcal» con el avance del día', (await suma.count()) === 1 && /\+\d+ kcal/.test(await suma.innerText()) && /Vas en \d+ % de tu día/.test(await suma.innerText()), (await suma.count()) ? await suma.innerText() : 'no salió');
   ok('chat: la comida registrada en tarjeta compacta (momento, total grande y alimentos)', (await p.locator('[data-tarjeta-comida]').count()) >= 1
     && /kcal/.test(await p.locator('[data-tarjeta-comida]').last().innerText()) && (await p.locator('[data-tarjeta-comida] [data-alimento]').count()) >= 1);
+  ok('modelos: Mauro pide el 5.5 y, si falla, la misma consulta va al de siempre y se registra igual', modelosPedidos[0] === 'claude-haiku-5-5'
+    && modelosPedidos.includes('claude-haiku-4-5-20251001') && (await p.locator('[data-tarjeta-comida]').count()) >= 1, JSON.stringify(modelosPedidos));
+  falla55.on = false;
   await foto(p, '09c-comida-suma');
   await espera(2600);
   ok('…y se va solo', (await suma.count()) === 0);

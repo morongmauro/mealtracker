@@ -65,8 +65,9 @@ const MODELOS_ACTUALES = { smart: 'claude-sonnet-5', fast: 'claude-haiku-4-5-202
 // proxy /api/chat les pone los parámetros que aceptan (ver paramsNuevos).
 const MODELOS_55 = { smart: 'claude-sonnet-5-5', fast: 'claude-haiku-5-5' };
 const modelos = () => (v2Activa() ? MODELOS_55 : MODELOS_ACTUALES);
-// Si un 5.5 se niega a responder (filtros de seguridad: stop_reason
-// «refusal»), se reintenta con el de siempre: el cliente nunca se queda sin
+// Si un 5.5 falla por lo que sea (se niega a responder, la API no lo
+// reconoce o rechaza un ajuste, está saturado, se corta la conexión), la
+// misma consulta se manda al de siempre: el chat nunca se queda sin
 // respuesta. (Haiku 5.5 no tiene respaldo automático del lado de Anthropic.)
 const RESPALDO = { 'claude-sonnet-5-5': 'claude-sonnet-5', 'claude-haiku-5-5': 'claude-haiku-4-5-20251001' };
 const HYBRID_MODELS = true;
@@ -2278,7 +2279,9 @@ export default function MealTracker() {
     // comidas espaciadas horas, el de 5min nunca pegaba y este sí.
     const systemBlocks = [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral', ttl: '1h' } }];
     let modeloActual = modelOpt || modelos().smart;
-    for (let i = 0; i <= retries; i++) {
+    // Intentos: los de siempre y, si un 5.5 falla, uno más con el respaldo.
+    let intentos = retries;
+    for (let i = 0; i <= intentos; i++) {
       // Se evalúa DENTRO del loop: si la API rechaza el schema (400), el flag
       // se apaga y el siguiente intento sale sin él — la app nunca se cae por
       // el formato estricto.
@@ -2308,6 +2311,9 @@ export default function MealTracker() {
           })
         });
         if (!response.ok) {
+          // Un 5.5 que falla: se pasa al de siempre (abajo) sin tocar el
+          // schema, que con el modelo de siempre sí funciona.
+          if (RESPALDO[modeloActual]) throw new Error(`nuevo-fallo:${response.status}`);
           // Red de seguridad: si el 400 vino con schema puesto, se desactiva
           // el schema para toda la sesión y se reintenta al modo clásico.
           if (response.status === 400 && useSchema) {
@@ -2329,8 +2335,13 @@ export default function MealTracker() {
         return (data.content || []).map(c => c.text || '').join('');
       } catch (e) {
         lastError = e;
-        if (String(e?.message || '') === 'refusal' && RESPALDO[modeloActual]) modeloActual = RESPALDO[modeloActual];
-        if (i < retries) {
+        if (RESPALDO[modeloActual]) {
+          // Directo al de siempre, sin esperar, y con al menos un intento.
+          modeloActual = RESPALDO[modeloActual];
+          if (i >= intentos) intentos = i + 1;
+          continue;
+        }
+        if (i < intentos) {
           // 429 = límite por minuto del guard (caso F26): esperar de verdad
           // antes de reintentar — con 300ms el reintento caía en el mismo
           // minuto y volvía a fallar, y el cliente entraba en bucle de
@@ -11176,16 +11187,19 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
 
 {"kcal": N, "p": N, "c": N, "g": N}`;
 
-      const response = await fetch("/api/chat", {
+      const pedir = (model) => fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: modelos().smart,
+          model,
           max_tokens: 300,
           system: sys,
           messages: [{ role: "user", content: `${item.name}: ${newAmount}` }],
         })
       });
+      // Si el 5.5 falla, el de siempre.
+      let response = await pedir(modelos().smart).catch(() => null);
+      if ((!response || !response.ok) && RESPALDO[modelos().smart]) response = await pedir(RESPALDO[modelos().smart]);
       const data = await response.json();
       const text = data.content.map(c => c.text || '').join('');
       const clean = text.replace(/```json|```/g, '').trim();
