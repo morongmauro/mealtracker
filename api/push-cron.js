@@ -47,6 +47,7 @@ import { checkOrigin } from './_guard.js';
 // La regla de cobro, compartida con el banner de la app. Ver _pagos.js.
 import { leerContexto, evaluarCliente, normalizeName as normPagos, crmHeaders } from './_pagos.js';
 import { agendaDeHoy, cerrarOlvidadas, hoyBogota } from './_entreno.js';
+import { cerrarSemana } from './_semana.js';
 import { TRAINING_PARA_TODOS, TRAINING_BETA } from './_clients.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -385,11 +386,30 @@ export default async function handler(req, res) {
     try { olvidadas = await cerrarOlvidadas(sbCrm, hoyBogota()); } catch (e) { olvidadas = { error: String(e).slice(0, 80) }; }
   }
 
+  // 0b) Lunes (o martes, si el lunes se saltó): la semana que cerró de cada
+  //     cliente se registra sola en el CRM con lo que marcó en su app. No
+  //     pisa nada. ?semana=1 la fuerza (para probar). Ver _semana.js.
+  let semana = null;
+  if (CRM_URL && CRM_KEY) {
+    const crm = async (path, opts = {}) => {
+      const r = await fetch(`${CRM_URL}/rest/v1/${path}`, { ...opts, headers: { ...sbHeaders(CRM_KEY), ...(opts.headers || {}) } });
+      const t = await r.text();
+      if (!r.ok) throw new Error(`crm ${r.status} ${t.slice(0, 200)}`);
+      return t ? JSON.parse(t) : null;
+    };
+    const mt = SUPABASE_URL && SUPABASE_SERVICE_KEY ? async (path) => {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+      if (!r.ok) throw new Error(`mt ${r.status}`);
+      return r.json();
+    } : null;
+    try { semana = await cerrarSemana({ crm, mt, hoy: hoyBogota(), forzar: req.query.semana === '1' }); } catch (e) { semana = { error: String(e).slice(0, 80) }; }
+  }
+
   try {
     // 1) Todas las suscripciones (last_slot = marca anti-duplicado por turno)
     const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,user_id,name,tz,sub,last_slot`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
     const subs = rs.ok ? await rs.json() : [];
-    if (!Array.isArray(subs) || subs.length === 0) return res.status(200).json({ ok: true, sent: 0, subs: 0, olvidadas });
+    if (!Array.isArray(subs) || subs.length === 0) return res.status(200).json({ ok: true, sent: 0, subs: 0, olvidadas, semana });
 
     // 2) Actividad de HOY por cliente (para no molestar a quien ya registró)
     //    + meta de kcal y total consumido (para el cierre del día por %).
@@ -504,7 +524,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true, subs: subs.length, sent, removed, olvidadas });
+    return res.status(200).json({ ok: true, subs: subs.length, sent, removed, olvidadas, semana });
   } catch (e) {
     return res.status(500).json({ error: 'cron failed', detail: String(e) });
   }
