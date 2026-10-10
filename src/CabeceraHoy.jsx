@@ -77,26 +77,6 @@ export function FirmaCoach({ claro = false, compacta = false }) {
   );
 }
 
-// La marca, muy tenue y grande (estilo editorial), en la esquina de arriba a la
-// derecha de las páginas sin objeto en la cabecera: el asa y el aro del ícono,
-// en el tono de la sección. Se corta apenas por el borde, lo justo para que se
-// siga reconociendo, y va por detrás de todo (texto y tarjetas).
-function MarcaEsquina({ color }) {
-  return (
-    // La caja llega hasta el borde de la pantalla (20 px de margen) y recorta
-    // ahí, para que la página no se deslice de lado.
-    <div aria-hidden="true" style={{ position: 'absolute', top: -14, right: -20, width: 260, height: 300, overflow: 'hidden', pointerEvents: 'none', zIndex: -1 }}>
-    <svg data-marca-esquina viewBox="0 0 512 512" width="250" height="250" style={{ position: 'absolute', top: 0, right: -38, opacity: 0.055 }}>
-      <g transform="translate(256 262) scale(0.92) translate(-256 -248)" fill="none" stroke={color} strokeWidth="34" strokeLinecap="round">
-        <path d="M128 162 C96 72 160 18 256 18 C352 18 416 72 384 162" />
-        <circle cx="256" cy="300" r="136" strokeDasharray="640.88 854.51" transform="rotate(-90 256 300)" />
-        <circle cx="120" cy="300" r="26" fill={color} stroke="none" />
-      </g>
-    </svg>
-    </div>
-  );
-}
-
 // `fondo={false}`: solo la letra (el Dash ya tiene sus manchas detrás).
 // `voz.sub`: una línea de texto normal debajo de la frase.
 // `aro`: { frac (0–1), centro, pie } — la gráfica clave de la sección, en un
@@ -156,7 +136,6 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
     return (
       <div data-cabecera-hoy={tema} style={{ position: 'relative', margin: '0 0 18px', padding: '16px 0 4px' }}>
         <style>{CSS}</style>
-        <MarcaEsquina color={t.tinta} />
         {texto}
       </div>
     );

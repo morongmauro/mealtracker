@@ -898,12 +898,7 @@ try {
   await p.locator('[data-recetario-botones]').waitFor({ timeout: 8000 });
   await espera(500);
   await foto(p, '10-recetario');
-  ok('Recetas: la marca grande (editorial) y muy tenue en la esquina de arriba a la derecha, apenas cortada por el borde y sin desplazar la página', await p.evaluate(() => {
-    const m = document.querySelector('[data-cabecera-hoy="comida"] [data-marca-esquina]'); if (!m) return false;
-    const r = m.getBoundingClientRect(), op = Number(getComputedStyle(m).opacity);
-    const fuera = Math.max(0, r.right - innerWidth) / r.width;
-    return op > 0 && op <= 0.07 && r.width >= 220 && fuera > 0 && fuera <= 0.2 && r.top < 260 && document.documentElement.scrollWidth <= innerWidth;
-  }));
+  ok('Recetas: sin la marca tenue en la esquina', (await p.locator('[data-marca-esquina]').count()) === 0);
   ok('recetario: una línea separa los botones de las recetas', (await p.locator('[data-recetario-separador]').count()) === 1);
   ok('recetario: sin la foto de portada', (await p.locator('img[src*="recetario-hero"]').count()) === 0);
   ok('recetario: las recetas se ven de una', (await p.getByText('Wrap crujiente de atún').count()) >= 1);
