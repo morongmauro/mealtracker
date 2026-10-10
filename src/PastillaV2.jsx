@@ -41,13 +41,13 @@ export function Pastilla({ icono: Icono, children, onClick, href, badge, color =
 // Chico a propósito, para no quitarle protagonismo a la cabecera.
 // `rotulo`: la palabra corta de abajo; `children` queda como nombre completo
 // para el lector de pantalla (p. ej. «Escribirle al coach»).
-export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, badge, color = TEXT, ...resto }) {
+export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, badge, color = TEXT, ancho = 60, ...resto }) {
   const Tag = href ? 'a' : 'button';
   return (
     <Tag onClick={onClick} href={href} target={href ? '_blank' : undefined} rel={href ? 'noopener noreferrer' : undefined}
       aria-label={typeof children === 'string' ? children : undefined} data-boton-cristal {...resto}
       style={{
-        display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 5, width: 60, flex: 'none',
+        display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 5, width: ancho, flex: 'none',
         padding: 0, border: 'none', background: 'none', cursor: 'pointer', textDecoration: 'none', fontFamily: 'inherit',
       }}>
       <span data-circulo style={{

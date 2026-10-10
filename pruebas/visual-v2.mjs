@@ -377,17 +377,17 @@ try {
     ok('Dash: «Ver todos» muestra el resto de recordatorios', (await dash.locator('[data-recordatorio]').count()) > 2);
     await verTodos.click(); await espera(150);
   }
-  ok('los atajos (reto, coach, comunidad, recordatorios y la tuerca) van en UNA línea, enteros y del mismo alto', await dash.evaluate(() => {
+  ok('los atajos (respira, reto, coach, comunidad, recordatorios y la tuerca) van en UNA línea, enteros y del mismo alto', await dash.evaluate(() => {
     const bs = [...document.querySelectorAll('[data-atajos] > *')];
     const tops = new Set(bs.map(b => Math.round(b.getBoundingClientRect().top)));
     const altos = new Set(bs.map(b => Math.round(b.getBoundingClientRect().height)));
-    return bs.length === 5 && tops.size === 1 && altos.size === 1 && bs.every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth - 16; });
+    return bs.length === 6 && tops.size === 1 && altos.size === 1 && bs.every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth - 16; });
   }), await dash.evaluate(() => JSON.stringify([...document.querySelectorAll('[data-atajos] > *')].map(b => { const r = b.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), Math.round(r.height)]; }))));
   ok('atajos del Dash: botones de cristal chicos (círculo de 46 px con el símbolo y la palabra debajo)', await dash.evaluate(() => {
     const bs = [...document.querySelectorAll('[data-atajos] [data-boton-cristal]')];
-    return bs.length === 5 && bs.every(b => { const c = b.querySelector('[data-circulo]').getBoundingClientRect(); const t = b.lastElementChild.getBoundingClientRect();
+    return bs.length === 6 && bs.every(b => { const c = b.querySelector('[data-circulo]').getBoundingClientRect(); const t = b.lastElementChild.getBoundingClientRect();
       return Math.round(c.width) === 46 && Math.round(c.height) === 46 && t.top >= c.bottom && t.height > 0; })
-      && bs.map(b => b.lastElementChild.textContent).join(',') === 'Reto,Coach,Comunidad,Avisos,Ajustes';
+      && bs.map(b => b.lastElementChild.textContent).join(',') === 'Respira,Reto,Coach,Comunidad,Avisos,Ajustes';
   }));
   ok('Comunidad ya no es una tarjeta grande arriba de las gráficas', (await dash.locator('[data-atajos] [data-abrir-comunidad]').count()) === 1
     && (await dash.locator('[data-atajos] [data-abrir-config]').count()) === 1);
@@ -405,6 +405,29 @@ try {
   await foto(p, '01b-reto');
   await p.getByRole('dialog', { name: 'Retos' }).click();
   ok('Reto: un toque lo cierra', (await p.getByRole('dialog', { name: 'Retos' }).count()) === 0);
+  // Respiración guiada: 1, 3 o 5 min, el disco que respira, sin guardar nada.
+  {
+    const antes = await p.evaluate(() => Object.keys(localStorage).filter(k => /respir|racha/i.test(k)).join('|'));
+    await p.locator('[data-view="dash"] [data-abrir-respira]').click();
+    const rs = p.locator('[data-respira]');
+    await rs.waitFor({ timeout: 4000 });
+    ok('respira: se elige 1, 3 o 5 minutos', JSON.stringify(await rs.locator('[data-minutos]').evaluateAll(els => els.map(e => e.dataset.minutos))) === '["1","3","5"]');
+    await rs.locator('[data-minutos="3"]').click();
+    await espera(400);
+    await foto(p, '24a-respira-elegir');
+    await rs.locator('[data-respira-empezar]').click();
+    await espera(1200);
+    ok('respira: al empezar, «Inhala» y el disco respirando, con el tiempo que queda', await rs.getAttribute('data-respira') === 'anda'
+      && /Inhala|Exhala/.test(await rs.locator('[data-fase]').innerText()) && (await rs.locator('[data-disco].anda').count()) === 1 && /3:00|2:5\d/.test(await rs.innerText()));
+    await foto(p, '24b-respira-anda');
+    await rs.getByRole('button', { name: 'Terminar' }).click();
+    await espera(400);
+    ok('respira: «Terminar» lleva a «Listo.»', await rs.getAttribute('data-respira') === 'fin' && /Listo\./.test(await rs.innerText()));
+    await rs.locator('[data-respira-volver]').click();
+    await espera(300);
+    ok('respira: «Volver» la cierra y no guarda registros ni rachas', (await rs.count()) === 0
+      && await p.evaluate(() => Object.keys(localStorage).filter(k => /respir|racha/i.test(k)).join('|')) === antes);
+  }
   // Deslizar de lado ya NO cambia de sección (chocaba con el scroll de lado
   // del calendario, la galería y los videos): se navega con la barra.
   await p.evaluate(() => {
@@ -1235,6 +1258,15 @@ try {
     const r = el.getBoundingClientRect(); return r.width > 150 && r.left >= 0 && r.right <= innerWidth && !!el.querySelector('.kb-ojos');
   }));
   await foto(n.p, '16-fin-entreno');
+  ok('fin: «¿Bajamos pulsaciones? Respira» abre la respiración guiada', await (async () => {
+    await fin.locator('[data-fin-respira]').click();
+    const rs = n.p.locator('[data-respira]');
+    await rs.waitFor({ timeout: 3000 }).catch(() => {});
+    const bien = (await rs.count()) === 1 && /Bajamos pulsaciones/i.test(await rs.innerText());
+    await rs.locator('[data-respira-cerrar]').click().catch(() => {});
+    await espera(300);
+    return bien && (await rs.count()) === 0 && (await fin.count()) === 1;
+  })());
   await fin.getByRole('button', { name: 'Seguir' }).click();
   await espera(600);
   ok('fin: «Seguir» vuelve a Hoy', (await fin.count()) === 0 && await n.p.locator('[data-cabecera-hoy="entreno"]').isVisible());

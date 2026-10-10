@@ -18,7 +18,7 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Bell, Mountains, WhatsappLogo, Flag, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix } from '@phosphor-icons/react';
+import { Wind, Bell, Mountains, WhatsappLogo, Flag, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
@@ -28,6 +28,7 @@ import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
 import VentanaMarca, { BotonVentana } from './VentanaMarca.jsx';
+import Respira from './Respira.jsx';
 
 const CLAVE_BIENVENIDA = 'mt:bienvenidaComunidad';
 const bienvenidaVista = () => { try { return !!localStorage.getItem(CLAVE_BIENVENIDA); } catch (e) { return true; } };
@@ -332,6 +333,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   const [midiendo, setMidiendo] = useState(false);
   const [vista, setVista] = useState('inicio');
   const [sinRetos, setSinRetos] = useState(false);
+  const [respira, setRespira] = useState(false);
   const [aprende, setAprende] = useState(() => (cacheAprende.has(name) ? cacheAprende.get(name) : undefined));   // undefined = cargando, null = sin datos
   // Comunidad: cuántas publicaciones no ha visto (el número en su pastilla)
   // y la firma de la más nueva (el puntito del Dash en la barra).
@@ -421,14 +423,15 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       {/* Atajos: botones de cristal chicos (círculo con el símbolo y la
           palabra debajo), en una sola línea, para no quitarle el
           protagonismo a las gráficas. */}
-      <FilaCristal data-atajos style={{ marginTop: 14 }}>
-        <BotonCristal icono={Flag} color="#8A6A12" onClick={() => setSinRetos(true)}>Reto</BotonCristal>
-        {wa && <BotonCristal icono={ChatCircle} color="#25A35A" href={wa}>Coach</BotonCristal>}
-        <BotonCristal icono={UsersThree} color="#2F6CC4" badge={nuevosComunidad} data-abrir-comunidad rotulo="Comunidad"
+      <FilaCristal data-atajos style={{ marginTop: 14, justifyContent: 'space-between', gap: 0 }}>
+        <BotonCristal icono={Wind} color="#2F6CC4" ancho={54} data-abrir-respira onClick={() => setRespira(true)}>Respira</BotonCristal>
+        <BotonCristal icono={Flag} color="#8A6A12" ancho={54} onClick={() => setSinRetos(true)}>Reto</BotonCristal>
+        {wa && <BotonCristal icono={ChatCircle} color="#25A35A" ancho={54} href={wa}>Coach</BotonCristal>}
+        <BotonCristal icono={UsersThree} color="#2F6CC4" ancho={54} badge={nuevosComunidad} data-abrir-comunidad rotulo="Comunidad"
           aria-label={`Comunidad${nuevosComunidad ? ` · ${nuevosComunidad} ${nuevosComunidad === 1 ? 'nueva' : 'nuevas'}` : ''}`}
           onClick={() => setVista('comunidad')}>Comunidad</BotonCristal>
-        {acciones.recordatorios && <BotonCristal icono={Bell} color="#C95F17" badge={pendientes} rotulo="Avisos" onClick={acciones.recordatorios}>Recordatorios</BotonCristal>}
-        <BotonCristal icono={GearSix} color="#636366" data-abrir-config rotulo="Ajustes" onClick={() => setVista('config')}>Configuración</BotonCristal>
+        {acciones.recordatorios && <BotonCristal icono={Bell} color="#C95F17" ancho={54} badge={pendientes} rotulo="Avisos" onClick={acciones.recordatorios}>Recordatorios</BotonCristal>}
+        <BotonCristal icono={GearSix} color="#636366" ancho={54} data-abrir-config rotulo="Ajustes" onClick={() => setVista('config')}>Configuración</BotonCristal>
       </FilaCristal>
 
       {/* Recordatorios a la vista: los dos primeros, y «Ver todos». La
@@ -450,6 +453,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
         </VentanaMarca>
       )}
       {/* Reto: por ahora no hay ninguno. Solo el mensaje; un toque lo cierra. */}
+      {respira && <Respira alCerrar={() => setRespira(false)} />}
       {sinRetos && (
         <div role="dialog" aria-label="Retos" onClick={() => setSinRetos(false)} style={{
           position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(31,31,28,0.28)',

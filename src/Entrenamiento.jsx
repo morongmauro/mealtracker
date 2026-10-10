@@ -18,7 +18,8 @@ import { vozEntreno, vozFinEntreno } from './vozCoach.js';
 import Firma from './Firma.jsx';
 import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
-import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle } from '@phosphor-icons/react';
+import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind } from '@phosphor-icons/react';
+import Respira from './Respira.jsx';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
@@ -1162,6 +1163,7 @@ function HojaFin({ fin, alCerrar }) {
   useEffect(() => { asegurarCSS(); vibrar([20, 50, 20, 50, 40]); }, []);
   const marca = (r) => r.peso ? `${r.peso} ${r.unidad || 'kg'} × ${r.reps}` : `${r.reps} reps`;
   const frase = vozFinEntreno({ hoy: hoyLocal(), hechos: fin.hechos, total: fin.total, records: fin.records.length });
+  const [respira, setRespira] = useState(false);
   return (
     <div data-fin-entreno onClick={alCerrar} style={{
       position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(31,31,28,0.42)',
@@ -1211,8 +1213,17 @@ function HojaFin({ fin, alCerrar }) {
             width: '100%', marginTop: 18, padding: '14px 18px', borderRadius: 14, border: 0,
             background: TEXT, color: '#fff', fontSize: 15.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
           }}>Seguir</button>
+          {/* Visual nueva: bajar pulsaciones con la respiración guiada. */}
+          {v2Activa() && (
+            <button data-fin-respira onClick={() => setRespira(true)} style={{
+              width: '100%', marginTop: 8, padding: '12px 16px', borderRadius: 14, border: 0, background: '#EEF3FB',
+              color: '#2F6CC4', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}><Wind size={18} weight="fill" /> ¿Bajamos pulsaciones? Respira</button>
+          )}
         </div>
       </div>
+      {respira && <div onClick={e => e.stopPropagation()}><Respira titulo="Bajamos pulsaciones" alCerrar={() => setRespira(false)} /></div>}
     </div>
   );
 }

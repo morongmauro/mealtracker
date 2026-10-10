@@ -27,7 +27,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, Moon, Info } from '@phosphor-icons/react';
+import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, Moon, Info, Wind } from '@phosphor-icons/react';
+import Respira from './Respira.jsx';
 import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import Actividad, { ChipActividad } from './EntrenoActividad.jsx';
@@ -1298,6 +1299,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
   const registros = (dia?.eventos || []).filter(e => e.registra);
   const otros = (dia?.eventos || []).filter(e => !e.registra);
   const n = r ? ejerciciosDe[r.id] : null;
+  const [respira, setRespira] = useState(false);
   return (
     <div data-hoy-te-toca>
       <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '4px 2px 12px' }}>Hoy te toca</h2>
@@ -1324,8 +1326,15 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
             <CheckCircle size={20} weight="fill" color={P.base} /> <span>Hoy entrenaste <b>{dia.hecho.nombre}</b>.</span>
           </div>
         ) : (
-          <div style={cajaDia}><Moon size={19} color={TEXT_LIGHT} /> <span><b style={{ color: TEXT }}>Hoy descansas.</b> Descansar también es parte del plan.</span></div>
+          <div style={{ ...cajaDia, flexWrap: 'wrap' }}>
+            <Moon size={19} color={TEXT_LIGHT} /> <span style={{ flex: 1, minWidth: 0 }}><b style={{ color: TEXT }}>Hoy descansas.</b> Descansar también es parte del plan.</span>
+            <button data-descanso-respira onClick={() => setRespira(true)} style={{
+              flexBasis: '100%', marginTop: 4, padding: '11px 14px', borderRadius: 14, border: 0, background: '#EEF3FB', color: '#2F6CC4',
+              fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}><Wind size={17} weight="fill" /> Respira unos minutos</button>
+          </div>
         )}
+        {respira && <Respira alCerrar={() => setRespira(false)} inicial={3} />}
 
         {registros.map(ev => (
           <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 alCambio={alCambio} />
