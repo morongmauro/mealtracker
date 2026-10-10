@@ -114,7 +114,12 @@ function buildIndex() {
 // marca). Si no hay match o la cantidad es ambigua, devuelve el item igual
 // — la estimación de la IA se respeta. NUNCA lanza: ante cualquier duda,
 // deja el item como vino.
-export function canonicalizeItem(it) {
+// `crudo` (visual nueva, por ahora solo Mauro): si el cliente pesó en CRUDO,
+// la tabla (que es de lo cocido, como se come) se aplica a los gramos
+// COCIDOS equivalentes que escribió el chat: «200 g crudo (≈150 g cocido)».
+// Sin ese equivalente, se respeta lo que calculó el chat con los valores del
+// crudo: aplicar la tabla de cocido a 200 g crudos daría de más.
+export function canonicalizeItem(it, { crudo = false } = {}) {
   try {
     if (!INDEX) buildIndex();
     const key = INDEX.get(norm(it.name));
@@ -123,14 +128,22 @@ export function canonicalizeItem(it) {
     const amount = String(it.amount || '');
     const texto = `${it.name} ${amount}`.toLowerCase();
 
-    // 1) Gramos o mililitros explícitos ("124g", "0.5 taza (80 g)", "100ml")
     let grams = null;
-    const mg = amount.match(/(\d+(?:[.,]\d+)?)\s*(?:g|gr|grs|gramos|ml|cc)\b/i);
+    // (Solo cuando lo crudo está en la CANTIDAD: «avena cruda» como nombre
+    // ya es un alimento de la tabla, con sus valores en crudo.)
+    if (crudo && /\bcrud[oa]s?\b/i.test(amount)) {
+      const mc = amount.match(/(\d+(?:[.,]\d+)?)\s*(?:g|gr|grs|gramos)\s*cocid/i);
+      if (!mc) return it;
+      grams = parseFloat(mc[1].replace(',', '.'));
+    }
+
+    // 1) Gramos o mililitros explícitos ("124g", "0.5 taza (80 g)", "100ml")
+    const mg = grams != null ? null : amount.match(/(\d+(?:[.,]\d+)?)\s*(?:g|gr|grs|gramos|ml|cc)\b/i);
     if (mg) grams = parseFloat(mg[1].replace(',', '.'));
 
     // 2) Unidades naturales ("2 huevos", "1 arepa mediana") si el alimento
     //    tiene peso estándar por unidad. Tamaños ajustan el estándar.
-    if (grams == null && def.unidad) {
+    if (grams == null && !mg && def.unidad) {
       const mq = amount.match(/(\d+(?:[.,]\d+)?)/);
       const qty = mq ? parseFloat(mq[1].replace(',', '.')) : 1;
       let factor = 1;

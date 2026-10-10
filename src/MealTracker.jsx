@@ -3524,6 +3524,18 @@ ${f.days.map(d => `  · ${d.meal || 'comida'}: ${(d.items||[]).map(it => `${it.n
         ? `\nDÍAS PASADOS CON REGISTRO (para borrar/consultar días anteriores; si una fecha NO está aquí, ese día no tiene nada):\n${lines.join('\n')}\n`
         : '\nDÍAS PASADOS CON REGISTRO: ninguno en los últimos 14 días.\n';
     })();
+    // PESADO EN CRUDO (visual nueva, por ahora solo Mauro): «200 g de pollo
+    // crudo» se registra con los valores del CRUDO y se muestra también lo
+    // que equivale cocido. Solo viaja cuando el mensaje habla de crudo.
+    const crudoHint = (v2Activa() && /\bcrud[oa]s?\b|sin cocinar|antes de cocinar/i.test(String(text))) ? `
+
+PESADO EN CRUDO: el cliente pesó el alimento CRUDO (antes de cocinarlo). Para ese alimento:
+- kcal y macros con los valores del alimento CRUDO por esos gramos (USDA raw), NUNCA con los del cocido.
+- "name": el nombre estándar del alimento como lo come (ej. "pechuga de pollo", "arroz blanco cocido").
+- "amount": los gramos crudos Y su equivalente cocido, exactamente así: "200 g crudo (≈150 g cocido)".
+- Equivalencias crudo → cocido: pollo, res, cerdo ×0,75 · pescado ×0,8 · arroz ×2,8 · pasta ×2,3 · quinoa ×2,7 · lentejas, frijoles y garbanzos secos ×2,5 · papa y yuca ×1.
+- Referencias por 100 g CRUDO: pechuga de pollo 120 kcal · P 22,5 · G 2,6 | carne de res magra 150 kcal · P 21 · G 7 | salmón 208 kcal · P 20 · G 13 | arroz blanco 360 kcal · C 80 · P 6,6 | pasta 370 kcal · C 75 · P 13 | lentejas 350 kcal · C 60 · P 25.
+- En "message" (si escribes uno) dile en una frase corta que lo registraste en crudo, con su equivalente cocido.` : '';
     const contextSnippet = `
 CONTEXTO DEL CLIENTE:
 - Nombre: ${name || 'desconocido'}
@@ -3534,7 +3546,7 @@ CONTEXTO DEL CLIENTE:
 - Hora actual: ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
 - Fecha de hoy: ${today} (${new Date().toLocaleDateString('es', { weekday: 'long' })})
 - TABLA DE FECHAS (para "log_date" COPIA la fecha exacta de esta tabla, NO la calcules tú):
-${dateTable}${pastDaysBlock}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock}${appendHint}${voiceHint}${historyBlock}`;
+${dateTable}${pastDaysBlock}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock}${appendHint}${voiceHint}${historyBlock}${crudoHint}`;
 
     const sys = CHAT_SYSTEM_PROMPT;
 
@@ -3604,7 +3616,7 @@ ${dateTable}${pastDaysBlock}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}
       // (src/foods.js) y su cantidad es determinable, los macros se
       // recalculan desde la tabla — el mismo número para todos los
       // clientes, todos los días. Si no, se respeta la estimación de la IA.
-      const it = canonicalizeItem(raw);
+      const it = canonicalizeItem(raw, { crudo: v2Activa() });
       const p = Math.max(0, it.p || 0);
       const c = Math.max(0, it.c || 0);
       const g = Math.max(0, it.g || 0);
@@ -11336,7 +11348,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
       // en la tabla canónica (src/foods.js), los macros salen de ahí y no de
       // la IA — sin esto, editar "arepa" de 1 a 2 daba números distintos a
       // los de la tabla y volvía la inconsistencia que la tabla elimina.
-      const canon = canonicalizeItem({ name: item.name, amount: newAmount, kcal: result.kcal, p: result.p, c: result.c, g: result.g });
+      const canon = canonicalizeItem({ name: item.name, amount: newAmount, kcal: result.kcal, p: result.p, c: result.c, g: result.g }, { crudo: v2Activa() });
 
       const newItems = [...items];
       newItems[idx] = { ...newItems[idx], amount: newAmount, kcal: canon.kcal, p: canon.p, c: canon.c, g: canon.g, needs_quantity: false };

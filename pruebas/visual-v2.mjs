@@ -27,6 +27,8 @@ const DateReal = Date;
 const lento = { accion: null, ms: 0 };
 const modelosPedidos = [];
 const falla55 = { on: false };
+// Lo último que mandó la app al chat (para ver qué instrucciones viajan).
+const ultimoChat = { texto: '' };
 // Lo que la app sube a su cuenta en la nube (POST /api/sync).
 const postsNube = [];
 globalThis.Date = class extends DateReal {
@@ -247,6 +249,12 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
       // historial y el prompt, que pueden nombrar cualquier comida).
       let ultimo = '';
       try { const cuerpo = JSON.parse(ruta.request().postData() || '{}'); const ms = (cuerpo.messages || []).filter(m => m.role === 'user'); const c = ms.length ? ms[ms.length - 1].content : ''; ultimo = typeof c === 'string' ? c : JSON.stringify(c); } catch (e) { ultimo = ruta.request().postData() || ''; }
+      ultimoChat.texto = ultimo;
+      // Pesado en crudo: el chat lo registra con los valores del crudo y su equivalente cocido.
+      if (/pollo crudo/.test(ultimo)) {
+        const crudo = { intent: 'log_meal', meal: 'lunch', log_date: null, items: [{ name: 'pechuga de pollo', amount: '200 g crudo (≈150 g cocido)', kcal: 240, p: 45, c: 0, g: 5.2, fiber: 0, omega3: 0, sugar: 0, needs_quantity: false }], message: null };
+        return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(crudo) }] }) });
+      }
       // Una consulta (no registra): para ver el estilo de las demás respuestas.
       if (/manzana/.test(ultimo)) {
         const consulta = { intent: 'nutrition_query', nutrition_response: { food: 'Manzana', amount: '1 mediana (180 g)', kcal: 95, p: 0.5, c: 25, g: 0.3 }, message: null };
@@ -1445,6 +1453,13 @@ try {
   ok('…y su letra de siempre', !(await o.p.evaluate(() => document.documentElement.hasAttribute('data-v2'))));
   ok('…y no abre en el Dash', (await o.p.getByText('Tu performance semanal', { exact: true }).count()) === 0);
   await foto(o.p, '13-otra-persona');
+  ultimoChat.texto = '';
+  await o.p.getByRole('button', { name: 'Chat', exact: true }).click().catch(() => {}); await espera(700);
+  await o.p.locator('.msg-input').click();
+  await o.p.keyboard.type('200 g de pollo crudo');
+  await o.p.keyboard.press('Enter');
+  await o.p.getByText(/150 g cocido/).last().waitFor({ timeout: 8000 }).catch(() => {});
+  ok('otra persona: lo de pesado en crudo aún no le llega (solo Mauro)', /pollo crudo/.test(ultimoChat.texto) && !/PESADO EN CRUDO/.test(ultimoChat.texto));
   ok('sin errores de JavaScript (otra persona)', o.errores.length === 0, o.errores.join(' | '));
   await o.ctx.close();
 
@@ -1476,6 +1491,34 @@ try {
   ok('sin errores de JavaScript (otra persona, aviso)', oa.errores.length === 0, oa.errores.join(' | '));
   await oa.ctx.close();
 
+  {
+    const pc = await abrir('Mauro Morón', { caliente: true });
+    await pc.p.getByRole('button', { name: 'Alimentación', exact: true }).click();
+    await espera(900);
+    await pc.p.getByRole('button', { name: 'Chat', exact: true }).click();
+    await espera(900);
+  // Pesado en CRUDO (solo Mauro): viajan las instrucciones de crudo y la
+  // tabla de la app no le aplica los valores del cocido a los gramos crudos.
+  await pc.p.locator('.msg-input').click();
+  await pc.p.keyboard.type('200 g de pollo crudo');
+  await pc.p.keyboard.press('Enter');
+  await pc.p.getByText(/150 g cocido/).last().waitFor({ timeout: 8000 }).catch(() => {});
+  await espera(600);
+  // (Lo guardado del día: en las pruebas el reloj está quieto y dos comidas
+  // comparten id, así que la tarjeta del chat no sirve para mirar esto.)
+  const pollo = await pc.p.evaluate(() => {
+    const k = Object.keys(localStorage).find(x => /^mt:day:/.test(x) && /pechuga/.test(localStorage.getItem(x) || ''));
+    const dia = k ? JSON.parse(localStorage.getItem(k)) : [];
+    const it = dia.flatMap(e => e.items || [e]).find(x => /pechuga/.test(x.name || ''));
+    return it ? { amount: it.amount, kcal: it.kcal } : null;
+  });
+  ok('crudo: el chat recibe cómo registrar lo pesado en crudo', /PESADO EN CRUDO/.test(ultimoChat.texto));
+  ok('crudo: se registra con su equivalente cocido y las kcal del crudo (≈248, no 330)', !!pollo && /200 g crudo \(≈150 g cocido\)/.test(pollo.amount) && Math.round(pollo.kcal) === 248, JSON.stringify(pollo));
+  await foto(pc.p, '09d-comida-cruda');
+  await espera(3000);
+    ok('sin errores de JavaScript (crudo)', pc.errores.length === 0, pc.errores.join(' | '));
+    await pc.ctx.close();
+  }
   // PRIMERA VEZ en la app nueva con cuenta ya activa: le salen solas las
   // ventanas que le falten y la invitación al recorrido; una sola vez.
   const pv = await abrir('Mauro Morón', { extra: { 'mt:primeraVezVista': null } });
