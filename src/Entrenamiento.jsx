@@ -34,7 +34,9 @@ export function aroEntreno(plan) {
   const planeadas = dias.filter(d => d.rutina).length;
   if (!planeadas) return null;
   const hechas = dias.filter(d => d.rutina && d.hecha).length;
-  return { frac: hechas / planeadas, centro: `${Math.round((hechas / planeadas) * 100)}%`, pie: 'Performance semanal' };
+  // La actividad extra (cardio, deportes…) suma su bono, hasta +10 puntos.
+  const frac = Math.min(1, hechas / planeadas + (Number(plan.extra?.bono) || 0) / 100);
+  return { frac, centro: `${Math.round(frac * 100)}%`, pie: 'Performance semanal' };
 }
 
 // El acento del módulo sale de entrenoUI: oliva de siempre, azul en la visual nueva.

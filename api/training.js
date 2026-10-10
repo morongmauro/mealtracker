@@ -39,6 +39,7 @@
 // Fail-safe: ante cualquier problema devuelve { ok:false } y la app muestra
 // su estado vacío. Nunca rompe la pantalla.
 
+import { actividadExtra, bonoExtra } from './_actividad.js';
 import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
@@ -174,6 +175,9 @@ async function verPlan(cliente, hoy) {
   const ses = await sb(`sesiones?select=id,rutina_id,fecha,estado,duracion_seg,rpe`
     + `&cliente_id=eq.${cliente.id}&fecha=gte.${lunes}&order=fecha.asc`);
   const sesiones = Array.isArray(ses) ? ses : [];
+  // La actividad extra de la semana (cardio, deportes…): suma a la performance.
+  const actsSemana = await sb(`actividades?select=fecha,tipo&cliente_id=eq.${cliente.id}&fecha=gte.${lunes}`).catch(() => []);
+  const extraSemana = actividadExtra(Array.isArray(actsSemana) ? actsSemana : []);
 
   const porDia = repartirPorDia(fase, lista);
   // Lo que el cliente movió de día pesa sobre el plan semanal.
@@ -217,6 +221,7 @@ async function verPlan(cliente, hoy) {
       dias_semana: fase.dias_semana || [],
     },
     dias,
+    extra: { detalle: extraSemana, bono: bonoExtra(extraSemana) },
     // Rutinas que no cupieron en el calendario: el coach armó más días de
     // entreno que días declaró en la fase. Se muestran igual, sueltas, en vez
     // de desaparecer sin que nadie se entere.
@@ -1540,6 +1545,10 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
     cardio: { dias: diasCon(actSemana.filter(a => esCardio(a.tipo))) },
     coach: { hechos: coachHechos, total: coachTotal },
     extra: { dias: diasCon(actSemana.filter(a => !a.evento_id && a.tipo && !esCardio(a.tipo))) },
+    // La actividad extra de la semana por tipo y los puntos que suma a la
+    // performance (la misma regla del CRM, _actividad.js).
+    actividad_extra: actividadExtra(actSemana),
+    bono: bonoExtra(actividadExtra(actSemana)),
   };
 
   return {

@@ -391,7 +391,9 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
 
   const comida = useMemo(() => datosComida(history, goals, hoy), [history, goals, hoy]);
   const destacados = useMemo(() => alimentosDestacados(detalle, hoy), [detalle, hoy]);
-  const semana = ent?.semanas?.[ent.semanas.length - 1];
+  const ultimaSemana = ent?.semanas?.[ent.semanas.length - 1];
+  // La semana en curso, con el bono de su actividad extra (cardio, deportes…).
+  const semana = ultimaSemana ? { ...ultimaSemana, bono: ent?.semana?.bono || 0 } : ultimaSemana;
   const nombre = String(name || '').split(' ')[0];
   const wa = WHATSAPP_COACH
     ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`

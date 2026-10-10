@@ -386,9 +386,9 @@ export default async function handler(req, res) {
     try { olvidadas = await cerrarOlvidadas(sbCrm, hoyBogota()); } catch (e) { olvidadas = { error: String(e).slice(0, 80) }; }
   }
 
-  // 0b) Lunes (o martes, si el lunes se saltó): la semana que cerró de cada
-  //     cliente se registra sola en el CRM con lo que marcó en su app. No
-  //     pisa nada. ?semana=1 la fuerza (para probar). Ver _semana.js.
+  // 0b) La performance de cada cliente, al día: cada hora se actualiza en el
+  //     CRM su semana en curso con lo que lleva registrado (y lunes y martes
+  //     se cierra la anterior). Nunca pisa lo del coach. Ver _semana.js.
   let semana = null;
   if (CRM_URL && CRM_KEY) {
     const crm = async (path, opts = {}) => {
@@ -402,7 +402,7 @@ export default async function handler(req, res) {
       if (!r.ok) throw new Error(`mt ${r.status}`);
       return r.json();
     } : null;
-    try { semana = await cerrarSemana({ crm, mt, hoy: hoyBogota(), forzar: req.query.semana === '1' }); } catch (e) { semana = { error: String(e).slice(0, 80) }; }
+    try { semana = await cerrarSemana({ crm, mt, hoy: hoyBogota() }); } catch (e) { semana = { error: String(e).slice(0, 80) }; }
   }
 
   try {

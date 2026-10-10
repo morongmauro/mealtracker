@@ -33,8 +33,11 @@ export function cumplimientoComidaSemana(history = {}, goals = {}, hoy = hoyLoca
   return dias ? suma / dias : null;
 }
 
-// La adherencia al entreno de la semana (rutinas hechas de las planeadas).
-export const adherenciaEntreno = (semana) => (semana && semana.planeados ? Math.min(1, semana.hechos / semana.planeados) : null);
+// La adherencia al entreno de la semana (rutinas hechas de las planeadas),
+// más el bono de la actividad extra (cardio, deportes…: hasta +10 puntos, la
+// misma regla del CRM; lo calcula el servidor, api/_actividad.js).
+export const adherenciaEntreno = (semana) => (semana && semana.planeados
+  ? Math.min(1, semana.hechos / semana.planeados + (Number(semana.bono) || 0) / 100) : null);
 
 export const aroDe = (frac, pie) => (frac == null ? null : { frac, centro: `${Math.round(frac * 100)}%`, pie });
 
