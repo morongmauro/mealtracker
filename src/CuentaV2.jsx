@@ -87,8 +87,17 @@ const Enlace = ({ children, onClick, href }) => {
 // `alRecorrido()`: «Empezar recorrido» (si no viene, no se ofrece).
 // `alListo()`: terminó. `alSaltar`: seguir sin contraseña (solo si el
 // servidor no responde: nunca deja a nadie afuera de su app).
-export default function CuentaV2({ nombre = null, datosAceptados = false, alSesion, alAceptarDatos, alActivarAvisos, alRecorrido, alListo, alSaltar }) {
-  const [paso, setPaso] = useState(nombre ? 'cargando' : 'entrada');
+// `pendientes`: ya tiene sesión; solo las ventanas de primera vez que le
+// falten (datos, avisos, recorrido). Es lo que ve la primera vez que abre la
+// app nueva quien ya tenía cuenta.
+export default function CuentaV2({ nombre = null, datosAceptados = false, pendientes = false, alSesion, alAceptarDatos, alActivarAvisos, alRecorrido, alListo, alSaltar }) {
+  const [paso, setPaso] = useState(() => {
+    if (!pendientes) return nombre ? 'cargando' : 'entrada';
+    if (!datosAceptados) return 'datos';
+    if (avisosPendientes()) return 'avisos';
+    if (alRecorrido && !recorridoHecho() && !recorridoOfrecido()) return 'recorrido';
+    return 'nada';
+  });
   const [cuenta, setCuenta] = useState(null);       // { nombre, email, tieneClave }
   const [nombreEscrito, setNombreEscrito] = useState('');
   const [email, setEmail] = useState('');
@@ -111,7 +120,7 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, alSesi
     setCuenta(r); setEmail(r.email || '');
     setPaso(r.tieneClave ? 'entrar' : 'activar');
   };
-  useEffect(() => { if (nombre) traerCuenta(nombre); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { if (pendientes) { if (paso === 'nada' && alListo) alListo(); return; } if (nombre) traerCuenta(nombre); /* eslint-disable-next-line */ }, []);
 
   // Lo que sigue después de los avisos: invitar al recorrido (una vez).
   const ofrecerRecorrido = !!alRecorrido && !recorridoHecho() && !recorridoOfrecido();
@@ -237,9 +246,10 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, alSesi
     </>) };
   }
   // Los puntitos: cuenta, datos, avisos y recorrido (los que le tocan).
-  const etapas = ['cuenta', ...(datosAceptados ? [] : ['datos']), ...(avisosPendientes() ? ['avisos'] : []), ...(ofrecerRecorrido ? ['recorrido'] : [])];
+  const etapas = [...(pendientes ? [] : ['cuenta']), ...(datosAceptados ? [] : ['datos']), ...(avisosPendientes() ? ['avisos'] : []), ...(ofrecerRecorrido ? ['recorrido'] : [])];
   const enEtapa = Math.max(0, etapas.indexOf(['datos', 'avisos', 'recorrido'].includes(paso) ? paso : 'cuenta'));
 
+  if (paso === 'nada') return null;
   return (
     <VentanaMarca data-cuenta-v2={paso} paso={enEtapa} pasos={etapas.length} simbolo={v.simbolo} titulo={v.titulo} texto={v.texto}>
       {v.cuerpo}

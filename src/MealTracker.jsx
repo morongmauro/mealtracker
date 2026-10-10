@@ -598,6 +598,12 @@ export default function MealTracker() {
   // y si la pantalla de cuenta sigue abierta (sus pasos de datos y avisos).
   const [sesionV2, setSesionV2] = useState(leerSesion);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
+  // Ventanas de primera vez para quien ya tenía cuenta (ver más abajo).
+  const [primeraVezVista, setPrimeraVezVista] = useState(() => { try { return !!localStorage.getItem('mt:primeraVezVista'); } catch (e) { return true; } });
+  const terminarPrimeraVez = useCallback(() => {
+    try { localStorage.setItem('mt:primeraVezVista', String(Date.now())); } catch (e) {}
+    setPrimeraVezVista(true);
+  }, []);
   const [cuentaSaltada, setCuentaSaltada] = useState(() => { try { return sessionStorage.getItem('mt:cuentaSaltada') === '1'; } catch (e) { return false; } });
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1682,6 +1688,7 @@ export default function MealTracker() {
     } catch (e) {}
     return null;
   });
+  const primeraVez = view === 'main' && v2 && !!name && !!sesionV2 && !cuentaAbierta && !primeraVezVista && !mudanza && !recorrido;
   // Lo que encontró en la cuenta al llegar a la dirección nueva.
   const [llegadaCuenta, setLlegadaCuenta] = useState(null);
   useEffect(() => {
@@ -6188,7 +6195,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 calendarioComida: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); },
                 // Sin la cuenta, el recorrido ni la mudanza encima: entonces
                 // puede salir la bienvenida a la Comunidad.
-                ventanaLibre: !(name && !cuentaSaltada && (!sesionV2 || cuentaAbierta)) && !recorrido && !mudanza,
+                ventanaLibre: !(name && !cuentaSaltada && (!sesionV2 || cuentaAbierta)) && !recorrido && !mudanza && !primeraVez,
               }} />
           </Suspense>
         </div>
@@ -6767,10 +6774,18 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <CuentaV2 nombre={name} datosAceptados={cloudConsent === 'accepted'}
           alSesion={(s) => { guardarSesion(s); setSesionV2(s); setCuentaAbierta(true); }}
           alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush} alRecorrido={() => setRecorrido(true)}
-          alListo={() => setCuentaAbierta(false)}
+          alListo={() => { setCuentaAbierta(false); terminarPrimeraVez(); }}
           alSaltar={() => { try { sessionStorage.setItem('mt:cuentaSaltada', '1'); } catch (e) {} setCuentaSaltada(true); setCuentaAbierta(false); }} />
       )}
-      {view === 'main' && cloudConsent === null && cuentaRevisada && !mudanza && (
+      {/* Primera vez en la app nueva con cuenta ya activa: las ventanas de
+          primera vez que le falten (datos, avisos, invitación al recorrido),
+          una sola vez en este teléfono. */}
+      {primeraVez && (
+        <CuentaV2 nombre={name} pendientes datosAceptados={cloudConsent !== null}
+          alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush} alRecorrido={() => setRecorrido(true)}
+          alListo={terminarPrimeraVez} />
+      )}
+      {view === 'main' && cloudConsent === null && cuentaRevisada && !mudanza && !primeraVez && (
         <CloudConsentModal onAccept={acceptCloudConsent} onDecline={declineCloudConsent} />
       )}
 

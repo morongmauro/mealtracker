@@ -160,6 +160,8 @@ function almacen(nombre) {
     'mt:history': JSON.stringify(history),
     'mt:historyDetail': JSON.stringify(historyDetail),
     'mt:lastActiveAt': '0',
+    // Las ventanas de primera vez ya vistas (se prueban aparte).
+    'mt:primeraVezVista': '1',
     cloudConsent: 'declined',
     'mt:novedadesVistas': JSON.stringify(['2026-08-26-aprendizaje-y-recetas']),
     trainingOn: '1',
@@ -204,7 +206,7 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   p.on('console', m => { if (m.text().startsWith('ilusBien')) console.log('   ' + m.text()); });
   const guardado = almacen(nombre);
   if (sinNombre) { delete guardado['mt:name']; delete guardado['mt:goals']; }
-  if (extra) Object.assign(guardado, extra);
+  if (extra) for (const [k, v] of Object.entries(extra)) { if (v === null) delete guardado[k]; else guardado[k] = v; }
   // Mauro ya entró con su contraseña (la cuenta se prueba aparte, sinSesion)
   if (!sinSesion) guardado['mt:sesion'] = 'v1.prueba';
   await ctx.addInitScript((kv) => { for (const [k, v] of Object.entries(kv)) localStorage.setItem(k, v); }, guardado);
@@ -1426,6 +1428,23 @@ try {
   await foto(oa.p, '13c-otra-persona-recordatorios');
   ok('sin errores de JavaScript (otra persona, aviso)', oa.errores.length === 0, oa.errores.join(' | '));
   await oa.ctx.close();
+
+  // PRIMERA VEZ en la app nueva con cuenta ya activa: le salen solas las
+  // ventanas que le falten y la invitación al recorrido; una sola vez.
+  const pv = await abrir('Mauro Morón', { extra: { 'mt:primeraVezVista': null } });
+  await pv.p.locator('[data-cuenta-v2]').first().waitFor({ timeout: 25000 });
+  if (await pv.p.locator('[data-cuenta-v2="avisos"]').count()) await pv.p.getByRole('button', { name: 'Ahora no' }).click();
+  const invit = pv.p.locator('[data-cuenta-v2="recorrido"]');
+  await invit.waitFor({ timeout: 5000 }).catch(() => {});
+  ok('primera vez (con cuenta): sale sola la invitación al recorrido, sin pedir contraseña', (await invit.count()) === 1
+    && (await pv.p.locator('[data-cuenta-v2="entrar"], [data-cuenta-v2="activar"]').count()) === 0);
+  await foto(pv.p, '22g-primera-vez-con-cuenta');
+  await invit.getByRole('button', { name: 'Empezar recorrido' }).click().catch(() => {});
+  await pv.p.locator('[data-recorrido]').waitFor({ timeout: 8000 }).catch(() => {});
+  ok('primera vez (con cuenta): «Empezar recorrido» abre el recorrido', (await pv.p.locator('[data-recorrido]').count()) === 1);
+  ok('primera vez (con cuenta): queda vista (no vuelve a salir)', await pv.p.evaluate(() => !!localStorage.getItem('mt:primeraVezVista')));
+  ok('sin errores de JavaScript (primera vez con cuenta)', pv.errores.length === 0, pv.errores.join(' | '));
+  await pv.ctx.close();
 
   // MUDANZA: en la dirección nueva, la primera vez cuenta lo que encontró;
   // y al abrir sube TODO a la nube (chat de 200, kg/lb, días perfectos…).
