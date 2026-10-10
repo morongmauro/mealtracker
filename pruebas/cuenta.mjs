@@ -19,15 +19,24 @@ const ok = (n, c, extra = '') => { if (!c) fallos++; console.log(`  ${c ? 'ok ' 
 const fila = (id) => db.db.clientes.find(c => c.id === id);
 
 let r = await llamar(handler, { accion: 'cuenta', name: 'mauro moron' });
-ok('cuenta: trae su nombre y el correo del CRM, sin clave aún', r.ok && r.nombre === 'Mauro Morón' && r.email === 'mauro@correo.com' && r.tieneClave === false, JSON.stringify(r));
-r = await llamar(handler, { accion: 'crear', name: 'Mauro Morón', clave: '123' });
-ok('crear: la clave corta no pasa', !r.ok && r.error === 'corta');
+ok('cuenta: trae su nombre y SOLO una pista del correo (nunca completo), sin clave aún', r.ok && r.nombre === 'Mauro Morón' && !('email' in r)
+  && r.pista === 'm•••o@c••••o.com' && r.tieneCorreo === true && r.tieneClave === false && !JSON.stringify(r).includes('mauro@'), JSON.stringify(r));
+r = await llamar(handler, { accion: 'correo', name: 'Mauro Morón', email: ' Mauro@Correo.com ' });
+ok('correo: dice si coincide con el del CRM (sin importar mayúsculas)', r.ok && r.coincide === true, JSON.stringify(r));
+r = await llamar(handler, { accion: 'correo', name: 'Mauro Morón', email: 'otro@correo.com' });
+ok('correo: uno distinto no coincide', r.ok && r.coincide === false);
 r = await llamar(handler, { accion: 'crear', name: 'Mauro Morón', clave: 'kettlebell24' });
+ok('crear: sin el correo del CRM no se puede (alguien que solo sabe el nombre)', !r.ok && r.error === 'correo' && fila('c1').app_clave_hash === null, JSON.stringify(r));
+r = await llamar(handler, { accion: 'crear', name: 'Mauro Morón', clave: 'kettlebell24', email: 'intruso@x.com' });
+ok('crear: con otro correo tampoco', !r.ok && r.error === 'correo' && fila('c1').app_clave_hash === null);
+r = await llamar(handler, { accion: 'crear', name: 'Mauro Morón', clave: '123', email: 'mauro@correo.com' });
+ok('crear: la clave corta no pasa', !r.ok && r.error === 'corta');
+r = await llamar(handler, { accion: 'crear', name: 'Mauro Morón', clave: 'kettlebell24', email: 'MAURO@correo.com' });
 ok('crear: devuelve la sesión', r.ok && /^v1\./.test(r.sesion || ''), JSON.stringify(r));
 const sesion = r.sesion;
 const m = fila('c1');
 ok('crear: guarda solo el hash (nunca la clave) y no toca lo demás', m && /^scrypt\$/.test(m.app_clave_hash) && !m.app_clave_hash.includes('kettlebell24') && m.notas === 'no se toca' && m.email === 'mauro@correo.com', JSON.stringify(m));
-r = await llamar(handler, { accion: 'crear', name: 'Mauro Morón', clave: 'otraclave99' });
+r = await llamar(handler, { accion: 'crear', name: 'Mauro Morón', clave: 'otraclave99', email: 'mauro@correo.com' });
 ok('crear: no se puede crear dos veces', !r.ok && r.error === 'ya_tiene');
 r = await llamar(handler, { accion: 'cuenta', name: 'Mauro Morón' });
 ok('cuenta: ahora dice que ya tiene clave', r.ok && r.tieneClave === true);
@@ -47,9 +56,13 @@ r = await llamar(handler, { name: 'Ana Pérez' });
 ok('sin sesión, el acceso de siempre no cambia (los demás clientes)', r.authorized === true && r.status === 'activo' && !('sesion' in r), JSON.stringify(r));
 // Cambiar la clave (el coach la borra en el CRM y la crea de nuevo) anula la sesión vieja
 m.app_clave_hash = null;
-r = await llamar(handler, { accion: 'crear', name: 'Mauro Morón', clave: 'nuevaclave1' });
+r = await llamar(handler, { accion: 'crear', name: 'Mauro Morón', clave: 'nuevaclave1', email: 'mauro@correo.com' });
 const r2 = await llamar(handler, { name: 'Mauro Morón', sesion });
 ok('cambiar la clave anula la sesión vieja', r.ok && r2.sesion === 'invalida', JSON.stringify(r2));
+r = await llamar(handler, { accion: 'crear', name: 'Ana Pérez', clave: 'clave123', email: 'no-es-correo' });
+ok('crear: sin correo en el CRM, pide uno válido', !r.ok && r.error === 'correo_invalido');
+r = await llamar(handler, { accion: 'cuenta', name: 'Ana Pérez' });
+ok('cuenta: sin correo en el CRM, no hay pista', r.ok && r.pista === null && r.tieneCorreo === false);
 r = await llamar(handler, { accion: 'crear', name: 'Ana Pérez', clave: 'clave123', email: 'ana@x.com' });
 ok('crear: si el CRM no tenía correo, guarda el que puso', r.ok && fila('c2').email === 'ana@x.com');
 r = await llamar(handler, { accion: 'cuenta', name: 'Pedro Gil' });

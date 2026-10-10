@@ -26,8 +26,13 @@
 // ya tiene en el CRM. No se crea un usuario nuevo ni se toca su información.
 // Se guarda solo el hash (scrypt + sal) en clientes.app_clave_hash
 // (migración: CRM_entrenaconmetodo/migraciones/app-contrasena.sql).
-//   POST { accion: 'cuenta', name }               → { ok, nombre, email, tieneClave }
-//   POST { accion: 'crear',  name, clave, email? } → { ok, sesion, nombre }
+//   POST { accion: 'cuenta', name }               → { ok, nombre, pista, tieneCorreo, tieneClave }
+//   POST { accion: 'correo', name, email }        → { ok, coincide }
+//   POST { accion: 'crear',  name, clave, email }  → { ok, sesion, nombre }
+// El correo del CRM NUNCA viaja completo: solo una pista tapada a medias
+// (m••••o@g•••l.com). Para crear la contraseña hay que escribirlo igual al
+// del CRM: así nadie que solo sepa el nombre de otro puede crearle la clave.
+// Si en el CRM no hay correo, se guarda el que escriba.
 //   POST { accion: 'entrar', name|email, clave }   → { ok, sesion, nombre }
 //   POST { name, sesion }                          → … + { sesion: 'ok'|'invalida' }
 // La sesión es un sello HMAC (nombre + fecha + hash de la clave) firmado con
@@ -91,6 +96,18 @@ async function filaCliente({ name, email }) {
   return { fila: fila || null };
 }
 
+const limpiarCorreo = (e) => String(e || '').trim().toLowerCase();
+const tapar = (t) => t.length <= 2 ? t[0] + '•' : t[0] + '•'.repeat(Math.min(6, Math.max(2, t.length - 2))) + t[t.length - 1];
+export function pistaCorreo(correo) {
+  const e = limpiarCorreo(correo);
+  const at = e.indexOf('@');
+  if (at < 1) return null;
+  const local = e.slice(0, at), dom = e.slice(at + 1);
+  const punto = dom.lastIndexOf('.');
+  const nombreDom = punto > 0 ? dom.slice(0, punto) : dom, tld = punto > 0 ? dom.slice(punto) : '';
+  return `${tapar(local)}@${tapar(nombreDom)}${tld}`;
+}
+
 export function hashClave(clave, sal = randomBytes(16).toString('hex')) {
   return `scrypt$${sal}$${scryptSync(String(clave), sal, 32).toString('hex')}`;
 }
@@ -123,16 +140,21 @@ async function cuenta(req, res, body) {
   if (String(fila.estado || 'activo').toLowerCase() !== 'activo') return res.status(200).json({ ok: false, error: 'inactivo', estado: fila.estado });
 
   if (accion === 'cuenta') {
-    return res.status(200).json({ ok: true, nombre: fila.nombre, email: fila.email || null, tieneClave: !!fila.app_clave_hash });
+    return res.status(200).json({ ok: true, nombre: fila.nombre, pista: pistaCorreo(fila.email), tieneCorreo: !!pistaCorreo(fila.email), tieneClave: !!fila.app_clave_hash });
+  }
+  if (accion === 'correo') {
+    return res.status(200).json({ ok: true, coincide: !!fila.email && limpiarCorreo(email) === limpiarCorreo(fila.email) });
   }
   const c = String(clave || '');
   if (accion === 'crear') {
     if (fila.app_clave_hash) return res.status(200).json({ ok: false, error: 'ya_tiene' });
+    if (fila.email && limpiarCorreo(email) !== limpiarCorreo(fila.email)) return res.status(200).json({ ok: false, error: 'correo' });
+    if (!fila.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(limpiarCorreo(email))) return res.status(200).json({ ok: false, error: 'correo_invalido' });
     if (c.length < 6) return res.status(200).json({ ok: false, error: 'corta' });
     const hash = hashClave(c);
     const cambios = { app_clave_hash: hash, app_clave_at: new Date().toISOString() };
     // Si en el CRM no había correo, se guarda el que puso el cliente.
-    const correo = String(email || '').trim().toLowerCase();
+    const correo = limpiarCorreo(email);
     if (!fila.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) cambios.email = correo;
     const r = await enCrm(`clientes?id=eq.${encodeURIComponent(fila.id)}`, { method: 'PATCH', body: JSON.stringify(cambios) });
     if (!r.ok) return res.status(200).json({ ok: false, error: 'crm' });

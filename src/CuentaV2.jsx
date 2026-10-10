@@ -48,12 +48,16 @@ const ERRORES = {
   red: 'No hay conexión. Intenta en un momento.',
   crm: 'No pude conectar con tu cuenta. Intenta en un momento.',
   sin_migracion: 'Tu cuenta aún no está lista. Intenta más tarde.',
+  correo: 'Ese no es el correo que tiene tu coach. Revísalo o escríbele.',
+  correo_invalido: 'Escribe tu correo (tu@correo.com).',
 };
+const pareceCorreo = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim());
 
-function Campo({ etiqueta, ...props }) {
+function Campo({ etiqueta, fin = null, ...props }) {
   return (
-    <label style={{ display: 'block', marginTop: 10, background: CAMPO, borderRadius: 14, padding: '8px 14px 6px' }}>
+    <label style={{ display: 'block', position: 'relative', marginTop: 10, background: CAMPO, borderRadius: 14, padding: '8px 14px 6px', paddingRight: fin ? 40 : 14 }}>
       <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: GRIS }}>{etiqueta}</span>
+      {fin && <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', display: 'flex' }}>{fin}</span>}
       <input {...props} style={{
         width: '100%', boxSizing: 'border-box', height: 28, border: 0, background: 'transparent', borderRadius: 6,
         color: GRAFITO, fontSize: 17, fontWeight: 600, padding: 0, ...(props.style || {}),
@@ -106,6 +110,19 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
   const [caido, setCaido] = useState(false);
+  // ¿El correo escrito es el que tiene el coach? null = aún no se sabe.
+  const [coincide, setCoincide] = useState(null);
+  useEffect(() => {
+    if (paso !== 'activar' || !cuenta?.tieneCorreo) return;
+    setCoincide(null);
+    if (!pareceCorreo(email)) return;
+    let vivo = true;
+    const t = setTimeout(async () => {
+      const r = await pedir({ accion: 'correo', name: cuenta?.nombre || nombre, email: email.trim() });
+      if (vivo && r && r.ok) setCoincide(!!r.coincide);
+    }, 350);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [email, paso, cuenta]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const traerCuenta = async (n) => {
     setCargando(true); setError('');
@@ -117,7 +134,7 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
       if (nombre) setPaso('error');
       return;
     }
-    setCuenta(r); setEmail(r.email || '');
+    setCuenta(r); setEmail('');
     setPaso(r.tieneClave ? 'entrar' : 'activar');
   };
   useEffect(() => { if (pendientes) { if (paso === 'nada' && alListo) alListo(); return; } if (nombre) traerCuenta(nombre); /* eslint-disable-next-line */ }, []);
@@ -145,6 +162,8 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
   };
   const activar = async () => {
     setError('');
+    if (!pareceCorreo(email)) return setError(ERRORES.correo_invalido);
+    if (cuenta?.tieneCorreo && coincide === false) return setError(ERRORES.correo);
     if (clave.length < 6) return setError(ERRORES.corta);
     if (clave !== clave2) return setError(ERRORES.distintas);
     setCargando(true);
@@ -186,19 +205,27 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
   } else if (paso === 'activar') {
     v = { simbolo: I(LockSimple, GRAFITO), titulo: 'Activa tu cuenta.', texto: 'Ponle una contraseña. Con ella entras siempre, aunque cambies de teléfono, y tu información queda solo tuya.', cuerpo: (<>
       <Dato etiqueta="Tu nombre" valor={cuenta?.nombre} />
-      {cuenta?.email
-        ? <Dato etiqueta="Tu correo" valor={cuenta.email} />
-        : <Campo etiqueta="Tu correo" type="email" inputMode="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" />}
+      {/* El correo: si el coach lo tiene, la pista tapada a medias en gris
+          (como lo muestran los bancos); al escribirlo igual sale el check. */}
+      <Campo etiqueta="Tu correo" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={email}
+        onChange={e => { setEmail(e.target.value); if (error) setError(''); }} placeholder={cuenta?.pista || 'tu@correo.com'} data-correo
+        fin={coincide === true ? <Check size={18} weight="bold" color="#46965A" data-correo-ok /> : null} />
+      {cuenta?.tieneCorreo && (
+        <div data-pista-correo style={{ fontSize: 13, color: coincide === false ? '#B5481A' : GRIS, margin: '6px 4px 0', lineHeight: 1.4 }}>
+          {coincide === false ? 'Ese no es el correo que tiene tu coach.' : coincide === true ? 'Es el correo que tiene tu coach.' : <>Escribe el correo que tiene tu coach: <b style={{ fontWeight: 600 }}>{cuenta.pista}</b></>}
+        </div>
+      )}
       <Campo etiqueta="Crea tu contraseña" type="password" autoComplete="new-password" value={clave} onChange={e => setClave(e.target.value)} placeholder="Mínimo 6 caracteres" />
       <Campo etiqueta="Repítela" type="password" autoComplete="new-password" value={clave2} onChange={e => setClave2(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') activar(); }} />
       {error && <div role="alert" style={alerta}>{error}</div>}
       <Boton onClick={activar} cargando={cargando} data-activar>Activar mi cuenta</Boton>
+      {wa && error === ERRORES.correo && <Enlace href={wa.replace(encodeURIComponent('Olvidé mi contraseña de la app'), encodeURIComponent('No me reconoce mi correo en la app'))}>Escríbele a tu coach</Enlace>}
       {caido && alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
     </>) };
   } else if (paso === 'entrar') {
     v = { simbolo: I(LockSimple, GRAFITO), titulo: <>Hola, {primerNombre}.</>, texto: 'Entra con tu contraseña.', cuerpo: (<>
-      {cuenta?.email && <Dato etiqueta="Tu correo" valor={cuenta.email} />}
+      {cuenta?.pista && <div style={{ fontSize: 13.5, color: GRIS, textAlign: 'center', marginTop: 2 }}>{cuenta.pista}</div>}
       <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" value={clave} onChange={e => setClave(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') entrar(); }} />
       {error && <div role="alert" style={alerta}>{error}</div>}

@@ -1246,7 +1246,9 @@ try {
   {
     let tiene = false, creadas = 0;
     const cuenta = (c) => {
-      if (c.accion === 'cuenta') return { ok: true, nombre: 'Mauro Morón', email: 'mauro@correo.com', tieneClave: tiene };
+      if (c.accion === 'cuenta') return { ok: true, nombre: 'Mauro Morón', pista: 'm•••o@c••••o.com', tieneCorreo: true, tieneClave: tiene };
+      if (c.accion === 'correo') return { ok: true, coincide: String(c.email).toLowerCase() === 'mauro@correo.com' };
+      if (c.accion === 'crear' && String(c.email).toLowerCase() !== 'mauro@correo.com') return { ok: false, error: 'correo' };
       if (c.accion === 'crear') { creadas++; tiene = true; return c.clave === 'kettlebell24' ? { ok: true, nombre: 'Mauro Morón', sesion: 'v1.nueva' } : { ok: false, error: 'corta' }; }
       if (c.accion === 'entrar') return c.clave === 'kettlebell24' ? { ok: true, nombre: 'Mauro Morón', sesion: 'v1.otra' } : { ok: false, error: 'clave' };
       return { ok: false };
@@ -1256,7 +1258,20 @@ try {
     await k.p.locator('[data-cuenta-v2="activar"]').waitFor({ timeout: 10000 });
     await espera(900);
     await foto(k.p, '22a-cuenta-activar');
-    ok('cuenta: sin contraseña aún, pide activarla con su nombre y el correo del CRM', /Mauro Morón/.test(await cv.innerText()) && /mauro@correo\.com/.test(await cv.innerText()));
+    ok('cuenta: sin contraseña aún, pide activarla con su nombre y la pista del correo (nunca el correo completo)', /Mauro Morón/.test(await cv.innerText())
+      && /m•••o@c••••o\.com/.test(await cv.innerText()) && !/mauro@correo\.com/.test(await cv.innerText())
+      && await k.p.locator('[data-correo]').getAttribute('placeholder') === 'm•••o@c••••o.com');
+    await k.p.locator('[data-correo]').fill('otro@correo.com');
+    await k.p.getByLabel('Crea tu contraseña').fill('kettlebell24');
+    await k.p.getByLabel('Repítela').fill('kettlebell24');
+    await k.p.getByText('Ese no es el correo que tiene tu coach.').first().waitFor({ timeout: 4000 }).catch(() => {});
+    await k.p.locator('[data-activar]').click();
+    await espera(300);
+    ok('cuenta: con un correo que no es el del coach, no crea la contraseña', /no es el correo que tiene tu coach/.test(await cv.innerText()) && creadas === 0);
+    await k.p.locator('[data-correo]').fill('Mauro@correo.com');
+    await k.p.locator('[data-correo-ok]').waitFor({ timeout: 4000 }).catch(() => {});
+    ok('cuenta: con el correo del coach sale el check verde', (await k.p.locator('[data-correo-ok]').count()) === 1);
+    await foto(k.p, '22a2-cuenta-correo-ok');
     await k.p.getByLabel('Crea tu contraseña').fill('kettlebell24');
     await k.p.getByLabel('Repítela').fill('otra-cosa');
     await k.p.locator('[data-activar]').click();
