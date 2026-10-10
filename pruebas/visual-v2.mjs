@@ -713,25 +713,41 @@ try {
   await foto(p, '05-entreno-calendario');
   const cal = p.locator('[data-view="entrena"]');
   const d = (n) => sumarDiasISO(lunes, n);   // 0 lunes … 6 domingo (hoy es martes = 1)
-  ok('calendario: es el mes (sin repetir la semana de Hoy)', (await cal.locator('[data-vista="mes"]').count()) === 1
-    && (await cal.getByRole('tab').count()) === 0);
+  ok('calendario: abre en el mes, con el control Semana | Mes (sin repetir la semana de Hoy)', (await cal.locator('[data-vista="mes"]').count()) === 1
+    && (await cal.getByRole('tab').count()) === 0 && (await cal.locator('[data-segmentado] button').count()) === 2
+    && (await cal.locator('[data-segmentado] button[aria-pressed="true"]').innerText()) === 'Mes');
   ok('calendario: sin «la saltaste»', (await cal.getByText(/saltaste/).count()) === 0);
   ok('mes: días de la semana en el gris de la sección', await cal.getByText('Lun', { exact: true }).first().evaluate(el => getComputedStyle(el).color === 'rgb(95, 102, 112)'));
-  ok('mes: casillas compactas y nombres cortos', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => { const h = el.getBoundingClientRect().height; return h >= 66 && h <= 84; })
+  ok('mes: tarjeta de cristal con margen (se ve el fondo alrededor) y casillas sin caja', await cal.locator('[data-vista="mes"]').evaluate(el => {
+    const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+    const celda = el.querySelector('[data-fecha]');
+    return r.left >= 12 && innerWidth - r.right >= 12 && /blur/.test(cs.backdropFilter || cs.webkitBackdropFilter || '') && parseFloat(cs.borderTopLeftRadius) >= 20
+      && getComputedStyle(celda).backgroundColor === 'rgba(0, 0, 0, 0)';
+  }));
+  ok('mes: casillas compactas y nombres cortos', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => { const h = el.getBoundingClientRect().height; return h >= 66 && h <= 90; })
     && (await cal.getByText(/Training/).count()) === 0, String(await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => el.getBoundingClientRect().height)));
-  ok('mes: la leyenda es pequeña y «ten en cuenta» asoma en la primera vista',
-    await cal.locator('[data-leyenda]').evaluate(el => parseFloat(getComputedStyle(el).fontSize) <= 12)
-    && await cal.locator('[data-ten-en-cuenta]').evaluate(el => el.getBoundingClientRect().top < innerHeight),
-    String(await cal.locator('[data-ten-en-cuenta]').evaluate(el => [el.getBoundingClientRect().top, innerHeight])));
-  ok('por hacer con borde gris; hecho relleno gris', await cal.locator('[data-chip="pendiente"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(el).borderTopColor === 'rgb(95, 102, 112)')
-    && await cal.locator('[data-chip="hecha"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(95, 102, 112)'));
-  ok('mes: «Léelo · ten en cuenta» con mover, añadir, plan y descanso', /Léelo/.test(await cal.locator('[data-ten-en-cuenta]').innerText())
-    && ['Mover', 'Añadir', 'Tu plan no cambia', 'Descanso'].every(t => (async () => true)()) && /Descanso\./.test(await cal.locator('[data-ten-en-cuenta]').innerText()));
+  ok('mes: cada día con rutina dice su nombre, entero y legible', await cal.locator('[data-vista="mes"] [data-chip]').evaluateAll(cs => cs.length >= 8
+    && cs.every(c => c.scrollWidth <= c.clientWidth + 1 && c.scrollHeight <= c.clientHeight + 1 && parseFloat(getComputedStyle(c).fontSize) >= 10.5 && c.textContent.trim().length > 1)));
+  ok('mes: la leyenda es pequeña y la ayuda va en una sola fila', await cal.locator('[data-leyenda]').evaluate(el => parseFloat(getComputedStyle(el).fontSize) <= 12)
+    && /Cómo mover o añadir rutinas/.test(await cal.locator('[data-ten-en-cuenta]').innerText()));
+  ok('por hacer en gris; hecha en grafito y con ✓ junto al día', await cal.locator('[data-vista="mes"] [data-chip="pendiente"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(242, 242, 247)' && getComputedStyle(el).color === 'rgb(29, 29, 31)')
+    && await cal.locator('[data-vista="mes"] [data-chip="hecha"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(29, 29, 31)'
+      && !!el.closest('[data-fecha]').querySelector('[data-hecha-check]')));
+  ok('mes: los nombres no se parten a mitad de palabra', await cal.locator('[data-vista="mes"] [data-chip]').evaluateAll(cs => cs.every(c => {
+    const r = document.createRange(); r.selectNodeContents(c);
+    const lineas = [...r.getClientRects()].length;
+    const palabras = c.textContent.trim().split(/\s+/).length;
+    return lineas <= palabras;
+  })));
+  await cal.locator('[data-ten-en-cuenta]').click(); await espera(500);
+  const ayudaTxt = await p.locator('[data-ten-en-cuenta]').last().innerText().catch(() => '');
+  ok('mes: la ayuda abre «ten en cuenta» con mover, añadir, plan y descanso', ['Léelo', 'Mover.', 'Añadir.', 'Tu plan no cambia.', 'Descanso.'].every(t => ayudaTxt.includes(t)), ayudaTxt.slice(0, 80));
+  await p.getByRole('button', { name: 'Cerrar' }).last().click(); await espera(400);
   ok('calendario: sin oliva', await p.evaluate(() => {
     const oliva = /rgb\((1[12]\d), (1[2-4]\d), (8\d|9\d)\)|rgb\(231, 235, 214\)/;
     return ![...document.querySelectorAll('[data-view="entrena"] *')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor) || oliva.test(getComputedStyle(el).borderTopColor));
   }));
-  await cal.locator('[data-ten-en-cuenta]').scrollIntoViewIfNeeded();
+  await cal.locator('[data-ten-en-cuenta]').first().scrollIntoViewIfNeeded();
   await foto(p, '05a-ten-en-cuenta');
   // Registrar desde el día
   await cal.locator(`[data-vista="mes"] [data-fecha="${hoy}"]`).click();
@@ -793,6 +809,13 @@ try {
   ok('arrastrar: se guardó una vez por cambio', db.db.rutina_movimientos.length === 2, String(db.db.rutina_movimientos.length));
   ok('el plan del coach no cambia', JSON.stringify(db.db.rutinas.find(r => r.id === 'r2').dias_semana) === '["X"]');
   await foto(p, '05e-movidas');
+  await cal.locator('[data-segmentado]').getByRole('button', { name: 'Semana' }).click(); await espera(500);
+  ok('calendario · Semana: los 7 días en una tarjeta, cada uno con su rutina y estado, sin tocar nada', (await cal.locator('[data-vista="semana-cal"] [data-fecha]').count()) === 7
+    && (await cal.locator(`[data-vista="semana-cal"] [data-fecha="${d(5)}"]`).innerText()).includes('Pull')
+    && /Descanso/.test(await cal.locator('[data-vista="semana-cal"]').innerText())
+    && (await cal.locator('[data-resumen-semana]').count()) === 1);
+  await foto(p, '05e2-calendario-semana');
+  await cal.locator('[data-segmentado]').getByRole('button', { name: 'Mes' }).click(); await espera(400);
   // Con el dedo, en la semana de Hoy: el Pull del sábado al domingo
   await p.locator('nav[aria-label="Secciones"]').getByRole('button', { name: 'Hoy', exact: true }).click();
   await espera(1500);
@@ -1233,6 +1256,17 @@ try {
       await k.p.getByRole('button', { name: 'Ahora no' }).click();
     }
     await espera(500);
+    await k.p.locator('[data-cuenta-v2="recorrido"]').waitFor({ timeout: 5000 });
+    await espera(600);
+    await foto(k.p, '22f-cuenta-recorrido');
+    ok('ventanas de primera vez: fondo de manchas de la marca, tarjeta de cristal y puntitos de avance', await k.p.evaluate(() => {
+      const v = document.querySelector('[data-ventana-marca]');
+      const t = v && v.querySelector('.vm-tarjeta');
+      return !!v && v.querySelectorAll('.vm-mancha').length === 4 && /blur/.test(getComputedStyle(t).backdropFilter || getComputedStyle(t).webkitBackdropFilter || '')
+        && v.querySelectorAll('[data-pasos] i').length >= 2 && /¿Te muestro la app\?/.test(v.innerText);
+    }));
+    await k.p.getByRole('button', { name: 'Lo veo después' }).click();
+    await espera(500);
     ok('cuenta: al terminar se ve la app, con la nube aceptada', (await cv.count()) === 0 && await k.p.evaluate(() => localStorage.getItem('cloudConsent')) === 'accepted');
     // Cerrar sesión desde la configuración del Dash
     k.p.on('dialog', d => d.accept());
@@ -1270,10 +1304,30 @@ try {
     await e.p.locator('[data-aceptar-datos]').click();
     await espera(400);
     if (await e.p.locator('[data-cuenta-v2="avisos"]').count()) await e.p.getByRole('button', { name: 'Ahora no' }).click();
+    await e.p.locator('[data-cuenta-v2="recorrido"]').waitFor({ timeout: 5000 });
+    await e.p.getByRole('button', { name: 'Lo veo después' }).click();
     await espera(1200);
     ok('entrada nueva: entra con su correo, queda con su nombre y su sesión', await e.p.evaluate(() => JSON.parse(localStorage.getItem('mt:name') || 'null')) === 'Mauro Morón'
       && await e.p.evaluate(() => localStorage.getItem('mt:sesion')) === 'v1.otra' && (await e.p.locator('[data-cuenta-v2]').count()) === 0);
     await e.ctx.close();
+
+    // La bienvenida a la Comunidad (la escribe el coach en el CRM): una vez.
+    const bw = await abrir('Mauro Morón');
+    bw.db.db.comunidad_bienvenida = [{ user_id: 'coach', titulo: 'Bienvenido a la comunidad', texto: 'Aquí compartimos retos y avances.', activa: true, editado_en: hoy + 'T10:00:00Z' }];
+    await bw.p.reload();
+    await bw.p.locator('[data-bienvenida-comunidad]').waitFor({ timeout: 20000 });
+    await espera(900);
+    await foto(bw.p, '23a-bienvenida-comunidad');
+    ok('bienvenida a la Comunidad: sale con el título y el texto del CRM, en la ventana de la marca', /Bienvenido a la comunidad/.test(await bw.p.locator('[data-bienvenida-comunidad]').innerText())
+      && /retos y avances/.test(await bw.p.locator('[data-bienvenida-comunidad]').innerText()) && (await bw.p.locator('[data-bienvenida-comunidad] .vm-mancha').count()) === 4);
+    await bw.p.getByRole('button', { name: 'Ver la comunidad' }).click();
+    await espera(900);
+    ok('…«Ver la comunidad» la abre', (await bw.p.locator('[data-equipo]').count()) === 1 && (await bw.p.locator('[data-bienvenida-comunidad]').count()) === 0);
+    await bw.p.reload();
+    await bw.p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 20000 });
+    await espera(2500);
+    ok('…y no vuelve a salir', (await bw.p.locator('[data-bienvenida-comunidad]').count()) === 0);
+    await bw.ctx.close();
 
     // Otra persona (sin la visual nueva): ni cuenta ni nombre nuevo
     const o = await abrir('Ana Gómez', { sinSesion: true, cuenta });

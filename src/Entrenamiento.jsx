@@ -256,7 +256,8 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         <NavSi seccion={seccion} setSeccion={setSeccion} />
         {/* La voz de la sección, con la letra de la marca y sin curva */}
         {seccionV2 && VOZ_SECCION[seccion] && <CabeceraHoy tema="entreno" fondo={false} voz={VOZ_SECCION[seccion]} />}
-        {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={setRutinaId} />}
+        {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={setRutinaId}
+          ejerciciosDe={Object.fromEntries((plan?.dias || []).filter(d => d.rutina).map(d => [d.rutina.id, d.rutina.ejercicios]))} />}
         {seccion === 'rutinas' && <EntrenoRutinas nombre={name} alEntrenar={setRutinaId} />}
         {seccion === 'resumen' && <EntrenoResumen nombre={name} />}
         {seccion === 'fotos' && <EntrenoFotos name={name} />}

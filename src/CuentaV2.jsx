@@ -7,18 +7,24 @@
 // nada; solo si la borra y la vuelve a instalar, o si cierra sesión, entra de
 // nuevo con su correo y su contraseña, y su información vuelve de la nube.
 //
-// Pantallas, todas en negro como el ícono y la entrada:
+// Pantallas, con el fondo de manchas de la marca y una tarjeta de cristal
+// (VentanaMarca.jsx), como todas las ventanas de primera vez:
 //   entrada   (el teléfono no sabe quién es) correo + contraseña, o «Primera
 //             vez»: su nombre del CRM → activar la cuenta
 //   activar   su nombre y su correo del CRM + crear la contraseña
 //   entrar    «Hola, Mauro.» + su correo + la contraseña
 //   datos     «Tus datos están protegidos» (acepta la nube)
 //   avisos    activar las notificaciones
+//   recorrido «¿Te muestro la app?» (si aún no lo ha hecho)
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
+import { LockSimple, ShieldCheck, Bell, MapPin, Check } from '@phosphor-icons/react';
 import { WHATSAPP_COACH } from './v2.js';
+import VentanaMarca, { BotonVentana, GRAFITO, AMARILLO, GRIS_TXT } from './VentanaMarca.jsx';
+import { recorridoHecho } from './recorridoEstado.js';
+import { SECCION, DASH_AZUL } from './theme.js';
 
-const NEGRO = '#0C0C0B', AMARILLO = '#F2C94C', GRIS = '#9C9A94', LINEA = '#2C2C2A', CAMPO = '#171716';
+const GRIS = '#8E8E93', CAMPO = 'rgba(255,255,255,0.85)';
 export const CLAVE_SESION = 'mt:sesion';
 
 export const leerSesion = () => { try { return localStorage.getItem(CLAVE_SESION) || ''; } catch (e) { return ''; } };
@@ -44,38 +50,13 @@ const ERRORES = {
   sin_migracion: 'Tu cuenta aún no está lista. Intenta más tarde.',
 };
 
-// El ícono de la app, que se dibuja al entrar (como la entrada).
-function Icono({ tam = 84 }) {
-  return (
-    <svg viewBox="0 0 512 512" width={tam} height={tam} aria-hidden="true" className="cv2-icono" style={{ display: 'block', overflow: 'visible' }}>
-      <g transform="translate(256 262) scale(0.9) translate(-256 -248)" fill="none">
-        <path className="cv2-traza" d="M128 162 C96 72 160 18 256 18 C352 18 416 72 384 162" pathLength="100" stroke="#FFFFFF" strokeWidth="34" strokeLinecap="round" />
-        <path className="cv2-traza" d="M256 164 A136 136 0 1 1 120 300" pathLength="100" stroke="#FFFFFF" strokeWidth="37" strokeLinecap="round" />
-        <circle cx="120" cy="300" r="26.6" fill={AMARILLO} />
-      </g>
-    </svg>
-  );
-}
-
-const CSS = `
-[data-cuenta-v2] { animation: cv2-fondo .3s ease both; }
-@keyframes cv2-fondo { from { opacity: 0 } to { opacity: 1 } }
-[data-cuenta-v2] .cv2-traza { stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: cv2-traza .8s cubic-bezier(.45,0,.3,1) .1s forwards; }
-@keyframes cv2-traza { to { stroke-dashoffset: 0 } }
-[data-cuenta-v2] .cv2-sube { opacity: 0; transform: translateY(10px); animation: cv2-sube .5s cubic-bezier(.2,.8,.2,1) forwards; }
-@keyframes cv2-sube { to { opacity: 1; transform: none } }
-[data-cuenta-v2] input { font: inherit; }
-[data-cuenta-v2] input:focus { outline: none; border-color: ${AMARILLO} !important; }
-[data-cuenta-v2] input::placeholder { color: #5E5D59; }
-@media (prefers-reduced-motion: reduce) { [data-cuenta-v2] * { animation-duration: .01s !important; animation-delay: 0s !important; } }`;
-
 function Campo({ etiqueta, ...props }) {
   return (
-    <label style={{ display: 'block', marginTop: 12 }}>
-      <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: GRIS, margin: '0 0 6px 2px', letterSpacing: '0.02em' }}>{etiqueta}</span>
+    <label style={{ display: 'block', marginTop: 10, background: CAMPO, borderRadius: 14, padding: '8px 14px 6px' }}>
+      <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: GRIS }}>{etiqueta}</span>
       <input {...props} style={{
-        width: '100%', boxSizing: 'border-box', height: 52, borderRadius: 14, border: `1.5px solid ${LINEA}`,
-        background: CAMPO, color: '#FFFFFF', fontSize: 16.5, padding: '0 16px', ...(props.style || {}),
+        width: '100%', boxSizing: 'border-box', height: 28, border: 0, background: 'transparent', borderRadius: 6,
+        color: GRAFITO, fontSize: 17, fontWeight: 600, padding: 0, ...(props.style || {}),
       }} />
     </label>
   );
@@ -83,34 +64,30 @@ function Campo({ etiqueta, ...props }) {
 
 function Dato({ etiqueta, valor }) {
   return (
-    <div style={{ padding: '12px 16px', borderRadius: 14, background: CAMPO, border: `1.5px solid ${LINEA}`, marginTop: 10 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: GRIS, letterSpacing: '0.02em' }}>{etiqueta}</div>
-      <div style={{ fontSize: 16.5, fontWeight: 700, color: '#FFFFFF', marginTop: 2, overflowWrap: 'anywhere' }}>{valor}</div>
+    <div style={{ padding: '8px 14px', borderRadius: 14, background: CAMPO, marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: GRIS }}>{etiqueta}</div>
+        <div style={{ fontSize: 17, fontWeight: 600, color: GRAFITO, marginTop: 1, overflowWrap: 'anywhere' }}>{valor}</div>
+      </div>
+      <Check size={18} weight="bold" color="#46965A" />
     </div>
   );
 }
 
-function Boton({ children, onClick, cargando, secundario, ...resto }) {
-  return (
-    <button onClick={onClick} disabled={cargando} {...resto} style={{
-      width: '100%', height: 54, borderRadius: 16, border: secundario ? `1.5px solid ${LINEA}` : 0, cursor: 'pointer',
-      background: secundario ? 'transparent' : '#FFFFFF', color: secundario ? '#FFFFFF' : NEGRO,
-      fontSize: 16.5, fontWeight: 800, fontFamily: 'inherit', marginTop: 12, opacity: cargando ? 0.6 : 1,
-    }}>{cargando ? 'Un momento…' : children}</button>
-  );
-}
+const Boton = BotonVentana;
 
 const Enlace = ({ children, onClick, href }) => {
-  const st = { display: 'block', width: '100%', marginTop: 16, background: 'none', border: 0, color: GRIS, fontSize: 14.5, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer', textAlign: 'center', textDecoration: 'none' };
+  const st = { display: 'block', width: '100%', marginTop: 10, background: 'none', border: 0, color: GRIS_TXT, fontSize: 14.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', textAlign: 'center', textDecoration: 'none' };
   return href ? <a href={href} target="_blank" rel="noreferrer" style={st}>{children}</a> : <button onClick={onClick} style={st}>{children}</button>;
 };
 
 // `nombre`: el que ya conoce el teléfono (null = no sabe quién es).
 // `alSesion(sesion, nombre)`: entró (guardar sesión y nombre).
 // `alAceptarDatos()`, `alActivarAvisos()`: los dos pasos finales.
+// `alRecorrido()`: «Empezar recorrido» (si no viene, no se ofrece).
 // `alListo()`: terminó. `alSaltar`: seguir sin contraseña (solo si el
 // servidor no responde: nunca deja a nadie afuera de su app).
-export default function CuentaV2({ nombre = null, datosAceptados = false, alSesion, alAceptarDatos, alActivarAvisos, alListo, alSaltar }) {
+export default function CuentaV2({ nombre = null, datosAceptados = false, alSesion, alAceptarDatos, alActivarAvisos, alRecorrido, alListo, alSaltar }) {
   const [paso, setPaso] = useState(nombre ? 'cargando' : 'entrada');
   const [cuenta, setCuenta] = useState(null);       // { nombre, email, tieneClave }
   const [nombreEscrito, setNombreEscrito] = useState('');
@@ -136,10 +113,13 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, alSesi
   };
   useEffect(() => { if (nombre) traerCuenta(nombre); /* eslint-disable-next-line */ }, []);
 
+  // Lo que sigue después de los avisos: invitar al recorrido (una vez).
+  const ofrecerRecorrido = !!alRecorrido && !recorridoHecho() && !recorridoOfrecido();
+  const terminar = () => { if (ofrecerRecorrido && paso !== 'recorrido') setPaso('recorrido'); else if (alListo) alListo(); };
   const despues = () => {
     if (!datosAceptados) return setPaso('datos');
     if (avisosPendientes()) return setPaso('avisos');
-    alListo && alListo();
+    terminar();
   };
   const listo = (r) => { alSesion && alSesion(r.sesion, r.nombre); despues(); };
 
@@ -167,131 +147,114 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, alSesi
   const wa = WHATSAPP_COACH ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau! Olvidé mi contraseña de la app')}` : null;
   const primerNombre = String(cuenta?.nombre || nombre || '').split(' ')[0];
 
-  let contenido;
+  // Cada pantalla: símbolo, título, texto y lo de abajo.
+  const I = (Icono, color) => <Icono size={28} weight="fill" color={color} />;
+  let v = {};
   if (paso === 'cargando') {
-    contenido = <div style={{ color: GRIS, fontSize: 15, marginTop: 28, textAlign: 'center' }}>Un momento…</div>;
+    v = { cuerpo: <div style={{ color: GRIS_TXT, fontSize: 15, textAlign: 'center', padding: '10px 0' }}>Un momento…</div> };
   } else if (paso === 'error') {
-    contenido = (
-      <>
-        <h1 style={titulo}>Casi listo.</h1>
-        <p style={bajada}>{error}</p>
-        <Boton onClick={() => traerCuenta(nombre)} cargando={cargando}>Intentar de nuevo</Boton>
-        {alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
-      </>
-    );
+    v = { titulo: 'Casi listo.', texto: error, cuerpo: (<>
+      <Boton onClick={() => traerCuenta(nombre)} cargando={cargando}>Intentar de nuevo</Boton>
+      {alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
+    </>) };
   } else if (paso === 'entrada') {
-    contenido = (
-      <>
-        <h1 style={titulo} className="cv2-sube">Entrena con<br /><span style={{ color: AMARILLO }}>Método.</span></h1>
-        <p style={bajada} className="cv2-sube">Entra con tu correo y tu contraseña.</p>
-        <div className="cv2-sube" style={{ animationDelay: '.1s' }}>
-          <Campo etiqueta="Correo" type="email" inputMode="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" />
-          <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" value={clave} onChange={e => setClave(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') entrar(); }} />
-          {error && <div role="alert" style={alerta}>{error}</div>}
-          <Boton onClick={entrar} cargando={cargando} data-entrar>Entrar</Boton>
-          <Enlace onClick={() => { setError(''); setPaso('primera'); }}>¿Primera vez en la app? <b style={{ color: '#FFFFFF' }}>Activa tu cuenta</b></Enlace>
-        </div>
-      </>
-    );
+    v = { simbolo: I(LockSimple, GRAFITO), titulo: <>Entrena con Método<span style={{ color: AMARILLO }}>.</span></>, texto: 'Entra con tu correo y tu contraseña.', cuerpo: (<>
+      <Campo etiqueta="Correo" type="email" inputMode="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" />
+      <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" value={clave} onChange={e => setClave(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') entrar(); }} />
+      {error && <div role="alert" style={alerta}>{error}</div>}
+      <Boton onClick={entrar} cargando={cargando} data-entrar>Entrar</Boton>
+      <Enlace onClick={() => { setError(''); setPaso('primera'); }}>¿Primera vez en la app? <b style={{ color: GRAFITO }}>Activa tu cuenta</b></Enlace>
+    </>) };
   } else if (paso === 'primera') {
-    contenido = (
-      <>
-        <h1 style={titulo} className="cv2-sube">Bienvenido.</h1>
-        <p style={bajada} className="cv2-sube">Escribe tu nombre completo, como lo tiene tu coach.</p>
-        <Campo etiqueta="Tu nombre completo" autoComplete="name" value={nombreEscrito} onChange={e => setNombreEscrito(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') traerCuenta(nombreEscrito); }} placeholder="Nombre y apellido" />
-        {error && <div role="alert" style={alerta}>{error}</div>}
-        <Boton onClick={() => nombreEscrito.trim().split(/\s+/).length < 2 ? setError('Escribe tu nombre y tu apellido.') : traerCuenta(nombreEscrito)} cargando={cargando}>Continuar</Boton>
-        <Enlace onClick={() => { setError(''); setPaso('entrada'); }}>Ya tengo contraseña</Enlace>
-      </>
-    );
+    v = { titulo: 'Bienvenido.', texto: 'Escribe tu nombre completo, como lo tiene tu coach.', cuerpo: (<>
+      <Campo etiqueta="Tu nombre completo" autoComplete="name" value={nombreEscrito} onChange={e => setNombreEscrito(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') traerCuenta(nombreEscrito); }} placeholder="Nombre y apellido" />
+      {error && <div role="alert" style={alerta}>{error}</div>}
+      <Boton onClick={() => nombreEscrito.trim().split(/\s+/).length < 2 ? setError('Escribe tu nombre y tu apellido.') : traerCuenta(nombreEscrito)} cargando={cargando}>Continuar</Boton>
+      <Enlace onClick={() => { setError(''); setPaso('entrada'); }}>Ya tengo contraseña</Enlace>
+    </>) };
   } else if (paso === 'activar') {
-    contenido = (
-      <>
-        <h1 style={titulo} className="cv2-sube">Activa tu<br />cuenta.</h1>
-        <p style={bajada} className="cv2-sube">Ponle una contraseña. Con ella entras siempre, aunque cambies de teléfono, y tu información queda solo tuya.</p>
-        <div className="cv2-sube" style={{ animationDelay: '.1s' }}>
-          <Dato etiqueta="Tu nombre" valor={cuenta?.nombre} />
-          {cuenta?.email
-            ? <Dato etiqueta="Tu correo" valor={cuenta.email} />
-            : <Campo etiqueta="Tu correo" type="email" inputMode="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" />}
-          <Campo etiqueta="Crea tu contraseña" type="password" autoComplete="new-password" value={clave} onChange={e => setClave(e.target.value)} placeholder="Mínimo 6 caracteres" />
-          <Campo etiqueta="Repítela" type="password" autoComplete="new-password" value={clave2} onChange={e => setClave2(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') activar(); }} />
-          {error && <div role="alert" style={alerta}>{error}</div>}
-          <Boton onClick={activar} cargando={cargando} data-activar>Activar mi cuenta</Boton>
-          {caido && alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
-        </div>
-      </>
-    );
+    v = { simbolo: I(LockSimple, GRAFITO), titulo: 'Activa tu cuenta.', texto: 'Ponle una contraseña. Con ella entras siempre, aunque cambies de teléfono, y tu información queda solo tuya.', cuerpo: (<>
+      <Dato etiqueta="Tu nombre" valor={cuenta?.nombre} />
+      {cuenta?.email
+        ? <Dato etiqueta="Tu correo" valor={cuenta.email} />
+        : <Campo etiqueta="Tu correo" type="email" inputMode="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" />}
+      <Campo etiqueta="Crea tu contraseña" type="password" autoComplete="new-password" value={clave} onChange={e => setClave(e.target.value)} placeholder="Mínimo 6 caracteres" />
+      <Campo etiqueta="Repítela" type="password" autoComplete="new-password" value={clave2} onChange={e => setClave2(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') activar(); }} />
+      {error && <div role="alert" style={alerta}>{error}</div>}
+      <Boton onClick={activar} cargando={cargando} data-activar>Activar mi cuenta</Boton>
+      {caido && alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
+    </>) };
   } else if (paso === 'entrar') {
-    contenido = (
-      <>
-        <h1 style={titulo} className="cv2-sube">Hola,<br /><span style={{ color: AMARILLO }}>{primerNombre}.</span></h1>
-        <p style={bajada} className="cv2-sube">Entra con tu contraseña.</p>
-        <div className="cv2-sube" style={{ animationDelay: '.1s' }}>
-          {cuenta?.email && <Dato etiqueta="Tu correo" valor={cuenta.email} />}
-          <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" value={clave} onChange={e => setClave(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') entrar(); }} />
-          {error && <div role="alert" style={alerta}>{error}</div>}
-          <Boton onClick={entrar} cargando={cargando} data-entrar>Entrar</Boton>
-          {wa && <Enlace href={wa}>¿Olvidaste tu contraseña? Escríbele a tu coach</Enlace>}
-          {caido && alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
-        </div>
-      </>
-    );
+    v = { simbolo: I(LockSimple, GRAFITO), titulo: <>Hola, {primerNombre}.</>, texto: 'Entra con tu contraseña.', cuerpo: (<>
+      {cuenta?.email && <Dato etiqueta="Tu correo" valor={cuenta.email} />}
+      <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" value={clave} onChange={e => setClave(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') entrar(); }} />
+      {error && <div role="alert" style={alerta}>{error}</div>}
+      <Boton onClick={entrar} cargando={cargando} data-entrar>Entrar</Boton>
+      {wa && <Enlace href={wa}>¿Olvidaste tu contraseña? Escríbele a tu coach</Enlace>}
+      {caido && alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
+    </>) };
   } else if (paso === 'datos') {
-    contenido = (
-      <>
-        <h1 style={titulo} className="cv2-sube">Tus datos,<br /><span style={{ color: AMARILLO }}>protegidos.</span></h1>
-        <div className="cv2-sube" style={{ animationDelay: '.08s' }}>
-          {[
-            ['Solo tú y tu coach', 'Lo que registras lo ven tú y tu coach. Nadie más.'],
-            ['Guardados en la nube', 'Si cambias de teléfono, todo vuelve al entrar con tu correo y tu contraseña.'],
-            ['Nunca se comparten', 'No se venden ni se usan para publicidad.'],
-          ].map(([t, d]) => (
-            <div key={t} style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-              <span style={{ width: 9, height: 9, borderRadius: 99, background: AMARILLO, marginTop: 7, flex: 'none' }} />
-              <div><div style={{ fontSize: 16.5, fontWeight: 800, color: '#FFFFFF' }}>{t}</div><div style={{ fontSize: 14.5, color: GRIS, marginTop: 2, lineHeight: 1.45 }}>{d}</div></div>
-            </div>
-          ))}
-          <Boton onClick={() => { alAceptarDatos && alAceptarDatos(); avisosPendientes() ? setPaso('avisos') : alListo && alListo(); }} data-aceptar-datos>Aceptar y seguir</Boton>
+    v = { simbolo: I(ShieldCheck, '#46965A'), titulo: 'Tus datos, protegidos.', cuerpo: (<>
+      {[
+        ['Solo tú y tu coach', 'Lo que registras lo ven tú y tu coach. Nadie más.'],
+        ['Guardados en la nube', 'Si cambias de teléfono, todo vuelve al entrar con tu correo y tu contraseña.'],
+        ['Nunca se comparten', 'No se venden ni se usan para publicidad.'],
+      ].map(([t, d]) => (
+        <div key={t} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: CAMPO, borderRadius: 14, padding: '11px 14px', marginTop: 8 }}>
+          <Check size={17} weight="bold" color="#46965A" style={{ marginTop: 2, flex: 'none' }} />
+          <div><div style={{ fontSize: 15.5, fontWeight: 700, color: GRAFITO }}>{t}</div><div style={{ fontSize: 13.5, color: GRIS_TXT, marginTop: 1, lineHeight: 1.4 }}>{d}</div></div>
         </div>
-      </>
-    );
+      ))}
+      <Boton onClick={() => { alAceptarDatos && alAceptarDatos(); avisosPendientes() ? setPaso('avisos') : terminar(); }} data-aceptar-datos>Aceptar y seguir</Boton>
+    </>) };
   } else if (paso === 'avisos') {
-    contenido = (
-      <>
-        <h1 style={titulo} className="cv2-sube">Activa tus<br /><span style={{ color: AMARILLO }}>avisos.</span></h1>
-        <p style={bajada} className="cv2-sube">Te aviso cuando tu coach te escriba, te ajuste el plan o te toque entrenar. Nada de spam.</p>
-        <div className="cv2-sube" style={{ animationDelay: '.1s' }}>
-          <Boton onClick={async () => { setCargando(true); try { await (alActivarAvisos && alActivarAvisos()); } finally { setCargando(false); alListo && alListo(); } }} cargando={cargando} data-activar-avisos>Activar avisos</Boton>
-          <Boton secundario onClick={() => alListo && alListo()}>Ahora no</Boton>
+    v = { simbolo: I(Bell, '#C95F17'), titulo: 'Activa tus avisos.', texto: 'Te aviso cuando tu coach te escriba, te ajuste el plan o te toque entrenar. Nada de spam.', cuerpo: (<>
+      <div style={{ background: 'rgba(255,255,255,0.92)', borderRadius: 18, padding: '11px 13px', display: 'flex', gap: 10, alignItems: 'center', boxShadow: '0 6px 16px rgba(0,0,0,0.06)' }}>
+        <img src="/icon-192.png" alt="" width="36" height="36" style={{ borderRadius: 9, flex: 'none' }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700 }}>Tu coach<span style={{ fontWeight: 500, color: GRIS }}>ahora</span></div>
+          <div style={{ fontSize: 13.5, color: '#3A3A3C', marginTop: 1 }}>Hoy te toca entrenar.</div>
         </div>
-      </>
-    );
+      </div>
+      <Boton onClick={async () => { setCargando(true); try { await (alActivarAvisos && alActivarAvisos()); } finally { setCargando(false); terminar(); } }} cargando={cargando} data-activar-avisos>Activar avisos</Boton>
+      <Boton secundario onClick={terminar}>Ahora no</Boton>
+    </>) };
+  } else if (paso === 'recorrido') {
+    v = { simbolo: I(MapPin, DASH_AZUL.ink || '#2F6CC4'), titulo: '¿Te muestro la app?', texto: 'Un recorrido de un minuto por las cuatro secciones.', cuerpo: (<>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+        {[['Dash', DASH_AZUL.base], ['Entreno', SECCION.entreno.base], ['Comida', SECCION.comida.base], ['Aprende', SECCION.aprende.base]].map(([t, c]) => (
+          <div key={t} style={{ width: 70, height: 58, borderRadius: 18, background: CAMPO, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <i style={{ width: 12, height: 12, borderRadius: 99, background: c }} /><span style={{ fontSize: 11.5, fontWeight: 700 }}>{t}</span>
+          </div>
+        ))}
+      </div>
+      <Boton onClick={() => { marcarOfrecido(); alListo && alListo(); alRecorrido && alRecorrido(); }} data-empezar-recorrido>Empezar recorrido</Boton>
+      <Boton secundario onClick={() => { marcarOfrecido(); alListo && alListo(); }}>Lo veo después</Boton>
+    </>) };
   }
+  // Los puntitos: cuenta, datos, avisos y recorrido (los que le tocan).
+  const etapas = ['cuenta', ...(datosAceptados ? [] : ['datos']), ...(avisosPendientes() ? ['avisos'] : []), ...(ofrecerRecorrido ? ['recorrido'] : [])];
+  const enEtapa = Math.max(0, etapas.indexOf(['datos', 'avisos', 'recorrido'].includes(paso) ? paso : 'cuenta'));
 
   return (
-    <div data-cuenta-v2={paso} style={{
-      position: 'fixed', inset: 0, zIndex: 9000, background: `radial-gradient(120% 60% at 50% 0%, #1E1E1C 0%, ${NEGRO} 70%)`,
-      color: '#FFFFFF', overflowY: 'auto', fontFamily: "var(--f-ui, 'Figtree Variable'), Figtree, system-ui, sans-serif",
-      padding: 'calc(env(safe-area-inset-top, 0px) + 56px) 24px calc(env(safe-area-inset-bottom, 0px) + 32px)',
-    }}>
-      <style>{CSS}</style>
-      <div style={{ maxWidth: 420, margin: '0 auto' }}>
-        <Icono />
-        {contenido}
-      </div>
-    </div>
+    <VentanaMarca data-cuenta-v2={paso} paso={enEtapa} pasos={etapas.length} simbolo={v.simbolo} titulo={v.titulo} texto={v.texto}>
+      {v.cuerpo}
+    </VentanaMarca>
   );
 }
+
+// La invitación al recorrido sale una sola vez (después queda en la
+// configuración del Dash, «Recorrido de la app»).
+const CLAVE_OFRECIDO = 'mt:recorridoOfrecido';
+const recorridoOfrecido = () => { try { return !!localStorage.getItem(CLAVE_OFRECIDO); } catch (e) { return true; } };
+const marcarOfrecido = () => { try { localStorage.setItem(CLAVE_OFRECIDO, '1'); } catch (e) {} };
 
 function avisosPendientes() {
   try { return typeof Notification !== 'undefined' && Notification.permission === 'default' && 'serviceWorker' in navigator; } catch (e) { return false; }
 }
 
-const titulo = { margin: '26px 0 0', fontSize: 40, fontWeight: 800, letterSpacing: '-0.035em', lineHeight: 1.04, color: '#FFFFFF' };
-const bajada = { margin: '12px 0 8px', fontSize: 16, lineHeight: 1.5, color: GRIS };
-const alerta = { marginTop: 12, padding: '10px 14px', borderRadius: 12, background: 'rgba(242,201,76,0.12)', color: AMARILLO, fontSize: 14, fontWeight: 650, lineHeight: 1.4 };
+const alerta = { marginTop: 10, padding: '10px 14px', borderRadius: 12, background: 'rgba(242,201,76,0.2)', color: '#7A5A00', fontSize: 14, fontWeight: 650, lineHeight: 1.4 };

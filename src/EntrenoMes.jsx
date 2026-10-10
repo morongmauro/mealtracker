@@ -27,7 +27,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, Moon } from '@phosphor-icons/react';
+import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, Moon, Info } from '@phosphor-icons/react';
 import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import Actividad, { ChipActividad } from './EntrenoActividad.jsx';
@@ -786,7 +786,6 @@ const AMBAR_PAGO = '#B7791F';
 const lunesDeLocal = (f) => sumarDias(f, -((aFecha(f).getDay() + 6) % 7));
 const cortaFecha = (f) => { const d = aFecha(f); return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}`; };
 const unicos = (xs) => [...new Set(xs)];
-const leerVista = () => { try { return localStorage.getItem('entreno:cal:vista') || 'semana'; } catch (e) { return 'semana'; } };
 
 function useArrastre(puedeMover, alSoltar) {
   const [arrastre, setEstado] = useState(null);
@@ -944,6 +943,11 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const [aviso, setAviso] = useState(null);
   const [confirmar, setConfirmar] = useState(null);     // { texto, si, accion }
   const [eligiendo, setEligiendo] = useState(null);     // fecha a la que se le añade rutina
+  // El calendario: «Mes» o «Semana» (se recuerda) y la semana que se mira.
+  const [vista, setVistaEstado] = useState(() => { try { return localStorage.getItem('entreno:cal:vista2') === 'semana' ? 'semana' : 'mes'; } catch (e) { return 'mes'; } });
+  const setVista = (v) => { setVistaEstado(v); try { localStorage.setItem('entreno:cal:vista2', v); } catch (e) {} };
+  const [lunesVer, setLunesVer] = useState(() => lunesDeLocal(hoyLocal()));
+  const [ayuda, setAyuda] = useState(false);
 
   const cargar = async (mes) => {
     setError(null);
@@ -953,7 +957,9 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     setCache(c => ({ ...c, [mes]: r }));
   };
   const semana = Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i));
-  const necesarios = modo === 'hoy' ? unicos([semana[0].slice(0, 7), semana[6].slice(0, 7)]) : unicos([ym, semana[0].slice(0, 7), semana[6].slice(0, 7)]);
+  const semanaVer = Array.from({ length: 7 }, (_, i) => sumarDias(lunesVer, i));
+  const necesarios = modo === 'hoy' ? unicos([semana[0].slice(0, 7), semana[6].slice(0, 7)])
+    : unicos([ym, semana[0].slice(0, 7), semana[6].slice(0, 7), ...(vista === 'semana' ? [semanaVer[0].slice(0, 7), semanaVer[6].slice(0, 7)] : [])]);
   // Lo que no está se trae; lo que ya estaba guardado se refresca por detrás
   // una vez por visita (cada vez que se entra), sin tapar la pantalla.
   const refrescados = useRef(new Set());
@@ -1113,29 +1119,20 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     return [...antes, ...c.dias, ...despues];
   }, [cache, ym, porFecha]);
   const dHoy = porFecha[hoy];
+  const dHoySemana = dHoy?.semana || null;
+  const semanasFase = fase?.desde && fase?.hasta ? Math.ceil((aFecha(fase.hasta) - aFecha(fase.desde)) / 864e5 / 7) : null;
 
   return (
     <div data-calendario-v2={modo} style={{ touchAction: arrastre ? 'none' : undefined }}>
       {modo === 'mes' && (
-        <>
-          {/* Pegado a la frase grande de arriba (sin tanto aire entre los dos) */}
-          <Titulo style={{ marginTop: -14 }}>Tu calendario</Titulo>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '10px 0 2px' }}>
-            <button onClick={() => cambiarMes(-1)} aria-label="Anterior" style={flechaV2}><CaretLeft size={18} weight="bold" /></button>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 800, fontSize: 17, color: TEXT, textTransform: 'capitalize' }}>{MESES[m - 1]} {y}</div>
-              {ym !== hoy.slice(0, 7) && (
-                <button onClick={() => setYm(hoy.slice(0, 7))} style={{ border: 'none', background: 'none', color: P.ink, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Volver a hoy</button>
-              )}
-            </div>
-            <button onClick={() => cambiarMes(1)} aria-label="Siguiente" style={flechaV2}><CaretRight size={18} weight="bold" /></button>
-          </div>
+        <div data-cal-cabecera style={{ marginTop: -10 }}>
           {fase && (
-            <div style={{ fontSize: 13, color: TEXT_MUTED, marginBottom: 8, textAlign: 'center', lineHeight: 1.3 }}>
-              <b style={{ color: TEXT }}>{fase.nombre}</b> · del {cortaFecha(fase.desde)} al {cortaFecha(fase.hasta)}
+            <div style={{ fontSize: 12, fontWeight: 750, letterSpacing: '.08em', color: TEXT_MUTED, textTransform: 'uppercase', margin: '0 2px 10px' }}>
+              {fase.nombre}{dHoySemana ? ` · semana ${dHoySemana}${semanasFase ? ` de ${semanasFase}` : ''}` : ''}
             </div>
           )}
-        </>
+          <Segmentado valor={vista} alCambiar={setVista} opciones={[['semana', 'Semana'], ['mes', 'Mes']]} />
+        </div>
       )}
 
       {error && <Fallo motivo={error} alReintentar={() => necesarios.forEach(cargar)} />}
@@ -1165,26 +1162,70 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
         </>
       )}
 
-      {/* ── EL MES ── */}
-      {listo && modo === 'mes' && (
-        <div data-vista="mes">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 3, marginBottom: 6 }}>
+      {/* ── EL MES: tarjeta de cristal; cada día dice su rutina ── */}
+      {listo && modo === 'mes' && vista === 'mes' && (
+        <div data-vista="mes" style={vidrioCal}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 2px 8px' }}>
+            <button onClick={() => cambiarMes(-1)} aria-label="Anterior" style={flechaCal}><CaretLeft size={17} weight="bold" /></button>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 750, fontSize: 16, color: TEXT, textTransform: 'capitalize' }}>{MESES[m - 1]} {y}</div>
+              {ym !== hoy.slice(0, 7) && (
+                <button onClick={() => setYm(hoy.slice(0, 7))} style={{ border: 'none', background: 'none', color: TEXT_MUTED, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Volver a hoy</button>
+              )}
+            </div>
+            <button onClick={() => cambiarMes(1)} aria-label="Siguiente" style={flechaCal}><CaretRight size={17} weight="bold" /></button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', columnGap: 3, marginBottom: 2 }}>
             {DIAS_V2.map(d => (
-              <div key={d} style={{ fontSize: 12, fontWeight: 800, color: P.base, textAlign: 'center', letterSpacing: '.02em' }}>{d}</div>
+              <div key={d} style={{ fontSize: 11.5, fontWeight: 700, color: P.base, padding: '0 4px', letterSpacing: '.02em' }}>{d}</div>
             ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 3 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', columnGap: 3 }}>
             {celdas.map((d, i) => d
-              ? <CeldaV2 key={d.fecha} dia={d} P={P} hoy={hoy} semanaActual={enSemana(d.fecha)} ajeno={d.fecha.slice(0, 7) !== ym}
+              ? <CeldaCal key={d.fecha} dia={d} P={P} hoy={hoy} ajeno={d.fecha.slice(0, 7) !== ym}
                   sobre={arrastre && arrastre.sobre === d.fecha && arrastre.desde !== d.fecha}
                   origen={arrastre && arrastre.desde === d.fecha}
                   arrastrable={arrastrable(d)} alTocar={() => abrir(d.fecha)} />
-              : <div key={`h${i}`} />)}
+              : <div key={`h${i}`} style={{ borderTop: '0.5px solid rgba(60,60,67,0.16)' }} />)}
           </div>
-          <LeyendaV2 P={P} />
-          <TenEnCuenta />
+          <LeyendaCal />
         </div>
       )}
+
+      {/* ── LA SEMANA: cada día con su rutina y su estado, de un vistazo ── */}
+      {listo && modo === 'mes' && vista === 'semana' && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 2px 10px' }}>
+            <button onClick={() => setLunesVer(sumarDias(lunesVer, -7))} aria-label="Semana anterior" style={flechaCal}><CaretLeft size={17} weight="bold" /></button>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 750, fontSize: 16, color: TEXT }}>{cortaFecha(semanaVer[0])} – {cortaFecha(semanaVer[6])}</div>
+              {lunesVer !== lunes && <button onClick={() => setLunesVer(lunes)} style={{ border: 'none', background: 'none', color: TEXT_MUTED, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Volver a esta semana</button>}
+            </div>
+            <button onClick={() => setLunesVer(sumarDias(lunesVer, 7))} aria-label="Semana siguiente" style={flechaCal}><CaretRight size={17} weight="bold" /></button>
+          </div>
+          <div data-vista="semana-cal" style={{ ...vidrioCal, padding: '4px 0' }}>
+            {semanaVer.map((f, i) => {
+              const d = porFecha[f];
+              return <FilaSemanaCal key={f} primera={i === 0} fecha={f} etiqueta={DIAS_V2[i]} dia={d} P={P} hoy={hoy} fase={fase} ejerciciosDe={ejerciciosDe}
+                sobre={arrastre && arrastre.sobre === f && arrastre.desde !== f} origen={arrastre && arrastre.desde === f}
+                arrastrable={arrastrable(d)} alTocar={() => d && abrir(f)}
+                alAgregar={puedeAgregar(d) ? () => setEligiendo(f) : null} />;
+            })}
+          </div>
+          <ResumenSemana dias={semanaVer.map(f => porFecha[f]).filter(Boolean)} />
+        </>
+      )}
+
+      {listo && modo === 'mes' && (
+        <button data-ten-en-cuenta onClick={() => setAyuda(true)} style={{ ...vidrioCal, marginTop: 12, width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+          <Info size={22} weight="fill" color={TEXT} />
+          <span style={{ flex: 1, fontSize: 15, fontWeight: 650, color: TEXT }}>Cómo mover o añadir rutinas</span>
+          <CaretRight size={15} weight="bold" color="#C7C7CC" />
+        </button>
+      )}
+      <Hoja abierta={ayuda} alCerrar={() => setAyuda(false)} titulo="Cómo mover o añadir rutinas" alto="72vh">
+        <TenEnCuenta />
+      </Hoja>
 
       {arrastre && (
         <div aria-hidden data-fantasma style={{
@@ -1399,69 +1440,188 @@ function Etiqueta({ Icono, tipo, color, fondo, borde = 'transparent', hecho, chi
   );
 }
 
-// ── Mes: casillas altas ─────────────────────────────────────────────────
-function CeldaV2({ dia, P, hoy, sobre, origen, arrastrable, alTocar, semanaActual, ajeno }) {
-  const esHoy = dia.fecha === hoy;
-  const registros = dia.eventos.filter(e => e.registra);
-  const otros = dia.eventos.filter(e => !e.registra);
-  return (
-    <button data-fecha={dia.fecha} onClick={alTocar} style={{
-      minHeight: 70, borderRadius: 11, padding: '4px 2px 3px', cursor: 'pointer', fontFamily: 'inherit',
-      display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3, overflow: 'hidden', minWidth: 0,
-      background: sobre ? P.tint : esHoy ? '#F4F8FE' : ajeno ? 'rgba(255,255,255,0.55)' : SURFACE, opacity: origen ? 0.45 : 1,
-      border: sobre ? `2px dotted ${P.base}` : esHoy ? `1.5px solid ${P.base}` : `1px solid ${BORDER_SOFT}`,
-      WebkitUserSelect: 'none', userSelect: 'none',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px' }}>
-        <span style={{ fontSize: 13, fontWeight: 800, color: esHoy ? P.ink : TEXT_MUTED }}>{Number(dia.fecha.slice(8))}</span>
-        <span style={{ display: 'flex', gap: 1 }}>
-          {dia.inicio_ciclo && <Flag size={12} weight="fill" color={P.base} aria-label="Inicio de ciclo" />}
-          {dia.corte_pago && <CurrencyCircleDollar size={13} weight="fill" color={AMBAR_PAGO} aria-label="Corte de pago" />}
-        </span>
-      </div>
-      {dia.rutina && <ChipRutina nombre={corto(dia.rutina)} hecha={dia.estado === 'completada'} movida={dia.movida || dia.extra} P={P} lineas={3} arrastre={arrastrable} />}
-      {!dia.rutina && dia.hecho && <ChipRutina nombre={corto(dia.hecho)} hecha P={P} lineas={3} />}
-      {registros.length > 0 && (
-        <div style={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {registros.slice(0, 3).map(e => (
-            <span key={e.id} style={{ width: 20, height: 20, borderRadius: 99, display: 'grid', placeItems: 'center', background: e.hecho ? MORADO : '#EEE9FB', color: e.hecho ? '#fff' : MORADO }}>
-              <IconoEvento tipo={e.tipo} size={12} />
-            </span>
-          ))}
-        </div>
-      )}
-      {(dia.actividades.length > 0 || otros.length > 0) && (
-        <div style={{ display: 'flex', gap: 3, marginTop: 'auto', justifyContent: 'center' }}>
-          {dia.actividades.slice(0, 3).map((a, i) => <span key={`a${i}`} style={{ width: 5, height: 5, borderRadius: 99, background: P.base }} />)}
-          {otros.slice(0, 2).map((e, i) => <span key={`e${i}`} style={{ width: 5, height: 5, borderRadius: 99, background: TEXT_LIGHT }} />)}
-        </div>
-      )}
-    </button>
-  );
-}
-
-function LeyendaV2({ P }) {
-  const item = (muestra, texto) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{muestra}{texto}</span>;
-  const caja = (relleno) => <span style={{ width: 13, height: 9, borderRadius: 3, background: relleno ? P.base : '#fff', border: `1.5px solid ${P.base}` }} />;
-  return (
-    <div data-leyenda style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', fontSize: 11.5, color: TEXT_MUTED, marginTop: 8, lineHeight: 1.3 }}>
-      {item(caja(false), 'Por hacer')}
-      {item(caja(true), 'Hecho')}
-      {item(<span style={{ width: 13, height: 9, borderRadius: 3, background: '#fff', border: `2px dotted ${P.base}` }} />, 'Movida o añadida por ti')}
-      {item(<span style={{ width: 13, height: 13, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center' }}><IconoEvento tipo="peso" size={8} /></span>, 'Peso, medidas o fotos')}
-      {item(<Flag size={11} weight="fill" color={P.base} />, 'Inicio de ciclo')}
-      {item(<CurrencyCircleDollar size={12} weight="fill" color={AMBAR_PAGO} />, 'Corte de pago')}
-      {item(<span style={{ width: 5, height: 5, borderRadius: 99, background: P.base }} />, 'Cardio o deporte')}
-    </div>
-  );
-}
-
 const botonAccion = {
   flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 46, borderRadius: 14,
   fontFamily: 'inherit', fontSize: 15, fontWeight: 750, cursor: 'pointer', padding: '0 10px',
 };
 
-const flechaV2 = {
-  width: 38, height: 38, borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer',
-  display: 'grid', placeItems: 'center', boxShadow: '0 1px 2px rgba(40,40,30,0.06), 0 4px 12px rgba(40,40,30,0.06)',
+
+// ═════════════════════════════════════════════════════════════════════════
+// CALENDARIO ESTILO APPLE (visual nueva): una tarjeta de cristal sobre el
+// fondo de la sección. En el mes, cada día dice su rutina: hecha en grafito
+// con ✓, por hacer en gris, movida o añadida punteada y la que se pasó sin
+// hacer, tachada. Los puntitos: cardio (verde), peso/fotos (morado) y corte
+// de pago (amarillo).
+// ═════════════════════════════════════════════════════════════════════════
+const GRAFITO_CAL = '#1D1D1F';
+const AMARILLO_CAL = '#F2C94C';
+const GRIS_CAL = '#F2F2F7';
+const vidrioCal = {
+  background: 'rgba(255,255,255,0.86)', WebkitBackdropFilter: 'blur(20px)', backdropFilter: 'blur(20px)',
+  borderRadius: 24, padding: '12px 10px 14px', boxShadow: '0 10px 30px rgba(40,40,50,0.07)',
 };
+const flechaCal = {
+  width: 34, height: 34, borderRadius: 999, border: 'none', background: 'rgba(118,118,128,0.12)', color: TEXT, cursor: 'pointer',
+  display: 'grid', placeItems: 'center',
+};
+const PUNTO = { cardio: '#46965A', registro: '#AF52DE', pago: AMARILLO_CAL };
+
+function Segmentado({ valor, alCambiar, opciones }) {
+  return (
+    <div data-segmentado role="group" style={{ display: 'flex', padding: 2, borderRadius: 11, background: 'rgba(255,255,255,0.55)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)', marginBottom: 14, boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.04)' }}>
+      {opciones.map(([v, t]) => (
+        <button key={v} onClick={() => alCambiar(v)} aria-pressed={valor === v} style={{
+          flex: 1, height: 34, border: 'none', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14.5, fontWeight: valor === v ? 700 : 600, color: TEXT,
+          background: valor === v ? '#fff' : 'transparent', boxShadow: valor === v ? '0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04)' : 'none',
+        }}>{t}</button>
+      ))}
+    </div>
+  );
+}
+
+// Estado de la rutina de un día: hecha, movida (o añadida), perdida o por hacer.
+function estadoCal(dia, hoy) {
+  if (!dia) return null;
+  if (dia.rutina) {
+    if (dia.estado === 'completada') return 'hecha';
+    if (dia.movida || dia.extra) return 'movida';
+    if (dia.fecha < hoy && !dia.hecho) return 'perdida';
+    return 'pendiente';
+  }
+  return dia.hecho ? 'hecha' : null;
+}
+// «Lower + Core»: que el «+» no quede solo en un renglón.
+const nombreConMas = (t) => String(t || '').replace(/ \+ /g, ' + ');
+
+function ChipCal({ nombre, estado, arrastre }) {
+  const hecha = estado === 'hecha';
+  const st = hecha ? { background: GRAFITO_CAL, color: '#fff' }
+    : estado === 'movida' ? { background: 'rgba(255,255,255,0.9)', color: GRAFITO_CAL, outline: `1.5px dashed ${GRAFITO_CAL}`, outlineOffset: -1.5 }
+    : estado === 'perdida' ? { background: GRIS_CAL, color: '#AEAEB2', textDecoration: 'line-through' }
+    : { background: GRIS_CAL, color: GRAFITO_CAL };
+  return (
+    <div {...(arrastre || {})} onContextMenu={e => e.preventDefault()} data-chip={hecha ? 'hecha' : estado === 'movida' ? 'movida' : estado === 'perdida' ? 'perdida' : 'pendiente'} style={{
+      ...st, borderRadius: 7, padding: '3px 3px', fontSize: 10.5, fontWeight: 700, lineHeight: 1.15, letterSpacing: '-0.03em', textAlign: 'left',
+      overflowWrap: 'normal', wordBreak: 'keep-all', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', cursor: arrastre ? 'grab' : 'pointer',
+    }}>
+      {nombreConMas(nombre)}
+    </div>
+  );
+}
+
+function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
+  const esHoy = dia.fecha === hoy;
+  const est = estadoCal(dia, hoy);
+  const puntos = [
+    dia.actividades.length > 0 && PUNTO.cardio,
+    dia.eventos.some(e => e.registra) && PUNTO.registro,
+    dia.corte_pago && PUNTO.pago,
+  ].filter(Boolean);
+  const nom = dia.rutina ? corto(dia.rutina) : dia.hecho ? corto(dia.hecho) : null;
+  return (
+    <button data-fecha={dia.fecha} onClick={alTocar} style={{
+      minHeight: 74, padding: '4px 2px 5px', cursor: 'pointer', fontFamily: 'inherit', border: 'none', borderTop: '0.5px solid rgba(60,60,67,0.16)',
+      display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3, minWidth: 0, borderRadius: sobre ? 10 : 0,
+      background: sobre ? P.tint : 'transparent', opacity: origen ? 0.45 : ajeno ? 0.5 : 1, outline: sobre ? `2px dotted ${P.base}` : 'none',
+      WebkitUserSelect: 'none', userSelect: 'none',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+        <span style={{
+          width: 24, height: 24, borderRadius: 99, display: 'grid', placeItems: 'center', flex: 'none',
+          fontSize: 14, fontWeight: esHoy ? 800 : 600, background: esHoy ? GRAFITO_CAL : 'transparent', color: esHoy ? '#fff' : TEXT,
+        }}>{Number(dia.fecha.slice(8))}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {est === 'hecha' && <span data-hecha-check aria-label="Hecha" style={{ width: 13, height: 13, borderRadius: 99, background: AMARILLO_CAL, color: GRAFITO_CAL, display: 'grid', placeItems: 'center' }}><Check size={9} weight="bold" /></span>}
+          {dia.inicio_ciclo && <Flag size={10} weight="fill" color={TEXT_MUTED} aria-label="Inicio de ciclo" />}
+          {puntos.map((c, i) => <i key={i} style={{ width: 5, height: 5, borderRadius: 99, background: c }} />)}
+        </span>
+      </div>
+      {nom && <ChipCal nombre={nom} estado={est} arrastre={dia.rutina ? arrastrable : null} />}
+    </button>
+  );
+}
+
+function LeyendaCal() {
+  const item = (muestra, texto) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{muestra}{texto}</span>;
+  const caja = (st) => <span style={{ width: 14, height: 10, borderRadius: 3, ...st }} />;
+  const punto = (c) => <span style={{ width: 6, height: 6, borderRadius: 99, background: c }} />;
+  return (
+    <div data-leyenda style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', fontSize: 11.5, color: TEXT_MUTED, padding: '12px 4px 0', lineHeight: 1.3 }}>
+      {item(caja({ background: GRAFITO_CAL }), 'Hecha')}
+      {item(caja({ background: GRIS_CAL, boxShadow: 'inset 0 0 0 1px #D1D1D6' }), 'Por hacer')}
+      {item(caja({ outline: `1.5px dashed ${GRAFITO_CAL}`, outlineOffset: -1.5 }), 'Movida o añadida por ti')}
+      {item(punto(PUNTO.cardio), 'Cardio')}
+      {item(punto(PUNTO.registro), 'Peso / fotos')}
+      {item(punto(PUNTO.pago), 'Pago')}
+    </div>
+  );
+}
+
+function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejerciciosDe, sobre, origen, arrastrable, alTocar, alAgregar }) {
+  const esHoy = fecha === hoy;
+  const est = estadoCal(dia, hoy);
+  const r = dia?.rutina || dia?.hecho || null;
+  const n = r ? ejerciciosDe[r.id] : null;
+  const sub = !r ? null : est === 'hecha' ? 'Hecha' : est === 'movida' ? (dia.extra ? 'La añadiste tú' : 'La moviste tú') : est === 'perdida' ? 'No se hizo' : (n ? `${n} ejercicio${n === 1 ? '' : 's'}` : 'Por hacer');
+  const extras = [
+    ...(dia?.eventos || []).map(e => ({ k: e.id, c: e.registra ? PUNTO.registro : TEXT_LIGHT, t: e.registra ? (REGISTRO[e.tipo]?.nombre || e.titulo) : e.titulo })),
+    ...(dia?.actividades || []).map(a => ({ k: 'a' + a.id, c: PUNTO.cardio, t: `${a.titulo || a.tipo}${a.duracion_min ? ` · ${a.duracion_min} min` : ''}` })),
+    ...(dia?.corte_pago ? [{ k: 'pago', c: PUNTO.pago, t: 'Corte de tu mensualidad' }] : []),
+    ...(dia?.inicio_ciclo ? [{ k: 'ini', c: TEXT_MUTED, t: `Empieza ${fase?.nombre || 'tu ciclo'}` }] : []),
+  ];
+  const estilo = est === 'hecha' ? { background: GRAFITO_CAL, color: '#fff' }
+    : est === 'movida' ? { outline: `1.5px dashed ${GRAFITO_CAL}`, outlineOffset: -1.5, background: 'rgba(255,255,255,0.7)', color: GRAFITO_CAL }
+    : est === 'perdida' ? { background: GRIS_CAL, color: '#AEAEB2' } : { background: GRIS_CAL, color: GRAFITO_CAL };
+  return (
+    <div data-fecha={fecha} role="button" tabIndex={0} onClick={alTocar} style={{
+      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: dia ? 'pointer' : 'default',
+      borderTop: primera ? 'none' : '0.5px solid rgba(60,60,67,0.12)', background: sobre ? P.tint : 'transparent', opacity: origen ? 0.5 : 1,
+    }}>
+      <div style={{ width: 40, flex: 'none', textAlign: 'center' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '.05em', textTransform: 'uppercase' }}>{etiqueta}</div>
+        <div style={{ width: 30, height: 30, margin: '2px auto 0', borderRadius: 99, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 750,
+          background: esHoy ? GRAFITO_CAL : 'transparent', color: esHoy ? '#fff' : TEXT }}>{Number(fecha.slice(8))}</div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {r ? (
+          <div {...(dia?.rutina ? (arrastrable || {}) : {})} data-chip={est === 'hecha' ? 'hecha' : est || 'pendiente'} onContextMenu={e => e.preventDefault()} style={{
+            padding: '9px 12px', borderRadius: 14, WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', ...estilo,
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 750, textDecoration: est === 'perdida' ? 'line-through' : 'none' }}>
+              {est === 'hecha' && <span style={{ color: AMARILLO_CAL }}>✓ </span>}{corto(r)}
+            </div>
+            {sub && <div style={{ fontSize: 12.5, opacity: est === 'hecha' ? 0.7 : 0.62, marginTop: 1 }}>{sub}</div>}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 30 }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: '#AEAEB2' }}>{dia ? 'Descanso' : '—'}</span>
+            {alAgregar && <button onClick={(e) => { e.stopPropagation(); alAgregar(); }} style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 650, color: TEXT_MUTED, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Plus size={13} weight="bold" /> Añadir</button>}
+          </div>
+        )}
+        {extras.map(x => (
+          <div key={x.k} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: TEXT_MUTED }}>
+            <i style={{ width: 6, height: 6, borderRadius: 99, background: x.c, flex: 'none' }} /><span style={{ minWidth: 0 }}>{x.t}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResumenSemana({ dias }) {
+  const conRutina = dias.filter(d => d.rutina || d.hecho);
+  const hechas = conRutina.filter(d => d.estado === 'completada' || (!d.rutina && d.hecho)).length;
+  const cardio = dias.filter(d => d.actividades.length > 0).length;
+  const caja = (k, v, u) => (
+    <div style={{ ...vidrioCal, flex: 1, padding: '12px 16px' }}>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '.06em' }}>{k}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: TEXT, marginTop: 2 }}>{v} <span style={{ fontSize: 14.5, color: TEXT_MUTED, fontWeight: 600 }}>{u}</span></div>
+    </div>
+  );
+  return (
+    <div data-resumen-semana style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+      {caja('ESTA SEMANA', hechas, `de ${conRutina.length} rutina${conRutina.length === 1 ? '' : 's'}`)}
+      {caja('CARDIO', cardio, cardio === 1 ? 'día' : 'días')}
+    </div>
+  );
+}

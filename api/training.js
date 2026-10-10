@@ -1637,6 +1637,10 @@ async function verComunidad(cliente) {
     } catch (e2) { return { ok: false, motivo: 'sin_tabla' }; }
   }
   posts = Array.isArray(posts) ? posts : [];
+  // La bienvenida (la escribe el coach en el CRM): le sale a cada quien la
+  // primera vez que entra. Sin la tabla (migración aún no corrida), nada.
+  const bv = await sb(`comunidad_bienvenida?select=titulo,texto,activa,editado_en&user_id=eq.${cliente.user_id}&limit=1`).catch(() => null);
+  const bienvenida = Array.isArray(bv) && bv[0] && bv[0].activa !== false ? { titulo: bv[0].titulo, texto: bv[0].texto, editado_en: bv[0].editado_en } : null;
   // Los del programa: los clientes activos de su coach, solo nombre corto.
   const gente = await sb(`clientes?select=id,nombre,estado&user_id=eq.${cliente.user_id}`).catch(() => []);
   const lista = Array.isArray(gente) ? gente : [];
@@ -1644,7 +1648,7 @@ async function verComunidad(cliente) {
   const miembros = lista.filter(c => (c.estado || 'activo') === 'activo')
     .map(c => ({ nombre: corto.get(c.id), iniciales: iniciales(corto.get(c.id)), tu: c.id === cliente.id }))
     .sort((a, b) => (b.tu - a.tu) || a.nombre.localeCompare(b.nombre, 'es'));
-  if (!posts.length) return { ok: true, posts: [], miembros };
+  if (!posts.length) return { ok: true, posts: [], miembros, bienvenida };
   const ids = posts.map(p => p.id).join(',');
   const rx = await sb(`comunidad_reacciones?select=post_id,cliente_id,tipo&post_id=in.(${ids})`).catch(() => []);
   const vistos = await sb(`comunidad_vistas?select=post_id&cliente_id=eq.${cliente.id}&post_id=in.(${ids})`).catch(() => []);
@@ -1653,6 +1657,7 @@ async function verComunidad(cliente) {
   return {
     ok: true,
     miembros,
+    bienvenida,
     posts: posts.map(p => {
       const delPost = (Array.isArray(rx) ? rx : []).filter(r => r.post_id === p.id);
       const reacciones = Object.fromEntries(REACCIONES.map(t => [t, delPost.filter(r => r.tipo === t).length]));

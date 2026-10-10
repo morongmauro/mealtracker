@@ -27,6 +27,11 @@ import { aroSemana } from './aros.js';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
+import VentanaMarca, { BotonVentana } from './VentanaMarca.jsx';
+
+const CLAVE_BIENVENIDA = 'mt:bienvenidaComunidad';
+const bienvenidaVista = () => { try { return !!localStorage.getItem(CLAVE_BIENVENIDA); } catch (e) { return true; } };
+const marcarBienvenida = () => { try { localStorage.setItem(CLAVE_BIENVENIDA, new Date().toISOString()); } catch (e) {} };
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { etiquetaDia } from './vozCoach.js';
@@ -331,6 +336,10 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   // Comunidad: cuántas publicaciones no ha visto (el número en su pastilla)
   // y la firma de la más nueva (el puntito del Dash en la barra).
   const [nuevosComunidad, setNuevosComunidad] = useState(0);
+  // La bienvenida a la Comunidad (la escribe el coach en el CRM): una sola
+  // vez, la primera vez que entra, cuando no hay otra ventana encima.
+  const [bienvenida, setBienvenida] = useState(null);
+  const cerrarBienvenida = (ir) => { marcarBienvenida(); setBienvenida(null); if (ir) setVista('comunidad'); };
   // Relojes: si hay uno conectado, su tarjeta con el último día.
   const [reloj, setReloj] = useState(null);
   useEffect(() => {
@@ -351,6 +360,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
     if (name && vista === 'inicio') leerComunidad(name).then(r => {
       if (!vivo || !r || !r.ok) return;
       setNuevosComunidad(r.posts.filter(p => !p.visto).length);
+      setBienvenida(r.bienvenida && !bienvenidaVista() ? r.bienvenida : null);
       if (acciones.firmaComunidad) acciones.firmaComunidad(firmaComunidad(r));
     });
     return () => { vivo = false; };
@@ -432,6 +442,13 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       {/* Mensualidad pendiente (primeros 5 días de mora). */}
       {avisoPago}
 
+      {bienvenida && acciones.ventanaLibre !== false && (
+        <VentanaMarca data-bienvenida-comunidad simbolo={<UsersThree size={28} weight="fill" color="#2F6CC4" />} titulo={bienvenida.titulo}>
+          <div style={{ fontSize: 16, color: '#3A3A3C', lineHeight: 1.5, whiteSpace: 'pre-line', textAlign: 'center' }}>{bienvenida.texto}</div>
+          <BotonVentana onClick={() => cerrarBienvenida(true)}>Ver la comunidad</BotonVentana>
+          <BotonVentana secundario onClick={() => cerrarBienvenida(false)}>Ahora no</BotonVentana>
+        </VentanaMarca>
+      )}
       {/* Reto: por ahora no hay ninguno. Solo el mensaje; un toque lo cierra. */}
       {sinRetos && (
         <div role="dialog" aria-label="Retos" onClick={() => setSinRetos(false)} style={{

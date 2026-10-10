@@ -5037,7 +5037,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         guardarSesion(s); setSesionV2(s); setCuentaAbierta(true);
         if (n) { setName(n); window.storage.set('name', JSON.stringify(n)).catch(() => {}); }
       }}
-      alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush}
+      alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush} alRecorrido={() => setRecorrido(true)}
       alListo={() => { setCuentaAbierta(false); setView('main'); }} />;
   }
 
@@ -6084,6 +6084,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 // nube; solo pide la contraseña para volver a entrar.
                 cerrarSesion: sesionV2 ? () => { haptic(8); guardarSesion(''); setSesionV2(''); try { sessionStorage.removeItem('mt:cuentaSaltada'); } catch (e) {} setCuentaSaltada(false); } : null,
                 calendarioComida: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); },
+                // Sin la cuenta, el recorrido ni la mudanza encima: entonces
+                // puede salir la bienvenida a la Comunidad.
+                ventanaLibre: !(name && !cuentaSaltada && (!sesionV2 || cuentaAbierta)) && !recorrido && !mudanza,
               }} />
           </Suspense>
         </div>
@@ -6661,7 +6664,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {view === 'main' && v2 && name && !cuentaSaltada && (!sesionV2 || cuentaAbierta) && (
         <CuentaV2 nombre={name} datosAceptados={cloudConsent === 'accepted'}
           alSesion={(s) => { guardarSesion(s); setSesionV2(s); setCuentaAbierta(true); }}
-          alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush}
+          alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush} alRecorrido={() => setRecorrido(true)}
           alListo={() => setCuentaAbierta(false)}
           alSaltar={() => { try { sessionStorage.setItem('mt:cuentaSaltada', '1'); } catch (e) {} setCuentaSaltada(true); setCuentaAbierta(false); }} />
       )}
