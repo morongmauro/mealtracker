@@ -179,6 +179,8 @@ function summarize(row) {
     // el CRM las usa para el listado global "App en pantalla de inicio".
     pwa_installed_at: data.pwa_installed_at || null,
     push_enabled_at: data.push_enabled_at || null,
+    // Ya abrió la app en la dirección nueva (mudanza).
+    app_nueva_at: data.app_nueva_at || null,
   };
 }
 

@@ -22,7 +22,7 @@
 // usándola con todo, y los enlaces viejos siguen funcionando.
 // ─────────────────────────────────────────────────────────────────────────
 
-export const DOMINIO_NUEVO = 'entrenaconmetodoapp.vercel.app';
+export const DOMINIO_NUEVO = 'entrenaconmetodo.vercel.app';
 export const MUDANZA_ACTIVA = false;
 
 const PRUEBA = 'mt:probarMudanza';   // solo pruebas: enciende el aviso en localhost
@@ -36,6 +36,14 @@ export function mudanzaActiva() {
 export function enDireccionVieja() {
   if (typeof window === 'undefined' || !mudanzaActiva()) return false;
   return window.location.host !== DOMINIO_NUEVO;
+}
+
+// ¿Estamos ya en la dirección nueva? (no depende del interruptor: sirve para
+// marcar en el CRM quién ya se pasó y para la comprobación al llegar).
+export function enDireccionNueva() {
+  if (typeof window === 'undefined') return false;
+  try { if (localStorage.getItem('mt:probarDireccionNueva') === '1') return true; } catch (e) {}
+  return window.location.host === DOMINIO_NUEVO;
 }
 
 export function urlDeLlegada(nombre) {

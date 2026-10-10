@@ -179,7 +179,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,recetario_menus:data->recetario_menus,novedades_vistas:data->novedades_vistas`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,recetario_menus:data->recetario_menus,novedades_vistas:data->novedades_vistas,prefs_dispositivo:data->prefs_dispositivo,app_nueva_at:data->app_nueva_at`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -204,6 +204,28 @@ export default async function handler(req, res) {
           if (Array.isArray(existing.recetario_menus) && existing.recetario_menus.length
               && !(Array.isArray(dataToWrite.recetario_menus) && dataToWrite.recetario_menus.length)) {
             dataToWrite.recetario_menus = existing.recetario_menus;
+          }
+          // Ya se pasó a la dirección nueva: lo marca el primer dispositivo
+          // que abre allí; nunca se des-marca.
+          if (existing.app_nueva_at && !dataToWrite.app_nueva_at) dataToWrite.app_nueva_at = existing.app_nueva_at;
+          // Preferencias del teléfono (kg/lb, días perfectos, ventanas ya
+          // vistas): se fusionan por clave; las listas (días perfectos,
+          // ediciones del coach ya aplicadas) se unen, nunca se achican.
+          {
+            const pa = existing.prefs_dispositivo && typeof existing.prefs_dispositivo === 'object' ? existing.prefs_dispositivo : null;
+            const pb = dataToWrite.prefs_dispositivo && typeof dataToWrite.prefs_dispositivo === 'object' ? dataToWrite.prefs_dispositivo : null;
+            if (pa || pb) {
+              const unidas = { ...(pa || {}), ...(pb || {}) };
+              for (const k of ['mt:perfectDays', 'mt:coachEditsApplied']) {
+                if (pa && pb && typeof pa[k] === 'string' && typeof pb[k] === 'string') {
+                  try {
+                    const a = JSON.parse(pa[k]), b = JSON.parse(pb[k]);
+                    if (Array.isArray(a) && Array.isArray(b)) unidas[k] = JSON.stringify(Array.from(new Set([...a, ...b])).slice(-400));
+                  } catch (e) {}
+                }
+              }
+              dataToWrite.prefs_dispositivo = unidas;
+            }
           }
           // Novedades ya vistas: UNIÓN entre lo que hay y lo que llega. Nunca
           // se quita nada — si se perdiera un "ya visto", al cliente le

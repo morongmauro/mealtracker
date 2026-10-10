@@ -23,7 +23,7 @@ const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
-import { recibirMudanza, enDireccionVieja, urlDeLlegada } from './mudanza.js';
+import { recibirMudanza, enDireccionVieja, urlDeLlegada, enDireccionNueva } from './mudanza.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero, ArcoApple, PuntaApple, rielDe } from './GraficasV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
@@ -518,6 +518,44 @@ if (typeof window !== 'undefined' && !window.storage) {
 // Llegada desde la dirección vieja (?mudanza=1&n=…): antes de que la app lea
 // su almacenamiento. Ver mudanza.js.
 recibirMudanza();
+
+// Preferencias que viven solo en el teléfono (kg/lb, días perfectos, ventanas
+// ya vistas). Viajan a la nube para que, al cambiar de teléfono o de
+// dirección, nada se note distinto. Al volver se escriben SOLO si en este
+// teléfono no existen (nunca pisan lo de aquí); las listas se unen.
+const PREF_FIJAS = ['entreno:unidades', 'entreno:cal:vista2', 'mt:perfectDays', 'mt:coachEditsApplied',
+  'mt:recorridoHecho', 'mt:recorridoOfrecido', 'mt:bienvenidaComunidad', 'mt:pushIntroShown'];
+const PREF_LISTAS = ['mt:perfectDays', 'mt:coachEditsApplied'];
+const esPrefDispositivo = (k) => !!k && (PREF_FIJAS.includes(k) || k.startsWith('entreno:unidad:'));
+const leerPrefsDispositivo = () => {
+  const o = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (esPrefDispositivo(k)) { const v = localStorage.getItem(k); if (typeof v === 'string' && v.length < 20000) o[k] = v; }
+    }
+  } catch (e) {}
+  return Object.keys(o).length ? o : undefined;
+};
+const aplicarPrefsDispositivo = (p) => {
+  if (!p || typeof p !== 'object') return;
+  try {
+    for (const [k, v] of Object.entries(p)) {
+      if (!esPrefDispositivo(k) || typeof v !== 'string') continue;
+      const aqui = localStorage.getItem(k);
+      if (aqui === null) { localStorage.setItem(k, v); continue; }
+      if (PREF_LISTAS.includes(k)) {
+        try {
+          const a = JSON.parse(aqui), b = JSON.parse(v);
+          if (Array.isArray(a) && Array.isArray(b)) {
+            const u = Array.from(new Set([...a, ...b]));
+            if (u.length !== a.length) localStorage.setItem(k, JSON.stringify(u.slice(-400)));
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (e) {}
+};
 
 // La opción de la barra de Aprendizaje que corresponde a un destino del centro.
 function subAprendeDe(go) {
@@ -1304,8 +1342,13 @@ export default function MealTracker() {
         // marcha NO se toca nada (regla: solo si hay menos de 4 burbujas).
         if (Array.isArray(d.messages) && d.messages.length > 0) {
           setMessages(local => (Array.isArray(local) && local.length < 4)
-            ? d.messages.slice(-150)
+            ? d.messages.slice(-200)
             : local);
+        }
+        aplicarPrefsDispositivo(d.prefs_dispositivo);
+        // Menús del Recetario: si en este teléfono no hay, se traen los de la cuenta.
+        if (Array.isArray(d.recetario_menus) && d.recetario_menus.length) {
+          try { if (!localStorage.getItem('mt:menus_guardados')) localStorage.setItem('mt:menus_guardados', JSON.stringify(d.recetario_menus)); } catch (e) {}
         }
         if (d.frequentItems && typeof d.frequentItems === 'object') {
           // Fusión: gana la entrada con más registros (count más alto)
@@ -1335,6 +1378,29 @@ export default function MealTracker() {
         if (Array.isArray(d.goals_history) && d.goals_history.length > 0) setGoalsHistory(d.goals_history);
         if (typeof d.name === 'string' && d.name) setName(d.name);
         pullListoRef.current = Date.now();
+        // Copia completa al abrir: ya fusionado todo, se sube el paquete entero
+        // (con las preferencias del teléfono) aunque nada haya cambiado.
+        setTimeout(() => { try { subirNubeRef.current && subirNubeRef.current(); } catch (e) {} }, 2500);
+        // Primera vez en la dirección nueva (recién llegada, o la app ya
+        // instalada en la pantalla de inicio): le cuenta lo que encontró en su
+        // cuenta, para que vea que no se perdió nada. Una sola vez.
+        if (enDireccionNueva() && !localStorage.getItem('mt:comprobacionVista')) {
+          const diasCon = new Set([
+            ...Object.keys(d.historyDetail || {}).filter(k => Array.isArray(d.historyDetail[k]) && d.historyDetail[k].length),
+            ...Object.keys(d.history || {}).filter(k => d.history[k] && (d.history[k].kcal || 0) > 0),
+          ]);
+          if (Array.isArray(d.today_entries) && d.today_entries.length && d.today) diasCon.add(d.today);
+          const dias = diasCon.size;
+          setTimeout(async () => {
+            let entrenos = null;
+            try {
+              const { api } = await import('./entrenoDatos.js');
+              const r = await api.conteo(d.name || name);
+              entrenos = r && Number.isFinite(r.entrenos_total) ? r.entrenos_total : null;
+            } catch (e) {}
+            setLlegadaCuenta({ dias, entrenos });
+          }, 0);
+        }
       } catch (e) {
         // Falló el pull (red): liberar el guard para poder reintentar — el
         // pull es una fusión idempotente, repetirlo es seguro.
@@ -1589,11 +1655,15 @@ export default function MealTracker() {
       // compara y NO deja que un push viejo pise una meta más nueva
       // (p.ej. recién cambiada por el coach).
       goals_updated: goalsMetaRef.current || undefined,
-      // CHAT: las últimas ~150 burbujas también viajan a la nube. Sin
+      // CHAT: las últimas ~200 burbujas (las mismas que guarda el teléfono) también viajan a la nube. Sin
       // esto, un teléfono nuevo o la app instalada (Agregar a inicio)
       // recuperaba los DATOS pero el chat aparecía casi vacío — y la
       // conversación es parte de la memoria del asistente.
-      messages: messages.slice(-150),
+      messages: messages.slice(-200),
+      // Preferencias que vivían solo en el teléfono (ver leerPrefsDispositivo).
+      prefs_dispositivo: leerPrefsDispositivo(),
+      // Ya abrió en la dirección nueva: el CRM lo muestra como «app nueva».
+      app_nueva_at: (() => { try { return localStorage.getItem('mt:appNuevaAt') || undefined; } catch (e) { return undefined; } })(),
       // En vivo: comidas y agua de HOY
       today,
       today_entries: entries,
@@ -1612,6 +1682,27 @@ export default function MealTracker() {
     } catch (e) {}
     return null;
   });
+  // Lo que encontró en la cuenta al llegar a la dirección nueva.
+  const [llegadaCuenta, setLlegadaCuenta] = useState(null);
+  useEffect(() => {
+    if (!llegadaCuenta || mudanza) return;
+    if (!(llegadaCuenta.dias > 0 || llegadaCuenta.entrenos > 0)) {
+      try { localStorage.setItem('mt:comprobacionVista', String(Date.now())); } catch (e) {}
+      return;
+    }
+    // Después de la pantalla de entrada (si no, sale tapada por ella).
+    let t = null;
+    const mostrar = () => {
+      if (document.body.classList.contains('app-ready')) { t = setTimeout(() => setMudanza(m => m || 'comprobacion'), 450); return; }
+      t = setTimeout(mostrar, 300);
+    };
+    mostrar();
+    return () => clearTimeout(t);
+  }, [llegadaCuenta, mudanza]);
+  // Marca de «ya abrió en la dirección nueva» (la ve el coach en el CRM).
+  useEffect(() => {
+    try { if (enDireccionNueva() && !localStorage.getItem('mt:appNuevaAt')) localStorage.setItem('mt:appNuevaAt', new Date().toISOString()); } catch (e) {}
+  }, []);
   const subirNubeRef = useRef(null);
   subirNubeRef.current = async () => {
     if (!cloudUserIdRef.current) return false;
@@ -6685,9 +6776,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
       {/* MUDANZA a la dirección nueva (ver mudanza.js). */}
       {view === 'main' && mudanza && (
-        <AvisoMudanza estado={mudanza} alPasar={mudarse}
+        <AvisoMudanza estado={mudanza} cuenta={llegadaCuenta} alPasar={mudarse}
           alCerrar={() => {
-            if (mudanza === 'llegada') { try { localStorage.removeItem('mt:llegoDeMudanza'); } catch (e) {} }
+            if (mudanza === 'llegada') {
+              try { localStorage.removeItem('mt:llegoDeMudanza'); if (llegadaCuenta) localStorage.setItem('mt:comprobacionVista', String(Date.now())); } catch (e) {}
+              setLlegadaCuenta(null);
+            }
+            else if (mudanza === 'comprobacion') { try { localStorage.setItem('mt:comprobacionVista', String(Date.now())); } catch (e) {} setLlegadaCuenta(null); }
             else { try { sessionStorage.setItem('mt:mudanzaLuego', '1'); } catch (e) {} }
             setMudanza(null);
           }} />
@@ -6706,18 +6801,35 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
 // El aviso de la mudanza. Neutro a propósito (grafito sobre blanco): lo ven
 // todos los clientes, con la visual vieja o la nueva.
-function AvisoMudanza({ estado, alPasar, alCerrar }) {
+// «Encontramos tus 84 días de comidas y tus 37 entrenos.»
+function fraseEncontrado(c) {
+  if (!c) return '';
+  const partes = [];
+  if (c.dias > 0) partes.push(`tus ${c.dias} ${c.dias === 1 ? 'día' : 'días'} de comidas`);
+  if (c.entrenos > 0) partes.push(`tus ${c.entrenos} ${c.entrenos === 1 ? 'entreno' : 'entrenos'}`);
+  return partes.length ? `Encontramos ${partes.join(' y ')}.` : '';
+}
+
+function AvisoMudanza({ estado, cuenta, alPasar, alCerrar }) {
   const iphone = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
   const boton = { width: '100%', border: 'none', borderRadius: 999, padding: '13px 18px', fontFamily: 'inherit', fontSize: 15.5, fontWeight: 700, cursor: 'pointer' };
   return (
     <div role="dialog" aria-label="La app se muda" data-mudanza={estado} className="fixed inset-0 flex items-end sm:items-center justify-center p-4"
       style={{ zIndex: 90, background: 'rgba(31,31,31,0.38)', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
       <div className="w-full max-w-md fade-up" style={{ background: '#FFFFFF', borderRadius: 28, padding: '24px 22px 18px', boxShadow: '0 16px 44px rgba(0,0,0,0.18)', fontFamily: FONT_UI }}>
-        {estado === 'llegada' ? (
+        {estado === 'comprobacion' ? (
+          <>
+            <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>Todo está aquí</div>
+            <div data-encontrado style={{ fontSize: 15.5, color: TEXT, marginTop: 8, lineHeight: 1.5 }}>
+              {fraseEncontrado(cuenta)} Tu chat, tus metas y tus gráficas siguen igual.
+            </div>
+            <button onClick={alCerrar} style={{ ...boton, marginTop: 16, background: TEXT, color: '#fff' }}>Seguir</button>
+          </>
+        ) : estado === 'llegada' ? (
           <>
             <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>Listo, ya estás en la app nueva</div>
             <div style={{ fontSize: 15, color: TEXT_MUTED, marginTop: 8, lineHeight: 1.5 }}>
-              Tus datos se están cargando aquí. Ahora agrégala a tu pantalla de inicio y borra el ícono de la app vieja.
+              {fraseEncontrado(cuenta) ? `${fraseEncontrado(cuenta)} ` : 'Tus datos se están cargando aquí. '}Ahora agrégala a tu pantalla de inicio y borra el ícono de la app vieja.
             </div>
             <div style={{ fontSize: 14.5, color: TEXT, marginTop: 12, lineHeight: 1.5, background: '#F4F1EB', borderRadius: 16, padding: '12px 14px' }}>
               {iphone

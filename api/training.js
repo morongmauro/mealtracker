@@ -25,6 +25,7 @@
 //                                     sin ejecutarlas
 // GET|POST  ?accion=catalogo        → los tipos de actividad complementaria
 // GET|POST  ?accion=resumen         → su semana: entrenamiento + alimentación
+// GET|POST  ?accion=conteo         → cuántos entrenos hechos tiene en total
 // GET|POST  ?accion=dash            → 12 semanas: entrenos, volumen, fuerza por
 //                                     ejercicio y sus medidas (el Dash)
 // POST      { accion:'actividad', … }         → registra cardio/deporte/caminata
@@ -104,6 +105,11 @@ export default async function handler(req, res) {
     if (accion === 'catalogo') return res.status(200).json(await verCatalogo());
     if (accion === 'resumen') return res.status(200).json(await verResumen(cliente, hoy));
     if (accion === 'dash') return res.status(200).json(await verDash(cliente, hoy));
+    if (accion === 'conteo') {
+      // Cuántos entrenos hechos tiene en total (la comprobación al llegar a la app nueva).
+      const hechas = await todas(`sesiones?select=id&cliente_id=eq.${cliente.id}&estado=eq.completada&order=id.asc`);
+      return res.status(200).json({ entrenos_total: hechas.length });
+    }
     if (!esGet && accion === 'abrir') return res.status(200).json(await abrirSesion(cliente, cuerpo, hoy));
     if (!esGet && accion === 'serie') return res.status(200).json(await guardarSerie(cliente, cuerpo));
     if (!esGet && accion === 'cerrar') return res.status(200).json(await cerrarSesion(cliente, cuerpo));

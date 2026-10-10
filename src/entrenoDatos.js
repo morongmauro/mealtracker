@@ -34,6 +34,7 @@ export const api = {
   rutinas:  (name)     => pedir({ accion: 'rutinas', name }),
   resumen:  (name)     => pedir({ accion: 'resumen', name }),
   dash:     (name)     => pedir({ accion: 'dash', name }),
+  conteo:   (name)     => pedir({ accion: 'conteo', name }),
   catalogo: (name)     => pedir({ accion: 'catalogo', name }),
 
   // `crear:false` solo consulta: devuelve la sesión de hoy si ya existe, sin

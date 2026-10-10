@@ -27,6 +27,8 @@ const DateReal = Date;
 const lento = { accion: null, ms: 0 };
 const modelosPedidos = [];
 const falla55 = { on: false };
+// Lo que la app sube a su cuenta en la nube (POST /api/sync).
+const postsNube = [];
 globalThis.Date = class extends DateReal {
   constructor(...a) { super(...(a.length ? a : [FIJO])); }
   static now() { return FIJO; }
@@ -189,7 +191,7 @@ const espera = (ms) => new Promise(r => setTimeout(r, ms));
 // `aviso`: dejar que salga el aviso de «hoy te toca registrar» al abrir. Por
 // defecto se da por visto (si no, tapa todo lo que se prueba después).
 // `nube`: lo que tiene su cuenta en la nube (y la app con la nube aceptada).
-async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null } = {}) {
+async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null } = {}) {
   const db = base();
   globalThis.fetch = db.fetch;
   const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota' });
@@ -202,6 +204,7 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   p.on('console', m => { if (m.text().startsWith('ilusBien')) console.log('   ' + m.text()); });
   const guardado = almacen(nombre);
   if (sinNombre) { delete guardado['mt:name']; delete guardado['mt:goals']; }
+  if (extra) Object.assign(guardado, extra);
   // Mauro ya entró con su contraseña (la cuenta se prueba aparte, sinSesion)
   if (!sinSesion) guardado['mt:sesion'] = 'v1.prueba';
   await ctx.addInitScript((kv) => { for (const [k, v] of Object.entries(kv)) localStorage.setItem(k, v); }, guardado);
@@ -221,7 +224,7 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
     if (u.pathname === '/api/sync' && nube && ruta.request().method() !== 'POST' && u.searchParams.get('identity_for') == null) pulls++;
     if (u.pathname === '/api/sync' && nube) {
       const json = (o) => ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
-      if (ruta.request().method() === 'POST') return json({ ok: true });
+      if (ruta.request().method() === 'POST') { try { postsNube.push(JSON.parse(ruta.request().postData() || '{}')); } catch (e) {} return json({ ok: true }); }
       if (u.searchParams.get('identity_for') != null) return json({ user_id: 'u-nube' });
       return json({ name: nombre, data: nube, ...nube });
     }
@@ -1423,6 +1426,42 @@ try {
   await foto(oa.p, '13c-otra-persona-recordatorios');
   ok('sin errores de JavaScript (otra persona, aviso)', oa.errores.length === 0, oa.errores.join(' | '));
   await oa.ctx.close();
+
+  // MUDANZA: en la dirección nueva, la primera vez cuenta lo que encontró;
+  // y al abrir sube TODO a la nube (chat de 200, kg/lb, días perfectos…).
+  postsNube.length = 0;
+  const chatNube = Array.from({ length: 230 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `mensaje ${i}`, ts: 1000 + i }));
+  const om = await abrir('Ana Pérez', { nube: {
+    history: { '2026-09-20': { kcal: 2100, p: 150, c: 200, g: 60 }, '2026-09-21': { kcal: 1900, p: 140, c: 190, g: 55 } },
+    historyDetail: { '2026-09-22': [{ id: 77, meal: 'almuerzo', items: [], kcal: 600 }] },
+    messages: chatNube,
+    prefs_dispositivo: { 'entreno:unidades': 'lb', 'entreno:unidad:ej9': 'kg', 'mt:perfectDays': JSON.stringify(['2026-09-01']), 'mt:pwaInstalledAt': 'no-debe' },
+    recetario_menus: [{ id: 'm1', recetas: ['r1'] }],
+  }, extra: { 'mt:probarDireccionNueva': '1', 'mt:messages': '[]', 'mt:perfectDays': JSON.stringify(['2026-09-05']) } });
+  const comp = om.p.locator('[data-mudanza="comprobacion"]');
+  await comp.waitFor({ timeout: 25000 }).catch(() => {});
+  const fraseComp = (await comp.locator('[data-encontrado]').textContent().catch(() => '')) || '';
+  ok('mudanza: al llegar dice lo que encontró', /Encontramos tus \d+ días de comidas/.test(fraseComp), fraseComp);
+  await foto(om.p, '17-mudanza-comprobacion');
+  await comp.getByRole('button', { name: 'Seguir' }).click().catch(() => {});
+  await espera(3500);
+  const ls = await om.p.evaluate(() => ({ u: localStorage.getItem('entreno:unidades'), e: localStorage.getItem('entreno:unidad:ej9'),
+    pd: localStorage.getItem('mt:perfectDays'), pwa: localStorage.getItem('mt:pwaInstalledAt'), menus: localStorage.getItem('mt:menus_guardados'),
+    visto: localStorage.getItem('mt:comprobacionVista'), nueva: localStorage.getItem('mt:appNuevaAt') }));
+  ok('mudanza: trae kg/lb y días perfectos (sin pisar ni inventar)', ls.u === 'lb' && ls.e === 'kg' && ls.pwa === null
+    && JSON.parse(ls.pd || '[]').includes('2026-09-01') && JSON.parse(ls.pd || '[]').includes('2026-09-05'), JSON.stringify(ls));
+  ok('mudanza: trae los menús del Recetario', /m1/.test(ls.menus || ''), String(ls.menus));
+  ok('mudanza: la comprobación sale una sola vez', !!ls.visto && (await om.p.locator('[data-mudanza]').count()) === 0);
+  const ultimo = postsNube[postsNube.length - 1];
+  const dataSub = ultimo && ultimo.data || {};
+  ok('mudanza: al abrir sube la copia completa', postsNube.length > 0, `posts: ${postsNube.length}`);
+  ok('mudanza: el chat viaja con 200 mensajes', Array.isArray(dataSub.messages) && dataSub.messages.length === 200
+    && dataSub.messages[199].content === 'mensaje 229', String(dataSub.messages && dataSub.messages.length));
+  ok('mudanza: suben las preferencias del teléfono', dataSub.prefs_dispositivo && dataSub.prefs_dispositivo['entreno:unidades'] === 'lb'
+    && !('mt:pwaInstalledAt' in dataSub.prefs_dispositivo), JSON.stringify(dataSub.prefs_dispositivo));
+  ok('mudanza: marca para el CRM «ya en la app nueva»', !!ls.nueva && dataSub.app_nueva_at === ls.nueva, `${ls.nueva} / ${dataSub.app_nueva_at}`);
+  ok('sin errores de JavaScript (mudanza)', om.errores.length === 0, om.errores.join(' | '));
+  await om.ctx.close();
 
   // Mora sin bloqueo, con la app de siempre: el aviso sale en Hoy, NUNCA en el chat.
   const oc = await abrir('Ana Pérez', { pago: { ...deuda, dias_vencido: 2, bloqueo: false } });
