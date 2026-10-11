@@ -122,8 +122,13 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const conAro = !!(Ilus && aro);
   const lugar = lugarDelObjeto(CAJA[tema] || CAJA.entreno);
   const grande = conAro;
+  // El alto justo de la gráfica grande (aro + porcentaje + su texto en una o
+  // dos líneas), para que lo de abajo arranque pegado a ella: antes quedaba
+  // un hueco vacío entre la cabecera y los primeros botones.
+  const lineasPie = aro && aro.pie ? (String(aro.pie).length > 21 ? 2 : 1) : 0;
+  const altoGrande = ARO_G.tam + 8 + 17 + (lineasPie ? 3 + lineasPie * 14 : 0) - 10;
   const texto = (
-    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (grande ? 'min(38vw, 138px)' : conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: grande ? 182 : conAro ? 118 : undefined }}>
+    <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (grande ? 'min(38vw, 138px)' : conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: grande ? altoGrande : conAro ? 118 : undefined }}>
       {voz?.etiqueta && (
         <div data-etiqueta style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
       )}
@@ -154,8 +159,8 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   return (
     <div data-cabecera-hoy={tema} style={{
       position: 'relative',
-      margin: `calc(-1 * ${arriba}) calc(-1 * ${sangria}) 14px`,
-      padding: `calc(${arriba} + 26px) ${sangria} 6px`,
+      margin: `calc(-1 * ${arriba}) calc(-1 * ${sangria}) ${grande ? 2 : 14}px`,
+      padding: `calc(${arriba} + 26px) ${sangria} ${grande ? 0 : 6}px`,
     }}>
       <style>{CSS}</style>
       {/* Las manchas: detrás del mensaje, se apagan hacia abajo. */}

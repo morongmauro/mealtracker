@@ -9,9 +9,12 @@
 //
 // Pantallas, con el fondo de manchas de la marca y una tarjeta de cristal
 // (VentanaMarca.jsx), como todas las ventanas de primera vez:
-//   entrada   (el teléfono no sabe quién es) correo + contraseña, o «Primera
-//             vez»: su nombre del CRM → activar la cuenta
-//   activar   su nombre y su correo del CRM + crear la contraseña
+//   entrada   (el teléfono no sabe quién es) ¿primera vez o ya tienes
+//             contraseña? Dos botones grandes, nada escondido
+//   primera   «Antes de empezar, validemos tu cuenta»: primer nombre, primer
+//             apellido (como te tiene tu coach en el CRM), correo y contraseña
+//   login     correo + contraseña (ya la tenía)
+//   activar   el teléfono ya sabe su nombre: correo + crear la contraseña
 //   entrar    «Hola, Mauro.» + su correo + la contraseña
 //   datos     «Tus datos están protegidos» (acepta la nube)
 //   avisos    activar las notificaciones
@@ -20,7 +23,7 @@
 import React, { useEffect, useState } from 'react';
 import { LockSimple, ShieldCheck, Bell, MapPin, Check } from '@phosphor-icons/react';
 import { WHATSAPP_COACH } from './v2.js';
-import VentanaMarca, { BotonVentana, GRAFITO, AMARILLO, GRIS_TXT } from './VentanaMarca.jsx';
+import VentanaMarca, { BotonVentana, GRAFITO, AMARILLO, GRIS_TXT, Color, Negrita } from './VentanaMarca.jsx';
 import { recorridoHecho } from './recorridoEstado.js';
 import { SECCION, DASH_AZUL } from './theme.js';
 
@@ -41,9 +44,10 @@ const ERRORES = {
   clave: 'Esa contraseña no es. Revísala e intenta de nuevo.',
   corta: 'La contraseña debe tener al menos 6 caracteres.',
   distintas: 'Las dos contraseñas no coinciden.',
-  no_existe: 'No encuentro ese nombre o ese correo. Escríbelo como lo tiene tu coach.',
+  no_existe: 'No te encuentro con ese nombre y apellido (o ese correo). Escríbelos como te tiene tu coach.',
+  ambiguo: 'Hay más de una persona con ese nombre y apellido. Escribe tu nombre completo o escríbele a tu coach.',
   inactivo: 'Tu plan no está activo. Escríbele a tu coach para retomarlo.',
-  sin_clave: 'Aún no has creado tu contraseña: toca «Primera vez en la app».',
+  sin_clave: 'Aún no has creado tu contraseña: valida tu cuenta por primera vez.',
   ya_tiene: 'Ya tienes contraseña. Entra con ella.',
   red: 'No hay conexión. Intenta en un momento.',
   crm: 'No pude conectar con tu cuenta. Intenta en un momento.',
@@ -56,11 +60,11 @@ const pareceCorreo = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').tr
 function Campo({ etiqueta, fin = null, ...props }) {
   return (
     <label style={{ display: 'block', position: 'relative', marginTop: 10, background: CAMPO, borderRadius: 14, padding: '8px 14px 6px', paddingRight: fin ? 40 : 14 }}>
-      <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: GRIS }}>{etiqueta}</span>
+      <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: GRIS }}>{etiqueta}</span>
       {fin && <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', display: 'flex' }}>{fin}</span>}
       <input {...props} style={{
         width: '100%', boxSizing: 'border-box', height: 28, border: 0, background: 'transparent', borderRadius: 6,
-        color: GRAFITO, fontSize: 17, fontWeight: 600, padding: 0, ...(props.style || {}),
+        color: GRAFITO, fontSize: 17, fontWeight: 550, padding: 0, ...(props.style || {}),
       }} />
     </label>
   );
@@ -71,7 +75,7 @@ function Dato({ etiqueta, valor }) {
     <div style={{ padding: '8px 14px', borderRadius: 14, background: CAMPO, marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: GRIS }}>{etiqueta}</div>
-        <div style={{ fontSize: 17, fontWeight: 600, color: GRAFITO, marginTop: 1, overflowWrap: 'anywhere' }}>{valor}</div>
+        <div style={{ fontSize: 17, fontWeight: 550, color: GRAFITO, marginTop: 1, overflowWrap: 'anywhere' }}>{valor}</div>
       </div>
       <Check size={18} weight="bold" color="#46965A" />
     </div>
@@ -103,7 +107,8 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
     return 'nada';
   });
   const [cuenta, setCuenta] = useState(null);       // { nombre, email, tieneClave }
-  const [nombreEscrito, setNombreEscrito] = useState('');
+  const [primerNombre1, setPrimerNombre1] = useState('');
+  const [primerApellido, setPrimerApellido] = useState('');
   const [email, setEmail] = useState('');
   const [clave, setClave] = useState('');
   const [clave2, setClave2] = useState('');
@@ -153,7 +158,7 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
     setError('');
     if (!clave) return setError('Escribe tu contraseña.');
     setCargando(true);
-    const r = await pedir(paso === 'entrada'
+    const r = await pedir(paso === 'login'
       ? { accion: 'entrar', email: email.trim(), clave }
       : { accion: 'entrar', name: cuenta?.nombre || nombre, clave });
     setCargando(false);
@@ -172,6 +177,29 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
     if (!r.ok) { setError(ERRORES[r.error] || ERRORES.crm); setCaido(['red', 'crm', 'sin_migracion'].includes(r.error)); return; }
     listo(r);
   };
+  // Primera vez, desde cero: se busca por primer nombre + primer apellido
+  // (como lo tiene el coach en el CRM) y, si no tiene contraseña, se crea en
+  // el mismo paso con su correo. Si ya la tenía, se le pide que entre.
+  const validarPrimera = async () => {
+    setError('');
+    const n = primerNombre1.trim(), ap = primerApellido.trim();
+    if (!n || !ap) return setError('Escribe tu primer nombre y tu primer apellido.');
+    if (!pareceCorreo(email)) return setError(ERRORES.correo_invalido);
+    if (clave.length < 6) return setError(ERRORES.corta);
+    if (clave !== clave2) return setError(ERRORES.distintas);
+    setCargando(true);
+    const c = await pedir({ accion: 'cuenta', name: `${n} ${ap}` });
+    if (!c.ok) { setCargando(false); setError(ERRORES[c.error] || ERRORES.crm); setCaido(['red', 'crm', 'sin_migracion'].includes(c.error)); return; }
+    setCuenta(c);
+    if (c.tieneClave) { setCargando(false); setClave(''); setClave2(''); setPaso('entrar'); setError('Ya tienes contraseña: entra con ella.'); return; }
+    const r = await pedir({ accion: 'crear', name: c.nombre, clave, email: email.trim() });
+    setCargando(false);
+    if (!r.ok) {
+      setError(r.error === 'correo' && c.pista ? `Ese no es el correo que tiene tu coach. Tiene uno así: ${c.pista}` : (ERRORES[r.error] || ERRORES.crm));
+      setCaido(['red', 'crm', 'sin_migracion'].includes(r.error)); return;
+    }
+    listo(r);
+  };
   const wa = WHATSAPP_COACH ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau! Olvidé mi contraseña de la app')}` : null;
   const primerNombre = String(cuenta?.nombre || nombre || '').split(' ')[0];
 
@@ -186,25 +214,41 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
       {alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
     </>) };
   } else if (paso === 'entrada') {
-    v = { simbolo: I(LockSimple, GRAFITO), titulo: <>Entrena con Método<span style={{ color: AMARILLO }}>.</span></>, texto: 'Entra con tu correo y tu contraseña.', cuerpo: (<>
+    v = { titulo: <>Te damos la<br /><Color c="azul">bienvenida.</Color></>, texto: <>Esta es tu app de <Negrita>Entrena con Método</Negrita>. ¿Es tu <Negrita c="azul">primera vez</Negrita> aquí?</>, cuerpo: (<>
+      <Boton onClick={() => { setError(''); setPaso('primera'); }} data-primera-vez>Es mi primera vez</Boton>
+      <Boton secundario onClick={() => { setError(''); setPaso('login'); }} data-ya-tengo>Ya tengo mi contraseña</Boton>
+    </>) };
+  } else if (paso === 'primera') {
+    v = { titulo: <>Antes de empezar,<br /><Color c="azul">validemos tu cuenta.</Color></>,
+      texto: <>Tu <Negrita>primer nombre</Negrita> y <Negrita>primer apellido</Negrita> como te tiene tu coach, tu <Negrita>correo</Negrita> y una <Negrita>contraseña</Negrita>. Así tu app queda conectada con tu coach.</>, cuerpo: (<>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}><Campo etiqueta="Primer nombre" autoComplete="given-name" value={primerNombre1} onChange={e => setPrimerNombre1(e.target.value)} placeholder="Ana" data-primer-nombre /></div>
+        <div style={{ flex: 1, minWidth: 0 }}><Campo etiqueta="Primer apellido" autoComplete="family-name" value={primerApellido} onChange={e => setPrimerApellido(e.target.value)} placeholder="Gómez" data-primer-apellido /></div>
+      </div>
+      <Campo etiqueta="Tu correo" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={email}
+        onChange={e => { setEmail(e.target.value); if (error) setError(''); }} placeholder="El que le diste a tu coach" data-correo />
+      <Campo etiqueta="Crea tu contraseña" type="password" autoComplete="new-password" value={clave} onChange={e => setClave(e.target.value)} placeholder="Mínimo 6 caracteres" />
+      <Campo etiqueta="Repítela" type="password" autoComplete="new-password" value={clave2} onChange={e => setClave2(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') validarPrimera(); }} />
+      {error && <div role="alert" style={alerta}>{error}</div>}
+      <Boton onClick={validarPrimera} cargando={cargando} data-validar>Validar y entrar</Boton>
+      {wa && error && /correo|encuentro|más de una/.test(error) && <Enlace href={wa.replace(encodeURIComponent('Olvidé mi contraseña de la app'), encodeURIComponent('No me reconoce la app nueva'))}>Escríbele a tu coach</Enlace>}
+      <Enlace onClick={() => { setError(''); setPaso('login'); }}>Ya tengo mi contraseña</Enlace>
+      {caido && alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
+    </>) };
+  } else if (paso === 'login') {
+    v = { titulo: <>Qué bueno<br /><Color c="azul">verte de nuevo.</Color></>, texto: <>Entra con tu <Negrita>correo</Negrita> y tu <Negrita>contraseña</Negrita>.</>, cuerpo: (<>
       <Campo etiqueta="Correo" type="email" inputMode="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" />
       <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" value={clave} onChange={e => setClave(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') entrar(); }} />
       {error && <div role="alert" style={alerta}>{error}</div>}
       <Boton onClick={entrar} cargando={cargando} data-entrar>Entrar</Boton>
-      <Enlace onClick={() => { setError(''); setPaso('primera'); }}>¿Primera vez en la app? <b style={{ color: GRAFITO }}>Activa tu cuenta</b></Enlace>
-    </>) };
-  } else if (paso === 'primera') {
-    v = { titulo: 'Bienvenido.', texto: 'Escribe tu nombre completo, como lo tiene tu coach.', cuerpo: (<>
-      <Campo etiqueta="Tu nombre completo" autoComplete="name" value={nombreEscrito} onChange={e => setNombreEscrito(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') traerCuenta(nombreEscrito); }} placeholder="Nombre y apellido" />
-      {error && <div role="alert" style={alerta}>{error}</div>}
-      <Boton onClick={() => nombreEscrito.trim().split(/\s+/).length < 2 ? setError('Escribe tu nombre y tu apellido.') : traerCuenta(nombreEscrito)} cargando={cargando}>Continuar</Boton>
-      <Enlace onClick={() => { setError(''); setPaso('entrada'); }}>Ya tengo contraseña</Enlace>
+      {wa && <Enlace href={wa}>¿Olvidaste tu contraseña? Escríbele a tu coach</Enlace>}
+      <Enlace onClick={() => { setError(''); setPaso('primera'); }}>¿Primera vez? <b style={{ color: GRAFITO, fontWeight: 650 }}>Valida tu cuenta</b></Enlace>
     </>) };
   } else if (paso === 'activar') {
-    v = { simbolo: I(LockSimple, GRAFITO), titulo: 'Activa tu cuenta.', texto: 'Ponle una contraseña. Con ella entras siempre, aunque cambies de teléfono, y tu información queda solo tuya.', cuerpo: (<>
-      <Dato etiqueta="Tu nombre" valor={cuenta?.nombre} />
+    v = { titulo: <>Antes de empezar,<br /><Color c="azul">validemos tu cuenta.</Color></>, texto: <>Confirma tu <Negrita>correo</Negrita> y crea tu <Negrita>contraseña</Negrita>. Con ella entras siempre, aunque cambies de teléfono, y tu información queda <Negrita c="verde">solo tuya</Negrita>.</>, cuerpo: (<>
+      <Dato etiqueta="Tu nombre (como te tiene tu coach)" valor={cuenta?.nombre} />
       {/* El correo: si el coach lo tiene, la pista tapada a medias en gris
           (como lo muestran los bancos); al escribirlo igual sale el check. */}
       <Campo etiqueta="Tu correo" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={email}
@@ -224,7 +268,7 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
       {caido && alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
     </>) };
   } else if (paso === 'entrar') {
-    v = { simbolo: I(LockSimple, GRAFITO), titulo: <>Hola, {primerNombre}.</>, texto: 'Entra con tu contraseña.', cuerpo: (<>
+    v = { simbolo: I(LockSimple, GRAFITO), titulo: <>Hola, <Color c="azul">{primerNombre}.</Color></>, texto: <>Entra con tu <Negrita>contraseña</Negrita>.</>, cuerpo: (<>
       {cuenta?.pista && <div style={{ fontSize: 13.5, color: GRIS, textAlign: 'center', marginTop: 2 }}>{cuenta.pista}</div>}
       <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" value={clave} onChange={e => setClave(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') entrar(); }} />
@@ -234,7 +278,7 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
       {caido && alSaltar && <Enlace onClick={alSaltar}>Seguir por ahora</Enlace>}
     </>) };
   } else if (paso === 'datos') {
-    v = { simbolo: I(ShieldCheck, '#46965A'), titulo: 'Tus datos, protegidos.', cuerpo: (<>
+    v = { simbolo: I(ShieldCheck, '#46965A'), titulo: <>Tus datos,<br /><Color c="verde">protegidos.</Color></>, cuerpo: (<>
       {[
         ['Solo tú y tu coach', 'Lo que registras lo ven tú y tu coach. Nadie más.'],
         ['Guardados en la nube', 'Si cambias de teléfono, todo vuelve al entrar con tu correo y tu contraseña.'],
@@ -242,13 +286,13 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
       ].map(([t, d]) => (
         <div key={t} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: CAMPO, borderRadius: 14, padding: '11px 14px', marginTop: 8 }}>
           <Check size={17} weight="bold" color="#46965A" style={{ marginTop: 2, flex: 'none' }} />
-          <div><div style={{ fontSize: 15.5, fontWeight: 700, color: GRAFITO }}>{t}</div><div style={{ fontSize: 13.5, color: GRIS_TXT, marginTop: 1, lineHeight: 1.4 }}>{d}</div></div>
+          <div><div style={{ fontSize: 15.5, fontWeight: 650, color: GRAFITO }}>{t}</div><div style={{ fontSize: 13.5, color: GRIS_TXT, marginTop: 1, lineHeight: 1.4 }}>{d}</div></div>
         </div>
       ))}
       <Boton onClick={() => { alAceptarDatos && alAceptarDatos(); avisosPendientes() ? setPaso('avisos') : terminar(); }} data-aceptar-datos>Aceptar y seguir</Boton>
     </>) };
   } else if (paso === 'avisos') {
-    v = { simbolo: I(Bell, '#C95F17'), titulo: 'Activa tus avisos.', texto: 'Te aviso cuando tu coach te escriba, te ajuste el plan o te toque entrenar. Nada de spam.', cuerpo: (<>
+    v = { simbolo: I(Bell, '#C95F17'), titulo: <>Activa tus<br /><Color c="naranja">avisos.</Color></>, texto: <>Te aviso cuando <Negrita>tu coach te escriba</Negrita>, te ajuste el plan o te toque entrenar. <Negrita c="naranja">Nada de spam.</Negrita></>, cuerpo: (<>
       <div style={{ background: 'rgba(255,255,255,0.92)', borderRadius: 18, padding: '11px 13px', display: 'flex', gap: 10, alignItems: 'center', boxShadow: '0 6px 16px rgba(0,0,0,0.06)' }}>
         <img src="/icon-192.png" alt="" width="36" height="36" style={{ borderRadius: 9, flex: 'none' }} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -260,7 +304,7 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
       <Boton secundario onClick={terminar}>Ahora no</Boton>
     </>) };
   } else if (paso === 'recorrido') {
-    v = { simbolo: I(MapPin, DASH_AZUL.ink || '#2F6CC4'), titulo: '¿Te muestro la app?', texto: 'Un recorrido de un minuto por las cuatro secciones.', cuerpo: (<>
+    v = { simbolo: I(MapPin, DASH_AZUL.ink || '#2F6CC4'), titulo: <>¿Te muestro<br /><Color c="azul">la app?</Color></>, texto: <>Un recorrido de <Negrita>un minuto</Negrita> por las cuatro secciones.</>, cuerpo: (<>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
         {[['Dash', DASH_AZUL.base], ['Entreno', SECCION.entreno.base], ['Comida', SECCION.comida.base], ['Aprende', SECCION.aprende.base]].map(([t, c]) => (
           <div key={t} style={{ width: 70, height: 58, borderRadius: 18, background: CAMPO, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>

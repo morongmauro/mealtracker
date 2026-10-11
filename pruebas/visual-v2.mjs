@@ -325,7 +325,7 @@ try {
   if (process.env.VISTA) {
     const pv = await abrir('Mauro Morón', { caliente: true, });
     await espera(4500);
-    const cab = async (n) => { await espera(2600); await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-${n}.png`), clip: { x: 0, y: 0, width: 390, height: 300 } }); };
+    const cab = async (n) => { await espera(2600); await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-${n}.png`), clip: { x: 0, y: 0, width: 390, height: 420 } }); };
     await cab('dash');
     await pv.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await cab('entreno');
     await pv.p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(600);
@@ -813,7 +813,7 @@ try {
   await cal.locator(`[data-vista="mes"] [data-fecha="${hoy}"]`).click();
   await p.getByText('Para registrar').waitFor({ timeout: 5000 });
   ok('al tocar el día: el detalle dice la fecha de corte', (await p.getByText('Fecha de corte de tu mensualidad').count()) === 1);
-  ok('al tocar el día: arriba, añadir cardio o deporte', (await p.locator('[data-acciones-dia] [data-accion="actividad"]').count()) === 1);
+  ok('al tocar el día: añadir cardio o deporte (debajo de la rutina)', (await p.locator('[data-acciones-dia] [data-accion="actividad"]').count()) === 1);
   await espera(300);
   await foto(p, '05b-dia-registrar');
   await p.getByRole('button', { name: 'Ya envié mis fotos' }).click();
@@ -1352,7 +1352,7 @@ try {
       const v = document.querySelector('[data-ventana-marca]');
       const t = v && v.querySelector('.vm-tarjeta');
       return !!v && v.querySelectorAll('.vm-mancha').length === 4 && /blur/.test(getComputedStyle(t).backdropFilter || getComputedStyle(t).webkitBackdropFilter || '')
-        && v.querySelectorAll('[data-pasos] i').length >= 2 && /¿Te muestro la app\?/.test(v.innerText);
+        && v.querySelectorAll('[data-pasos] i').length >= 2 && /¿Te muestro\s+la app\?/.test(v.innerText);
     }));
     await k.p.getByRole('button', { name: 'Lo veo después' }).click();
     await espera(500);
@@ -1383,9 +1383,18 @@ try {
     await e.p.locator('[data-cuenta-v2="entrada"]').waitFor({ timeout: 10000 });
     await espera(900);
     await foto(e.p, '22e-entrada-nueva');
-    ok('entrada nueva: correo y contraseña, y «Primera vez en la app»', /Primera vez en la app/.test(await e.p.locator('[data-cuenta-v2]').innerText())
+    ok('entrada nueva: pregunta si es la primera vez, con dos botones grandes', (await e.p.locator('[data-primera-vez]').count()) === 1 && (await e.p.locator('[data-ya-tengo]').count()) === 1
+      && /primera vez/i.test(await e.p.locator('[data-cuenta-v2]').innerText())
       && await e.p.evaluate(() => document.querySelector('meta[name="apple-mobile-web-app-title"]').content) === 'EntrenaMétodo'
       && await e.p.evaluate(() => document.querySelector('link[rel="manifest"]').getAttribute('href')) === '/manifest-v2.json');
+    ok('ventanas: centradas en la pantalla y con la letra de la marca', await e.p.evaluate(() => {
+      const t = document.querySelector('[data-ventana-marca] .vm-tarjeta').getBoundingClientRect();
+      const v = document.querySelector('[data-ventana-marca]');
+      return Math.abs((t.top + t.bottom) / 2 - innerHeight / 2) < innerHeight * 0.2 && /ECM Ventana/.test(getComputedStyle(v).fontFamily)
+        && document.fonts.check("750 31px 'ECM Ventana'");
+    }));
+    await e.p.locator('[data-ya-tengo]').click();
+    await e.p.locator('[data-cuenta-v2="login"]').waitFor({ timeout: 5000 });
     await e.p.getByLabel('Correo').fill('mauro@correo.com');
     await e.p.getByLabel('Contraseña').fill('kettlebell24');
     await e.p.locator('[data-entrar]').click();
@@ -1399,6 +1408,45 @@ try {
     ok('entrada nueva: entra con su correo, queda con su nombre y su sesión', await e.p.evaluate(() => JSON.parse(localStorage.getItem('mt:name') || 'null')) === 'Mauro Morón'
       && await e.p.evaluate(() => localStorage.getItem('mt:sesion')) === 'v1.otra' && (await e.p.locator('[data-cuenta-v2]').count()) === 0);
     await e.ctx.close();
+
+    // Primera vez de verdad: «Antes de empezar, validemos tu cuenta» con
+    // primer nombre, primer apellido, correo y contraseña, en una sola pantalla.
+    {
+      const pedidas = [];
+      const cuenta2 = (c) => {
+        pedidas.push(c);
+        if (c.accion === 'cuenta') return /^mauro mor[oó]n$/i.test(c.name) ? { ok: true, nombre: 'Mauro Morón', pista: 'm•••o@c••••o.com', tieneCorreo: true, tieneClave: false } : { ok: false, error: 'no_existe' };
+        if (c.accion === 'crear') return String(c.email).toLowerCase() === 'mauro@correo.com' ? { ok: true, nombre: 'Mauro Morón', sesion: 'v1.primera' } : { ok: false, error: 'correo' };
+        return { ok: false };
+      };
+      const pv = await abrir('Mauro Morón', { sinSesion: true, sinNombre: true, url: '/?v2=1', cuenta: cuenta2 });
+      await pv.p.locator('[data-primera-vez]').waitFor({ timeout: 10000 });
+      await pv.p.locator('[data-primera-vez]').click();
+      await pv.p.locator('[data-cuenta-v2="primera"]').waitFor({ timeout: 5000 });
+      await espera(700);
+      await foto(pv.p, '22h-primera-validar');
+      const txt = await pv.p.locator('[data-cuenta-v2]').innerText();
+      ok('primera vez: «Antes de empezar, validemos tu cuenta» y explica qué pide', /Antes de empezar/.test(txt) && /validemos tu cuenta/i.test(txt)
+        && /primer nombre/i.test(txt) && /primer apellido/i.test(txt) && /correo/i.test(txt) && /contraseña/i.test(txt));
+      await pv.p.locator('[data-primer-nombre]').fill('Mauro');
+      await pv.p.locator('[data-primer-apellido]').fill('Moron');
+      await pv.p.locator('[data-correo]').fill('otro@correo.com');
+      await pv.p.getByLabel('Crea tu contraseña').fill('kettlebell24');
+      await pv.p.getByLabel('Repítela').fill('kettlebell24');
+      await pv.p.locator('[data-validar]').click();
+      await espera(400);
+      ok('primera vez: con otro correo no la crea y le muestra la pista del de su coach', /no es el correo que tiene tu coach/.test(await pv.p.locator('[data-cuenta-v2]').innerText())
+        && /m•••o@c••••o\.com/.test(await pv.p.locator('[data-cuenta-v2]').innerText()));
+      await pv.p.locator('[data-correo]').fill('mauro@correo.com');
+      await pv.p.locator('[data-validar]').click();
+      await pv.p.locator('[data-cuenta-v2="datos"]').waitFor({ timeout: 5000 });
+      ok('primera vez: busca por nombre y apellido, crea la contraseña y sigue', pedidas.some(c => c.accion === 'cuenta' && c.name === 'Mauro Moron')
+        && pedidas.some(c => c.accion === 'crear' && c.name === 'Mauro Morón') && await pv.p.evaluate(() => localStorage.getItem('mt:sesion')) === 'v1.primera');
+      await espera(500);
+      await foto(pv.p, '22i-primera-datos');
+      ok('primera vez: sin errores de JavaScript', pv.errores.length === 0, pv.errores.join(' | '));
+      await pv.ctx.close();
+    }
 
     // La bienvenida a la Comunidad (la escribe el coach en el CRM): una vez.
     const bw = await abrir('Mauro Morón');

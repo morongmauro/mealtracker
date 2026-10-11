@@ -7,12 +7,21 @@
 // invitación al recorrido y la bienvenida a la Comunidad.
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
+// La letra de la marca, empaquetada aquí mismo: estas ventanas salen ANTES
+// de que la app encienda su visual (y su letra), y sin esto el iPhone ponía
+// la suya (se veía «rara» y con una negrita muy gruesa).
+import figtreeUrl from '@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2?url';
 
 export const GRAFITO = '#1D1D1F';
 export const AMARILLO = '#F2C94C';
 export const GRIS_TXT = '#5A5A5F';
+// La segunda línea de los títulos, en color (como las frases de los módulos).
+export const ACENTO = { azul: '#2F6CC4', verde: '#2F7F45', naranja: '#C95F17', oro: '#B98A12' };
+export const Color = ({ c = 'azul', children }) => <span style={{ color: ACENTO[c] || c }}>{children}</span>;
+export const Negrita = ({ c = null, children }) => <b style={{ fontWeight: 650, color: c ? (ACENTO[c] || c) : GRAFITO }}>{children}</b>;
 
 const CSS = `
+@font-face { font-family: 'ECM Ventana'; font-style: normal; font-display: block; font-weight: 300 900; src: url(${figtreeUrl}) format('woff2-variations'); }
 @keyframes vm-entra { from { opacity: 0 } to { opacity: 1 } }
 @keyframes vm-sube { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
 @keyframes vm-deriva { 0%, 100% { transform: translate(0, 0) rotate(var(--r)) scale(1) } 50% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(1.06) } }
@@ -74,16 +83,19 @@ export default function VentanaMarca({ paso = null, pasos = 0, simbolo = null, t
   return (
     <div data-ventana-marca {...resto} role="dialog" aria-modal="true" aria-label={typeof titulo === 'string' ? titulo : undefined} style={{
       position: 'fixed', inset: 0, zIndex: z, overflowY: 'auto', color: GRAFITO,
-      fontFamily: "var(--f-ui, 'Figtree Variable'), Figtree, system-ui, sans-serif",
+      fontFamily: "'ECM Ventana', var(--f-ui, 'ECM Sans'), system-ui, sans-serif",
+      WebkitFontSmoothing: 'antialiased', fontWeight: 450,
     }}>
       <style>{CSS}</style>
       <FondoManchas />
-      <div style={{ position: 'relative', minHeight: '100%', display: 'flex', flexDirection: 'column', maxWidth: 460, margin: '0 auto',
-        padding: 'calc(env(safe-area-inset-top, 0px) + 64px) 14px calc(env(safe-area-inset-bottom, 0px) + 14px)', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', flex: '1 0 auto', alignItems: 'flex-start', paddingBottom: 24 }}><IconoApp /></div>
+      {/* Centrada en la pantalla (antes iba abajo y quedaba escondida): el
+          ícono y la tarjeta juntos, en el medio. Si no cabe, se desliza. */}
+      <div style={{ position: 'relative', minHeight: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: 460, margin: '0 auto',
+        padding: 'calc(env(safe-area-inset-top, 0px) + 28px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px)', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 20 }}><IconoApp tam={78} /></div>
         <div className="vm-tarjeta" style={{
           background: 'rgba(255,255,255,0.72)', WebkitBackdropFilter: 'blur(30px) saturate(1.4)', backdropFilter: 'blur(30px) saturate(1.4)',
-          borderRadius: 32, boxShadow: '0 30px 60px rgba(40,40,50,0.12), inset 0 0 0 1px rgba(255,255,255,0.7)', padding: '22px 20px 16px',
+          borderRadius: 32, boxShadow: '0 30px 60px rgba(40,40,50,0.12), inset 0 0 0 1px rgba(255,255,255,0.7)', padding: '26px 22px 18px',
         }}>
           {pasos > 1 && paso !== null && (
             <div data-pasos style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 16 }}>
@@ -93,8 +105,10 @@ export default function VentanaMarca({ paso = null, pasos = 0, simbolo = null, t
             </div>
           )}
           {simbolo && <SimboloVentana>{simbolo}</SimboloVentana>}
-          {titulo && <h1 style={{ margin: 0, textAlign: 'center', fontSize: 27, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1 }}>{titulo}</h1>}
-          {texto && <p style={{ margin: '8px 0 0', textAlign: 'center', fontSize: 16, color: GRIS_TXT, lineHeight: 1.45 }}>{texto}</p>}
+          {/* Títulos más grandes y una negrita menos pesada (750, no 800):
+              en grande se lee mejor y se parece a las frases de los módulos. */}
+          {titulo && <h1 style={{ margin: 0, textAlign: 'center', fontSize: 31, fontWeight: 750, letterSpacing: '-0.03em', lineHeight: 1.08, textWrap: 'balance' }}>{titulo}</h1>}
+          {texto && <p style={{ margin: '10px 0 0', textAlign: 'center', fontSize: 16.5, fontWeight: 450, color: GRIS_TXT, lineHeight: 1.45, textWrap: 'pretty' }}>{texto}</p>}
           <div style={{ marginTop: 14 }}>{children}</div>
         </div>
       </div>
@@ -107,7 +121,7 @@ export function BotonVentana({ children, onClick, secundario, cargando, ...resto
     <button onClick={onClick} disabled={cargando} {...resto} style={{
       width: '100%', height: 54, borderRadius: 27, border: 0, cursor: 'pointer', marginTop: secundario ? 4 : 14,
       background: secundario ? 'transparent' : GRAFITO, color: secundario ? GRAFITO : '#FFFFFF',
-      fontSize: 17, fontWeight: 700, fontFamily: 'inherit', opacity: cargando ? 0.6 : 1,
+      fontSize: 17, fontWeight: 650, fontFamily: 'inherit', opacity: cargando ? 0.6 : 1,
     }}>{cargando ? 'Un momento…' : children}</button>
   );
 }

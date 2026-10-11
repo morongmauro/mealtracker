@@ -486,24 +486,6 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
       )}
       {v2 && <AvisosDia dia={dia} fase={fase} P={P} />}
 
-      {/* Visual nueva: al tocar un día, lo primero son las dos cosas que se
-          pueden añadir. Cardio o deporte solo cuando el día ya llegó (lo que
-          se registra es lo hecho); la rutina, en un día libre de esta semana. */}
-      {v2 && (alAgregarRutina || (!futuro && !pasada)) && (
-        <div data-acciones-dia style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          {alAgregarRutina && (
-            <button onClick={alAgregarRutina} data-accion="rutina" style={{ ...botonAccion, background: P.base, color: '#fff', border: 'none' }}>
-              <Plus size={16} weight="bold" /> Añadir rutina
-            </button>
-          )}
-          {!futuro && !pasada && (
-            <button onClick={() => alRegistrar(dia.fecha)} data-accion="actividad" style={{ ...botonAccion, background: '#fff', color: P.ink, border: `1.5px solid ${P.base}` }}>
-              <Plus size={16} weight="bold" /> Cardio o deporte
-            </button>
-          )}
-        </div>
-      )}
-
       {dia.rutina ? (
         <Card onClick={() => alEntrenar(dia.rutina.id)} style={{ padding: 15 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -526,6 +508,25 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
       ) : !dia.hecho && (
         <div style={{ fontSize: t.cuerpo, color: TEXT_MUTED }}>
           Ese día no tienes rutina de fuerza.
+        </div>
+      )}
+
+      {/* Visual nueva: lo que se puede añadir va DEBAJO de la rutina de fuerza,
+          que es la protagonista del día (antes iba arriba y confundía).
+          Cardio o deporte solo cuando el día ya llegó (lo que se registra es
+          lo hecho); la rutina, en un día libre de esta semana. */}
+      {v2 && (alAgregarRutina || (!futuro && !pasada)) && (
+        <div data-acciones-dia style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          {alAgregarRutina && (
+            <button onClick={alAgregarRutina} data-accion="rutina" style={{ ...botonAccion, background: P.base, color: '#fff', border: 'none' }}>
+              <Plus size={16} weight="bold" /> Añadir rutina
+            </button>
+          )}
+          {!futuro && !pasada && (
+            <button onClick={() => alRegistrar(dia.fecha)} data-accion="actividad" style={{ ...botonAccion, background: '#fff', color: P.ink, border: `1.5px solid ${P.base}` }}>
+              <Plus size={16} weight="bold" /> Cardio o deporte
+            </button>
+          )}
         </div>
       )}
 

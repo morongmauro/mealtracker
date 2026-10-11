@@ -10,6 +10,9 @@ const db = crearSupabaseFalso({ tablas: { clientes: [
   { id: 'c1', nombre: 'Mauro Morón', email: 'mauro@correo.com', estado: 'activo', nombres_alternos: ['Mauro Moron'], app_clave_hash: null, notas: 'no se toca' },
   { id: 'c2', nombre: 'Ana Pérez', email: null, estado: 'activo', nombres_alternos: [], app_clave_hash: null },
   { id: 'c3', nombre: 'Pedro Gil', email: 'pedro@x.com', estado: 'pausa', nombres_alternos: [], app_clave_hash: null },
+  { id: 'c4', nombre: 'Juan Sebastián Mariño', email: 'juan@x.com', estado: 'activo', nombres_alternos: [], app_clave_hash: null },
+  { id: 'c5', nombre: 'Laura Ruiz Pardo', email: 'l1@x.com', estado: 'activo', nombres_alternos: [], app_clave_hash: null },
+  { id: 'c6', nombre: 'Laura Sofía Ruiz', email: 'l2@x.com', estado: 'activo', nombres_alternos: [], app_clave_hash: null },
 ] } });
 globalThis.fetch = db.fetch;
 const { default: handler, sesionValida } = await import('../api/authorize.js');
@@ -69,6 +72,15 @@ r = await llamar(handler, { accion: 'cuenta', name: 'Pedro Gil' });
 ok('un plan en pausa no puede crear cuenta', !r.ok && r.error === 'inactivo');
 r = await llamar(handler, { accion: 'cuenta', name: 'Nadie Nunca' });
 ok('un nombre que no está en el CRM no existe', !r.ok && r.error === 'no_existe');
+// Primer nombre + primer apellido (lo que pide la app la primera vez)
+r = await llamar(handler, { accion: 'cuenta', name: 'Juan Mariño' });
+ok('cuenta: con primer nombre y primer apellido encuentra el nombre completo del CRM', r.ok && r.nombre === 'Juan Sebastián Mariño', JSON.stringify(r));
+r = await llamar(handler, { accion: 'cuenta', name: 'juan marino' });
+ok('cuenta: sin tildes ni ñ también', r.ok && r.nombre === 'Juan Sebastián Mariño', JSON.stringify(r));
+r = await llamar(handler, { accion: 'cuenta', name: 'Laura Ruiz' });
+ok('cuenta: si nombre y apellido calzan con dos personas, no adivina', !r.ok && r.error === 'ambiguo', JSON.stringify(r));
+r = await llamar(handler, { accion: 'cuenta', name: 'Juan' });
+ok('cuenta: solo el nombre no basta', !r.ok && r.error === 'no_existe', JSON.stringify(r));
 ok('sesionValida rechaza basura', !sesionValida('x.y.z', 'Mauro Morón', 'scrypt$a$b'));
 
 console.log(fallos ? `\n${fallos} fallo(s)` : '\ntodo bien');

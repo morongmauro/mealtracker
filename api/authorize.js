@@ -89,11 +89,32 @@ async function filaCliente({ name, email }) {
   const r = await enCrm('clientes?select=id,nombre,email,estado,nombres_alternos,app_clave_hash');
   if (!r.ok) return { error: r.status === 400 ? 'sin_migracion' : 'crm' };
   const filas = await r.json();
-  const n = normalizeName(name), e = String(email || '').trim().toLowerCase();
-  const fila = filas.find(c => (n && (normalizeName(c.nombre) === n
-      || (Array.isArray(c.nombres_alternos) && c.nombres_alternos.some(a => normalizeName(a) === n))))
-    || (e && String(c.email || '').trim().toLowerCase() === e));
+  const e = String(email || '').trim().toLowerCase();
+  const p = porNombre(filas, name);
+  if (p.ambiguo) return { fila: null, ambiguo: true };
+  const fila = p.fila || (e && filas.find(c => String(c.email || '').trim().toLowerCase() === e));
   return { fila: fila || null };
+}
+
+// El cliente escribe su PRIMER NOMBRE y su PRIMER APELLIDO; el coach puede
+// tenerlo con el nombre completo («Juan Sebastián Mariño»). Primero se busca
+// el nombre exacto (actual o anterior); si no, el que empieza por ese nombre
+// y trae ese apellido. Si eso calza con dos personas, no se adivina.
+export function porNombre(filas, name) {
+  const n = normalizeName(name);
+  if (!n) return { fila: null };
+  const nombres = (c) => [c.nombre, ...(Array.isArray(c.nombres_alternos) ? c.nombres_alternos : [])].map(normalizeName).filter(Boolean);
+  const exacta = filas.find(c => nombres(c).includes(n));
+  if (exacta) return { fila: exacta };
+  const t = n.split(' ');
+  if (t.length < 2) return { fila: null };
+  const calza = (completo) => {
+    const k = completo.split(' ');
+    return k[0] === t[0] && t.slice(1).every(x => k.slice(1).includes(x));
+  };
+  const candidatas = filas.filter(c => nombres(c).some(calza));
+  if (candidatas.length === 1) return { fila: candidatas[0] };
+  return candidatas.length > 1 ? { fila: null, ambiguo: true } : { fila: null };
 }
 
 const limpiarCorreo = (e) => String(e || '').trim().toLowerCase();
@@ -134,8 +155,9 @@ export function sesionValida(sesion, nombre, hash) {
 async function cuenta(req, res, body) {
   if (!CRM_URL || !CRM_KEY) return res.status(200).json({ ok: false, error: 'crm' });
   const { accion, name, email, clave } = body;
-  const { fila, error } = await filaCliente({ name, email: accion === 'entrar' ? email : null });
+  const { fila, error, ambiguo } = await filaCliente({ name, email: accion === 'entrar' ? email : null });
   if (error) return res.status(200).json({ ok: false, error });
+  if (ambiguo) return res.status(200).json({ ok: false, error: 'ambiguo' });
   if (!fila) return res.status(200).json({ ok: false, error: 'no_existe' });
   if (String(fila.estado || 'activo').toLowerCase() !== 'activo') return res.status(200).json({ ok: false, error: 'inactivo', estado: fila.estado });
 
