@@ -112,7 +112,10 @@ export function porNombre(filas, name) {
     const k = completo.split(' ');
     return k[0] === t[0] && t.slice(1).every(x => k.slice(1).includes(x));
   };
-  const candidatas = filas.filter(c => nombres(c).some(calza));
+  let candidatas = filas.filter(c => nombres(c).some(calza));
+  // Si calza con varios, cuentan los activos: un excliente con el mismo
+  // nombre y apellido no debe dejar fuera al que sí está en el plan.
+  if (candidatas.length > 1) candidatas = candidatas.filter(c => String(c.estado || 'activo').toLowerCase() === 'activo');
   if (candidatas.length === 1) return { fila: candidatas[0] };
   return candidatas.length > 1 ? { fila: null, ambiguo: true } : { fila: null };
 }

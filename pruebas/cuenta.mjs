@@ -13,6 +13,8 @@ const db = crearSupabaseFalso({ tablas: { clientes: [
   { id: 'c4', nombre: 'Juan Sebastián Mariño', email: 'juan@x.com', estado: 'activo', nombres_alternos: [], app_clave_hash: null },
   { id: 'c5', nombre: 'Laura Ruiz Pardo', email: 'l1@x.com', estado: 'activo', nombres_alternos: [], app_clave_hash: null },
   { id: 'c6', nombre: 'Laura Sofía Ruiz', email: 'l2@x.com', estado: 'activo', nombres_alternos: [], app_clave_hash: null },
+  { id: 'c7', nombre: 'Diego Andrés Vela', email: 'd1@x.com', estado: 'activo', nombres_alternos: [], app_clave_hash: null },
+  { id: 'c8', nombre: 'Diego Vela Ortiz', email: 'd2@x.com', estado: 'inactivo', nombres_alternos: [], app_clave_hash: null },
 ] } });
 globalThis.fetch = db.fetch;
 const { default: handler, sesionValida } = await import('../api/authorize.js');
@@ -79,6 +81,8 @@ r = await llamar(handler, { accion: 'cuenta', name: 'juan marino' });
 ok('cuenta: sin tildes ni ñ también', r.ok && r.nombre === 'Juan Sebastián Mariño', JSON.stringify(r));
 r = await llamar(handler, { accion: 'cuenta', name: 'Laura Ruiz' });
 ok('cuenta: si nombre y apellido calzan con dos personas, no adivina', !r.ok && r.error === 'ambiguo', JSON.stringify(r));
+r = await llamar(handler, { accion: 'cuenta', name: 'Diego Vela' });
+ok('cuenta: si el otro con ese nombre ya no está activo, gana el activo', r.ok && r.nombre === 'Diego Andrés Vela', JSON.stringify(r));
 r = await llamar(handler, { accion: 'cuenta', name: 'Juan' });
 ok('cuenta: solo el nombre no basta', !r.ok && r.error === 'no_existe', JSON.stringify(r));
 ok('sesionValida rechaza basura', !sesionValida('x.y.z', 'Mauro Morón', 'scrypt$a$b'));
