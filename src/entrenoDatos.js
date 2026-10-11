@@ -131,7 +131,12 @@ export const fechaLarga = (iso) => {
 // deja un hueco roto en la lista.
 export const miniatura = (ej) => {
   if (!ej) return null;
-  if (ej.poster_url) return ej.poster_url;
+  // El coach puede elegir en el CRM cuál de las 4 imágenes de YouTube se ve
+  // (portada, ¼, mitad, ¾). Se respeta el CUADRO elegido aunque después se
+  // cambie el video: se arma con el video de ahora.
+  const cuadro = (/^https:\/\/i\.ytimg\.com\/vi\/[^/]+\/(mqdefault|mq[123])\.jpg$/.exec(ej.poster_url || '') || [])[1];
+  if (ej.poster_url && !cuadro) return ej.poster_url;
+  if (cuadro && ej.video_fuente === 'youtube' && ej.video_ref) return `https://i.ytimg.com/vi/${ej.video_ref}/${cuadro}.jpg`;
   if (ej.video_fuente === 'youtube' && ej.video_ref) {
     // Con la visual nueva se usa un fotograma del MEDIO del video (mq2) y no
     // la portada que eligió el canal: las portadas traen letreros y estilos
