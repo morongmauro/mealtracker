@@ -523,8 +523,11 @@ recibirMudanza();
 // ya vistas). Viajan a la nube para que, al cambiar de teléfono o de
 // dirección, nada se note distinto. Al volver se escriben SOLO si en este
 // teléfono no existen (nunca pisan lo de aquí); las listas se unen.
+// El recorrido guiado NO viaja: sale cada vez que se instala la app (un
+// teléfono nuevo o una instalación nueva empiezan sin la marca). Antes
+// viajaba y, al entrar con la cuenta, la nube decía «ya lo hizo».
 const PREF_FIJAS = ['entreno:unidades', 'entreno:cal:vista2', 'mt:perfectDays', 'mt:coachEditsApplied',
-  'mt:recorridoHecho', 'mt:recorridoOfrecido', 'mt:bienvenidaComunidad', 'mt:pushIntroShown'];
+  'mt:bienvenidaComunidad', 'mt:pushIntroShown'];
 const PREF_LISTAS = ['mt:perfectDays', 'mt:coachEditsApplied'];
 const esPrefDispositivo = (k) => !!k && (PREF_FIJAS.includes(k) || k.startsWith('entreno:unidad:'));
 const leerPrefsDispositivo = () => {

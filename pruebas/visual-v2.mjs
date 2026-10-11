@@ -318,6 +318,12 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top, g.bottom], a: [a.left, a.right, a.top, a.bottom], derechaTexto, opac, k: [k.left, k.top] }));
   return bien;
 }, tema);
+// El recorrido completo (ya no se puede saltar): Empezar y Siguiente hasta Finalizar.
+const hacerRecorrido = async (p) => {
+  await p.locator('[data-empezar-recorrido]').click();
+  await p.locator('[data-recorrido]').waitFor({ timeout: 8000 });
+  for (let i = 0; i < 20 && await p.locator('[data-recorrido]').count(); i++) { await p.locator('[data-rec-siguiente]').click(); await espera(250); }
+};
 const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.png') });
 
 try {
@@ -1352,9 +1358,10 @@ try {
       const v = document.querySelector('[data-ventana-marca]');
       const t = v && v.querySelector('.vm-tarjeta');
       return !!v && v.querySelectorAll('.vm-mancha').length === 4 && /blur/.test(getComputedStyle(t).backdropFilter || getComputedStyle(t).webkitBackdropFilter || '')
-        && v.querySelectorAll('[data-pasos] i').length >= 2 && /¿Te muestro\s+la app\?/.test(v.innerText);
+        && v.querySelectorAll('[data-pasos] i').length >= 2 && /Te muestro\s+tu app\./.test(v.innerText) && !/Lo veo después/.test(v.innerText);
     }));
-    await k.p.getByRole('button', { name: 'Lo veo después' }).click();
+    ok('invitación al recorrido: sin «Lo veo después» (no se puede saltar)', (await k.p.getByRole('button', { name: 'Lo veo después' }).count()) === 0);
+    await hacerRecorrido(k.p);
     await espera(500);
     ok('cuenta: al terminar se ve la app, con la nube aceptada', (await cv.count()) === 0 && await k.p.evaluate(() => localStorage.getItem('cloudConsent')) === 'accepted');
     // Cerrar sesión desde la configuración del Dash
@@ -1403,7 +1410,7 @@ try {
     await espera(400);
     if (await e.p.locator('[data-cuenta-v2="avisos"]').count()) await e.p.getByRole('button', { name: 'Ahora no' }).click();
     await e.p.locator('[data-cuenta-v2="recorrido"]').waitFor({ timeout: 5000 });
-    await e.p.getByRole('button', { name: 'Lo veo después' }).click();
+    await hacerRecorrido(e.p);
     await espera(1200);
     ok('entrada nueva: entra con su correo, queda con su nombre y su sesión', await e.p.evaluate(() => JSON.parse(localStorage.getItem('mt:name') || 'null')) === 'Mauro Morón'
       && await e.p.evaluate(() => localStorage.getItem('mt:sesion')) === 'v1.otra' && (await e.p.locator('[data-cuenta-v2]').count()) === 0);
@@ -1469,8 +1476,8 @@ try {
     // Otra persona (sin la visual nueva): ni cuenta ni nombre nuevo
     const o = await abrir('Ana Gómez', { sinSesion: true, cuenta });
     await espera(1500);
-    ok('otra persona: no ve la cuenta ni el nombre nuevo de la app', (await o.p.locator('[data-cuenta-v2]').count()) === 0
-      && await o.p.evaluate(() => document.querySelector('meta[name="apple-mobile-web-app-title"]').content) === 'Método');
+    ok('otra persona: no ve la cuenta; el nombre en la pantalla de inicio es «EntrenaMétodo» para todos', (await o.p.locator('[data-cuenta-v2]').count()) === 0
+      && await o.p.evaluate(() => document.querySelector('meta[name="apple-mobile-web-app-title"]').content) === 'EntrenaMétodo');
     await o.ctx.close();
   }
 

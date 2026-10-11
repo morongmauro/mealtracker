@@ -425,7 +425,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       {/* Atajos: botones de cristal chicos (círculo con el símbolo y la
           palabra debajo), en una sola línea, para no quitarle el
           protagonismo a las gráficas. */}
-      <FilaCristal data-atajos style={{ marginTop: 14, justifyContent: 'space-between', gap: 0 }}>
+      <FilaCristal data-atajos style={{ marginTop: 0, justifyContent: 'space-between', gap: 0 }}>
         <BotonCristal icono={Wind} color="#2F6CC4" ancho={54} data-abrir-respira onClick={() => setRespira(true)}>Respira</BotonCristal>
         <BotonCristal icono={Flag} color="#8A6A12" ancho={54} onClick={() => setSinRetos(true)}>Reto</BotonCristal>
         {wa && <BotonCristal icono={ChatCircle} color="#25A35A" ancho={54} href={wa}>Coach</BotonCristal>}

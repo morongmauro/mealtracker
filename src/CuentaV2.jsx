@@ -304,7 +304,7 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
       <Boton secundario onClick={terminar}>Ahora no</Boton>
     </>) };
   } else if (paso === 'recorrido') {
-    v = { simbolo: I(MapPin, DASH_AZUL.ink || '#2F6CC4'), titulo: <>¿Te muestro<br /><Color c="azul">la app?</Color></>, texto: <>Un recorrido de <Negrita>un minuto</Negrita> por las cuatro secciones.</>, cuerpo: (<>
+    v = { simbolo: I(MapPin, DASH_AZUL.ink || '#2F6CC4'), titulo: <>Te muestro<br /><Color c="azul">tu app.</Color></>, texto: <>Un recorrido de <Negrita>un minuto</Negrita> por las cuatro secciones. Así sabes dónde está todo.</>, cuerpo: (<>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
         {[['Dash', DASH_AZUL.base], ['Entreno', SECCION.entreno.base], ['Comida', SECCION.comida.base], ['Aprende', SECCION.aprende.base]].map(([t, c]) => (
           <div key={t} style={{ width: 70, height: 58, borderRadius: 18, background: CAMPO, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -312,8 +312,8 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
           </div>
         ))}
       </div>
+      {/* Sin «lo veo después»: al instalar la app, el recorrido se hace. */}
       <Boton onClick={() => { marcarOfrecido(); alListo && alListo(); alRecorrido && alRecorrido(); }} data-empezar-recorrido>Empezar recorrido</Boton>
-      <Boton secundario onClick={() => { marcarOfrecido(); alListo && alListo(); }}>Lo veo después</Boton>
     </>) };
   }
   // Los puntitos: cuenta, datos, avisos y recorrido (los que le tocan).

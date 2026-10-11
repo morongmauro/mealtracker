@@ -125,7 +125,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   // El alto justo de la gráfica grande (aro + porcentaje + su texto en una o
   // dos líneas), para que lo de abajo arranque pegado a ella: antes quedaba
   // un hueco vacío entre la cabecera y los primeros botones.
-  const lineasPie = aro && aro.pie ? (String(aro.pie).length > 21 ? 2 : 1) : 0;
+  const lineasPie = aro && aro.pie ? (String(aro.pie).length > 27 ? 2 : 1) : 0;
   const altoGrande = ARO_G.tam + 8 + 17 + (lineasPie ? 3 + lineasPie * 14 : 0) - 10;
   const texto = (
     <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus ? (grande ? 'min(38vw, 138px)' : conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: grande ? altoGrande : conAro ? 118 : undefined }}>
@@ -186,7 +186,9 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
         return (
           <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} data-aro-grande style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
             <div className="cab-ilus" data-aro-cabecera={tema} style={{
-              position: 'absolute', right: 26, top: `calc(${arriba} + 16px)`, width: 128,
+              // Más ancha que el aro (centrada en él, igual que antes): el texto
+              // de debajo cabe en una línea y la cabecera queda más baja.
+              position: 'absolute', right: 15, top: `calc(${arriba} + 16px)`, width: 150,
               display: 'flex', flexDirection: 'column', alignItems: 'center', animationDelay: '.1s',
             }}>
               <div style={{ position: 'relative', width: ARO_G.tam, height: ARO_G.tam }}>
