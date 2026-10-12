@@ -83,6 +83,24 @@ for (const vuelta of [1, 2]) {
   await ctx.close();
 }
 
+// Un teléfono que reporta la pantalla MÁS BAJA que la vista (pasa en
+// algunos): el fondo de la entrada tiene que llegar igual hasta abajo.
+{
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, screen: { width: 390, height: 760 }, deviceScaleFactor: 2 });
+  await ctx.addInitScript(() => localStorage.setItem('mt:probarDireccionNueva', '1'));
+  const p = await ctx.newPage();
+  await p.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+  await p.goto(BASE + '/');
+  await p.waitForTimeout(1500);
+  await p.screenshot({ path: path.join(import.meta.dirname, 'capturas', 'intro-1500ms.png') });
+  const abajo = await p.evaluate(() => {
+    const e = document.querySelector('#splash2 .escena').getBoundingClientRect();
+    return { escenaHasta: Math.round(e.bottom), alto: innerHeight };
+  });
+  ok('la escena de la entrada cubre hasta abajo aunque la pantalla diga ser más baja', abajo.escenaHasta >= abajo.alto + 100, JSON.stringify(abajo));
+  await ctx.close();
+}
+
 await b.close();
 srv.httpServer.close();
 console.log(mal ? `\n${mal} MAL` : '\ntodo bien');

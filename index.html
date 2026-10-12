@@ -86,7 +86,9 @@
         try {
           var lado = Math.max(screen.width || 0, screen.height || 0) || Math.max(innerWidth, innerHeight);
           raiz.style.setProperty('--pantalla', lado + 'px');
-          raiz.style.setProperty('--alto-pantalla', (screen.height || innerHeight) + 'px');
+          // El mayor de los dos: hay teléfonos que reportan la pantalla más
+          // baja que la vista real, y abajo quedaba una franja sin fondo.
+          raiz.style.setProperty('--alto-pantalla', Math.max(screen.height || 0, innerHeight || 0, document.documentElement.clientHeight || 0) + 'px');
         } catch (e) {}
         if (raiz.classList.contains('splash-v2') && !raiz.classList.contains('warm-start')) {
           // La entrada arranca YA, sin esperar a la app: así nunca hay
@@ -188,9 +190,11 @@
                         como gotas de tinta, giran en espiral hacia afuera, se
                         cruzan y quedan respirando cada una en su esquina
            0.20–0.90 s  un disco de cristal aparece en el centro
-           0.32–1.21 s  las líneas del ícono se dibujan solas (sin reflejo):
+           0.30–1.45 s  las líneas del ícono se dibujan solas, como una gráfica
+                        que se llena (sin sombra mientras se dibujan: se
+                        recalculaba en cada cuadro y trababa el dibujo):
                         primero el asa, después el cuerpo
-           1.15 s       sale el punto amarillo
+           1.38 s       sale el punto amarillo
            0.80–1.76 s  «Entrena con / Método.» grande, en dos líneas como las
                         frases de los módulos, letra por letra; «Método.» en
                         amarillo
@@ -205,26 +209,28 @@
       html.warm-start.intro-repite #splash2 { display: block !important; }
       body.app-ready #splash2 { opacity: 0; }
       #splash2 .fondo { position: absolute; inset: 0; background: linear-gradient(180deg, #FFFFFF, #F1EFEA); }
-      #splash2 .escena { position: absolute; left: 0; right: 0; top: 60px; height: 100vh; height: var(--alto-pantalla, 100lvh);
+      #splash2 .escena { position: absolute; left: 0; right: 0; top: 60px; height: calc(100vh + 200px); height: calc(var(--alto-pantalla, 100lvh) + 200px);
+        --centro: calc(var(--alto-pantalla, 100lvh) * 0.46);
+        transform-origin: 50% var(--centro, 46%);
         transition: transform .6s cubic-bezier(.5,0,.75,0); will-change: transform; }
       body.app-ready #splash2 .escena { transform: scale(1.6); }
-      #splash2 .remolino { position: absolute; left: 50%; top: 46%; width: 0; height: 0; }
+      #splash2 .remolino { position: absolute; left: 50%; top: var(--centro, 46%); width: 0; height: 0; }
       #splash2 .m { position: absolute; width: 420px; height: 360px; margin: -180px 0 0 -210px; filter: blur(30px); opacity: 0; will-change: transform, opacity; }
       #splash2 .m1 { background: radial-gradient(closest-side, rgba(60,123,214,.56), rgba(60,123,214,0)); border-radius: 48% 52% 44% 56% / 55% 42% 58% 45%; --x: -150px; --y: -300px; --s: 1.25; }
       #splash2 .m2 { background: radial-gradient(closest-side, rgba(242,201,76,.64), rgba(242,201,76,0)); border-radius: 56% 44% 52% 48% / 46% 56% 44% 54%; --x: 160px; --y: -280px; --s: 1.15; }
       #splash2 .m3 { background: radial-gradient(closest-side, rgba(70,150,90,.52), rgba(70,150,90,0)); border-radius: 44% 56% 58% 42% / 52% 48% 52% 48%; --x: -160px; --y: 330px; --s: 1.25; }
       #splash2 .m4 { background: radial-gradient(closest-side, rgba(238,132,52,.5), rgba(238,132,52,0)); border-radius: 52% 48% 46% 54% / 44% 56% 46% 54%; --x: 165px; --y: 300px; --s: 1.15; }
-      #splash2 .velo { position: absolute; inset: 0; opacity: 0; background: radial-gradient(70% 45% at 50% 46%, rgba(255,255,255,.92), rgba(255,255,255,0) 70%); }
-      #splash2 .disco { position: absolute; left: 50%; top: 46%; width: 176px; height: 176px; margin: -88px 0 0 -88px; border-radius: 50%;
+      #splash2 .velo { position: absolute; inset: 0; opacity: 0; background: radial-gradient(70% 38% at 50% var(--centro, 46%), rgba(255,255,255,.92), rgba(255,255,255,0) 70%); }
+      #splash2 .disco { position: absolute; left: 50%; top: var(--centro, 46%); width: 176px; height: 176px; margin: -88px 0 0 -88px; border-radius: 50%;
         background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.86), rgba(255,255,255,.62));
         box-shadow: 0 30px 60px rgba(30,30,40,.14), inset 0 1px 0 rgba(255,255,255,.9), inset 0 0 0 1px rgba(255,255,255,.55);
         opacity: 0; transform: scale(.55); will-change: transform, opacity; }
-      #splash2 .escena3d { position: absolute; left: 50%; top: 46%; width: 120px; height: 120px; margin: -60px 0 0 -60px; perspective: 500px; }
+      #splash2 .escena3d { position: absolute; left: 50%; top: var(--centro, 46%); width: 120px; height: 120px; margin: -60px 0 0 -60px; perspective: 500px; }
       #splash2 .marca { width: 120px; height: 120px; overflow: visible; opacity: 0; }
       #splash2 .traza { stroke-dasharray: 100 100; stroke-dashoffset: 100; }
       #splash2 .punto, #splash2 .halo { transform-box: fill-box; transform-origin: center; transform: scale(0); }
       #splash2 .halo { opacity: 0; }
-      #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(46% + 112px); margin: 0; text-align: center;
+      #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(var(--centro, 46%) + 112px); margin: 0; text-align: center;
         font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: 40px; line-height: 1.04;
         letter-spacing: -0.035em; color: #1D1D1F; white-space: nowrap; }
       #splash2 .nombre .linea { display: block; opacity: 1 !important; filter: none !important; transform: none !important; animation: none !important; }
@@ -239,10 +245,10 @@
       html.intro-anda #splash2 .velo { animation: s2aparece .6s ease-out .3s forwards; }
       html.intro-anda #splash2 .disco { animation: s2disco .7s cubic-bezier(.2,1.3,.3,1) .2s forwards; }
       html.intro-anda #splash2 .marca { animation: s2aparece .2s ease-out .3s forwards; }
-      html.intro-anda #splash2 .t1 { animation: s2traza .55s cubic-bezier(.45,0,.3,1) .32s forwards; }
-      html.intro-anda #splash2 .t2 { animation: s2traza .65s cubic-bezier(.45,0,.3,1) .56s forwards; }
-      html.intro-anda #splash2 .punto { animation: s2pop .5s cubic-bezier(.3,1.9,.5,1) 1.15s forwards; }
-      html.intro-anda #splash2 .halo { animation: s2halo .9s ease-out 1.17s forwards; }
+      html.intro-anda #splash2 .t1 { animation: s2traza .6s cubic-bezier(.4,0,.2,1) .3s forwards; }
+      html.intro-anda #splash2 .t2 { animation: s2traza .85s cubic-bezier(.4,0,.2,1) .6s forwards; }
+      html.intro-anda #splash2 .punto { animation: s2pop .5s cubic-bezier(.3,1.9,.5,1) 1.38s forwards; }
+      html.intro-anda #splash2 .halo { animation: s2halo .9s ease-out 1.4s forwards; }
       html.intro-anda #splash2 .nombre span { animation: s2letra .5s cubic-bezier(.2,.8,.2,1) forwards; }
       html.intro-anda #splash2 .nombre .pto { animation: s2pop2 .4s cubic-bezier(.3,1.9,.5,1) 1.36s forwards; }
       @keyframes s2gira { from { transform: rotate(-160deg); } to { transform: rotate(0deg); } }
@@ -302,9 +308,8 @@
              kettlebell, con el asa encima y el punto amarillo en la punta. -->
         <div class="escena3d"><svg class="marca" viewBox="0 0 512 512" fill="none" aria-hidden="true"><defs>
           <linearGradient id="s2t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3B3A37"/><stop offset="1" stop-color="#1F1E1C"/></linearGradient>
-          <filter id="s2s" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000" flood-opacity=".2"/></filter>
 </defs>
-          <g transform="translate(256 262) scale(.9) translate(-256 -248)" filter="url(#s2s)" fill="none" stroke="url(#s2t)" stroke-width="40" stroke-linecap="round">
+          <g transform="translate(256 262) scale(.9) translate(-256 -248)" fill="none" stroke="url(#s2t)" stroke-width="40" stroke-linecap="round">
             <path class="traza t1" pathLength="100" d="M128 162 C96 72 160 18 256 18 C352 18 416 72 384 162"/><path class="traza t2" pathLength="100" d="M256 164 A136 136 0 1 1 120 300"/></g>
           <g transform="translate(256 262) scale(.9) translate(-256 -248)">
             <circle class="halo" cx="120" cy="300" r="28.8" fill="#F2C94C"/>
