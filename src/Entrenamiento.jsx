@@ -1647,7 +1647,7 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
         <div style={{
           fontSize: 11.5,
           fontWeight: 800, color: TEXT_LIGHT, margin: '20px 0 9px',
-        }}>¿Qué tan duro se sintió?</div>
+        }}>¿Qué tan duro se sintió? <span style={{ color: rpe ? TEXT_LIGHT : '#C75A4A' }}>· obligatorio</span></div>
 
         {/* Del 1 al 10, en una fila. Números grandes y separados: se toca con
             el pulgar, de pie, con el teléfono en una mano. */}
@@ -1689,15 +1689,17 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
           }}>{error}</div>
         )}
 
+        {/* La intensidad es obligatoria: es uno de los datos con que el coach
+            mide cómo vas (promedio y acumulado en su CRM y en tu Dash). */}
         {hechas > 0 && (
-          <button
-            onClick={() => onCerrar(rpe, nota)} disabled={guardando}
+          <button data-enviar-coach
+            onClick={() => { if (rpe) onCerrar(rpe, nota); }} disabled={guardando || !rpe}
             style={{
               width: '100%', marginTop: 14, padding: '15px 18px', borderRadius: 15, border: 0,
-              background: ACCENT_DARK, color: '#fff', fontSize: 15, fontWeight: 700,
-              cursor: guardando ? 'default' : 'pointer', opacity: guardando ? 0.7 : 1,
+              background: rpe ? ACCENT_DARK : BORDER, color: rpe ? '#fff' : TEXT_LIGHT, fontSize: 15, fontWeight: 700,
+              cursor: guardando || !rpe ? 'default' : 'pointer', opacity: guardando ? 0.7 : 1,
               fontFamily: 'inherit',
-            }}>{guardando ? 'Guardando…' : 'Enviar a mi coach'}</button>
+            }}>{guardando ? 'Guardando…' : rpe ? 'Enviar a mi coach' : 'Marca qué tan duro se sintió'}</button>
         )}
 
         {/* "No pude entrenar hoy" existía en la primera versión del módulo y

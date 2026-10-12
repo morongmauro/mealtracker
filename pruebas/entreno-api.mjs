@@ -274,6 +274,7 @@ await caso('nota general (sin ejercicio) y nota al cerrar: también llegan al Wh
   await llamar(handler, { accion: 'nota', name: yo, texto: 'Esta semana viajo', rutina_id: 'r1' });
   await llamar(handler, { accion: 'nota', name: yo, texto: 'Todo bien' });
   const a = await llamar(handler, { accion: 'abrir', name: yo, rutina_id: 'r1' });
+  await llamar(handler, { accion: 'serie', name: yo, sesion_id: a.sesion.id, rutina_ejercicio_id: 're1', ejercicio_id: 'e1', serie_num: 1, reps: 8, peso: 60 });
   await llamar(handler, { accion: 'cerrar', name: yo, sesion_id: a.sesion.id, estado: 'completada', rpe: 7, notas: 'Me costó el final' });
   delete process.env.CALLMEBOT_APIKEY;
   igual(w, [
@@ -556,6 +557,33 @@ await caso('cardio del coach: el de después de entrenar sale en la rutina de ho
   const m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
   const evs = m.dias.find(x => x.fecha === hoy).eventos;
   igual(evs.map(e => `${e.id}:${e.hecho}:${e.despues}`).sort().join(' '), 'ec1:true:true ec2:false:false ec3:false:true', 'en el mes: hecho y si es de después de entrenar');
+});
+
+await caso('sin ninguna serie no se puede dar por hecha (solo «no pude entrenar»)', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  const a = await llamar(handler, { accion: 'abrir', name: yo, rutina_id: 'r1' });
+  const c = await llamar(handler, { accion: 'cerrar', name: yo, sesion_id: a.sesion.id, estado: 'completada', rpe: 7 });
+  igual([c.ok, c.motivo], [false, 'sin_series'], 'completada sin series: no');
+  igual(sb.db.sesiones.find(x => x.id === a.sesion.id).estado, 'en_curso', 'queda abierta');
+  const s2 = await llamar(handler, { accion: 'cerrar', name: yo, sesion_id: a.sesion.id, estado: 'saltada' });
+  igual(s2.ok, true, '«no pude entrenar» sí');
+});
+
+await caso('intensidad: promedio y acumulado de la semana, el mes y cada día (Dash)', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.sesiones = [
+    { id: 'si1', cliente_id: 'c1', rutina_id: 'r1', fecha: lunes, estado: 'completada', rpe: 7 },
+    { id: 'si2', cliente_id: 'c1', rutina_id: 'r2', fecha: hoy, estado: 'completada', rpe: 9 },
+    { id: 'si3', cliente_id: 'c1', rutina_id: 'r1', fecha: mas(lunes, -7), estado: 'completada', rpe: 6 },
+    { id: 'si4', cliente_id: 'c1', rutina_id: 'r1', fecha: mas(lunes, -6), estado: 'completada', rpe: null },
+    { id: 'si5', cliente_id: 'c1', rutina_id: 'r1', fecha: mas(lunes, -5), estado: 'saltada', rpe: 3 },
+  ];
+  const d = await llamar(handler, { accion: 'dash', name: yo });
+  igual([d.intensidad.semana.n, d.intensidad.semana.suma, d.intensidad.semana.prom], [2, 16, 8], 'semana: 2 entrenos, 16 acumulado, promedio 8');
+  igual(d.semana.intensidad.prom, 8, 'también en la tarjeta de la semana');
+  const ant = d.semanas[d.semanas.length - 2];
+  igual([ant.rpe_n, ant.rpe_suma, ant.rpe_prom], [1, 6, 6], 'la semana anterior: sin RPE y saltada no cuentan');
+  igual(d.intensidad.dias.map(x => `${x.fecha}:${x.suma}`).join(' '), [mas(lunes, -7), lunes, hoy].filter((f, i, a) => a.indexOf(f) === i).map(f => `${f}:${f === hoy && f === lunes ? 16 : f === hoy ? 9 : f === lunes ? 7 : 6}`).join(' '), 'día a día');
 });
 
 console.log(`\n${casos - fallos}/${casos} bien`);

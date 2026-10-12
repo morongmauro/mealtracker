@@ -18,7 +18,7 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Wind, Bell, Mountains, WhatsappLogo, Flag, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix } from '@phosphor-icons/react';
+import { Wind, Bell, Mountains, WhatsappLogo, Flag, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
@@ -36,13 +36,16 @@ const marcarBienvenida = () => { try { localStorage.setItem(CLAVE_BIENVENIDA, ne
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { etiquetaDia } from './vozCoach.js';
-import { useAncho, Tarjeta, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe, curvaSuave } from './GraficasV2.jsx';
+import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe, curvaSuave } from './GraficasV2.jsx';
 import {
   TEXT, TEXT_MUTED, TEXT_LIGHT,
   FONT_DISPLAY, C_PROTEIN, C_CARBS, C_FAT, SECCION, DASH_AZUL,
 } from './theme.js';
 
 const AZUL = SECCION.entreno.base;       // el entrenamiento, en todo el Dash
+// Los títulos de las tarjetas del Dash, en el azul del Dash: resaltan
+// «Entrenamiento», «Alimentación»… y ordenan la lectura.
+const Tarjeta = (props) => <TarjetaBase colorTitulo={DASH_AZUL.base} {...props} />;
 const VERDE = SECCION.comida.base;       // la alimentación
 const AMBAR = '#C98A0B';                  // el cuerpo (peso), en el tono del Dash
 const GRASA = C_FAT;                      // el % de grasa: el mismo tono de las grasas
@@ -486,6 +489,8 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
                 <FilaSemana Icono={CalendarCheck} etiqueta="Lo que te puso tu coach"
                   valor={ent?.semana ? (ent.semana.coach.total ? `${ent.semana.coach.hechos}/${ent.semana.coach.total}` : '—') : '—'} />
                 <FilaSemana Icono={Sparkle} etiqueta="Actividad extra" valor={ent?.semana ? `${ent.semana.extra.dias} ${ent.semana.extra.dias === 1 ? 'día' : 'días'}` : '—'} />
+                <FilaSemana Icono={Gauge} etiqueta="Intensidad promedio"
+                  valor={ent?.semana?.intensidad?.prom != null ? `${fmt(ent.semana.intensidad.prom, 1)}/10` : '—'} />
               </div>
             </div>
           )}
@@ -736,6 +741,49 @@ function DetalleEntreno({ ent, falloEnt, cargar }) {
           </div>
         )}
       </Tarjeta>
+
+      {/* Intensidad: lo duro que se sintió cada entreno (1 a 10), en promedio
+          y acumulado (la suma) del día, la semana y el mes. */}
+      {ent.intensidad && (
+        <Tarjeta titulo="Intensidad" detalle="Qué tan duro se sintió cada entreno, del 1 al 10 (lo marcas al terminar). Promedio y acumulado.">
+          <div data-intensidad style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 14 }}>
+            {[['Esta semana', ent.intensidad.semana], ['Este mes', ent.intensidad.mes]].map(([t, r]) => (
+              <div key={t} style={{ background: CREMA, borderRadius: 18, padding: '12px 13px' }}>
+                <div style={{ fontSize: 13, color: TEXT_MUTED }}>{t}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
+                  <span style={{ fontSize: 24, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{r.prom != null ? fmt(r.prom, 1) : '—'}</span>
+                  {r.prom != null && <span style={{ fontSize: 12.5, color: TEXT_MUTED }}>/10 promedio</span>}
+                </div>
+                <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 1 }}>
+                  {r.n ? `Acumulado ${r.suma} · ${r.n} ${r.n === 1 ? 'entreno' : 'entrenos'}` : 'Sin entrenos todavía'}
+                </div>
+              </div>
+            ))}
+          </div>
+          {ent.semanas.some(w => w.rpe_n > 0) && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Promedio por semana</div>
+              <Columnas
+                datos={ent.semanas.map(w => ({ ...w, valor: w.rpe_prom || 0 }))}
+                color={AZUL} tope={10}
+                etiquetaX={(w, i) => (i % 3 === 2 || i === 11 ? fechaCorta(w.desde) : '')}
+                textoValor={(w) => `${fechaCorta(w.desde)}: ${w.rpe_prom != null ? `${fmt(w.rpe_prom, 1)}/10 · acumulado ${w.rpe_suma}` : 'sin entrenos'}`}
+              />
+            </div>
+          )}
+          {ent.intensidad.dias.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Día a día · últimos 28 días</div>
+              <Columnas
+                datos={ent.intensidad.dias.map(d => ({ ...d, valor: d.prom }))}
+                color={AZUL} tope={10}
+                etiquetaX={(d, i, todos) => (i === 0 || i === ent.intensidad.dias.length - 1 ? fechaCorta(d.fecha) : '')}
+                textoValor={(d) => `${fechaCorta(d.fecha)}: ${fmt(d.prom, 1)}/10${d.n > 1 ? ` · acumulado ${d.suma} en ${d.n} entrenos` : ''}`}
+              />
+            </div>
+          )}
+        </Tarjeta>
+      )}
 
       {ent.semanas.some(w => w.volumen_kg > 0) && (
         <Tarjeta titulo="Volumen" detalle="Kilos movidos por semana: peso × repeticiones de todas tus series.">

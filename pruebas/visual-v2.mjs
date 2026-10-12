@@ -507,7 +507,10 @@ try {
     String(await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height)));
   await p.getByRole('button', { name: /Profundiza en tus gráficas de entrenamiento/ }).click();
   await p.getByText('Fuerza', { exact: true }).waitFor({ timeout: 10000 });
+  ok('dash: los títulos de las tarjetas en azul', await p.locator('[data-tarjeta="Volumen"] h3').evaluate(h => getComputedStyle(h).color === 'rgb(60, 123, 214)'));
   ok('Profundiza entrenamiento abre fuerza y volumen', (await p.getByText('Volumen', { exact: true }).count()) === 1);
+  ok('Profundiza entrenamiento: la intensidad con promedio y acumulado de la semana y el mes', (await p.locator('[data-intensidad]').count()) === 1
+    && /Esta semana/.test(await p.locator('[data-intensidad]').innerText()) && /Este mes/.test(await p.locator('[data-intensidad]').innerText()));
   await espera(400);
   await foto(p, '03b-profundiza-entreno');
   await p.getByRole('button', { name: /Dash/ }).first().click();
@@ -1065,7 +1068,9 @@ try {
   ok('calendario de comidas: con la forma del de entreno (días en verde, casillas blancas)', (await calC.count()) === 1
     && await calC.getByText('Lun', { exact: true }).evaluate(el => getComputedStyle(el).color === 'rgb(70, 150, 90)')
     && await calC.locator('[data-dia-comida]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)' || getComputedStyle(el).backgroundColor === 'rgb(242, 248, 243)'));
-  ok('calendario de comidas: pestañas rectangulares, la activa en verde', await p.locator('[data-pestanas-comida] button').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(70, 150, 90)' && parseFloat(getComputedStyle(el).borderTopLeftRadius) <= 12));
+  ok('calendario de comidas: selector estilo Apple (como el de entreno): la activa en píldora blanca con texto verde', await p.locator('[data-pestanas-comida] button').first().evaluate(el => {
+    const cs = getComputedStyle(el); return cs.backgroundColor === 'rgb(255, 255, 255)' && cs.color === 'rgb(42, 106, 58)' && el.getAttribute('aria-pressed') === 'true';
+  }));
   ok('calendario de comidas: las gráficas son las del Dash', (await p.locator('[data-grafica-comida]').count()) === 3
     && (await p.locator('.fixed.inset-0.z-50 svg rect').count()) > 10);
   ok('calendario de comidas: sin oliva', await p.evaluate(() => {
@@ -1309,6 +1314,9 @@ try {
   await n.p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
   await espera(300);
   await n.p.locator('[data-terminar]').click();
+  // La intensidad es obligatoria: sin ella no se puede enviar.
+  ok('cierre: sin marcar la intensidad no deja enviar', await n.p.locator('[data-enviar-coach]').isDisabled() && /Marca qué tan duro/.test(await n.p.locator('[data-enviar-coach]').innerText()));
+  await n.p.getByRole('button', { name: 'Percepción 7' }).click();
   await n.p.getByRole('button', { name: 'Enviar a mi coach' }).click();
   const fin = n.p.locator('[data-fin-entreno]');
   await fin.waitFor({ timeout: 8000 });

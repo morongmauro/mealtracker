@@ -747,6 +747,14 @@ async function cerrarSesion(cliente, cuerpo) {
     }
   }
 
+  // Sin ninguna serie marcada no hay entreno que contar: solo se puede dejar
+  // como «no pude entrenar» (saltada). Los datos de cada serie son los que
+  // miden el avance; una rutina «hecha» sin ellos no dice nada.
+  if (cuerpo.estado !== 'saltada') {
+    const algo = await sb(`series_log?select=id&sesion_id=eq.${sesion.id}&completada=is.true&limit=1`).catch(() => null);
+    if (Array.isArray(algo) && !algo.length) return { ok: false, motivo: 'sin_series' };
+  }
+
   const cierre = {
     estado: cuerpo.estado === 'saltada' ? 'saltada' : 'completada',
     finalizada_en: ahora.toISOString(),
@@ -1609,8 +1617,30 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
     bono: bonoExtra(actividadExtra(actSemana)),
   };
 
+  // INTENSIDAD · lo duro que se sintió cada entreno (1 a 10, lo marca al
+  // terminar). Promedio y acumulado (la suma) del día, la semana y el mes.
+  const conRpe = sesiones.filter(x => x.estado === 'completada' && Number(x.rpe) >= 1 && Number(x.rpe) <= 10);
+  const resumenRpe = (lista) => {
+    const n = lista.length, suma = lista.reduce((a, x) => a + Number(x.rpe), 0);
+    return { n, suma, prom: n ? Math.round((suma / n) * 10) / 10 : null };
+  };
+  semanas.forEach(w => {
+    const r = resumenRpe(conRpe.filter(x => x.fecha >= w.desde && x.fecha <= w.hasta));
+    w.rpe_n = r.n; w.rpe_suma = r.suma; w.rpe_prom = r.prom;
+  });
+  const porDia = {};
+  conRpe.forEach(x => { (porDia[x.fecha] || (porDia[x.fecha] = [])).push(x); });
+  const desde28 = sumarDiasISO(hoy, -27);
+  const intensidad = {
+    semana: resumenRpe(conRpe.filter(x => x.fecha >= actual.desde && x.fecha <= actual.hasta)),
+    mes: resumenRpe(conRpe.filter(x => String(x.fecha).slice(0, 7) === hoy.slice(0, 7))),
+    // Los últimos 28 días, uno por uno (solo los que tuvieron entreno).
+    dias: Object.keys(porDia).filter(f => f >= desde28).sort().map(f => ({ fecha: f, ...resumenRpe(porDia[f]) })),
+  };
+  semana.intensidad = intensidad.semana;
+
   return {
-    ok: true, hoy, semanas, ejercicios, semana,
+    ok: true, hoy, semanas, ejercicios, semana, intensidad,
     medidas: medidas.slice().sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
       .map(m => ({ fecha: m.fecha, peso: m.peso == null ? null : Number(m.peso), grasa_pct: m.grasa_pct == null ? null : Number(m.grasa_pct) })),
   };
@@ -1637,7 +1667,7 @@ async function verDash(cliente, hoy) {
     // finalizada): lo planeado de cada semana sale de la que la cubría.
     sb(`fases?select=id,fecha_inicio,semanas,dias_semana,visible_cliente,estado`
       + `&cliente_id=eq.${cliente.id}&estado=in.(activa,finalizada)&visible_cliente=is.true&order=orden.desc`).catch(() => []),
-    todas(`sesiones?select=id,fecha,estado&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}&order=fecha.asc`),
+    todas(`sesiones?select=id,fecha,estado,rpe&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}&order=fecha.asc`),
     sb(`actividades?select=fecha,duracion_min,tipo,evento_id&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}`)
       .catch(() => sb(`actividades?select=fecha,duracion_min&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}`)).catch(() => []),
     sb(`mediciones_corporales?select=fecha,peso,grasa_pct&cliente_id=eq.${cliente.id}&order=fecha.desc&limit=24`).catch(() => []),

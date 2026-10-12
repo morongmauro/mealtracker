@@ -10381,16 +10381,24 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           tenía sentido. Ahora es Mes → Semana → Día, de lo general a lo
           concreto, y desde el mes o la semana se entra al día tocándolo. */}
       <div>
+          {/* Visual nueva: el selector como el del calendario de entreno (estilo
+              Apple): carril gris translúcido y la opción elegida en una píldora
+              blanca que flota, con el texto en el verde de la sección. */}
           <div className="flex gap-1 p-1 rounded-xl mb-4" data-pestanas-comida style={v2p
-            ? { background: '#FFFFFF', borderRadius: 14, padding: 4, boxShadow: SOMBRA_TARJETA_V2 }
+            ? { background: 'rgba(118,118,128,0.12)', borderRadius: 999, padding: 3, gap: 2 }
             : { background: SURFACE_2 }}>
             {[{ key: 'mes', label: 'Mes' }, { key: 'semana', label: 'Semana' }, { key: 'dia', label: 'Día' }].map(t => (
               <button key={t.key} onClick={() => { haptic(6); setAlimTab(t.key); }}
+                aria-pressed={alimTab === t.key}
                 className="flex-1 py-2 rounded-lg text-[12px] font-semibold transition active:scale-[0.98]"
-                style={{
-                  background: alimTab === t.key ? (v2p ? VERDE_V2 : TEXT) : 'transparent',
+                style={v2p ? {
+                  background: alimTab === t.key ? '#FFFFFF' : 'transparent',
+                  color: alimTab === t.key ? SECCION.comida.ink : TEXT_MUTED,
+                  borderRadius: 999, fontSize: 15, fontWeight: alimTab === t.key ? 700 : 600, padding: '8px 0',
+                  boxShadow: alimTab === t.key ? '0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04)' : 'none',
+                } : {
+                  background: alimTab === t.key ? TEXT : 'transparent',
                   color: alimTab === t.key ? '#fff' : TEXT_MUTED,
-                  ...(v2p ? { borderRadius: 10, fontSize: 14.5, fontWeight: 750, padding: '9px 0' } : {}),
                 }}>
                 {t.label}
               </button>

@@ -31,7 +31,7 @@ export function useAncho() {
 
 export // Tarjeta blanca, esquinas amplias y sin borde: la sombra apenas la separa
 // del fondo. Título en negrita y la explicación en gris normal debajo.
-function Tarjeta({ titulo, detalle, accion, children, style }) {
+function Tarjeta({ titulo, detalle, accion, children, style, colorTitulo = TEXT }) {
   return (
     <section data-tarjeta={typeof titulo === 'string' ? titulo : undefined} style={{
       background: TARJETA, borderRadius: 24, padding: '18px 18px 16px', marginTop: 12,
@@ -39,7 +39,7 @@ function Tarjeta({ titulo, detalle, accion, children, style }) {
     }}>
       {(titulo || accion) && (
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 750, color: TEXT, letterSpacing: '-0.015em' }}>{titulo}</h3>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 750, color: colorTitulo, letterSpacing: '-0.015em' }}>{titulo}</h3>
           {accion}
         </div>
       )}
