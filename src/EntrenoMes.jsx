@@ -153,7 +153,7 @@ function MesClasico({ nombre, alEntrenar }) {
   const porFecha = useMemo(() => Object.fromEntries((datos?.dias || []).map(d => [d.fecha, d])), [datos]);
 
   const hoy = hoyLocal();
-  const puedeMover = (d) => !!(d && d.rutina && !d.hecho && d.estado !== 'completada' && d.fecha >= hoy);
+  const puedeMover = (d) => !!(d && d.rutina && !d.fija && !d.hecho && d.estado !== 'completada' && d.fecha >= hoy);
 
   const moverRutina = async (desde, hasta) => {
     const d = porFecha[desde];
@@ -1005,7 +1005,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   // Se mueve lo de esta semana (también un día que ya pasó: si perdiste el
   // lunes, lo pasas al jueves para compensar) y lo de las semanas que vienen,
   // sin hacer, y que sea del plan (lo añadido se quita y se vuelve a añadir).
-  const puedeMover = (d) => !!(d && d.rutina && !d.extra && !d.hecho && d.estado !== 'completada' && editable(d.fecha));
+  const puedeMover = (d) => !!(d && d.rutina && !d.extra && !d.fija && !d.hecho && d.estado !== 'completada' && editable(d.fecha));
   const puedeAgregar = (d) => !!(d && !d.rutina && !d.hecho && d.semana && editable(d.fecha) && rutinasCiclo.length);
 
   // ¿Queda pegada a una rutina que trabaja lo mismo? Mira el día anterior y

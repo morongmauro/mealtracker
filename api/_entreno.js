@@ -82,49 +82,83 @@ export function repartirPorDia(fase, rutinas) {
   return porDia;
 }
 
-// ── Cambios de día que hizo el cliente ────────────────────────────────────
+// ── Cambios de UN día (del cliente o del coach) ───────────────────────────
 // «El martes no puedo, lo paso al jueves.» Cada movimiento cambia UNA fecha
 // (tabla `rutina_movimientos`); el plan semanal no se toca. Si el destino ya
 // tenía rutina, se intercambian. Se aplican en orden, así que mover dos veces
 // la misma rutina la deja donde quedó la última vez.
 //
+// `quitados`: días en que el coach quitó la fuerza SOLO esa fecha (tabla
+// `rutina_dias_quitados`). Van en la misma fila de tiempo que los
+// movimientos: lo último que pasó es lo que vale.
+// `extras`: rutinas añadidas a un día libre ([{ fecha, rutina, origen }]),
+// por el cliente o por el coach. Solo cuentan si ese día, después de los
+// cambios, no tiene rutina.
+//
+// Lo que cambió el coach es su plan: la app lo pinta como cualquier otro día
+// (sin «la moviste», sin «la añadiste tú»).
+//
 // Devuelve una función fecha → rutina (o null) que ya los tiene en cuenta.
 // La usan la semana, el mes y el aviso de la mañana: los tres dicen lo mismo.
-// `extras`: rutinas que el CLIENTE añadió a un día libre ([{ fecha, rutina }]).
-// Solo cuentan si ese día, después de los cambios, no tiene rutina.
-export function rutinaPorFecha(fase, porDia, movimientos = [], extras = []) {
+// Espejo en el CRM: entRutinaPorFechaDia (entrenamiento.js). Hay una prueba
+// que compara las dos.
+export function rutinaPorFecha(fase, porDia, movimientos = [], extras = [], quitados = []) {
   const fin = finDeFase(fase);
   const base = (fecha) => {
     if (!fase?.fecha_inicio || fecha < fase.fecha_inicio || fecha > fin) return null;
     const [y, m, d] = fecha.split('-').map(Number);
     return porDia[DIAS[(new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7]] || null;
   };
-  const mapa = {};
+  const mapa = {}, delCoach = {};
   const ver = (f) => (f in mapa ? mapa[f] : base(f));
-  (movimientos || []).slice()
-    .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')))
-    .forEach(mv => {
+  [
+    ...(movimientos || []).map(mv => ({ t: String(mv.created_at || ''), mv })),
+    ...(quitados || []).map(q => ({ t: String(q.created_at || ''), q })),
+  ].sort((a, b) => a.t.localeCompare(b.t))
+    .forEach(({ mv, q }) => {
+      if (q) {
+        const f = String(q.fecha || '').slice(0, 10);
+        if (f) { mapa[f] = null; delCoach[f] = true; }
+        return;
+      }
       const r = ver(mv.desde);
       if (!r || r.id !== mv.rutina_id || mv.desde === mv.hasta) return;   // ya no está ahí: no aplica
       const otra = ver(mv.hasta);
       mapa[mv.hasta] = r;
       mapa[mv.desde] = otra;
+      delCoach[mv.hasta] = delCoach[mv.desde] = mv.origen === 'coach';
     });
-  const extra = {};
-  (extras || []).forEach(x => { if (x && x.rutina && x.fecha) extra[x.fecha] = x.rutina; });
+  const extra = {}, extraCoach = {};
+  (extras || []).forEach(x => { if (x && x.rutina && x.fecha) { extra[x.fecha] = x.rutina; extraCoach[x.fecha] = x.origen === 'coach'; } });
   const fn = (fecha) => ver(fecha) || extra[fecha] || null;
-  fn.movida = (fecha) => fecha in mapa && (mapa[fecha]?.id || null) !== (base(fecha)?.id || null);
+  // Movida por el cliente (lo del coach es su plan).
+  fn.movida = (fecha) => fecha in mapa && !delCoach[fecha] && (mapa[fecha]?.id || null) !== (base(fecha)?.id || null);
+  // Añadida a un día libre (por quien sea): no se arrastra, se quita y se pone.
   fn.extra = (fecha) => !ver(fecha) && !!extra[fecha];
+  // …y de esas, las que añadió el cliente (las puede quitar él).
+  fn.extraDelCliente = (fecha) => fn.extra(fecha) && !extraCoach[fecha];
   return fn;
 }
 
-// Las rutinas que el cliente añadió a días libres (tabla `rutina_extras`,
-// carga/migracion-rutina-extra.sql). Sin la tabla, no hay ninguna.
+// Las rutinas añadidas a días libres (tabla `rutina_extras`,
+// carga/migracion-rutina-extra.sql). Sin la tabla, no hay ninguna. La columna
+// `origen` (cliente | coach) llega con migracion-fuerza-por-dia.sql; sin ella,
+// todas son del cliente, como antes.
 export async function extrasDe(sb, filtro, rutinas = []) {
+  const porId = Object.fromEntries((rutinas || []).map(r => [r.id, r]));
+  const leer = async (campos) => { const x = await sb(`rutina_extras?select=${campos}&${filtro}`); return Array.isArray(x) ? x : []; };
+  let x = [];
+  try { x = await leer('fecha,rutina_id,fase_id,origen'); }
+  catch (e) { try { x = await leer('fecha,rutina_id,fase_id'); } catch (e2) { return []; } }
+  return x.filter(e => porId[e.rutina_id]).map(e => ({ fecha: String(e.fecha).slice(0, 10), rutina: porId[e.rutina_id], fase_id: e.fase_id, origen: e.origen || 'cliente' }));
+}
+
+// Los días en que el coach quitó la fuerza solo esa fecha
+// (carga/migracion-fuerza-por-dia.sql). Sin la tabla, ninguno.
+export async function quitadosDe(sb, filtro) {
   try {
-    const x = await sb(`rutina_extras?select=fecha,rutina_id,fase_id&${filtro}`);
-    const porId = Object.fromEntries((rutinas || []).map(r => [r.id, r]));
-    return (Array.isArray(x) ? x : []).filter(e => porId[e.rutina_id]).map(e => ({ fecha: String(e.fecha).slice(0, 10), rutina: porId[e.rutina_id], fase_id: e.fase_id }));
+    const q = await sb(`rutina_dias_quitados?select=fecha,fase_id,created_at&${filtro}`);
+    return Array.isArray(q) ? q.map(x => ({ ...x, fecha: String(x.fecha).slice(0, 10) })) : [];
   } catch (e) { return []; }
 }
 
@@ -141,7 +175,7 @@ export const nombreCorto = (n) => {
 // La tabla puede no existir (migración sin correr): entonces no hay cambios.
 export async function movimientosDe(sb, filtro) {
   try {
-    const m = await sb(`rutina_movimientos?select=cliente_id,fase_id,rutina_id,desde,hasta,created_at&${filtro}&order=created_at.asc`);
+    const m = await sb(`rutina_movimientos?select=cliente_id,fase_id,rutina_id,desde,hasta,origen,created_at&${filtro}&order=created_at.asc`);
     return Array.isArray(m) ? m : [];
   } catch (e) { return []; }
 }
@@ -304,6 +338,7 @@ export async function agendaDeHoy(sb, hoy) {
   const sesiones = await sb(`sesiones?select=cliente_id,rutina_id,fecha,estado&fecha=gte.${lunes}&fecha=lte.${hoy}`);
   const movs = ids.length ? await movimientosDe(sb, `fase_id=in.(${ids.join(',')})`) : [];
   const extras = ids.length ? await extrasDe(sb, `fase_id=in.(${ids.join(',')})&fecha=eq.${hoy}`, Array.isArray(rutinas) ? rutinas : []) : [];
+  const quitados = ids.length ? await quitadosDe(sb, `fase_id=in.(${ids.join(',')})&fecha=eq.${hoy}`) : [];
   let eventos = [];
   // `fechas_excluidas` puede no existir (migracion-eventos-excluir.sql sin correr).
   const camposEv = 'id,cliente_id,fase_id,tipo,titulo,fecha,dias_semana,semanas,visible_cliente';
@@ -318,7 +353,7 @@ export async function agendaDeHoy(sb, hoy) {
     if (fase && hoy >= (fase.fecha_inicio || '9999') && hoy <= finDeFase(fase)) {
       const suyas = (Array.isArray(rutinas) ? rutinas : []).filter(r => r.fase_id === fase.id && rutinaVisible(r, fase));
       const r = rutinaPorFecha(fase, repartirPorDia(fase, suyas), movs.filter(mv => mv.fase_id === fase.id),
-        extras.filter(x => x.fase_id === fase.id))(hoy);
+        extras.filter(x => x.fase_id === fase.id), quitados.filter(x => x.fase_id === fase.id))(hoy);
       // Si esa rutina ya está hecha esta semana (la adelantó), no se insiste.
       const hecha = r && (Array.isArray(sesiones) ? sesiones : [])
         .some(s => s.cliente_id === c.id && s.rutina_id === r.id && s.estado === 'completada');

@@ -44,7 +44,7 @@ import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
   diasDeRutina, repartirPorDia, FASE_VISIBLE, rutinaVisible, finDeFase,
-  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, extrasDe, nombreCorto, TIPOS_REGISTRO, nombreFase, objetivoCliente,
+  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, extrasDe, quitadosDe, nombreCorto, TIPOS_REGISTRO, nombreFase, objetivoCliente,
 } from './_entreno.js';
 import { alertarCoach } from './_alerta.js';
 import { whatsappCoach, textoNotaWhatsapp } from './_whatsapp.js';
@@ -182,7 +182,8 @@ async function verPlan(cliente, hoy) {
   const porDia = repartirPorDia(fase, lista);
   // Lo que el cliente movió de día pesa sobre el plan semanal.
   const rutinaDe = rutinaPorFecha(fase, porDia, await movimientosDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`),
-    await extrasDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`, lista));
+    await extrasDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`, lista),
+    await quitadosDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`));
   const letraHoy = letraDeHoy();
   const huecos = DIAS.map((d, i) => {
     const t = new Date(Date.parse(lunes + 'T00:00:00Z')); t.setUTCDate(t.getUTCDate() + i);
@@ -210,6 +211,8 @@ async function verPlan(cliente, hoy) {
       // Push del lunes hecho el martes cuenta, y la app lo dice.
       hecha_el: s && s.fecha !== fecha ? s.fecha : null,
       movida: rutinaDe.movida(fecha),
+      // La puso el coach solo ese día: es su plan, pero no se arrastra.
+      fija: rutinaDe.extra(fecha) && !rutinaDe.extraDelCliente(fecha),
     };
   });
 
@@ -821,7 +824,8 @@ async function verMes(cliente, ym, hoy) {
     rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
     porDia = repartirPorDia(fase, rutinas);
     rutinaDe = rutinaPorFecha(fase, porDia, await movimientosDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`),
-      await extrasDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`, rutinas));
+      await extrasDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`, rutinas),
+      await quitadosDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`));
   }
   const musculos = await musculosDeRutinas(rutinas);
 
@@ -880,7 +884,10 @@ async function verMes(cliente, ym, hoy) {
       semana: dentro ? Math.floor((Date.parse(fecha) - Date.parse(fase.fecha_inicio)) / 86400000 / 7) + 1 : null,
       rutina: r ? { id: r.id, nombre: r.nombre, corto: nombreCorto(r.nombre), minutos: r.duracion_estimada_min || null } : null,
       movida: dentro && !!rutinaDe.movida && rutinaDe.movida(fecha),
-      extra: dentro && !!rutinaDe.extra && rutinaDe.extra(fecha),
+      // La añadió el cliente (la puede quitar él). La que puso el coach solo
+      // ese día sale como su plan, pero fija: no se arrastra.
+      extra: dentro && !!rutinaDe.extraDelCliente && rutinaDe.extraDelCliente(fecha),
+      fija: dentro && !!rutinaDe.extra && rutinaDe.extra(fecha) && !rutinaDe.extraDelCliente(fecha),
       estado: s ? s.estado : null,          // completada | saltada | en_curso | null
       rpe: s ? s.rpe : (otra ? otra.rpe : null),
       hecho: otra ? { id: otra.rutina_id, nombre: nombreRutina[otra.rutina_id] || 'Entreno', corto: nombreCorto(nombreRutina[otra.rutina_id] || 'Entreno') } : null,
@@ -1028,7 +1035,7 @@ async function contextoCalendario(cliente) {
     + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
   const rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
   const filtro = `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`;
-  const rutinaDe = rutinaPorFecha(fase, repartirPorDia(fase, rutinas), await movimientosDe(sb, filtro), await extrasDe(sb, filtro, rutinas));
+  const rutinaDe = rutinaPorFecha(fase, repartirPorDia(fase, rutinas), await movimientosDe(sb, filtro), await extrasDe(sb, filtro, rutinas), await quitadosDe(sb, filtro));
   return { fase, rutinas, rutinaDe };
 }
 
@@ -1083,6 +1090,9 @@ async function quitarRutina(cliente, cuerpo, hoy) {
   if (!desdeEstaSemana(hoy)(fecha)) return { ok: false, motivo: 'semana_pasada' };
   const hechas = await sb(`sesiones?select=id&cliente_id=eq.${cliente.id}&fecha=eq.${fecha}&estado=eq.completada`).catch(() => []);
   if ((Array.isArray(hechas) ? hechas : []).length) return { ok: false, motivo: 'ya_entrenada' };
+  // La que puso el coach ese día es su plan: el cliente no la quita.
+  const ctx = await contextoCalendario(cliente);
+  if (ctx && ctx.rutinaDe.extra(fecha) && !ctx.rutinaDe.extraDelCliente(fecha)) return { ok: false, motivo: 'no_hay' };
   try {
     const del = await sb(`rutina_extras?cliente_id=eq.${cliente.id}&fecha=eq.${fecha}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } });
     if (!Array.isArray(del) || !del.length) return { ok: false, motivo: 'no_hay' };

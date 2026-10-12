@@ -414,6 +414,44 @@ await caso('añadir rutina: ni en un día con rutina, ni en semanas que ya pasar
   igual((sb.db.rutina_extras || []).length, 0, 'no se guardó nada');
 });
 
+await caso('lo que el coach cambió UN solo día: la app lo muestra como su plan', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  const X = mas(lunes, 2), J = mas(lunes, 3), V = mas(lunes, 4), S = mas(lunes, 5);
+  // El coach: pasó el Push de este jueves al miércoles, quitó la fuerza de
+  // este viernes y le puso Lower el sábado.
+  sb.db.rutina_movimientos = [{ id: 'm1', cliente_id: 'c1', fase_id: 'f1', rutina_id: 'r1', desde: J, hasta: X, origen: 'coach', created_at: '2026-09-28T10:00:00Z' }];
+  sb.db.rutina_dias_quitados = [{ id: 'q1', cliente_id: 'c1', fase_id: 'f1', fecha: V, created_at: '2026-09-28T10:01:00Z' }];
+  sb.db.rutina_extras = [{ id: 'x1', cliente_id: 'c1', fase_id: 'f1', rutina_id: 'r2', fecha: S, origen: 'coach' }];
+  const dias = await mesDe([X, J, V, S, mas(lunes, 11)]);
+  igual([dias[J].rutina, dias[X].rutina && dias[X].rutina.nombre, dias[X].movida], [null, 'Push', false], 'el Push al miércoles, sin «la moviste»');
+  igual(dias[V].rutina, null, 'este viernes sin fuerza');
+  igual(dias[mas(lunes, 11)].rutina && dias[mas(lunes, 11)].rutina.nombre, 'Lower', 'el viernes siguiente sigue con Lower');
+  igual([dias[S].rutina && dias[S].rutina.nombre, dias[S].extra, dias[S].fija], ['Lower', false, true], 'el sábado del coach: su plan, fijo');
+  igual((await llamar(handler, { accion: 'quitar_rutina', name: yo, fecha: S })).motivo, 'no_hay', 'el cliente no quita lo que puso el coach');
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: S, hasta: mas(lunes, 6) })).motivo, 'es_extra', 'ni lo arrastra');
+  igual((await llamar(handler, { accion: 'agregar_rutina', name: yo, fecha: V, rutina_id: 'r1' })).ok, true, 'el viernes quitado queda libre para añadir');
+  const p = await llamar(handler, { accion: 'plan', name: yo });
+  igual([p.dias.find(d => d.fecha === X).rutina && p.dias.find(d => d.fecha === X).rutina.nombre, p.dias.find(d => d.fecha === S).fija], ['Push', true], 'Hoy dice lo mismo');
+  // Después de que el coach quitara el viernes, el cliente mueve otro día
+  // ahí: vale lo último que pasó.
+  sb.db.rutina_extras = sb.db.rutina_extras.filter(x => x.fecha !== V);
+  igual((await llamar(handler, { accion: 'mover', name: yo, desde: lunes, hasta: V })).ok, true, 'mueve el Push del lunes al viernes');
+  const d2 = await mesDe([V]);
+  igual([d2[V].rutina && d2[V].rutina.nombre, d2[V].movida], ['Push', true], 'y el viernes queda con su Push movido');
+});
+
+await caso('sin la migración nueva (sin `origen` en rutina_extras ni rutina_dias_quitados) todo sigue como antes', async () => {
+  const sb = crearSupabaseFalso({
+    columnas: { rutina_extras: ['id', 'cliente_id', 'fase_id', 'rutina_id', 'fecha', 'created_at'] },
+    tablas: { ...base().db, rutina_extras: [{ id: 'x1', cliente_id: 'c1', fase_id: 'f1', rutina_id: 'r1', fecha: mas(lunes, 5) }] },
+  });
+  delete sb.db.rutina_dias_quitados;
+  globalThis.fetch = sb.fetch;
+  const d = (await mesDe([mas(lunes, 5)]))[mas(lunes, 5)];
+  igual([d.rutina && d.rutina.nombre, d.extra, d.fija], ['Push', true, false], 'la que añadió el cliente sigue siendo suya');
+  igual((await llamar(handler, { accion: 'quitar_rutina', name: yo, fecha: mas(lunes, 5) })).ok, true, 'y la puede quitar');
+});
+
 await caso('añadir rutina: en la semana que viene sí', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   const r = await llamar(handler, { accion: 'agregar_rutina', name: yo, fecha: mas(lunes, 12), rutina_id: 'r1' });

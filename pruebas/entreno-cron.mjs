@@ -113,6 +113,14 @@ await caso('qué toca hoy: la rutina si no la hizo, y la medición', async () =>
   igual(a.get('ya entreno'), { rutina: null, medicion: false, registros: [], entrenoHoy: true }, 'la hizo hoy: no se insiste');
 });
 
+await caso('qué toca hoy: si el coach quitó la fuerza de HOY (solo hoy), no se le anuncia', async () => {
+  const db = base();
+  db.db.rutina_dias_quitados = [{ id: 'q1', cliente_id: 'c1', fase_id: 'f-c1', fecha: hoy, created_at: '2026-01-01T00:00:00Z' }];
+  const a = await agendaDeHoy(sbDe(db), hoy);
+  igual(a.get('mauro moron').rutina, null, 'Mauro: hoy sin fuerza');
+  igual(a.get('otra persona').rutina, 'Push', 'a los demás sí');
+});
+
 await caso('peso y fotos el mismo día: el aviso dice las dos cosas', async () => {
   const db = base();
   db.db.eventos.push(
