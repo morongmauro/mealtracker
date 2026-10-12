@@ -44,7 +44,7 @@ import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
   diasDeRutina, repartirPorDia, FASE_VISIBLE, rutinaVisible, finDeFase,
-  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, extrasDe, quitadosDe, nombreCorto, TIPOS_REGISTRO, nombreFase, objetivoCliente,
+  expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, extrasDe, quitadosDe, buscarClientePorNombre, nombreCorto, TIPOS_REGISTRO, nombreFase, objetivoCliente,
 } from './_entreno.js';
 import { alertarCoach } from './_alerta.js';
 import { whatsappCoach, textoNotaWhatsapp } from './_whatsapp.js';
@@ -64,12 +64,12 @@ const sb = async (path, opts = {}) => {
 };
 
 // El cliente, por nombre. Es la única puerta: todo lo demás se acota a su id.
+// También por sus nombres alternos: si en la app se llama distinto que en el
+// CRM, igual se le encuentra.
 async function buscarCliente(nombre) {
-  const buscado = normalizeName(nombre);
-  if (!buscado) return null;
-  const cl = await sb('clientes?select=id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno,dia_pago')
-    .catch(() => sb('clientes?select=id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno'));
-  return (Array.isArray(cl) ? cl : []).find(c => normalizeName(c.nombre) === buscado) || null;
+  return buscarClientePorNombre(sb, nombre,
+    'id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno,dia_pago',
+    'id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno');
 }
 
 // Lo que se le manda al cliente de un ejercicio. Lista blanca a propósito:

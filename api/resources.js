@@ -6,16 +6,25 @@
 //
 // POST { name } → { url, training }
 //   url      = '' si el cliente no tiene centro de recursos
-//   training = true solo si el cliente está en la prueba del módulo de
-//              entrenamiento (ver TRAINING_BETA en _clients.js). Se decide
-//              AQUÍ, en el servidor: así el JS público que descarga
-//              cualquiera no lleva la lista de quién está en la prueba.
+//   training = true si el cliente tiene un ciclo ENVIADO en el CRM (o está
+//              en TRAINING_BETA de _clients.js). Se decide AQUÍ, en el
+//              servidor.
 
 import { guard } from './_guard.js';
+import { tienePlanVisible } from './_entreno.js';
 import {
   CLIENT_RESOURCES, DEFAULT_RESOURCES_URL,
   TRAINING_BETA, TRAINING_PARA_TODOS,
 } from './_clients.js';
+
+const CRM_URL = process.env.CRM_SUPABASE_URL;
+const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
+const sbCrm = async (path) => {
+  const r = await fetch(`${CRM_URL}/rest/v1/${path}`, { headers: { apikey: CRM_KEY, Authorization: `Bearer ${CRM_KEY}` } });
+  if (!r.ok) throw new Error(`crm ${r.status}`);
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+};
 
 const normalizeName = (str) => String(str || '')
   .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -40,9 +49,12 @@ export default async function handler(req, res) {
     url = DEFAULT_RESOURCES_URL;
   }
 
-  // Módulo de entrenamiento: solo para quien esté en la prueba.
-  const training = TRAINING_PARA_TODOS === true
+  // Módulo de entrenamiento: lo ve quien tiene un ciclo ENVIADO en el CRM
+  // (rutinas listas), además de la lista de prueba. Sin ciclo enviado no se
+  // muestra: sería un módulo vacío.
+  let training = TRAINING_PARA_TODOS === true
     || (Array.isArray(TRAINING_BETA) && TRAINING_BETA.some(c => normalizeName(c) === normalized));
+  if (!training && CRM_URL && CRM_KEY && normalized) training = await tienePlanVisible(sbCrm, name);
 
   return res.status(200).json({ url, training });
 }

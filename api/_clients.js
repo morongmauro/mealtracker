@@ -73,7 +73,7 @@ export const CLIENT_RESOURCES = {
 // PARA ABRIRLO A TODOS más adelante: pon TRAINING_PARA_TODOS en true.
 // ─────────────────────────────────────────────────────────────────────────
 
-export const TRAINING_PARA_TODOS = false;
+export const TRAINING_PARA_TODOS = true;
 
 export const TRAINING_BETA = [
   'Mauro Morón',

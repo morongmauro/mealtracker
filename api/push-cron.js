@@ -466,7 +466,7 @@ export default async function handler(req, res) {
         if (s.name) {
           await cargarAgenda();
           const hoyEs = agenda && agenda.get(normalizeName(s.name));
-          const beta = enBetaEntreno(s.name);
+          const beta = enBetaEntreno(s.name) || !!(hoyEs && hoyEs.conPlan);
           if (hoyEs && hoyEs.medicion) {
             payloads.push({ title: 'Tu coach', body: textoRegistro(hoyEs.registros, beta), tag: 'ecm-med' });
           }
@@ -490,10 +490,12 @@ export default async function handler(req, res) {
         // Entreno: solo con el módulo, si hoy tenía rutina en su calendario,
         // no la ha hecho y hoy no entrenó nada.
         let rutina = null;
-        if (s.name && enBetaEntreno(s.name)) {
+        if (s.name) {
           await cargarAgenda();
           const hoyEs = agenda && agenda.get(normalizeName(s.name));
-          if (hoyEs && hoyEs.rutina && !hoyEs.entrenoHoy) rutina = hoyEs.rutina;
+          // Con el módulo: en la prueba o con ciclo enviado (lo mismo que
+          // decide /api/resources).
+          if ((enBetaEntreno(s.name) || (hoyEs && hoyEs.conPlan)) && hoyEs && hoyEs.rutina && !hoyEs.entrenoHoy) rutina = hoyEs.rutina;
         }
         const body = textoCierre({ rutina, comida });
         if (body) payloads.push({ title: 'Tu coach', body, tag: 'ecm-n' });

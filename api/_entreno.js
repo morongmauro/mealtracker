@@ -206,6 +206,34 @@ export const objetivoCliente = (t) => {
 // arma— para que al cliente le apareciera media rutina a medio hacer.
 export const FASE_VISIBLE = 'estado=eq.activa&visible_cliente=is.true';
 
+// El cliente por el nombre con que entra a la app: el del CRM o uno de sus
+// nombres alternos (si en la app se llama distinto que en el CRM, igual se
+// le encuentra). `campos` sin nombres_alternos: se pide aparte y, si la
+// columna no existe, se busca solo por nombre.
+export async function buscarClientePorNombre(sb, nombre, campos = 'id,user_id,nombre,estado', respaldo = null) {
+  const k = normalizeName(nombre);
+  if (!k) return null;
+  const leer = async (c) => { const x = await sb(`clientes?select=${c}`); return Array.isArray(x) ? x : []; };
+  let lista = null;
+  for (const c of [`${campos},nombres_alternos`, campos, respaldo].filter(Boolean)) {
+    try { lista = await leer(c); break; } catch (e) { /* siguiente */ }
+  }
+  lista = lista || [];
+  return lista.find(c => normalizeName(c.nombre) === k)
+    || lista.find(c => (Array.isArray(c.nombres_alternos) ? c.nombres_alternos : []).some(n => normalizeName(n) === k))
+    || null;
+}
+
+// ¿Tiene un ciclo enviado? Es lo que decide si ve el módulo de entreno.
+export async function tienePlanVisible(sb, nombre) {
+  try {
+    const c = await buscarClientePorNombre(sb, nombre);
+    if (!c) return false;
+    const f = await sb(`fases?select=id&cliente_id=eq.${c.id}&${FASE_VISIBLE}&limit=1`);
+    return Array.isArray(f) && f.length > 0;
+  } catch (e) { return false; }
+}
+
 // Una rutina hereda la visibilidad de su fase salvo que diga lo contrario.
 // `false` la esconde dentro de una fase ya enviada (el día que aún estás
 // armando); `true` la muestra aunque la fase no lo esté.
@@ -368,7 +396,8 @@ export async function agendaDeHoy(sb, hoy) {
     const medicion = !!deHoy.length;
     // Qué toca registrar hoy, para que el aviso diga «pesarte» o «tus fotos».
     const registros = [...new Set(deHoy.map(e => e.tipo))];
-    const dato = { rutina, medicion, registros, entrenoHoy };
+    // conPlan: tiene ciclo enviado → usa el módulo de entreno de la app.
+    const dato = { rutina, medicion, registros, entrenoHoy, conPlan: !!fase };
     [c.nombre, ...(Array.isArray(c.nombres_alternos) ? c.nombres_alternos : [])]
       .forEach(n => { const k = normalizeName(n); if (k) out.set(k, dato); });
   }

@@ -108,9 +108,17 @@ await caso('cierra la olvidada con series, borra la vacía y no toca ni la de ay
 await caso('qué toca hoy: la rutina si no la hizo, y la medición', async () => {
   const db = base();
   const a = await agendaDeHoy(sbDe(db), hoy);
-  igual(a.get('mauro moron'), { rutina: 'Push', medicion: false, registros: [], entrenoHoy: false }, 'Mauro');
-  igual(a.get('otra persona'), { rutina: 'Push', medicion: true, registros: ['medicion'], entrenoHoy: false }, 'Otra');
-  igual(a.get('ya entreno'), { rutina: null, medicion: false, registros: [], entrenoHoy: true }, 'la hizo hoy: no se insiste');
+  igual(a.get('mauro moron'), { rutina: 'Push', medicion: false, registros: [], entrenoHoy: false, conPlan: true }, 'Mauro');
+  igual(a.get('otra persona'), { rutina: 'Push', medicion: true, registros: ['medicion'], entrenoHoy: false, conPlan: true }, 'Otra');
+  igual(a.get('ya entreno'), { rutina: null, medicion: false, registros: [], entrenoHoy: true, conPlan: true }, 'la hizo hoy: no se insiste');
+});
+
+await caso('qué toca hoy: sin ciclo enviado no tiene plan (no usa el módulo de entreno)', async () => {
+  const db = base();
+  db.db.fases.find(f => f.id === 'f-c2').visible_cliente = false;
+  const a = await agendaDeHoy(sbDe(db), hoy);
+  igual([a.get('otra persona').conPlan, a.get('otra persona').rutina], [false, null], 'Otra: sin ciclo enviado');
+  igual(a.get('mauro moron').conPlan, true, 'Mauro sí');
 });
 
 await caso('qué toca hoy: si el coach quitó la fuerza de HOY (solo hoy), no se le anuncia', async () => {
@@ -154,7 +162,8 @@ await caso('en la mañana: solo la medición; nada de «registra tu comida» ni 
   igual(de('Mauro').length, 0, 'Mauro no recibe nada en la mañana');
   igual(de('Otra', 'ecm-med').length, 1, 'Otra recibe la medición');
   igual(de('Otra').length, 1, '…y solo eso');
-  if (!/WhatsApp/.test(de('Otra', 'ecm-med')[0].body)) throw new Error('sin la app, la medición debe pedir el pantallazo por WhatsApp');
+  // Otra tiene ciclo enviado: usa el módulo de entreno, así que se marca en la app.
+  if (!/app/.test(de('Otra', 'ecm-med')[0].body)) throw new Error('con ciclo enviado, la medición se marca en la app: ' + de('Otra', 'ecm-med')[0].body);
   igual(de('Ya').length, 0, 'Ya no recibe nada');
   igual(json.olvidadas, { cerradas: 1, borradas: 1 }, 'el cron también cerró las olvidadas');
 });
@@ -205,8 +214,20 @@ await caso('cierre del día: entreno pendiente y comida sin registrar van en UN 
   igual(m.length, 1, 'un solo mensaje a Mauro');
   if (m[0].tag !== 'ecm-n' || !/Push/.test(m[0].body) || !/comi/.test(m[0].body)) throw new Error('mensaje: ' + m[0].body);
   const o = enviados.filter(e => e.a === 'Otra');
-  igual(o.length, 1, 'Otra (sin el módulo de entreno) recibe solo lo de comida');
-  if (/Push/.test(o[0].body)) throw new Error('a Otra no se le habla de entreno: ' + o[0].body);
+  igual(o.length, 1, 'Otra recibe un solo mensaje');
+  // Tiene ciclo enviado (no está en la lista de prueba): también se le recuerda el entreno.
+  if (!/Push/.test(o[0].body)) throw new Error('con ciclo enviado, a Otra también se le recuerda el entreno: ' + o[0].body);
+});
+
+await caso('cierre del día: sin ciclo enviado, no se habla de entreno', async () => {
+  const db = baseNoche();
+  db.db.fases.find(f => f.id === 'f-c2').visible_cliente = false;
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  await correr();
+  const o = enviados.filter(e => e.a === 'Otra');
+  igual(o.length, 1, 'Otra recibe solo lo de comida');
+  if (/Push/.test(o[0].body)) throw new Error('sin ciclo enviado no se le habla de entreno: ' + o[0].body);
 });
 
 await caso('cierre del día: con la meta cumplida solo se recuerda el entreno', async () => {
