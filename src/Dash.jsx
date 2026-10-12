@@ -442,7 +442,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
 
       {/* Recordatorios a la vista: los dos primeros, y «Ver todos». La
           campanita sigue; esto es una ayudita para quien no va a buscarla. */}
-      <RecordatoriosLinea name={name} hoy={hoy} aprende={aprende} medidas={ent?.medidas} cargandoMedidas={entrenoOn && !ent && !falloEnt}
+      <RecordatoriosLinea name={name} hoy={hoy} aprende={aprende} medidas={ent?.medidas} cierre={ent?.cierre} cargandoMedidas={entrenoOn && !ent && !falloEnt}
         coach={acciones.recordatoriosCoach || []} alMarcarCoach={acciones.marcarRecordatorio}
         alPrograma={acciones.programa} alMedir={() => setMidiendo(true)} alAbrir={acciones.abrirAprendizaje} />
 
@@ -1048,7 +1048,7 @@ function Cuerpo({ medidas, cargando, alMedir }) {
 // El círculo de la izquierda marca como hecho (los del coach y el del
 // mes); tocar la línea lleva a donde se hace.
 const CLAVE_MES = (ym) => `mt:medidaMes:${ym}`;
-function RecordatoriosLinea({ name, hoy, aprende, medidas, cargandoMedidas, coach, alMarcarCoach, alPrograma, alMedir, alAbrir }) {
+function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargandoMedidas, coach, alMarcarCoach, alPrograma, alMedir, alAbrir }) {
   const [todos, setTodos] = useState(false);
   const [mesHecho, setMesHecho] = useState(() => { try { return localStorage.getItem(CLAVE_MES(hoy.slice(0, 7))) === '1'; } catch (e) { return false; } });
   const ym = hoy.slice(0, 7);
@@ -1058,9 +1058,13 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cargandoMedidas, coac
   const hub = bloque('hub');
   const programaVisto = (hub && hub.piezas.some(p => p.id === 'programa' && p.vista)) || marcadaLocal(name, 'hub', 'programa');
   if (aprende !== undefined && !programaVisto) items.push({ id: 'programa', texto: 'Lee «Sobre el programa»: cómo funciona tu proceso', ir: alPrograma, Icono: BookOpenText, color: '#C95F17' });
+  // Fin de ciclo: composición corporal y fotos. Va primero y se queda hasta
+  // que registre su composición (no se puede descartar con el circulito).
+  const cierrePendiente = !!(cierre && !cierre.composicion);
+  if (cierrePendiente) items.push({ id: 'cierre', texto: `Fin de ciclo: actualiza tu composición corporal${cierre.fotos ? '' : ' y tus fotos'}`, ir: alMedir, Icono: Heartbeat, color: AMBAR });
   // Peso y composición del mes.
   const medidaMes = (medidas || []).some(m => String(m.fecha || '').slice(0, 7) === ym);
-  if (!cargandoMedidas && medidas && !medidaMes && !mesHecho) items.push({ id: 'medida', texto: 'Registra tu peso y composición de este mes', ir: alMedir, marcar: () => {
+  if (!cierrePendiente && !cargandoMedidas && medidas && !medidaMes && !mesHecho) items.push({ id: 'medida', texto: 'Registra tu peso y composición de este mes', ir: alMedir, marcar: () => {
     try { localStorage.setItem(CLAVE_MES(ym), '1'); } catch (e) { /* sin almacenamiento */ }
     setMesHecho(true);
   }, Icono: Heartbeat, color: AMBAR });

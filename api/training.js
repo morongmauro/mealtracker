@@ -1748,6 +1748,7 @@ async function verDash(cliente, hoy) {
 
   const listaFases = Array.isArray(fases) ? fases : [];
   const faseHoy = listaFases.find(x => x.fecha_inicio && x.fecha_inicio <= hoy && finDeFase(x) >= hoy) || null;
+  const cierre = await cierreDeCiclo(cliente, listaFases, Array.isArray(medidas) ? medidas : [], hoy);
   // Los bloques complementarios (un recovery diario) no cuentan como días de
   // fuerza: si no, el «3 de 3» se volvería «10 de 3».
   let bloques = new Set();
@@ -1755,14 +1756,45 @@ async function verDash(cliente, hoy) {
     const bq = await sb(`rutinas?select=id&cliente_id=eq.${cliente.id}&complementaria=is.true`);
     bloques = new Set((Array.isArray(bq) ? bq : []).map(r => r.id));
   } catch (e) { /* sin la columna, ninguno lo es */ }
-  return armarDash({
+  return { cierre, ...armarDash({
     hoy, fases: listaFases, sesiones: sesiones.map(x => (bloques.has(x.rutina_id) ? { ...x, bloque: true } : x)), series, nombres, alias,
     actividades: Array.isArray(actividades) ? actividades : [],
     medidas: Array.isArray(medidas) ? medidas : [],
     eventosSemana: expandirEventos(Array.isArray(eventos) ? eventos : [], faseHoy),
     registros: Array.isArray(registros) ? registros : [],
     categorias: Object.fromEntries((Array.isArray(catalogo) ? catalogo : []).map(c => [c.slug, c.categoria])),
-  });
+  }) };
+}
+
+// ── Fin de ciclo: composición corporal y fotos ────────────────────────────
+// El primer día de la última semana de cada ciclo le toca actualizar su
+// composición y su registro fotográfico (los pone el sistema en su
+// calendario: carga/migracion-cierre-ciclo.sql). Desde ese día, el
+// recordatorio del Dash queda activo HASTA QUE REGISTRE su composición (o
+// hasta 4 semanas después, si ya empezó otro ciclo y nunca lo hizo).
+export function fechaCierreCiclo(f) {
+  if (!f || !f.fecha_inicio || !(Number(f.semanas) >= 1)) return null;
+  return sumarDiasISO(String(f.fecha_inicio).slice(0, 10), (Number(f.semanas) - 1) * 7);
+}
+async function cierreDeCiclo(cliente, fases, medidas, hoy) {
+  const fechas = fases.map(fechaCierreCiclo).filter(f => f && f <= hoy && f >= sumarDiasISO(hoy, -27)).sort();
+  const fecha = fechas[fechas.length - 1];
+  if (!fecha) return null;
+  let registros = [];
+  try {
+    const evs = await sb(`eventos?select=id,auto&cliente_id=eq.${cliente.id}&auto=in.(cierre_composicion,cierre_fotos)&fecha=eq.${fecha}`);
+    const ids = (Array.isArray(evs) ? evs : []).map(e => e.id);
+    if (ids.length) {
+      const r = await sb(`evento_registros?select=evento_id,estado&evento_id=in.(${ids.join(',')})&estado=eq.hecho`);
+      const hechos = new Set((Array.isArray(r) ? r : []).map(x => x.evento_id));
+      registros = (Array.isArray(evs) ? evs : []).filter(e => hechos.has(e.id)).map(e => e.auto);
+    }
+  } catch (e) { registros = []; }
+  return {
+    fecha,
+    composicion: registros.includes('cierre_composicion') || medidas.some(m => String(m.fecha || '').slice(0, 10) >= fecha),
+    fotos: registros.includes('cierre_fotos'),
+  };
 }
 
 // ── COMUNIDAD ─────────────────────────────────────────────────────────────
