@@ -35,6 +35,7 @@ export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}
       case 'lte': return s != null && s <= arg;
       case 'lt': return s != null && s < arg;
       case 'gt': return s != null && s > arg;
+      case 'not': return !cumple(fila, col, arg);
       default: throw new Error('op no soportada: ' + op);
     }
   };

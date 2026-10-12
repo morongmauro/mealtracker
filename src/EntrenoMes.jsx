@@ -31,7 +31,7 @@ import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag,
 import Respira from './Respira.jsx';
 import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
-import Actividad, { ChipActividad } from './EntrenoActividad.jsx';
+import Actividad, { ChipActividad, TarjetaCardioCoach } from './EntrenoActividad.jsx';
 import { IconoEvento, REGISTRO } from './iconosEntreno.jsx';
 import { v2Activa } from './v2.js';
 import { SECCION } from './theme.js';
@@ -584,7 +584,11 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
         <>
           <Rot>Lo que te puso tu coach</Rot>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {dia.eventos.filter(e => !e.registra).map(ev => (
+            {/* Cardio y deportes: con su «Ya lo hice». */}
+            {dia.eventos.filter(e => e.tipo === 'actividad').map(ev => (
+              <TarjetaCardioCoach key={ev.id} ev={ev} fecha={dia.fecha} nombre={nombre} alCambio={alCambio} />
+            ))}
+            {dia.eventos.filter(e => !e.registra && e.tipo !== 'actividad').map(ev => (
               <div key={ev.id} style={{
                 border: `1px dashed ${BORDER}`, borderRadius: 12, padding: '9px 12px', fontSize: t.cuerpo,
                 display: 'flex', gap: 8, alignItems: 'flex-start',
@@ -1341,7 +1345,10 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
           <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 alCambio={alCambio} />
         ))}
 
-        {otros.map(ev => (
+        {otros.filter(ev => ev.tipo === 'actividad').map(ev => (
+          <TarjetaCardioCoach key={ev.id} ev={ev} fecha={hoy} nombre={nombre} alCambio={alCambio} />
+        ))}
+        {otros.filter(ev => ev.tipo !== 'actividad').map(ev => (
           <div key={ev.id} style={{ ...cajaDia, fontSize: 14.5 }}>
             <IconoEvento tipo={ev.tipo} size={18} />
             <span><b style={{ color: TEXT }}>{ev.hora ? `${String(ev.hora).slice(0, 5)} · ` : ''}{ev.titulo}</b>{ev.detalle ? ` · ${ev.detalle}` : ''} <span style={{ color: TEXT_LIGHT }}>· de tu coach</span></span>

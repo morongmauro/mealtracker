@@ -39,7 +39,7 @@
 // Fail-safe: ante cualquier problema devuelve { ok:false } y la app muestra
 // su estado vacío. Nunca rompe la pantalla.
 
-import { actividadExtra, bonoExtra } from './_actividad.js';
+import { actividadExtra, bonoExtra, slugDeEvento, esDespuesDeEntrenar } from './_actividad.js';
 import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
@@ -303,11 +303,15 @@ async function verRutina(cliente, rutinaId, hoy) {
   // el peso sugerido era el de hoy, no el de la semana pasada.
   const deHoy = await sb(`sesiones?select=id&cliente_id=eq.${cliente.id}`
     + `&rutina_id=eq.${rutina.id}&fecha=eq.${hoy}&limit=1`);
-  const ultimas = await ultimasSeries(cliente.id, [...new Set(lista.map(x => x.ejercicio_id))],
-    { excluirSesion: Array.isArray(deHoy) && deHoy[0] ? deHoy[0].id : null });
+  const [ultimas, cardio] = await Promise.all([
+    ultimasSeries(cliente.id, [...new Set(lista.map(x => x.ejercicio_id))],
+      { excluirSesion: Array.isArray(deHoy) && deHoy[0] ? deHoy[0].id : null }),
+    // El cardio que le dejaste para después de la fuerza hoy.
+    cardioDespues(cliente, hoy).catch(() => []),
+  ]);
 
   return {
-    ok: true, hoy,
+    ok: true, hoy, cardio,
     rutina: {
       ...limpiarRutina(rutina),
       bloques: (Array.isArray(bloques) ? bloques : []).map(b => ({
@@ -815,13 +819,15 @@ async function verMes(cliente, ym, hoy) {
 
   // Las tres cosas que pasaron, en paralelo: tres viajes encadenados por un
   // mes se notan en el teléfono.
-  const [ses, act, evs, regs] = await Promise.all([
+  const [ses, act, evs, regs, catalogo, hechoAct] = await Promise.all([
     sb(`sesiones?select=id,rutina_id,fecha,estado,rpe,duracion_seg`
       + `&cliente_id=eq.${cliente.id}&fecha=gte.${primero}&fecha=lte.${ultimo}`),
     sb(`actividades?select=id,fecha,tipo,titulo,duracion_min,distancia_km,intensidad`
       + `&cliente_id=eq.${cliente.id}&fecha=gte.${primero}&fecha=lte.${ultimo}`).catch(() => []),
     eventosDelCliente(cliente.id),
     sb(`evento_registros?select=evento_id,fecha,estado,valor&cliente_id=eq.${cliente.id}&fecha=gte.${primero}&fecha=lte.${ultimo}`).catch(() => []),
+    catalogoActividades(),
+    actividadesDeEventos(cliente.id, primero, ultimo),
   ]);
   const hechoDe = {};
   (Array.isArray(regs) ? regs : []).forEach(r => { hechoDe[`${r.evento_id}:${r.fecha}`] = r; });
@@ -874,11 +880,9 @@ async function verMes(cliente, ym, hoy) {
       fin_ciclo: !!fase?.fecha_inicio && !!fase?.semanas && fecha === finDeFase(fase),
       corte_pago: fecha === corte,
       actividades: actividades.filter(a => a.fecha === fecha),
-      // Medición, peso y fotos llevan si ya lo marcó (y el peso que puso).
-      eventos: (eventosPorFecha[fecha] || []).map(ev => {
-        const r = hechoDe[`${ev.id}:${fecha}`];
-        return { ...ev, registra: TIPOS_REGISTRO.includes(ev.tipo), hecho: !!(r && r.estado === 'hecho'), valor: r ? r.valor : null };
-      }),
+      // Medición, peso y fotos llevan si ya lo marcó (y el peso que puso);
+      // el cardio y los deportes, si ya los marcó con «Ya lo hice».
+      eventos: (eventosPorFecha[fecha] || []).map(ev => eventoParaApp(ev, fecha, catalogo, hechoDe, hechoAct)),
     });
   }
 
@@ -1085,10 +1089,64 @@ async function quitarRutina(cliente, cuerpo, hoy) {
 // calendario: se devuelve vacío.
 async function eventosDelCliente(clienteId) {
   try {
-    const e = await sb(`eventos?select=id,fase_id,tipo,titulo,detalle,hora,fecha,dias_semana,semanas,visible_cliente`
-      + `&cliente_id=eq.${clienteId}`);
+    const e = await sb(`eventos?select=id,fase_id,tipo,titulo,detalle,hora,duracion_min,fecha,dias_semana,semanas,visible_cliente`
+      + `&cliente_id=eq.${clienteId}`)
+      .catch(() => sb(`eventos?select=id,fase_id,tipo,titulo,detalle,hora,fecha,dias_semana,semanas,visible_cliente`
+        + `&cliente_id=eq.${clienteId}`));
     return Array.isArray(e) ? e : [];
   } catch (err) { return []; }
+}
+
+// El catálogo de actividades (slug, nombre, remate): no cambia entre
+// llamadas, así que se guarda un rato en memoria.
+let _catalogo = null, _catalogoEn = 0;
+async function catalogoActividades() {
+  if (_catalogo && Date.now() - _catalogoEn < 10 * 60 * 1000) return _catalogo;
+  try {
+    const c = await sb('actividades_catalogo?select=slug,nombre,categoria,remate&activo=is.true');
+    // Solo se guarda si trajo algo: sin la tabla (o vacía) se vuelve a pedir.
+    if (Array.isArray(c) && c.length) { _catalogo = c; _catalogoEn = Date.now(); return c; }
+    return _catalogo || [];
+  } catch (e) { return _catalogo || []; }
+}
+
+// Lo que marcó de cada evento de actividad: { 'evento:fecha': actividad }.
+// La columna evento_id llegó con una migración; sin ella, no hay marcas.
+async function actividadesDeEventos(clienteId, desde, hasta) {
+  const a = await sb(`actividades?select=id,fecha,tipo,evento_id,duracion_min&cliente_id=eq.${clienteId}`
+    + `&fecha=gte.${desde}&fecha=lte.${hasta}&evento_id=not.is.null`).catch(() => []);
+  const out = {};
+  (Array.isArray(a) ? a : []).forEach(x => { if (x.evento_id) out[`${x.evento_id}:${x.fecha}`] = x; });
+  return out;
+}
+
+// Un evento del coach, listo para la app: si es actividad, de cuál del
+// catálogo es, si va después de entrenar y si ya lo hizo.
+function eventoParaApp(ev, fecha, catalogo, hechoReg, hechoAct) {
+  const r = hechoReg[`${ev.id}:${fecha}`];
+  if (ev.tipo !== 'actividad') {
+    return { ...ev, registra: TIPOS_REGISTRO.includes(ev.tipo), hecho: !!(r && r.estado === 'hecho'), valor: r ? r.valor : null };
+  }
+  const act = hechoAct[`${ev.id}:${fecha}`];
+  return {
+    ...ev, registra: false, valor: null,
+    slug: slugDeEvento(ev.titulo, catalogo), despues: esDespuesDeEntrenar(ev, catalogo),
+    hecho: !!act, actividad_id: act ? act.id : null,
+  };
+}
+
+// El cardio que el coach le dejó para DESPUÉS de la fuerza ese día: se le
+// pide dentro de la rutina, antes del estiramiento.
+async function cardioDespues(cliente, fecha) {
+  const fases = await sb(`fases?select=id,nombre,semanas,fecha_inicio,visible_cliente`
+    + `&cliente_id=eq.${cliente.id}&${FASE_VISIBLE}&order=orden.desc&limit=1`).catch(() => []);
+  const fase = Array.isArray(fases) ? fases[0] : null;
+  const [evs, catalogo, hechoAct] = await Promise.all([
+    eventosDelCliente(cliente.id), catalogoActividades(), actividadesDeEventos(cliente.id, fecha, fecha),
+  ]);
+  return (expandirEventos(evs, fase)[fecha] || [])
+    .map(ev => eventoParaApp(ev, fecha, catalogo, {}, hechoAct))
+    .filter(ev => ev.tipo === 'actividad' && ev.despues);
 }
 
 // ══════════════════════════════════════════════════════════════════════════

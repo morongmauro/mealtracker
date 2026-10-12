@@ -118,10 +118,19 @@ function base() {
         musculos_secundarios: id === 'e2' ? ['isquiotibiales', 'aductores', 'erectores'] : [] })),
       sesiones, series_log,
       actividades: [{ id: 'a1', cliente_id: 'c1', user_id: 'coach', fecha: hace(0), tipo: 'cinta', duracion_min: 25 }],
-      actividades_catalogo: [], notas_entreno: [],
+      actividades_catalogo: [
+        { slug: 'cinta', nombre: 'Caminadora', categoria: 'cardio', icono: '🏃', remate: true, pide_distancia: true, orden: 10, activo: true },
+        { slug: 'eliptica', nombre: 'Elíptica', categoria: 'cardio', icono: '🌀', remate: true, pide_distancia: false, orden: 20, activo: true },
+        { slug: 'running', nombre: 'Running en calle', categoria: 'cardio', icono: '👟', remate: false, pide_distancia: true, orden: 60, activo: true },
+        { slug: 'caminata', nombre: 'Caminata', categoria: 'cardio', icono: '🚶', remate: false, pide_distancia: true, orden: 70, activo: true },
+        { slug: 'natacion', nombre: 'Natación', categoria: 'deporte', icono: '🏊', remate: false, pide_distancia: true, orden: 100, activo: true },
+        { slug: 'otro', nombre: 'Otra actividad', categoria: 'otro', icono: '✨', remate: false, pide_distancia: false, orden: 900, activo: true },
+      ], notas_entreno: [],
       // Lo que el coach puso para registrar: peso y fotos hoy, medición el miércoles.
       eventos: [
         { id: 'evp', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse en ayunas', fecha: hoy, visible_cliente: true },
+        // El cardio de después de entrenar que el coach le dejó hoy.
+        { id: 'evc', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Caminadora con inclinación después de entrenar', detalle: 'Inclinación 8-10', duracion_min: 15, fecha: hoy, visible_cliente: true },
         { id: 'evf', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Fotos de progreso', detalle: 'Frente, perfil y espalda', fecha: hoy, visible_cliente: true },
         { id: 'evm', cliente_id: 'c1', fase_id: null, tipo: 'medidas', titulo: 'Medición corporal', fecha: sumarDiasISO(hoy, 3), visible_cliente: true },
         { id: 'evf2', cliente_id: 'c2', fase_id: null, tipo: 'fotos', titulo: 'Fotos de progreso', fecha: hoy, visible_cliente: true },
@@ -650,6 +659,30 @@ try {
   ok('la rutina se parte en calentamiento, fuerza y enfriamiento',
     (await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()) === 1 && (await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()) === 1,
     `${await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()} / ${await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()} / ${await p.getByText('Enfriamiento').count()}`);
+  // El cardio de después de entrenar: terminada la fuerza y ANTES del estiramiento.
+  const cardioEn = await p.evaluate(() => {
+    const c = document.querySelector('[data-cardio-coach="evc"]'), sep = document.querySelector('[data-momento="enfriamiento"]');
+    if (!c || !sep) return { c: !!c, sep: !!sep };
+    const ejs = [...document.querySelectorAll('[data-view="entrena"] [data-ejercicio]')];
+    const despuesDelSep = !!(sep.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const antesDelEstiramiento = ejs.filter(e => sep.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING).every(e => c.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const fuerzaAntes = ejs.filter(e => e.compareDocumentPosition(sep) & Node.DOCUMENT_POSITION_FOLLOWING).length;
+    return { despuesDelSep, antesDelEstiramiento, fuerzaAntes, texto: c.innerText };
+  });
+  ok('rutina: el cardio del coach va al terminar la fuerza, antes del estiramiento', cardioEn.despuesDelSep && cardioEn.antesDelEstiramiento && cardioEn.fuerzaAntes > 0
+    && /antes de estirar/i.test(cardioEn.texto) && /Caminadora con inclinación/.test(cardioEn.texto) && /15 min/.test(cardioEn.texto), JSON.stringify(cardioEn));
+  await p.locator('[data-cardio-coach="evc"]').scrollIntoViewIfNeeded();
+  await foto(p, '04k-rutina-cardio-coach');
+  await p.locator('[data-cardio-coach="evc"] [data-ya-lo-hice]').click();
+  const hojaCardio = p.getByRole('dialog', { name: 'Caminadora con inclinación después de entrenar' });
+  await hojaCardio.waitFor({ timeout: 3000 });
+  ok('«Ya lo hice» abre la hoja con lo del coach, Caminadora elegida y sus 15 minutos', (await hojaCardio.locator('[data-nota-coach]').count()) === 1
+    && (await hojaCardio.locator('input[inputmode="numeric"]').inputValue()) === '15');
+  await hojaCardio.getByRole('button', { name: 'Guardar' }).click();
+  await espera(600);
+  const actCardio = db.db.actividades.find(a => a.evento_id === 'evc');
+  ok('…queda guardado ligado a lo que puso el coach y la tarjeta dice «Hecho»', !!actCardio && actCardio.tipo === 'cinta' && Number(actCardio.duracion_min) === 15
+    && (await p.locator('[data-cardio-coach="evc"][data-hecho="si"]').count()) === 1, JSON.stringify(actCardio));
   ok('el calentamiento no pide kilos', await p.evaluate(() => {
     const t = [...document.querySelectorAll('[data-view="entrena"] div')].find(d => d.textContent === 'SuperBand Dislocates');
     let el = t; while (el && getComputedStyle(el).backgroundColor !== 'rgb(250, 249, 246)') el = el.parentElement;
@@ -1299,7 +1332,12 @@ try {
   })());
   await fin.getByRole('button', { name: 'Seguir' }).click();
   await espera(600);
-  ok('fin: «Seguir» vuelve a Hoy', (await fin.count()) === 0 && await n.p.locator('[data-cabecera-hoy="entreno"]').isVisible());
+  // No marcó el cardio que le dejó el coach: se le recuerda una vez.
+  const recuerdo = n.p.getByRole('dialog', { name: '¿Hiciste tu cardio?' });
+  ok('fin: si no marcó el cardio del coach, se le recuerda una vez', (await recuerdo.count()) === 1 && /Caminadora con inclinación/.test(await recuerdo.innerText()));
+  await n.p.keyboard.press('Escape');
+  await espera(500);
+  ok('fin: «Seguir» vuelve a Hoy', (await fin.count()) === 0 && (await recuerdo.count()) === 0 && await n.p.locator('[data-cabecera-hoy="entreno"]').isVisible());
   ok('fin: la cabecera ya dice que entrenó hoy… o lo que sigue', (await n.p.locator('[data-cabecera-hoy="entreno"] [data-frase]').innerText()).length > 5);
   ok('sin errores de JavaScript (375 y fin de entreno)', n.errores.length === 0, n.errores.join(' | '));
   await n.ctx.close();

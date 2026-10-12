@@ -49,3 +49,34 @@ export function bonoExtra(detalle) {
   const bruto = Object.entries(detalle).reduce((n, [t, v]) => n + (Number(v) || 0) * (PUNTOS[t] || 0), 0);
   return Math.min(TOPE, bruto);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// LO QUE EL COACH LE PONE EN EL CALENDARIO (eventos de tipo «actividad»)
+//
+// El coach elige del mismo catálogo que usa el cliente y el título empieza
+// con ese nombre («Caminadora con inclinación», «Caminata larga»). Aquí se
+// saca de qué actividad del catálogo es (la misma regla que el CRM,
+// eventos.js → evtSlugDe) y si es de las de DESPUÉS DE ENTRENAR: esas se le
+// piden dentro de la rutina, al terminar la fuerza y antes del estiramiento.
+// ─────────────────────────────────────────────────────────────────────────
+const normTxt = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+export function slugDeEvento(titulo, catalogo = []) {
+  const t = normTxt(titulo);
+  if (!t) return null;
+  const hit = (catalogo || []).filter(a => a && a.slug !== 'otro' && a.nombre && t.includes(normTxt(a.nombre)))
+    .sort((a, b) => b.nombre.length - a.nombre.length)[0];
+  return hit ? hit.slug : null;
+}
+
+const DESPUES = /despues de (entrenar|la rutina|la fuerza|las pesas)|al terminar|post ?entreno/;
+
+// ¿Se hace al terminar la fuerza? Lo dice el título (o el detalle), o que la
+// actividad sea de las de remate del catálogo (caminadora, elíptica…).
+export function esDespuesDeEntrenar(ev, catalogo = []) {
+  if (!ev || ev.tipo !== 'actividad') return false;
+  if (DESPUES.test(normTxt(`${ev.titulo || ''} ${ev.detalle || ''}`))) return true;
+  const slug = slugDeEvento(ev.titulo, catalogo);
+  const a = (catalogo || []).find(x => x.slug === slug);
+  return !!(a && a.remate);
+}

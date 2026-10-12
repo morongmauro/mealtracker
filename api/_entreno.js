@@ -194,7 +194,7 @@ export function expandirEventos(eventos, fase) {
   (eventos || []).forEach(ev => {
     const visible = ev.visible_cliente == null ? !!fase?.visible_cliente : !!ev.visible_cliente;
     if (!visible) return;
-    const meta = { id: ev.id, tipo: ev.tipo, titulo: ev.titulo, detalle: ev.detalle, hora: ev.hora };
+    const meta = { id: ev.id, tipo: ev.tipo, titulo: ev.titulo, detalle: ev.detalle, hora: ev.hora, duracion_min: ev.duracion_min ?? null };
     if (ev.fecha) { (out[String(ev.fecha).slice(0, 10)] ||= []).push(meta); return; }
     if (!fase?.fecha_inicio || !fase?.semanas || ev.fase_id !== fase.id) return;
     for (let semana = 1; semana <= fase.semanas; semana++) {

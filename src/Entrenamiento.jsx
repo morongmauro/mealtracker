@@ -3,7 +3,7 @@ import EntrenoMes, { HoySemana, precargarMeses, AvisoFlotante, ACTUALIZANDO } fr
 import EntrenoRutinas from './EntrenoRutinas.jsx';
 import EntrenoResumen from './EntrenoResumen.jsx';
 import EntrenoFotos from './EntrenoFotos.jsx';
-import EntrenoActividad, { ChipActividad } from './EntrenoActividad.jsx';
+import EntrenoActividad, { ChipActividad, TarjetaCardioCoach } from './EntrenoActividad.jsx';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
@@ -593,6 +593,11 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const [cerrandoHoja, setCerrandoHoja] = useState(false);
   const [errorCierre, setErrorCierre] = useState(null);
   const [remate, setRemate] = useState(false);   // ofrecer cardio al cerrar
+  // El cardio que el coach le dejó para DESPUÉS de la fuerza hoy: va dentro
+  // de la rutina (antes del estiramiento) y, si al terminar sigue pendiente,
+  // se le recuerda una vez.
+  const [cardio, setCardio] = useState([]);
+  const [cardioFinal, setCardioFinal] = useState(null);
   const [records, setRecords] = useState(null);  // lo que batió hoy, si batió algo
   const [fin, setFin] = useState(null);           // visual nueva: la celebración al terminar
   const conteoRef = useRef({ hechos: 0, total: 0, series: 0, kilos: 0 });
@@ -686,6 +691,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       if (!vivo) return;
       let rutina = r && r.ok ? r.rutina : null;
       if (rutina) guardarRutinaLocal(almacen, rutina);
+      if (r && r.ok && Array.isArray(r.cardio)) setCardio(r.cardio);
       else if (r && r.motivo === 'sin_red') {
         // Sin señal: la última copia que se guardó en el teléfono. Se puede
         // entrenar igual; lo marcado sube cuando vuelva la red.
@@ -885,6 +891,18 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     }
   }
 
+  const marcarCardio = (id) => setCardio(c => c.map(x => (x.id === id ? { ...x, hecho: true } : x)));
+  const tarjetasCardio = cardio.length ? cardio.map(ev => (
+    <TarjetaCardioCoach key={ev.id} ev={ev} fecha={fecha} nombre={name} sesionId={sesion?.id || null} enRutina
+      alCambio={() => marcarCardio(ev.id)} />
+  )) : null;
+  // Al terminar: si el cardio que le dejó el coach sigue sin marcar, se le
+  // recuerda una vez (puede decir que no y salir).
+  const alTerminar = (porDefecto) => {
+    const falta = cardio.find(x => !x.hecho);
+    if (falta) setCardioFinal(falta); else porDefecto();
+  };
+
   return (
     <>
       <Volver onClick={onVolver} />
@@ -976,6 +994,9 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           {fases[ti] && fases[ti] !== fases[ti - 1] && (
             <SeparadorMomento fase={fases[ti]} hechos={conteo[fases[ti]]?.hechos || 0} total={conteo[fases[ti]]?.total || 0} />
           )}
+          {/* El cardio de después de entrenar: terminada la fuerza, ANTES del
+              estiramiento (el estiramiento pasivo va al final). */}
+          {fases[ti] === 'enfriamiento' && fases[ti - 1] !== 'enfriamiento' && tarjetasCardio}
           {v2 && tramo.vueltas.length > 1 ? (
             <CircuitoV2 tramo={tramo} marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar}
               unidadDe={unidadDe} onUnidad={cambiarUnidad}
@@ -1011,6 +1032,9 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           </>)}
         </React.Fragment>
       ))}
+
+      {/* Sin enfriamiento en la rutina: el cardio va al final, antes de terminar. */}
+      {!fases.includes('enfriamiento') && tarjetasCardio}
 
       {descanso && (
         <BarraDescanso v2={v2}
@@ -1062,8 +1086,23 @@ function VistaRutina({ name, rutinaId, onVolver }) {
 
       <HojaNota abierta={!!nota} nombre={name} contexto={nota} alCerrar={() => setNota(null)} />
 
-      {records && <HojaRecords records={records} alCerrar={() => { setRecords(null); if (v2) onVolver(); else setRemate(true); }} />}
-      {fin && <HojaFin fin={fin} alCerrar={() => { setFin(null); onVolver(); }} />}
+      {records && <HojaRecords records={records} alCerrar={() => { setRecords(null); alTerminar(() => { if (v2) onVolver(); else setRemate(true); }); }} />}
+      {fin && <HojaFin fin={fin} alCerrar={() => { setFin(null); alTerminar(onVolver); }} />}
+
+      <EntrenoActividad
+        abierta={!!cardioFinal}
+        nombre={name}
+        fecha={fecha}
+        sesionId={sesion?.id}
+        eventoId={cardioFinal?.id || null}
+        tipoInicial={cardioFinal ? (cardioFinal.slug || 'otro') : null}
+        otroInicial={cardioFinal && !cardioFinal.slug ? cardioFinal.titulo : ''}
+        duracionInicial={cardioFinal?.duracion_min || null}
+        titulo="¿Hiciste tu cardio?"
+        nota={cardioFinal ? <>Tu coach te dejó para después de entrenar: <b style={{ color: TEXT }}>{cardioFinal.titulo}</b>{cardioFinal.duracion_min ? ` · ${cardioFinal.duracion_min} min` : ''}{cardioFinal.detalle ? ` · ${cardioFinal.detalle}` : ''}</> : null}
+        alCerrar={() => { setCardioFinal(null); onVolver(); }}
+        alGuardar={() => { if (cardioFinal) marcarCardio(cardioFinal.id); setCardioFinal(null); onVolver(); }}
+      />
 
       <EntrenoActividad
         abierta={remate}

@@ -533,5 +533,30 @@ await caso('comunidad: sin la tabla todavía, no se rompe', async () => {
   igual((await llamar(handler, { accion: 'comunidad', name: yo })).ok, false, 'ok:false, sin error');
 });
 
+await caso('cardio del coach: el de después de entrenar sale en la rutina de hoy; «Ya lo hice» lo deja hecho en el mes', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.actividades_catalogo = [
+    { slug: 'cinta', nombre: 'Caminadora', categoria: 'cardio', remate: true, activo: true },
+    { slug: 'natacion', nombre: 'Natación', categoria: 'deporte', remate: false, activo: true },
+  ];
+  sb.db.eventos = [
+    { id: 'ec1', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Caminadora con inclinación', detalle: '8-10', duracion_min: 15, fecha: hoy, visible_cliente: true, dias_semana: [] },
+    { id: 'ec2', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Natación', fecha: hoy, visible_cliente: true, dias_semana: [] },
+    { id: 'ec3', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Caminata larga después de entrenar', fecha: hoy, visible_cliente: true, dias_semana: [] },
+  ];
+  const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  const ids = (r.cardio || []).map(x => x.id).sort().join(',');
+  igual(ids, 'ec1,ec3', 'caminadora (remate del catálogo) y la que dice «después de entrenar»; natación no');
+  const c1 = r.cardio.find(x => x.id === 'ec1');
+  igual([c1.slug, c1.despues, c1.hecho, c1.duracion_min], ['cinta', true, false, 15], 'sabe qué es, cuánto y que falta');
+  const g = await llamar(handler, { accion: 'actividad', name: yo, tipo: 'cinta', fecha: hoy, duracion_min: 15, evento_id: 'ec1' });
+  igual(g.ok, true, 'se guarda');
+  const r2 = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  igual(r2.cardio.find(x => x.id === 'ec1').hecho, true, 'en la rutina ya sale hecho');
+  const m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
+  const evs = m.dias.find(x => x.fecha === hoy).eventos;
+  igual(evs.map(e => `${e.id}:${e.hecho}:${e.despues}`).sort().join(' '), 'ec1:true:true ec2:false:false ec3:false:true', 'en el mes: hecho y si es de después de entrenar');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

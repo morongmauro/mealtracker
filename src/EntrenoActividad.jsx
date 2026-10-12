@@ -40,6 +40,9 @@ export default function Actividad({
   tipoInicial = null,
   soloRemate = false,       // al cerrar la fuerza: solo lo que se hace ahí mismo
   titulo = 'Registrar actividad',
+  duracionInicial = null,   // lo que el coach le puso (minutos)
+  otroInicial = '',         // si lo del coach no está en el catálogo
+  nota = null,              // «De tu coach: …», arriba de todo
 }) {
   const [catalogo, setCatalogo] = useState(null);
   const [tipo, setTipo] = useState(tipoInicial);
@@ -67,9 +70,9 @@ export default function Actividad({
     if (!abierta) return;
     setTipo(tipoInicial);
     setFecha(fechaInicial || hoyLocal());
-    setDuracion(''); setDistancia(''); setIntensidad(null);
-    setOtroNombre(''); setError(null);
-  }, [abierta, tipoInicial, fechaInicial]);
+    setDuracion(duracionInicial ? String(duracionInicial) : ''); setDistancia(''); setIntensidad(null);
+    setOtroNombre(otroInicial || ''); setError(null);
+  }, [abierta, tipoInicial, fechaInicial, duracionInicial, otroInicial]);
 
   const lista = useMemo(() => {
     const c = catalogo || [];
@@ -120,6 +123,11 @@ export default function Actividad({
 
   return (
     <Hoja abierta={abierta} alCerrar={alCerrar} titulo={titulo}>
+      {nota && (
+        <div data-nota-coach style={{ fontSize: 13.5, color: TEXT_MUTED, background: SURFACE_2, borderRadius: 12, padding: '9px 12px', marginBottom: 14, lineHeight: 1.45 }}>
+          {nota}
+        </div>
+      )}
       {!catalogo && <div style={{ color: TEXT_LIGHT, fontSize: 13.5, padding: '10px 0' }}>Cargando…</div>}
 
       {catalogo && (
@@ -280,5 +288,66 @@ export function ChipActividad({ actividad, catalogo, onClick }) {
       <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED, flex: 1, minWidth: 0 }}>{etiqueta}</span>
       {detalle && <span style={{ fontSize: 11.5, color: TEXT_LIGHT }}>{detalle}</span>}
     </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// LO QUE TE PUSO TU COACH (cardio, deportes) · con su «Ya lo hice»
+//
+// Sale en el calendario, en Hoy y, si es de DESPUÉS DE ENTRENAR, dentro de la
+// rutina: al terminar la fuerza y antes del estiramiento. Marcarlo lo
+// registra ligado a lo que puso el coach, y así cuenta en su semana y el
+// coach lo ve hecho. No se marca lo que todavía no llega.
+// ─────────────────────────────────────────────────────────────────────────
+export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambio, enRutina = false }) {
+  const [abierta, setAbierta] = useState(false);
+  const [hecho, setHecho] = useState(!!ev.hecho);
+  useEffect(() => { setHecho(!!ev.hecho); }, [ev.hecho, ev.id]);
+  const futuro = fecha > hoyLocal();
+  // Las semanas que ya pasaron quedan como quedaron (el servidor tampoco deja).
+  const lunes = (() => { const h = hoyLocal(); const d = new Date(h + 'T12:00:00'); return sumarDias(h, -((d.getDay() + 6) % 7)); })();
+  const cerrada = fecha < lunes;
+  const v2 = v2Activa();
+  const A = SECCION.entreno;
+  const cuanto = ev.duracion_min ? `${ev.duracion_min} min` : null;
+  return (
+    <>
+      <div data-cardio-coach={ev.id} data-hecho={hecho ? 'si' : 'no'} style={{
+        display: 'flex', alignItems: 'center', gap: 11,
+        border: hecho ? `1px solid ${BORDER_SOFT}` : `1.5px solid ${v2 ? A.base : ACCENT}`,
+        background: hecho ? SURFACE_2 : SURFACE, borderRadius: 16, padding: enRutina ? '13px 14px' : '11px 13px',
+        margin: enRutina ? '10px 0 12px' : 0,
+      }}>
+        <span style={{ width: 36, height: 36, borderRadius: 12, flexShrink: 0, display: 'grid', placeItems: 'center',
+          background: hecho ? '#E3F1E6' : (v2 ? A.tint : ACCENT_LIGHT), color: hecho ? '#2F7F45' : (v2 ? A.ink : ACCENT_DARK) }}>
+          <IconoActividad slug={ev.slug} size={19} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: TEXT_LIGHT }}>
+            {enRutina ? 'Ahora: tu cardio · antes de estirar' : ev.despues ? 'Después de entrenar · de tu coach' : 'De tu coach'}
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 750, color: TEXT, lineHeight: 1.25, marginTop: 2 }}>
+            {ev.hora ? `${String(ev.hora).slice(0, 5)} · ` : ''}{ev.titulo}{cuanto ? <span style={{ fontWeight: 500, color: TEXT_MUTED }}> · {cuanto}</span> : null}
+          </div>
+          {ev.detalle && <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 2, lineHeight: 1.4 }}>{ev.detalle}</div>}
+        </div>
+        {hecho ? (
+          <span data-cardio-hecho style={{ flexShrink: 0, fontSize: 13, fontWeight: 750, color: '#2F7F45' }}>✓ Hecho</span>
+        ) : !futuro && !cerrada && (
+          <button data-ya-lo-hice onClick={() => setAbierta(true)} style={{
+            flexShrink: 0, border: 0, borderRadius: 999, padding: '9px 13px', cursor: 'pointer', fontFamily: 'inherit',
+            fontSize: 13.5, fontWeight: 750, background: v2 ? '#1D1D1F' : ACCENT, color: '#fff',
+          }}>Ya lo hice</button>
+        )}
+      </div>
+      <Actividad
+        abierta={abierta} nombre={nombre} fecha={fecha} sesionId={sesionId} eventoId={ev.id}
+        tipoInicial={ev.slug || 'otro'} otroInicial={ev.slug ? '' : ev.titulo} duracionInicial={ev.duracion_min}
+        titulo={ev.titulo}
+        nota={<>De tu coach: <b style={{ color: TEXT }}>{ev.titulo}</b>{cuanto ? ` · ${cuanto}` : ''}{ev.detalle ? ` · ${ev.detalle}` : ''}</>}
+        alCerrar={() => setAbierta(false)}
+        alGuardar={() => { setAbierta(false); setHecho(true); alCambio?.(); }}
+      />
+    </>
   );
 }
