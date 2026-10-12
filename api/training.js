@@ -39,7 +39,7 @@
 // Fail-safe: ante cualquier problema devuelve { ok:false } y la app muestra
 // su estado vacío. Nunca rompe la pantalla.
 
-import { actividadExtra, bonoExtra, slugDeEvento, esDespuesDeEntrenar } from './_actividad.js';
+import { actividadExtra, bonoExtra, slugDeEvento, esDespuesDeEntrenar, opcionesDeEvento } from './_actividad.js';
 import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
@@ -1135,7 +1135,9 @@ async function eventosDelCliente(clienteId) {
     // De la más completa a la más vieja: cada columna puede faltar si su
     // migración no se corrió (fechas_excluidas, duracion_min).
     const campos = 'id,fase_id,tipo,titulo,detalle,hora,fecha,dias_semana,semanas,visible_cliente';
-    const e = await sb(`eventos?select=${campos},duracion_min,fechas_excluidas&cliente_id=eq.${clienteId}`)
+    // `opciones` (cardio a elegir) llega con migracion-cardio-opciones.sql.
+    const e = await sb(`eventos?select=${campos},duracion_min,fechas_excluidas,opciones&cliente_id=eq.${clienteId}`)
+      .catch(() => sb(`eventos?select=${campos},duracion_min,fechas_excluidas&cliente_id=eq.${clienteId}`))
       .catch(() => sb(`eventos?select=${campos},duracion_min&cliente_id=eq.${clienteId}`))
       .catch(() => sb(`eventos?select=${campos}&cliente_id=eq.${clienteId}`));
     return Array.isArray(e) ? e : [];
@@ -1176,6 +1178,8 @@ function eventoParaApp(ev, fecha, catalogo, hechoReg, hechoAct) {
   return {
     ...ev, registra: false, valor: null,
     slug: slugDeEvento(ev.titulo, catalogo), despues: esDespuesDeEntrenar(ev, catalogo),
+    // Cardio a elegir: «caminadora trotando o con inclinación o bicicleta».
+    opciones: opcionesDeEvento(ev, catalogo),
     hecho: !!act, actividad_id: act ? act.id : null,
   };
 }

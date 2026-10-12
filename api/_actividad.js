@@ -69,6 +69,31 @@ export function slugDeEvento(titulo, catalogo = []) {
   return hit ? hit.slug : null;
 }
 
+// Una de las opciones de un cardio «a elegir» («Bicicleta», «Caminadora
+// trotando»): primero como el título; si no, por la primera palabra
+// («Bicicleta» → Bicicleta estática).
+export function slugDeOpcion(nombre, catalogo = []) {
+  const s = slugDeEvento(nombre, catalogo);
+  if (s) return s;
+  const primera = normTxt(nombre).split(/\s+/)[0];
+  if (!primera || primera.length < 4) return null;
+  const hit = (catalogo || []).find(a => a && a.slug !== 'otro' && a.nombre && normTxt(a.nombre).split(/\s+/)[0] === primera);
+  return hit ? hit.slug : null;
+}
+
+// Las opciones de un cardio «a elegir» (columna `eventos.opciones`,
+// carga/migracion-cardio-opciones.sql): { lista, minutos, intensidad }.
+// Lo que no sirva se descarta; sin lista, null.
+export function opcionesDeEvento(ev, catalogo = []) {
+  const o = ev && ev.opciones;
+  if (!o || typeof o !== 'object') return null;
+  const lista = (Array.isArray(o.lista) ? o.lista : []).map(x => String(x || '').trim().slice(0, 60)).filter(Boolean).slice(0, 6);
+  if (!lista.length) return null;
+  const minutos = [...new Set((Array.isArray(o.minutos) ? o.minutos : []).map(Number).filter(n => Number.isFinite(n) && n > 0 && n <= 240))].sort((a, b) => a - b).slice(0, 8);
+  const intensidad = ['suave', 'moderada', 'alta'].includes(o.intensidad) ? o.intensidad : null;
+  return { lista: lista.map(nombre => ({ nombre, slug: slugDeOpcion(nombre, catalogo) })), minutos, intensidad };
+}
+
 const DESPUES = /despues de (entrenar|la rutina|la fuerza|las pesas)|al terminar|post ?entreno/;
 
 // ¿Se hace al terminar la fuerza? Lo dice el título (o el detalle), o que la
