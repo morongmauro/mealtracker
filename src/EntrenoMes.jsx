@@ -27,7 +27,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, Moon, Info, Wind } from '@phosphor-icons/react';
+import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, CurrencyDollar, PersonSimpleRun, Moon, Info, Wind } from '@phosphor-icons/react';
+import { Bascula } from './iconosEntreno.jsx';
 import Respira from './Respira.jsx';
 import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
@@ -256,7 +257,7 @@ function MesClasico({ nombre, alEntrenar }) {
         <>
           {datos.fase && (
             <div style={{ fontSize: v2 ? 14 : 12.5, color: TEXT_MUTED, marginBottom: 10, textAlign: 'center' }}>
-              <b>{datos.fase.nombre}</b> · {fechaLarga(datos.fase.desde)} a {fechaLarga(datos.fase.hasta)}
+              <b>Tu ciclo</b> · {fechaLarga(datos.fase.desde)} a {fechaLarga(datos.fase.hasta)}
             </div>
           )}
 
@@ -893,8 +894,8 @@ function EstadoChip({ hecha, P }) {
 // Lo especial del día, arriba en la hoja: inicio o fin de ciclo, corte de pago.
 function AvisosDia({ dia, fase, P }) {
   const items = [];
-  if (dia.inicio_ciclo) items.push({ k: 'ini', Icono: Flag, color: P.ink, fondo: P.tint, texto: `Empieza ${fase?.nombre || 'tu ciclo'}` });
-  if (dia.fin_ciclo) items.push({ k: 'fin', Icono: FlagCheckered, color: P.ink, fondo: P.tint, texto: `Último día de ${fase?.nombre || 'tu ciclo'}` });
+  if (dia.inicio_ciclo) items.push({ k: 'ini', Icono: Flag, color: P.ink, fondo: P.tint, texto: 'Empieza tu ciclo nuevo' });
+  if (dia.fin_ciclo) items.push({ k: 'fin', Icono: FlagCheckered, color: P.ink, fondo: P.tint, texto: 'Último día de tu ciclo' });
   if (dia.corte_pago) items.push({ k: 'pago', Icono: CurrencyCircleDollar, color: AMBAR_PAGO, fondo: '#FBF1DC', texto: 'Fecha de corte de tu mensualidad' });
   if (!items.length) return null;
   return (
@@ -949,9 +950,9 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const [aviso, setAviso] = useState(null);
   const [confirmar, setConfirmar] = useState(null);     // { texto, si, accion }
   const [eligiendo, setEligiendo] = useState(null);     // fecha a la que se le añade rutina
-  // El calendario: «Mes» o «Semana» (se recuerda) y la semana que se mira.
-  const [vista, setVistaEstado] = useState(() => { try { return localStorage.getItem('entreno:cal:vista2') === 'semana' ? 'semana' : 'mes'; } catch (e) { return 'mes'; } });
-  const setVista = (v) => { setVistaEstado(v); try { localStorage.setItem('entreno:cal:vista2', v); } catch (e) {} };
+  // El calendario: «Mes» o «Semana». Siempre empieza en Mes (al entrar o al
+  // volver de otra sección): es la vista que ordena el resto.
+  const [vista, setVista] = useState('mes');
   const [lunesVer, setLunesVer] = useState(() => lunesDeLocal(hoyLocal()));
   const [ayuda, setAyuda] = useState(false);
 
@@ -1134,10 +1135,10 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
         <div data-cal-cabecera style={{ marginTop: -10 }}>
           {fase && (
             <div style={{ fontSize: 12, fontWeight: 750, letterSpacing: '.08em', color: TEXT_MUTED, textTransform: 'uppercase', margin: '0 2px 10px' }}>
-              {fase.nombre}{dHoySemana ? ` · semana ${dHoySemana}${semanasFase ? ` de ${semanasFase}` : ''}` : ''}
+              {dHoySemana ? `Semana ${dHoySemana}${semanasFase ? ` de ${semanasFase}` : ''}` : 'Tu ciclo'}
             </div>
           )}
-          <Segmentado valor={vista} alCambiar={setVista} opciones={[['semana', 'Semana'], ['mes', 'Mes']]} />
+          <Segmentado valor={vista} alCambiar={setVista} opciones={[['mes', 'Mes'], ['semana', 'Semana']]} />
         </div>
       )}
 
@@ -1321,10 +1322,20 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
               {hecha ? 'Fuerza · ya la hiciste' : dia.estado === 'en_curso' ? 'Fuerza · a medias' : dia.extra ? 'Fuerza · la añadiste tú' : 'Fuerza'}
             </div>
             <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginTop: 2 }}>{r.nombre}</div>
-            <div style={{ fontSize: 13.5, marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
-              {hecha && <CheckCircle size={16} weight="fill" color="#fff" />}
-              {[n ? `${n} ejercicio${n === 1 ? '' : 's'}` : null, r.minutos ? `~${r.minutos} min` : null].filter(Boolean).join(' · ') || (hecha ? 'Toca para ver lo que hiciste' : 'Toca para empezar')}
-            </div>
+            {(n || r.minutos) && (
+              <div style={{ fontSize: 13.5, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
+                {[n ? `${n} ejercicio${n === 1 ? '' : 's'}` : null, r.minutos ? `~${r.minutos} min` : null].filter(Boolean).join(' · ')}
+              </div>
+            )}
+            {/* Que se vea que esto es lo que se toca para entrar a la rutina. */}
+            <span data-hoy-empezar style={{
+              marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: P.ink,
+              borderRadius: 999, padding: '9px 14px 9px 16px', fontSize: 15, fontWeight: 800,
+            }}>
+              {hecha && <CheckCircle size={17} weight="fill" color={P.base} />}
+              {hecha ? 'Ver lo que hiciste' : dia.estado === 'en_curso' ? 'Seguir la rutina' : 'Empezar la rutina'}
+              <CaretRight size={15} weight="bold" />
+            </span>
           </button>
         ) : dia?.hecho ? (
           <div style={{ ...cajaDia, border: `1.5px solid ${P.base}` }}>
@@ -1410,8 +1421,9 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
   return (
     <div data-fecha={fecha} role="button" tabIndex={0} onClick={alTocar} style={{
       display: 'flex', gap: 12, padding: '11px 12px', borderRadius: 18, cursor: dia ? 'pointer' : 'default',
-      background: sobre ? P.tint : esHoy ? '#F4F8FE' : SURFACE, opacity: origen ? 0.5 : 1,
-      border: sobre ? `2px dotted ${P.base}` : esHoy ? `1.5px solid ${P.base}` : '1.5px solid transparent',
+      // Hoy no se resalta aquí: lo de hoy se hace desde «Hoy te toca».
+      background: sobre ? P.tint : SURFACE, opacity: origen ? 0.5 : 1,
+      border: sobre ? `2px dotted ${P.base}` : '1.5px solid transparent',
       boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)',
     }}>
       <div style={{ width: 42, flex: 'none', textAlign: 'center' }}>
@@ -1419,8 +1431,8 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
         <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, lineHeight: 1.1 }}>{Number(fecha.slice(8))}</div>
       </div>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' }}>
-        {dia?.inicio_ciclo && <Etiqueta Icono={Flag} color={P.ink} fondo={P.tint}>Empieza {fase?.nombre || 'tu ciclo'}</Etiqueta>}
-        {dia?.fin_ciclo && <Etiqueta Icono={FlagCheckered} color={P.ink} fondo={P.tint}>Último día de {fase?.nombre || 'tu ciclo'}</Etiqueta>}
+        {dia?.inicio_ciclo && <Etiqueta Icono={Flag} color={P.ink} fondo={P.tint}>Empieza tu ciclo nuevo</Etiqueta>}
+        {dia?.fin_ciclo && <Etiqueta Icono={FlagCheckered} color={P.ink} fondo={P.tint}>Último día de tu ciclo</Etiqueta>}
         {dia?.rutina && (
           <ChipRutina grande nombre={`${corto(dia.rutina)}${dia.extra ? ' · añadida' : ''}`} hecha={dia.estado === 'completada'} movida={dia.movida || dia.extra} P={P} arrastre={arrastrable} />
         )}
@@ -1529,10 +1541,12 @@ function ChipCal({ nombre, estado, arrastre }) {
 function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
   const esHoy = dia.fecha === hoy;
   const est = estadoCal(dia, hoy);
-  const puntos = [
-    dia.actividades.length > 0 && PUNTO.cardio,
-    dia.eventos.some(e => e.registra) && PUNTO.registro,
-    dia.corte_pago && PUNTO.pago,
+  // Lo que hay ese día, con su ícono: cardio o deporte (persona trotando),
+  // peso / fotos / medidas (báscula) y el corte del pago ($).
+  const marcas = [
+    (dia.actividades.length > 0 || dia.eventos.some(e => e.tipo === 'actividad')) && { k: 'cardio', I: PersonSimpleRun, c: PUNTO.cardio, t: 'Cardio o deporte' },
+    dia.eventos.some(e => e.registra) && { k: 'registro', I: Bascula, c: PUNTO.registro, t: 'Peso / fotos' },
+    dia.corte_pago && { k: 'pago', I: CurrencyDollar, c: AMBAR_PAGO, t: 'Pago' },
   ].filter(Boolean);
   const nom = dia.rutina ? corto(dia.rutina) : dia.hecho ? corto(dia.hecho) : null;
   return (
@@ -1550,10 +1564,14 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
         <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {est === 'hecha' && <span data-hecha-check aria-label="Hecha" style={{ width: 13, height: 13, borderRadius: 99, background: AMARILLO_CAL, color: GRAFITO_CAL, display: 'grid', placeItems: 'center' }}><Check size={9} weight="bold" /></span>}
           {dia.inicio_ciclo && <Flag size={10} weight="fill" color={TEXT_MUTED} aria-label="Inicio de ciclo" />}
-          {puntos.map((c, i) => <i key={i} style={{ width: 5, height: 5, borderRadius: 99, background: c }} />)}
         </span>
       </div>
       {nom && <ChipCal nombre={nom} estado={est} arrastre={dia.rutina ? arrastrable : null} />}
+      {marcas.length > 0 && (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '0 2px', marginTop: 'auto' }}>
+          {marcas.map(m => <span key={m.k} data-marca-cal={m.k} aria-label={m.t} style={{ display: 'inline-flex' }}><m.I size={12} weight="bold" color={m.c} /></span>)}
+        </span>
+      )}
     </button>
   );
 }
@@ -1561,15 +1579,16 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
 function LeyendaCal() {
   const item = (muestra, texto) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{muestra}{texto}</span>;
   const caja = (st) => <span style={{ width: 14, height: 10, borderRadius: 3, ...st }} />;
-  const punto = (c) => <span style={{ width: 6, height: 6, borderRadius: 99, background: c }} />;
+  const icono = (I, c) => <I size={13} weight="bold" color={c} />;
   return (
-    <div data-leyenda style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', fontSize: 11.5, color: TEXT_MUTED, padding: '12px 4px 0', lineHeight: 1.3 }}>
-      {item(caja({ background: GRAFITO_CAL }), 'Hecha')}
+    <div data-leyenda style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 12px', fontSize: 11.5, color: TEXT_MUTED, padding: '12px 4px 0', lineHeight: 1.3 }}>
+      {item(<span style={{ width: 13, height: 13, borderRadius: 99, background: AMARILLO_CAL, color: GRAFITO_CAL, display: 'grid', placeItems: 'center' }}><Check size={9} weight="bold" /></span>, 'Entrenaste ese día')}
+      {item(caja({ background: GRAFITO_CAL }), 'Rutina hecha')}
       {item(caja({ background: GRIS_CAL, boxShadow: 'inset 0 0 0 1px #D1D1D6' }), 'Por hacer')}
       {item(caja({ outline: `1.5px dashed ${GRAFITO_CAL}`, outlineOffset: -1.5 }), 'Movida o añadida por ti')}
-      {item(punto(PUNTO.cardio), 'Cardio')}
-      {item(punto(PUNTO.registro), 'Peso / fotos')}
-      {item(punto(PUNTO.pago), 'Pago')}
+      {item(icono(PersonSimpleRun, PUNTO.cardio), 'Cardio o deporte')}
+      {item(icono(Bascula, PUNTO.registro), 'Peso / fotos')}
+      {item(icono(CurrencyDollar, AMBAR_PAGO), 'Pago')}
     </div>
   );
 }
@@ -1583,8 +1602,8 @@ function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejercicios
   const extras = [
     ...(dia?.eventos || []).map(e => ({ k: e.id, c: e.registra ? PUNTO.registro : TEXT_LIGHT, t: e.registra ? (REGISTRO[e.tipo]?.nombre || e.titulo) : e.titulo })),
     ...(dia?.actividades || []).map(a => ({ k: 'a' + a.id, c: PUNTO.cardio, t: `${a.titulo || a.tipo}${a.duracion_min ? ` · ${a.duracion_min} min` : ''}` })),
-    ...(dia?.corte_pago ? [{ k: 'pago', c: PUNTO.pago, t: 'Corte de tu mensualidad' }] : []),
-    ...(dia?.inicio_ciclo ? [{ k: 'ini', c: TEXT_MUTED, t: `Empieza ${fase?.nombre || 'tu ciclo'}` }] : []),
+    ...(dia?.corte_pago ? [{ k: 'pago', c: AMBAR_PAGO, t: 'Corte de tu mensualidad' }] : []),
+    ...(dia?.inicio_ciclo ? [{ k: 'ini', c: TEXT_MUTED, t: 'Empieza tu ciclo nuevo' }] : []),
   ];
   const estilo = est === 'hecha' ? { background: GRAFITO_CAL, color: '#fff' }
     : est === 'movida' ? { outline: `1.5px dashed ${GRAFITO_CAL}`, outlineOffset: -1.5, background: 'rgba(255,255,255,0.7)', color: GRAFITO_CAL }

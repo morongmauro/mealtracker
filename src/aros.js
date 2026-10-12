@@ -39,14 +39,18 @@ export function cumplimientoComidaSemana(history = {}, goals = {}, hoy = hoyLoca
 export const adherenciaEntreno = (semana) => (semana && semana.planeados
   ? Math.min(1, semana.hechos / semana.planeados + (Number(semana.bono) || 0) / 100) : null);
 
-export const aroDe = (frac, pie) => (frac == null ? null : { frac, centro: `${Math.round(frac * 100)}%`, pie });
+// Sin datos todavía (un lunes antes de registrar nada, sin metas, sin fase)
+// el aro sale igual, vacío y con «—»: antes desaparecía y la cabecera
+// cambiaba de forma.
+export const aroVacio = (pie) => ({ frac: 0, centro: '—', pie });
+export const aroDe = (frac, pie) => (frac == null ? aroVacio(pie) : { frac, centro: `${Math.round(frac * 100)}%`, pie });
 
 // El aro de la cabecera del Dash: el performance global de la semana, el
 // promedio del entreno, la alimentación y el aprendizaje.
 export function aroSemana(semana, history, goals, aprende, hoy) {
   const partes = [adherenciaEntreno(semana), cumplimientoComidaSemana(history, goals, hoy), aprende && aprende.pct != null ? aprende.pct / 100 : null]
     .filter(x => x != null);
-  return partes.length ? aroDe(partes.reduce((a, x) => a + x, 0) / partes.length, 'Performance global semanal') : null;
+  return aroDe(partes.length ? partes.reduce((a, x) => a + x, 0) / partes.length : null, 'Performance global semanal');
 }
 export const aroComida = (history, goals, hoy) => aroDe(cumplimientoComidaSemana(history, goals, hoy), 'Performance semanal');
 

@@ -32,7 +32,8 @@ import {
 export function aroEntreno(plan) {
   const dias = (plan && plan.dias) || [];
   const planeadas = dias.filter(d => d.rutina).length;
-  if (!planeadas) return null;
+  // Sin rutinas esta semana (o mientras carga): el aro sale vacío, no se quita.
+  if (!planeadas) return { frac: 0, centro: '—', pie: 'Performance semanal' };
   const hechas = dias.filter(d => d.rutina && d.hecha).length;
   // La actividad extra (cardio, deportes…) suma su bono, hasta +10 puntos.
   const frac = Math.min(1, hechas / planeadas + (Number(plan.extra?.bono) || 0) / 100);
@@ -298,7 +299,6 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         // y añadir actividad) y, debajo, la semana con el detalle de cada
         // día. El Calendario queda para el mes: no se repite lo mismo.
         <>
-          <CabeceraFase fase={plan.fase} v2 />
           <HoySemana nombre={name} alEntrenar={setRutinaId}
             ejerciciosDe={Object.fromEntries((plan.dias || []).filter(d => d.rutina).map(d => [d.rutina.id, d.rutina.ejercicios]))} />
           <Sueltas plan={plan} onAbrir={setRutinaId} />

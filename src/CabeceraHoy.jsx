@@ -99,7 +99,7 @@ function lugarDelObjeto(caja) {
 // Con gráfica (las cabeceras de la visual nueva): la gráfica grande es la
 // protagonista, con el objeto 3D chico y tenue adentro, y el porcentaje y su
 // texto debajo.
-const ARO_G = { tam: 112, grosor: 8, objAncho: 58, objAlto: 46 };
+const ARO_G = { tam: 102, grosor: 7.5, objAncho: 52, objAlto: 41 };
 function lugarEnCaja(caja, ancho, alto) {
   const [l, t, r, b] = caja;
   const lado = Math.min(ancho / (r - l), alto / (b - t));
@@ -129,7 +129,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       )}
       {voz ? (
         <h1 data-frase style={{
-          margin: '8px 0 0', fontSize: fondo ? (conAro ? 'clamp(21px, 5.9vw, 26px)' : 'clamp(24px, 6.8vw, 29px)') : 'clamp(27px, 7.6vw, 34px)', fontWeight: 800, lineHeight: 1.08,
+          margin: '8px 0 0', fontSize: fondo ? (conAro ? 'clamp(20px, 5.5vw, 24px)' : 'clamp(24px, 6.8vw, 29px)') : 'clamp(27px, 7.6vw, 34px)', fontWeight: 800, lineHeight: 1.08,
           letterSpacing: '-0.03em', color: TEXT, textWrap: 'balance', maxWidth: 460,
         }}>
           {voz.a}{voz.b && <><br /><span style={{ color: t.tinta }}>{voz.b}</span></>}
@@ -152,7 +152,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
     return (
       // Subida un poco (translateY): el texto de abajo de la gráfica quedaba
       // pegado a los botones. Sin cambiar el alto de la fila.
-      <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', width: 150, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none', transform: 'translateY(-8px)' }}>
+      <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', width: 138, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none', transform: 'translateY(-8px)' }}>
         <div className="cab-ilus" data-aro-cabecera={tema} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animationDelay: '.1s' }}>
           <div style={{ position: 'relative', width: ARO_G.tam, height: ARO_G.tam }}>
             {/* Tenue: protagonista sobre el objeto, pero sin robarle el

@@ -679,7 +679,7 @@ export default function MealTracker() {
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
   // Con qué ventana abrir "Mis gráficas": quien viene del calendario espera
   // mes; quien viene del chip de progreso, la semana.
-  const [perfVentana, setPerfVentana] = useState('semana');
+  const [perfVentana, setPerfVentana] = useState('mes');
   // Anillo tocado → línea explicando ese macro (null = sin explicación abierta)
   const [macroTip, setMacroTip] = useState(null);
   useEffect(() => {
@@ -6209,7 +6209,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 // Cerrar sesión: la información queda en el teléfono y en la
                 // nube; solo pide la contraseña para volver a entrar.
                 cerrarSesion: sesionV2 ? () => { haptic(8); guardarSesion(''); setSesionV2(''); try { sessionStorage.removeItem('mt:cuentaSaltada'); } catch (e) {} setCuentaSaltada(false); } : null,
-                calendarioComida: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); },
+                calendarioComida: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setPerfVentana('mes'); setShowPerformanceModal(true); },
                 // Sin la cuenta, el recorrido ni la mudanza encima: entonces
                 // puede salir la bienvenida a la Comunidad.
                 ventanaLibre: !(name && !cuentaSaltada && (!sesionV2 || cuentaAbierta)) && !recorrido && !mudanza && !primeraVez,
@@ -9602,7 +9602,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
   // El día que se está mirando en la pestaña "Día". Arranca en hoy.
   // Dentro de Alimentación: ventana de tiempo. "Tendencia" se quitó — a 12
   // semanas casi nadie la entendía y el mes ya cuenta esa historia.
-  const [alimTab, setAlimTab] = useState(ventanaInicial || 'semana'); // mes | semana | dia
+  const [alimTab, setAlimTab] = useState(ventanaInicial || 'mes'); // mes | semana | dia
   const [diaSel, setDiaSel] = useState(today);
   // Qué mes se está viendo en la pestaña Mes. 0 = el actual, 1 = el anterior…
   const [mesAtras, setMesAtras] = useState(0);
