@@ -132,11 +132,19 @@ export const fechaLarga = (iso) => {
 export const miniatura = (ej) => {
   if (!ej) return null;
   // El coach puede elegir en el CRM cuál de las 4 imágenes de YouTube se ve
-  // (portada, ¼, mitad, ¾). Se respeta el CUADRO elegido aunque después se
-  // cambie el video: se arma con el video de ahora.
-  const cuadro = (/^https:\/\/i\.ytimg\.com\/vi\/[^/]+\/(mqdefault|mq[123])\.jpg$/.exec(ej.poster_url || '') || [])[1];
-  if (ej.poster_url && !cuadro) return ej.poster_url;
-  if (cuadro && ej.video_fuente === 'youtube' && ej.video_ref) return `https://i.ytimg.com/vi/${ej.video_ref}/${cuadro}.jpg`;
+  // (portada, ¼, mitad, ¾). La elección vale para SU video: si después se
+  // cambió el video, el mismo cuadro del video nuevo es otra imagen (y podía
+  // mostrar otro ejercicio), así que se ignora. Misma regla que el CRM.
+  const yt = ej.video_fuente === 'youtube' && ej.video_ref ? ej.video_ref : null;
+  const idPoster = (/^https:\/\/i\.ytimg\.com\/vi\/([^/]+)\//.exec(ej.poster_url || '') || [])[1] || null;
+  const deOtro = !!idPoster && idPoster !== yt;
+  const cuadro = deOtro ? null : (/^https:\/\/i\.ytimg\.com\/vi\/[^/]+\/(mqdefault|mq[123])\.jpg$/.exec(ej.poster_url || '') || [])[1];
+  if (ej.poster_url && !deOtro && !cuadro) return ej.poster_url;
+  if (cuadro && yt) return `https://i.ytimg.com/vi/${yt}/${cuadro}.jpg`;
+  // Un video que empieza a mitad trae varios ejercicios: los cuadros
+  // automáticos son del video entero, o sea de otro ejercicio. Mejor sin foto
+  // que con una equivocada (hasta que el coach elija la buena en el CRM).
+  if (yt && Number(ej.video_inicio_seg) > 0) return null;
   if (ej.video_fuente === 'youtube' && ej.video_ref) {
     // Con la visual nueva se usa un fotograma del MEDIO del video (mq2) y no
     // la portada que eligió el canal: las portadas traen letreros y estilos

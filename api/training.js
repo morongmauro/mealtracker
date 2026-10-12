@@ -1097,10 +1097,12 @@ async function quitarRutina(cliente, cuerpo, hoy) {
 // calendario: se devuelve vacío.
 async function eventosDelCliente(clienteId) {
   try {
-    const e = await sb(`eventos?select=id,fase_id,tipo,titulo,detalle,hora,duracion_min,fecha,dias_semana,semanas,visible_cliente`
-      + `&cliente_id=eq.${clienteId}`)
-      .catch(() => sb(`eventos?select=id,fase_id,tipo,titulo,detalle,hora,fecha,dias_semana,semanas,visible_cliente`
-        + `&cliente_id=eq.${clienteId}`));
+    // De la más completa a la más vieja: cada columna puede faltar si su
+    // migración no se corrió (fechas_excluidas, duracion_min).
+    const campos = 'id,fase_id,tipo,titulo,detalle,hora,fecha,dias_semana,semanas,visible_cliente';
+    const e = await sb(`eventos?select=${campos},duracion_min,fechas_excluidas&cliente_id=eq.${clienteId}`)
+      .catch(() => sb(`eventos?select=${campos},duracion_min&cliente_id=eq.${clienteId}`))
+      .catch(() => sb(`eventos?select=${campos}&cliente_id=eq.${clienteId}`));
     return Array.isArray(e) ? e : [];
   } catch (err) { return []; }
 }

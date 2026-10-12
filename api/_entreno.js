@@ -197,6 +197,8 @@ export function expandirEventos(eventos, fase) {
     const meta = { id: ev.id, tipo: ev.tipo, titulo: ev.titulo, detalle: ev.detalle, hora: ev.hora, duracion_min: ev.duracion_min ?? null };
     if (ev.fecha) { (out[String(ev.fecha).slice(0, 10)] ||= []).push(meta); return; }
     if (!fase?.fecha_inicio || !fase?.semanas || ev.fase_id !== fase.id) return;
+    // Los días que el coach le quitó (o movió) a la serie: ahí no cae.
+    const quitados = new Set((ev.fechas_excluidas || []).map(f => String(f).slice(0, 10)));
     for (let semana = 1; semana <= fase.semanas; semana++) {
       if (Array.isArray(ev.semanas) && ev.semanas.length && !ev.semanas.includes(semana)) continue;
       (ev.dias_semana || []).forEach(codigo => {
@@ -204,7 +206,8 @@ export function expandirEventos(eventos, fase) {
         if (off < 0) return;
         const t = new Date(Date.parse(fase.fecha_inicio + 'T00:00:00Z'));
         t.setUTCDate(t.getUTCDate() + (semana - 1) * 7 + off);
-        (out[t.toISOString().slice(0, 10)] ||= []).push(meta);
+        const f = t.toISOString().slice(0, 10);
+        if (!quitados.has(f)) (out[f] ||= []).push(meta);
       });
     }
   });
@@ -302,7 +305,10 @@ export async function agendaDeHoy(sb, hoy) {
   const movs = ids.length ? await movimientosDe(sb, `fase_id=in.(${ids.join(',')})`) : [];
   const extras = ids.length ? await extrasDe(sb, `fase_id=in.(${ids.join(',')})&fecha=eq.${hoy}`, Array.isArray(rutinas) ? rutinas : []) : [];
   let eventos = [];
-  try { eventos = await sb(`eventos?select=id,cliente_id,fase_id,tipo,titulo,fecha,dias_semana,semanas,visible_cliente&tipo=in.(${TIPOS_REGISTRO.join(',')})`); }
+  // `fechas_excluidas` puede no existir (migracion-eventos-excluir.sql sin correr).
+  const camposEv = 'id,cliente_id,fase_id,tipo,titulo,fecha,dias_semana,semanas,visible_cliente';
+  try { eventos = await sb(`eventos?select=${camposEv},fechas_excluidas&tipo=in.(${TIPOS_REGISTRO.join(',')})`)
+    .catch(() => sb(`eventos?select=${camposEv}&tipo=in.(${TIPOS_REGISTRO.join(',')})`)); }
   catch (e) { eventos = []; }
 
   for (const c of (Array.isArray(clientes) ? clientes : [])) {
