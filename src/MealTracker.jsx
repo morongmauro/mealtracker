@@ -1675,6 +1675,9 @@ export default function MealTracker() {
       prefs_dispositivo: leerPrefsDispositivo(),
       // Ya abrió en la dirección nueva: el CRM lo muestra como «app nueva».
       app_nueva_at: (() => { try { return localStorage.getItem('mt:appNuevaAt') || undefined; } catch (e) { return undefined; } })(),
+      // …y la tiene INSTALADA en la pantalla de inicio desde la dirección
+      // nueva (la vieja instalada no cuenta): el CRM lleva esa cuenta.
+      pwa_nueva_at: (() => { try { return localStorage.getItem('mt:pwaNuevaAt') || undefined; } catch (e) { return undefined; } })(),
       // En vivo: comidas y agua de HOY
       today,
       today_entries: entries,
@@ -2668,6 +2671,10 @@ export default function MealTracker() {
     try {
       if (esAppInstalada() && !localStorage.getItem('mt:pwaInstalledAt')) {
         localStorage.setItem('mt:pwaInstalledAt', new Date().toISOString());
+      }
+      // Instalada desde la dirección nueva (entrenaconmetodoapp).
+      if (esAppInstalada() && enDireccionNueva() && !localStorage.getItem('mt:pwaNuevaAt')) {
+        localStorage.setItem('mt:pwaNuevaAt', new Date().toISOString());
       }
     } catch (e) {}
   }, [view, name]);
