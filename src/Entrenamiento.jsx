@@ -261,7 +261,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         {/* La voz de la sección, con la letra de la marca y sin curva */}
         {seccionV2 && VOZ_SECCION[seccion] && <CabeceraHoy tema="entreno" fondo={false} voz={VOZ_SECCION[seccion]} />}
         {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={setRutinaId}
-          ejerciciosDe={Object.fromEntries((plan?.dias || []).filter(d => d.rutina).map(d => [d.rutina.id, d.rutina.ejercicios]))} />}
+          ejerciciosDe={Object.fromEntries((plan?.dias || []).flatMap(d => [...(d.rutina ? [[d.rutina.id, d.rutina.ejercicios]] : []), ...(d.complementarias || []).map(c => [c.id, c.ejercicios])]))} />}
         {seccion === 'rutinas' && <EntrenoRutinas nombre={name} alEntrenar={setRutinaId} />}
         {seccion === 'resumen' && <EntrenoResumen nombre={name} />}
         {seccion === 'fotos' && <EntrenoFotos name={name} />}
@@ -300,7 +300,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         // día. El Calendario queda para el mes: no se repite lo mismo.
         <>
           <HoySemana nombre={name} alEntrenar={setRutinaId}
-            ejerciciosDe={Object.fromEntries((plan.dias || []).filter(d => d.rutina).map(d => [d.rutina.id, d.rutina.ejercicios]))} />
+            ejerciciosDe={Object.fromEntries((plan.dias || []).flatMap(d => [...(d.rutina ? [[d.rutina.id, d.rutina.ejercicios]] : []), ...(d.complementarias || []).map(c => [c.id, c.ejercicios])]))} />
           <Sueltas plan={plan} onAbrir={setRutinaId} />
         </>
       ) : (
@@ -505,6 +505,17 @@ function VistaSemana({ plan, onAbrir }) {
         )
       )}
 
+      {/* Los bloques aparte de hoy (un recovery), debajo de la fuerza. */}
+      {hoy && (hoy.complementarias || []).map(c => (
+        <button key={c.id} data-hoy-bloque={c.id} onClick={() => onAbrir(c.id)} style={{ ...filaBase(false), marginBottom: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_LIGHT }}>{c.hecha ? 'También hoy · ya lo hiciste' : 'También hoy'}</div>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: TEXT }}>{c.nombre}</div>
+            <div style={{ fontSize: 12, color: TEXT_MUTED }}>{c.ejercicios} ejercicio{c.ejercicios === 1 ? '' : 's'}{c.minutos ? ` · ~${c.minutos} min` : ''}</div>
+          </div>
+        </button>
+      ))}
+
       <div style={{
         fontSize: 11.5,
         fontWeight: 800, color: TEXT_LIGHT, margin: '18px 2px 8px',
@@ -567,6 +578,7 @@ function FilaDia({ d, onAbrir }) {
           {d.en_curso && !d.hecha ? ' · a medias' : ''}
           {d.saltada ? ' · no pudiste' : ''}
           {d.hecha_el ? ` · la hiciste el ${DIAS_LARGO[CODIGO_DE(d.hecha_el)].toLowerCase()}` : ''}
+          {(d.complementarias || []).length ? ` · + ${d.complementarias.map(c => c.nombre).join(', ')}` : ''}
         </div>
       </div>
     </>

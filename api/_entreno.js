@@ -63,9 +63,37 @@ export const diasDeRutina = (r) => {
   return r?.dia_semana ? [r.dia_semana] : [];
 };
 
-export function repartirPorDia(fase, rutinas) {
+// ── Bloques complementarios ───────────────────────────────────────────────
+// Un recovery, una movilidad diaria («Elbow Recovery»): una rutina aparte que
+// el coach pone el MISMO día que la fuerza, sin tener que ver con ella. La
+// marca `rutinas.complementaria` (carga/migracion-bloques-complementarios.sql).
+// Nunca ocupa el día de la fuerza: la fuerza manda y va primero; el bloque
+// sale debajo, en los días que diga su `dias_semana`. Sin días, queda suelto
+// («También en tu ciclo»), como antes. Sin la columna, ninguna lo es.
+export const esComplementaria = (r) => r?.complementaria === true;
+
+// Las rutinas de una fase con su marca de complementaria. Si la columna aún
+// no existe (SQL sin correr), se leen sin ella y todo sigue como antes.
+export async function leerRutinas(sb, campos, filtro) {
+  const leer = async (c) => { const x = await sb(`rutinas?select=${c}&${filtro}`); return Array.isArray(x) ? x : []; };
+  try { return await leer(`${campos},complementaria`); }
+  catch (e) { return leer(campos); }
+}
+
+// Los bloques complementarios que caen en una fecha, en el orden del coach.
+export function complementariasDe(fase, rutinas, fecha) {
+  if (!fase?.fecha_inicio || !fecha || fecha < fase.fecha_inicio || fecha > finDeFase(fase)) return [];
+  const [y, m, d] = fecha.split('-').map(Number);
+  const letra = DIAS[(new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7];
+  return (rutinas || []).filter(r => esComplementaria(r) && diasDeRutina(r).includes(letra))
+    .sort((a, b) => (a.dia_orden || 0) - (b.dia_orden || 0));
+}
+
+export function repartirPorDia(fase, rutinasTodas) {
   const porDia = {};
   DIAS.forEach(d => { porDia[d] = null; });
+  // Los bloques complementarios no se reparten: van aparte, debajo de la fuerza.
+  const rutinas = (rutinasTodas || []).filter(r => !esComplementaria(r));
 
   // 1. Las que declaran sus días mandan, en orden de `dia_orden` para que un
   //    empate entre dos rutinas sobre el mismo día se resuelva siempre igual.
@@ -360,8 +388,10 @@ export async function agendaDeHoy(sb, hoy) {
   (Array.isArray(fases) ? fases : []).forEach(f => { if (!faseDe[f.cliente_id]) faseDe[f.cliente_id] = f; });
   const ids = Object.values(faseDe).map(f => f.id);
   const rutinas = ids.length
-    ? await sb(`rutinas?select=id,fase_id,nombre,dia_orden,dia_semana,dias_semana,visible_cliente&fase_id=in.(${ids.join(',')})&archivada=is.false`)
+    ? await leerRutinas(sb, 'id,fase_id,nombre,dia_orden,dia_semana,dias_semana,visible_cliente', `fase_id=in.(${ids.join(',')})&archivada=is.false`)
     : [];
+  // Un bloque complementario hecho (un recovery) no es «ya entrenó hoy».
+  const deBloque = new Set((Array.isArray(rutinas) ? rutinas : []).filter(esComplementaria).map(r => r.id));
   const lunes = lunesDe(hoy);
   const sesiones = await sb(`sesiones?select=cliente_id,rutina_id,fecha,estado&fecha=gte.${lunes}&fecha=lte.${hoy}`);
   const movs = ids.length ? await movimientosDe(sb, `fase_id=in.(${ids.join(',')})`) : [];
@@ -390,7 +420,7 @@ export async function agendaDeHoy(sb, hoy) {
     // ¿Entrenó HOY (lo que sea, terminado o a medias)? El cierre del día no
     // le recuerda entrenar a quien ya lo hizo.
     const entrenoHoy = (Array.isArray(sesiones) ? sesiones : [])
-      .some(s => s.cliente_id === c.id && s.fecha === hoy && (s.estado === 'completada' || s.estado === 'en_curso'));
+      .some(s => s.cliente_id === c.id && s.fecha === hoy && (s.estado === 'completada' || s.estado === 'en_curso') && !deBloque.has(s.rutina_id));
     const evs = (Array.isArray(eventos) ? eventos : []).filter(e => e.cliente_id === c.id);
     const deHoy = expandirEventos(evs, fase)[hoy] || [];
     const medicion = !!deHoy.length;

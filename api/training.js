@@ -43,7 +43,7 @@ import { actividadExtra, bonoExtra, slugDeEvento, esDespuesDeEntrenar } from './
 import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
-  diasDeRutina, repartirPorDia, FASE_VISIBLE, rutinaVisible, finDeFase,
+  diasDeRutina, repartirPorDia, esComplementaria, leerRutinas, complementariasDe, FASE_VISIBLE, rutinaVisible, finDeFase,
   expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, extrasDe, quitadosDe, buscarClientePorNombre, nombreCorto, TIPOS_REGISTRO, nombreFase, objetivoCliente,
 } from './_entreno.js';
 import { alertarCoach } from './_alerta.js';
@@ -153,8 +153,8 @@ async function verPlan(cliente, hoy) {
   const fase = Array.isArray(fases) ? fases[0] : null;
   if (!fase) return { ok: true, cliente: cliente.nombre, fase: null, dias: [], hoy };
 
-  const rutinas = await sb(`rutinas?select=id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
-    + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
+  const rutinas = await leerRutinas(sb, 'id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente',
+    `fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
   const lista = (Array.isArray(rutinas) ? rutinas : []).filter(r => rutinaVisible(r, fase));
 
   // Cuántos ejercicios trae cada rutina, para no abrirla solo por saberlo.
@@ -192,6 +192,12 @@ async function verPlan(cliente, hoy) {
     return { fecha, rutinaId: r ? r.id : null, r };
   });
   const asignadas = asignarSesiones(huecos, sesiones);
+  // Un bloque complementario está hecho ese día si hay una sesión SUYA en esa
+  // fecha (no se reparte entre días como la fuerza).
+  const estadoBloque = (r, fecha) => {
+    const ss = sesiones.filter(x => x.rutina_id === r.id && x.fecha === fecha);
+    return ss.find(x => x.estado === 'completada') || ss.find(x => x.estado === 'en_curso') || null;
+  };
   const dias = DIAS.map((d, i) => {
     const r = huecos[i].r;
     const fecha = huecos[i].fecha;
@@ -213,6 +219,14 @@ async function verPlan(cliente, hoy) {
       movida: rutinaDe.movida(fecha),
       // La puso el coach solo ese día: es su plan, pero no se arrastra.
       fija: rutinaDe.extra(fecha) && !rutinaDe.extraDelCliente(fecha),
+      // Los bloques aparte de ese día (un recovery), debajo de la fuerza.
+      complementarias: complementariasDe(fase, lista, fecha).map(c => {
+        const sc = estadoBloque(c, fecha);
+        return {
+          id: c.id, nombre: c.nombre, tipo: c.tipo_sesion, minutos: c.duracion_estimada_min || null,
+          ejercicios: conteo[c.id] || 0, hecha: !!(sc && sc.estado === 'completada'), en_curso: !!(sc && sc.estado === 'en_curso'),
+        };
+      }),
     };
   });
 
@@ -228,7 +242,8 @@ async function verPlan(cliente, hoy) {
     // Rutinas que no cupieron en el calendario: el coach armó más días de
     // entreno que días declaró en la fase. Se muestran igual, sueltas, en vez
     // de desaparecer sin que nadie se entere.
-    sueltas: lista.filter(r => !Object.values(porDia).some(x => x && x.id === r.id))
+    // Los bloques complementarios con días van en su día, no aquí.
+    sueltas: lista.filter(r => !Object.values(porDia).some(x => x && x.id === r.id) && !(esComplementaria(r) && diasDeRutina(r).length))
       .map(r => ({ id: r.id, nombre: r.nombre, tipo: r.tipo_sesion, ejercicios: conteo[r.id] || 0 })),
   };
 }
@@ -819,8 +834,8 @@ async function verMes(cliente, ym, hoy) {
 
   let porDia = {}, rutinas = [], rutinaDe = () => null;
   if (fase) {
-    const rr = await sb(`rutinas?select=id,nombre,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
-      + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
+    const rr = await leerRutinas(sb, 'id,nombre,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente',
+      `fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
     rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
     porDia = repartirPorDia(fase, rutinas);
     rutinaDe = rutinaPorFecha(fase, porDia, await movimientosDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`),
@@ -862,6 +877,7 @@ async function verMes(cliente, ym, hoy) {
   const corte = String(cliente.estado || 'activo').toLowerCase() === 'activo' && diaPago >= 1 && diaPago <= 31
     ? fechaCorte(y, m, diaPago) : null;
 
+  const bloqueIds = new Set(rutinas.filter(esComplementaria).map(r => r.id));
   const dias = [];
   for (let d = new Date(Date.UTC(y, m - 1, 1)); d.getUTCMonth() === m - 1; d.setUTCDate(d.getUTCDate() + 1)) {
     const fecha = d.toISOString().slice(0, 10);
@@ -876,13 +892,21 @@ async function verMes(cliente, ym, hoy) {
     // Entrenó OTRA rutina ese día (movió el Push al martes, o entrenó en su
     // día de descanso). Antes no salía en ningún lado: el cliente entrenaba y
     // su calendario decía que no.
+    // (Un bloque complementario hecho no es «entrenó otra rutina»: va aparte.)
     const otra = (!s || s.estado !== 'completada')
-      ? sesiones.find(x => x.fecha === fecha && x.estado === 'completada' && x.rutina_id && x.rutina_id !== r?.id)
+      ? sesiones.find(x => x.fecha === fecha && x.estado === 'completada' && x.rutina_id && x.rutina_id !== r?.id && !bloqueIds.has(x.rutina_id))
       : null;
+    const bloques = dentro ? complementariasDe(fase, rutinas, fecha).map(c => {
+      const sc = sesiones.filter(x => x.fecha === fecha && x.rutina_id === c.id);
+      const hecha = sc.find(x => x.estado === 'completada') || sc.find(x => x.estado === 'en_curso') || null;
+      return { id: c.id, nombre: c.nombre, corto: nombreCorto(c.nombre), minutos: c.duracion_estimada_min || null, estado: hecha ? hecha.estado : null };
+    }) : [];
     dias.push({
       fecha, dia: letra, es_hoy: fecha === hoy,
       semana: dentro ? Math.floor((Date.parse(fecha) - Date.parse(fase.fecha_inicio)) / 86400000 / 7) + 1 : null,
       rutina: r ? { id: r.id, nombre: r.nombre, corto: nombreCorto(r.nombre), minutos: r.duracion_estimada_min || null } : null,
+      // Los bloques aparte de ese día, debajo de la fuerza.
+      complementarias: bloques,
       movida: dentro && !!rutinaDe.movida && rutinaDe.movida(fecha),
       // La añadió el cliente (la puede quitar él). La que puso el coach solo
       // ese día sale como su plan, pero fija: no se arrastra.
@@ -908,7 +932,8 @@ async function verMes(cliente, ym, hoy) {
     semana: { desde: lunesDe(hoy), hasta: sumarDiasISO(lunesDe(hoy), 6) },
     // Las rutinas del ciclo, con lo que trabajan: para añadir una a un día
     // libre y para avisar si dos días seguidos cargan los mismos músculos.
-    rutinas: rutinas.map(r => ({ id: r.id, nombre: r.nombre, corto: nombreCorto(r.nombre), musculos: musculos[r.id] || [] })),
+    // (Los bloques complementarios no se añaden a un día libre: van en sus días.)
+    rutinas: rutinas.filter(r => !esComplementaria(r)).map(r => ({ id: r.id, nombre: r.nombre, corto: nombreCorto(r.nombre), musculos: musculos[r.id] || [] })),
     dias,
   };
 }
@@ -1031,8 +1056,8 @@ async function contextoCalendario(cliente) {
     + `&cliente_id=eq.${cliente.id}&${FASE_VISIBLE}&order=orden.desc&limit=1`);
   const fase = Array.isArray(fases) ? fases[0] : null;
   if (!fase) return null;
-  const rr = await sb(`rutinas?select=id,nombre,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
-    + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
+  const rr = await leerRutinas(sb, 'id,nombre,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente',
+    `fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
   const rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
   const filtro = `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`;
   const rutinaDe = rutinaPorFecha(fase, repartirPorDia(fase, rutinas), await movimientosDe(sb, filtro), await extrasDe(sb, filtro, rutinas), await quitadosDe(sb, filtro));
@@ -1178,8 +1203,8 @@ async function verRutinas(cliente) {
   const fase = Array.isArray(fases) ? fases[0] : null;
   if (!fase) return { ok: true, fase: null, rutinas: [] };
 
-  const rr = await sb(`rutinas?select=id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente`
-    + `&fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
+  const rr = await leerRutinas(sb, 'id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente',
+    `fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
   const rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
   if (!rutinas.length) return { ok: true, fase: { nombre: nombreFase(fase.nombre), objetivo: objetivoCliente(fase.objetivo) }, rutinas: [] };
 
@@ -1210,6 +1235,7 @@ async function verRutinas(cliente) {
         id: r.id, nombre: r.nombre, descripcion: r.descripcion,
         tipo: r.tipo_sesion, minutos: r.duracion_estimada_min || null,
         ejercicios: suyos.length, dia, musculos: mus,
+        ...(esComplementaria(r) ? { complementaria: true, dias: diasDeRutina(r) } : {}),
       };
     }),
   };
@@ -1558,7 +1584,7 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   const fechaDe = {};
   sesiones.forEach(ses => {
     fechaDe[ses.id] = ses.fecha;
-    if (ses.estado !== 'completada') return;
+    if (ses.estado !== 'completada' || ses.bloque) return;
     const w = semanaDe(ses.fecha);
     if (w) w.hechos++;
   });
@@ -1631,7 +1657,7 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
 
   // INTENSIDAD · lo duro que se sintió cada entreno (1 a 10, lo marca al
   // terminar). Promedio y acumulado (la suma) del día, la semana y el mes.
-  const conRpe = sesiones.filter(x => x.estado === 'completada' && Number(x.rpe) >= 1 && Number(x.rpe) <= 10);
+  const conRpe = sesiones.filter(x => x.estado === 'completada' && !x.bloque && Number(x.rpe) >= 1 && Number(x.rpe) <= 10);
   const resumenRpe = (lista) => {
     const n = lista.length, suma = lista.reduce((a, x) => a + Number(x.rpe), 0);
     return { n, suma, prom: n ? Math.round((suma / n) * 10) / 10 : null };
@@ -1679,7 +1705,7 @@ async function verDash(cliente, hoy) {
     // finalizada): lo planeado de cada semana sale de la que la cubría.
     sb(`fases?select=id,fecha_inicio,semanas,dias_semana,visible_cliente,estado`
       + `&cliente_id=eq.${cliente.id}&estado=in.(activa,finalizada)&visible_cliente=is.true&order=orden.desc`).catch(() => []),
-    todas(`sesiones?select=id,fecha,estado,rpe&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}&order=fecha.asc`),
+    todas(`sesiones?select=id,fecha,estado,rpe,rutina_id&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}&order=fecha.asc`),
     sb(`actividades?select=fecha,duracion_min,tipo,evento_id&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}`)
       .catch(() => sb(`actividades?select=fecha,duracion_min&cliente_id=eq.${cliente.id}&fecha=gte.${desde}&fecha=lte.${hoy}`)).catch(() => []),
     sb(`mediciones_corporales?select=fecha,peso,grasa_pct&cliente_id=eq.${cliente.id}&order=fecha.desc&limit=24`).catch(() => []),
@@ -1709,8 +1735,15 @@ async function verDash(cliente, hoy) {
 
   const listaFases = Array.isArray(fases) ? fases : [];
   const faseHoy = listaFases.find(x => x.fecha_inicio && x.fecha_inicio <= hoy && finDeFase(x) >= hoy) || null;
+  // Los bloques complementarios (un recovery diario) no cuentan como días de
+  // fuerza: si no, el «3 de 3» se volvería «10 de 3».
+  let bloques = new Set();
+  try {
+    const bq = await sb(`rutinas?select=id&cliente_id=eq.${cliente.id}&complementaria=is.true`);
+    bloques = new Set((Array.isArray(bq) ? bq : []).map(r => r.id));
+  } catch (e) { /* sin la columna, ninguno lo es */ }
   return armarDash({
-    hoy, fases: listaFases, sesiones, series, nombres, alias,
+    hoy, fases: listaFases, sesiones: sesiones.map(x => (bloques.has(x.rutina_id) ? { ...x, bloque: true } : x)), series, nombres, alias,
     actividades: Array.isArray(actividades) ? actividades : [],
     medidas: Array.isArray(medidas) ? medidas : [],
     eventosSemana: expandirEventos(Array.isArray(eventos) ? eventos : [], faseHoy),

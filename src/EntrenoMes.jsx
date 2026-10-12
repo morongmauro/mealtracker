@@ -27,7 +27,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, CurrencyDollar, PersonSimpleRun, Moon, Info, Wind } from '@phosphor-icons/react';
+import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, CurrencyDollar, PersonSimpleRun, Moon, Info, Wind, Stack } from '@phosphor-icons/react';
 import { Bascula } from './iconosEntreno.jsx';
 import Respira from './Respira.jsx';
 import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
@@ -511,6 +511,20 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
           Ese día no tienes rutina de fuerza.
         </div>
       )}
+
+      {/* Los bloques aparte de ese día, debajo de la fuerza. */}
+      {bloquesDe(dia).map(b => (
+        <Card key={b.id} onClick={() => alEntrenar(b.id)} style={{ padding: 13, marginTop: 8 }} data-hoja-bloque={b.id}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Stack size={18} weight="bold" color={TEXT_MUTED} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 750, fontSize: v2 ? 15.5 : 14.5 }}>{b.nombre}</div>
+              <div style={{ fontSize: t.chico, color: TEXT_LIGHT }}>Bloque complementario{b.minutos ? ` · ~${b.minutos} min` : ''}</div>
+            </div>
+            {v2 ? <EstadoChip hecha={b.estado === 'completada'} P={P} /> : b.estado && <Marca estado={b.estado} style={{ fontSize: 17 }} />}
+          </div>
+        </Card>
+      ))}
 
       {/* Visual nueva: lo que se puede añadir va DEBAJO de la rutina de fuerza,
           que es la protagonista del día (antes iba arriba y confundía).
@@ -1305,6 +1319,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
   const registros = (dia?.eventos || []).filter(e => e.registra);
   const otros = (dia?.eventos || []).filter(e => !e.registra);
   const n = r ? ejerciciosDe[r.id] : null;
+  const bloques = bloquesDe(dia);
   const [respira, setRespira] = useState(false);
   return (
     <div data-hoy-te-toca>
@@ -1343,7 +1358,9 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
           </div>
         ) : (
           <div style={{ ...cajaDia, flexWrap: 'wrap' }}>
-            <Moon size={19} color={TEXT_LIGHT} /> <span style={{ flex: 1, minWidth: 0 }}><b style={{ color: TEXT }}>Hoy descansas.</b> Descansar también es parte del plan.</span>
+            <Moon size={19} color={TEXT_LIGHT} /> <span style={{ flex: 1, minWidth: 0 }}>{bloques.length
+              ? <><b style={{ color: TEXT }}>Hoy no toca fuerza.</b> Te queda tu bloque de abajo.</>
+              : <><b style={{ color: TEXT }}>Hoy descansas.</b> Descansar también es parte del plan.</>}</span>
             <button data-descanso-respira onClick={() => setRespira(true)} style={{
               flexBasis: '100%', marginTop: 4, padding: '11px 14px', borderRadius: 14, border: 0, background: '#EEF3FB', color: '#2F6CC4',
               fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -1351,6 +1368,13 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
           </div>
         )}
         {respira && <Respira alCerrar={() => setRespira(false)} inicial={3} />}
+
+        {/* Los bloques aparte del día (un recovery): debajo de la fuerza, que
+            sigue siendo lo primero que se ve. */}
+        {bloques.length > 0 && (r || dia?.hecho) && (
+          <div style={{ fontSize: 13.5, fontWeight: 750, color: TEXT_MUTED, margin: '4px 2px -2px' }}>También hoy</div>
+        )}
+        {bloques.map(b => <TarjetaBloque key={b.id} b={b} P={P} n={ejerciciosDe[b.id]} alEntrenar={alEntrenar} />)}
 
         {registros.map(ev => (
           <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 alCambio={alCambio} />
@@ -1385,6 +1409,51 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
     </div>
   );
 }
+// ── Bloques complementarios (un recovery, una movilidad diaria) ──────────
+// Rutinas aparte que el coach pone el mismo día que la fuerza. Siempre van
+// DEBAJO de la fuerza y más chicas: la fuerza es lo que se viene a hacer.
+const bloquesDe = (dia) => (Array.isArray(dia?.complementarias) ? dia.complementarias : []);
+function TarjetaBloque({ b, P, n, alEntrenar }) {
+  const hecha = b.estado === 'completada';
+  const aMedias = b.estado === 'en_curso';
+  const meta = [n ? `${n} ejercicio${n === 1 ? '' : 's'}` : null, b.minutos ? `~${b.minutos} min` : null].filter(Boolean).join(' · ');
+  return (
+    <button data-hoy-bloque={b.id} onClick={() => alEntrenar(b.id)} style={{
+      ...cajaDia, width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '12px 14px',
+      background: hecha ? '#FBF5E2' : '#fff',
+    }}>
+      <span style={{ width: 38, height: 38, borderRadius: 12, background: P.tint, color: P.ink, display: 'grid', placeItems: 'center', flex: 'none' }}>
+        <Stack size={19} weight="bold" />
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: TEXT_MUTED }}>
+          {hecha ? 'Bloque complementario · ya lo hiciste' : aMedias ? 'Bloque complementario · a medias' : 'Bloque complementario'}
+        </span>
+        <span style={{ display: 'block', fontSize: 16.5, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em', marginTop: 1 }}>{b.nombre}</span>
+        {meta && <span style={{ display: 'block', fontSize: 13, color: TEXT_LIGHT, marginTop: 1 }}>{meta}</span>}
+      </span>
+      {hecha
+        ? <CheckCircle size={24} weight="fill" color={P.base} />
+        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 14, fontWeight: 800, color: P.ink, flex: 'none' }}>{aMedias ? 'Seguir' : 'Empezar'} <CaretRight size={14} weight="bold" /></span>}
+    </button>
+  );
+}
+// En la semana y el calendario: una píldora chica, por debajo de la de fuerza.
+function ChipBloque({ b, chico = false }) {
+  const hecha = b.estado === 'completada';
+  return (
+    <div data-chip-bloque={b.id} style={{
+      display: 'flex', alignItems: 'center', gap: chico ? 2 : 5, alignSelf: chico ? 'stretch' : 'flex-start', maxWidth: '100%', minWidth: 0,
+      padding: chico ? '1px 3px' : '4px 9px', borderRadius: chico ? 6 : 9,
+      border: `1px solid ${hecha ? 'transparent' : 'rgba(31,31,31,0.16)'}`, background: hecha ? '#FBF5E2' : 'rgba(255,255,255,0.9)',
+      color: hecha ? '#8A6A12' : TEXT_MUTED, fontSize: chico ? 9 : 12.5, fontWeight: 700, lineHeight: 1.15, letterSpacing: chico ? '-0.03em' : 0,
+    }}>
+      {hecha ? <Check size={chico ? 8 : 12} weight="bold" style={{ flex: 'none' }} /> : <Stack size={chico ? 8 : 12} weight="bold" style={{ flex: 'none' }} />}
+      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: chico ? 'nowrap' : 'normal' }}>{chico ? nombreCorto(b.nombre) : b.nombre}</span>
+    </div>
+  );
+}
+
 const cajaDia = {
   display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 18, background: '#fff', color: TEXT_MUTED,
   fontSize: 15, lineHeight: 1.4, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)',
@@ -1417,7 +1486,7 @@ function TenEnCuenta() {
 // ── Semana: un renglón por día, todo escrito ────────────────────────────
 function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastrable, alTocar }) {
   const esHoy = fecha === hoy;
-  const nada = !dia || (!dia.rutina && !dia.hecho && !dia.eventos.length && !dia.actividades.length && !dia.inicio_ciclo && !dia.corte_pago && !dia.fin_ciclo);
+  const nada = !dia || (!dia.rutina && !dia.hecho && !bloquesDe(dia).length && !dia.eventos.length && !dia.actividades.length && !dia.inicio_ciclo && !dia.corte_pago && !dia.fin_ciclo);
   return (
     <div data-fecha={fecha} role="button" tabIndex={0} onClick={alTocar} style={{
       display: 'flex', gap: 12, padding: '11px 12px', borderRadius: 18, cursor: dia ? 'pointer' : 'default',
@@ -1437,6 +1506,7 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
           <ChipRutina grande nombre={`${corto(dia.rutina)}${dia.extra ? ' · añadida' : ''}`} hecha={dia.estado === 'completada'} movida={dia.movida || dia.extra} P={P} arrastre={arrastrable} />
         )}
         {dia?.hecho && <ChipRutina grande nombre={`${corto(dia.hecho)}${dia.rutina ? ' (en su lugar)' : ''}`} hecha P={P} />}
+        {bloquesDe(dia).map(b => <ChipBloque key={b.id} b={b} />)}
         {dia?.eventos.filter(e => e.registra).map(e => (
           <Etiqueta key={e.id} Icono={null} tipo={e.tipo} color={MORADO} fondo={e.hecho ? '#EEE9FB' : '#FFFFFF'} borde={e.hecho ? 'transparent' : '#CFC3EF'} hecho={e.hecho}>
             {REGISTRO[e.tipo]?.nombre || e.titulo}
@@ -1570,6 +1640,7 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
         </span>
       </div>
       {nom && <ChipCal nombre={nom} estado={est} arrastre={dia.rutina ? arrastrable : null} />}
+      {bloquesDe(dia).map(b => <ChipBloque key={b.id} b={b} chico />)}
       {marcas.length > 0 && (
         <span style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '0 2px', marginTop: 'auto' }}>
           {marcas.map(m => <span key={m.k} data-marca-cal={m.k} aria-label={m.t} style={{ display: 'inline-flex' }}><m.I size={12} weight="bold" color={m.c} /></span>)}
@@ -1639,6 +1710,7 @@ function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejercicios
             {alAgregar && <button onClick={(e) => { e.stopPropagation(); alAgregar(); }} style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 650, color: TEXT_MUTED, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Plus size={13} weight="bold" /> Añadir</button>}
           </div>
         )}
+        {bloquesDe(dia).map(b => <ChipBloque key={b.id} b={b} />)}
         {extras.map(x => (
           <div key={x.k} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: TEXT_MUTED }}>
             {x.I ? <span style={{ display: 'inline-flex', flex: 'none' }}><x.I size={14} weight="bold" color={x.c} /></span>
