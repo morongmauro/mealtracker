@@ -11,7 +11,6 @@
 // el gimnasio con mala señal tiene que ver "no pude cargar, reintenta", no
 // una pantalla en blanco.
 // ─────────────────────────────────────────────────────────────────────────
-import { v2Activa } from './v2.js';
 
 async function pedir(body) {
   try {
@@ -146,11 +145,12 @@ export const miniatura = (ej) => {
   // que con una equivocada (hasta que el coach elija la buena en el CRM).
   if (yt && Number(ej.video_inicio_seg) > 0) return null;
   if (ej.video_fuente === 'youtube' && ej.video_ref) {
-    // Con la visual nueva se usa un fotograma del MEDIO del video (mq2) y no
-    // la portada que eligió el canal: las portadas traen letreros y estilos
-    // de cada canal, y en una galería se ven desparejas. El fotograma muestra
-    // el ejercicio mismo, y todas se ven de la misma familia.
-    return `https://i.ytimg.com/vi/${ej.video_ref}/${v2Activa() ? 'mq2' : 'mqdefault'}.jpg`;
+    // La PORTADA del video, también en la visual nueva. Los cuadros
+    // automáticos (¼, mitad, ¾) los saca YouTube al subir el video y no los
+    // vuelve a sacar: si el canal después lo recortó o lo editó, muestran lo
+    // que había antes (otro ejercicio). La portada es la que el video tiene
+    // puesta hoy. El coach puede elegir otro cuadro en el CRM si la ve mejor.
+    return `https://i.ytimg.com/vi/${ej.video_ref}/mqdefault.jpg`;
   }
   return null;
 };
