@@ -34,10 +34,11 @@ export function cumplimientoComidaSemana(history = {}, goals = {}, hoy = hoyLoca
 }
 
 // La adherencia al entreno de la semana (rutinas hechas de las planeadas),
-// más el bono de la actividad extra (cardio, deportes…: hasta +10 puntos, la
-// misma regla del CRM; lo calcula el servidor, api/_actividad.js).
+// más el bono de la actividad extra (cardio, deportes…: hasta +10 puntos) y
+// menos lo poquito que resta lo del coach sin marcar (hasta −5). La misma
+// regla del CRM; lo calcula el servidor, api/_actividad.js.
 export const adherenciaEntreno = (semana) => (semana && semana.planeados
-  ? Math.min(1, semana.hechos / semana.planeados + (Number(semana.bono) || 0) / 100) : null);
+  ? Math.max(0, Math.min(1, semana.hechos / semana.planeados + ((Number(semana.bono) || 0) - (Number(semana.penal) || 0)) / 100)) : null);
 
 // Sin datos todavía (un lunes antes de registrar nada, sin metas, sin fase)
 // el aro sale igual, vacío y con «—»: antes desaparecía y la cabecera

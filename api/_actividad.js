@@ -50,6 +50,35 @@ export function bonoExtra(detalle) {
   return Math.min(TOPE, bruto);
 }
 
+// ── Lo que el coach programó y no se marcó: resta POQUITO ────────────────
+// Cardio, caminata o deporte que el coach le puso en el calendario, de un
+// día que ya pasó, sin marcar: −0,5 puntos cada uno, máximo −5. Hacerlo suma
+// de 1 a 3 puntos por día (tope +10): siempre suma más de lo que resta, y
+// no hunde una semana de fuerza cumplida. Hoy todavía no cuenta (aún puede
+// hacerlo). La misma regla del CRM (penalSinMarcar en app.js).
+export const PENAL_PUNTO = 0.5;
+export const PENAL_TOPE = 5;
+export function penalSinMarcar(coach) {
+  if (!coach) return 0;
+  const faltan = Math.max(0, (Number(coach.programadas) || 0) - (Number(coach.hechas) || 0));
+  return Math.min(PENAL_TOPE, faltan * PENAL_PUNTO);
+}
+// { programadas, hechas } de los días [desde, antesDe): `eventosPorFecha` es
+// el calendario ya expandido (expandirEventos) y `hechos` un Set de
+// «evento_id:fecha» de lo que marcó.
+export function cardioDelCoach(eventosPorFecha, hechos, desde, antesDe) {
+  let programadas = 0, hechas = 0;
+  for (const [fecha, evs] of Object.entries(eventosPorFecha || {})) {
+    if (fecha < desde || fecha >= antesDe) continue;
+    for (const ev of evs || []) {
+      if (!ev || ev.tipo !== 'actividad') continue;
+      programadas++;
+      if (hechos && hechos.has(`${ev.id}:${fecha}`)) hechas++;
+    }
+  }
+  return { programadas, hechas };
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // LO QUE EL COACH LE PONE EN EL CALENDARIO (eventos de tipo «actividad»)
 //

@@ -35,8 +35,9 @@ export function aroEntreno(plan) {
   // Sin rutinas esta semana (o mientras carga): el aro sale vacío, no se quita.
   if (!planeadas) return { frac: 0, centro: '—', pie: 'Performance semanal' };
   const hechas = dias.filter(d => d.rutina && d.hecha).length;
-  // La actividad extra (cardio, deportes…) suma su bono, hasta +10 puntos.
-  const frac = Math.min(1, hechas / planeadas + (Number(plan.extra?.bono) || 0) / 100);
+  // La actividad extra (cardio, deportes…) suma su bono, hasta +10 puntos; lo
+  // que el coach programó y no marcó resta poquito, hasta −5.
+  const frac = Math.max(0, Math.min(1, hechas / planeadas + ((Number(plan.extra?.bono) || 0) - (Number(plan.extra?.penal) || 0)) / 100));
   return { frac, centro: `${Math.round(frac * 100)}%`, pie: 'Performance semanal' };
 }
 

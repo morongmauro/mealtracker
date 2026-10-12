@@ -33,10 +33,12 @@ const crmDb = {
   ],
   actividades: [
     { cliente_id: 'c1', fecha: '2026-10-13', tipo: 'running' },
-    { cliente_id: 'c1', fecha: '2026-10-13', tipo: 'caminata' },
+    { cliente_id: 'c1', fecha: '2026-10-13', tipo: 'caminata', evento_id: 'ev-cam' },
     { cliente_id: 'c1', fecha: '2026-10-14', tipo: 'running' },
   ],
-  fases: [{ id: 'f1', cliente_id: 'c1', estado: 'activa', orden: 1 }],
+  fases: [{ id: 'f1', cliente_id: 'c1', estado: 'activa', orden: 1, fecha_inicio: '2026-10-05', semanas: 4, visible_cliente: true }],
+  // La caminata del coach de lunes a viernes: marcó la del martes.
+  eventos: [{ id: 'ev-cam', cliente_id: 'c1', fase_id: 'f1', tipo: 'actividad', titulo: 'Caminata corta', fecha: null, dias_semana: ['L', 'M', 'X', 'J', 'V'], semanas: null, visible_cliente: true }],
   rutinas: [{ fase_id: 'f1', archivada: false }, { fase_id: 'f1', archivada: false }, { fase_id: 'f1', archivada: false }, { fase_id: 'f1', archivada: true }],
 };
 const mtDb = { user_data: [
@@ -70,7 +72,8 @@ let ana = crmDb.seguimientos.find(s => s.cliente_id === 'c1' && s.semana === enC
 ok('miércoles: la semana de Ana ya está en el CRM, con lo que lleva hasta hoy', !!ana && r.semanas[enCurso].creadas === 1, JSON.stringify(r));
 ok('entrenos: 1 hecho de 3 programados (el de a medias no cuenta)', ana && ana.fuerza_ejecutados === 1 && ana.fuerza_planeados === 3, JSON.stringify(ana));
 ok('actividad extra: 2 días de running y 1 de caminata, con su bono', ana && ana.actividad_extra.running === 2 && ana.actividad_extra.caminata === 1 && ana.cardio_ejecutados === 3);
-ok('el bono suma al entreno: 33 % + 7 = 40 %', ana && Math.round(ana.score_entreno) === 40, String(ana && ana.score_entreno));
+ok('el bono suma al entreno y lo del coach sin marcar (el lunes) resta poquito: 33 % + 7 − 0,5 ≈ 40 %', ana && Math.round(ana.score_entreno) === 40 && ana.score_entreno < 40.4, String(ana && ana.score_entreno));
+ok('lo del coach queda guardado para el CRM: 2 programadas hasta ayer, 1 marcada', ana && ana.actividad_extra._coach && ana.actividad_extra._coach.programadas === 2 && ana.actividad_extra._coach.hechas === 1, JSON.stringify(ana && ana.actividad_extra));
 ok('comida: promedio de los 3 días registrados (incluye hoy)', ana && ana.kcal_promedio === 2000 && ana.proteina_promedio_g === 120 && ana.dias_registro_alim === 3, JSON.stringify(ana));
 ok('lleva la marca de semana automática', ana && ana.notas === NOTA_AUTO);
 ok('Beto: su semana la guardó el coach y NO se toca', crmDb.seguimientos.find(s => s.cliente_id === 'c2').notas === 'del coach' && crmDb.seguimientos.filter(s => s.cliente_id === 'c2').length === 1);

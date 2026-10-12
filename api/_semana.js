@@ -20,7 +20,8 @@
 // entrenos que vienen de la importación de Trainerize no cuentan como
 // marcados por el cliente (igual que en el CRM).
 // ─────────────────────────────────────────────────────────────────────────
-import { actividadExtra, bonoExtra, diasExtra } from './_actividad.js';
+import { actividadExtra, bonoExtra, diasExtra, penalSinMarcar, cardioDelCoach } from './_actividad.js';
+import { expandirEventos } from './_entreno.js';
 
 export const NOTA_AUTO = 'Semana registrada sola con lo que marcó en su app. Corrígela si sabes algo que la app no.';
 
@@ -45,11 +46,21 @@ export function rangoSemana(semana) {
 const menosDias = (ymd, n) => { const t = new Date(Date.parse(ymd + 'T00:00:00Z')); t.setUTCDate(t.getUTCDate() - n); return t.toISOString().slice(0, 10); };
 const diaSemana = (ymd) => (new Date(Date.parse(ymd + 'T00:00:00Z')).getUTCDay() + 6) % 7;   // 0 = lunes
 
+// actividad_extra llega como objeto (jsonb) o como texto.
+function actParse(v) {
+  if (!v) return null;
+  if (typeof v === 'object') return v;
+  try { const o = JSON.parse(v); return o && typeof o === 'object' ? o : null; } catch (e) { return null; }
+}
+
 // La misma regla del CRM (calcScores, con el bono de actividad extra).
 export function calcScores(s, cliente) {
   const pct = (n, d) => d > 0 ? Math.min(100, (n / d) * 100) : null;
   const fuerza = pct(s.fuerza_ejecutados, s.fuerza_planeados);
-  const score_entreno = fuerza !== null ? Math.min(100, fuerza + bonoExtra(s.actividad_extra)) : null;
+  // El cardio y los deportes suman (hasta +10); lo que el coach programó y no
+  // marcó resta poquito (hasta −5). Va en actividad_extra._coach.
+  const extra = actParse(s.actividad_extra);
+  const score_entreno = fuerza !== null ? Math.max(0, Math.min(100, fuerza + bonoExtra(extra) - penalSinMarcar(extra && extra._coach))) : null;
   let score_alim_metas = null;
   if (cliente?.meta_calorias && s.kcal_promedio != null) {
     const k = Math.max(0, 100 - Math.abs((s.kcal_promedio - cliente.meta_calorias) / cliente.meta_calorias * 100));
@@ -93,8 +104,16 @@ async function filasDeSemana({ crm, mt, clientes, semana, hoy }) {
   // Entrenos, actividad extra y fases de todos, en pocas consultas.
   const ses = await todas('sesiones', 'cliente_id,estado,origen', `&fecha=gte.${ini}&fecha=lte.${fin}`);
   let acts = [];
-  try { acts = await todas('actividades', 'cliente_id,fecha,tipo', `&fecha=gte.${ini}&fecha=lte.${fin}`); } catch (e) { acts = []; }
-  const fases = await todas('fases', 'id,cliente_id,orden', '&estado=eq.activa');
+  try { acts = await todas('actividades', 'cliente_id,fecha,tipo,evento_id', `&fecha=gte.${ini}&fecha=lte.${fin}`); }
+  catch (e) { try { acts = await todas('actividades', 'cliente_id,fecha,tipo', `&fecha=gte.${ini}&fecha=lte.${fin}`); } catch (e2) { acts = []; } }
+  const fases = await todas('fases', 'id,cliente_id,orden,fecha_inicio,semanas,visible_cliente', '&estado=eq.activa');
+  // El cardio, la caminata y los deportes que el coach puso en el calendario.
+  let eventos = [];
+  const camposEv = 'id,cliente_id,fase_id,tipo,titulo,fecha,dias_semana,semanas,visible_cliente';
+  try { eventos = await todas('eventos', `${camposEv},fechas_excluidas`, '&tipo=eq.actividad'); }
+  catch (e) { try { eventos = await todas('eventos', camposEv, '&tipo=eq.actividad'); } catch (e2) { eventos = []; } }
+  // Solo cuentan los días ya pasados: hoy todavía puede hacerlo.
+  const antesDe = hoy <= fin ? hoy : menosDias(fin, -1);
   const faseDe = new Map();
   for (const f of fases) { const p = faseDe.get(f.cliente_id); if (!p || (f.orden || 0) > (p.orden || 0)) faseDe.set(f.cliente_id, f); }
   const rutinasPorFase = new Map();
@@ -126,14 +145,19 @@ async function filasDeSemana({ crm, mt, clientes, semana, hoy }) {
     const hechas = suyas.filter(s => s.estado === 'completada' && (s.origen || 'cliente') === 'cliente').length;
     const fase = faseDe.get(c.id);
     const planeadas = fase ? (rutinasPorFase.get(fase.id) || null) : null;
-    const extra = actividadExtra(acts.filter(a => a.cliente_id === c.id));
+    const susActs = acts.filter(a => a.cliente_id === c.id);
+    const extra = actividadExtra(susActs);
+    const coach = fase ? cardioDelCoach(expandirEventos(eventos.filter(e => e.cliente_id === c.id), fase),
+      new Set(susActs.filter(a => a.evento_id).map(a => `${a.evento_id}:${a.fecha}`)), ini, antesDe) : { programadas: 0, hechas: 0 };
     const mtIds = idsDe.get(c.id) || [];
     const comida = resumenComida(mtIds.map(i => datos.get(i)).filter(Boolean), hasta);
     const usaApp = mtIds.length > 0 || suyas.some(s => (s.origen || 'cliente') === 'cliente') || !!extra;
     if (!usaApp) { sinUso++; continue; }
     const seg = {
       fuerza_planeados: planeadas, fuerza_ejecutados: planeadas != null || hechas ? hechas : null,
-      cardio_ejecutados: diasExtra(extra), actividad_extra: extra,
+      cardio_ejecutados: diasExtra(extra),
+      // `_coach`: lo del coach programado y lo marcado (para el −poquito).
+      actividad_extra: coach.programadas ? { ...(extra || {}), _coach: coach } : extra,
       kcal_promedio: comida.kcal, proteina_promedio_g: comida.prote, dias_registro_alim: comida.dias,
     };
     filas.push({

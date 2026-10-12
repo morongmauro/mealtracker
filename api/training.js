@@ -39,7 +39,7 @@
 // Fail-safe: ante cualquier problema devuelve { ok:false } y la app muestra
 // su estado vacío. Nunca rompe la pantalla.
 
-import { actividadExtra, bonoExtra, slugDeEvento, esDespuesDeEntrenar, opcionesDeEvento } from './_actividad.js';
+import { actividadExtra, bonoExtra, slugDeEvento, esDespuesDeEntrenar, opcionesDeEvento, penalSinMarcar, cardioDelCoach } from './_actividad.js';
 import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
@@ -176,8 +176,13 @@ async function verPlan(cliente, hoy) {
     + `&cliente_id=eq.${cliente.id}&fecha=gte.${lunes}&order=fecha.asc`);
   const sesiones = Array.isArray(ses) ? ses : [];
   // La actividad extra de la semana (cardio, deportes…): suma a la performance.
-  const actsSemana = await sb(`actividades?select=fecha,tipo&cliente_id=eq.${cliente.id}&fecha=gte.${lunes}`).catch(() => []);
+  const actsSemana = await sb(`actividades?select=fecha,tipo,evento_id&cliente_id=eq.${cliente.id}&fecha=gte.${lunes}`)
+    .catch(() => sb(`actividades?select=fecha,tipo&cliente_id=eq.${cliente.id}&fecha=gte.${lunes}`)).catch(() => []);
   const extraSemana = actividadExtra(Array.isArray(actsSemana) ? actsSemana : []);
+  // Lo del coach (cardio, caminata, deporte) de días ya pasados sin marcar:
+  // resta poquito (_actividad.js, penalSinMarcar).
+  const hechosCoach = new Set((Array.isArray(actsSemana) ? actsSemana : []).filter(a => a.evento_id).map(a => `${a.evento_id}:${a.fecha}`));
+  const penalSemana = penalSinMarcar(cardioDelCoach(expandirEventos(await eventosDelCliente(cliente.id), fase), hechosCoach, lunes, hoy));
 
   const porDia = repartirPorDia(fase, lista);
   // Lo que el cliente movió de día pesa sobre el plan semanal.
@@ -238,7 +243,7 @@ async function verPlan(cliente, hoy) {
       dias_semana: fase.dias_semana || [],
     },
     dias,
-    extra: { detalle: extraSemana, bono: bonoExtra(extraSemana) },
+    extra: { detalle: extraSemana, bono: bonoExtra(extraSemana), penal: penalSemana },
     // Rutinas que no cupieron en el calendario: el coach armó más días de
     // entreno que días declaró en la fase. Se muestran igual, sueltas, en vez
     // de desaparecer sin que nadie se entere.
@@ -1658,6 +1663,10 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
     actividad_extra: actividadExtra(actSemana),
     bono: bonoExtra(actividadExtra(actSemana)),
   };
+  // Lo que el coach programó (cardio, caminata, deporte) en días que ya
+  // pasaron y no marcó: resta poquito (_actividad.js, penalSinMarcar).
+  semana.cardio_coach = cardioDelCoach(eventosSemana, hechoActividad, actual.desde, hoy);
+  semana.penal = penalSinMarcar(semana.cardio_coach);
 
   // INTENSIDAD · lo duro que se sintió cada entreno (1 a 10, lo marca al
   // terminar). Promedio y acumulado (la suma) del día, la semana y el mes.

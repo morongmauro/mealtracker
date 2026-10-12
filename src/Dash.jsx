@@ -396,7 +396,8 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   const destacados = useMemo(() => alimentosDestacados(detalle, hoy), [detalle, hoy]);
   const ultimaSemana = ent?.semanas?.[ent.semanas.length - 1];
   // La semana en curso, con el bono de su actividad extra (cardio, deportes…).
-  const semana = ultimaSemana ? { ...ultimaSemana, bono: ent?.semana?.bono || 0 } : ultimaSemana;
+  // (y lo poquito que resta lo que el coach le programó y no marcó).
+  const semana = ultimaSemana ? { ...ultimaSemana, bono: ent?.semana?.bono || 0, penal: ent?.semana?.penal || 0 } : ultimaSemana;
   const nombre = String(name || '').split(' ')[0];
   const wa = WHATSAPP_COACH
     ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`
@@ -492,6 +493,15 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
                 <FilaSemana Icono={Gauge} etiqueta="Intensidad promedio"
                   valor={ent?.semana?.intensidad?.prom != null ? `${fmt(ent.semana.intensidad.prom, 1)}/10` : '—'} />
               </div>
+            </div>
+          )}
+          {/* Lo que movió su performance aparte de la fuerza: el cardio y los
+              deportes suman; lo del coach sin marcar resta poquito. */}
+          {!falloEnt && ent?.semana && (ent.semana.bono > 0 || ent.semana.penal > 0) && (
+            <div data-puntos-extra style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 10, lineHeight: 1.45 }}>
+              {ent.semana.bono > 0 && <span><b style={{ color: '#2F7F45' }}>+{ent.semana.bono}</b> por cardio y deportes</span>}
+              {ent.semana.bono > 0 && ent.semana.penal > 0 && ' · '}
+              {ent.semana.penal > 0 && <span><b style={{ color: '#B5552B' }}>−{String(ent.semana.penal).replace('.', ',')}</b> por lo de tu coach sin marcar</span>}
             </div>
           )}
           {/* Misma forma que la tarjeta de alimentación: anillo y cifras
