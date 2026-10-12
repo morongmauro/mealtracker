@@ -13,7 +13,7 @@ import { Fire, Barbell, HandsClapping, Heart, PushPin, ArrowSquareOut, ChatCircl
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { api } from './entrenoDatos.js';
 import { vibrar, asegurarCSS } from './Celebraciones.jsx';
-import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
+import { TEXT } from './theme.js';
 
 export const REACCIONES = [
   { tipo: 'fuego', Icono: Fire, color: '#E8642C', nombre: 'Fuego' },
@@ -21,7 +21,12 @@ export const REACCIONES = [
   { tipo: 'aplauso', Icono: HandsClapping, color: '#E0A21A', nombre: 'Aplauso' },
   { tipo: 'corazon', Icono: Heart, color: '#D2483B', nombre: 'Corazón' },
 ];
-const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)';
+const SOMBRA = '0 1px 2px rgba(0,0,0,0.04), 0 8px 24px -12px rgba(0,0,0,0.12)';
+// Grises de sistema (estilo Apple): secundario, relleno y separador.
+const GRIS = '#8E8E93';
+const RELLENO = 'rgba(118,118,128,0.12)';
+const BURBUJA = '#F2F2F7';
+const SEPARADOR = 'rgba(60,60,67,0.12)';
 
 // Lo último que se vio, para el puntito del Dash: la publicación más nueva.
 const cache = new Map();
@@ -54,26 +59,38 @@ function Avatar({ iniciales, nombre, coach, tam = 34 }) {
   const [fondo, tinta] = coach ? ['#1F1F1F', '#FFFFFF'] : tinte(nombre || iniciales);
   return (
     <span aria-hidden="true" style={{ width: tam, height: tam, borderRadius: 99, background: fondo, color: tinta, display: 'grid', placeItems: 'center',
-      fontWeight: 800, fontSize: Math.round(tam * 0.38), flex: 'none', letterSpacing: '-0.02em' }}>{iniciales}</span>
+      fontWeight: 700, fontSize: Math.round(tam * 0.38), flex: 'none', letterSpacing: '-0.01em' }}>{iniciales}</span>
   );
 }
 
-// El equipo: todos los del programa, con su circulito y su nombre corto.
+// El equipo, debajo de las publicaciones: circulitos chicos con su nombre
+// corto. Sin el total (lo que importa es sentirse parte, no la cifra) y con
+// un tope: si son más, la fila termina en «y más».
+const EQUIPO_TOPE = 12;
 function Equipo({ miembros }) {
   if (!miembros || !miembros.length) return null;
+  const tu = miembros.filter(m => m.tu), otros = miembros.filter(m => !m.tu);
+  const lista = [...tu, ...otros].slice(0, EQUIPO_TOPE);
+  const mas = miembros.length > lista.length;
   return (
-    <section data-equipo style={{ ...tarjeta, padding: '14px 0 12px', marginBottom: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 16px' }}>
-        <span style={{ fontSize: 15.5, fontWeight: 800, color: TEXT }}>El equipo</span>
-        <span style={{ fontSize: 13, color: TEXT_LIGHT, fontWeight: 600 }}>{miembros.length} {miembros.length === 1 ? 'persona' : 'personas'}</span>
+    <section data-equipo style={{ ...tarjeta, padding: '14px 0 12px', marginTop: 14 }}>
+      <div style={{ padding: '0 16px' }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: TEXT, letterSpacing: '-0.01em' }}>El equipo</div>
+        <div style={{ fontSize: 13, color: GRIS, marginTop: 1 }}>Entrenando contigo en el programa</div>
       </div>
-      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '12px 16px 2px', scrollbarWidth: 'none' }}>
-        {miembros.map((m, i) => (
-          <div key={i} data-miembro style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, width: 58, flex: 'none' }}>
-            <Avatar iniciales={m.iniciales} nombre={m.nombre} tam={46} />
-            <span style={{ fontSize: 12, fontWeight: 650, color: m.tu ? TEXT : TEXT_MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 58 }}>{m.tu ? 'Tú' : m.nombre}</span>
+      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '12px 16px 2px', scrollbarWidth: 'none' }}>
+        {lista.map((m, i) => (
+          <div key={i} data-miembro style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 46, flex: 'none' }}>
+            <Avatar iniciales={m.iniciales} nombre={m.nombre} tam={32} />
+            <span style={{ fontSize: 11, fontWeight: 500, color: m.tu ? TEXT : GRIS, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 46 }}>{m.tu ? 'Tú' : m.nombre}</span>
           </div>
         ))}
+        {mas && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 46, flex: 'none' }}>
+            <span aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 99, background: RELLENO, color: GRIS, display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 600 }}>+</span>
+            <span style={{ fontSize: 11, fontWeight: 500, color: GRIS }}>y más</span>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -95,23 +112,23 @@ function Comentarios({ post, alComentar, alBorrar }) {
     if (caja.current) caja.current.style.height = '';
   };
   return (
-    <div data-comentarios style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #F0EDE6' }}>
+    <div data-comentarios style={{ marginTop: 12, paddingTop: 12, borderTop: `0.5px solid ${SEPARADOR}` }}>
       {todos.length > 2 && !abiertos && (
-        <button onClick={() => setAbiertos(true)} data-ver-comentarios style={{ border: 0, background: 'none', padding: '0 0 8px', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: TEXT_MUTED, cursor: 'pointer' }}>
+        <button onClick={() => setAbiertos(true)} data-ver-comentarios style={{ border: 0, background: 'none', padding: '0 0 8px', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, color: GRIS, cursor: 'pointer' }}>
           Ver los {todos.length} comentarios
         </button>
       )}
       {visibles.map(c => (
         <div key={c.id} data-comentario={c.mio ? 'mio' : c.coach ? 'coach' : 'otro'} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8, opacity: c._enviando ? 0.6 : 1 }}>
-          <Avatar iniciales={c.iniciales} nombre={c.autor} coach={c.coach} tam={30} />
+          <Avatar iniciales={c.iniciales} nombre={c.autor} coach={c.coach} tam={28} />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ background: '#F4F2EC', borderRadius: '4px 16px 16px 16px', padding: '7px 11px 8px', display: 'inline-block', maxWidth: '100%' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: TEXT }}>{c.mio ? 'Tú' : c.autor}</div>
-              <div style={{ fontSize: 14.5, lineHeight: 1.4, color: TEXT, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{c.texto}</div>
+            <div style={{ background: BURBUJA, borderRadius: 18, padding: '7px 12px 8px', display: 'inline-block', maxWidth: '100%' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>{c.mio ? 'Tú' : c.autor}</div>
+              <div style={{ fontSize: 15, lineHeight: 1.38, color: TEXT, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{c.texto}</div>
             </div>
-            <div style={{ display: 'flex', gap: 10, fontSize: 12, color: TEXT_LIGHT, margin: '3px 0 0 4px' }}>
+            <div style={{ display: 'flex', gap: 10, fontSize: 12, color: GRIS, margin: '3px 0 0 12px' }}>
               <span>{c._enviando ? 'Enviando…' : hace(c.creado_en)}</span>
-              {c.mio && !c._enviando && <button onClick={() => alBorrar(post, c)} data-borrar-comentario style={{ border: 0, background: 'none', padding: 0, fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: TEXT_LIGHT, cursor: 'pointer' }}>Borrar</button>}
+              {c.mio && !c._enviando && <button onClick={() => alBorrar(post, c)} data-borrar-comentario style={{ border: 0, background: 'none', padding: 0, fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: GRIS, cursor: 'pointer' }}>Borrar</button>}
             </div>
           </div>
         </div>
@@ -120,14 +137,14 @@ function Comentarios({ post, alComentar, alBorrar }) {
         <textarea ref={caja} data-escribir value={texto} rows={1} maxLength={600} placeholder="Escribe un comentario…"
           onFocus={() => setFoco(true)} onBlur={() => setFoco(false)}
           onChange={e => { setTexto(e.target.value); e.target.style.height = ''; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
-          style={{ flex: 1, minWidth: 0, resize: 'none', border: '1px solid #E7E3DA', background: '#FBFAF7', borderRadius: 18, padding: '9px 14px', fontFamily: 'inherit', fontSize: 15, lineHeight: 1.35, color: TEXT, outline: 'none' }} />
+          style={{ flex: 1, minWidth: 0, resize: 'none', border: 0, background: BURBUJA, borderRadius: 20, padding: '9px 14px', fontFamily: 'inherit', fontSize: 16, lineHeight: 1.3, color: TEXT, outline: 'none' }} />
         <button onClick={enviar} disabled={!texto.trim()} aria-label="Enviar comentario" data-enviar-comentario style={{
-          width: 40, height: 40, borderRadius: 99, border: 0, flex: 'none', display: 'grid', placeItems: 'center', cursor: texto.trim() ? 'pointer' : 'default',
-          background: texto.trim() ? '#1F1F1F' : '#ECE9E2', color: texto.trim() ? '#fff' : TEXT_LIGHT, transition: 'background .15s' }}>
-          <PaperPlaneRight size={18} weight="fill" />
+          width: 36, height: 36, borderRadius: 99, border: 0, flex: 'none', display: 'grid', placeItems: 'center', cursor: texto.trim() ? 'pointer' : 'default',
+          background: texto.trim() ? '#1D1D1F' : RELLENO, color: texto.trim() ? '#fff' : GRIS, transition: 'background .15s' }}>
+          <PaperPlaneRight size={17} weight="fill" />
         </button>
       </div>
-      {(foco || texto) && <div style={{ fontSize: 12, color: TEXT_LIGHT, margin: '6px 4px 0' }}>Lo lee todo el equipo; el aviso solo le llega a Mauro.</div>}
+      {(foco || texto) && <div style={{ fontSize: 12, color: GRIS, margin: '6px 12px 0' }}>Lo lee todo el equipo; el aviso solo le llega a Mauro.</div>}
     </div>
   );
 }
@@ -191,32 +208,31 @@ export default function Comunidad({ name, arriba = 0 }) {
     <div ref={raiz} data-comunidad style={{ paddingTop: arriba }}>
       <CabeceraHoy tema="dash" fondo={false} voz={{
         etiqueta: 'COMUNIDAD', a: 'Lo que comparto', b: 'con todo el equipo.',
-        sub: 'Tips, retos y novedades del programa. Reacciona y comenta.',
+        sub: 'Tips y novedades del programa. Reacciona y comenta.',
       }} />
-      {datos && datos.ok && <Equipo miembros={datos.miembros} />}
       {!datos ? (
         <div style={{ ...tarjeta, height: 140, opacity: 0.6 }} />
       ) : !datos.ok || !datos.posts.length ? (
         <div data-comunidad-vacia style={{ ...tarjeta, textAlign: 'center', padding: '26px 18px' }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: TEXT }}>Todavía no hay publicaciones</div>
-          <div style={{ fontSize: 14.5, color: TEXT_MUTED, marginTop: 4, lineHeight: 1.45 }}>Cuando comparta algo con el equipo, aparece aquí.</div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: TEXT }}>Todavía no hay publicaciones</div>
+          <div style={{ fontSize: 15, color: GRIS, marginTop: 4, lineHeight: 1.45 }}>Cuando comparta algo con el equipo, aparece aquí.</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {datos.posts.map(p => (
             <article key={p.id} data-post={p.id} style={tarjeta}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 36, height: 36, borderRadius: 99, background: '#1F1F1F', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 14, flex: 'none' }}>M</span>
+                <span style={{ width: 34, height: 34, borderRadius: 99, background: '#1D1D1F', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14, flex: 'none' }}>M</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT }}>Mauro · tu coach</div>
-                  <div style={{ fontSize: 12.5, color: TEXT_LIGHT }}>{fecha(p.publicado_en)}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: TEXT, letterSpacing: '-0.01em' }}>Mauro <span style={{ fontWeight: 400, color: GRIS }}>· tu coach</span></div>
+                  <div style={{ fontSize: 13, color: GRIS }}>{fecha(p.publicado_en)}</div>
                 </div>
-                {p.fijado && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: '#7A5500', background: 'rgba(240,184,40,0.2)', padding: '4px 9px', borderRadius: 99 }}><PushPin size={13} weight="fill" /> Fijado</span>}
+                {p.fijado && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: GRIS }}><PushPin size={13} weight="fill" color="#F2C94C" /> Fijado</span>}
               </div>
-              <p style={{ margin: '12px 0 0', fontSize: 15.5, lineHeight: 1.5, color: TEXT, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{p.texto}</p>
+              <p style={{ margin: '12px 0 0', fontSize: 16, lineHeight: 1.45, color: TEXT, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', letterSpacing: '-0.005em' }}>{p.texto}</p>
               {p.imagen_url && <img src={p.imagen_url} alt="" loading="lazy" style={{ display: 'block', width: '100%', borderRadius: 14, marginTop: 12, background: '#F1EFE9' }} />}
               {p.enlace_url && (
-                <a href={p.enlace_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 14, fontWeight: 700, color: TEXT, textDecoration: 'none', background: '#F1EFE9', padding: '8px 12px', borderRadius: 12 }}>
+                <a href={p.enlace_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 14, fontWeight: 600, color: '#2F6CC4', textDecoration: 'none', background: RELLENO, padding: '8px 12px', borderRadius: 12 }}>
                   <ArrowSquareOut size={16} /> Abrir enlace
                 </a>
               )}
@@ -227,17 +243,18 @@ export default function Comunidad({ name, arriba = 0 }) {
                   return (
                     <button key={tipo} data-reaccion={tipo} aria-pressed={on} aria-label={`${nombre}${n ? ` · ${n}` : ''}`}
                       onClick={() => reaccionar(p, tipo)} style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5, height: 36, padding: '0 11px', borderRadius: 99, cursor: 'pointer',
-                        fontFamily: 'inherit', fontSize: 13.5, fontWeight: 750, border: 0,
-                        background: on ? `color-mix(in srgb, ${color} 16%, white)` : '#F4F2EC', color: on ? color : TEXT_MUTED,
+                        display: 'inline-flex', alignItems: 'center', gap: 4, height: 32, padding: '0 10px', borderRadius: 99, cursor: 'pointer',
+                        fontFamily: 'inherit', fontSize: 13, fontWeight: 600, border: 0,
+                        background: on ? `color-mix(in srgb, ${color} 15%, white)` : RELLENO, color: on ? color : '#3C3C43',
+                        transition: 'background .15s, color .15s',
                       }}>
-                      <span className={p._pop === tipo ? 'mt-pop' : undefined} style={{ display: 'inline-flex' }}><Icono size={18} weight={on ? 'fill' : 'regular'} /></span>
+                      <span className={p._pop === tipo ? 'mt-pop' : undefined} style={{ display: 'inline-flex' }}><Icono size={17} weight={on ? 'fill' : 'regular'} /></span>
                       {n > 0 && <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n}</span>}
                     </button>
                   );
                 })}
                 {(p.comentarios || []).length > 0 && (
-                  <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700, color: TEXT_LIGHT }}>
+                  <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 500, color: GRIS }}>
                     <ChatCircle size={16} /> {p.comentarios.length}
                   </span>
                 )}
@@ -247,6 +264,8 @@ export default function Comunidad({ name, arriba = 0 }) {
           ))}
         </div>
       )}
+      {/* El equipo, debajo de los mensajes. */}
+      {datos && datos.ok && <Equipo miembros={datos.miembros} />}
     </div>
   );
 }
