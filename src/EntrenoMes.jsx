@@ -1369,19 +1369,21 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
         )}
         {respira && <Respira alCerrar={() => setRespira(false)} inicial={3} />}
 
-        {/* Los bloques aparte del día (un recovery): debajo de la fuerza, que
-            sigue siendo lo primero que se ve. */}
-        {bloques.length > 0 && (r || dia?.hecho) && (
-          <div style={{ fontSize: 13.5, fontWeight: 750, color: TEXT_MUTED, margin: '4px 2px -2px' }}>También hoy</div>
+        {/* «También hoy»: todo lo demás que dejó el coach para hoy, debajo
+            de la fuerza (que sigue siendo lo primero que se ve): los bloques
+            aparte (un recovery), el cardio y la caminata, y pesarse o las
+            fotos. */}
+        {(bloques.length > 0 || registros.length > 0 || otros.length > 0) && (
+          <div data-tambien-hoy style={{ fontSize: 13.5, fontWeight: 750, color: TEXT_MUTED, margin: '4px 2px -2px' }}>También hoy</div>
         )}
         {bloques.map(b => <TarjetaBloque key={b.id} b={b} P={P} n={ejerciciosDe[b.id]} alEntrenar={alEntrenar} />)}
 
-        {registros.map(ev => (
-          <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 alCambio={alCambio} />
-        ))}
-
         {otros.filter(ev => ev.tipo === 'actividad').map(ev => (
           <TarjetaCardioCoach key={ev.id} ev={ev} fecha={hoy} nombre={nombre} alCambio={alCambio} />
+        ))}
+
+        {registros.map(ev => (
+          <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 alCambio={alCambio} />
         ))}
         {otros.filter(ev => ev.tipo !== 'actividad').map(ev => (
           <div key={ev.id} style={{ ...cajaDia, fontSize: 14.5 }}>
