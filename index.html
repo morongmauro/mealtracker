@@ -43,6 +43,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <title>Entrena con Método</title>
+    <link rel="preload" href="/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
     <script>
       // Opener SOLO en arranque frío: si la app ya se abrió en esta sesión
       // (volver del centro de Aprendizaje, botón "atrás", recarga por
@@ -88,7 +89,11 @@
           raiz.style.setProperty('--alto-pantalla', (screen.height || innerHeight) + 'px');
         } catch (e) {}
         if (raiz.classList.contains('splash-v2') && !raiz.classList.contains('warm-start')) {
-          raiz.classList.add('intro-completa');
+          // La entrada arranca YA, sin esperar a la app: así nunca hay
+          // pantalla vacía. La app se arma por debajo cuando el ícono ya está
+          // dibujado (main.jsx), para no trabar la animación.
+          raiz.classList.add('intro-completa', 'intro-anda');
+          window.__introDesde = performance.now();
           var tc = document.querySelector('meta[name="theme-color"]');
           if (tc) tc.setAttribute('content', '#F7F6F2');
         }
@@ -182,14 +187,18 @@
            0.00–1.25 s  cuatro manchas de la marca nacen juntas en el centro
                         como gotas de tinta, giran en espiral hacia afuera, se
                         cruzan y quedan respirando cada una en su esquina
-           0.42–1.17 s  un disco de cristal aparece en el centro
-           0.58–1.56 s  las líneas del ícono se dibujan solas (sin reflejo):
+           0.20–0.90 s  un disco de cristal aparece en el centro
+           0.32–1.21 s  las líneas del ícono se dibujan solas (sin reflejo):
                         primero el asa, después el cuerpo
-           1.50 s       sale el punto amarillo
-           1.22–1.78 s  «Entrena con / Método.» grande, en dos líneas como las
+           1.15 s       sale el punto amarillo
+           0.80–1.76 s  «Entrena con / Método.» grande, en dos líneas como las
                         frases de los módulos, letra por letra; «Método.» en
                         amarillo
-           2.25 s       todo crece, se desenfoca y aparece la app */
+           1.8–2.9 s    el ícono y el nombre quedan a la vista
+           2.9 s        todo crece, se desvanece y aparece la app
+         Arranca apenas se abre (nunca pantalla vacía) y solo anima opacidad y
+         movimiento, que el teléfono mueve aunque esté ocupado armando la app:
+         nada de desenfoques animados, que eran lo que la «congelaba». */
       html.splash-v2 #splash2 { position: fixed; top: -60px; left: 0; right: 0; bottom: -200px; z-index: 9999; display: block;
         overflow: hidden; pointer-events: none; background: #F7F6F2; transition: opacity .6s cubic-bezier(.5,0,.75,0); }
       html.warm-start #splash2 { display: none !important; }
@@ -197,19 +206,19 @@
       body.app-ready #splash2 { opacity: 0; }
       #splash2 .fondo { position: absolute; inset: 0; background: linear-gradient(180deg, #FFFFFF, #F1EFEA); }
       #splash2 .escena { position: absolute; left: 0; right: 0; top: 60px; height: 100vh; height: var(--alto-pantalla, 100lvh);
-        transition: transform .6s cubic-bezier(.5,0,.75,0), filter .6s cubic-bezier(.5,0,.75,0); }
-      body.app-ready #splash2 .escena { transform: scale(1.9); filter: blur(8px); }
+        transition: transform .6s cubic-bezier(.5,0,.75,0); will-change: transform; }
+      body.app-ready #splash2 .escena { transform: scale(1.6); }
       #splash2 .remolino { position: absolute; left: 50%; top: 46%; width: 0; height: 0; }
-      #splash2 .m { position: absolute; width: 420px; height: 360px; margin: -180px 0 0 -210px; filter: blur(30px); opacity: 0; }
+      #splash2 .m { position: absolute; width: 420px; height: 360px; margin: -180px 0 0 -210px; filter: blur(30px); opacity: 0; will-change: transform, opacity; }
       #splash2 .m1 { background: radial-gradient(closest-side, rgba(60,123,214,.56), rgba(60,123,214,0)); border-radius: 48% 52% 44% 56% / 55% 42% 58% 45%; --x: -150px; --y: -300px; --s: 1.25; }
       #splash2 .m2 { background: radial-gradient(closest-side, rgba(242,201,76,.64), rgba(242,201,76,0)); border-radius: 56% 44% 52% 48% / 46% 56% 44% 54%; --x: 160px; --y: -280px; --s: 1.15; }
       #splash2 .m3 { background: radial-gradient(closest-side, rgba(70,150,90,.52), rgba(70,150,90,0)); border-radius: 44% 56% 58% 42% / 52% 48% 52% 48%; --x: -160px; --y: 330px; --s: 1.25; }
       #splash2 .m4 { background: radial-gradient(closest-side, rgba(238,132,52,.5), rgba(238,132,52,0)); border-radius: 52% 48% 46% 54% / 44% 56% 46% 54%; --x: 165px; --y: 300px; --s: 1.15; }
       #splash2 .velo { position: absolute; inset: 0; opacity: 0; background: radial-gradient(70% 45% at 50% 46%, rgba(255,255,255,.92), rgba(255,255,255,0) 70%); }
       #splash2 .disco { position: absolute; left: 50%; top: 46%; width: 176px; height: 176px; margin: -88px 0 0 -88px; border-radius: 50%;
-        background: rgba(255,255,255,.42); -webkit-backdrop-filter: blur(22px) saturate(1.6); backdrop-filter: blur(22px) saturate(1.6);
+        background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.86), rgba(255,255,255,.62));
         box-shadow: 0 30px 60px rgba(30,30,40,.14), inset 0 1px 0 rgba(255,255,255,.9), inset 0 0 0 1px rgba(255,255,255,.55);
-        opacity: 0; transform: scale(.55); filter: blur(10px); }
+        opacity: 0; transform: scale(.55); will-change: transform, opacity; }
       #splash2 .escena3d { position: absolute; left: 50%; top: 46%; width: 120px; height: 120px; margin: -60px 0 0 -60px; perspective: 500px; }
       #splash2 .marca { width: 120px; height: 120px; overflow: visible; opacity: 0; }
       #splash2 .traza { stroke-dasharray: 100 100; stroke-dashoffset: 100; }
@@ -220,31 +229,31 @@
         letter-spacing: -0.035em; color: #1D1D1F; white-space: nowrap; }
       #splash2 .nombre .linea { display: block; opacity: 1 !important; filter: none !important; transform: none !important; animation: none !important; }
       #splash2 .nombre .metodo span { color: #EDB929; }
-      #splash2 .nombre span { display: inline-block; opacity: 0; filter: blur(7px); transform: translateY(8px); }
-      #splash2 .nombre .pto { color: #EDB929; filter: none; transform: scale(0); }
+      #splash2 .nombre span { display: inline-block; opacity: 0; transform: translateY(10px); will-change: transform, opacity; }
+      #splash2 .nombre .pto { color: #EDB929; transform: scale(0); }
       html.intro-anda #splash2 .remolino { animation: s2gira 2.6s cubic-bezier(.25,.6,.2,1) forwards; }
       html.intro-anda #splash2 .m { animation: s2sale 1.25s cubic-bezier(.2,.75,.15,1) forwards, s2respira 3.2s ease-in-out 1.1s infinite alternate; }
       html.intro-anda #splash2 .m2 { animation-delay: .07s, 1.17s; }
       html.intro-anda #splash2 .m3 { animation-delay: .14s, 1.24s; }
       html.intro-anda #splash2 .m4 { animation-delay: .21s, 1.31s; }
-      html.intro-anda #splash2 .velo { animation: s2aparece .7s ease-out .55s forwards; }
-      html.intro-anda #splash2 .disco { animation: s2disco .75s cubic-bezier(.2,1.3,.3,1) .42s forwards; }
-      html.intro-anda #splash2 .marca { animation: s2aparece .2s ease-out .55s forwards; }
-      html.intro-anda #splash2 .t1 { animation: s2traza .62s cubic-bezier(.45,0,.3,1) .58s forwards; }
-      html.intro-anda #splash2 .t2 { animation: s2traza .7s cubic-bezier(.45,0,.3,1) .86s forwards; }
-      html.intro-anda #splash2 .punto { animation: s2pop .5s cubic-bezier(.3,1.9,.5,1) 1.5s forwards; }
-      html.intro-anda #splash2 .halo { animation: s2halo .9s ease-out 1.52s forwards; }
+      html.intro-anda #splash2 .velo { animation: s2aparece .6s ease-out .3s forwards; }
+      html.intro-anda #splash2 .disco { animation: s2disco .7s cubic-bezier(.2,1.3,.3,1) .2s forwards; }
+      html.intro-anda #splash2 .marca { animation: s2aparece .2s ease-out .3s forwards; }
+      html.intro-anda #splash2 .t1 { animation: s2traza .55s cubic-bezier(.45,0,.3,1) .32s forwards; }
+      html.intro-anda #splash2 .t2 { animation: s2traza .65s cubic-bezier(.45,0,.3,1) .56s forwards; }
+      html.intro-anda #splash2 .punto { animation: s2pop .5s cubic-bezier(.3,1.9,.5,1) 1.15s forwards; }
+      html.intro-anda #splash2 .halo { animation: s2halo .9s ease-out 1.17s forwards; }
       html.intro-anda #splash2 .nombre span { animation: s2letra .5s cubic-bezier(.2,.8,.2,1) forwards; }
-      html.intro-anda #splash2 .nombre .pto { animation: s2pop2 .4s cubic-bezier(.3,1.9,.5,1) 1.78s forwards; }
+      html.intro-anda #splash2 .nombre .pto { animation: s2pop2 .4s cubic-bezier(.3,1.9,.5,1) 1.36s forwards; }
       @keyframes s2gira { from { transform: rotate(-160deg); } to { transform: rotate(0deg); } }
       @keyframes s2sale { 0% { opacity: 0; transform: translate(0, 0) scale(.12); } 18% { opacity: 1; } 55% { transform: translate(calc(var(--x) * .7), calc(var(--y) * .7)) scale(calc(var(--s) * 1.08)); } 100% { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--s)); } }
       @keyframes s2respira { from { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--s)); } to { opacity: 1; transform: translate(var(--x), var(--y)) scale(calc(var(--s) * 1.08)); } }
       @keyframes s2aparece { to { opacity: 1; } }
-      @keyframes s2disco { to { opacity: 1; transform: scale(1); filter: blur(0); } }
+      @keyframes s2disco { to { opacity: 1; transform: scale(1); } }
       @keyframes s2traza { to { stroke-dashoffset: 0; } }
       @keyframes s2pop { to { transform: scale(1); } }
       @keyframes s2halo { 0% { transform: scale(.6); opacity: .7; } 100% { transform: scale(2.6); opacity: 0; } }
-      @keyframes s2letra { to { opacity: 1; filter: blur(0); transform: none; } }
+      @keyframes s2letra { to { opacity: 1; transform: none; } }
       @keyframes s2pop2 { to { opacity: 1; transform: scale(1); } }
       @media (prefers-reduced-motion: reduce) {
         #splash2 * { animation-duration: 0.01s !important; animation-delay: 0s !important; transition: none !important; }
@@ -300,15 +309,13 @@
           <g transform="translate(256 262) scale(.9) translate(-256 -248)">
             <circle class="halo" cx="120" cy="300" r="28.8" fill="#F2C94C"/>
             <circle class="punto" cx="120" cy="300" r="28.8" fill="#F2C94C"/></g></svg></div>
-        <p class="nombre"><span class="linea"><span style="animation-delay:1.220s">E</span><span style="animation-delay:1.250s">n</span><span style="animation-delay:1.280s">t</span><span style="animation-delay:1.310s">r</span><span style="animation-delay:1.340s">e</span><span style="animation-delay:1.370s">n</span><span style="animation-delay:1.400s">a</span><span style="animation-delay:1.430s">&nbsp;</span><span style="animation-delay:1.460s">c</span><span style="animation-delay:1.490s">o</span><span style="animation-delay:1.520s">n</span></span><span class="linea metodo"><span style="animation-delay:1.590s">M</span><span style="animation-delay:1.620s">é</span><span style="animation-delay:1.650s">t</span><span style="animation-delay:1.680s">o</span><span style="animation-delay:1.710s">d</span><span style="animation-delay:1.740s">o</span><span class="pto">.</span></span></p>
+        <p class="nombre"><span class="linea"><span style="animation-delay:0.800s">E</span><span style="animation-delay:0.830s">n</span><span style="animation-delay:0.860s">t</span><span style="animation-delay:0.890s">r</span><span style="animation-delay:0.920s">e</span><span style="animation-delay:0.950s">n</span><span style="animation-delay:0.980s">a</span><span style="animation-delay:1.010s">&nbsp;</span><span style="animation-delay:1.040s">c</span><span style="animation-delay:1.070s">o</span><span style="animation-delay:1.100s">n</span></span><span class="linea metodo"><span style="animation-delay:1.130s">M</span><span style="animation-delay:1.160s">é</span><span style="animation-delay:1.190s">t</span><span style="animation-delay:1.220s">o</span><span style="animation-delay:1.250s">d</span><span style="animation-delay:1.280s">o</span><span class="pto">.</span></span></p>
       </div>
       <script>
         // La secuencia espera a que la app esté armada (main.jsx la arranca);
         // mientras, el reloj de las animaciones SVG queda en pausa. Si la app
         // tarda demasiado, arranca sola a los 2,5 s.
         (function () {
-          var sv = document.querySelector('#splash2 .marca');
-          try { sv.pauseAnimations(); } catch (e) {}
           window.__empezarIntro = function () {
             var r = document.documentElement;
             if (!r.classList.contains('intro-completa')) return 0;
@@ -319,7 +326,8 @@
             window.__introDesde = performance.now();
             return window.__introDesde;
           };
-          setTimeout(function () { window.__empezarIntro(); }, 2500);
+          // (Arranca sola desde el <head>; esto queda por si acaso.)
+          if (document.documentElement.classList.contains('intro-completa')) window.__empezarIntro();
         })();
       </script>
     </div>

@@ -150,7 +150,9 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const aroGrande = grande ? (() => {
     const dentro = lugarEnCaja(CAJA[tema] || CAJA.entreno, ARO_G.objAncho, ARO_G.objAlto);
     return (
-      <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', width: 150, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none' }}>
+      // Subida un poco (translateY): el texto de abajo de la gráfica quedaba
+      // pegado a los botones. Sin cambiar el alto de la fila.
+      <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', width: 150, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none', transform: 'translateY(-8px)' }}>
         <div className="cab-ilus" data-aro-cabecera={tema} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animationDelay: '.1s' }}>
           <div style={{ position: 'relative', width: ARO_G.tam, height: ARO_G.tam }}>
             {/* Tenue: protagonista sobre el objeto, pero sin robarle el
@@ -161,8 +163,8 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
               <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={activo} /></div>
             </div>
           </div>
-          <div data-aro-centro style={{ marginTop: 8, fontSize: 17, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
-          {aro.pie && <div data-aro-pie style={{ marginTop: 3, fontSize: 11, fontWeight: 500, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.25 }}>{aro.pie}</div>}
+          <div data-aro-centro style={{ marginTop: 6, fontSize: 17, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
+          {aro.pie && <div data-aro-pie style={{ marginTop: 2, fontSize: 11, fontWeight: 500, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.25 }}>{aro.pie}</div>}
         </div>
       </div>
     );

@@ -25,7 +25,19 @@ const path = (typeof window !== 'undefined' && window.location.pathname) || '/';
 const isCoach = path === '/coach' || path.startsWith('/coach/');
 const isRanking = path === '/ranking' || path.startsWith('/ranking/');
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+// Con la entrada animada en pantalla, este código ya llega DESPUÉS de que el
+// ícono y el nombre terminan de entrar (vite.config.js, entradaSinTrabasPlugin): armar
+// la app es lo que ocupa al teléfono, y las líneas del ícono se dibujan en ese
+// mismo hilo; si coinciden, la animación se traba a la mitad. En desarrollo
+// (sin ese plugin) se espera aquí lo mismo.
+const esperaEntrada = (() => {
+  if (typeof window === 'undefined' || !import.meta.env.DEV) return 0;
+  const r = document.documentElement;
+  if (!r.classList.contains('intro-anda') || r.classList.contains('warm-start')) return 0;
+  return Math.max(0, (window.__introDesde || 0) + 1800 - performance.now());
+})();
+
+const montar = () => ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     {isCoach
       ? <Suspense fallback={null}><CoachDashboard /></Suspense>
@@ -34,6 +46,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         : <Salvavidas><MealTracker /></Salvavidas>}
   </React.StrictMode>
 );
+if (esperaEntrada > 0) setTimeout(montar, esperaEntrada); else montar();
 
 // Oculta el splash una vez React renderizó. Mínimo de exhibición: la
 // animación del logo dura ~1.4s; el mínimo de 2.2s deja la animación
@@ -52,14 +65,14 @@ if (typeof window !== 'undefined') {
   const raiz = document.documentElement;
   const splashV2 = raiz.classList.contains('splash-v2');
   const conEntrada = raiz.classList.contains('intro-completa');
-  const ENTRADA_MS = 2250;
+  const ENTRADA_MS = 2900;
   const cerrarEntrada = () => {
     document.body.classList.add('app-ready');
     if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F1F0EA'); }
     try { sessionStorage.setItem('mt:booted', '1'); } catch (e) {}
   };
-  // Arranca la secuencia (si no arrancó ya sola a los 2,5 s) y cierra 3,4 s
-  // después de su comienzo.
+  // Cierra la entrada 2,9 s después de que arrancó (o en cuanto la app esté
+  // armada, si tardó más).
   const correrEntrada = () => {
     const desde = (window.__empezarIntro && window.__empezarIntro()) || performance.now();
     setTimeout(cerrarEntrada, Math.max(80, desde + ENTRADA_MS - performance.now()));
