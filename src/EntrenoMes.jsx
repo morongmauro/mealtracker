@@ -1497,10 +1497,13 @@ const PUNTO = { cardio: '#46965A', registro: '#AF52DE', pago: AMARILLO_CAL };
 
 function Segmentado({ valor, alCambiar, opciones }) {
   return (
-    <div data-segmentado role="group" style={{ display: 'flex', padding: 2, borderRadius: 11, background: 'rgba(255,255,255,0.55)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)', marginBottom: 14, boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.04)' }}>
+    // Como el de alimentación: carril gris ovalado y la opción elegida en una
+    // píldora blanca, con el texto en el color de la sección.
+    <div data-segmentado role="group" style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 999, background: 'rgba(118,118,128,0.12)', marginBottom: 14 }}>
       {opciones.map(([v, t]) => (
         <button key={v} onClick={() => alCambiar(v)} aria-pressed={valor === v} style={{
-          flex: 1, height: 34, border: 'none', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14.5, fontWeight: valor === v ? 700 : 600, color: TEXT,
+          flex: 1, height: 36, border: 'none', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: valor === v ? 700 : 600,
+          color: valor === v ? SECCION.entreno.ink : TEXT_MUTED,
           background: valor === v ? '#fff' : 'transparent', boxShadow: valor === v ? '0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04)' : 'none',
         }}>{t}</button>
       ))}
@@ -1600,10 +1603,12 @@ function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejercicios
   const n = r ? ejerciciosDe[r.id] : null;
   const sub = !r ? null : est === 'hecha' ? 'Hecha' : est === 'movida' ? (dia.extra ? 'La añadiste tú' : 'La moviste tú') : est === 'perdida' ? 'No se hizo' : (n ? `${n} ejercicio${n === 1 ? '' : 's'}` : 'Por hacer');
   const extras = [
-    ...(dia?.eventos || []).map(e => ({ k: e.id, c: e.registra ? PUNTO.registro : TEXT_LIGHT, t: e.registra ? (REGISTRO[e.tipo]?.nombre || e.titulo) : e.titulo })),
-    ...(dia?.actividades || []).map(a => ({ k: 'a' + a.id, c: PUNTO.cardio, t: `${a.titulo || a.tipo}${a.duracion_min ? ` · ${a.duracion_min} min` : ''}` })),
-    ...(dia?.corte_pago ? [{ k: 'pago', c: AMBAR_PAGO, t: 'Corte de tu mensualidad' }] : []),
-    ...(dia?.inicio_ciclo ? [{ k: 'ini', c: TEXT_MUTED, t: 'Empieza tu ciclo nuevo' }] : []),
+    // Con los mismos íconos que el mes y la leyenda: báscula, persona trotando y $.
+    ...(dia?.eventos || []).map(e => ({ k: e.id, c: e.registra ? PUNTO.registro : e.tipo === 'actividad' ? PUNTO.cardio : TEXT_LIGHT,
+      I: e.registra ? Bascula : e.tipo === 'actividad' ? PersonSimpleRun : null, t: e.registra ? (REGISTRO[e.tipo]?.nombre || e.titulo) : e.titulo })),
+    ...(dia?.actividades || []).map(a => ({ k: 'a' + a.id, c: PUNTO.cardio, I: PersonSimpleRun, t: `${a.titulo || a.tipo}${a.duracion_min ? ` · ${a.duracion_min} min` : ''}` })),
+    ...(dia?.corte_pago ? [{ k: 'pago', c: AMBAR_PAGO, I: CurrencyDollar, t: 'Corte de tu mensualidad' }] : []),
+    ...(dia?.inicio_ciclo ? [{ k: 'ini', c: TEXT_MUTED, I: Flag, t: 'Empieza tu ciclo nuevo' }] : []),
   ];
   const estilo = est === 'hecha' ? { background: GRAFITO_CAL, color: '#fff' }
     : est === 'movida' ? { outline: `1.5px dashed ${GRAFITO_CAL}`, outlineOffset: -1.5, background: 'rgba(255,255,255,0.7)', color: GRAFITO_CAL }
@@ -1636,7 +1641,9 @@ function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejercicios
         )}
         {extras.map(x => (
           <div key={x.k} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: TEXT_MUTED }}>
-            <i style={{ width: 6, height: 6, borderRadius: 99, background: x.c, flex: 'none' }} /><span style={{ minWidth: 0 }}>{x.t}</span>
+            {x.I ? <span style={{ display: 'inline-flex', flex: 'none' }}><x.I size={14} weight="bold" color={x.c} /></span>
+              : <i style={{ width: 6, height: 6, borderRadius: 99, background: x.c, flex: 'none', margin: '0 4px' }} />}
+            <span style={{ minWidth: 0 }}>{x.t}</span>
           </div>
         ))}
       </div>
