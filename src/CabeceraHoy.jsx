@@ -99,7 +99,7 @@ function lugarDelObjeto(caja) {
 // Con gráfica (las cabeceras de la visual nueva): la gráfica grande es la
 // protagonista, con el objeto 3D chico y tenue adentro, y el porcentaje y su
 // texto debajo.
-const ARO_G = { tam: 102, grosor: 7.5, objAncho: 52, objAlto: 41 };
+const ARO_G = { tam: 94, grosor: 7, objAncho: 46, objAlto: 36 };
 function lugarEnCaja(caja, ancho, alto) {
   const [l, t, r, b] = caja;
   const lado = Math.min(ancho / (r - l), alto / (b - t));
@@ -155,9 +155,8 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', width: 138, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none', transform: 'translateY(-8px)' }}>
         <div className="cab-ilus" data-aro-cabecera={tema} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animationDelay: '.1s' }}>
           <div style={{ position: 'relative', width: ARO_G.tam, height: ARO_G.tam }}>
-            {/* Tenue: protagonista sobre el objeto, pero sin robarle el
-                protagonismo a la sección. */}
-            <div style={{ opacity: 0.72 }}><AnilloMarca plano frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.9)" etiqueta={aro.pie} /></div>
+            {/* El aro y su punto, nítidos: lo tenue es solo el objeto. */}
+            <div><AnilloMarca plano frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.9)" etiqueta={aro.pie} /></div>
             {/* El objeto, chico y tenue, adentro de la gráfica. */}
             <div style={{ position: 'absolute', left: (ARO_G.tam - ARO_G.objAncho) / 2, top: (ARO_G.tam - ARO_G.objAlto) / 2, width: ARO_G.objAncho, height: ARO_G.objAlto, opacity: 0.5 }}>
               <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={activo} /></div>

@@ -321,7 +321,7 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   if (!an || !centro) { console.log('ilusBien', tema, 'sin gráfica'); return false; }
   const a = an.getBoundingClientRect(), k = centro.getBoundingClientRect();
   const opac = Number(getComputedStyle(caja.parentElement.parentElement).opacity);
-  const bien = a.width >= 100 && a.left >= 0 && a.right <= innerWidth - 8 && derechaTexto <= a.left + 4
+  const bien = a.width >= 88 && a.left >= 0 && a.right <= innerWidth - 8 && derechaTexto <= a.left + 4
     && g.left >= a.left && g.right <= a.right && g.top >= a.top && g.bottom <= a.bottom && (g.right - g.left) <= 64 && opac < 0.8
     && k.top >= a.bottom - 1 && Math.abs((k.left + k.right) / 2 - (a.left + a.right) / 2) <= 4 && f.top < a.bottom;
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top, g.bottom], a: [a.left, a.right, a.top, a.bottom], derechaTexto, opac, k: [k.left, k.top] }));

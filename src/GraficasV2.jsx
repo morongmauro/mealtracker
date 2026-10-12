@@ -237,7 +237,7 @@ export function PuntaApple({ m, r, grosor, frac, color, transicion, radioPunto }
           <circle cx={m + r} cy={m} r={grosor / 2} fill={t.cla} filter={`url(#so${id})`} />
         </>
       )}
-      <circle cx={m + r} cy={m} r={radioPunto ?? Math.max(1.5, grosor / 2 - 2.5)} fill="#FFFFFF" style={{ opacity: frac < 1 ? 1 : 0, transition: 'opacity .2s' }} />
+      <circle cx={m + r} cy={m} r={radioPunto ?? Math.max(1.5, grosor / 2 - 2.5)} fill="#FFFFFF" />
     </g>
   );
 }
@@ -258,7 +258,8 @@ export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = null, 
           <g transform={`rotate(-90 ${m} ${m})`}>
             {f > 0.001 && <circle cx={m} cy={m} r={r} fill="none" stroke={color} strokeWidth={grosor} strokeLinecap="round"
               strokeDasharray={`${L * f} ${L}`} style={{ transition: `stroke-dasharray ${curva}` }} />}
-            {f > 0.001 && f < 0.999 && (
+            {/* El punto blanco de la punta se queda siempre, también al 100 %. */}
+            {f > 0.001 && (
               <g style={{ transform: `rotate(${f * 360}deg)`, transformOrigin: `${m}px ${m}px`, transition: `transform ${curva}` }}>
                 <circle cx={m + r} cy={m} r={grosor * 0.2} fill="#FFFFFF" />
               </g>
