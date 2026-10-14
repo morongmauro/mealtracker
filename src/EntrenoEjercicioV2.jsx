@@ -596,7 +596,10 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
               const desc = descansoEnCircuito(b, k, vuelta.length, vi, vueltas.length);
               const unidad = unidadDe(re);
               return (
-                <div key={re.id} style={{ borderRadius: 16, background: '#FAF9F6', padding: '10px 10px 9px' }}>
+                // Cada ejercicio del circuito sobre blanco, con un filo suave:
+                // sobre crema, los botones y las casillas (grises) se
+                // confundían con el fondo y se veían más claros que en Fuerza.
+                <div key={re.id} data-ejercicio-circuito style={{ borderRadius: 16, background: '#FFFFFF', boxShadow: 'inset 0 0 0 1px #ECEAE4', padding: '10px 10px 9px' }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Miniatura e={e} ancho={54} alto={42} alTocar={() => setFicha(re)} />
                     <div style={{ flex: 1, minWidth: 0 }}>

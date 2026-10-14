@@ -798,7 +798,7 @@ try {
     && (await p.locator('[data-cardio-coach="evc"][data-hecho="si"]').count()) === 1, JSON.stringify(actCardio));
   ok('el calentamiento no pide kilos', await p.evaluate(() => {
     const t = [...document.querySelectorAll('[data-view="entrena"] div')].find(d => d.textContent === 'SuperBand Dislocates');
-    let el = t; while (el && getComputedStyle(el).backgroundColor !== 'rgb(250, 249, 246)') el = el.parentElement;
+    const el = t && t.closest('[data-ejercicio-circuito]');
     return !!el && el.querySelectorAll('input').length === 0;
   }));
   ok('circuito: todas las vueltas en UNA tarjeta', (await p.getByText('Circuito · 2 vueltas').count()) === 1);
@@ -903,6 +903,8 @@ try {
   // El récord vive dentro del Historial (un botón menos por ejercicio); la
   // hoja abre y el scroll no se va a la rutina de atrás.
   ok('por ejercicio: Ficha, Historial y Nota al coach (sin «Tu récord» aparte)', (await p.getByRole('button', { name: /Tu récord/ }).count()) === 0);
+  ok('circuitos (calentamiento): cada ejercicio sobre blanco, con el mismo contraste de botones y casillas que en Fuerza', (await p.locator('[data-ejercicio-circuito]').count()) >= 1
+    && await p.locator('[data-ejercicio-circuito]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)'));
   ok('«Nota al coach» por ejercicio: compacto, solo el símbolo, más angosto que Ficha', await p.evaluate(() => {
     const bs = [...document.querySelectorAll('[data-botones] button[data-compacto]')];
     return bs.length >= 3 && bs.every(b => b.getAttribute('aria-label') === 'Nota al coach' && !b.querySelector('span')
