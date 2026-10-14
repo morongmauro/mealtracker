@@ -22,7 +22,14 @@
 
     <!-- PWA instalable: manifest + iconos. En Android da ícono real, splash
          y modo standalone; en iOS el apple-touch-icon cubre "Agregar a Inicio". -->
-    <link rel="manifest" href="/manifest.json" />
+    <!-- /manifest-app.json lo resuelve Vercel según la dirección (vercel.json):
+         en la nueva es manifest-v2.json desde el primer instante, sin cambiarlo
+         después con JavaScript (cambiarlo después hacía que algunos teléfonos
+         no la tomaran como instalable). -->
+    <link rel="manifest" href="/manifest-app.json" />
+    <!-- Solo clara: Samsung Internet y Chrome tienen un «modo oscuro» que
+         invierte las páginas web; la app tiene sus propios colores. -->
+    <meta name="color-scheme" content="only light" />
     <!-- Pantalla de arranque del iPhone: el primer cuadro de la entrada (fondo
          de manchas + riel del anillo). Sin esto iOS arranca en BLANCO y esa
          franja blanca se veía abajo mientras la app terminaba de ocupar la
@@ -45,6 +52,18 @@
     <title>Entrena con Método</title>
     <link rel="preload" href="/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
     <script>
+      // El pase de «Instalar»: el navegador lo ofrece una sola vez y temprano;
+      // se guarda para que el botón «Instalar la app» del Dash lo use.
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault(); window.__pwaPrompt = e;
+        try { window.dispatchEvent(new Event('mt:instalable')); } catch (x) {}
+      });
+      window.addEventListener('appinstalled', function () {
+        window.__pwaPrompt = null; window.__pwaInstalada = true;
+        try { window.dispatchEvent(new Event('mt:instalada')); } catch (x) {}
+      });
+    </script>
+    <script>
       // «Ver como cliente» (desde el CRM): se abre con ?ver_como=<pase>. En
       // ese modo la app corre con un almacén EN MEMORIA, así no toca ni lee
       // lo que este navegador tenga guardado de la cuenta propia, y en solo
@@ -62,6 +81,11 @@
           try {
             ['mt:probarDireccionNueva', 'mt:v2'].forEach(function (k) { var v = window.localStorage.getItem(k); if (v !== null) mem[k] = v; });
           } catch (e) {}
+          // «Ver como» es ver lo que ve el cliente: la visual nueva, que es
+          // la de todos en la dirección nueva. Se fuerza aunque el coach
+          // abra el pase en otro dominio o sin esas marcas en su navegador.
+          mem['mt:probarDireccionNueva'] = '1';
+          mem['mt:v2'] = '1';
           var st = {
             getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
             setItem: function (k, v) { mem[k] = String(v); },
@@ -104,7 +128,8 @@
           var tt = document.querySelector('meta[name="apple-mobile-web-app-title"]');
           if (tt) tt.setAttribute('content', 'EntrenaMétodo');
           var mf = document.querySelector('link[rel="manifest"]');
-          if (mf) mf.setAttribute('href', '/manifest-v2.json');
+          // En la dirección nueva ya viene el manifest nuevo (vercel.json).
+          if (mf && location.host !== 'entrenaconmetodoapp.vercel.app') mf.setAttribute('href', '/manifest-v2.json');
         }
         // La entrada sale SIEMPRE que la app se abre de verdad (cerrada y
         // vuelta a abrir). No sale en una recarga dentro de la misma sesión

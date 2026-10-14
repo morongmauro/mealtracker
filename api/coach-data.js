@@ -11,7 +11,7 @@
 // PATCH /api/coach-data?action=mark_duplicate&user_id=...&duplicate_of=... → marca duplicado
 
 import { verifyCoachToken } from './coach-auth.js';
-import { firmarPase } from './_verComo.js';
+import { firmarPase, DOMINIO_NUEVO } from './_verComo.js';
 import { checkOrigin } from './_guard.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -216,9 +216,14 @@ export default async function handler(req, res) {
       if (!name) return res.status(404).json({ error: 'not found' });
       const token = firmarPase({ user_id: userId, name });
       if (!token) return res.status(500).json({ error: 'COACH_PASSWORD not configured' });
+      // Siempre en la dirección NUEVA (la que usan los clientes, con la visual
+      // nueva). Antes salía con el dominio desde donde llamaba el CRM (el
+      // viejo) y el coach veía la app de antes. En pruebas (localhost) se
+      // queda en el mismo host.
       const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
       const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
-      return res.status(200).json({ ok: true, name, url: `${proto}://${host}/?ver_como=${encodeURIComponent(token)}`, minutos: 15 });
+      const base = /localhost|127\.0\.0\.1|\.test$/.test(host) ? `${proto}://${host}` : `https://${DOMINIO_NUEVO}`;
+      return res.status(200).json({ ok: true, name, url: `${base}/?ver_como=${encodeURIComponent(token)}`, minutos: 15 });
     } catch (e) {
       return res.status(500).json({ error: 'ver_como failed' });
     }

@@ -1,6 +1,15 @@
 {
   "rewrites": [
     {
+      "source": "/manifest-app.json",
+      "has": [{ "type": "host", "value": "entrenaconmetodoapp.vercel.app" }],
+      "destination": "/manifest-v2.json"
+    },
+    {
+      "source": "/manifest-app.json",
+      "destination": "/manifest.json"
+    },
+    {
       "source": "/api/push-send",
       "destination": "/api/push-cron"
     },

@@ -1,3 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Solo clara: el «modo oscuro» de Samsung Internet y Chrome invierte las
+   páginas web; la app tiene sus propios colores (ver meta color-scheme). */
+:root { color-scheme: only light; }

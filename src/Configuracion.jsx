@@ -8,7 +8,10 @@
 // Oura, Whoop, Polar…, ver cuáles están conectados y desconectarlos.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
-import { Ruler, Bell, Watch, Compass, BookOpenText, WhatsappLogo, CaretRight, CaretLeft, CheckCircle } from '@phosphor-icons/react';
+import { Ruler, Bell, Watch, Compass, BookOpenText, WhatsappLogo, CaretRight, CaretLeft, CheckCircle, Wind, DeviceMobile } from '@phosphor-icons/react';
+import Respira from './Respira.jsx';
+import AvisoInstalar, { hayQueInstalar } from './InstalarApp.jsx';
+import { Hoja } from './entrenoUI.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { HojaUnidades, useUnidades } from './Unidades.jsx';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
@@ -30,17 +33,21 @@ export const RELOJES = [
 export default function Configuracion({ name, arriba = 0, alRecorrido, alPrograma, whatsapp, alActivarPush, alCerrarSesion }) {
   const [vista, setVista] = useState('inicio');
   const [unidadesAbierta, setUnidadesAbierta] = useState(false);
+  const [respira, setRespira] = useState(false);
+  const [instalar, setInstalar] = useState(false);
   const unidad = useUnidades();
   const [permiso, setPermiso] = useState(() => { try { return Notification.permission; } catch (e) { return 'unsupported'; } });
 
   if (vista === 'relojes') return <RelojesLista name={name} arriba={arriba} alVolver={() => setVista('inicio')} />;
 
   const filas = [
+    ...(hayQueInstalar() ? [{ id: 'instalar', Icono: DeviceMobile, titulo: 'Instalar la app', detalle: 'Desde su ícono, a pantalla completa', alTocar: () => setInstalar(true) }] : []),
     { id: 'unidades', Icono: Ruler, titulo: 'Unidades', detalle: `${unidad.peso === 'lb' ? 'Libras (lb)' : 'Kilos (kg)'} · ${unidad.distancia === 'm' ? 'metros' : 'kilómetros'}`, alTocar: () => setUnidadesAbierta(true) },
     { id: 'notificaciones', Icono: Bell, titulo: 'Notificaciones',
       detalle: permiso === 'granted' ? 'Activadas' : permiso === 'denied' ? 'Bloqueadas: actívalas en los ajustes del teléfono' : permiso === 'unsupported' ? 'Este teléfono no las permite aquí' : 'Toca para activarlas',
       alTocar: permiso === 'default' && alActivarPush ? async () => { await alActivarPush(); try { setPermiso(Notification.permission); } catch (e) { /* nada */ } } : null },
     { id: 'relojes', Icono: Watch, titulo: 'Relojes y anillos', detalle: 'Fitbit, Oura, Whoop, Polar…', alTocar: () => setVista('relojes') },
+    { id: 'respira', Icono: Wind, titulo: 'Respira', detalle: 'Uno, tres o cinco minutos para bajar pulsaciones', alTocar: () => setRespira(true) },
     { id: 'recorrido', Icono: Compass, titulo: 'Recorrido de la app', detalle: 'Qué hay en cada sección', alTocar: alRecorrido },
     { id: 'programa', Icono: BookOpenText, titulo: 'Sobre el programa', detalle: 'El método, tu trayecto y las dudas', alTocar: alPrograma },
     ...(whatsapp ? [{ id: 'coach', Icono: WhatsappLogo, titulo: 'Hablar con tu coach', detalle: 'Por WhatsApp', href: whatsapp }] : []),
@@ -48,6 +55,8 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
 
   return (
     <div data-configuracion style={{ paddingTop: arriba }}>
+      {respira && <Respira alCerrar={() => setRespira(false)} />}
+      {instalar && <Hoja abierta alCerrar={() => setInstalar(false)} titulo="Instalar la app" alto="70vh"><AvisoInstalar enHoja /></Hoja>}
       <CabeceraHoy tema="dash" fondo={false} voz={{ etiqueta: 'CONFIGURACIÓN', a: 'Tu app,', b: 'a tu manera.' }} />
       <div style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA, padding: '4px 0' }}>
         {filas.map((f, i) => {

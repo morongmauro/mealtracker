@@ -18,6 +18,8 @@ import { vozEntreno, vozFinEntreno } from './vozCoach.js';
 import Firma from './Firma.jsx';
 import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
+import { aroEntrenoDe, progresoEntrenoDelPlan } from './aros.js';
+import ExplicacionAro from './ExplicacionAro.jsx';
 import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind } from '@phosphor-icons/react';
 import Respira from './Respira.jsx';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
@@ -27,24 +29,11 @@ import {
   SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
   SHADOW_CARD, FONT_DISPLAY, SECCION,
 } from './theme.js';
-// El aro de la cabecera de Entrenamiento: la adherencia de la semana (las
-// rutinas hechas de las que tocan).
+// El aro de la cabecera de Entrenamiento: el progreso de la semana (rutinas
+// hechas de las planeadas) y, en el pie, si va al día o cuántas se quedaron
+// sin hacer (aros.js).
 export function aroEntreno(plan) {
-  const dias = (plan && plan.dias) || [];
-  const planeadas = dias.filter(d => d.rutina).length;
-  // Sin rutinas esta semana (o mientras carga): el aro sale vacío, no se quita.
-  if (!planeadas) return { frac: 0, centro: '—', pie: 'Semana · entreno' };
-  const hoy = (plan && plan.hoy) || hoyLocal();
-  const hechas = dias.filter(d => d.rutina && d.hecha).length;
-  // SIN DEUDA: contra lo que tocaba HASTA HOY (los días que ya pasaron, y hoy
-  // solo si ya la hizo). Un día de descanso no baja el número por lo que
-  // viene después; el domingo es lo hecho contra la semana entera.
-  const hastaHoy = dias.filter(d => d.rutina && (d.fecha < hoy || (d.fecha === hoy && d.hecha))).length;
-  // La actividad extra (cardio, deportes…) suma su bono, hasta +10 puntos; lo
-  // que el coach programó y no marcó resta poquito, hasta −5.
-  const base = hastaHoy > 0 ? hechas / hastaHoy : 1;
-  const frac = Math.max(0, Math.min(1, base + ((Number(plan.extra?.bono) || 0) - (Number(plan.extra?.penal) || 0)) / 100));
-  return { frac, centro: `${Math.round(frac * 100)}%`, pie: 'Semana · entreno' };
+  return aroEntrenoDe(progresoEntrenoDelPlan(plan));
 }
 
 // El acento del módulo sale de entrenoUI: oliva de siempre, azul en la visual nueva.
@@ -249,6 +238,20 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   // Al cambiar de sección se sube. Sin esto, saltar de un Mes largo a Hoy te
   // deja a media página en un sitio que ya no existe.
   useEffect(() => { window.scrollTo({ top: 0 }); }, [seccion, rutinaId]);
+  // El aro de la cabecera, tocado: qué mide.
+  const [explicarAro, setExplicarAro] = useState(false);
+  const explicacionAro = () => {
+    const pe = progresoEntrenoDelPlan(plan);
+    const n = pe ? pe.pendientes : 0;
+    return {
+      titulo: 'Tu semana de entreno', grande: pe ? `${pe.hechas} de ${pe.planeadas}` : '—',
+      que: pe ? 'rutinas de la semana hechas' : 'sin rutinas planeadas esta semana',
+      partes: pe ? [{ nombre: 'Al día', valor: n ? `${n} sin hacer` : 'Sí',
+        detalle: n ? `${n} rutina${n === 1 ? '' : 's'} que ya tocaba${n === 1 ? '' : 'n'} y no está${n === 1 ? '' : 'n'} hecha${n === 1 ? '' : 's'}. Puedes moverla${n === 1 ? '' : 's'} a otro día en Tu semana.`
+          : 'Todo lo que ya tocaba está hecho. Lo que viene después no te resta nada.' }] : [],
+      nota: 'El aro se llena con las rutinas de fuerza de la semana. El cardio y las actividades del coach van en su lista, no en el aro.',
+    };
+  };
 
   if (rutinaId) {
     return (
@@ -307,7 +310,8 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     <Envoltorio>
       <NavSi seccion={seccion} setSeccion={setSeccion} />
       {seccionV2 && <CabeceraHoy tema="entreno" voz={vozEntreno({ plan, hoy: hoyLocal() })}
-        arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} aro={aroEntreno(plan)} />}
+        arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} aro={{ ...aroEntreno(plan), alTocar: () => setExplicarAro(true) }} />}
+      {explicarAro && <ExplicacionAro {...explicacionAro()} alCerrar={() => setExplicarAro(false)} />}
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
       {v2Activa() ? (
         // Visual nueva: lo de HOY todo junto (fuerza, registros, lo del coach

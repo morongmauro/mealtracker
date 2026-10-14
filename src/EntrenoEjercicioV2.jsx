@@ -185,19 +185,21 @@ const textoDescansoCorto = (seg) => {
 // Ficha, Tu récord, Historial y Nota, en una fila pareja. «La última vez»
 // ya no va escrita dentro de la tarjeta: se come mucha pantalla y solo la
 // consulta quien la necesita.
+// `compacto`: solo el símbolo, cuadrado y angosto (la nota al coach: se usa,
+// pero no necesita un botón del tamaño de la ficha).
 function Botones({ items, chico = false }) {
+  const columnas = items.map(it => (it.compacto ? '46px' : 'minmax(0, 1fr)')).join(' ');
   return (
-    <div data-botones style={{ display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 7, marginTop: chico ? 8 : 10 }}>
-      {items.map(({ Icono, texto, onClick }) => (
-        <button key={texto} onClick={onClick} style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+    <div data-botones style={{ display: 'grid', gridTemplateColumns: columnas, gap: 7, marginTop: chico ? 8 : 10 }}>
+      {items.map(({ Icono, texto, onClick, compacto }) => (
+        <button key={texto} onClick={onClick} aria-label={compacto ? texto : undefined} title={compacto ? texto : undefined} data-compacto={compacto ? '1' : undefined} style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           height: chico ? 40 : 44, padding: '0 2px', borderRadius: 13, border: 'none', gap: 1,
           background: CAMPO, color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
-          // Con cuatro botones, un pelo más chica para que «Nota al coach» quepa entera.
-          fontSize: items.length >= 4 ? 10.5 : 11.5, letterSpacing: items.length >= 4 ? '-0.01em' : 0, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0,
+          fontSize: 11.5, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0,
         }}>
-          <Icono size={chico ? 16 : 17} color={GRAFITO} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{texto}</span>
+          <Icono size={compacto ? 19 : chico ? 16 : 17} color={GRAFITO} />
+          {!compacto && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{texto}</span>}
         </button>
       ))}
     </div>
@@ -209,7 +211,7 @@ function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota }) {
     { Icono: FilmStrip, texto: 'Ficha', onClick: abrirFicha },
     // El récord va dentro del historial: un botón menos por ejercicio.
     ...(sinCarga ? [] : [{ Icono: ClockCounterClockwise, texto: 'Historial', onClick: abrirUltima }]),
-    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', onClick: onNota }] : []),
+    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', onClick: onNota, compacto: true }] : []),
   ];
 }
 

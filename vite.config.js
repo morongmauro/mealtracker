@@ -6,6 +6,19 @@ import react from '@vitejs/plugin-react';
 // servidor para auto-actualizarse sin pedirle refresh al usuario (main.jsx).
 const buildVersion = `${Date.now()}`;
 
+// En desarrollo no está Vercel: /manifest-app.json sirve public/manifest.json.
+function manifestAppPlugin() {
+  return {
+    name: 'manifest-app',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url && req.url.split('?')[0] === '/manifest-app.json') { req.url = '/manifest.json'; }
+        next();
+      });
+    },
+  };
+}
+
 function buildVersionPlugin() {
   return {
     name: 'build-version-json',
@@ -70,7 +83,7 @@ function entradaSinTrabasPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), buildVersionPlugin(), entradaSinTrabasPlugin()],
+  plugins: [react(), manifestAppPlugin(), buildVersionPlugin(), entradaSinTrabasPlugin()],
   define: {
     __BUILD_VERSION__: JSON.stringify(buildVersion),
   },

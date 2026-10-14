@@ -357,7 +357,7 @@ try {
   }
   // ── Mauro ──
   const { p, ctx, errores, db } = await abrir('Mauro Morón', { aviso: true });
-  await p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });
+  await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
   ok('apertura fría: cae en el Dash', true);
   // Peso y fotos para hoy: el aviso sale apenas abre, con las dos cosas
   const av = p.locator('[data-aviso-registro]');
@@ -407,22 +407,35 @@ try {
     return getComputedStyle(el).transitionProperty.includes('stroke-dashoffset') && o < c;
   }));
   const dash = p.locator('[data-view="dash"]');
-  ok('atajos de recordatorios y reto', (await dash.getByRole('button', { name: /Recordatorios/ }).count()) === 1
-    && (await dash.getByRole('button', { name: 'Reto' }).count()) === 1);
-  await dash.getByRole('button', { name: 'Reto' }).click();
+  ok('atajos: recordatorios sí; Reto solo cuando haya un reto (hoy no hay) y Respira ya no va aquí', (await dash.getByRole('button', { name: /Recordatorios/ }).count()) === 1
+    && (await dash.getByRole('button', { name: 'Reto' }).count()) === 0 && (await dash.locator('[data-abrir-respira]').count()) === 0);
   const wa = await dash.getByRole('link', { name: /Coach/ }).getAttribute('href');
-  ok('los atajos (respira, reto, coach, comunidad, recordatorios y la tuerca) van en UNA línea, enteros y del mismo alto', await dash.evaluate(() => {
+  ok('los atajos (coach, comunidad, recordatorios y la tuerca) van en UNA línea, enteros y del mismo alto', await dash.evaluate(() => {
     const bs = [...document.querySelectorAll('[data-atajos] > *')];
     const tops = new Set(bs.map(b => Math.round(b.getBoundingClientRect().top)));
     const altos = new Set(bs.map(b => Math.round(b.getBoundingClientRect().height)));
-    return bs.length === 6 && tops.size === 1 && altos.size === 1 && bs.every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth - 16; });
+    return bs.length === 4 && tops.size === 1 && altos.size === 1 && bs.every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth - 16; });
   }), await dash.evaluate(() => JSON.stringify([...document.querySelectorAll('[data-atajos] > *')].map(b => { const r = b.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), Math.round(r.height)]; }))));
-  ok('atajos del Dash: botones de cristal chicos (círculo de 46 px con el símbolo y la palabra debajo)', await dash.evaluate(() => {
+  ok('atajos del Dash: botones de cristal chicos (círculo de 42 px con el símbolo y la palabra debajo)', await dash.evaluate(() => {
     const bs = [...document.querySelectorAll('[data-atajos] [data-boton-cristal]')];
-    return bs.length === 6 && bs.every(b => { const c = b.querySelector('[data-circulo]').getBoundingClientRect(); const t = b.lastElementChild.getBoundingClientRect();
-      return Math.round(c.width) === 46 && Math.round(c.height) === 46 && t.top >= c.bottom && t.height > 0; })
-      && bs.map(b => b.lastElementChild.textContent).join(',') === 'Respira,Reto,Coach,Comunidad,Avisos,Ajustes';
+    return bs.length === 4 && bs.every(b => { const c = b.querySelector('[data-circulo]').getBoundingClientRect(); const t = b.lastElementChild.getBoundingClientRect();
+      return Math.round(c.width) === 42 && Math.round(c.height) === 42 && t.top >= c.bottom && t.height > 0; })
+      && bs.map(b => b.lastElementChild.textContent).join(',') === 'Coach,Comunidad,Avisos,Ajustes';
   }));
+  // La píldora de arriba: sin subtítulo, y se encoge al bajar / vuelve al subir.
+  ok('píldora de marca: solo el nombre de la sección, sin «Entrena con Método» debajo', await p.locator('[data-pildora-marca]').evaluate(el => el.children.length === 1 && /DASH|INICIO|TU SEMANA|HOY/i.test(el.textContent) && !/Entrena con Método/.test(el.textContent)), await p.locator('[data-pildora-marca]').innerText());
+  {
+    const chica = () => p.locator('[data-pildora-marca]').evaluate(el => el.getAttribute('data-chica') === '1');
+    await dash.evaluate(el => { el.scrollTop = 200; el.dispatchEvent(new Event('scroll', { bubbles: false })); });
+    await espera(150);
+    const alBajar = await chica();
+    await dash.evaluate(el => { el.scrollTop = 150; el.dispatchEvent(new Event('scroll', { bubbles: false })); });
+    await espera(150);
+    const alSubir = await chica();
+    await dash.evaluate(el => { el.scrollTop = 0; el.dispatchEvent(new Event('scroll', { bubbles: false })); });
+    await espera(150);
+    ok('píldora: se encoge al bajar y vuelve al subir', alBajar === true && alSubir === false && (await chica()) === false, `${alBajar} ${alSubir}`);
+  }
   ok('Comunidad ya no es una tarjeta grande arriba de las gráficas', (await dash.locator('[data-atajos] [data-abrir-comunidad]').count()) === 1
     && (await dash.locator('[data-atajos] [data-abrir-config]').count()) === 1);
   ok('WhatsApp: el mensaje por defecto es «Hola Mau!»', wa === 'https://wa.me/573008527043?text=Hola%20Mau!', wa);
@@ -435,10 +448,8 @@ try {
   ok('comida: promedio en % y en números, y días cerca / lejos', /%/.test(await dash.locator('[data-comida-promedio]').innerText())
     && /de 2\.400 kcal/.test(await dash.locator('[data-comida-promedio]').innerText())
     && (await dash.getByText(/cerca de tu meta/).count()) === 1 && (await dash.getByText(/lejos de tu meta/).count()) === 1);
-  ok('Reto: solo «No hay retos actualmente»', (await p.getByRole('dialog', { name: 'Retos' }).innerText()).trim() === 'No hay retos actualmente');
-  await foto(p, '01b-reto');
-  await p.getByRole('dialog', { name: 'Retos' }).click();
-  ok('Reto: un toque lo cierra', (await p.getByRole('dialog', { name: 'Retos' }).count()) === 0);
+  // (El diálogo «No hay retos» se fue con el botón: Reto vuelve cuando haya un reto.)
+  ok('Reto: sin reto no hay botón ni diálogo', (await p.getByRole('dialog', { name: 'Retos' }).count()) === 0);
   // El bloque HOY: primero lo que toca hoy (lo del coach, la comida), con
   // «N de M»; lo demás (programa, cápsulas…) bajo «Ver todo».
   await dash.locator('[data-recordatorios-dash]').waitFor({ timeout: 6000 }).catch(() => {});
@@ -453,19 +464,25 @@ try {
     && /Sobre el programa|cápsula|video/i.test(await dash.locator('[data-recordatorios-dash]').innerText()));
   await verTodos.click(); await espera(150);
   // El aro de la cabecera se toca y explica qué lo compone, sin deuda.
-  ok('Dash: el aro dice «Semana · en total» (no «Performance»)', /Semana · en total/.test(await dash.locator('[data-aro-pie]').first().innerText()));
+  // El aro es el PROGRESO de la semana (no «sin deuda» siempre en 100 %): se
+  // llena con lo hecho y el pie dice «al día» o cuánto se quedó atrás.
+  ok('Dash: el aro dice «Semana · al día» o «Semana · N sin hacer» y el centro es el % de la semana (no 100 % un martes)', /^Semana · (al día|\d+ sin hacer)$/.test(await dash.locator('[data-aro-pie]').first().innerText())
+    && /^\d+%$/.test(await dash.locator('[data-cabecera-hoy="dash"] [data-aro-centro]').innerText()) && (await dash.locator('[data-cabecera-hoy="dash"] [data-aro-centro]').innerText()) !== '100%',
+    `${await dash.locator('[data-aro-pie]').first().innerText()} · ${await dash.locator('[data-cabecera-hoy="dash"] [data-aro-centro]').innerText()}`);
   await dash.locator('[data-aro-tocar]').first().click();
-  await p.getByText('Tu semana, en total').waitFor({ timeout: 5000 });
-  const txtEx = await p.locator('[data-explicacion-semana]').innerText();
-  ok('Dash: tocar el aro explica entreno y comida, medidos hasta hoy (el lunes hecho → 100 %, sin deuda del resto)', /Entrenamiento\s+100%/.test(txtEx) && /1 de 1 rutinas que tocaban hasta hoy/.test(txtEx)
-    && /Alimentación/.test(txtEx) && /aprendizaje no entra/i.test(txtEx), txtEx);
+  await p.locator('[data-explicacion-aro]').waitFor({ timeout: 5000 });
+  const txtEx = await p.locator('[data-explicacion-aro]').innerText();
+  ok('Dash: tocar el aro explica las partes: entreno (1 de 3 rutinas de la semana) y comida (N de 7 días registrados)', /Entrenamiento\s+33%/.test(txtEx) && /1 de 3 rutinas de la semana/.test(txtEx)
+    && /Alimentación/.test(txtEx) && /\d de 7 días registrados/.test(txtEx) && /aprendizaje no entra/i.test(txtEx), txtEx);
   await foto(p, '01d-explicacion-semana');
   await p.keyboard.press('Escape'); await espera(300);
   ok('Dash: intensidad sin raya cuando no hay entrenos', (await dash.locator('[data-sin-intensidad]').count()) === 1 && /Sin/.test(await dash.locator('[data-sin-intensidad]').innerText()));
   // Respiración guiada: 1, 3 o 5 min, el disco que respira, sin guardar nada.
   {
     const antes = await p.evaluate(() => Object.keys(localStorage).filter(k => /respir|racha/i.test(k)).join('|'));
-    await p.locator('[data-view="dash"] [data-abrir-respira]').click();
+    await dash.locator('[data-abrir-config]').click();
+    await p.locator('[data-config="respira"]').waitFor({ timeout: 5000 });
+    await p.locator('[data-config="respira"]').click();
     const rs = p.locator('[data-respira]');
     await rs.waitFor({ timeout: 4000 });
     ok('respira: se elige 1, 3 o 5 minutos', JSON.stringify(await rs.locator('[data-minutos]').evaluateAll(els => els.map(e => e.dataset.minutos))) === '["1","3","5"]');
@@ -484,6 +501,8 @@ try {
     await espera(300);
     ok('respira: «Volver» la cierra y no guarda registros ni rachas', (await rs.count()) === 0
       && await p.evaluate(() => Object.keys(localStorage).filter(k => /respir|racha/i.test(k)).join('|')) === antes);
+    await dash.getByRole('button', { name: /^Dash$/ }).click();
+    await dash.locator('[data-atajos]').waitFor({ timeout: 5000 });
   }
   // Deslizar de lado ya NO cambia de sección (chocaba con el scroll de lado
   // del calendario, la galería y los videos): se navega con la barra.
@@ -566,7 +585,7 @@ try {
   ok('el calendario de comidas se abre desde el Dash', (await p.getByText(/Mes|Semana/).count()) > 0);
   await p.keyboard.press('Escape');
   await p.goto('http://localhost:5198/');
-  await p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });
+  await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
   // Aprendizaje: la tarjeta y su «Profundiza»
   await p.locator('[data-aprende]').waitFor({ timeout: 8000 });
   ok('aprendizaje: % completado con lo que vio del centro', /\d+ %/.test(await p.locator('[data-aprende]').innerText())
@@ -581,7 +600,7 @@ try {
   // ── Comunidad y Configuración, desde el Dash ──
   await p.getByRole('button', { name: 'Dash', exact: true }).click().catch(() => {});
   await p.goto('http://localhost:5198/');
-  await p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 });
+  await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
   await p.locator('[data-abrir-comunidad] [data-badge]').waitFor({ timeout: 8000 }).catch(() => {});
   ok('comunidad: su pastilla en el Dash con cuántas no ha visto', (await p.locator('[data-abrir-comunidad] [data-badge]').innerText()) === '2'
     && /Comunidad · 2 nuevas/.test(await p.locator('[data-abrir-comunidad]').getAttribute('aria-label')));
@@ -611,8 +630,8 @@ try {
   await p.locator('[data-abrir-config]').click();
   const conf = p.locator('[data-configuracion]');
   await conf.waitFor({ timeout: 5000 });
-  ok('configuración: unidades, notificaciones, relojes, recorrido, programa y coach', JSON.stringify(await conf.locator('[data-config]').evaluateAll(els => els.map(e => e.dataset.config)))
-    === JSON.stringify(['unidades', 'notificaciones', 'relojes', 'recorrido', 'programa', 'coach']));
+  ok('configuración: unidades, notificaciones, relojes, respira, recorrido, programa y coach', JSON.stringify(await conf.locator('[data-config]').evaluateAll(els => els.map(e => e.dataset.config)))
+    === JSON.stringify(['unidades', 'notificaciones', 'relojes', 'respira', 'recorrido', 'programa', 'coach']), JSON.stringify(await conf.locator('[data-config]').evaluateAll(els => els.map(e => e.dataset.config))));
   await foto(p, '19b-configuracion');
   await conf.locator('[data-config="relojes"]').click();
   await p.locator('[data-relojes]').waitFor({ timeout: 5000 });
@@ -639,6 +658,14 @@ try {
     && /^(Hoy toca|Hecho por hoy|Día de descanso|Hoy no te toca|Semana completa|Tienes un entreno)/.test(await cabE.locator('[data-frase]').innerText()),
     `${await cabE.locator('[data-etiqueta]').innerText()} | ${await cabE.locator('[data-frase]').innerText()}`);
   ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);
+  // El aro de entreno: rutinas hechas de las planeadas (1/3), «al día» o «N sin hacer», y se explica al tocarlo.
+  ok('Entreno: el aro es el progreso de la semana (1/3) y dice si vas al día', /^1\/3$/.test(await cabE.locator('[data-aro-centro]').innerText())
+    && /^Semana · (al día|\d+ sin hacer)$/.test(await cabE.locator('[data-aro-pie]').innerText()), `${await cabE.locator('[data-aro-centro]').innerText()} · ${await cabE.locator('[data-aro-pie]').innerText()}`);
+  await cabE.locator('[data-aro-tocar]').click();
+  await p.locator('[data-explicacion-aro]').waitFor({ timeout: 5000 });
+  ok('Entreno: tocar el aro explica (1 de 3, al día)', /1 de 3/.test(await p.locator('[data-explicacion-aro]').innerText()) && /Al día/.test(await p.locator('[data-explicacion-aro]').innerText()), await p.locator('[data-explicacion-aro]').innerText());
+  await p.keyboard.press('Escape'); await espera(300);
+  ok('Entreno: la explicación se cierra', (await p.locator('[data-explicacion-aro]').count()) === 0);
   ok('…con la banda delgada y el objeto de la sección (kettlebell de grafito)', (await cabE.locator('[data-banda]').count()) === 1 && (await cabE.locator('[data-objeto-cabecera="entreno"]').count()) === 1
     && await cabE.locator('[data-banda]').evaluate(el => el.getBoundingClientRect().height < 140));
   ok('…la segunda línea en el amarillo de la sección', await cabE.locator('[data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(201, 164, 62)'));
@@ -789,7 +816,7 @@ try {
     return filas.length >= 5 && filas.every(f => {
       const bs = [...f.children];
       return new Set(bs.map(b => Math.round(b.getBoundingClientRect().top))).size === 1
-        && bs.every(b => { const t = b.querySelector('span'); return t.scrollWidth <= t.clientWidth + 1; });
+        && bs.every(b => { const t = b.querySelector('span'); return !t || t.scrollWidth <= t.clientWidth + 1; });
     });
   }));
   ok('descansos: el que tiene lo dice como se piensa (120 s → 2 min)', (await p.getByText('Descanso 2 min').count()) === 1);
@@ -851,6 +878,11 @@ try {
   // El récord vive dentro del Historial (un botón menos por ejercicio); la
   // hoja abre y el scroll no se va a la rutina de atrás.
   ok('por ejercicio: Ficha, Historial y Nota al coach (sin «Tu récord» aparte)', (await p.getByRole('button', { name: /Tu récord/ }).count()) === 0);
+  ok('«Nota al coach» por ejercicio: compacto, solo el símbolo, más angosto que Ficha', await p.evaluate(() => {
+    const bs = [...document.querySelectorAll('[data-botones] button[data-compacto]')];
+    return bs.length >= 3 && bs.every(b => b.getAttribute('aria-label') === 'Nota al coach' && !b.querySelector('span')
+      && b.getBoundingClientRect().width < 60 && b.getBoundingClientRect().width < b.parentElement.firstElementChild.getBoundingClientRect().width / 2);
+  }));
   await p.getByRole('button', { name: /Historial/ }).first().click();
   await p.locator('[data-tu-record]').waitFor({ timeout: 5000 });
   const antesSc = await scRut();
@@ -1120,6 +1152,20 @@ try {
     && (await p.locator('[data-cabecera-hoy="comida"] [data-dibujo]').count()) === 0
     && /kcal|registr|desayuno|meta|día|comida/i.test(await p.locator('[data-cabecera-hoy="comida"] [data-frase]').innerText()),
     await p.locator('[data-cabecera-hoy="comida"] [data-frase]').innerText());
+  // El aro de comida: días registrados de 7, y se explica al tocarlo. Antes de
+  // la primera comida de hoy, abajo solo el aro de calorías.
+  {
+    const cabC = p.locator('[data-cabecera-hoy="comida"]');
+    ok('Comida: el aro es días registrados de 7 y dice si vas al día', /^\d\/7$/.test(await cabC.locator('[data-aro-centro]').innerText())
+      && /^Semana · (al día|\d+ sin registrar)$/.test(await cabC.locator('[data-aro-pie]').innerText()), `${await cabC.locator('[data-aro-centro]').innerText()} · ${await cabC.locator('[data-aro-pie]').innerText()}`);
+    await cabC.locator('[data-aro-tocar]').click();
+    await p.locator('[data-explicacion-aro]').waitFor({ timeout: 5000 });
+    ok('Comida: tocar el aro explica los días registrados', /de 7/.test(await p.locator('[data-explicacion-aro]').innerText()) && /Al día/.test(await p.locator('[data-explicacion-aro]').innerText()), await p.locator('[data-explicacion-aro]').innerText());
+    await p.keyboard.press('Escape'); await espera(300);
+    const modo = await p.locator('[data-aros-hoy]').getAttribute('data-aros-hoy');
+    const nAros = await p.locator('[data-aros-hoy] > *').count();
+    ok('Comida Hoy: sin comidas hoy, solo el aro de calorías (los macros llegan con la primera comida)', modo === 'solo-kcal' ? nAros === 1 && (await p.locator('[data-macros-luego]').count()) === 1 : nAros === 4 && (await p.locator('[data-macros-luego]').count()) === 0, `${modo} ${nAros}`);
+  }
   const pRec = await p.getByRole('button', { name: /^Recordatorios/ }).last().boundingBox();
   const pOpc = await p.getByRole('button', { name: 'Opciones', exact: true }).boundingBox();
   ok('«Opciones» va al lado de Recordatorios', pRec && pOpc && Math.abs(pRec.y - pOpc.y) < 4 && pOpc.x > pRec.x, JSON.stringify([pRec, pOpc]));
@@ -1388,15 +1434,15 @@ try {
   ok('Alimentación abre en Hoy', await p.locator('[data-cabecera-hoy="comida"]').isVisible());
 
   await p.getByRole('button', { name: 'Dash', exact: true }).click();
-  await p.getByText('Tu performance semanal', { exact: true }).waitFor();
+  await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor();
   ok('vuelve al Dash', true);
   ok('sin errores de JavaScript (Mauro)', errores.length === 0, errores.join(' | '));
   await ctx.close();
 
   // ── Teléfono angosto ──
   const n = await abrir('Mauro Morón', { ancho: 375, caliente: true });
-  await n.p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 25000 }).catch(() => {});
-  ok('apertura caliente (la usó hace 5 min): también abre en el Dash', await n.p.getByText('Tu performance semanal', { exact: true }).isVisible());
+  await n.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }).catch(() => {});
+  ok('apertura caliente (la usó hace 5 min): también abre en el Dash', await n.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).isVisible());
   await n.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await espera(900);
   const caja = await n.p.locator('nav[aria-label="Secciones"]').boundingBox();
@@ -1634,7 +1680,7 @@ try {
     await espera(900);
     ok('…«Ver la comunidad» la abre', (await bw.p.locator('[data-equipo]').count()) === 1 && (await bw.p.locator('[data-bienvenida-comunidad]').count()) === 0);
     await bw.p.reload();
-    await bw.p.getByText('Tu performance semanal', { exact: true }).waitFor({ timeout: 20000 });
+    await bw.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 20000 });
     await espera(2500);
     ok('…y no vuelve a salir', (await bw.p.locator('[data-bienvenida-comunidad]').count()) === 0);
     await bw.ctx.close();
@@ -1673,7 +1719,7 @@ try {
   await espera(300);
   ok('mora día 8: el bloqueo no se quita con Escape ni tocando fuera', await bloqueo.isVisible());
   let tocoDetras = true;
-  try { await k.p.locator('[data-view="dash"]').getByRole('button', { name: 'Reto' }).click({ timeout: 1500 }); } catch (e) { tocoDetras = false; }
+  try { await k.p.locator('[data-view="dash"] [data-abrir-config]').click({ timeout: 1500 }); } catch (e) { tocoDetras = false; }
   ok('mora día 8: lo de atrás no se puede tocar', !tocoDetras);
   ok('mora día 8: lo de atrás va desenfocado', (await bloqueo.evaluate(el => getComputedStyle(el).backdropFilter)).includes('blur'));
   pagado = true;                                  // el coach marca el pago en el CRM
@@ -1722,7 +1768,7 @@ try {
   await espera(2600);
   ok('otra persona ve la barra de siempre', (await o.p.locator('nav[aria-label="Secciones"]').count()) === 0);
   ok('…y su letra de siempre', !(await o.p.evaluate(() => document.documentElement.hasAttribute('data-v2'))));
-  ok('…y no abre en el Dash', (await o.p.getByText('Tu performance semanal', { exact: true }).count()) === 0);
+  ok('…y no abre en el Dash', (await o.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).count()) === 0);
   await foto(o.p, '13-otra-persona');
   ultimoChat.texto = '';
   await o.p.getByRole('button', { name: 'Chat', exact: true }).click().catch(() => {}); await espera(700);

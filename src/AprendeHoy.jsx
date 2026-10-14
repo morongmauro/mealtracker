@@ -14,6 +14,7 @@ import { IlustracionCerebro } from './IlustracionesHoy.jsx';
 import { AnilloMarca, rielDe } from './GraficasV2.jsx';
 import { vozAprende } from './vozCoach.js';
 import Firma from './Firma.jsx';
+import ExplicacionAro from './ExplicacionAro.jsx';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT, SECCION } from './theme.js';
 import { recomendarAprendizaje, leerAprendizajeConCache, avanceGuardado } from './aprendizaje.js';
 
@@ -32,11 +33,19 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
   }, [nombre]);
   const recs = useMemo(() => recomendarAprendizaje(avance, 4), [avance]);
   const bloque = (k) => avance?.bloques?.find(b => b.k === k);
+  const [explicarAro, setExplicarAro] = useState(false);
+  const conAro = !!(avance && avance.pct != null);
 
   return (
     <div data-aprende-hoy style={{ maxWidth: 560, margin: '0 auto', padding: '0 20px', paddingTop: arriba, paddingBottom: 'calc(104px + env(safe-area-inset-bottom, 0px))' }}>
       <CabeceraHoy tema="aprende" voz={vozAprende({ hoy: hoyIso(), avance, quedan: recs.length })} arriba={arriba}
-        aro={avance && avance.pct != null ? { frac: avance.pct / 100, centro: `${avance.pct}%`, pie: 'Material visto' } : { frac: 0, centro: '—', pie: 'Material visto' }} />
+        aro={{ ...(conAro ? { frac: avance.pct / 100, centro: `${avance.pct}%` } : { frac: 0, centro: '—' }), pie: 'Material visto', alTocar: () => setExplicarAro(true) }} />
+      {explicarAro && (
+        <ExplicacionAro titulo="Tu aprendizaje" grande={conAro ? `${avance.pct}%` : '—'} alCerrar={() => setExplicarAro(false)}
+          que={conAro ? `del material visto: ${avance.vistas} de ${avance.total} piezas` : 'todavía no tengo tu avance'}
+          partes={conAro ? (avance.bloques || []).map(b => ({ nombre: b.titulo || b.k, valor: `${b.vistas}/${b.total}` })) : []}
+          nota="Es de todo el programa, no de la semana: cada cápsula, lectura, video o podcast que abres suma una pieza." />
+      )}
 
       <h2 style={titulo}>Recomendado para ti</h2>
       {avance === undefined ? (

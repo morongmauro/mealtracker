@@ -46,7 +46,9 @@ import {
 } from './theme.js';
 import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
 import CuentaV2, { leerSesion, guardarSesion } from './CuentaV2.jsx';
-import { aroComida } from './aros.js';
+import { aroComida, progresoComida } from './aros.js';
+import ExplicacionAro from './ExplicacionAro.jsx';
+import { pasosInstalar } from './InstalarApp.jsx';
 import { leerAprendizajeConCache } from './aprendizaje.js';
 
 // ── Modelos: enrutamiento HÍBRIDO ────────────────────────────────────────
@@ -762,6 +764,27 @@ export default function MealTracker() {
   // calendario, la galería y los videos. Se navega con la barra.)
   const v2 = esV2(name);
   useEffect(() => { aplicarV2(v2); }, [v2]);
+  // La píldora de arriba se encoge al bajar y vuelve a su tamaño al subir (o
+  // al llegar arriba). Se escucha el scroll de cualquier capa (cada sección
+  // tiene su propio contenedor), en fase de captura.
+  const [pildoraChica, setPildoraChica] = useState(false);
+  useEffect(() => {
+    if (!v2) return;
+    const ultimo = new WeakMap();
+    const onScroll = (e) => {
+      const el = e.target === document ? document.scrollingElement : e.target;
+      if (!el || typeof el.scrollTop !== 'number') return;
+      const y = el.scrollTop, antes = ultimo.has(el) ? ultimo.get(el) : y;
+      ultimo.set(el, y);
+      if (y <= 24) { setPildoraChica(false); return; }
+      if (y - antes > 6) setPildoraChica(true);
+      else if (antes - y > 6) setPildoraChica(false);
+    };
+    document.addEventListener('scroll', onScroll, true);
+    return () => document.removeEventListener('scroll', onScroll, true);
+  }, [v2]);
+  // El aro de la cabecera de comida, tocado: qué mide.
+  const [explicarAroComida, setExplicarAroComida] = useState(false);
   // Con la visual nueva, la app SIEMPRE abre en el Dash, que es el que te
   // reubica: cómo vas en todo. (Comida queda en Hoy por debajo.)
   const dashInicialRef = useRef(false);
@@ -5485,12 +5508,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         paddingBottom: '4px',
       }}>
         <div className="max-w-2xl mx-auto px-4">
-          <div className="inline-flex items-baseline gap-2 rounded-full" style={{
+          <div className="inline-flex items-baseline gap-2 rounded-full" data-pildora-marca data-chica={v2 && pildoraChica ? '1' : undefined} style={{
             pointerEvents: 'auto',
             background: 'rgba(31,31,31,0.90)',
             backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
             padding: '9px 16px 8px',
             boxShadow: '0 1px 0 rgba(255,255,255,0.10) inset, 0 10px 28px rgba(20,22,14,0.28), 0 2px 6px rgba(20,22,14,0.12)',
+            // Visual nueva: se encoge al bajar (sin cambiar el alto que mide
+            // headerRef: es una transformación) y vuelve al subir.
+            transform: v2 && pildoraChica ? 'scale(0.72)' : 'scale(1)', transformOrigin: 'left center',
+            transition: 'transform .28s cubic-bezier(.2,.8,.2,1)',
           }}>
             <span className="display font-normal" style={{
               color: '#FFF',
@@ -5502,9 +5529,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             }}>
               {v2 ? NOMBRE_SECCION[seccionV2] : showTraining ? 'Entrenamiento' : showLearning ? 'Aprendizaje' : 'Entrena con Método'}
             </span>
-            <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '10px', whiteSpace: 'nowrap' }}>
+            {/* Visual nueva: sin el subtítulo (la marca ya está en el ícono y en la entrada). */}
+            {!v2 && <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '10px', whiteSpace: 'nowrap' }}>
               Entrena con Método
-            </span>
+            </span>}
           </div>
         </div>
       </div>
@@ -5915,7 +5943,17 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <CabeceraHoy tema="comida" sangria="20px" arriba={`${headerH + 16}px`}
                   activo={seccionV2 === 'comida' && !showRecetario}
                   voz={vozComida({ hoy: today, hora: new Date().getHours(), kcal: totals.kcal, meta: goals?.kcal || 0, comidas: entries.length, racha: streak })}
-                  aro={aroComida(history, goals, today)} />
+                  aro={{ ...aroComida(history, goals, today), alTocar: () => setExplicarAroComida(true) }} />
+                {explicarAroComida && (() => {
+                  const c = progresoComida(history, goals, today);
+                  return <ExplicacionAro titulo="Tu semana de comida" grande={`${c.registrados} de 7`} que="días con comida registrada esta semana" alCerrar={() => setExplicarAroComida(false)}
+                    partes={[
+                      { nombre: 'Al día', valor: c.pendientes ? `${c.pendientes} sin registrar` : 'Sí',
+                        detalle: c.pendientes ? `${c.pendientes} día${c.pendientes === 1 ? '' : 's'} que ya pasa${c.pendientes === 1 ? 'ron' : 'ron'} sin registrar nada. Hoy no cuenta hasta que termine.`.replace('pasaron', c.pendientes === 1 ? 'pasó' : 'pasaron') : 'Todos los días que ya pasaron tienen algo registrado.' },
+                      ...(c.cerca != null ? [{ nombre: 'Cerca de tus metas', valor: `${Math.round(c.cerca * 100)}%`, detalle: 'Qué tan cerca quedaste de tus calorías y macros en los días registrados (un día sin registrar cuenta 0).' }] : []),
+                    ]}
+                    nota="El aro se llena con los días registrados. Registrar es lo que te deja ver tu promedio en el Dash." />;
+                })()}
                 <FilaCristal style={{ marginTop: '-4px' }}>
                   {/* Recordatorios y mensualidad viven en el Dash; aquí, solo la
                       campanita, escribirle al coach y las opciones. */}
@@ -6035,13 +6073,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
                   {/* Los CUATRO aros en una fila: calorías primero y algo más
                       grande (es la cifra que manda), luego los tres macros. */}
-                  <div className="relative flex items-start mt-3.5">
+                  {/* Visual nueva: antes de la primera comida, solo el aro de
+                      calorías; los macros aparecen cuando hay algo registrado
+                      (tres aros vacíos no dicen nada). */}
+                  <div className="relative flex items-start mt-3.5" data-aros-hoy={v2 && !entries.length ? 'solo-kcal' : 'todos'}>
                     {[
                       { k: 'kcal', v: totals.kcal, g: goals.kcal, c: v2 ? '#46965A' : ACCENT, size: 62, u: '', grad: true },
                       { k: 'Proteína', v: totals.p, g: goals.p, c: C_PROTEIN, size: 54, u: 'g' },
                       { k: 'Carbos', v: totals.c, g: goals.c, c: C_CARBS, size: 54, u: 'g' },
                       { k: 'Grasas', v: totals.g, g: goals.g, c: C_FAT, size: 54, u: 'g' },
-                    ].map(mch => (
+                    ].filter(mch => mch.grad || !v2 || entries.length > 0).map(mch => (
                       <div key={mch.k} className="flex-1 flex flex-col items-center gap-1.5">
                         <RingGauge size={mch.size} stroke={mch.grad ? 6 : 5}
                           pct={Math.min(100, Math.round((mch.v / (mch.g || 1)) * 100))}
@@ -6064,6 +6105,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       </div>
                     ))}
                   </div>
+                  {v2 && !entries.length && (
+                    <div data-macros-luego className="text-[11.5px] text-center" style={{ color: TEXT_LIGHT, marginTop: '8px' }}>Proteína, carbos y grasas aparecen con tu primera comida.</div>
+                  )}
                 </>
               )}
             </div>
@@ -6903,7 +6947,7 @@ function AvisoMudanza({ estado, cuenta, alPasar, alCerrar }) {
             <div style={{ fontSize: 14.5, color: TEXT, marginTop: 12, lineHeight: 1.5, background: '#F4F1EB', borderRadius: 16, padding: '12px 14px' }}>
               {iphone
                 ? <>En Safari toca <b>Compartir</b> (el cuadrito con la flecha) → <b>Agregar a inicio</b>. Al abrirla, escribe tu nombre como siempre: tus datos aparecen solos.</>
-                : <>Toca el menú <b>⋮</b> del navegador → <b>Instalar app</b> o <b>Agregar a la pantalla principal</b>.</>}
+                : pasosInstalar().map((paso, i) => <div key={i}>{i + 1}. {paso}</div>)}
             </div>
             <button onClick={alCerrar} style={{ ...boton, marginTop: 16, background: TEXT, color: '#fff' }}>Entendido</button>
           </>

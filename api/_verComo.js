@@ -6,7 +6,9 @@
 import crypto from 'node:crypto';
 
 const COACH_PASSWORD = process.env.COACH_PASSWORD;
-export const PASE_TTL_MS = 15 * 60 * 1000;
+// La dirección nueva de la app (la misma de src/mudanza.js): ahí abre el pase.
+export const DOMINIO_NUEVO = 'entrenaconmetodoapp.vercel.app';
+const PASE_TTL_MS = 15 * 60 * 1000;
 
 const b64 = (s) => Buffer.from(s).toString('base64url');
 const firma = (cuerpo) => crypto.createHmac('sha256', String(COACH_PASSWORD)).update(cuerpo).digest('base64url');

@@ -41,21 +41,21 @@ export function Pastilla({ icono: Icono, children, onClick, href, badge, color =
 // Chico a propósito, para no quitarle protagonismo a la cabecera.
 // `rotulo`: la palabra corta de abajo; `children` queda como nombre completo
 // para el lector de pantalla (p. ej. «Escribirle al coach»).
-export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, badge, color = TEXT, ancho = 60, ...resto }) {
+export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, badge, color = TEXT, ancho = 56, ...resto }) {
   const Tag = href ? 'a' : 'button';
   return (
     <Tag onClick={onClick} href={href} target={href ? '_blank' : undefined} rel={href ? 'noopener noreferrer' : undefined}
       aria-label={typeof children === 'string' ? children : undefined} data-boton-cristal {...resto}
       style={{
-        display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 5, width: ancho, flex: 'none',
+        display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: ancho, flex: 'none',
         padding: 0, border: 'none', background: 'none', cursor: 'pointer', textDecoration: 'none', fontFamily: 'inherit',
       }}>
       <span data-circulo style={{
-        position: 'relative', width: 46, height: 46, borderRadius: '50%', display: 'grid', placeItems: 'center',
+        position: 'relative', width: 42, height: 42, borderRadius: '50%', display: 'grid', placeItems: 'center',
         background: 'rgba(255,255,255,0.78)', WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)',
         boxShadow: '0 5px 14px rgba(30,40,60,0.09), inset 0 0 0 0.5px rgba(255,255,255,0.9)',
       }}>
-        <Icono size={21} weight="fill" color={color} />
+        <Icono size={19} weight="fill" color={color} />
         {badge > 0 && (
           <span data-badge style={{
             position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99,
@@ -63,7 +63,7 @@ export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, ba
           }}>{badge}</span>
         )}
       </span>
-      <span style={{ fontSize: 11.5, fontWeight: 600, color: '#3A3A3C', whiteSpace: 'nowrap', lineHeight: 1.1 }}>{rotulo || children}</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: '#3A3A3C', whiteSpace: 'nowrap', lineHeight: 1.1 }}>{rotulo || children}</span>
     </Tag>
   );
 }

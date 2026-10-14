@@ -1,25 +1,31 @@
 // ─────────────────────────────────────────────────────────────────────────
 // LOS AROS DE LAS CABECERAS (visual nueva)
 //
-// La gráfica clave de cada sección, en un aro al lado de la kettlebell:
-//   Dash           performance global semanal (promedio de las tres)
-//   Entrenamiento  adherencia semanal (Entrenamiento.jsx, aroEntreno)
-//   Alimentación   cumplimiento semanal de calorías y macros
+// El aro es el PROGRESO DE LA SEMANA: se va llenando con lo que haces, y el
+// pie dice si vas al día o cuánto se quedó atrás.
+//   Dash           % de la semana completada (entreno + comida)
+//   Entrenamiento  rutinas hechas de las planeadas (Entrenamiento.jsx)
+//   Alimentación   días registrados de 7
 //   Aprendizaje    material visto (AprendeHoy.jsx)
+// Antes medía «sin deuda» contra lo que tocaba hasta hoy: un lunes antes de
+// entrenar salía 100 % y el aro no decía nada. Ahora el aro llena con la
+// semana y el «al día / N sin hacer» es lo que dice si vas bien.
 // Aparte del Dash para no cargarlo entero en la pantalla de comida.
 // ─────────────────────────────────────────────────────────────────────────
 import { hoyLocal, sumarDias, aFecha } from './entrenoDatos.js';
 
-// Cumplimiento de la comida en la semana (lunes a hoy), de 0 a 1: cada día
-// vale qué tan cerca quedó de sus cuatro metas (calorías, proteína, carbos y
-// grasas; la proteína cuenta hasta llegar a la meta, pasarse no resta). Un
-// día sin registro vale 0; hoy cuenta solo si ya registró algo.
+const lunesDe = (hoy) => sumarDias(hoy, -((aFecha(hoy).getDay() + 6) % 7));
+
+// Qué tan cerca quedó la comida de sus metas en la semana (lunes a hoy), de
+// 0 a 1: cada día vale qué tan cerca quedó de sus cuatro metas (calorías,
+// proteína, carbos y grasas; la proteína cuenta hasta llegar a la meta,
+// pasarse no resta). Un día sin registro vale 0; hoy cuenta solo si ya
+// registró algo. Es el detalle de la explicación, no lo que llena el aro.
 export function cumplimientoComidaSemana(history = {}, goals = {}, hoy = hoyLocal()) {
   const metas = ['kcal', 'p', 'c', 'g'].filter(k => Number(goals && goals[k]) > 0);
   if (!metas.length) return null;
-  const lunes = sumarDias(hoy, -((aFecha(hoy).getDay() + 6) % 7));
   let suma = 0, dias = 0;
-  for (let f = lunes; f <= hoy; f = sumarDias(f, 1)) {
+  for (let f = lunesDe(hoy); f <= hoy; f = sumarDias(f, 1)) {
     const t = history[f];
     const tiene = t && Number(t.kcal) > 0;
     if (f === hoy && !tiene) continue;
@@ -33,14 +39,41 @@ export function cumplimientoComidaSemana(history = {}, goals = {}, hoy = hoyLoca
   return dias ? suma / dias : null;
 }
 
-// La adherencia al entreno de la semana (rutinas hechas de las planeadas),
-// más el bono de la actividad extra (cardio, deportes…: hasta +10 puntos) y
-// menos lo poquito que resta lo del coach sin marcar (hasta −5). La misma
-// regla del CRM; lo calcula el servidor, api/_actividad.js.
-// SIN DEUDA: se mide contra lo planeado HASTA HOY (`planeados_hoy`, lo
-// calcula el servidor): los días que ya pasaron y hoy solo si ya entrenó.
-// Un lunes antes de entrenar no debe nada: 100 %. El domingo, lo hecho
-// contra la semana entera.
+// La comida de la semana: cuántos días registró (de 7) y cuántos de los que
+// ya pasaron se quedaron sin registrar (hoy no cuenta como atrasado).
+export function progresoComida(history = {}, goals = {}, hoy = hoyLocal()) {
+  let registrados = 0, pendientes = 0;
+  for (let f = lunesDe(hoy); f <= hoy; f = sumarDias(f, 1)) {
+    const t = history[f];
+    if (t && Number(t.kcal) > 0) registrados++;
+    else if (f < hoy) pendientes++;
+  }
+  return { registrados, total: 7, pendientes, cerca: cumplimientoComidaSemana(history, goals, hoy) };
+}
+
+// El entreno de la semana, con lo que manda el servidor (semana del Dash:
+// hechos, planeados, planeados_hoy): rutinas hechas de las planeadas y
+// cuántas de las que ya tocaban se quedaron sin hacer.
+export function progresoEntreno(semana) {
+  if (!semana || !semana.planeados) return null;
+  const hasta = semana.planeados_hoy != null ? semana.planeados_hoy : semana.planeados;
+  return { hechas: semana.hechos, planeadas: semana.planeados, pendientes: Math.max(0, hasta - semana.hechos) };
+}
+
+// Lo mismo, pero desde el plan de la sección de Entrenamiento (dias[]).
+export function progresoEntrenoDelPlan(plan) {
+  const dias = (plan && plan.dias) || [];
+  const conRutina = dias.filter(d => d.rutina);
+  if (!conRutina.length) return null;
+  const hoy = (plan && plan.hoy) || hoyLocal();
+  const hechas = conRutina.filter(d => d.hecha).length;
+  // Se quedó sin hacer: tocaba un día que ya pasó y no está hecha.
+  const pendientes = conRutina.filter(d => d.fecha < hoy && !d.hecha).length;
+  return { hechas, planeadas: conRutina.length, pendientes };
+}
+
+// Adherencia clásica (hechas de las que tocaban hasta hoy, con bono y
+// penalización): la misma regla del CRM. Queda para quien la necesite.
 export const adherenciaEntreno = (semana) => {
   if (!semana || !semana.planeados) return null;
   const extra = ((Number(semana.bono) || 0) - (Number(semana.penal) || 0)) / 100;
@@ -49,26 +82,43 @@ export const adherenciaEntreno = (semana) => {
   return Math.max(0, Math.min(1, base + extra));
 };
 
-// Sin datos todavía (un lunes antes de registrar nada, sin metas, sin fase)
-// el aro sale igual, vacío y con «—»: antes desaparecía y la cabecera
-// cambiaba de forma.
+// El pie del aro: «al día» o cuánto se quedó atrás.
+export const pieSemana = (pendientes, cosa = 'sin hacer') => (pendientes > 0 ? `Semana · ${pendientes} ${cosa}` : 'Semana · al día');
+
+// Sin datos todavía (sin fase, sin metas) el aro sale igual, vacío y con
+// «—»: antes desaparecía y la cabecera cambiaba de forma.
 export const aroVacio = (pie) => ({ frac: 0, centro: '—', pie });
 export const aroDe = (frac, pie) => (frac == null ? aroVacio(pie) : { frac, centro: `${Math.round(frac * 100)}%`, pie });
 
-// El aro de la cabecera del Dash: el performance global de la semana, el
-// promedio del entreno, la alimentación y el aprendizaje.
-// Solo lo que se HACE esta semana (entreno y comida), sin deuda. El
-// aprendizaje va aparte: es material acumulado de todo el programa y
-// hundía el promedio (7 % de videos vistos no dice nada de esta semana).
+export const aroEntrenoDe = (prog) => (prog
+  ? { frac: prog.planeadas ? prog.hechas / prog.planeadas : 0, centro: `${prog.hechas}/${prog.planeadas}`, pie: pieSemana(prog.pendientes) }
+  : aroVacio('Semana · entreno'));
+
+export function aroComida(history, goals, hoy) {
+  const c = progresoComida(history, goals, hoy);
+  return { frac: c.registrados / c.total, centro: `${c.registrados}/${c.total}`, pie: pieSemana(c.pendientes, 'sin registrar') };
+}
+
+// El aro del Dash: el % de la semana completada, promedio del entreno (rutinas
+// hechas de las planeadas) y la comida (días registrados de 7). El
+// aprendizaje va aparte: es material de todo el programa, no de la semana.
+const pct = (f) => (f == null ? '—' : `${Math.round(f * 100)}%`);
 export function partesSemana(semana, history, goals, hoy) {
+  const e = progresoEntreno(semana);
+  const c = progresoComida(history, goals, hoy);
   return [
-    { id: 'entreno', nombre: 'Entrenamiento', frac: adherenciaEntreno(semana), semana },
-    { id: 'comida', nombre: 'Alimentación', frac: cumplimientoComidaSemana(history, goals, hoy) },
+    { id: 'entreno', nombre: 'Entrenamiento', frac: e ? (e.planeadas ? e.hechas / e.planeadas : 0) : null, pendientes: e ? e.pendientes : 0,
+      detalle: e ? `${e.hechas} de ${e.planeadas} rutinas de la semana` : 'Sin rutinas planeadas esta semana.',
+      atras: e && e.pendientes ? `${e.pendientes} que ya tocaba${e.pendientes === 1 ? '' : 'n'} sin hacer` : '' },
+    { id: 'comida', nombre: 'Alimentación', frac: c.registrados / c.total, pendientes: c.pendientes,
+      detalle: `${c.registrados} de 7 días registrados${c.cerca != null ? ` · ${pct(c.cerca)} cerca de tus metas` : ''}`,
+      atras: c.pendientes ? `${c.pendientes} día${c.pendientes === 1 ? '' : 's'} sin registrar` : '' },
   ];
 }
 export function aroSemana(semana, history, goals, aprende, hoy) {
-  const partes = partesSemana(semana, history, goals, hoy).map(p => p.frac).filter(x => x != null);
-  return aroDe(partes.length ? partes.reduce((a, x) => a + x, 0) / partes.length : null, 'Semana · en total');
+  const partes = partesSemana(semana, history, goals, hoy);
+  const con = partes.map(p => p.frac).filter(x => x != null);
+  const pendientes = partes.reduce((a, p) => a + (p.pendientes || 0), 0);
+  const frac = con.length ? con.reduce((a, x) => a + x, 0) / con.length : null;
+  return { frac: frac == null ? 0 : frac, centro: pct(frac), pie: pieSemana(pendientes) };
 }
-export const aroComida = (history, goals, hoy) => aroDe(cumplimientoComidaSemana(history, goals, hoy), 'Semana · comida');
-

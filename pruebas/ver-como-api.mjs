@@ -49,8 +49,10 @@ ok('/api/ver-como con pase malo: ok:false, sin romper', r.ok === false && r.erro
 const login = await llamar(coachAuth, { metodo: 'POST', body: { password: 'clave-de-prueba' } });
 ok('el coach entra', !!login.token);
 r = await llamar(coachData, { metodo: 'POST', query: { action: 'ver_como', user_id: UID }, headers: { authorization: `Bearer ${login.token}` } });
-ok('coach-data ver_como devuelve la dirección con el pase, para ese cliente', r.ok && /^https:\/\/app\.test\/\?ver_como=/.test(r.url) && r.name === 'Ana Pérez' && r.minutos === 15, JSON.stringify(r));
+ok('coach-data ver_como devuelve la dirección con el pase, para ese cliente (en pruebas, el mismo host)', r.ok && /^https:\/\/app\.test\/\?ver_como=/.test(r.url) && r.name === 'Ana Pérez' && r.minutos === 15, JSON.stringify(r));
 const token2 = decodeURIComponent(r.url.split('ver_como=')[1]);
+r = await llamar(coachData, { metodo: 'POST', query: { action: 'ver_como', user_id: UID }, headers: { authorization: `Bearer ${login.token}`, host: 'mealtracker-viejo.vercel.app', 'x-forwarded-host': 'mealtracker-viejo.vercel.app' } });
+ok('desde el dominio viejo, el pase abre en la dirección NUEVA (la de los clientes, con la visual nueva)', r.ok && r.url.startsWith('https://entrenaconmetodoapp.vercel.app/?ver_como='), r.url);
 ok('…y ese pase vale en /api/ver-como', (await llamar(verComo, { query: { token: token2 } })).name === 'Ana Pérez');
 r = await llamar(coachData, { metodo: 'POST', query: { action: 'ver_como', user_id: UID }, headers: { authorization: 'Bearer malo' } });
 ok('sin token de coach, no hay pase', r.estado === 401);

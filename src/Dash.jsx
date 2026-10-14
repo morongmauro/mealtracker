@@ -18,12 +18,14 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Wind, Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, Flag, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge } from '@phosphor-icons/react';
+import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
 import { api, hoyLocal, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
-import { aroSemana, partesSemana } from './aros.js';
+import { aroSemana, partesSemana, progresoEntreno } from './aros.js';
+import ExplicacionAro from './ExplicacionAro.jsx';
+import AvisoInstalar from './InstalarApp.jsx';
 import { precargar as planDe } from './Entrenamiento.jsx';
 import { Hoja } from './entrenoUI.jsx';
 import { IconoEvento } from './iconosEntreno.jsx';
@@ -31,7 +33,6 @@ import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
 import VentanaMarca, { BotonVentana } from './VentanaMarca.jsx';
-import Respira from './Respira.jsx';
 
 const CLAVE_BIENVENIDA = 'mt:bienvenidaComunidad';
 const bienvenidaVista = () => { try { return !!localStorage.getItem(CLAVE_BIENVENIDA); } catch (e) { return true; } };
@@ -209,13 +210,22 @@ function Profundiza({ children, onClick, color }) {
 
 // El anillo de la marca: trazo redondeado sobre su riel, y el punto blanco en
 // la punta, como en el logo. Es el único lugar del Dash que lo usa.
-function Anillo({ valor, total, color, tam = 118, grosor = 11, centro, pie }) {
+// Con `alTocar`, el aro es un botón: abre qué lo compone (como los de las
+// cabeceras). Todos los aros de la app se explican al tocarlos.
+function Anillo({ valor, total, color, tam = 118, grosor = 11, centro, pie, alTocar }) {
   const frac = total > 0 ? valor / total : 0;
-  return (
+  const aro = (
     <AnilloMarca frac={frac} color={color} tam={tam} grosor={grosor} etiqueta={`${valor} de ${total}`}>
       <div style={{ fontSize: 28, fontWeight: 800, color: TEXT, lineHeight: 1, letterSpacing: '-0.02em' }}>{centro}</div>
       {pie && <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 3, fontWeight: 600 }}>{pie}</div>}
     </AnilloMarca>
+  );
+  if (!alTocar) return aro;
+  return (
+    <button type="button" data-aro-tocar="1" onClick={alTocar} aria-label={`${pie || 'aro'}: ${centro}. Ver cómo se calcula`}
+      style={{ border: 0, background: 'none', padding: 0, margin: 0, cursor: 'pointer', fontFamily: 'inherit', flex: 'none', display: 'block' }}>
+      {aro}
+    </button>
   );
 }
 
@@ -344,8 +354,8 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   const [falloEnt, setFalloEnt] = useState(false);
   const [midiendo, setMidiendo] = useState(false);
   const [vista, setVista] = useState('inicio');
-  const [sinRetos, setSinRetos] = useState(false);
-  const [respira, setRespira] = useState(false);
+  // Qué aro se está explicando (las props de ExplicacionAro), o null.
+  const [explicarAro, setExplicarAro] = useState(null);
   const [aprende, setAprende] = useState(() => (cacheAprende.has(name) ? cacheAprende.get(name) : undefined));   // undefined = cargando, null = sin datos
   // Comunidad: cuántas publicaciones no ha visto (el número en su pastilla)
   // y la firma de la más nueva (el puntito del Dash en la barra).
@@ -410,7 +420,6 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
     // Sin deuda: lo planeado hasta hoy (ver armarDash).
     planeados_hoy: ent?.semana?.fuerza?.planeados_hoy } : ultimaSemana;
   const nombre = String(name || '').split(' ')[0];
-  const planHoy = ent?.semana?.fuerza?.planeados_hoy != null ? ent.semana.fuerza.planeados_hoy : (semana?.planeados || 0);
   const wa = WHATSAPP_COACH
     ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`
     : null;
@@ -442,8 +451,8 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
           palabra debajo), en una sola línea, para no quitarle el
           protagonismo a las gráficas. */}
       <FilaCristal data-atajos style={{ marginTop: 6, justifyContent: 'space-between', gap: 0 }}>
-        <BotonCristal icono={Wind} color="#2F6CC4" ancho={54} data-abrir-respira onClick={() => setRespira(true)}>Respira</BotonCristal>
-        <BotonCristal icono={Flag} color="#8A6A12" ancho={54} onClick={() => setSinRetos(true)}>Reto</BotonCristal>
+        {/* Respira vive donde hace falta (el día de descanso, el cierre de la
+            rutina y Ajustes); el Reto vuelve aquí cuando haya un reto. */}
         {wa && <BotonCristal icono={ChatCircle} color="#25A35A" ancho={54} href={wa}>Coach</BotonCristal>}
         <BotonCristal icono={UsersThree} color="#2F6CC4" ancho={54} badge={nuevosComunidad} data-abrir-comunidad rotulo="Comunidad"
           aria-label={`Comunidad${nuevosComunidad ? ` · ${nuevosComunidad} ${nuevosComunidad === 1 ? 'nueva' : 'nuevas'}` : ''}`}
@@ -451,6 +460,9 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
         {acciones.recordatorios && <BotonCristal icono={Bell} color="#C95F17" ancho={54} badge={pendientes} rotulo="Avisos" onClick={acciones.recordatorios}>Recordatorios</BotonCristal>}
         <BotonCristal icono={GearSix} color="#636366" ancho={54} data-abrir-config rotulo="Ajustes" onClick={() => setVista('config')}>Configuración</BotonCristal>
       </FilaCristal>
+
+      {/* En el navegador del teléfono (no instalada): instalarla, primero. */}
+      <AvisoInstalar />
 
       {/* Recordatorios a la vista: los dos primeros, y «Ver todos». La
           campanita sigue; esto es una ayudita para quien no va a buscarla. */}
@@ -462,6 +474,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       {explicar && (
         <ExplicacionSemana semana={semana} history={history} goals={goals} hoy={hoy} alCerrar={() => setExplicar(false)} />
       )}
+      {explicarAro && <ExplicacionAro {...explicarAro} alCerrar={() => setExplicarAro(null)} />}
 
       {reloj && <TarjetaReloj reloj={reloj} />}
 
@@ -475,21 +488,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
           <BotonVentana secundario onClick={() => cerrarBienvenida(false)}>Ahora no</BotonVentana>
         </VentanaMarca>
       )}
-      {/* Reto: por ahora no hay ninguno. Solo el mensaje; un toque lo cierra. */}
-      {respira && <Respira alCerrar={() => setRespira(false)} />}
-      {sinRetos && (
-        <div role="dialog" aria-label="Retos" onClick={() => setSinRetos(false)} style={{
-          position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(31,31,28,0.28)',
-          display: 'grid', placeItems: 'center', padding: 24,
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: 24, padding: '26px 28px', textAlign: 'center',
-            boxShadow: '0 12px 40px rgba(40,40,30,0.18)', fontSize: 17, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em',
-          }}>No hay retos actualmente</div>
-        </div>
-      )}
-
-      <Seccion>Tu performance semanal</Seccion>
+      <Seccion>Tu semana</Seccion>
 
       {/* Protagonista 1: entrenamiento */}
       {entrenoOn && (
@@ -500,10 +499,21 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
-              {/* Sin deuda: contra lo planeado HASTA HOY (el servidor lo manda
-                  en fuerza.planeados_hoy); lo de la semana entera, debajo. */}
-              <Anillo valor={semana ? semana.hechos : 0} total={planHoy} color={AZUL}
-                centro={!semana ? '—' : planHoy ? `${semana.hechos}/${planHoy}` : '✓'} pie={!semana ? 'fuerza' : planHoy ? 'fuerza hasta hoy' : 'nada aún hoy'} />
+              {/* El progreso de la semana: rutinas hechas de las planeadas.
+                  Tocarlo explica cuántas ya tocaban y se quedaron sin hacer. */}
+              {(() => {
+                const pe = progresoEntreno(semana);
+                return <Anillo valor={pe ? pe.hechas : 0} total={pe ? pe.planeadas : 0} color={AZUL}
+                  centro={pe ? `${pe.hechas}/${pe.planeadas}` : '—'} pie={pe ? 'rutinas · semana' : 'fuerza'}
+                  alTocar={() => setExplicarAro({
+                    titulo: 'Entrenamiento de la semana', grande: pe ? `${pe.hechas} de ${pe.planeadas}` : '—',
+                    que: pe ? 'rutinas de fuerza hechas esta semana' : 'sin rutinas planeadas esta semana',
+                    partes: pe ? [
+                      { nombre: 'Al día', valor: pe.pendientes ? `${pe.pendientes} sin hacer` : 'Sí', detalle: pe.pendientes ? `${pe.pendientes} rutina${pe.pendientes === 1 ? '' : 's'} que ya tocaba${pe.pendientes === 1 ? '' : 'n'} y no está${pe.pendientes === 1 ? '' : 'n'} hecha${pe.pendientes === 1 ? '' : 's'}.` : 'Todo lo que ya tocaba está hecho. Lo que viene después no te resta nada.' },
+                      ...(Number(semana.bono) > 0 ? [{ nombre: 'Cardio y deportes', valor: `+${semana.bono}`, detalle: 'Suman a tu adherencia en el CRM de tu coach.' }] : []),
+                    ] : [],
+                  })} />;
+              })()}
               <div data-semana-entreno style={{ flex: 1, minWidth: 0 }}>
                 <FilaSemana Icono={Heartbeat} etiqueta="Días de cardio" valor={ent?.semana ? ent.semana.cardio.dias : '—'} />
                 <FilaSemana Icono={CalendarCheck} etiqueta="Lo que te puso tu coach"
@@ -512,9 +522,9 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
                 <FilaSemana Icono={Gauge} etiqueta="Intensidad promedio"
                   valor={ent?.semana?.intensidad?.prom != null ? `${fmt(ent.semana.intensidad.prom, 1)}/10`
                     : <span data-sin-intensidad style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{semana && semana.hechos > 0 ? 'Sin marcar' : 'Sin entrenos aún'}</span>} />
-                {semana && semana.planeados > planHoy && (
-                  <div data-planeadas-semana style={{ fontSize: 12.5, color: TEXT_LIGHT, paddingTop: 7 }}>{semana.planeados} rutinas planeadas esta semana</div>
-                )}
+                {(() => { const pe = progresoEntreno(semana); return pe && pe.pendientes > 0 && (
+                  <div data-sin-hacer style={{ fontSize: 12.5, color: '#B4541D', fontWeight: 600, paddingTop: 7 }}>{pe.pendientes} rutina{pe.pendientes === 1 ? '' : 's'} que ya tocaba{pe.pendientes === 1 ? '' : 'n'} sin hacer</div>
+                ); })()}
               </div>
             </div>
           )}
@@ -550,7 +560,14 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
           <>
             <div data-comida-promedio style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
               <Anillo valor={Math.min(100, comida.promedio.kcal.pct || 0)} total={100} color={VERDE}
-                centro={`${comida.promedio.kcal.pct} %`} pie="de tus calorías" />
+                centro={`${comida.promedio.kcal.pct} %`} pie="de tus calorías"
+                alTocar={() => setExplicarAro({
+                  titulo: 'Calorías de la semana', grande: `${comida.promedio.kcal.pct} %`, que: 'de tu meta diaria, en promedio',
+                  partes: [
+                    { nombre: 'Cómo se calcula', detalle: `El promedio de calorías de los ${comida.registrados7} día${comida.registrados7 === 1 ? '' : 's'} que registraste esta semana (${fmt(comida.promedio.kcal.valor)} kcal) contra tu meta (${fmt(comida.metaK)} kcal). Los días sin registrar no entran.` },
+                    { nombre: 'Proteína, carbos y grasas', detalle: 'Las barras de al lado: cada una contra su meta, en promedio.' },
+                  ],
+                })} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Calorías en promedio</div>
                 <div style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', marginTop: 1 }}>
@@ -601,7 +618,12 @@ function TarjetaAprende({ aprende, alProfundizar }) {
         <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>No pude traer tu avance ahora. Vuelve a intentarlo en un rato.</div>
       ) : (
         <div data-aprende style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
-          <Anillo valor={aprende.vistas} total={aprende.total} color={NARANJA} centro={`${aprende.pct} %`} pie="completado" />
+          <Anillo valor={aprende.vistas} total={aprende.total} color={NARANJA} centro={`${aprende.pct} %`} pie="completado"
+            alTocar={() => setExplicarAro({
+              titulo: 'Tu aprendizaje', grande: `${aprende.pct} %`, que: `del material visto: ${aprende.vistas} de ${aprende.total} piezas`,
+              partes: aprende.bloques.map(b => ({ nombre: b.titulo, valor: `${b.vistas}/${b.total}` })),
+              nota: 'Es de todo el programa, no de la semana: por eso no entra en el aro de arriba.',
+            })} />
           <div style={{ flex: 1, minWidth: 0 }}>
             {aprende.bloques.map(b => (
               <div key={b.k} style={{ marginTop: 7 }}>
@@ -1213,41 +1235,18 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   );
 }
 
-// ¿Cómo se calcula el aro de la cabecera? Lo abre el aro mismo.
+// ¿Cómo se calcula el aro de la cabecera? Lo abre el aro mismo: el % de la
+// semana completada y sus dos partes, con lo que se quedó atrás.
 function ExplicacionSemana({ semana, history, goals, hoy, alCerrar }) {
   const partes = partesSemana(semana, history, goals, hoy);
   const pct = (f) => (f == null ? '—' : `${Math.round(f * 100)}%`);
-  const total = partes.map(p => p.frac).filter(x => x != null);
-  const fuerza = semana ? { hechos: semana.hechos, hasta: semana.planeados_hoy != null ? semana.planeados_hoy : semana.planeados, semana: semana.planeados, bono: Number(semana.bono) || 0, penal: Number(semana.penal) || 0 } : null;
+  const con = partes.map(p => p.frac).filter(x => x != null);
+  const total = con.length ? con.reduce((a, x) => a + x, 0) / con.length : null;
+  const atras = partes.reduce((a, p) => a + (p.pendientes || 0), 0);
   return (
-    <Hoja abierta alCerrar={alCerrar} titulo="Tu semana, en total" alto="70vh">
-      <div data-explicacion-semana style={{ fontSize: 14.5, color: TEXT, lineHeight: 1.5 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.03em' }}>{pct(total.length ? total.reduce((a, x) => a + x, 0) / total.length : null)}</span>
-          <span style={{ color: TEXT_MUTED }}>el promedio de tus dos partes</span>
-        </div>
-        <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 6 }}>
-          Se mide solo contra lo que ya tocaba hasta hoy. Lo que viene después no te resta nada.
-        </div>
-        {partes.map(p => (
-          <div key={p.id} style={{ marginTop: 14, padding: '12px 14px', borderRadius: 16, background: CREMA }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <b>{p.nombre}</b><span style={{ fontSize: 20, fontWeight: 800 }}>{pct(p.frac)}</span>
-            </div>
-            <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 3 }}>
-              {p.id === 'entreno' ? (!fuerza || !fuerza.semana ? 'Sin rutinas planeadas esta semana.'
-                : <>
-                  {fuerza.hasta ? `${fuerza.hechos} de ${fuerza.hasta} rutinas que tocaban hasta hoy` : 'Todavía no tocaba ninguna rutina'}
-                  {fuerza.semana > fuerza.hasta ? ` · ${fuerza.semana} en toda la semana` : ''}
-                  {fuerza.bono > 0 ? ` · +${fuerza.bono} por cardio y deportes` : ''}
-                  {fuerza.penal > 0 ? ` · −${fuerza.penal} por lo del coach sin marcar` : ''}
-                </>)
-                : (p.frac == null ? 'Sin metas o sin días registrados todavía.' : 'Qué tan cerca quedaste de tus metas de calorías y macros, de lunes a hoy. Un día sin registrar cuenta 0; hoy cuenta cuando registres algo.')}
-            </div>
-          </div>
-        ))}
-        <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 14 }}>El aprendizaje no entra aquí: es de todo el programa y lo ves abajo, en su tarjeta.</div>
-      </div>
-    </Hoja>
+    <ExplicacionAro titulo="Tu semana" grande={pct(total)} alCerrar={alCerrar}
+      que={`de la semana completada · ${atras ? `${atras} cosa${atras === 1 ? '' : 's'} sin hacer` : 'vas al día'}`}
+      partes={partes.map(p => ({ nombre: p.nombre, valor: pct(p.frac), detalle: p.detalle, atras: p.atras }))}
+      nota="El aro se llena con la semana (rutinas hechas y días de comida registrados). «Al día» es que nada de lo que ya tocaba se quedó sin hacer. El aprendizaje no entra: es de todo el programa y lo ves abajo, en su tarjeta." />
   );
 }
