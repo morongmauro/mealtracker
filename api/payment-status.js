@@ -35,6 +35,36 @@ import { normalizeName, leerContexto, evaluarCliente } from './_pagos.js';
 
 const CRM_URL = (process.env.CRM_SUPABASE_URL || '').replace(/\/+$/, ''); // sin barra final: '...supabase.co/' rompia la URL (doble // -> 404)
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
+// La base de la app (user_data): de ahí sale el día en que instaló la app
+// nueva en la pantalla de inicio (data.pwa_nueva_at), para el día de gracia.
+const APP_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+const APP_KEY = process.env.SUPABASE_SERVICE_KEY;
+const esUuid = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || ''));
+const diaBogota = (iso) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(d);
+};
+
+// ── DÍA DE GRACIA ─────────────────────────────────────────────────────────
+// Un cliente con la app bloqueada por mora que instala la app nueva en su
+// pantalla de inicio puede usarla ESE día completo: para pasar sus datos y
+// conocerla. Al día siguiente vuelve la regla de siempre. Cuenta la PRIMERA
+// vez que la instaló (sync.js guarda la más antigua): reinstalar no da otro día.
+// Devuelve 'hoy' | 'antes' | 'nunca' | null (no se pudo leer).
+async function instalacionNueva(uid, nombreNormalizado, hoyYmd) {
+  if (!APP_URL || !APP_KEY || !esUuid(uid)) return null;
+  try {
+    const r = await fetch(`${APP_URL}/rest/v1/user_data?user_id=eq.${uid}&select=name,pwa_nueva_at:data->>pwa_nueva_at`,
+      { headers: { apikey: APP_KEY, Authorization: `Bearer ${APP_KEY}` } });
+    const rows = r.ok ? await r.json() : null;
+    const fila = Array.isArray(rows) ? rows[0] : null;
+    if (!fila) return 'nunca';
+    // El uid tiene que ser de ESTE cliente: no se presta el día de otro.
+    if (fila.name && normalizeName(fila.name) !== nombreNormalizado) return null;
+    if (!fila.pwa_nueva_at) return 'nunca';
+    return diaBogota(fila.pwa_nueva_at) === hoyYmd ? 'hoy' : 'antes';
+  } catch (e) { return null; }
+}
 
 // CORS. Hasta ahora este endpoint solo lo llamaba la app del cliente, que vive
 // en el MISMO dominio, así que no hacía falta. Ahora también lo llama el CRM
@@ -164,11 +194,25 @@ export default async function handler(req, res) {
     const v = await evaluarCliente(cliente.nombre, ctx, headers);
     if (!v.due) return out({ due: false, dia_corte: v.dia_corte, detalle: v.detalle }, v.motivo);
 
+    // Bloqueado, pero hoy instaló la app nueva: hoy no se bloquea.
+    // `instalada`: 'nunca' le dice a la app que mire su propio registro (la
+    // instalación de hace un minuto puede no haber llegado aún al servidor).
+    let gracia = false, instalada;
+    if (v.bloqueo) {
+      const uid = req.method === 'POST' ? req.body?.uid : req.query.uid;
+      const est = await instalacionNueva(uid, normalized, ctx.hoyYmd);
+      if (est === 'hoy') gracia = true;
+      if (est) instalada = est;
+    }
+
     const payload = {
       due: true,
       dia_corte: v.dia_corte,
       dias_vencido: v.dias_vencido,
-      bloqueo: !!v.bloqueo,
+      bloqueo: !!v.bloqueo && !gracia,
+      ...(gracia ? { gracia: true } : {}),
+      ...(instalada ? { instalada } : {}),
+      hoy: ctx.hoyYmd,
       meses_deuda: v.meses_deuda,
       meses: v.meses,
       monto: v.monto,

@@ -204,7 +204,7 @@ const espera = (ms) => new Promise(r => setTimeout(r, ms));
 // `aviso`: dejar que salga el aviso de «hoy te toca registrar» al abrir. Por
 // defecto se da por visto (si no, tapa todo lo que se prueba después).
 // `nube`: lo que tiene su cuenta en la nube (y la app con la nube aceptada).
-async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null } = {}) {
+async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null, instalada = false } = {}) {
   const db = base();
   globalThis.fetch = db.fetch;
   const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota' });
@@ -225,6 +225,8 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   if (caliente) await ctx.addInitScript(() => localStorage.setItem('mt:lastActiveAt', String(Date.now() - 5 * 60 * 1000)));
   if (!aviso) await ctx.addInitScript((f) => sessionStorage.setItem('mt:avisoRegistro', f), hoy);
   if (nube) await ctx.addInitScript(() => { localStorage.setItem('cloudConsent', 'accepted'); localStorage.setItem('cloudUserId', 'u-nube'); });
+  // `instalada`: abierta desde el ícono de la pantalla de inicio.
+  if (instalada) await ctx.addInitScript(() => { try { Object.defineProperty(navigator, 'standalone', { get: () => true }); } catch (e) {} });
   await p.route('**/api/**', async (ruta) => {
     const u = new URL(ruta.request().url());
     if (u.pathname === '/api/training') {
@@ -511,6 +513,12 @@ try {
   ok('Profundiza entrenamiento abre fuerza y volumen', (await p.getByText('Volumen', { exact: true }).count()) === 1);
   ok('Profundiza entrenamiento: la intensidad con promedio y acumulado de la semana y el mes', (await p.locator('[data-intensidad]').count()) === 1
     && /Esta semana/.test(await p.locator('[data-intensidad]').innerText()) && /Este mes/.test(await p.locator('[data-intensidad]').innerText()));
+  const pp = p.locator('[data-progreso-pesos-dash]');
+  ok('Profundiza entrenamiento: «Progreso de pesos» por cada ejercicio de su programa, con su línea',
+    (await pp.count()) === 1 && (await pp.locator('[data-peso-ej="Barbell Bench Press"]').count()) === 1
+    && (await pp.locator('[data-peso-ej="Barbell Bench Press"] svg').count()) >= 1
+    && /kg × 8/.test(await pp.locator('[data-peso-ej="Barbell Bench Press"]').innerText()),
+    (await pp.count()) ? await pp.innerText() : 'sin tarjeta');
   await espera(400);
   await foto(p, '03b-profundiza-entreno');
   await p.getByRole('button', { name: /Dash/ }).first().click();
@@ -698,7 +706,7 @@ try {
     && (await p.getByLabel('Repeticiones serie 1').first().inputValue()) === '');
   ok('lo recetado dice series y reps', (await p.getByText('3 series × 6-12 reps').count()) === 1);
   ok('la última vez ya no va escrita en la tarjeta', (await p.getByText(/^Serie 1: /).count()) === 0);
-  ok('cada ejercicio de fuerza trae Ficha, Tu récord, Última vez y Nota', (await p.getByRole('button', { name: /Última vez/ }).count()) >= 3
+  ok('cada ejercicio de fuerza trae Ficha, Tu récord, Historial y Nota', (await p.getByRole('button', { name: /Historial/ }).count()) >= 3
     && (await p.getByRole('button', { name: /Tu récord/ }).count()) >= 3);
   ok('sin el mensaje de «no tienes que darle a iniciar» (ocupaba espacio)', (await p.locator('[data-sin-iniciar]').count()) === 0);
   ok('la nota de la rutina va como pregunta y la de cada ejercicio dice «Nota al coach»', (await p.getByText('¿Escribirle al coach sobre esta rutina?').count()) === 1
@@ -801,11 +809,20 @@ try {
     && /lb$/.test(await p.locator('[data-record]').textContent()), await p.locator('[data-record]').textContent());
   await p.keyboard.press('Escape');
   await espera(300);
-  await p.locator('[data-ejercicio="Barbell Bench Press"]').getByRole('button', { name: /Última vez/ }).click();
+  const banca = p.locator('[data-ejercicio="Barbell Bench Press"]');
+  ok('al ladito de cada serie, en gris, lo que hizo la última vez (reps × peso, en la unidad de hoy)',
+    (await banca.locator('[data-serie-anterior]').first().innerText()) === '8 × 157 lb'
+    && /ÚLTIMA · /.test(await banca.locator('[data-cab-ultima]').innerText())
+    && (await banca.locator('[data-serie-anterior]').first().evaluate(el => getComputedStyle(el).color)) === 'rgb(174, 174, 178)',
+    await banca.locator('[data-serie-anterior]').first().innerText());
+  ok('las cajitas de reps y peso son cortas (dejan sitio a lo de la última vez)', await banca.getByLabel('Repeticiones serie 1').evaluate(el => el.getBoundingClientRect().width <= 70));
+  await banca.getByRole('button', { name: /Historial/ }).click();
   await p.locator('[data-ultima]').waitFor({ timeout: 5000 });
-  ok('última vez: serie por serie, pasado a lb', (await p.locator('[data-ultima]').getByText(/^Serie 1: 8 reps · 157 lb$/).count()) === 1,
+  ok('historial: la última vez serie por serie, pasado a lb', (await p.locator('[data-ultima]').getByText(/^Serie 1: 8 reps · 157 lb$/).count()) === 1,
     await p.locator('[data-ultima]').textContent());
-  await foto(p, '04f-ultima-vez');
+  ok('historial: la gráfica de progreso de pesos, de la primera a la última sesión', (await p.locator('[data-progreso-pesos] svg[data-grafica-pesos]').count()) === 1
+    && /157 lb/.test(await p.locator('[data-grafica-pesos]').textContent()));
+  await foto(p, '04f-historial');
   await p.keyboard.press('Escape');
   await espera(300);
   await p.locator('nav[aria-label="Secciones"]').getByRole('button', { name: 'Hoy', exact: true }).click();
@@ -1561,6 +1578,45 @@ try {
   await espera(800);
   ok('marcado pagado: la app se abre sola', (await bloqueo.count()) === 0);
   await k.ctx.close();
+
+  // ── Día de gracia: con mora y bloqueo, el día en que instala la app ──
+  const hoyFijo = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date(FIJO));
+  const conBloqueo = { ...deuda, dias_vencido: 8, hoy: hoyFijo };
+  const g1 = await abrir('Mauro Morón', { pago: { ...conBloqueo, bloqueo: false, gracia: true } });
+  const ventana = g1.p.locator('[data-gracia-pago]');
+  await ventana.waitFor({ timeout: 20000 });
+  await espera(700);
+  await foto(g1.p, '15b-pago-gracia');
+  ok('gracia: el día que instala la app sale la ventana «Hoy tienes la app abierta», sin bloqueo', (await g1.p.getByRole('alertdialog').count()) === 0
+    && /Desde mañana queda en pausa/.test(await ventana.innerText()) && /250\.000/.test(await ventana.innerText()), await ventana.innerText());
+  await g1.p.locator('[data-gracia-ok]').click();
+  await espera(600);
+  ok('gracia: «Entendido» la cierra y en el Dash queda el aviso «solo hoy»', (await ventana.count()) === 0
+    && await g1.p.locator('[data-view="dash"]').getByText('solo hoy').isVisible()
+    && await g1.p.locator('[data-view="dash"] [data-gracia-linea]').isVisible());
+  await foto(g1.p, '15c-pago-gracia-dash');
+  await g1.ctx.close();
+
+  const g2 = await abrir('Mauro Morón', { instalada: true, extra: { 'mt:pwaNuevaAt': new Date(FIJO - 60000).toISOString() },
+    pago: { ...conBloqueo, bloqueo: true, instalada: 'nunca' } });
+  await g2.p.locator('[data-gracia-pago]').waitFor({ timeout: 20000 }).catch(() => {});
+  ok('gracia: instalada hace un minuto (aún sin llegar al servidor) también abre, con su aviso', (await g2.p.locator('[data-gracia-pago]').count()) === 1
+    && (await g2.p.getByRole('alertdialog').count()) === 0);
+  await g2.ctx.close();
+
+  const g3 = await abrir('Mauro Morón', { instalada: true, extra: { 'mt:pwaNuevaAt': new Date(FIJO - 2 * 86400000).toISOString() },
+    pago: { ...conBloqueo, bloqueo: true, instalada: 'nunca' } });
+  await g3.p.getByRole('alertdialog', { name: 'Pago pendiente' }).waitFor({ timeout: 20000 }).catch(() => {});
+  ok('gracia: al día siguiente vuelve el bloqueo', (await g3.p.getByRole('alertdialog', { name: 'Pago pendiente' }).count()) === 1
+    && (await g3.p.locator('[data-gracia-pago]').count()) === 0);
+  await g3.ctx.close();
+
+  const g4 = await abrir('Mauro Morón', { instalada: true, extra: { 'mt:pwaNuevaAt': new Date(FIJO - 60000).toISOString() },
+    pago: { ...conBloqueo, bloqueo: true, instalada: 'antes' } });
+  await g4.p.getByRole('alertdialog', { name: 'Pago pendiente' }).waitFor({ timeout: 20000 }).catch(() => {});
+  ok('gracia: reinstalar no da otro día (el servidor ya tiene una instalación anterior)', (await g4.p.getByRole('alertdialog', { name: 'Pago pendiente' }).count()) === 1
+    && (await g4.p.locator('[data-gracia-pago]').count()) === 0);
+  await g4.ctx.close();
 
   // ── Otra persona: todo como siempre ──
   const o = await abrir('Ana Pérez');

@@ -724,6 +724,40 @@ function DetalleEntreno({ ent, falloEnt, cargar }) {
         <Leyenda items={[{ label: 'Hechos', color: AZUL }, { label: 'Planeados', color: 'rgba(31,31,31,0.55)', tipo: 'linea' }]} />
       </Tarjeta>
 
+      {/* Progreso de pesos: cada ejercicio de su programa, con lo más pesado
+          que movió en cada sesión (el peso de verdad, no un estimado). */}
+      {(ent.pesos || []).length > 0 && (
+        <Tarjeta titulo="Progreso de pesos" detalle="Lo más pesado que moviste en cada sesión, en cada ejercicio de tu programa.">
+          <div data-progreso-pesos-dash style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>
+            {ent.pesos.map(e => {
+              const ult = e.puntos[e.puntos.length - 1];
+              return (
+                <div key={e.id} data-peso-ej={e.alias || e.nombre} style={{ background: CREMA, borderRadius: 18, padding: '12px 13px 8px', minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).grande}</div>
+                  {nombresEj(e).chico && (
+                    <div style={{ fontSize: 11.5, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).chico}</div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+                    <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{fmt(e.actual, 1)}</span>
+                    <span style={{ fontSize: 12.5, color: TEXT_MUTED }}>kg{ult.reps ? ` × ${ult.reps}` : ''}</span>
+                  </div>
+                  {e.puntos.length >= 2 ? (<>
+                    <div style={{ fontSize: 12, marginTop: 1 }}>
+                      <Cambio desde={e.inicio} hasta={e.actual} unidad="kg" />
+                      <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
+                    </div>
+                    <Linea puntos={e.puntos.map(p => ({ v: p.kg, fecha: p.fecha }))} color={AZUL}
+                      textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
+                  </>) : (
+                    <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 1, paddingBottom: 4 }}>Una sesión ({fechaCorta(ult.fecha)}). La línea sale con la segunda.</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Tarjeta>
+      )}
+
       <Tarjeta titulo="Fuerza"
         detalle="Tu 1RM estimado: lo que levantarías a una repetición, calculado con tu mejor serie de cada día. Así 60 × 10 y 65 × 6 se pueden comparar.">
         {ent.ejercicios.length === 0 ? (

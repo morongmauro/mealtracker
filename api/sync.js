@@ -209,7 +209,11 @@ export default async function handler(req, res) {
           // que abre allí; nunca se des-marca.
           if (existing.app_nueva_at && !dataToWrite.app_nueva_at) dataToWrite.app_nueva_at = existing.app_nueva_at;
           // …y ya la tiene instalada desde allí (pantalla de inicio).
-          if (existing.pwa_nueva_at && !dataToWrite.pwa_nueva_at) dataToWrite.pwa_nueva_at = existing.pwa_nueva_at;
+          // Se guarda la PRIMERA (la más antigua): el día de gracia por mora
+          // cuenta desde ahí, y reinstalar no lo renueva.
+          if (existing.pwa_nueva_at && (!dataToWrite.pwa_nueva_at || String(existing.pwa_nueva_at) < String(dataToWrite.pwa_nueva_at))) {
+            dataToWrite.pwa_nueva_at = existing.pwa_nueva_at;
+          }
           // Preferencias del teléfono (kg/lb, días perfectos, ventanas ya
           // vistas): se fusionan por clave; las listas (días perfectos,
           // ediciones del coach ya aplicadas) se unen, nunca se achican.

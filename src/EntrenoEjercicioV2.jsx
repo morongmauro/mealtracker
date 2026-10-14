@@ -182,7 +182,7 @@ const textoDescansoCorto = (seg) => {
 };
 
 // ── Los botones de cada ejercicio ─────────────────────────────────────────
-// Ficha, Tu récord, Última vez y Nota, en una fila pareja. «La última vez»
+// Ficha, Tu récord, Historial y Nota, en una fila pareja. «La última vez»
 // ya no va escrita dentro de la tarjeta: se come mucha pantalla y solo la
 // consulta quien la necesita.
 function Botones({ items, chico = false }) {
@@ -209,7 +209,7 @@ function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota }) {
     { Icono: FilmStrip, texto: 'Ficha', onClick: abrirFicha },
     ...(sinCarga ? [] : [
       { Icono: Trophy, texto: 'Tu récord', onClick: abrirRecord },
-      { Icono: ClockCounterClockwise, texto: 'Última vez', onClick: abrirUltima },
+      { Icono: ClockCounterClockwise, texto: 'Historial', onClick: abrirUltima },
     ]),
     ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', onClick: onNota }] : []),
   ];
@@ -252,7 +252,54 @@ export function HojaRecordV2({ re, abierto, alCerrar, unidad = 'kg' }) {
   );
 }
 
-// LA ÚLTIMA VEZ: serie por serie, y debajo (plegadas) las anteriores.
+// Lo más pesado de cada sesión, en la unidad de hoy (con sus reps), de la
+// más vieja a la más nueva: los puntos de la gráfica de progreso.
+export function pesosPorSesion(historial, unidad = 'kg') {
+  return (historial || []).slice().reverse().map(h => {
+    let mejor = null;
+    (h.series || []).forEach(x => {
+      const v = Number(x.peso);
+      if (!(v > 0)) return;
+      const enU = convertir(v, x.unidad || 'kg', unidad);
+      if (!mejor || enU > mejor.peso) mejor = { peso: enU, reps: x.reps };
+    });
+    return mejor ? { fecha: h.fecha, ...mejor } : null;
+  }).filter(Boolean);
+}
+
+// La gráfica de progreso de pesos: una línea con sus puntos, el último
+// resaltado y el número de cada extremo. Sin librerías.
+export function GraficaPesos({ puntos, unidad = 'kg', alto = 110 }) {
+  if (!puntos || puntos.length < 2) return null;
+  const W = 300, H = alto, pad = { l: 6, r: 6, t: 18, b: 18 };
+  const vals = puntos.map(p => p.peso);
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (max === min) { min = Math.max(0, min - 5); max = max + 5; }
+  const x = (i) => pad.l + (i * (W - pad.l - pad.r)) / (puntos.length - 1);
+  const y = (v) => pad.t + (1 - (v - min) / (max - min)) * (H - pad.t - pad.b);
+  const d = puntos.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.peso).toFixed(1)}`).join(' ');
+  const area = `${d} L${x(puntos.length - 1).toFixed(1)},${H - pad.b} L${x(0).toFixed(1)},${H - pad.b} Z`;
+  const ult = puntos[puntos.length - 1], pri = puntos[0];
+  return (
+    <svg data-grafica-pesos viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} role="img"
+      aria-label={`Progreso de pesos: de ${coma(pri.peso)} a ${coma(ult.peso)} ${unidad}`}>
+      <defs><linearGradient id="gpArea" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor={AZUL} stopOpacity="0.18" /><stop offset="1" stopColor={AZUL} stopOpacity="0" />
+      </linearGradient></defs>
+      <line x1={pad.l} x2={W - pad.r} y1={H - pad.b} y2={H - pad.b} stroke="#E5E5EA" strokeWidth="1" />
+      <path d={area} fill="url(#gpArea)" />
+      <path d={d} fill="none" stroke={AZUL} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
+      {puntos.map((p, i) => <circle key={p.fecha} cx={x(i)} cy={y(p.peso)} r={i === puntos.length - 1 ? 4.5 : 2.6} fill={i === puntos.length - 1 ? AZUL : '#FFFFFF'} stroke={AZUL} strokeWidth="1.8" />)}
+      <text x={x(0)} y={y(pri.peso) - 7} fontSize="11" fill={GRIS} fontWeight="700" textAnchor="start">{coma(pri.peso)}</text>
+      <text x={x(puntos.length - 1)} y={y(ult.peso) - 8} fontSize="12" fill={TEXT} fontWeight="800" textAnchor="end">{coma(ult.peso)} {unidad}</text>
+      <text x={x(0)} y={H - 4} fontSize="10.5" fill={GRIS} textAnchor="start">{fechaCorta(pri.fecha)}</text>
+      <text x={x(puntos.length - 1)} y={H - 4} fontSize="10.5" fill={GRIS} textAnchor="end">{fechaCorta(ult.fecha)}</text>
+    </svg>
+  );
+}
+
+// HISTORIAL: la última vez serie por serie, la gráfica de cómo han subido
+// los pesos y, debajo (plegadas), las sesiones anteriores.
 export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
   const [todas, setTodas] = useState(false);
   if (!re) return null;
@@ -262,18 +309,27 @@ export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
   const soloReps = sinPeso(re.ejercicio);
   const opciones = { unidad, soloReps };
   const antes = (u?.historial || []).slice(1);
+  const puntos = soloReps ? [] : pesosPorSesion(u?.historial, unidad);
   return (
-    <Hoja abierta={abierto} alCerrar={alCerrar} titulo={`La última vez · ${n.grande}`} alto="75vh">
+    <Hoja abierta={abierto} alCerrar={alCerrar} titulo={`Historial · ${n.grande}`} alto="80vh">
       {!u ? <div style={{ ...cajaHoja, fontSize: 14, color: TEXT_MUTED }}>{NADA_AUN}</div> : (<>
         <div data-ultima style={{ ...cajaHoja, fontSize: 15, color: TEXT, lineHeight: 1.6 }}>
-          <div style={{ fontSize: 12.5, color: TEXT_MUTED, fontWeight: 650, marginBottom: 2 }}>{fechaCorta(u.fecha)}</div>
+          <div style={{ fontSize: 12.5, color: TEXT_MUTED, fontWeight: 650, marginBottom: 2 }}>La última vez · {fechaCorta(u.fecha)}</div>
           {lineasUltima(u.series, lado, opciones).map(l => <div key={l}>{l}</div>)}
         </div>
+        {puntos.length >= 2 && (
+          <div data-progreso-pesos style={{ ...cajaHoja, paddingBottom: 10 }}>
+            <div style={{ fontSize: 12.5, color: TEXT_MUTED, fontWeight: 650, marginBottom: 6 }}>
+              Progreso de pesos · lo más pesado de cada sesión
+            </div>
+            <GraficaPesos puntos={puntos} unidad={unidad} />
+          </div>
+        )}
         {antes.length > 0 && (
           <button onClick={() => setTodas(v => !v)} style={{
             marginTop: 12, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
             fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: AZUL_TINTA,
-          }}>{todas ? 'Ocultar las anteriores' : `Ver las ${antes.length} anteriores`}</button>
+          }}>{todas ? 'Ocultar las anteriores' : `Ver las ${antes.length} sesiones anteriores`}</button>
         )}
         {todas && antes.map(h => (
           <div key={h.fecha} style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}`, fontSize: 13.5, color: TEXT_MUTED, lineHeight: 1.55 }}>
@@ -286,22 +342,36 @@ export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
   );
 }
 
-function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false }) {
+// Ancho de las cajitas: cortas, para que al lado quepa lo de la última vez.
+const ANCHO_CAJA = 66;
+// Lo que hizo en ESTA serie la última vez, en gris: «10 × 20 kg».
+export function textoSerieAnterior(re, n, unidad = 'kg', soloReps = false) {
+  const x = (re?.ultima_vez?.series || []).find(s => Number(s.serie) === Number(n));
+  if (!x || (x.reps == null && !x.peso)) return null;
+  const reps = x.reps != null ? String(x.reps) : '–';
+  if (soloReps || !(Number(x.peso) > 0)) return `${reps} reps`;
+  return `${reps} × ${coma(convertir(x.peso, x.unidad || 'kg', unidad))} ${unidad}`;
+}
+
+function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = null }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 1,
       fontSize: 11.5, fontWeight: 700, color: GRIS, letterSpacing: '.04em',
     }}>
       <div style={{ width: 22, flex: 'none' }} />
-      <div style={{ flex: 1, textAlign: 'center' }}>{lado ? 'REPS POR LADO' : 'REPS'}</div>
+      <div style={{ width: ANCHO_CAJA, flex: 'none', textAlign: 'center', whiteSpace: 'nowrap' }}>{lado ? 'REPS/LADO' : 'REPS'}</div>
       {!soloReps && <>
-      <div style={{ flex: 1, textAlign: 'center' }}>
+      <div style={{ width: ANCHO_CAJA, flex: 'none', textAlign: 'center' }}>
         <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
           border: 'none', background: 'transparent', borderRadius: 999, padding: '2px 6px',
           fontSize: 11.5, fontWeight: 700, color: GRIS, letterSpacing: '.04em', cursor: 'pointer', fontFamily: 'inherit',
         }}>{unidad.toUpperCase()} ⇄</button>
       </div>
       </>}
+      <div data-cab-ultima style={{ flex: 1, minWidth: 0, textAlign: 'left', paddingLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#AEAEB2' }}>
+        {ultima ? `ÚLTIMA · ${fechaCorta(ultima.fecha).toUpperCase()}` : ''}
+      </div>
       <div style={{ width: 34, flex: 'none' }} />
     </div>
   );
@@ -392,7 +462,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </div>
       )}
 
-      {sinCarga ? <div style={{ height: 10 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} soloReps={soloReps} />}
+      {sinCarga ? <div style={{ height: 10 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} soloReps={soloReps} ultima={re.ultima_vez} />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: sinCarga ? 6 : 2 }}>
         {series.map(s => (
           <SerieFilaV2 key={s} n={s} re={re} unidad={unidad} sinCarga={sinCarga} soloReps={soloReps}
@@ -509,7 +579,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                       abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re),
                     })} />
                   )}
-                  {!sinCarga && <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={() => onUnidad(re)} soloReps={soloReps} />}
+                  {!sinCarga && <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={() => onUnidad(re)} soloReps={soloReps} ultima={re.ultima_vez} />}
                   <div style={{ marginTop: sinCarga ? 8 : 0 }}>
                     <SerieFilaV2 n={vi + 1} re={re} unidad={unidad} sinCarga={sinCarga} soloReps={soloReps} etiqueta={vi + 1}
                       marcada={marcadas[`${re.id}:${vi + 1}`]} descansoSeg={desc}
@@ -540,6 +610,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   const [pop, setPop] = useState(0);
   const repsRef = useRef(null);
   const hecha = !!marcada;
+  const anterior = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps);
   useEffect(() => { asegurarCSS(); }, []);
   const celebrar = () => { setPop(p => p + 1); vibrar(12); };
 
@@ -607,18 +678,23 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
     }}>
       {brillo}
       <div style={{ width: 22, flex: 'none', textAlign: 'center', fontSize: 14, fontWeight: 700, color: hecha ? TEXT : '#AEAEB2' }}>{n}</div>
-      <div style={{ flex: 1 }}>
+      <div style={{ width: ANCHO_CAJA, flex: 'none' }}>
         <input ref={repsRef} inputMode="numeric" value={reps} className="rv2-campo"
           onChange={ev => { setReps(ev.target.value); if (falta) setFalta(false); }}
           aria-label={`Repeticiones serie ${n}`}
           style={campo(falta)} disabled={hecha} />
       </div>
       {!soloReps && (
-      <div style={{ flex: 1 }}>
+      <div style={{ width: ANCHO_CAJA, flex: 'none' }}>
         <input inputMode="decimal" value={peso} onChange={ev => setPeso(ev.target.value)} className="rv2-campo"
           aria-label={`Peso serie ${n}`} style={campo(false)} disabled={hecha} />
       </div>
       )}
+      {/* Lo que hizo en esta serie la última vez, en gris: de recordatorio. */}
+      <div data-serie-anterior style={{ flex: 1, minWidth: 0, paddingLeft: 4, fontSize: 13, fontWeight: 600, color: '#AEAEB2',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>
+        {anterior || ''}
+      </div>
       <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
         flex: 'none', width: 34, height: 34, borderRadius: 99, cursor: 'pointer', border: 'none',
         background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',

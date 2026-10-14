@@ -1574,7 +1574,7 @@ const CARDIO_BASE = ['cinta', 'eliptica', 'remo_maquina', 'escaladora', 'bici_es
 const EVENTOS_QUE_SE_HACEN = ['actividad', 'medidas', 'peso', 'fotos', 'medicion'];
 
 export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres = {}, alias = {}, actividades = [], medidas = [],
-  eventosSemana = {}, registros = [], categorias = {} }) {
+  eventosSemana = {}, registros = [], categorias = {}, programa = null }) {
   const lunesHoy = lunesDe(hoy);
   const semanas = [];
   for (let i = DASH_SEMANAS - 1; i >= 0; i--) {
@@ -1598,13 +1598,19 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
     if (w) w.hechos++;
   });
 
-  // Mejor e1RM de cada ejercicio en cada fecha.
+  // Mejor e1RM de cada ejercicio en cada fecha, y el peso más alto que movió
+  // ese día (con sus reps): lo segundo es la gráfica de «Progreso de pesos».
   const mejor = {};
+  const masPesado = {};
   series.forEach(l => {
     const fecha = fechaDe[l.sesion_id];
     if (!fecha) return;
     const kg = aKg(l.peso, l.unidad);
     const reps = Number(l.reps);
+    if (kg > 0) {
+      const dia = masPesado[l.ejercicio_id] || (masPesado[l.ejercicio_id] = {});
+      if (!dia[fecha] || kg > dia[fecha].kg || (kg === dia[fecha].kg && reps > (dia[fecha].reps || 0))) dia[fecha] = { kg, reps: reps > 0 ? reps : null };
+    }
     const w = semanaDe(fecha);
     if (w && kg > 0 && reps > 0) w.volumen_kg += kg * reps;
     const est = e1rm(kg, reps);
@@ -1630,6 +1636,19 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
     .sort((a, b) => b.puntos.length - a.puntos.length || a.nombre.localeCompare(b.nombre))
     .slice(0, DASH_EJERCICIOS)
     .map(e => ({ ...e, inicio: e.puntos[0].e1rm, actual: e.puntos[e.puntos.length - 1].e1rm }));
+
+  // PROGRESO DE PESOS: cada ejercicio de su programa (el ciclo de hoy) con lo
+  // más pesado que movió en cada sesión. Sin programa, los que más ha hecho.
+  const filaPesos = (id) => {
+    const dias = masPesado[id] || {};
+    const puntos = Object.keys(dias).sort().map(fecha => ({ fecha, kg: Math.round(dias[fecha].kg * 10) / 10, reps: dias[fecha].reps }));
+    return { id, nombre: nombres[id] || 'Ejercicio', alias: alias[id] || null, puntos,
+      inicio: puntos.length ? puntos[0].kg : null, actual: puntos.length ? puntos[puntos.length - 1].kg : null };
+  };
+  const pesos = (Array.isArray(programa) && programa.length
+    ? programa.filter(id => masPesado[id]).map(filaPesos)
+    : Object.keys(masPesado).map(filaPesos).filter(e => e.puntos.length >= 2)
+      .sort((a, b) => b.puntos.length - a.puntos.length).slice(0, DASH_EJERCICIOS));
 
   // ── LA SEMANA EN CURSO, de lunes a domingo ──────────────────────────────
   //   fuerza  — entrenos hechos contra los días de la fase
@@ -1691,7 +1710,7 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   semana.intensidad = intensidad.semana;
 
   return {
-    ok: true, hoy, semanas, ejercicios, semana, intensidad,
+    ok: true, hoy, semanas, ejercicios, pesos, semana, intensidad,
     medidas: medidas.slice().sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
       .map(m => ({ fecha: m.fecha, peso: m.peso == null ? null : Number(m.peso), grasa_pct: m.grasa_pct == null ? null : Number(m.grasa_pct) })),
   };
@@ -1756,8 +1775,24 @@ async function verDash(cliente, hoy) {
     const bq = await sb(`rutinas?select=id&cliente_id=eq.${cliente.id}&complementaria=is.true`);
     bloques = new Set((Array.isArray(bq) ? bq : []).map(r => r.id));
   } catch (e) { /* sin la columna, ninguno lo es */ }
+  // Los ejercicios de su programa (las rutinas del ciclo de hoy), en el
+  // orden de las rutinas: son los de la gráfica de progreso de pesos.
+  let programa = null;
+  if (faseHoy) {
+    try {
+      const rs = await sb(`rutinas?select=id,dia_orden&fase_id=eq.${faseHoy.id}&order=dia_orden.asc`);
+      const rids = (Array.isArray(rs) ? rs : []).map(r => r.id);
+      if (rids.length) {
+        const res = await sb(`rutina_ejercicios?select=rutina_id,ejercicio_id,orden&rutina_id=in.(${rids.join(',')})&order=orden.asc`);
+        const orden = new Map(rids.map((id, i) => [id, i]));
+        programa = [...new Set((Array.isArray(res) ? res : [])
+          .slice().sort((a, b) => (orden.get(a.rutina_id) - orden.get(b.rutina_id)) || ((a.orden || 0) - (b.orden || 0)))
+          .map(x => x.ejercicio_id).filter(Boolean))];
+      }
+    } catch (e) { programa = null; }
+  }
   return { cierre, ...armarDash({
-    hoy, fases: listaFases, sesiones: sesiones.map(x => (bloques.has(x.rutina_id) ? { ...x, bloque: true } : x)), series, nombres, alias,
+    hoy, fases: listaFases, sesiones: sesiones.map(x => (bloques.has(x.rutina_id) ? { ...x, bloque: true } : x)), series, nombres, alias, programa,
     actividades: Array.isArray(actividades) ? actividades : [],
     medidas: Array.isArray(medidas) ? medidas : [],
     eventosSemana: expandirEventos(Array.isArray(eventos) ? eventos : [], faseHoy),

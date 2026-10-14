@@ -705,6 +705,12 @@ export default function MealTracker() {
   // mes ya pasó y el coach aún no marcó el pago. Se muestra como banner (fuera
   // del chat) y desaparece solo cuando el coach marca el pago en el CRM.
   const [paymentDue, setPaymentDue] = useState(null);
+  // Día de gracia por mora (el día que instala la app): la ventana sale una
+  // vez por día; después queda el aviso del Dash.
+  const [graciaVista, setGraciaVista] = useState(() => {
+    try { return localStorage.getItem('mt:graciaPagoVista') === new Date().toDateString(); } catch (e) { return false; }
+  });
+  const graciaAbierta = view === 'main' && !!(paymentDue && paymentDue.gracia) && !graciaVista;
 
   // Invitación a activar recordatorios push (visible solo si el permiso del
   // navegador está en 'default' y no la descartó hace poco)
@@ -2588,7 +2594,9 @@ export default function MealTracker() {
     let cancelled = false;
     const check = async () => {
       try {
-        const r = await fetch(`/api/payment-status?name=${encodeURIComponent(name)}`, { cache: 'no-store' });
+        let uid = '';
+        try { uid = localStorage.getItem('cloudUserId') || ''; } catch (e) {}
+        const r = await fetch(`/api/payment-status?name=${encodeURIComponent(name)}${uid ? `&uid=${encodeURIComponent(uid)}` : ''}`, { cache: 'no-store' });
         if (!r.ok) return;
         const d = await r.json();
         if (cancelled) return;
@@ -2603,11 +2611,26 @@ export default function MealTracker() {
             body: JSON.stringify({ name, visto: true }),
           }).catch(() => {});
         }
+        // Día de gracia: con la app bloqueada por mora, el día en que la
+        // instala en la pantalla de inicio la puede usar (para pasar sus datos
+        // y conocerla). Lo decide el servidor con la primera instalación que
+        // tiene guardada; si todavía no le llegó (se instaló hace un minuto),
+        // vale la marca de este teléfono, pero solo si es de HOY.
+        let gracia = !!(d && d.gracia);
+        if (d && d.bloqueo && d.instalada === 'nunca' && d.hoy) {
+          try {
+            const at = localStorage.getItem('mt:pwaNuevaAt');
+            const dia = at ? new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date(at)) : null;
+            if (dia === d.hoy && esAppInstalada()) gracia = true;
+          } catch (e) {}
+        }
         setPaymentDue(d && d.due ? {
           dia_corte: d.dia_corte, dias_vencido: d.dias_vencido || 0, monto: d.monto, moneda: d.moneda,
           // Más de 5 días de mora: la app se bloquea hasta que el coach marque
-          // el pago (la regla vive en api/_pagos.js, no aquí).
-          bloqueo: !!d.bloqueo,
+          // el pago (la regla vive en api/_pagos.js, no aquí). El día de
+          // gracia no bloquea, pero el aviso sale y dice que es solo hoy.
+          bloqueo: !!d.bloqueo && !gracia,
+          gracia,
           // Deuda TOTAL cuando arrastra varios meses (el aviso debe decir la
           // suma completa, no solo la mensualidad del último mes).
           meses_deuda: d.meses_deuda || 1, monto_total: d.monto_total || null,
@@ -6650,6 +6673,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {paymentDue && paymentDue.bloqueo && (
         <BloqueoPago v2={v2} info={paymentDue} alRevisar={() => revisarPagoRef.current && revisarPagoRef.current()} />
       )}
+      {/* Día de gracia: se dice una vez, al abrir; después queda el aviso. */}
+      {graciaAbierta && (
+        <GraciaPago v2={v2} info={paymentDue} alCerrar={() => {
+          try { localStorage.setItem('mt:graciaPagoVista', new Date().toDateString()); } catch (e) {}
+          setGraciaVista(true);
+        }} />
+      )}
 
       {recorrido && v2 && (
         <Suspense fallback={null}>
@@ -6664,7 +6694,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {/* Peso, fotos o medidas que el coach pidió para HOY: apenas abre la app
           (a todos). Espera a que no haya otra cosa encima. */}
       <AvisoRegistro nombre={name} v2={v2}
-        listo={view === 'main' && !!name && !(paymentDue && paymentDue.bloqueo) && cloudConsent !== null && !mudanza && !activeModal} />
+        listo={view === 'main' && !!name && !(paymentDue && paymentDue.bloqueo) && !graciaAbierta && cloudConsent !== null && !mudanza && !activeModal} />
 
       {activeModal === 'weekly' && (
         <WeeklyModal history={history} goals={goals} onClose={() => setActiveModal(null)} />
@@ -7577,6 +7607,47 @@ function BloqueoPago({ info, alRevisar, v2 = false }) {
   );
 }
 
+// El día de gracia: la app abierta HOY aunque la mensualidad esté vencida
+// (el día en que la instaló en la pantalla de inicio). Se dice una vez, claro,
+// con el monto; y al cerrarla queda el aviso en el Dash.
+function GraciaPago({ info, alCerrar, v2 = false }) {
+  const total = info.monto_total || info.monto;
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Mensualidad pendiente" data-gracia-pago
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000, display: 'grid', placeItems: 'center', padding: 24,
+        background: 'rgba(246,244,238,0.55)',
+        backdropFilter: 'blur(16px) saturate(0.9)', WebkitBackdropFilter: 'blur(16px) saturate(0.9)',
+      }}>
+      <div style={{
+        width: '100%', maxWidth: 380, background: '#fff', borderRadius: 28, padding: '28px 24px 22px',
+        boxShadow: '0 20px 60px rgba(40,40,30,0.22)', textAlign: 'center',
+      }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: 99, margin: '0 auto 14px', display: 'grid', placeItems: 'center',
+          background: v2 ? '#F6E6B8' : 'rgba(224,171,158,0.28)', color: v2 ? '#7A5500' : '#8A4A3C',
+        }}><CreditCard size={24} strokeWidth={2} /></div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+          Hoy tienes la app abierta
+        </div>
+        {total ? (
+          <div className="num" style={{ fontSize: v2 ? 30 : 26, fontWeight: 800, color: v2 ? TEXT : '#8A4A3C', marginTop: 10, letterSpacing: '-0.02em' }}>
+            {fmtMonto(total, info.moneda)}
+          </div>
+        ) : null}
+        <div style={{ fontSize: 15, color: TEXT_MUTED, lineHeight: 1.5, marginTop: 10 }}>
+          Tu mensualidad está pendiente. {textoCorte(info)} Hoy te dejamos usar la app para que pases tus datos y la conozcas.
+          <b style={{ color: TEXT }}> Desde mañana queda en pausa hasta que se registre el pago.</b>
+        </div>
+        <button onClick={alCerrar} data-gracia-ok style={{
+          marginTop: 20, width: '100%', height: 50, borderRadius: 999, border: 'none', cursor: 'pointer',
+          background: TEXT, color: '#fff', fontSize: 16, fontWeight: 700, fontFamily: 'inherit',
+        }}>Entendido</button>
+      </div>
+    </div>
+  );
+}
+
 function PaymentNotice({ info, style, v2 = false }) {
   if (!info) return null;
   const meses = info.meses_deuda || 1;
@@ -7587,10 +7658,10 @@ function PaymentNotice({ info, style, v2 = false }) {
     const totalV2 = info.monto_total || info.monto;
     // Corte: «15 de septiembre» (sin el «Tu fecha de corte fue el…»).
     const corte = textoCorte(info).replace(/^Tu fecha de corte fue el /, '').replace(/\.$/, '');
-    return (
+    const fila = (
       <div data-aviso-pago className="fade-up" style={{
         display: 'flex', alignItems: 'center', gap: 11, padding: '10px 14px', borderRadius: 18, background: '#FFFFFF',
-        boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', fontFamily: 'inherit', ...style,
+        boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', fontFamily: 'inherit', ...(info.gracia ? {} : style),
       }}>
         <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 99, background: '#F6E6B8', color: '#7A5500', display: 'grid', placeItems: 'center', flex: 'none' }}>
           <CreditCard size={17} strokeWidth={2.1} />
@@ -7606,9 +7677,20 @@ function PaymentNotice({ info, style, v2 = false }) {
             </span>
           </div>
         </div>
-        {dias > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: '#7A5500', background: '#FBF1D3', padding: '4px 9px', borderRadius: 99, whiteSpace: 'nowrap', flex: 'none' }}>hace {dias} {dias === 1 ? 'día' : 'días'}</span>}
+        {info.gracia
+          ? <span style={{ fontSize: 12, fontWeight: 700, color: '#7A5500', background: '#FBF1D3', padding: '4px 9px', borderRadius: 99, whiteSpace: 'nowrap', flex: 'none' }}>solo hoy</span>
+          : dias > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: '#7A5500', background: '#FBF1D3', padding: '4px 9px', borderRadius: 99, whiteSpace: 'nowrap', flex: 'none' }}>hace {dias} {dias === 1 ? 'día' : 'días'}</span>}
       </div>
     );
+    if (info.gracia) return (
+      <div style={{ display: 'grid', gap: 6, ...style }}>
+        {fila}
+        <div data-gracia-linea style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.4, padding: '0 6px' }}>
+          Hoy tienes la app abierta para conocerla. Desde mañana queda en pausa hasta que se registre el pago.
+        </div>
+      </div>
+    );
+    return fila;
   }
   // Dos niveles de tono, ambos serenos: miel para el mes en curso, terracota
   // suave cuando ya son varios meses. Ni uno solo grita.
