@@ -348,9 +348,7 @@ function CabeceraFase({ fase: f, v2 = false }) {
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em', textTransform: 'uppercase', lineHeight: 1, color: TEXT }}>{f.nombre}</div>
-      <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 5 }}>
-        {f.semana_actual ? `Semana ${f.semana_actual} de ${f.semanas}` : `${f.semanas} semanas`}{f.objetivo ? ` · ${f.objetivo}` : ''}
-      </div>
+      {f.objetivo && <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 5 }}>{f.objetivo}</div>}
     </div>
   );
 }
@@ -475,12 +473,7 @@ function VistaSemana({ plan, onAbrir }) {
             fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em',
             textTransform: 'uppercase', lineHeight: 1, color: TEXT,
           }}>{f.nombre}</div>
-          <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 5 }}>
-            {f.semana_actual
-              ? `Semana ${f.semana_actual} de ${f.semanas}`
-              : `${f.semanas} semanas`}
-            {f.objetivo ? ` · ${f.objetivo}` : ''}
-          </div>
+          {f.objetivo && <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 5 }}>{f.objetivo}</div>}
         </div>
       ) : (
         <Tarjeta>

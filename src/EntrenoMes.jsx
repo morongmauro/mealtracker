@@ -1169,11 +1169,6 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     <div data-calendario-v2={modo} style={{ touchAction: arrastre ? 'none' : undefined }}>
       {modo === 'mes' && (
         <div data-cal-cabecera style={{ marginTop: -10 }}>
-          {fase && (
-            <div style={{ fontSize: 12, fontWeight: 750, letterSpacing: '.08em', color: TEXT_MUTED, textTransform: 'uppercase', margin: '0 2px 10px' }}>
-              {dHoySemana ? `Semana ${dHoySemana}${semanasFase ? ` de ${semanasFase}` : ''}` : 'Tu ciclo'}
-            </div>
-          )}
           <Segmentado valor={vista} alCambiar={setVista} opciones={[['mes', 'Mes'], ['semana', 'Semana']]} />
         </div>
       )}

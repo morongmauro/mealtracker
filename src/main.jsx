@@ -76,7 +76,7 @@ if (typeof window !== 'undefined') {
   const ENTRADA_MS = 2900;
   const cerrarEntrada = () => {
     document.body.classList.add('app-ready');
-    if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F1F0EA'); }
+    if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F3F1EB'); }
     try { sessionStorage.setItem('mt:booted', '1'); } catch (e) {}
   };
   // Cierra la entrada 2,9 s después de que arrancó (o en cuanto la app esté

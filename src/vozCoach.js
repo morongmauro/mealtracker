@@ -102,8 +102,8 @@ const nombreParaFrase = (n) => {
 
 export function vozEntreno({ plan, hoy }) {
   const fase = plan && plan.fase;
-  const extra = fase && fase.semana_actual ? `Semana ${fase.semana_actual} de ${fase.semanas}` : '';
-  const etiqueta = etiquetaDia(hoy, extra);
+  // Solo el día: el «Semana 3 de 8» se quitó de todas las secciones.
+  const etiqueta = etiquetaDia(hoy);
   if (!plan || !plan.ok || !fase) {
     return { etiqueta, a: 'Tu plan viene en camino.' };
   }

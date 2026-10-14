@@ -357,6 +357,35 @@ try {
     console.log('errores', pv.errores.slice(0, 3));
     await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
   }
+  // FOTOS=1: fotos sueltas para propuestas (separadores del Dash en tres
+  // variantes y el circuito de la rutina tal como está).
+  if (process.env.FOTOS) {
+    const pv = await abrir('Mauro Morón', { caliente: true });
+    const dash = pv.p.locator('[data-view="dash"]');
+    await dash.getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
+    await espera(2000);
+    const VARIANTES = {
+      sin: '',
+      gris: '[data-seccion]{margin-top:26px!important}[data-seccion]::before{content:"";display:block;height:1px;background:rgba(31,31,31,.09);margin:0 2px 16px}',
+      azul: '[data-seccion]{margin-top:22px!important}[data-seccion]::before{content:"";display:block;height:2px;border-radius:9px;background:rgba(60,123,214,.55);margin:0 2px 12px;width:44px}',
+    };
+    for (const [k, css] of Object.entries(VARIANTES)) {
+      await pv.p.evaluate((css) => { let st = document.getElementById('foto-css'); if (!st) { st = document.createElement('style'); st.id = 'foto-css'; document.head.appendChild(st); } st.textContent = css; }, css);
+      await dash.evaluate(el => { const t = el.querySelector('[data-seccion]'); el.scrollTop = t.getBoundingClientRect().top + el.scrollTop - 150; });
+      await espera(500);
+      await pv.p.screenshot({ path: path.join(CAPTURAS, `separadores-${k}.png`) });
+    }
+    await pv.p.evaluate(() => { document.getElementById('foto-css').textContent = ''; });
+    await pv.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
+    await espera(1200);
+    await pv.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await pv.p.locator('[data-circuito]').first().waitFor({ timeout: 10000 });
+    await espera(1200);
+    await pv.p.locator('[data-circuito]').first().screenshot({ path: path.join(CAPTURAS, 'circuito-actual.png') });
+    await pv.p.screenshot({ path: path.join(CAPTURAS, 'circuito-pantalla.png') });
+    console.log('errores', pv.errores.slice(0, 3));
+    await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
   // INSTALAR=1: las fotos de «Instala la app» en un Android (Dash, Ajustes y la hoja).
   if (process.env.INSTALAR) {
     const ANDROID = 'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36';
@@ -679,7 +708,7 @@ try {
   ok('Entreno: la gráfica grande junto a la frase, con la kettlebell tenue adentro', await ilusBien(p, 'entreno'));
   const cabE = p.locator('[data-cabecera-hoy="entreno"]');
   ok('Hoy de entreno: la voz del coach (el día, la semana y la frase de hoy)', await cabE.locator('[data-frase]').isVisible()
-    && /^MARTES 29 · SEMANA \d+ DE \d+$/.test(await cabE.locator('[data-etiqueta]').innerText())
+    && /^MARTES 29$/.test(await cabE.locator('[data-etiqueta]').innerText())
     && /^(Hoy toca|Hecho por hoy|Día de descanso|Hoy no te toca|Semana completa|Tienes un entreno)/.test(await cabE.locator('[data-frase]').innerText()),
     `${await cabE.locator('[data-etiqueta]').innerText()} | ${await cabE.locator('[data-frase]').innerText()}`);
   ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);

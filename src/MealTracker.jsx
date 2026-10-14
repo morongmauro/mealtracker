@@ -6149,7 +6149,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
             {/* Comidas de hoy */}
             {v2 ? (
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED, margin: '22px 2px 8px' }}>LO QUE COMISTE HOY</div>
+              <h2 data-titulo-comidas style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '18px 2px 10px' }}>Lo que comiste hoy</h2>
             ) : (
             <div className="text-[13.5px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em', margin: '22px 0 10px' }}>
               Hoy
