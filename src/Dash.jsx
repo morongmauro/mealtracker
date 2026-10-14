@@ -252,8 +252,9 @@ function BarraPct({ etiqueta, pct, valor, meta, unidad = 'g', color }) {
 function FilaSemana({ Icono, etiqueta, valor }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: `1px solid ${CREMA}` }}>
-      <span style={{ width: 28, height: 28, borderRadius: 99, background: DASH_AZUL.tint, color: DASH_AZUL.ink, display: 'grid', placeItems: 'center', flex: 'none' }}>
-        <Icono size={15} weight="bold" />
+      {/* Ícono de línea, sin círculo: con círculo parecía un botón. */}
+      <span data-icono-fila style={{ width: 24, height: 24, color: DASH_AZUL.ink, display: 'grid', placeItems: 'center', flex: 'none' }}>
+        <Icono size={19} weight="regular" />
       </span>
       <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: TEXT_MUTED, lineHeight: 1.25 }}>{etiqueta}</span>
       <span style={{ fontSize: 15, fontWeight: 750, color: TEXT, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{valor}</span>

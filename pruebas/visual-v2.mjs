@@ -482,6 +482,8 @@ try {
   await verTodos.click(); await espera(250);
   ok('Dash HOY: los íconos son de línea, sin círculo de fondo (no parecen botones)', await dash.locator('[data-icono-hoy]').count() >= 1
     && await dash.locator('[data-icono-hoy]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)' && !!el.querySelector('svg')));
+  ok('Dash: los íconos de la tarjeta de Entrenamiento también son de línea, sin círculo', (await dash.locator('[data-icono-fila]').count()) >= 3
+    && await dash.locator('[data-icono-fila]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)' && !!el.querySelector('svg')));
   ok('Dash: «Profundiza» un tono más oscuro que los bloques crema', await dash.getByRole('button', { name: /Profundiza/ }).first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(235, 230, 220)'));
   ok('Dash: «Ver todo» despliega el resto (programa, cápsulas, videos)', (await dash.locator('[data-recordatorio]').count()) > nRec
     && /Sobre el programa|cápsula|video/i.test(await dash.locator('[data-recordatorios-dash]').innerText()));
