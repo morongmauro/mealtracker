@@ -45,6 +45,37 @@
     <title>Entrena con Método</title>
     <link rel="preload" href="/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
     <script>
+      // «Ver como cliente» (desde el CRM): se abre con ?ver_como=<pase>. En
+      // ese modo la app corre con un almacén EN MEMORIA, así no toca ni lee
+      // lo que este navegador tenga guardado de la cuenta propia, y en solo
+      // lectura (src/verComo.js: nada se manda al servidor). El pase queda
+      // en sessionStorage, solo para esta pestaña, y la dirección se limpia.
+      (function () {
+        try {
+          var m = /[?&]ver_como=([^&]+)/.exec(location.search);
+          if (m) { sessionStorage.setItem('mt:verComo', decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname); }
+          if (!sessionStorage.getItem('mt:verComo')) return;
+          var mem = {};
+          // Solo las marcas de la visual nueva pasan al almacén en memoria
+          // (nada de la cuenta): sin ellas, fuera del dominio nuevo (las
+          // pruebas) la app arrancaría con la visual vieja.
+          try {
+            ['mt:probarDireccionNueva', 'mt:v2'].forEach(function (k) { var v = window.localStorage.getItem(k); if (v !== null) mem[k] = v; });
+          } catch (e) {}
+          var st = {
+            getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+            setItem: function (k, v) { mem[k] = String(v); },
+            removeItem: function (k) { delete mem[k]; },
+            clear: function () { mem = {}; },
+            key: function (i) { return Object.keys(mem)[i] || null; },
+          };
+          Object.defineProperty(st, 'length', { get: function () { return Object.keys(mem).length; } });
+          Object.defineProperty(window, 'localStorage', { value: st, configurable: true });
+          document.documentElement.classList.add('ver-como');
+        } catch (e) {}
+      })();
+    </script>
+    <script>
       // Opener SOLO en arranque frío: si la app ya se abrió en esta sesión
       // (volver del centro de Aprendizaje, botón "atrás", recarga por
       // actualización), se entra directo sin animación — verla en cada

@@ -3,6 +3,7 @@
 // botón para recargar. La primera vez recarga solo (casi siempre es un
 // archivo viejo tras una actualización); si vuelve a fallar, se queda el aviso.
 import React from 'react';
+import { reportar } from './bitacora.js';
 
 const CLAVE = 'mt:salvavidas';
 
@@ -11,6 +12,7 @@ export default class Salvavidas extends React.Component {
   static getDerivedStateFromError(error) { return { error }; }
   componentDidCatch(error) {
     try { console.error('[salvavidas]', error); } catch (e) {}
+    try { reportar('pantalla', error && error.message ? error.message : String(error), error && error.stack); } catch (e) {}
     try {
       if (!sessionStorage.getItem(CLAVE)) { sessionStorage.setItem(CLAVE, '1'); window.location.reload(); }
     } catch (e) {}

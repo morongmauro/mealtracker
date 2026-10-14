@@ -275,7 +275,7 @@ Ojo con algo, para que le saques provecho: el Recetario es APARTE de tus menús 
 //            no explicación. Si necesitas un párrafo, es que no está
 //            decidido qué quieres que el cliente se lleve.
 // ═════════════════════════════════════════════════════════════════════════
-const NOVEDADES = {
+export const NOVEDADES = {
   activo: true,
   version: '2026-08-26-aprendizaje-y-recetas',
   items: [
@@ -731,7 +731,13 @@ export default function MealTracker() {
   const [trainingOn, setTrainingOn] = useState(() => {
     try { return localStorage.getItem('trainingOn') === '1'; } catch (e) { return false; }
   });
-  const [showTraining, setShowTraining] = useState(false);
+  // Si la página se recargó a mitad de un entreno, se arranca en esa rutina.
+  const [showTraining, setShowTraining] = useState(() => {
+    try {
+      const r = JSON.parse(localStorage.getItem('mt:rutinaAbierta') || 'null');
+      return !!(r && r.id && r.fecha === new Date().toLocaleDateString('en-CA') && Date.now() - (r.t || 0) < 8 * 3600 * 1000);
+    } catch (e) { return false; }
+  });
   useEffect(() => { showTrainingRef.current = showTraining; }, [showTraining]);
   // Visual nueva: el Dash es una capa más, como Entrenamiento y Aprendizaje.
   // Y cada sección recuerda su opción de la barra.
@@ -763,6 +769,9 @@ export default function MealTracker() {
     if (!v2 || view !== 'main' || dashInicialRef.current) return;
     dashInicialRef.current = true;
     setTab('hoy');
+    // Salvo que se arranque en una rutina que quedó abierta (recarga a mitad
+    // del entreno): ahí se vuelve a la rutina, no al Dash.
+    if (showTraining) return;
     setShowDash(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v2, view]);
@@ -6213,7 +6222,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <div data-view="dash" data-capa-v2 className="fixed inset-0 overflow-y-auto" style={{ zIndex: 37, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: v2 ? BG_STAINS_DASH : BG_STAINS }} />
           <Suspense fallback={null}>
-            <Dash name={name} history={history} detalle={historyDetail} goals={goals}
+            <Dash name={name} history={history} detalle={historyDetail} goals={goals} kcalHoy={totals?.kcal || 0}
               avisoPago={paymentDue && !paymentDue.bloqueo ? <PaymentNotice v2={v2} info={paymentDue} style={{ marginTop: '16px' }} /> : null}
               alIr={(sec, op) => irSubV2(sec, op)} entrenoOn={trainingOn}
               racha={streak} pendientes={coachReminders.filter(r => !r.done_at).length}
@@ -6637,12 +6646,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           entrada(s) recién creadas y sus burbujas del chat. */}
       {undoInfo && (
         <div className="fixed left-1/2 z-50 fade-up" style={{ transform: 'translateX(-50%)', bottom: keyboardOpen ? '160px' : '178px' }}>
+          {/* Discreto: lo protagonista después de registrar es la comida, no
+              deshacerla. Pastilla crema chica; la papelera de la tarjeta
+              sigue para borrar después. */}
           <button
             onClick={performUndo}
-            className="flex items-center gap-2 pl-3.5 pr-4 py-2.5 rounded-full active:scale-95"
-            style={{ background: '#1F1F1F', color: '#fff', boxShadow: SHADOW_RAISED }}>
-            <RotateCcw size={14} strokeWidth={2.2} />
-            <span className="text-[13px] font-semibold">Deshacer registro</span>
+            className="flex items-center gap-1.5 pl-3 pr-3.5 py-1.5 rounded-full active:scale-95"
+            style={{ background: 'rgba(244,241,235,0.96)', color: '#3A3A3C', boxShadow: '0 2px 10px rgba(40,40,30,0.12)', border: '1px solid rgba(0,0,0,0.06)' }}>
+            <RotateCcw size={12} strokeWidth={2.2} />
+            <span className="text-[12px] font-semibold">Deshacer</span>
           </button>
         </div>
       )}
@@ -7788,6 +7800,21 @@ function queryDeItems(options = []) {
 // lista y nunca vuelve a abrir el recetario.
 // `v2` llega del chat (que se pinta antes de que la visual se encienda); en
 // el planificador se mira el documento.
+// El aviso legal, en una línea: el coach es quien ajusta el plan. El texto
+// completo sale con «Más» (antes era un párrafo en cada propuesta y sonaba a
+// desconfianza en la propia app).
+function AvisoCalculo({ texto }) {
+  const [mas, setMas] = useState(false);
+  return (
+    <div data-aviso-calculo className="mt-3 pt-2.5 border-t text-[10.5px]" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
+      Cálculo orientativo · tu coach es quien ajusta tu plan.{' '}
+      {mas ? <span>{texto}</span> : (
+        <button type="button" onClick={() => setMas(true)} style={{ border: 0, background: 'none', padding: 0, fontFamily: 'inherit', fontSize: 'inherit', color: TEXT_MUTED, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>Más</button>
+      )}
+    </div>
+  );
+}
+
 function NotaRecetario({ onAbrir, query = '', v2 = v2Activa() }) {
   if (typeof onAbrir !== 'function') return null;
   return (
@@ -8676,9 +8703,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
 
           <NotaRecetario v2={v2} onAbrir={onOpenRecetario} query={queryDeItems(options)} />
 
-          <div className="mt-3 pt-3 border-t text-[10px] italic" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
-            Esto es solo cálculo organizativo basado en los ingredientes que registraste como habituales. No constituye consejo nutricional. Para criterio personalizado, consulta con tu coach.
-          </div>
+          <AvisoCalculo texto="Esto es solo cálculo organizativo basado en los ingredientes que registraste como habituales. No constituye consejo nutricional. Para criterio personalizado, consulta con tu coach." />
         </div>
       </div>
     );
@@ -8746,9 +8771,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
 
           <NotaRecetario v2={v2} onAbrir={onOpenRecetario} query={queryDeItems(options)} />
 
-          <div className="mt-3 pt-3 border-t text-[10px] italic" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
-            Esto es solo cálculo organizativo. No constituye consejo nutricional ni reemplaza la valoración de un profesional.
-          </div>
+          <AvisoCalculo texto="Esto es solo cálculo organizativo. No constituye consejo nutricional ni reemplaza la valoración de un profesional." />
         </div>
       </div>
     );

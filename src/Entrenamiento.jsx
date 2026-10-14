@@ -8,7 +8,7 @@ import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso } from './entrenoDatos.js';
+import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, fijarClaveTecleado, borrarTecleado } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
@@ -33,12 +33,18 @@ export function aroEntreno(plan) {
   const dias = (plan && plan.dias) || [];
   const planeadas = dias.filter(d => d.rutina).length;
   // Sin rutinas esta semana (o mientras carga): el aro sale vacío, no se quita.
-  if (!planeadas) return { frac: 0, centro: '—', pie: 'Performance semanal' };
+  if (!planeadas) return { frac: 0, centro: '—', pie: 'Semana · entreno' };
+  const hoy = (plan && plan.hoy) || hoyLocal();
   const hechas = dias.filter(d => d.rutina && d.hecha).length;
+  // SIN DEUDA: contra lo que tocaba HASTA HOY (los días que ya pasaron, y hoy
+  // solo si ya la hizo). Un día de descanso no baja el número por lo que
+  // viene después; el domingo es lo hecho contra la semana entera.
+  const hastaHoy = dias.filter(d => d.rutina && (d.fecha < hoy || (d.fecha === hoy && d.hecha))).length;
   // La actividad extra (cardio, deportes…) suma su bono, hasta +10 puntos; lo
   // que el coach programó y no marcó resta poquito, hasta −5.
-  const frac = Math.max(0, Math.min(1, hechas / planeadas + ((Number(plan.extra?.bono) || 0) - (Number(plan.extra?.penal) || 0)) / 100));
-  return { frac, centro: `${Math.round(frac * 100)}%`, pie: 'Performance semanal' };
+  const base = hastaHoy > 0 ? hechas / hastaHoy : 1;
+  const frac = Math.max(0, Math.min(1, base + ((Number(plan.extra?.bono) || 0) - (Number(plan.extra?.penal) || 0)) / 100));
+  return { frac, centro: `${Math.round(frac * 100)}%`, pie: 'Semana · entreno' };
 }
 
 // El acento del módulo sale de entrenoUI: oliva de siempre, azul en la visual nueva.
@@ -211,13 +217,21 @@ export async function precargarRutinas(name, plan) {
 export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, recordatorios = null, avisoPago = null }) {
   const [plan, setPlan] = useState(() => cachePlan.get(name) || null);
   const [cargando, setCargando] = useState(() => !cachePlan.has(name));
-  const [rutinaId, setRutinaId] = useState(null);
+  // La rutina que quedó abierta (si la página se recargó o la app se cerró a
+  // mitad del entreno) se vuelve a abrir sola.
+  const [rutinaId, setRutinaId] = useState(() => (rutinaAbierta() || {}).id || null);
   const [seccionPropia, setSeccionPropia] = useState('hoy');
   const seccion = seccionV2 || seccionPropia;
   const setSeccion = seccionV2 ? (alSeccionV2 || (() => {})) : setSeccionPropia;
   const NavSi = seccionV2 ? SinNav : Nav;
-  // Tocar otra opción de la barra con una rutina abierta lleva a esa opción.
-  useEffect(() => { if (seccionV2) setRutinaId(null); }, [seccionV2]);
+  // Tocar otra opción de la barra con una rutina abierta lleva a esa opción
+  // (solo cuando la opción CAMBIA; al montar se respeta la rutina que se
+  // volvió a abrir, también con el doble montaje de React en desarrollo).
+  const seccionAnterior = useRef(seccionV2);
+  useEffect(() => {
+    if (seccionV2 && seccionAnterior.current !== seccionV2) { setRutinaId(null); borrarRutinaAbierta(); }
+    seccionAnterior.current = seccionV2;
+  }, [seccionV2]);
 
   const cargarPlan = useCallback(async () => {
     if (!cachePlan.has(name)) setCargando(true);
@@ -241,7 +255,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
       <Envoltorio>
         <VistaRutina
           name={name} rutinaId={rutinaId}
-          onVolver={() => { setRutinaId(null); cargarPlan(); }}
+          onVolver={() => { setRutinaId(null); borrarRutinaAbierta(); cargarPlan(); }}
         />
       </Envoltorio>
     );
@@ -646,6 +660,16 @@ function VistaRutina({ name, rutinaId, onVolver }) {
     return () => clearTimeout(id);
   }, [pendientes > 0]);
   const fecha = useRef(hoyLocal()).current;       // el día en que se abrió, aunque pase medianoche
+  // Queda anotada como abierta (para volver a ella si la página se recarga) y
+  // lo tecleado sin marcar se guarda bajo su clave.
+  // La clave se fija AL PINTAR (no en un efecto): las cajitas leen lo
+  // tecleado en su primer pintado, antes de que corra cualquier efecto.
+  fijarClaveTecleado(`${rutinaId}:${fecha}`);
+  useEffect(() => {
+    guardarRutinaAbierta(rutinaId, fecha);
+    fijarClaveTecleado(`${rutinaId}:${fecha}`);
+    return () => fijarClaveTecleado(null);
+  }, [rutinaId, fecha]);
   // Visual nueva: cuándo arrancó el entreno (la primera serie marcada), para
   // el reloj de la sesión. Se recuerda en el teléfono por si cierra y vuelve.
   const claveInicio = `mt:inicioEntreno:${rutinaId}:${fecha}`;
@@ -796,6 +820,9 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       return;
     }
     setCerrandoHoja(false);
+    // Cerrada: ya no hay rutina abierta ni cajitas por recuperar.
+    borrarRutinaAbierta();
+    borrarTecleado(`${rutinaId}:${fecha}`);
     if (estado === 'saltada') { onVolver(); return; }
     // Si batió algo, se le dice. Es lo único de toda la sesión que
     // celebra un número, y es lo que hace que la próxima vez intente

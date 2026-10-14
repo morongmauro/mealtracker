@@ -18,12 +18,15 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Wind, Bell, CaretDown, Mountains, WhatsappLogo, Flag, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge } from '@phosphor-icons/react';
+import { Wind, Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, Flag, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
-import { api, hoyLocal, sumarDias, aFecha } from './entrenoDatos.js';
-import { aroSemana } from './aros.js';
+import { api, hoyLocal, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
+import { aroSemana, partesSemana } from './aros.js';
+import { precargar as planDe } from './Entrenamiento.jsx';
+import { Hoja } from './entrenoUI.jsx';
+import { IconoEvento } from './iconosEntreno.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
@@ -329,9 +332,15 @@ const Marco = React.forwardRef(({ children }, ref) => (
 const cacheDash = new Map();
 const cacheAprende = new Map();
 
-export default function Dash({ name, history, detalle = {}, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null }) {
+export default function Dash({ name, history, detalle = {}, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null, kcalHoy = 0 }) {
   const hoy = hoyLocal();
   const [ent, setEnt] = useState(() => cacheDash.get(name) || null);
+  // El plan de la semana (la rutina de hoy, para el bloque «Hoy»): el mismo
+  // que precarga Entrenamiento, así no se pide dos veces.
+  const [plan, setPlan] = useState(null);
+  useEffect(() => { let vivo = true; if (name && entrenoOn) planDe(name).then(r => { if (vivo && r) setPlan(r); }); return () => { vivo = false; }; }, [name, entrenoOn]);
+  // «¿Cómo se calcula?»: la hoja que abre el aro de la cabecera.
+  const [explicar, setExplicar] = useState(false);
   const [falloEnt, setFalloEnt] = useState(false);
   const [midiendo, setMidiendo] = useState(false);
   const [vista, setVista] = useState('inicio');
@@ -397,8 +406,11 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   const ultimaSemana = ent?.semanas?.[ent.semanas.length - 1];
   // La semana en curso, con el bono de su actividad extra (cardio, deportes…).
   // (y lo poquito que resta lo que el coach le programó y no marcó).
-  const semana = ultimaSemana ? { ...ultimaSemana, bono: ent?.semana?.bono || 0, penal: ent?.semana?.penal || 0 } : ultimaSemana;
+  const semana = ultimaSemana ? { ...ultimaSemana, bono: ent?.semana?.bono || 0, penal: ent?.semana?.penal || 0,
+    // Sin deuda: lo planeado hasta hoy (ver armarDash).
+    planeados_hoy: ent?.semana?.fuerza?.planeados_hoy } : ultimaSemana;
   const nombre = String(name || '').split(' ')[0];
+  const planHoy = ent?.semana?.fuerza?.planeados_hoy != null ? ent.semana.fuerza.planeados_hoy : (semana?.planeados || 0);
   const wa = WHATSAPP_COACH
     ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`
     : null;
@@ -425,7 +437,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       {/* Saludo: con la misma letra y la voz del coach de las cabeceras de Hoy. */}
       <CabeceraHoy tema="dash" sangria="16px" arriba="calc(62px + env(safe-area-inset-top, 0px))"
         voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, b: racha >= 3 ? `${racha} días seguidos.` : 'Mira cómo vas.' }}
-        aro={aroSemana(semana, history, goals, aprende, hoy)} />
+        aro={{ ...aroSemana(semana, history, goals, aprende, hoy), alTocar: () => setExplicar(true) }} />
       {/* Atajos: botones de cristal chicos (círculo con el símbolo y la
           palabra debajo), en una sola línea, para no quitarle el
           protagonismo a las gráficas. */}
@@ -444,7 +456,12 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
           campanita sigue; esto es una ayudita para quien no va a buscarla. */}
       <RecordatoriosLinea name={name} hoy={hoy} aprende={aprende} medidas={ent?.medidas} cierre={ent?.cierre} cargandoMedidas={entrenoOn && !ent && !falloEnt}
         coach={acciones.recordatoriosCoach || []} alMarcarCoach={acciones.marcarRecordatorio}
-        alPrograma={acciones.programa} alMedir={() => setMidiendo(true)} alAbrir={acciones.abrirAprendizaje} />
+        alPrograma={acciones.programa} alMedir={() => setMidiendo(true)} alAbrir={acciones.abrirAprendizaje}
+        plan={entrenoOn ? plan : null} coachHoy={entrenoOn ? (ent?.semana?.hoy || []) : []} kcalHoy={kcalHoy} alIr={alIr} />
+
+      {explicar && (
+        <ExplicacionSemana semana={semana} history={history} goals={goals} hoy={hoy} alCerrar={() => setExplicar(false)} />
+      )}
 
       {reloj && <TarjetaReloj reloj={reloj} />}
 
@@ -483,15 +500,21 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
-              <Anillo valor={semana ? semana.hechos : 0} total={semana && semana.planeados ? semana.planeados : 0} color={AZUL}
-                centro={semana ? `${semana.hechos}${semana.planeados ? `/${semana.planeados}` : ''}` : '—'} pie="fuerza" />
+              {/* Sin deuda: contra lo planeado HASTA HOY (el servidor lo manda
+                  en fuerza.planeados_hoy); lo de la semana entera, debajo. */}
+              <Anillo valor={semana ? semana.hechos : 0} total={planHoy} color={AZUL}
+                centro={!semana ? '—' : planHoy ? `${semana.hechos}/${planHoy}` : '✓'} pie={!semana ? 'fuerza' : planHoy ? 'fuerza hasta hoy' : 'nada aún hoy'} />
               <div data-semana-entreno style={{ flex: 1, minWidth: 0 }}>
                 <FilaSemana Icono={Heartbeat} etiqueta="Días de cardio" valor={ent?.semana ? ent.semana.cardio.dias : '—'} />
                 <FilaSemana Icono={CalendarCheck} etiqueta="Lo que te puso tu coach"
                   valor={ent?.semana ? (ent.semana.coach.total ? `${ent.semana.coach.hechos}/${ent.semana.coach.total}` : '—') : '—'} />
                 <FilaSemana Icono={Sparkle} etiqueta="Actividad extra" valor={ent?.semana ? `${ent.semana.extra.dias} ${ent.semana.extra.dias === 1 ? 'día' : 'días'}` : '—'} />
                 <FilaSemana Icono={Gauge} etiqueta="Intensidad promedio"
-                  valor={ent?.semana?.intensidad?.prom != null ? `${fmt(ent.semana.intensidad.prom, 1)}/10` : '—'} />
+                  valor={ent?.semana?.intensidad?.prom != null ? `${fmt(ent.semana.intensidad.prom, 1)}/10`
+                    : <span data-sin-intensidad style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{semana && semana.hechos > 0 ? 'Sin marcar' : 'Sin entrenos aún'}</span>} />
+                {semana && semana.planeados > planHoy && (
+                  <div data-planeadas-semana style={{ fontSize: 12.5, color: TEXT_LIGHT, paddingTop: 7 }}>{semana.planeados} rutinas planeadas esta semana</div>
+                )}
               </div>
             </div>
           )}
@@ -1109,8 +1132,25 @@ function Cuerpo({ medidas, cargando, alMedir }) {
 // El círculo de la izquierda marca como hecho (los del coach y el del
 // mes); tocar la línea lleva a donde se hace.
 const CLAVE_MES = (ym) => `mt:medidaMes:${ym}`;
-function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargandoMedidas, coach, alMarcarCoach, alPrograma, alMedir, alAbrir }) {
+// Primero LO DE HOY (la rutina, lo que puso el coach para hoy, registrar la
+// comida), con «N de M» como performance del día; lo demás (recordatorios
+// del coach, cierre de ciclo, medida del mes, cápsulas y videos) se despliega
+// con «Ver todo». Un recordatorio de leer no tapa el entreno de hoy.
+function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargandoMedidas, coach, alMarcarCoach, alPrograma, alMedir, alAbrir,
+  plan = null, coachHoy = [], kcalHoy = 0, alIr = null }) {
   const [todos, setTodos] = useState(false);
+  const hoyItems = [];
+  const d = plan && Array.isArray(plan.dias) ? plan.dias.find(x => x.es_hoy || x.fecha === hoy) : null;
+  if (d && d.rutina) hoyItems.push({ id: 'hoy-rutina', texto: d.hecha ? `Entrenaste ${nombreCorto(d.rutina.nombre)}` : `Entrenar: ${nombreCorto(d.rutina.nombre)}`, hecho: !!d.hecha, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: Barbell, color: AZUL });
+  (d?.complementarias || []).forEach(c => hoyItems.push({ id: `hoy-b-${c.id}`, texto: c.hecha ? `Hiciste ${c.nombre}` : c.nombre, hecho: !!c.hecha, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: Stack, color: AZUL }));
+  coachHoy.forEach(ev => {
+    const texto = ev.tipo === 'actividad' ? `${ev.titulo}${ev.duracion_min ? ` · ${ev.duracion_min} min` : ''}`
+      : ev.tipo === 'peso' ? 'Registrar tu peso' : ev.tipo === 'fotos' ? 'Enviar tus fotos' : 'Tu medición corporal';
+    hoyItems.push({ id: `hoy-e-${ev.id}`, texto, hecho: !!ev.hecho, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: (p) => <IconoEvento tipo={ev.tipo} {...p} />, color: ev.tipo === 'actividad' ? AZUL : '#8E5BD8' });
+  });
+  const comida = Number(kcalHoy) > 0;
+  hoyItems.push({ id: 'hoy-comida', texto: comida ? `Comida registrada · ${Math.round(kcalHoy).toLocaleString('es-CO')} kcal` : 'Registrar lo que comiste', hecho: comida, ir: alIr ? () => alIr('comida', 'chat') : null, Icono: ForkKnife, color: '#46965A' });
+  const hoyHechos = hoyItems.filter(i => i.hecho).length;
   const [mesHecho, setMesHecho] = useState(() => { try { return localStorage.getItem(CLAVE_MES(hoy.slice(0, 7))) === '1'; } catch (e) { return false; } });
   const ym = hoy.slice(0, 7);
   const bloque = (k) => (aprende && aprende.bloques ? aprende.bloques.find(b => b.k === k) : null);
@@ -1137,31 +1177,77 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const sigPod = pod && pod.piezas.find(p => !p.vista);
   if (sigCap) items.push({ id: 'cap', texto: `Lee una cápsula: «${sigCap.title}»`, ir: alAbrir ? () => alAbrir(`cap:${sigCap.id}`) : null, Icono: BookOpenText, color: '#C95F17' });
   if (sigPod) items.push({ id: 'pod', texto: `Mira un video: «${sigPod.title}»`, ir: alAbrir ? () => alAbrir(`pod:${sigPod.id}`) : null, Icono: Sparkle, color: '#C95F17' });
-  if (!items.length) return null;
-  const visibles = todos ? items : items.slice(0, 2);
+  // Pendientes primero; lo hecho, al final y en gris con su chulo.
+  const deHoy = [...hoyItems.filter(i => !i.hecho), ...hoyItems.filter(i => i.hecho)];
+  const visibles = todos ? [...deHoy, ...items] : deHoy;
+  const todoHecho = hoyItems.length > 0 && hoyHechos === hoyItems.length;
+  const fila = (it, i, hecho = false) => (
+    <div key={it.id} data-recordatorio={it.id} data-hecho={hecho ? '1' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 36, borderTop: i ? '1px solid #F0EDE6' : 0, opacity: hecho ? 0.6 : 1 }}>
+      {hecho ? (
+        <span aria-hidden="true" style={{ width: 22, height: 22, flex: 'none', borderRadius: 99, background: TEXT, color: '#F2C94C', display: 'grid', placeItems: 'center' }}><CheckCircle size={14} weight="bold" /></span>
+      ) : it.marcar ? (
+        <button onClick={it.marcar} aria-label="Marcar como hecho" data-marcar style={{ width: 22, height: 22, flex: 'none', borderRadius: 99, border: `2px solid ${it.color}`, background: 'transparent', cursor: 'pointer', padding: 0 }} />
+      ) : (
+        <span aria-hidden="true" style={{ width: 22, height: 22, flex: 'none', borderRadius: 99, background: `${it.color}1F`, color: it.color, display: 'grid', placeItems: 'center' }}><it.Icono size={13} weight="bold" /></span>
+      )}
+      <button onClick={it.ir || it.marcar || undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: '6px 4px 6px 0', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: TEXT, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: hecho ? 'line-through' : 'none' }}>{it.texto}</span>
+        {it.ir && !hecho && <CaretRight size={16} color={TEXT_LIGHT} style={{ flex: 'none' }} />}
+      </button>
+    </div>
+  );
   return (
-    <section data-recordatorios-dash style={{ marginTop: 10, background: '#FFFFFF', borderRadius: 18, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', padding: '7px 6px 3px 14px' }}>
+    <section data-recordatorios-dash data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 10, background: '#FFFFFF', borderRadius: 18, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', padding: '7px 6px 3px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 0 0', minHeight: 20 }}>
-        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>RECORDATORIOS</span>
-        {items.length > 2 && (
+        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>
+          HOY{hoyItems.length ? <span style={{ color: todoHecho ? '#2F7F45' : TEXT }}> · {todoHecho ? 'todo listo ✓' : `${hoyHechos} de ${hoyItems.length}`}</span> : null}
+        </span>
+        {items.length > 0 && (
           <button data-ver-recordatorios onClick={() => setTodos(t => !t)} style={{ border: 0, background: 'none', padding: '0 4px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>
-            {todos ? 'Ver menos' : `Ver todos (${items.length})`}
+            {todos ? 'Ver menos' : `Ver todo (${items.length})`}
           </button>
         )}
       </div>
-      {visibles.map((it, i) => (
-        <div key={it.id} data-recordatorio={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 36, borderTop: i ? '1px solid #F0EDE6' : 0 }}>
-          {it.marcar ? (
-            <button onClick={it.marcar} aria-label="Marcar como hecho" data-marcar style={{ width: 22, height: 22, flex: 'none', borderRadius: 99, border: `2px solid ${it.color}`, background: 'transparent', cursor: 'pointer', padding: 0 }} />
-          ) : (
-            <span aria-hidden="true" style={{ width: 22, height: 22, flex: 'none', borderRadius: 99, background: `${it.color}1F`, color: it.color, display: 'grid', placeItems: 'center' }}><it.Icono size={13} weight="bold" /></span>
-          )}
-          <button onClick={it.ir || it.marcar || undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: '6px 4px 6px 0', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: TEXT, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.texto}</span>
-            {it.ir && <CaretRight size={16} color={TEXT_LIGHT} style={{ flex: 'none' }} />}
-          </button>
-        </div>
-      ))}
+      {visibles.map((it, i) => fila(it, i, !!it.hecho))}
     </section>
+  );
+}
+
+// ¿Cómo se calcula el aro de la cabecera? Lo abre el aro mismo.
+function ExplicacionSemana({ semana, history, goals, hoy, alCerrar }) {
+  const partes = partesSemana(semana, history, goals, hoy);
+  const pct = (f) => (f == null ? '—' : `${Math.round(f * 100)}%`);
+  const total = partes.map(p => p.frac).filter(x => x != null);
+  const fuerza = semana ? { hechos: semana.hechos, hasta: semana.planeados_hoy != null ? semana.planeados_hoy : semana.planeados, semana: semana.planeados, bono: Number(semana.bono) || 0, penal: Number(semana.penal) || 0 } : null;
+  return (
+    <Hoja abierta alCerrar={alCerrar} titulo="Tu semana, en total" alto="70vh">
+      <div data-explicacion-semana style={{ fontSize: 14.5, color: TEXT, lineHeight: 1.5 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.03em' }}>{pct(total.length ? total.reduce((a, x) => a + x, 0) / total.length : null)}</span>
+          <span style={{ color: TEXT_MUTED }}>el promedio de tus dos partes</span>
+        </div>
+        <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 6 }}>
+          Se mide solo contra lo que ya tocaba hasta hoy. Lo que viene después no te resta nada.
+        </div>
+        {partes.map(p => (
+          <div key={p.id} style={{ marginTop: 14, padding: '12px 14px', borderRadius: 16, background: CREMA }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <b>{p.nombre}</b><span style={{ fontSize: 20, fontWeight: 800 }}>{pct(p.frac)}</span>
+            </div>
+            <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 3 }}>
+              {p.id === 'entreno' ? (!fuerza || !fuerza.semana ? 'Sin rutinas planeadas esta semana.'
+                : <>
+                  {fuerza.hasta ? `${fuerza.hechos} de ${fuerza.hasta} rutinas que tocaban hasta hoy` : 'Todavía no tocaba ninguna rutina'}
+                  {fuerza.semana > fuerza.hasta ? ` · ${fuerza.semana} en toda la semana` : ''}
+                  {fuerza.bono > 0 ? ` · +${fuerza.bono} por cardio y deportes` : ''}
+                  {fuerza.penal > 0 ? ` · −${fuerza.penal} por lo del coach sin marcar` : ''}
+                </>)
+                : (p.frac == null ? 'Sin metas o sin días registrados todavía.' : 'Qué tan cerca quedaste de tus metas de calorías y macros, de lunes a hoy. Un día sin registrar cuenta 0; hoy cuenta cuando registres algo.')}
+            </div>
+          </div>
+        ))}
+        <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 14 }}>El aprendizaje no entra aquí: es de todo el programa y lo ves abajo, en su tarjeta.</div>
+      </div>
+    </Hoja>
   );
 }

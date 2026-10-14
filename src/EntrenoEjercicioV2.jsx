@@ -21,7 +21,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets } from '@phosphor-icons/react';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { Hoja } from './entrenoUI.jsx';
-import { miniatura, numero, descansoEnCircuito, sinPeso, convertir } from './entrenoDatos.js';
+import { miniatura, numero, descansoEnCircuito, sinPeso, convertir, leerTecleado, guardarTecleado } from './entrenoDatos.js';
 import { nombresEj } from './v2.js';
 import { SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, BORDER, SECCION } from './theme.js';
 import { asegurarCSS, vibrar } from './Celebraciones.jsx';
@@ -207,10 +207,8 @@ function Botones({ items, chico = false }) {
 function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota }) {
   return [
     { Icono: FilmStrip, texto: 'Ficha', onClick: abrirFicha },
-    ...(sinCarga ? [] : [
-      { Icono: Trophy, texto: 'Tu récord', onClick: abrirRecord },
-      { Icono: ClockCounterClockwise, texto: 'Historial', onClick: abrirUltima },
-    ]),
+    // El récord va dentro del historial: un botón menos por ejercicio.
+    ...(sinCarga ? [] : [{ Icono: ClockCounterClockwise, texto: 'Historial', onClick: abrirUltima }]),
     ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', onClick: onNota }] : []),
   ];
 }
@@ -313,6 +311,22 @@ export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
   return (
     <Hoja abierta={abierto} alCerrar={alCerrar} titulo={`Historial · ${n.grande}`} alto="80vh">
       {!u ? <div style={{ ...cajaHoja, fontSize: 14, color: TEXT_MUTED }}>{NADA_AUN}</div> : (<>
+        {u.record && (
+          <div data-tu-record style={{ ...cajaHoja, display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span style={{ width: 40, height: 40, borderRadius: 99, background: SECCION.entreno.tint, color: AZUL_TINTA, display: 'grid', placeItems: 'center', flex: 'none' }}>
+              <Trophy size={20} weight="fill" />
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12.5, color: TEXT_MUTED, fontWeight: 650 }}>
+                Tu récord · {u.record.peso && !soloReps ? 'El peso más alto que has levantado' : 'Tu mejor serie'}
+              </div>
+              <div data-record style={{ fontSize: 24, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+                {u.record.peso ? `${coma(convertir(u.record.peso, u.record.unidad || 'kg', unidad))} ${unidad}` : `${u.record.reps} reps${lado ? ' por lado' : ''}`}
+                <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED, marginLeft: 8 }}>{u.record.peso ? `${u.record.reps} reps${lado ? ' por lado' : ''} · ` : ''}{fechaCorta(u.record.fecha)}</span>
+              </div>
+            </div>
+          </div>
+        )}
         <div data-ultima style={{ ...cajaHoja, fontSize: 15, color: TEXT, lineHeight: 1.6 }}>
           <div style={{ fontSize: 12.5, color: TEXT_MUTED, fontWeight: 650, marginBottom: 2 }}>La última vez · {fechaCorta(u.fecha)}</div>
           {lineasUltima(u.series, lado, opciones).map(l => <div key={l}>{l}</div>)}
@@ -408,7 +422,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
       // Hecho = otro color: la tarjeta plegada se tiñe del amarillo suave de
       // la marca, para ver de un vistazo qué ya está.
       <button data-plegado onClick={() => setPlegado(false)} style={{
-        ...TARJETA, background: HECHO_FONDO, boxShadow: `inset 0 0 0 1px ${HECHO_BORDE}`,
+        ...TARJETA, background: HECHO_FONDO, boxShadow: 'none',
         width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 10,
       }}>
@@ -516,7 +530,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
     const nombres = (vueltas[0] || []).map(re => nombresEj(re.ejercicio).grande).join(' · ');
     return (
       <button data-plegado data-circuito-plegado onClick={() => setPlegado(false)} style={{
-        ...TARJETA, background: HECHO_FONDO, boxShadow: `inset 0 0 0 1px ${HECHO_BORDE}`,
+        ...TARJETA, background: HECHO_FONDO, boxShadow: 'none',
         width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 10,
       }}>
@@ -611,8 +625,12 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
 }
 
 function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarcar, sinCarga, soloReps = false }) {
-  const [reps, setReps] = useState(marcada?.reps != null ? String(marcada.reps) : '');
-  const [peso, setPeso] = useState(marcada?.peso != null ? String(marcada.peso).replace('.', ',') : '');
+  // Lo tecleado sin marcar vuelve si la página se recargó a mitad del entreno.
+  const idSerie = `${re.id}:${n}`;
+  const tecleado = marcada ? null : leerTecleado(idSerie);
+  const [reps, setReps] = useState(marcada?.reps != null ? String(marcada.reps) : (tecleado?.reps || ''));
+  const [peso, setPeso] = useState(marcada?.peso != null ? String(marcada.peso).replace('.', ',') : (tecleado?.peso || ''));
+  useEffect(() => { if (!marcada) guardarTecleado(idSerie, { reps, peso }); }, [reps, peso]);  // eslint-disable-line react-hooks/exhaustive-deps
   const [falta, setFalta] = useState(false);
   // Al marcar: el check «salta», un brillo recorre la fila y vibra corto.
   const [pop, setPop] = useState(0);

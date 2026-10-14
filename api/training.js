@@ -1682,6 +1682,25 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
     actividad_extra: actividadExtra(actSemana),
     bono: bonoExtra(actividadExtra(actSemana)),
   };
+  // SIN DEUDA: lo planeado HASTA HOY. Los días de la fase que ya pasaron
+  // cuentan (hechos o no); hoy cuenta solo si ya entrenó. Así el martes con
+  // el lunes hecho va al 100 %, no al 33 % por lo que aún no toca; y el
+  // domingo es lo hecho contra la semana entera.
+  const faseActual = fases.find(x => x.fecha_inicio && x.fecha_inicio <= actual.hasta && finDeFase(x) >= actual.desde);
+  const LETRAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+  const diasFase = new Set((faseActual?.dias_semana || []).map(String));
+  const hechosHoy = sesiones.filter(x => x.fecha === hoy && x.estado === 'completada' && !x.bloque).length;
+  let planeadosHoy = 0;
+  for (let i = 0; i < 7; i++) {
+    const f = sumarDiasISO(actual.desde, i);
+    if (f > hoy || !diasFase.has(LETRAS[i])) continue;
+    if (f < hoy || hechosHoy > 0) planeadosHoy++;
+  }
+  semana.fuerza.planeados_hoy = Math.max(planeadosHoy, Math.min(actual.hechos, actual.planeados));
+  // Lo que el coach le puso HOY (cardio, pesarse, fotos, medición) y si ya está.
+  semana.hoy = (eventosSemana[hoy] || []).filter(ev => EVENTOS_QUE_SE_HACEN.includes(ev.tipo))
+    .map(ev => ({ id: ev.id, tipo: ev.tipo, titulo: ev.titulo, duracion_min: ev.duracion_min || null,
+      hecho: hechoRegistro.has(`${ev.id}:${hoy}`) || hechoActividad.has(`${ev.id}:${hoy}`) }));
   // Lo que el coach programó (cardio, caminata, deporte) en días que ya
   // pasaron y no marcó: resta poquito (_actividad.js, penalSinMarcar).
   semana.cardio_coach = cardioDelCoach(eventosSemana, hechoActividad, actual.desde, hoy);

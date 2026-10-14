@@ -602,7 +602,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {/* Cardio y deportes: con su «Ya lo hice». */}
             {dia.eventos.filter(e => e.tipo === 'actividad').map(ev => (
-              <TarjetaCardioCoach key={ev.id} ev={ev} fecha={dia.fecha} nombre={nombre} alCambio={alCambio} />
+              <TarjetaCardioCoach key={ev.id} ev={ev} fecha={dia.fecha} nombre={nombre} alCambio={alCambio} conFuerza={!!dia.rutina} />
             ))}
             {dia.eventos.filter(e => !e.registra && e.tipo !== 'actividad').map(ev => (
               <div key={ev.id} style={{
@@ -1431,7 +1431,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
         {bloques.map(b => <TarjetaBloque key={b.id} b={b} P={P} n={ejerciciosDe[b.id]} alEntrenar={alEntrenar} />)}
 
         {otros.filter(ev => ev.tipo === 'actividad').map(ev => (
-          <TarjetaCardioCoach key={ev.id} ev={ev} fecha={hoy} nombre={nombre} alCambio={alCambio} />
+          <TarjetaCardioCoach key={ev.id} ev={ev} fecha={hoy} nombre={nombre} alCambio={alCambio} conFuerza={!!r} />
         ))}
 
         {registros.map(ev => (

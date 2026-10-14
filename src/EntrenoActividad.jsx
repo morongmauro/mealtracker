@@ -368,7 +368,9 @@ export function ChipActividad({ actividad, catalogo, onClick }) {
 // registra ligado a lo que puso el coach, y así cuenta en su semana y el
 // coach lo ve hecho. No se marca lo que todavía no llega.
 // ─────────────────────────────────────────────────────────────────────────
-export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambio, enRutina = false }) {
+// `conFuerza`: si ese día hay rutina de fuerza; sin ella, «después de
+// entrenar» no tiene sentido y se lee solo «de tu coach».
+export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambio, enRutina = false, conFuerza = true }) {
   const [abierta, setAbierta] = useState(false);
   const [hecho, setHecho] = useState(!!ev.hecho);
   useEffect(() => { setHecho(!!ev.hecho); }, [ev.hecho, ev.id]);
@@ -398,7 +400,7 @@ export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambi
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: TEXT_LIGHT }}>
-            {enRutina ? 'Ahora: tu cardio · antes de estirar' : ev.despues ? 'Después de entrenar · de tu coach' : 'De tu coach'}
+            {enRutina ? 'Ahora: tu cardio · antes de estirar' : ev.despues && conFuerza ? 'Después de entrenar · de tu coach' : 'De tu coach'}
           </div>
           <div style={{ fontSize: 15, fontWeight: 750, color: TEXT, lineHeight: 1.25, marginTop: 2 }}>
             {ev.hora ? `${String(ev.hora).slice(0, 5)} · ` : ''}{ev.titulo}{cuanto ? <span style={{ fontWeight: 500, color: TEXT_MUTED }}> · {cuanto}</span> : null}

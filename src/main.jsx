@@ -9,8 +9,10 @@ import '@fontsource/inter/latin-600.css';
 import '@fontsource/inter/latin-700.css';
 import '@fontsource/inter/latin-800.css';
 import '@fontsource/bebas-neue/latin-400.css';
-import MealTracker from './MealTracker.jsx';
+import MealTracker, { NOVEDADES } from './MealTracker.jsx';
 import Salvavidas from './Salvavidas.jsx';
+import { prepararVerComo } from './verComo.js';
+import { instalarBitacora } from './bitacora.js';
 
 // El dashboard del coach se carga en un chunk aparte: los clientes no
 // descargan su código, y el coach solo lo baja al entrar a /coach.
@@ -46,7 +48,13 @@ const montar = () => ReactDOM.createRoot(document.getElementById('root')).render
         : <Salvavidas><MealTracker /></Salvavidas>}
   </React.StrictMode>
 );
-if (esperaEntrada > 0) setTimeout(montar, esperaEntrada); else montar();
+// «Ver como cliente» (el coach, desde el CRM): primero se valida el pase y
+// se siembra la sesión de ese cliente; si venció, no se monta nada.
+const verComo = prepararVerComo({ novedades: [NOVEDADES.version].filter(Boolean) });
+// Lo que falle en el teléfono del cliente queda en la bitácora del CRM.
+if (!verComo) instalarBitacora();
+if (verComo) verComo.then(r => { if (r.listo) montar(); });
+else if (esperaEntrada > 0) setTimeout(montar, esperaEntrada); else montar();
 
 // Oculta el splash una vez React renderizó. Mínimo de exhibición: la
 // animación del logo dura ~1.4s; el mínimo de 2.2s deja la animación
@@ -149,6 +157,12 @@ if (typeof window !== 'undefined') {
 
   const applyIfReady = () => {
     if (!updateReady) return;
+    // Con una rutina abierta no se recarga: el cliente perdía la rutina y lo
+    // tecleado al minimizar. La actualización entra cuando la cierre.
+    try {
+      const r = JSON.parse(localStorage.getItem('mt:rutinaAbierta') || 'null');
+      if (r && r.id && Date.now() - (r.t || 0) < 8 * 3600 * 1000) return;
+    } catch (e) { /* sin almacenamiento */ }
     // Guard anti-bucle: si tras recargar la caché sigue sirviendo este mismo
     // bundle viejo, no volvemos a recargar (evita un loop infinito de reloads;
     // el próximo intento llega solo con el siguiente ciclo de visibilidad).

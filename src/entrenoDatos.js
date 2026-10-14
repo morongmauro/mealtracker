@@ -210,6 +210,51 @@ export function descansoEnCircuito(bloque, estacion, estaciones, vuelta, vueltas
   return null;
 }
 
+// ── LA RUTINA ABIERTA Y LO TECLEADO, A SALVO ──────────────────────────────
+// Un cliente contó que al minimizar la app «perdía» series: la página se
+// recargaba (actualización automática, o el teléfono la mata en segundo
+// plano) y volvía al Dash con la rutina cerrada y las cajitas en blanco. Lo
+// MARCADO siempre estuvo en el servidor (o en la cola), pero había que
+// volver a entrar a la rutina y lo tecleado sin marcar sí se perdía.
+// Ahora: (1) la rutina abierta queda anotada y al arrancar se vuelve a abrir
+// sola; (2) lo tecleado en cada cajita se guarda al escribir y vuelve; (3) la
+// actualización automática espera a que la rutina se cierre (main.jsx).
+const CLAVE_ABIERTA = 'mt:rutinaAbierta';
+const HORAS_ABIERTA = 8;
+export function rutinaAbierta() {
+  try {
+    const r = JSON.parse(localStorage.getItem(CLAVE_ABIERTA) || 'null');
+    if (!r || !r.id || !r.fecha) return null;
+    if (r.fecha !== hoyLocal() || Date.now() - (r.t || 0) > HORAS_ABIERTA * 3600 * 1000) return null;
+    return r;
+  } catch (e) { return null; }
+}
+export function guardarRutinaAbierta(id, fecha) {
+  try { localStorage.setItem(CLAVE_ABIERTA, JSON.stringify({ id, fecha, t: Date.now() })); } catch (e) { /* sin almacenamiento */ }
+}
+export function borrarRutinaAbierta() {
+  try { localStorage.removeItem(CLAVE_ABIERTA); } catch (e) { /* nada */ }
+}
+// Lo tecleado sin marcar, por serie: { "reId:n": { reps, peso } }.
+const claveTecleado = (clave) => `mt:tecleado:${clave}`;
+let claveActual = null;
+export const fijarClaveTecleado = (clave) => { claveActual = clave; };
+export function leerTecleado(id) {
+  if (!claveActual) return null;
+  try { return (JSON.parse(localStorage.getItem(claveTecleado(claveActual)) || '{}') || {})[id] || null; } catch (e) { return null; }
+}
+export function guardarTecleado(id, valor) {
+  if (!claveActual) return;
+  try {
+    const todo = JSON.parse(localStorage.getItem(claveTecleado(claveActual)) || '{}') || {};
+    if (valor && (valor.reps || valor.peso)) todo[id] = valor; else delete todo[id];
+    localStorage.setItem(claveTecleado(claveActual), JSON.stringify(todo));
+  } catch (e) { /* sin almacenamiento */ }
+}
+export function borrarTecleado(clave) {
+  try { localStorage.removeItem(claveTecleado(clave)); } catch (e) { /* nada */ }
+}
+
 // kg ⇄ lb, redondeado a lo que de verdad se puede cargar: medio kilo, o una
 // libra. 50 lb → 22.5 kg; 20 kg → 44 lb.
 export function convertir(peso, de, a) {

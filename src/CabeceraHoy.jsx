@@ -152,8 +152,12 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
     return (
       // Subida un poco (translateY): el texto de abajo de la gráfica quedaba
       // pegado a los botones. Sin cambiar el alto de la fila.
-      <div key={vez} aria-hidden="true" data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', width: 138, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none', transform: 'translateY(-8px)' }}>
-        <div className="cab-ilus" data-aro-cabecera={tema} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animationDelay: '.1s' }}>
+      <div key={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', width: 138, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none', transform: 'translateY(-8px)' }}>
+        {/* Con `alTocar`, la gráfica es un botón: abre qué la compone. */}
+        <div className="cab-ilus" data-aro-cabecera={tema} data-aro-tocar={aro.alTocar ? '1' : undefined}
+          role={aro.alTocar ? 'button' : undefined} tabIndex={aro.alTocar ? 0 : undefined} aria-label={aro.alTocar ? `${aro.pie}: ${aro.centro}. Ver cómo se calcula` : undefined}
+          onClick={aro.alTocar} onKeyDown={aro.alTocar ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); aro.alTocar(); } } : undefined}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animationDelay: '.1s', pointerEvents: aro.alTocar ? 'auto' : undefined, cursor: aro.alTocar ? 'pointer' : undefined }}>
           <div style={{ position: 'relative', width: ARO_G.tam, height: ARO_G.tam }}>
             {/* El aro y su punto, nítidos: lo tenue es solo el objeto. */}
             <div><AnilloMarca plano frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.9)" etiqueta={aro.pie} /></div>
@@ -210,12 +214,14 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
             position: 'absolute', right: lugar.derecha, top: `calc(${arriba} + ${lugar.arriba}px)`, width: lugar.lado, height: lugar.lado,
           }}><ObjetoCabecera tema={tema} activo={activo} /></div>
           {conAro && (
-            <div className="cab-ilus" data-aro-cabecera={tema} style={{
+            <div className="cab-ilus" data-aro-cabecera={tema} data-aro-tocar={aro.alTocar ? '1' : undefined}
+              role={aro.alTocar ? 'button' : undefined} onClick={aro.alTocar} style={{
               // A su izquierda, a la misma altura y con la misma separación en
               // todas las cabeceras. Plano: un color, riel casi blanco.
               position: 'absolute', right: ESPACIO.margen + ESPACIO.ancho + ESPACIO.separacion - 12,
               top: `calc(${arriba} + ${ESPACIO.centro - 30}px)`, width: 84,
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animationDelay: '.16s',
+              pointerEvents: aro.alTocar ? 'auto' : undefined, cursor: aro.alTocar ? 'pointer' : undefined,
             }}>
               <AnilloMarca plano frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={60} grosor={7} riel="rgba(255,255,255,0.9)" etiqueta={aro.pie}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>

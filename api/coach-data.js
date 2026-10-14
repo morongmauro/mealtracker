@@ -11,6 +11,7 @@
 // PATCH /api/coach-data?action=mark_duplicate&user_id=...&duplicate_of=... → marca duplicado
 
 import { verifyCoachToken } from './coach-auth.js';
+import { firmarPase } from './_verComo.js';
 import { checkOrigin } from './_guard.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -23,7 +24,7 @@ function applyCors(req, res) {
   if (!origin || !checkOrigin(req)) return;
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
   res.setHeader('Access-Control-Max-Age', '86400');
 }
@@ -202,6 +203,49 @@ export default async function handler(req, res) {
   if (!payload) return res.status(401).json({ error: 'unauthorized' });
 
   const action = req.query.action;
+
+  // VER COMO — un pase de 15 minutos para abrir la app como ese cliente, en
+  // solo lectura (api/_verComo.js). Devuelve la dirección lista para abrir.
+  if (req.method === 'POST' && action === 'ver_como') {
+    const userId = req.query.user_id;
+    if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=name`, { headers: supaHeaders() });
+      const rows = await r.json();
+      const name = Array.isArray(rows) && rows[0] ? rows[0].name : null;
+      if (!name) return res.status(404).json({ error: 'not found' });
+      const token = firmarPase({ user_id: userId, name });
+      if (!token) return res.status(500).json({ error: 'COACH_PASSWORD not configured' });
+      const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+      const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+      return res.status(200).json({ ok: true, name, url: `${proto}://${host}/?ver_como=${encodeURIComponent(token)}`, minutos: 15 });
+    } catch (e) {
+      return res.status(500).json({ error: 'ver_como failed' });
+    }
+  }
+
+  // ERRORES — la bitácora de la app de ese cliente (api/bitacora.js), los
+  // últimos 30 de las últimas 2 semanas, del más nuevo al más viejo.
+  if (req.method === 'GET' && action === 'errores') {
+    const userId = req.query.user_id;
+    if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
+    try {
+      const desde = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+      let nombre = null;
+      try {
+        const rn = await fetch(`${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=name`, { headers: supaHeaders() });
+        const rows = await rn.json();
+        nombre = Array.isArray(rows) && rows[0] ? rows[0].name : null;
+      } catch (e) { nombre = null; }
+      // Por cuenta, y también por nombre (si reportó antes de tener cuenta en la nube).
+      const filtro = nombre ? `or=(user_id.eq.${userId},name.eq.${encodeURIComponent(nombre)})` : `user_id=eq.${userId}`;
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/app_errores?select=id,creado_at,tipo,mensaje,detalle,pantalla,ua,version&${filtro}&creado_at=gte.${desde}&order=creado_at.desc&limit=30`, { headers: supaHeaders() });
+      const rows = await r.json();
+      return res.status(200).json({ ok: true, errores: Array.isArray(rows) ? rows : [] });
+    } catch (e) {
+      return res.status(200).json({ ok: false, errores: [] });
+    }
+  }
 
   // LIST — resumen de TODOS los clientes
   if (req.method === 'GET' && action === 'list') {

@@ -138,7 +138,15 @@ await caso('la semana en curso: fuerza, cardio, lo del coach y la actividad extr
     registros: [{ evento_id: 'ev2', fecha: d(4), estado: 'hecho' }],
     categorias: { cinta: 'cardio', caminata: 'cardio', eliptica: 'cardio', natacion: 'deporte', futbol: 'deporte' },
   });
-  igual(r.semana.fuerza, { hechos: 2, planeados: 3 }, 'fuerza');
+  // Sin deuda: el viernes (hoy, sin entrenar aún) tocaban lunes y miércoles → 2 de 2.
+  igual(r.semana.fuerza, { hechos: 2, planeados: 3, planeados_hoy: 2 }, 'fuerza');
+  igual(r.semana.hoy, [{ id: 'ev2', tipo: 'peso', titulo: undefined, duracion_min: null, hecho: true }], 'lo del coach de hoy, ya hecho');
+  // El lunes antes de entrenar no debe nada (0 planeadas hasta hoy).
+  const lun = armarDash({ hoy: d(0), fases: [{ id: 'f1', fecha_inicio: hace(3), semanas: 8, dias_semana: ['L', 'X', 'V'] }] });
+  igual(lun.semana.fuerza, { hechos: 0, planeados: 3, planeados_hoy: 0 }, 'lunes temprano');
+  // El miércoles con el lunes perdido: 0 de 1 (lo perdido sí cuenta).
+  const mie = armarDash({ hoy: d(2), fases: [{ id: 'f1', fecha_inicio: hace(3), semanas: 8, dias_semana: ['L', 'X', 'V'] }] });
+  igual(mie.semana.fuerza, { hechos: 0, planeados: 3, planeados_hoy: 1 }, 'miércoles con el lunes perdido');
   igual(r.semana.cardio, { dias: 2 }, 'días con cardio');
   igual(r.semana.coach, { hechos: 2, total: 3 }, 'lo del coach (la nota no cuenta; lo de otra semana tampoco)');
   igual(r.semana.extra, { dias: 1 }, 'actividad extra');

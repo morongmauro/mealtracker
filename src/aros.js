@@ -37,8 +37,17 @@ export function cumplimientoComidaSemana(history = {}, goals = {}, hoy = hoyLoca
 // más el bono de la actividad extra (cardio, deportes…: hasta +10 puntos) y
 // menos lo poquito que resta lo del coach sin marcar (hasta −5). La misma
 // regla del CRM; lo calcula el servidor, api/_actividad.js.
-export const adherenciaEntreno = (semana) => (semana && semana.planeados
-  ? Math.max(0, Math.min(1, semana.hechos / semana.planeados + ((Number(semana.bono) || 0) - (Number(semana.penal) || 0)) / 100)) : null);
+// SIN DEUDA: se mide contra lo planeado HASTA HOY (`planeados_hoy`, lo
+// calcula el servidor): los días que ya pasaron y hoy solo si ya entrenó.
+// Un lunes antes de entrenar no debe nada: 100 %. El domingo, lo hecho
+// contra la semana entera.
+export const adherenciaEntreno = (semana) => {
+  if (!semana || !semana.planeados) return null;
+  const extra = ((Number(semana.bono) || 0) - (Number(semana.penal) || 0)) / 100;
+  const hasta = semana.planeados_hoy != null ? semana.planeados_hoy : semana.planeados;
+  const base = hasta > 0 ? semana.hechos / hasta : 1;
+  return Math.max(0, Math.min(1, base + extra));
+};
 
 // Sin datos todavía (un lunes antes de registrar nada, sin metas, sin fase)
 // el aro sale igual, vacío y con «—»: antes desaparecía y la cabecera
@@ -48,10 +57,18 @@ export const aroDe = (frac, pie) => (frac == null ? aroVacio(pie) : { frac, cent
 
 // El aro de la cabecera del Dash: el performance global de la semana, el
 // promedio del entreno, la alimentación y el aprendizaje.
-export function aroSemana(semana, history, goals, aprende, hoy) {
-  const partes = [adherenciaEntreno(semana), cumplimientoComidaSemana(history, goals, hoy), aprende && aprende.pct != null ? aprende.pct / 100 : null]
-    .filter(x => x != null);
-  return aroDe(partes.length ? partes.reduce((a, x) => a + x, 0) / partes.length : null, 'Performance global semanal');
+// Solo lo que se HACE esta semana (entreno y comida), sin deuda. El
+// aprendizaje va aparte: es material acumulado de todo el programa y
+// hundía el promedio (7 % de videos vistos no dice nada de esta semana).
+export function partesSemana(semana, history, goals, hoy) {
+  return [
+    { id: 'entreno', nombre: 'Entrenamiento', frac: adherenciaEntreno(semana), semana },
+    { id: 'comida', nombre: 'Alimentación', frac: cumplimientoComidaSemana(history, goals, hoy) },
+  ];
 }
-export const aroComida = (history, goals, hoy) => aroDe(cumplimientoComidaSemana(history, goals, hoy), 'Performance semanal');
+export function aroSemana(semana, history, goals, aprende, hoy) {
+  const partes = partesSemana(semana, history, goals, hoy).map(p => p.frac).filter(x => x != null);
+  return aroDe(partes.length ? partes.reduce((a, x) => a + x, 0) / partes.length : null, 'Semana · en total');
+}
+export const aroComida = (history, goals, hoy) => aroDe(cumplimientoComidaSemana(history, goals, hoy), 'Semana · comida');
 

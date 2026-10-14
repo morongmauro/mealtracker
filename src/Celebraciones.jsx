@@ -124,22 +124,16 @@ export function AvisoSuma({ evento, alCerrar }) {
         background: '#FFFFFF', borderRadius: 20, padding: '14px 16px', boxShadow: '0 14px 40px rgba(30,40,30,0.18)',
         animation: `${saliendo ? 'mt-sale-arriba .3s ease-in both' : 'mt-entra-arriba .42s cubic-bezier(.2,.9,.3,1.2) both'}`,
       }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', color: verde, animation: 'mt-sube .5s ease-out both' }}>
+        {/* Una sola línea: la tarjeta de la comida ya trae la barra y lo que
+            llevas del día; repetirlo aquí era confirmar lo mismo dos veces. */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.03em', color: verde, animation: 'mt-sube .5s ease-out both' }}>
             +<Conteo valor={suma} ms={600} /> kcal
           </span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#6B6B6B' }}>{enMeta ? '¡Día en tu meta!' : 'registrado'}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#6B6B6B' }}>
+            {enMeta ? '¡Día en tu meta!' : meta > 0 ? `registrado · vas en ${Math.round((ahora / meta) * 100)} % de tu día` : 'registrado'}
+          </span>
         </div>
-        {meta > 0 && (
-          <>
-            <div style={{ height: 8, borderRadius: 99, background: '#ECEAE3', marginTop: 10, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: 'linear-gradient(90deg, #7CC492, #46965A)', transition: 'width .9s cubic-bezier(.22,.8,.24,1)' }} />
-            </div>
-            <div style={{ fontSize: 13.5, color: '#6B6B6B', marginTop: 7, fontWeight: 600 }}>
-              Vas en {Math.round((ahora / meta) * 100)} % de tu día · {Math.max(0, Math.round(meta - ahora)).toLocaleString('es-CO')} kcal por delante
-            </div>
-          </>
-        )}
       </div>
     </>
   );

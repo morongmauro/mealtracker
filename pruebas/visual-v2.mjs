@@ -204,7 +204,7 @@ const espera = (ms) => new Promise(r => setTimeout(r, ms));
 // `aviso`: dejar que salga el aviso de «hoy te toca registrar» al abrir. Por
 // defecto se da por visto (si no, tapa todo lo que se prueba después).
 // `nube`: lo que tiene su cuenta en la nube (y la app con la nube aceptada).
-async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null, instalada = false } = {}) {
+async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null, instalada = false, verComo = null, bitacora = null } = {}) {
   const db = base();
   globalThis.fetch = db.fetch;
   const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota' });
@@ -279,6 +279,10 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(huevos) }] }) });
     }
     if (u.pathname === '/api/resources') return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: 'https://centro.test/', training: true }) });
+    // «Ver como cliente»: el pase vale si la prueba lo dice (verComo = el nombre del cliente).
+    if (u.pathname === '/api/ver-como') return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(verComo ? { ok: true, name: verComo, user_id: '22222222-3333-4444-5555-666666666666', exp: Date.now() + 15 * 60 * 1000 } : { ok: false, error: 'pase_vencido' }) });
+    // La bitácora de errores: se anota lo que la app reporta.
+    if (u.pathname === '/api/bitacora') { try { (bitacora || []).push(JSON.parse(ruta.request().postData() || '{}')); } catch (e) {} return ruta.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }); }
     if (u.pathname === '/api/authorize') {
       const cuerpo = JSON.parse(ruta.request().postData() || '{}');
       if (cuerpo.accion && cuenta) return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cuenta(cuerpo)) });
@@ -407,17 +411,6 @@ try {
     && (await dash.getByRole('button', { name: 'Reto' }).count()) === 1);
   await dash.getByRole('button', { name: 'Reto' }).click();
   const wa = await dash.getByRole('link', { name: /Coach/ }).getAttribute('href');
-  // La línea de recordatorios: dos a la vista, «Ver todos» si hay más.
-  await dash.locator('[data-recordatorios-dash]').waitFor({ timeout: 6000 }).catch(() => {});
-  const nRec = await dash.locator('[data-recordatorio]').count();
-  const verTodos = dash.locator('[data-ver-recordatorios]');
-  ok('Dash: línea de recordatorios con dos a la vista (y «Ver todos» si hay más)', nRec >= 1 && nRec <= 2
-    && /Sobre el programa|peso y composición|cápsula|video/i.test(await dash.locator('[data-recordatorios-dash]').innerText()), `${nRec}`);
-  if (await verTodos.count()) {
-    await verTodos.click(); await espera(250);
-    ok('Dash: «Ver todos» muestra el resto de recordatorios', (await dash.locator('[data-recordatorio]').count()) > 2);
-    await verTodos.click(); await espera(150);
-  }
   ok('los atajos (respira, reto, coach, comunidad, recordatorios y la tuerca) van en UNA línea, enteros y del mismo alto', await dash.evaluate(() => {
     const bs = [...document.querySelectorAll('[data-atajos] > *')];
     const tops = new Set(bs.map(b => Math.round(b.getBoundingClientRect().top)));
@@ -446,6 +439,29 @@ try {
   await foto(p, '01b-reto');
   await p.getByRole('dialog', { name: 'Retos' }).click();
   ok('Reto: un toque lo cierra', (await p.getByRole('dialog', { name: 'Retos' }).count()) === 0);
+  // El bloque HOY: primero lo que toca hoy (lo del coach, la comida), con
+  // «N de M»; lo demás (programa, cápsulas…) bajo «Ver todo».
+  await dash.locator('[data-recordatorios-dash]').waitFor({ timeout: 6000 }).catch(() => {});
+  const nRec = await dash.locator('[data-recordatorio]').count();
+  const verTodos = dash.locator('[data-ver-recordatorios]');
+  const txtHoy = await dash.locator('[data-recordatorios-dash]').innerText();
+  ok('Dash: bloque HOY con lo que importa hoy (peso, fotos, cardio del coach, comida) y su «N de M»', nRec >= 3
+    && /HOY · 0 de 4/.test(txtHoy) && /Registrar tu peso/.test(txtHoy) && /Enviar tus fotos/.test(txtHoy) && /Registrar lo que comiste/.test(txtHoy)
+    && !/Sobre el programa|cápsula|video/i.test(txtHoy), txtHoy);
+  await verTodos.click(); await espera(250);
+  ok('Dash: «Ver todo» despliega el resto (programa, cápsulas, videos)', (await dash.locator('[data-recordatorio]').count()) > nRec
+    && /Sobre el programa|cápsula|video/i.test(await dash.locator('[data-recordatorios-dash]').innerText()));
+  await verTodos.click(); await espera(150);
+  // El aro de la cabecera se toca y explica qué lo compone, sin deuda.
+  ok('Dash: el aro dice «Semana · en total» (no «Performance»)', /Semana · en total/.test(await dash.locator('[data-aro-pie]').first().innerText()));
+  await dash.locator('[data-aro-tocar]').first().click();
+  await p.getByText('Tu semana, en total').waitFor({ timeout: 5000 });
+  const txtEx = await p.locator('[data-explicacion-semana]').innerText();
+  ok('Dash: tocar el aro explica entreno y comida, medidos hasta hoy (el lunes hecho → 100 %, sin deuda del resto)', /Entrenamiento\s+100%/.test(txtEx) && /1 de 1 rutinas que tocaban hasta hoy/.test(txtEx)
+    && /Alimentación/.test(txtEx) && /aprendizaje no entra/i.test(txtEx), txtEx);
+  await foto(p, '01d-explicacion-semana');
+  await p.keyboard.press('Escape'); await espera(300);
+  ok('Dash: intensidad sin raya cuando no hay entrenos', (await dash.locator('[data-sin-intensidad]').count()) === 1 && /Sin/.test(await dash.locator('[data-sin-intensidad]').innerText()));
   // Respiración guiada: 1, 3 o 5 min, el disco que respira, sin guardar nada.
   {
     const antes = await p.evaluate(() => Object.keys(localStorage).filter(k => /respir|racha/i.test(k)).join('|'));
@@ -740,8 +756,8 @@ try {
     && (await p.getByLabel('Repeticiones serie 1').first().inputValue()) === '');
   ok('lo recetado dice series y reps', (await p.getByText('3 series × 6-12 reps').count()) === 1);
   ok('la última vez ya no va escrita en la tarjeta', (await p.getByText(/^Serie 1: /).count()) === 0);
-  ok('cada ejercicio de fuerza trae Ficha, Tu récord, Historial y Nota', (await p.getByRole('button', { name: /Historial/ }).count()) >= 3
-    && (await p.getByRole('button', { name: /Tu récord/ }).count()) >= 3);
+  ok('cada ejercicio de fuerza trae Ficha, Historial y Nota (el récord va dentro del historial)', (await p.getByRole('button', { name: /Historial/ }).count()) >= 3
+    && (await p.getByRole('button', { name: /Tu récord/ }).count()) === 0);
   ok('sin el mensaje de «no tienes que darle a iniciar» (ocupaba espacio)', (await p.locator('[data-sin-iniciar]').count()) === 0);
   ok('la nota de la rutina va como pregunta y la de cada ejercicio dice «Nota al coach»', (await p.getByText('¿Escribirle al coach sobre esta rutina?').count()) === 1
     && (await p.getByRole('button', { name: /Nota al coach/ }).count()) >= 3
@@ -832,15 +848,17 @@ try {
   }
   await p.keyboard.press('Escape');
   await espera(300);
-  // Tu récord abre su hoja y el scroll no se va a la rutina de atrás
-  await p.getByRole('button', { name: /Tu récord/ }).first().click();
-  await p.getByText(/Tu récord ·/).waitFor({ timeout: 5000 });
+  // El récord vive dentro del Historial (un botón menos por ejercicio); la
+  // hoja abre y el scroll no se va a la rutina de atrás.
+  ok('por ejercicio: Ficha, Historial y Nota al coach (sin «Tu récord» aparte)', (await p.getByRole('button', { name: /Tu récord/ }).count()) === 0);
+  await p.getByRole('button', { name: /Historial/ }).first().click();
+  await p.locator('[data-tu-record]').waitFor({ timeout: 5000 });
   const antesSc = await scRut();
   await p.mouse.move(195, 700); await p.mouse.wheel(0, 600); await espera(300);
   ok('con la hoja abierta la rutina de atrás no se mueve', (await scRut()) === antesSc, `${antesSc} → ${await scRut()}`);
   await foto(p, '04d-tu-record');
-  ok('tu récord: el peso más alto, en la unidad elegida', (await p.getByText('El peso más alto que has levantado').count()) === 1
-    && /lb$/.test(await p.locator('[data-record]').textContent()), await p.locator('[data-record]').textContent());
+  ok('historial: arriba el récord, el peso más alto en la unidad elegida', (await p.getByText(/El peso más alto que has levantado/).count()) === 1
+    && /lb/.test(await p.locator('[data-record]').textContent()), await p.locator('[data-record]').textContent());
   await p.keyboard.press('Escape');
   await espera(300);
   const banca = p.locator('[data-ejercicio="Barbell Bench Press"]');
@@ -1202,7 +1220,10 @@ try {
   const suma = p.locator('[data-aviso-suma]');
   await suma.waitFor({ timeout: 6000 }).catch(() => {});
   await espera(800);
-  ok('al registrar comida sale el «+kcal» con el avance del día', (await suma.count()) === 1 && /\+\d+ kcal/.test(await suma.innerText()) && /Vas en \d+ % de tu día/.test(await suma.innerText()), (await suma.count()) ? await suma.innerText() : 'no salió');
+  ok('al registrar comida sale el «+kcal» en UNA línea con el avance del día (sin barra repetida)', (await suma.count()) === 1 && /\+\d+ kcal/.test(await suma.innerText()) && /vas en \d+ % de tu día/.test(await suma.innerText())
+    && await suma.evaluate(el => el.getBoundingClientRect().height < 70), (await suma.count()) ? await suma.innerText() : 'no salió');
+  ok('chat: el aviso legal es una línea con «Más»', (await p.locator('[data-aviso-calculo]').count()) >= 1 && /Cálculo orientativo/.test(await p.locator('[data-aviso-calculo]').first().innerText())
+    && !/No constituye/.test(await p.locator('[data-aviso-calculo]').first().innerText()));
   ok('chat: la comida registrada en tarjeta compacta (momento, total grande y alimentos)', (await p.locator('[data-tarjeta-comida]').count()) >= 1
     && /kcal/.test(await p.locator('[data-tarjeta-comida]').last().innerText()) && (await p.locator('[data-tarjeta-comida] [data-alimento]').count()) >= 1);
   ok('modelos: Mauro pide el 5.5 y, si falla, la misma consulta va al de siempre y se registra igual', modelosPedidos[0] === 'claude-haiku-5-5'
@@ -1715,6 +1736,86 @@ try {
   await foto(oa.p, '13c-otra-persona-recordatorios');
   ok('sin errores de JavaScript (otra persona, aviso)', oa.errores.length === 0, oa.errores.join(' | '));
   await oa.ctx.close();
+  // ── «Ver como cliente» (el coach, desde el CRM): la app abre como ese
+  // cliente, en solo lectura, y sin tocar lo que este navegador tenía. ──
+  {
+    // Este navegador tiene la cuenta de Mauro; el pase es de Ana (sus metas
+    // bajan de la nube, como en la vida real).
+    const vc = await abrir('Ana Pérez', { url: '/?ver_como=pase.de.prueba', verComo: 'Ana Pérez', caliente: true,
+      nube: { goals: { kcal: 2100, p: 140, c: 220, g: 65 } }, extra: { 'mt:name': JSON.stringify('Mauro Morón'), 'mt:probarDireccionNueva': '1' } });
+    await vc.p.locator('[data-ver-como]').waitFor({ timeout: 25000 });
+    ok('ver como: la franja dice a quién se está viendo y que es solo lectura', /Viendo como Ana Pérez · solo lectura/.test(await vc.p.locator('[data-ver-como]').innerText()));
+    await vc.p.getByText(/Hola, Ana/).waitFor({ timeout: 15000 }).catch(() => {});
+    await foto(vc.p, '24-ver-como-dash');
+    ok('ver como: la app abre como ese cliente (su nombre en el Dash)', (await vc.p.getByText(/Hola, Ana/).count()) === 1);
+    ok('ver como: la dirección queda limpia (sin el pase)', !/ver_como/.test(vc.p.url()));
+    // Registrar comida: la llamada al servidor se corta antes de salir y avisa.
+    await vc.p.getByRole('button', { name: /Comida|Alimentación/ }).first().click(); await espera(600);
+    await vc.p.getByRole('button', { name: 'Chat', exact: true }).click(); await espera(500);
+    await vc.p.locator('.msg-input').waitFor({ timeout: 10000 });
+    await vc.p.locator('.msg-input').click();
+    await vc.p.keyboard.type('2 huevos'); await vc.p.keyboard.press('Enter'); await espera(900);
+    ok('ver como: nada se guarda (la comida no se registra) y sale el aviso de solo lectura', (await vc.p.locator('[data-tarjeta-comida]').count()) === 0
+      && await vc.p.locator('#mt-ver-como-aviso').evaluate(el => getComputedStyle(el).opacity === '1'));
+    await foto(vc.p, '24-ver-como');
+    ok('sin errores de JavaScript (ver como)', vc.errores.length === 0, vc.errores.join(' | '));
+    // Al final: lo guardado de verdad en este navegador sigue siendo de Mauro
+    // (se quita el almacén en memoria para mirar el real).
+    // (se lee el almacén REAL del navegador por debajo de la app, con el protocolo del navegador)
+    const real = await (async () => {
+      const cdp = await vc.ctx.newCDPSession(vc.p);
+      const r = await cdp.send('DOMStorage.getDOMStorageItems', { storageId: { securityOrigin: 'http://localhost:5198', isLocalStorage: true } });
+      return Object.fromEntries(r.entries || []);
+    })();
+    ok('ver como: lo guardado en este navegador queda intacto (sigue siendo la cuenta de Mauro, sin rastro de Ana)',
+      real['mt:name'] === JSON.stringify('Mauro Morón') && real['mt:sesion'] !== 'ver-como' && !Object.values(real).some(v => /Ana Pérez/.test(String(v))),
+      JSON.stringify({ name: real['mt:name'], sesion: real['mt:sesion'] }));
+    await vc.ctx.close();
+    // Con el pase vencido: no se abre nada, solo el aviso de volver al CRM.
+    const vv = await abrir('Mauro Morón', { url: '/?ver_como=pase.vencido', caliente: true });
+    await vv.p.getByText('El pase venció').waitFor({ timeout: 15000 }).catch(() => {});
+    ok('ver como: con el pase vencido, solo el aviso (la app no se monta)', (await vv.p.getByText('El pase venció').count()) === 1 && (await vv.p.locator('[data-view="dash"]').count()) === 0);
+    await vv.ctx.close();
+  }
+  // ── A mitad del entreno la página se recarga (actualización o el teléfono
+  // la mató): se vuelve a la rutina sola, con lo marcado y lo tecleado. ──
+  {
+    const rr = await abrir('Mauro Morón', { caliente: true });
+    await rr.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(800);
+    await rr.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await rr.p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
+    const bancaR = rr.p.locator('[data-ejercicio="Barbell Bench Press"]');
+    await bancaR.getByLabel('Repeticiones serie 1').fill('8');
+    await bancaR.getByLabel('Peso serie 1').fill('60');
+    await bancaR.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(400);
+    await bancaR.getByLabel('Repeticiones serie 2').fill('7');   // tecleado, sin marcar
+    await espera(300);
+    await rr.p.reload(); await espera(1500);
+    await rr.p.getByText('Calentamiento y movilidad').waitFor({ timeout: 15000 }).catch(() => {});
+    const bancaR2 = rr.p.locator('[data-ejercicio="Barbell Bench Press"]');
+    ok('recarga a mitad del entreno: vuelve sola a la rutina abierta', (await rr.p.getByText('Calentamiento y movilidad').count()) === 1);
+    ok('…con la serie marcada y lo tecleado sin marcar', (await bancaR2.getByRole('button', { name: 'Deshacer serie 1' }).count()) === 1
+      && (await bancaR2.getByLabel('Repeticiones serie 2').inputValue()) === '7', await bancaR2.getByLabel('Repeticiones serie 2').inputValue());
+    await foto(rr.p, '25-rutina-recuperada');
+    // «Mi semana» la cierra: al recargar ya no vuelve a ella.
+    await rr.p.locator('[data-avance-rutina] [data-volver-semana]').click(); await espera(500);
+    await rr.p.reload(); await espera(1500);
+    await rr.p.locator('[data-view="dash"], [data-view="entrena"]').first().waitFor({ timeout: 15000 }).catch(() => {});
+    ok('al salir con «Mi semana», recargar ya no vuelve a la rutina', (await rr.p.getByText('Calentamiento y movilidad').count()) === 0);
+    await rr.ctx.close();
+  }
+  // ── La bitácora: un error en el teléfono del cliente llega al CRM. ──
+  {
+    const reportes = [];
+    const bt = await abrir('Mauro Morón', { caliente: true, bitacora: reportes });
+    await bt.p.locator('[data-view="dash"]').waitFor({ timeout: 25000 });
+    // (con el reloj fijo de la prueba los temporizadores no corren: se dispara el evento tal cual lo recibe la app)
+    await bt.p.evaluate(() => { window.dispatchEvent(new ErrorEvent('error', { message: 'prueba de bitácora', error: new Error('prueba de bitácora') })); });
+    await espera(900);
+    ok('bitácora: un error de JavaScript se reporta con el cliente y la pantalla', reportes.length === 1 && /prueba de bitácora/.test(reportes[0].mensaje)
+      && reportes[0].name === 'Mauro Morón' && /Dash/.test(reportes[0].pantalla || ''), JSON.stringify(reportes[0] || null));
+    await bt.ctx.close();
+  }
 
   {
     const pc = await abrir('Mauro Morón', { caliente: true });
