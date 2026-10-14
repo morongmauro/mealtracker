@@ -82,7 +82,10 @@ function Dato({ valor, pie }) {
   );
 }
 
-export function HojaMedida({ abierta, nombre, alCerrar, alGuardar }) {
+// `evento`: si se abre desde lo que pidió el coach en el calendario (pesarse
+// o medirse ese día), al guardar también queda marcado como hecho. El aviso
+// al coach es uno solo: el de la medida.
+export function HojaMedida({ abierta, nombre, alCerrar, alGuardar, evento = null, titulo = 'Registrar mi medida' }) {
   const [peso, setPeso] = useState('');
   const [grasa, setGrasa] = useState('');
   const [fecha, setFecha] = useState(hoyLocal());
@@ -100,12 +103,13 @@ export function HojaMedida({ abierta, nombre, alCerrar, alGuardar }) {
     const r = await api.medida(nombre, { peso: p, grasa_pct: g, fecha });
     setGuardando(false);
     if (!r || !r.ok) { setError(MOTIVOS[r && r.motivo] || 'No se pudo guardar. Inténtalo otra vez.'); return; }
+    if (evento) await api.registrar(nombre, { evento_id: evento.id, fecha: evento.fecha, valor: p, hecho: true, sin_alerta: true }).catch(() => null);
     setHecho(true);
     setTimeout(() => alGuardar && alGuardar(), 900);
   };
 
   return (
-    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Registrar mi medida" alto="80vh">
+    <Hoja abierta={abierta} alCerrar={alCerrar} titulo={titulo} alto="80vh">
       <div style={{ display: 'flex', gap: 12 }}>
         <Campo etiqueta="Peso (kg)" valor={peso} cambiar={setPeso} placeholder="72,5" />
         <Campo etiqueta="% de grasa" valor={grasa} cambiar={setGrasa} placeholder="18" opcional />

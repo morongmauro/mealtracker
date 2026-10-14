@@ -342,8 +342,11 @@ export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
   );
 }
 
-// Ancho de las cajitas: cortas, para que al lado quepa lo de la última vez.
-const ANCHO_CAJA = 66;
+// Las cajitas de reps y peso se estiran; lo de la última vez va en una
+// columna fija pegada al check (sin hueco en el medio).
+const CAJA = { flex: '1 1 0', minWidth: 0 };
+const ANCHO_ULTIMA = 84;
+const hayUltima = (re) => !!(re?.ultima_vez?.series || []).length;
 // Lo que hizo en ESTA serie la última vez, en gris: «10 × 20 kg».
 export function textoSerieAnterior(re, n, unidad = 'kg', soloReps = false) {
   const x = (re?.ultima_vez?.series || []).find(s => Number(s.serie) === Number(n));
@@ -360,18 +363,20 @@ function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = nu
       fontSize: 11.5, fontWeight: 700, color: GRIS, letterSpacing: '.04em',
     }}>
       <div style={{ width: 22, flex: 'none' }} />
-      <div style={{ width: ANCHO_CAJA, flex: 'none', textAlign: 'center', whiteSpace: 'nowrap' }}>{lado ? 'REPS/LADO' : 'REPS'}</div>
+      <div style={{ ...CAJA, textAlign: 'center', whiteSpace: 'nowrap' }}>{lado ? 'REPS/LADO' : 'REPS'}</div>
       {!soloReps && <>
-      <div style={{ width: ANCHO_CAJA, flex: 'none', textAlign: 'center' }}>
+      <div style={{ ...CAJA, textAlign: 'center' }}>
         <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
           border: 'none', background: 'transparent', borderRadius: 999, padding: '2px 6px',
           fontSize: 11.5, fontWeight: 700, color: GRIS, letterSpacing: '.04em', cursor: 'pointer', fontFamily: 'inherit',
         }}>{unidad.toUpperCase()} ⇄</button>
       </div>
       </>}
-      <div data-cab-ultima style={{ flex: 1, minWidth: 0, textAlign: 'left', paddingLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#AEAEB2' }}>
-        {ultima ? `ÚLTIMA · ${fechaCorta(ultima.fecha).toUpperCase()}` : ''}
-      </div>
+      {ultima && (ultima.series || []).length > 0 && (
+        <div data-cab-ultima style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', color: '#AEAEB2', lineHeight: 1.2 }}>
+          ÚLTIMA<br />{fechaCorta(ultima.fecha).toUpperCase()}
+        </div>
+      )}
       <div style={{ width: 34, flex: 'none' }} />
     </div>
   );
@@ -678,23 +683,25 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
     }}>
       {brillo}
       <div style={{ width: 22, flex: 'none', textAlign: 'center', fontSize: 14, fontWeight: 700, color: hecha ? TEXT : '#AEAEB2' }}>{n}</div>
-      <div style={{ width: ANCHO_CAJA, flex: 'none' }}>
+      <div style={CAJA}>
         <input ref={repsRef} inputMode="numeric" value={reps} className="rv2-campo"
           onChange={ev => { setReps(ev.target.value); if (falta) setFalta(false); }}
           aria-label={`Repeticiones serie ${n}`}
           style={campo(falta)} disabled={hecha} />
       </div>
       {!soloReps && (
-      <div style={{ width: ANCHO_CAJA, flex: 'none' }}>
+      <div style={CAJA}>
         <input inputMode="decimal" value={peso} onChange={ev => setPeso(ev.target.value)} className="rv2-campo"
           aria-label={`Peso serie ${n}`} style={campo(false)} disabled={hecha} />
       </div>
       )}
       {/* Lo que hizo en esta serie la última vez, en gris: de recordatorio. */}
-      <div data-serie-anterior style={{ flex: 1, minWidth: 0, paddingLeft: 4, fontSize: 13, fontWeight: 600, color: '#AEAEB2',
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>
-        {anterior || ''}
-      </div>
+      {!sinCarga && hayUltima(re) && (
+        <div data-serie-anterior style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#AEAEB2',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>
+          {anterior || ''}
+        </div>
+      )}
       <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
         flex: 'none', width: 34, height: 34, borderRadius: 99, cursor: 'pointer', border: 'none',
         background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',

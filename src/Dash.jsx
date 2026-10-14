@@ -18,7 +18,7 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Wind, Bell, Mountains, WhatsappLogo, Flag, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge } from '@phosphor-icons/react';
+import { Wind, Bell, CaretDown, Mountains, WhatsappLogo, Flag, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
@@ -701,6 +701,62 @@ function Titular({ children, bajada }) {
 }
 
 // ── Profundiza: entrenamiento ─────────────────────────────────────────────
+// Progreso de pesos: los ejercicios más representativos primero (los que más
+// sesiones tienen y, a igualdad, los más pesados); el resto se despliega con
+// «Ver todos» para que no sea una lista sin fin.
+const PESOS_VISIBLES = 4;
+export const ordenPesos = (pesos) => pesos
+  .map((e, i) => ({ e, i }))
+  .sort((a, b) => (b.e.puntos.length - a.e.puntos.length) || ((b.e.actual || 0) - (a.e.actual || 0)) || (a.i - b.i))
+  .map(x => x.e);
+function ProgresoPesos({ pesos }) {
+  const [todos, setTodos] = useState(false);
+  const orden = ordenPesos(pesos);
+  const ver = todos ? orden : orden.slice(0, PESOS_VISIBLES);
+  const resto = orden.length - PESOS_VISIBLES;
+  return (
+    <Tarjeta titulo="Progreso de pesos" detalle="Lo más pesado que moviste en cada sesión, en los ejercicios de tu programa.">
+      <div data-progreso-pesos-dash style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>
+        {ver.map(e => {
+          const ult = e.puntos[e.puntos.length - 1];
+          return (
+            <div key={e.id} data-peso-ej={e.alias || e.nombre} style={{ background: CREMA, borderRadius: 18, padding: '12px 13px 8px', minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).grande}</div>
+              {nombresEj(e).chico && (
+                <div style={{ fontSize: 11.5, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).chico}</div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+                <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{fmt(e.actual, 1)}</span>
+                <span style={{ fontSize: 12.5, color: TEXT_MUTED }}>kg{ult.reps ? ` × ${ult.reps}` : ''}</span>
+              </div>
+              {e.puntos.length >= 2 ? (<>
+                <div style={{ fontSize: 12, marginTop: 1 }}>
+                  <Cambio desde={e.inicio} hasta={e.actual} unidad="kg" />
+                  <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
+                </div>
+                <Linea puntos={e.puntos.map(p => ({ v: p.kg, fecha: p.fecha }))} color={AZUL}
+                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
+              </>) : (
+                <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 1, paddingBottom: 4 }}>Una sesión ({fechaCorta(ult.fecha)}). La línea sale con la segunda.</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {resto > 0 && (
+        <button data-pesos-ver-mas onClick={() => setTodos(t => !t)} aria-expanded={todos} style={{
+          marginTop: 12, width: '100%', border: 'none', background: CREMA, borderRadius: 999, padding: '10px 16px',
+          fontFamily: 'inherit', fontWeight: 700, fontSize: 14, color: TEXT, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        }}>
+          {todos ? 'Ver menos' : `Ver todos (${resto} más)`}
+          <CaretDown size={15} weight="bold" style={{ transform: todos ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+        </button>
+      )}
+    </Tarjeta>
+  );
+}
+
 function DetalleEntreno({ ent, falloEnt, cargar }) {
   if (falloEnt) {
     return (<><Titular>Tus gráficas de entrenamiento</Titular>
@@ -722,68 +778,6 @@ function DetalleEntreno({ ent, falloEnt, cargar }) {
           textoValor={(w) => `${fechaCorta(w.desde)}: ${w.hechos}${w.planeados ? ` de ${w.planeados}` : ''}`}
         />
         <Leyenda items={[{ label: 'Hechos', color: AZUL }, { label: 'Planeados', color: 'rgba(31,31,31,0.55)', tipo: 'linea' }]} />
-      </Tarjeta>
-
-      {/* Progreso de pesos: cada ejercicio de su programa, con lo más pesado
-          que movió en cada sesión (el peso de verdad, no un estimado). */}
-      {(ent.pesos || []).length > 0 && (
-        <Tarjeta titulo="Progreso de pesos" detalle="Lo más pesado que moviste en cada sesión, en cada ejercicio de tu programa.">
-          <div data-progreso-pesos-dash style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>
-            {ent.pesos.map(e => {
-              const ult = e.puntos[e.puntos.length - 1];
-              return (
-                <div key={e.id} data-peso-ej={e.alias || e.nombre} style={{ background: CREMA, borderRadius: 18, padding: '12px 13px 8px', minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).grande}</div>
-                  {nombresEj(e).chico && (
-                    <div style={{ fontSize: 11.5, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).chico}</div>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
-                    <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{fmt(e.actual, 1)}</span>
-                    <span style={{ fontSize: 12.5, color: TEXT_MUTED }}>kg{ult.reps ? ` × ${ult.reps}` : ''}</span>
-                  </div>
-                  {e.puntos.length >= 2 ? (<>
-                    <div style={{ fontSize: 12, marginTop: 1 }}>
-                      <Cambio desde={e.inicio} hasta={e.actual} unidad="kg" />
-                      <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
-                    </div>
-                    <Linea puntos={e.puntos.map(p => ({ v: p.kg, fecha: p.fecha }))} color={AZUL}
-                      textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
-                  </>) : (
-                    <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 1, paddingBottom: 4 }}>Una sesión ({fechaCorta(ult.fecha)}). La línea sale con la segunda.</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </Tarjeta>
-      )}
-
-      <Tarjeta titulo="Fuerza"
-        detalle="Tu 1RM estimado: lo que levantarías a una repetición, calculado con tu mejor serie de cada día. Así 60 × 10 y 65 × 6 se pueden comparar.">
-        {ent.ejercicios.length === 0 ? (
-          <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Aparece cuando repitas un mismo ejercicio en dos sesiones.</div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>
-            {ent.ejercicios.map(e => (
-              <div key={e.id} style={{ background: CREMA, borderRadius: 18, padding: '12px 13px 8px', minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).grande}</div>
-                {nombresEj(e).chico && (
-                  <div style={{ fontSize: 11.5, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).chico}</div>
-                )}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
-                  <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{fmt(e.actual, 1)}</span>
-                  <span style={{ fontSize: 12.5, color: TEXT_MUTED }}>kg</span>
-                </div>
-                <div style={{ fontSize: 12, marginTop: 1 }}>
-                  <Cambio desde={e.inicio} hasta={e.actual} unidad="kg" />
-                  <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
-                </div>
-                <Linea puntos={e.puntos.map(p => ({ v: p.e1rm, fecha: p.fecha }))} color={AZUL}
-                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
-              </div>
-            ))}
-          </div>
-        )}
       </Tarjeta>
 
       {/* Intensidad: lo duro que se sintió cada entreno (1 a 10), en promedio
@@ -828,6 +822,39 @@ function DetalleEntreno({ ent, falloEnt, cargar }) {
           )}
         </Tarjeta>
       )}
+
+      <Tarjeta titulo="Fuerza · tu 1RM estimado"
+        detalle="El 1RM es el peso máximo que podrías levantar UNA sola vez. No tienes que probarlo: lo calculamos con tu mejor serie de cada día. Por ejemplo, 60 kg × 10 reps ≈ 80 kg de 1RM. Si la línea sube, te estás haciendo más fuerte, aunque cambies el peso o las reps.">
+        {ent.ejercicios.length === 0 ? (
+          <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Aparece cuando repitas un mismo ejercicio en dos sesiones.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 14 }}>
+            {ent.ejercicios.map(e => (
+              <div key={e.id} style={{ background: CREMA, borderRadius: 18, padding: '12px 13px 8px', minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).grande}</div>
+                {nombresEj(e).chico && (
+                  <div style={{ fontSize: 11.5, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).chico}</div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+                  <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{fmt(e.actual, 1)}</span>
+                  <span style={{ fontSize: 12.5, color: TEXT_MUTED }}>kg</span>
+                </div>
+                <div style={{ fontSize: 12, marginTop: 1 }}>
+                  <Cambio desde={e.inicio} hasta={e.actual} unidad="kg" />
+                  <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
+                </div>
+                <Linea puntos={e.puntos.map(p => ({ v: p.e1rm, fecha: p.fecha }))} color={AZUL}
+                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
+              </div>
+            ))}
+          </div>
+        )}
+      </Tarjeta>
+
+      {/* Progreso de pesos: cada ejercicio de su programa, con lo más pesado
+          que movió en cada sesión (el peso de verdad, no un estimado). Primero
+          los más representativos; el resto, al tocar «Ver todos». */}
+      {(ent.pesos || []).length > 0 && <ProgresoPesos pesos={ent.pesos} />}
 
       {ent.semanas.some(w => w.volumen_kg > 0) && (
         <Tarjeta titulo="Volumen" detalle="Kilos movidos por semana: peso × repeticiones de todas tus series.">

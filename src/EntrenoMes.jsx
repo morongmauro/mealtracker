@@ -32,9 +32,10 @@ import { Bascula } from './iconosEntreno.jsx';
 import Respira from './Respira.jsx';
 import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
-import Actividad, { ChipActividad, TarjetaCardioCoach } from './EntrenoActividad.jsx';
+import Actividad, { ChipActividad, TarjetaCardioCoach, HojaCardioCoach } from './EntrenoActividad.jsx';
+import { HojaMedida } from './EntrenoMedidas.jsx';
 import { IconoEvento, REGISTRO } from './iconosEntreno.jsx';
-import { v2Activa } from './v2.js';
+import { v2Activa, WHATSAPP_COACH } from './v2.js';
 import { SECCION } from './theme.js';
 import { Card, Boton, Titulo, Hoja, Cargando, Fallo, Marca, MARCAS,
          ACCENT, ACCENT_DARK, ACCENT_LIGHT, SURFACE, BORDER, BORDER_SOFT,
@@ -697,6 +698,17 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio 
               {enviando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
+        ) : ev.tipo === 'fotos' && WHATSAPP_COACH ? (
+          // Las fotos se mandan por WhatsApp: el botón abre el chat con el
+          // mensaje listo y deja el registro marcado (el coach se entera).
+          <>
+            <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 10, lineHeight: 1.4 }}>Mándale tus fotos a tu coach por WhatsApp. Al tocar, se abre el chat con el mensaje listo.</div>
+            <a data-fotos-whatsapp href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau! Te envío mis fotos de seguimiento 📸')}`}
+              target="_blank" rel="noopener noreferrer" onClick={() => { if (!enviando) marcar(null); }}
+              style={{ ...botonPrimario, width: '100%', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxSizing: 'border-box', opacity: enviando ? 0.6 : 1 }}>
+              {enviando ? 'Guardando…' : 'Enviar mis fotos por WhatsApp'}
+            </a>
+          </>
         ) : (
           <button disabled={enviando} onClick={() => marcar(null)} style={{ ...botonPrimario, width: '100%', marginTop: 10, opacity: enviando ? 0.6 : 1 }}>
             {enviando ? 'Guardando…' : q.boton}
@@ -876,9 +888,9 @@ function useArrastre(puedeMover, alSoltar) {
 
 // La rutina: POR HACER con borde azul, HECHA rellena. `lineas`: cuántas
 // líneas deja al nombre (en el mes, tres; en la semana, sin límite).
-function ChipRutina({ nombre, hecha, movida, P, lineas, grande, arrastre }) {
+function ChipRutina({ nombre, hecha, movida, P, lineas, grande, arrastre, alTocar }) {
   return (
-    <div {...(arrastre || {})} onContextMenu={e => e.preventDefault()} data-chip={hecha ? 'hecha' : 'pendiente'} style={{
+    <div {...(arrastre || {})} onClick={alTocar} onContextMenu={e => e.preventDefault()} data-chip={hecha ? 'hecha' : 'pendiente'} style={{
       display: grande ? 'flex' : lineas ? '-webkit-box' : 'block', alignItems: 'center', gap: 6,
       WebkitLineClamp: lineas || undefined, WebkitBoxOrient: lineas ? 'vertical' : undefined,
       overflow: 'hidden', wordBreak: 'normal', overflowWrap: 'break-word', letterSpacing: grande ? 'normal' : '-0.02em',
@@ -960,6 +972,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const [error, setError] = useState(null);
   const [abierto, setAbierto] = useState(null);
   const [registrando, setRegistrando] = useState(null);
+  const [directo, setDirecto] = useState(null);        // { ev, fecha }: lo que se tocó en «Tu semana»
   const [catalogo, setCatalogo] = useState(() => cacheCatalogo.get(nombre) || null);
   const [aviso, setAviso] = useState(null);
   const [confirmar, setConfirmar] = useState(null);     // { texto, si, accion }
@@ -1122,6 +1135,15 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
 
   const { arrastre, alTocar, alRaton, acabaDeSoltar } = useArrastre(puedeMover, moverRutina);
   const abrir = (f) => { if (!arrastre && !acabaDeSoltar()) setAbierto(f); };
+  // En «Tu semana», cada cosa del día abre directo lo suyo (no la hoja del
+  // día): la rutina, pesarse, las fotos o el cardio.
+  const tocar = (fn) => { if (!arrastre && !acabaDeSoltar()) fn(); };
+  const abrirEvento = (ev, f) => tocar(() => {
+    // El cardio solo se registra el día que llega y en la semana en curso;
+    // si no, la hoja del día (ahí se ve qué es y cuándo).
+    if (ev.tipo === 'actividad' && (f > hoy || f < lunes || ev.hecho)) { setAbierto(f); return; }
+    setDirecto({ ev, fecha: f });
+  });
   const arrastrable = (d) => (puedeMover(d) ? { onTouchStart: alTocar(d), onPointerDown: alRaton(d) } : null);
 
   const [y, m] = ym.split('-').map(Number);
@@ -1177,7 +1199,8 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
               const d = porFecha[f];
               return <FilaDiaV2 key={f} fecha={f} etiqueta={DIAS_V2[i]} dia={d} P={P} hoy={hoy} fase={fase}
                 sobre={arrastre && arrastre.sobre === f && arrastre.desde !== f} origen={arrastre && arrastre.desde === f}
-                arrastrable={arrastrable(d)} alTocar={() => d && abrir(f)} />;
+                arrastrable={arrastrable(d)} alTocar={() => d && abrir(f)}
+                alEntrenar={(id) => tocar(() => alEntrenar(id))} alEvento={(ev) => abrirEvento(ev, f)} />;
             })}
           </div>
         </>
@@ -1307,7 +1330,36 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
       <Actividad abierta={!!registrando} nombre={nombre} fecha={registrando}
         alCerrar={() => setRegistrando(null)}
         alGuardar={() => { const f = registrando; setRegistrando(null); recargar([f]); }} />
+      {directo && (
+        <AccionDirecta key={`${directo.ev.id}:${directo.fecha}`} ev={directo.ev} fecha={directo.fecha} nombre={nombre}
+          alCerrar={() => setDirecto(null)} alCambio={() => recargar([directo.fecha])} />
+      )}
     </div>
+  );
+}
+
+// Lo que abre cada cosa de «Tu semana» al tocarla: pesarse o medirse → la
+// ventana de la medida (y el coach se entera); las fotos → mandarlas por
+// WhatsApp; el cardio → su formulario (tiempo, km… opcionales).
+function AccionDirecta({ ev, fecha, nombre, alCerrar, alCambio }) {
+  const hoy = hoyLocal();
+  const pasada = fecha < lunesDeLocal(hoy);
+  const futuro = fecha > sumarDias(hoy, 1);
+  if (ev.tipo === 'actividad') {
+    return <HojaCardioCoach abierta ev={ev} fecha={fecha} nombre={nombre} alCerrar={alCerrar}
+      alGuardar={() => { alCerrar(); alCambio(); }} />;
+  }
+  if ((ev.tipo === 'peso' || ev.tipo === 'medidas') && !ev.hecho && !pasada && !futuro) {
+    return <HojaMedida abierta nombre={nombre} evento={{ id: ev.id, fecha }}
+      titulo={ev.tipo === 'peso' ? 'Actualiza tu peso' : 'Tu medición corporal'}
+      alCerrar={alCerrar} alGuardar={() => { alCerrar(); alCambio(); }} />;
+  }
+  return (
+    <Hoja abierta alCerrar={alCerrar} titulo={REGISTRO[ev.tipo]?.nombre || ev.titulo} alto="52vh">
+      <div data-accion-directa={ev.tipo}>
+        <FilaRegistro ev={ev} fecha={fecha} nombre={nombre} futuro={futuro} pasada={pasada} v2 alCambio={alCambio} />
+      </div>
+    </Hoja>
   );
 }
 
@@ -1441,10 +1493,10 @@ function TarjetaBloque({ b, P, n, alEntrenar }) {
   );
 }
 // En la semana y el calendario: una píldora chica, por debajo de la de fuerza.
-function ChipBloque({ b, chico = false }) {
+function ChipBloque({ b, chico = false, alTocar }) {
   const hecha = b.estado === 'completada';
   return (
-    <div data-chip-bloque={b.id} style={{
+    <div data-chip-bloque={b.id} onClick={alTocar} style={{
       display: 'flex', alignItems: 'center', gap: chico ? 2 : 5, alignSelf: chico ? 'stretch' : 'flex-start', maxWidth: '100%', minWidth: 0,
       padding: chico ? '1px 3px' : '4px 9px', borderRadius: chico ? 6 : 9,
       border: `1px solid ${hecha ? 'transparent' : 'rgba(31,31,31,0.16)'}`, background: hecha ? '#FBF5E2' : 'rgba(255,255,255,0.9)',
@@ -1486,7 +1538,9 @@ function TenEnCuenta() {
 }
 
 // ── Semana: un renglón por día, todo escrito ────────────────────────────
-function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastrable, alTocar }) {
+function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastrable, alTocar, alEntrenar, alEvento }) {
+  // Tocar una cosa del día abre esa cosa; tocar el resto de la fila, el día.
+  const directo = (fn) => (fn ? (e) => { e.stopPropagation(); fn(); } : undefined);
   const esHoy = fecha === hoy;
   const nada = !dia || (!dia.rutina && !dia.hecho && !bloquesDe(dia).length && !dia.eventos.length && !dia.actividades.length && !dia.inicio_ciclo && !dia.corte_pago && !dia.fin_ciclo);
   return (
@@ -1505,17 +1559,21 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
         {dia?.inicio_ciclo && <Etiqueta Icono={Flag} color={P.ink} fondo={P.tint}>Empieza tu ciclo nuevo</Etiqueta>}
         {dia?.fin_ciclo && <Etiqueta Icono={FlagCheckered} color={P.ink} fondo={P.tint}>Último día de tu ciclo</Etiqueta>}
         {dia?.rutina && (
-          <ChipRutina grande nombre={`${corto(dia.rutina)}${dia.extra ? ' · añadida' : ''}`} hecha={dia.estado === 'completada'} movida={dia.movida || dia.extra} P={P} arrastre={arrastrable} />
+          <ChipRutina grande nombre={`${corto(dia.rutina)}${dia.extra ? ' · añadida' : ''}`} hecha={dia.estado === 'completada'} movida={dia.movida || dia.extra} P={P} arrastre={arrastrable}
+            alTocar={directo(alEntrenar && (() => alEntrenar(dia.rutina.id)))} />
         )}
-        {dia?.hecho && <ChipRutina grande nombre={`${corto(dia.hecho)}${dia.rutina ? ' (en su lugar)' : ''}`} hecha P={P} />}
-        {bloquesDe(dia).map(b => <ChipBloque key={b.id} b={b} />)}
+        {dia?.hecho && <ChipRutina grande nombre={`${corto(dia.hecho)}${dia.rutina ? ' (en su lugar)' : ''}`} hecha P={P}
+          alTocar={directo(alEntrenar && dia.hecho.id && (() => alEntrenar(dia.hecho.id)))} />}
+        {bloquesDe(dia).map(b => <ChipBloque key={b.id} b={b} alTocar={directo(alEntrenar && (() => alEntrenar(b.id)))} />)}
         {dia?.eventos.filter(e => e.registra).map(e => (
-          <Etiqueta key={e.id} Icono={null} tipo={e.tipo} color={MORADO} fondo={e.hecho ? '#EEE9FB' : '#FFFFFF'} borde={e.hecho ? 'transparent' : '#CFC3EF'} hecho={e.hecho}>
+          <Etiqueta key={e.id} Icono={null} tipo={e.tipo} color={MORADO} fondo={e.hecho ? '#EEE9FB' : '#FFFFFF'} borde={e.hecho ? 'transparent' : '#CFC3EF'} hecho={e.hecho}
+            alTocar={directo(alEvento && (() => alEvento(e)))} data-evento={e.tipo}>
             {REGISTRO[e.tipo]?.nombre || e.titulo}
           </Etiqueta>
         ))}
         {dia?.eventos.filter(e => !e.registra).map(e => (
-          <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: TEXT_MUTED }}>
+          <div key={e.id} data-evento={e.tipo} onClick={e.tipo === 'actividad' ? directo(alEvento && (() => alEvento(e))) : undefined}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: TEXT_MUTED }}>
             <IconoEvento tipo={e.tipo} size={16} /> <span style={{ minWidth: 0 }}>{e.hora ? `${String(e.hora).slice(0, 5)} · ` : ''}{e.titulo}</span>
           </div>
         ))}
@@ -1531,9 +1589,9 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
   );
 }
 
-function Etiqueta({ Icono, tipo, color, fondo, borde = 'transparent', hecho, children }) {
+function Etiqueta({ Icono, tipo, color, fondo, borde = 'transparent', hecho, alTocar, children, ...resto }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 10, background: fondo, color, border: `1.5px solid ${borde}`, fontSize: 14, fontWeight: 700, alignSelf: 'flex-start', maxWidth: '100%' }}>
+    <div {...resto} onClick={alTocar} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 10, background: fondo, color, border: `1.5px solid ${borde}`, fontSize: 14, fontWeight: 700, alignSelf: 'flex-start', maxWidth: '100%' }}>
       {Icono ? <Icono size={16} weight="fill" /> : <IconoEvento tipo={tipo} size={16} />}
       <span style={{ minWidth: 0 }}>{children}</span>
       {hecho && <CheckCircle size={16} weight="fill" />}

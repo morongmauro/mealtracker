@@ -426,6 +426,24 @@ export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambi
   );
 }
 
+// El formulario del cardio del coach, directo (sin pasar por la tarjeta):
+// lo usa «Tu semana» al tocar el cardio de un día.
+export function HojaCardioCoach({ ev, fecha, nombre, abierta, alCerrar, alGuardar }) {
+  if (!ev) return null;
+  const op = ev.opciones && ev.opciones.lista && ev.opciones.lista.length ? ev.opciones : null;
+  const intensidad = op && op.intensidad ? INTENSIDAD_COACH[op.intensidad] : null;
+  const cuanto = (op && textoMinutos(op.minutos)) || (ev.duracion_min ? `${ev.duracion_min} min` : null);
+  return (
+    <Actividad
+      abierta={abierta} nombre={nombre} fecha={fecha} eventoId={ev.id}
+      tipoInicial={op ? null : (ev.slug || 'otro')} otroInicial={op || ev.slug ? '' : ev.titulo} duracionInicial={ev.duracion_min}
+      titulo={ev.titulo} opciones={op}
+      nota={<>De tu coach: <b style={{ color: TEXT }}>{ev.titulo}</b>{cuanto ? ` · ${cuanto}` : ''}{intensidad ? ` · ${intensidad[0].toLowerCase()}` : ''}{!op && ev.detalle ? ` · ${ev.detalle}` : ''}</>}
+      alCerrar={alCerrar} alGuardar={alGuardar}
+    />
+  );
+}
+
 // ── Cardio a elegir: «Caminadora trotando o con inclinación o bicicleta» ──
 // El coach deja varias opciones, unos tiempos y la intensidad; el cliente
 // elige UNA. Que se lea de un vistazo: cada opción en su píldora con «o»

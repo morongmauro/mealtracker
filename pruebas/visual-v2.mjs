@@ -508,7 +508,14 @@ try {
     && await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height <= 62),
     String(await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height)));
   await p.getByRole('button', { name: /Profundiza en tus gráficas de entrenamiento/ }).click();
-  await p.getByText('Fuerza', { exact: true }).waitFor({ timeout: 10000 });
+  await p.getByText('Fuerza · tu 1RM estimado', { exact: true }).waitFor({ timeout: 10000 });
+  ok('Profundiza entrenamiento: primero constancia, luego intensidad, fuerza (1RM explicado) y progreso de pesos',
+    await p.evaluate(() => {
+      const t = [...document.querySelectorAll('[data-view="dash"] [data-tarjeta]')].map(el => el.getAttribute('data-tarjeta'));
+      const i = (x) => t.indexOf(x);
+      return i('Constancia') >= 0 && i('Constancia') < i('Intensidad') && i('Intensidad') < i('Fuerza · tu 1RM estimado') && i('Fuerza · tu 1RM estimado') < i('Progreso de pesos');
+    }) && (await p.getByText(/peso máximo que podrías levantar UNA sola vez/).count()) === 1,
+    await p.evaluate(() => [...document.querySelectorAll('[data-view="dash"] [data-tarjeta]')].map(el => el.getAttribute('data-tarjeta')).join(' | ')));
   ok('dash: los títulos de las tarjetas en azul', await p.locator('[data-tarjeta="Volumen"] h3').evaluate(h => getComputedStyle(h).color === 'rgb(60, 123, 214)'));
   ok('Profundiza entrenamiento abre fuerza y volumen', (await p.getByText('Volumen', { exact: true }).count()) === 1);
   ok('Profundiza entrenamiento: la intensidad con promedio y acumulado de la semana y el mes', (await p.locator('[data-intensidad]').count()) === 1
@@ -639,6 +646,29 @@ try {
   ok('hoy: nombres cortos que se leen enteros', (await hoyV.getByText('Lower + Core', { exact: true }).count()) === 1
     && (await hoyV.getByText(/Training/).count()) === 0);
   ok('hoy: el corte de pago se ve en la semana', (await hoyV.getByText('Corte de tu mensualidad').count()) >= 1);
+  // «Tu semana»: cada cosa del día abre directo lo suyo, no la hoja del día.
+  const filaHoy = hoyV.locator(`[data-vista="semana"] [data-fecha="${hoy}"]`);
+  await filaHoy.locator('[data-evento="fotos"]').click();
+  await p.locator('[data-accion-directa="fotos"]').waitFor({ timeout: 5000 });
+  ok('tu semana: tocar las fotos abre directo para mandarlas por WhatsApp (sin la hoja del día)',
+    (await p.locator('[data-accion-directa="fotos"] [data-fotos-whatsapp]').count()) === 1
+    && /^https:\/\/wa\.me\/\d+\?text=/.test(await p.locator('[data-accion-directa="fotos"] [data-fotos-whatsapp]').getAttribute('href'))
+    && (await p.getByText('Para registrar').count()) === 0);
+  await foto(p, '04f1-semana-fotos');
+  await p.keyboard.press('Escape'); await espera(500);
+  await filaHoy.locator('[data-evento="peso"]').click();
+  await p.getByText('Actualiza tu peso').waitFor({ timeout: 5000 });
+  ok('tu semana: tocar el peso abre directo la ventana para actualizarlo (y avisar al coach)',
+    (await p.getByRole('button', { name: 'Guardar y enviar a mi coach' }).count()) === 1 && (await p.getByText('Para registrar').count()) === 0);
+  await foto(p, '04f2-semana-peso');
+  await p.keyboard.press('Escape'); await espera(500);
+  await filaHoy.locator('[data-evento="actividad"]').click();
+  await p.getByText('Minutos', { exact: true }).waitFor({ timeout: 5000 });
+  ok('tu semana: tocar el cardio abre directo su formulario (tiempo y lo demás opcional)',
+    (await p.getByText('Para registrar').count()) === 0 && (await p.getByText(/De tu coach:/).count()) >= 1);
+  await foto(p, '04f3-semana-cardio');
+  await p.keyboard.press('Escape'); await espera(500);
+  ok('tu semana: nada se registró solo con abrir', !(db.db.evento_registros || []).length);
   // Añadir una rutina hoy (martes, libre): el Push repetiría lo del lunes → avisa
   await hoyV.getByRole('button', { name: 'Añadir una rutina' }).click();
   await p.locator('[data-elegir-rutina]').waitFor({ timeout: 5000 });
@@ -654,11 +684,11 @@ try {
     && /la añadiste tú/.test(await hoyV.locator('[data-hoy-rutina]').innerText()));
   await foto(p, '04h-hoy-anadida');
   // La rutina por dentro: el Push del lunes, desde su día
-  await hoyV.locator(`[data-vista="semana"] [data-fecha="${lunes}"]`).click();
   // Con la red lenta: la rutina ya se precargó, así que abre al instante y
-  // dice «Actualizando…» mientras llega lo del servidor.
+  // dice «Actualizando…» mientras llega lo del servidor. Tocar la rutina en
+  // «Tu semana» la abre directo (sin pasar por la hoja del día).
   Object.assign(lento, { accion: 'rutina', ms: 2500 });
-  await p.locator('[data-hoja-scroll]').getByText('Push', { exact: true }).click();
+  await hoyV.locator(`[data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
   let alInstante = true;
   await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 900 }).catch(() => { alInstante = false; });
   ok('abrir una rutina con red lenta: se ve al instante (sin pantalla vacía)', alInstante);
@@ -812,10 +842,19 @@ try {
   const banca = p.locator('[data-ejercicio="Barbell Bench Press"]');
   ok('al ladito de cada serie, en gris, lo que hizo la última vez (reps × peso, en la unidad de hoy)',
     (await banca.locator('[data-serie-anterior]').first().innerText()) === '8 × 157 lb'
-    && /ÚLTIMA · /.test(await banca.locator('[data-cab-ultima]').innerText())
+    && /^ÚLTIMA\n\d+ [A-Z]+$/.test(await banca.locator('[data-cab-ultima]').innerText())
     && (await banca.locator('[data-serie-anterior]').first().evaluate(el => getComputedStyle(el).color)) === 'rgb(174, 174, 178)',
     await banca.locator('[data-serie-anterior]').first().innerText());
-  ok('las cajitas de reps y peso son cortas (dejan sitio a lo de la última vez)', await banca.getByLabel('Repeticiones serie 1').evaluate(el => el.getBoundingClientRect().width <= 70));
+  ok('las cajitas de reps y peso más largas, y lo de la última vez pegado al check (sin hueco en el medio)',
+    await banca.getByLabel('Repeticiones serie 1').evaluate(el => {
+      const fila = el.closest('div').parentElement;
+      const caja = el.getBoundingClientRect(), peso = fila.querySelector('[aria-label="Peso serie 1"]').getBoundingClientRect();
+      const ult = fila.querySelector('[data-serie-anterior]').getBoundingClientRect(), chk = fila.querySelector('button[aria-label*="serie 1"]').getBoundingClientRect();
+      const txt = fila.querySelector('[data-serie-anterior]');
+      const r = document.createRange(); r.selectNodeContents(txt); const t = r.getBoundingClientRect();
+      return caja.width >= 76 && chk.left - t.right <= 12 && ult.left - peso.right <= 12 && txt.scrollWidth <= txt.clientWidth;
+    }),
+    await banca.getByLabel('Repeticiones serie 1').evaluate(el => String(el.getBoundingClientRect().width)));
   await banca.getByRole('button', { name: /Historial/ }).click();
   await p.locator('[data-ultima]').waitFor({ timeout: 5000 });
   ok('historial: la última vez serie por serie, pasado a lb', (await p.locator('[data-ultima]').getByText(/^Serie 1: 8 reps · 157 lb$/).count()) === 1,
@@ -875,7 +914,7 @@ try {
   ok('al tocar el día: añadir cardio o deporte (debajo de la rutina)', (await p.locator('[data-acciones-dia] [data-accion="actividad"]').count()) === 1);
   await espera(300);
   await foto(p, '05b-dia-registrar');
-  await p.getByRole('button', { name: 'Ya envié mis fotos' }).click();
+  await p.locator('[data-hoja-scroll] [data-fotos-whatsapp]').click();
   await p.getByLabel('Tu peso en kg').fill('78,4');
   await p.getByRole('button', { name: 'Guardar' }).click();
   await espera(700);
@@ -1325,8 +1364,7 @@ try {
   // ── Al terminar un entreno: la celebración (con el personaje y su cara) ──
   await n.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
   await espera(1200);
-  await n.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"]`).click();
-  await n.p.locator('[data-hoja-scroll]').getByText('Push', { exact: true }).click();
+  await n.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
   await n.p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
   await n.p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
   await espera(300);
@@ -1641,7 +1679,7 @@ try {
   ok('otra persona: le sale el aviso de sus fotos al abrir', (await avA.getByText('Registro fotográfico').count()) === 1
     && (await avA.getByText('Peso', { exact: true }).count()) === 0);
   await foto(oa.p, '13b-otra-persona-aviso');
-  await avA.getByRole('button', { name: 'Ya envié mis fotos' }).click();
+  await avA.locator('[data-fotos-whatsapp]').click();
   await avA.getByText('Listo, gracias').waitFor({ timeout: 5000 });
   ok('otra persona: marcarlo ahí mismo avisa al coach', !!oa.db.db.evento_registros?.some(r => r.evento_id === 'evf2'));
   await avA.getByRole('button', { name: 'Seguir' }).click();
@@ -1691,8 +1729,7 @@ try {
   {
     const pq = await abrir('Mauro Morón', { caliente: true });
     await pq.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(800);
-    await pq.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"]`).click();
-    await pq.p.locator('[data-hoja-scroll]').getByText('Push', { exact: true }).click();
+    await pq.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
     await pq.p.locator('[data-circuito]').waitFor({ timeout: 10000 });
     for (let i = 0; i < 4; i++) {
       const b = pq.p.locator('[data-circuito]').getByRole('button', { name: /^Marcar serie/ }).first();
