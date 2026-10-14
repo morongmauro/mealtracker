@@ -450,7 +450,8 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       {/* Atajos: botones de cristal chicos (círculo con el símbolo y la
           palabra debajo), en una sola línea, para no quitarle el
           protagonismo a las gráficas. */}
-      <FilaCristal data-atajos style={{ marginTop: 6, justifyContent: 'space-between', gap: 0 }}>
+      {/* Cuatro botones juntos (con «space-between» quedaban regados por todo el ancho). */}
+      <FilaCristal data-atajos style={{ marginTop: 6, justifyContent: 'flex-start', gap: 10 }}>
         {/* Respira vive donde hace falta (el día de descanso, el cierre de la
             rutina y Ajustes); el Reto vuelve aquí cuando haya un reto. */}
         {wa && <BotonCristal icono={ChatCircle} color="#25A35A" ancho={54} href={wa}>Coach</BotonCristal>}
