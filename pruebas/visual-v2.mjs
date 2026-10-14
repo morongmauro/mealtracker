@@ -1583,24 +1583,19 @@ try {
   const hoyFijo = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date(FIJO));
   const conBloqueo = { ...deuda, dias_vencido: 8, hoy: hoyFijo };
   const g1 = await abrir('Mauro Morón', { pago: { ...conBloqueo, bloqueo: false, gracia: true } });
-  const ventana = g1.p.locator('[data-gracia-pago]');
-  await ventana.waitFor({ timeout: 20000 });
+  await g1.p.locator('[data-view="dash"]').getByText('Mensualidad pendiente').waitFor({ timeout: 20000 });
   await espera(700);
   await foto(g1.p, '15b-pago-gracia');
-  ok('gracia: el día que instala la app sale la ventana «Hoy tienes la app abierta», sin bloqueo', (await g1.p.getByRole('alertdialog').count()) === 0
-    && /Desde mañana queda en pausa/.test(await ventana.innerText()) && /250\.000/.test(await ventana.innerText()), await ventana.innerText());
-  await g1.p.locator('[data-gracia-ok]').click();
-  await espera(600);
-  ok('gracia: «Entendido» la cierra y en el Dash queda el aviso «solo hoy»', (await ventana.count()) === 0
-    && await g1.p.locator('[data-view="dash"]').getByText('solo hoy').isVisible()
-    && await g1.p.locator('[data-view="dash"] [data-gracia-linea]').isVisible());
-  await foto(g1.p, '15c-pago-gracia-dash');
+  ok('gracia: el día que instala la app no se bloquea; sale solo el recordatorio de siempre (sin ventana ni «desde mañana»)',
+    (await g1.p.getByRole('alertdialog').count()) === 0 && (await g1.p.getByRole('dialog', { name: 'Mensualidad pendiente' }).count()) === 0
+    && (await g1.p.getByText(/Desde mañana|Hoy tienes la app abierta|solo hoy/i).count()) === 0
+    && await g1.p.locator('[data-view="dash"] [data-aviso-pago]').isVisible());
   await g1.ctx.close();
 
   const g2 = await abrir('Mauro Morón', { instalada: true, extra: { 'mt:pwaNuevaAt': new Date(FIJO - 60000).toISOString() },
     pago: { ...conBloqueo, bloqueo: true, instalada: 'nunca' } });
-  await g2.p.locator('[data-gracia-pago]').waitFor({ timeout: 20000 }).catch(() => {});
-  ok('gracia: instalada hace un minuto (aún sin llegar al servidor) también abre, con su aviso', (await g2.p.locator('[data-gracia-pago]').count()) === 1
+  await g2.p.locator('[data-view="dash"] [data-aviso-pago]').waitFor({ timeout: 20000 }).catch(() => {});
+  ok('gracia: instalada hace un minuto (aún sin llegar al servidor) también abre, con su recordatorio', (await g2.p.locator('[data-view="dash"] [data-aviso-pago]').count()) === 1
     && (await g2.p.getByRole('alertdialog').count()) === 0);
   await g2.ctx.close();
 
@@ -1608,14 +1603,14 @@ try {
     pago: { ...conBloqueo, bloqueo: true, instalada: 'nunca' } });
   await g3.p.getByRole('alertdialog', { name: 'Pago pendiente' }).waitFor({ timeout: 20000 }).catch(() => {});
   ok('gracia: al día siguiente vuelve el bloqueo', (await g3.p.getByRole('alertdialog', { name: 'Pago pendiente' }).count()) === 1
-    && (await g3.p.locator('[data-gracia-pago]').count()) === 0);
+    && (await g3.p.locator('[data-view="dash"] [data-aviso-pago]').count()) === 0);
   await g3.ctx.close();
 
   const g4 = await abrir('Mauro Morón', { instalada: true, extra: { 'mt:pwaNuevaAt': new Date(FIJO - 60000).toISOString() },
     pago: { ...conBloqueo, bloqueo: true, instalada: 'antes' } });
   await g4.p.getByRole('alertdialog', { name: 'Pago pendiente' }).waitFor({ timeout: 20000 }).catch(() => {});
   ok('gracia: reinstalar no da otro día (el servidor ya tiene una instalación anterior)', (await g4.p.getByRole('alertdialog', { name: 'Pago pendiente' }).count()) === 1
-    && (await g4.p.locator('[data-gracia-pago]').count()) === 0);
+    && (await g4.p.locator('[data-view="dash"] [data-aviso-pago]').count()) === 0);
   await g4.ctx.close();
 
   // ── Otra persona: todo como siempre ──
