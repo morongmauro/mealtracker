@@ -1,4 +1,5 @@
 // /api/bitacora  (POST)
+// (vercel.json lo reescribe a /api/training?modulo=bitacora: límite de funciones del plan)
 // La app manda aquí lo que le falla al cliente (un error de JavaScript, una
 // promesa rota, una llamada a /api que contestó 5xx o no contestó) con la
 // pantalla donde estaba, el teléfono y la hora. Queda en `app_errores` (SQL:

@@ -51,6 +51,8 @@ import { whatsappCoach, textoNotaWhatsapp } from './_whatsapp.js';
 import { completarMusculos } from './_musculos.js';
 import { fechaCorte } from './_pagos.js';
 import manejarRelojes from './_relojes.js';
+import manejarVerComo from './_ver-como.js';
+import manejarBitacora from './_bitacora.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
@@ -81,6 +83,11 @@ const CAMPOS_EJERCICIO = 'id,nombre,alias,descripcion,claves_tecnicas,patron,seg
 export default async function handler(req, res) {
   // Relojes y anillos: /api/relojes llega aquí (ver vercel.json y _relojes.js).
   if (req.query && req.query.modulo === 'relojes') return manejarRelojes(req, res);
+  // «Ver como cliente» y la bitácora van por aquí (vercel.json los reescribe
+  // desde /api/ver-como y /api/bitacora): el plan de Vercel permite 12
+  // funciones y ya se usan todas.
+  if (req.query && req.query.modulo === 'ver-como') return manejarVerComo(req, res);
+  if (req.query && req.query.modulo === 'bitacora') return manejarBitacora(req, res);
   // El módulo de entrenamiento llama desde su propio dominio: hay que
   // contestarle el preflight y marcarle la respuesta como suya.
   if (cors(req, res)) return;

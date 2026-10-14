@@ -16,9 +16,9 @@ globalThis.fetch = async (url, init = {}) => {
   return json([]);
 };
 const { firmarPase, leerPase } = await import('../api/_verComo.js');
-const { default: verComo } = await import('../api/ver-como.js');
+const { default: verComo } = await import('../api/_ver-como.js');
 const { default: coachData } = await import('../api/coach-data.js');
-const { default: bitacora } = await import('../api/bitacora.js');
+const { default: bitacora } = await import('../api/_bitacora.js');
 const { default: coachAuth } = await import('../api/coach-auth.js');
 
 async function llamar(handler, { metodo = 'GET', query = {}, body = {}, headers = {} } = {}) {

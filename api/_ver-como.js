@@ -1,4 +1,5 @@
 // /api/ver-como?token=…  → { ok, name, user_id, exp }
+// (vercel.json lo reescribe a /api/training?modulo=ver-como: límite de funciones del plan)
 // La app, al abrirse con ?ver_como=<pase>, pregunta aquí de quién es el pase.
 // Solo lee; no cambia nada. Si venció o no es válido, { ok: false }.
 import { guard } from './_guard.js';

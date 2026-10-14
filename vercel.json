@@ -9,6 +9,14 @@
       "destination": "/api/training?modulo=relojes"
     },
     {
+      "source": "/api/ver-como",
+      "destination": "/api/training?modulo=ver-como"
+    },
+    {
+      "source": "/api/bitacora",
+      "destination": "/api/training?modulo=bitacora"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     },
