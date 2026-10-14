@@ -86,7 +86,7 @@ export function SeparadorMomento({ fase, hechos, total }) {
   if (!m) return null;
   const listo = total > 0 && hechos >= total;
   return (
-    <div data-momento={fase} style={{ display: 'flex', alignItems: 'center', gap: 9, margin: '24px 4px 10px' }}>
+    <div data-momento={fase} style={{ display: 'flex', alignItems: 'center', gap: 9, margin: '18px 4px 8px' }}>
       <span style={{
         width: 26, height: 26, borderRadius: 999, flex: 'none', display: 'grid', placeItems: 'center',
         background: listo ? GRAFITO : m.tinte, color: listo ? AMARILLO : m.color,

@@ -61,6 +61,9 @@ Reglas:
   No inventar otras sombras inline.
 - Sin bordes sólidos para marcar estado. Lo hecho se pinta con relleno y
   chulo, no con borde (un ejercicio hecho va en ámbar sin borde).
+- Las secciones de una pantalla se separan con el título y el espacio, sin
+  líneas (ni grises ni de color): 18 px arriba del título, 12 px hasta su
+  tarjeta.
 - Cristal (barra de secciones, botones redondos): fondo blanco al 78–88 %,
   `backdrop-filter: blur(16px)`, borde claro arriba. Sin sombras pesadas.
 - Los botones redondos de atajo miden 42 px de círculo con ícono de 19 px y la

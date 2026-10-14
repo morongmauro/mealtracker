@@ -692,11 +692,12 @@ function DetalleAprende({ aprende, alIr }) {
 }
 
 // Título de sección con una línea fina encima: separa lo que es de otra cosa.
+// Sin línea: el título separa solo (como en Apple y Headspace), y el aire
+// de arriba y de abajo va más apretado para no desperdiciar pantalla.
 function Seccion({ children }) {
   return (
-    <div style={{ marginTop: 26 }}>
-      <div style={{ height: 1, background: 'rgba(31,31,31,0.09)', margin: '0 2px 16px' }} />
-      <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '0 2px 2px' }}>{children}</h2>
+    <div data-seccion style={{ marginTop: 18 }}>
+      <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '0 2px 0' }}>{children}</h2>
     </div>
   );
 }
