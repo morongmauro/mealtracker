@@ -1400,11 +1400,9 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
           previa={(ultima?.series || []).find(x => x.serie === n) || null}
           pesoSugerido={soloReps ? '' : pesoSugerido} unidad={unidad} soloReps={soloReps}
           repsSugeridas={String(re.reps || '').match(/^\d+/) ? String(re.reps).match(/^\d+/)[0] : ''}
-          // Fuera de un circuito: el descanso del ejercicio entre series, y
-          // ninguno tras la última (ahí ya se pasa al siguiente ejercicio).
-          descansoSeg={descansoCircuito !== undefined
-            ? descansoCircuito
-            : (n < (re.series || 1) ? re.descanso_seg : null)}
+          // Fuera de un circuito: el descanso del ejercicio tras cada serie
+          // (también la última, antes de pasar al siguiente ejercicio).
+          descansoSeg={descansoCircuito !== undefined ? descansoCircuito : re.descanso_seg}
           onMarcar={onMarcar} onDesmarcar={onDesmarcar}
         />
       ))}

@@ -669,6 +669,10 @@ try {
   await foto(p, '04f3-semana-cardio');
   await p.keyboard.press('Escape'); await espera(500);
   ok('tu semana: nada se registró solo con abrir', !(db.db.evento_registros || []).length);
+  await filaHoy.getByText('29', { exact: true }).click();
+  await espera(500);
+  ok('tu semana: tocar la fecha o el blanco de la fila no abre otra ventana (ya se ve todo ahí)', (await p.locator('[data-hoja-scroll]').count()) === 0
+    && (await p.getByText('Para registrar').count()) === 0);
   // Añadir una rutina hoy (martes, libre): el Push repetiría lo del lunes → avisa
   await hoyV.getByRole('button', { name: 'Añadir una rutina' }).click();
   await p.locator('[data-elegir-rutina]').waitFor({ timeout: 5000 });
@@ -863,6 +867,18 @@ try {
     && /157 lb/.test(await p.locator('[data-grafica-pesos]').textContent()));
   await foto(p, '04f-historial');
   await p.keyboard.press('Escape');
+  await espera(300);
+  // El descanso sale tras CUALQUIER serie: también la última y aunque se
+  // marque fuera de orden (antes, a veces salía y a veces no).
+  await p.locator('[data-descanso]').count() && await p.locator('[data-descanso]').getByRole('button', { name: /Saltar|Cerrar/ }).click();
+  await banca.getByLabel('Repeticiones serie 3').fill('8');
+  await banca.getByRole('button', { name: 'Marcar serie 3' }).click();
+  await espera(300);
+  ok('descanso: marcar la última serie (fuera de orden) también arranca el temporizador', await p.locator('[data-descanso="contando"]').isVisible()
+    && /Descanso/.test(await p.locator('[data-descanso]').innerText()));
+  await foto(p, '04f4-descanso-ultima-serie');
+  await p.locator('[data-descanso]').getByRole('button', { name: 'Saltar' }).click();
+  await banca.getByRole('button', { name: 'Deshacer serie 3' }).click();
   await espera(300);
   await p.locator('nav[aria-label="Secciones"]').getByRole('button', { name: 'Hoy', exact: true }).click();
   await espera(800);

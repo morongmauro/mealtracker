@@ -472,7 +472,10 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         {series.map(s => (
           <SerieFilaV2 key={s} n={s} re={re} unidad={unidad} sinCarga={sinCarga} soloReps={soloReps}
             marcada={marcadas[`${re.id}:${s}`]}
-            descansoSeg={s < (re.series || 1) ? re.descanso_seg : null}
+            // El descanso arranca tras CADA serie (también la última, antes del
+            // siguiente ejercicio, y aunque se marquen en otro orden): antes
+            // solo salía entre series y parecía que a veces fallaba.
+            descansoSeg={re.descanso_seg}
             onMarcar={onMarcar} onDesmarcar={onDesmarcar} />
         ))}
       </div>

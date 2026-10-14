@@ -1140,8 +1140,8 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const tocar = (fn) => { if (!arrastre && !acabaDeSoltar()) fn(); };
   const abrirEvento = (ev, f) => tocar(() => {
     // El cardio solo se registra el día que llega y en la semana en curso;
-    // si no, la hoja del día (ahí se ve qué es y cuándo).
-    if (ev.tipo === 'actividad' && (f > hoy || f < lunes || ev.hecho)) { setAbierto(f); return; }
+    // si no, no abre nada (lo que es ya se lee en la fila).
+    if (ev.tipo === 'actividad' && (f > hoy || f < lunes || ev.hecho)) return;
     setDirecto({ ev, fecha: f });
   });
   const arrastrable = (d) => (puedeMover(d) ? { onTouchStart: alTocar(d), onPointerDown: alRaton(d) } : null);
@@ -1199,7 +1199,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
               const d = porFecha[f];
               return <FilaDiaV2 key={f} fecha={f} etiqueta={DIAS_V2[i]} dia={d} P={P} hoy={hoy} fase={fase}
                 sobre={arrastre && arrastre.sobre === f && arrastre.desde !== f} origen={arrastre && arrastre.desde === f}
-                arrastrable={arrastrable(d)} alTocar={() => d && abrir(f)}
+                arrastrable={arrastrable(d)}
                 alEntrenar={(id) => tocar(() => alEntrenar(id))} alEvento={(ev) => abrirEvento(ev, f)} />;
             })}
           </div>
@@ -1539,13 +1539,14 @@ function TenEnCuenta() {
 
 // ── Semana: un renglón por día, todo escrito ────────────────────────────
 function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastrable, alTocar, alEntrenar, alEvento }) {
-  // Tocar una cosa del día abre esa cosa; tocar el resto de la fila, el día.
+  // Tocar una cosa del día abre esa cosa. El resto de la fila no abre nada:
+  // lo del día ya se ve completo aquí mismo (abrir la hoja del día era repetir).
   const directo = (fn) => (fn ? (e) => { e.stopPropagation(); fn(); } : undefined);
   const esHoy = fecha === hoy;
   const nada = !dia || (!dia.rutina && !dia.hecho && !bloquesDe(dia).length && !dia.eventos.length && !dia.actividades.length && !dia.inicio_ciclo && !dia.corte_pago && !dia.fin_ciclo);
   return (
-    <div data-fecha={fecha} role="button" tabIndex={0} onClick={alTocar} style={{
-      display: 'flex', gap: 12, padding: '11px 12px', borderRadius: 18, cursor: dia ? 'pointer' : 'default',
+    <div data-fecha={fecha} onClick={alTocar} style={{
+      display: 'flex', gap: 12, padding: '11px 12px', borderRadius: 18, cursor: alTocar ? 'pointer' : 'default',
       // Hoy no se resalta aquí: lo de hoy se hace desde «Hoy te toca».
       background: sobre ? P.tint : SURFACE, opacity: origen ? 0.5 : 1,
       border: sobre ? `2px dotted ${P.base}` : '1.5px solid transparent',
@@ -1573,7 +1574,7 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
         ))}
         {dia?.eventos.filter(e => !e.registra).map(e => (
           <div key={e.id} data-evento={e.tipo} onClick={e.tipo === 'actividad' ? directo(alEvento && (() => alEvento(e))) : undefined}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: TEXT_MUTED }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: TEXT_MUTED, cursor: e.tipo === 'actividad' ? 'pointer' : undefined }}>
             <IconoEvento tipo={e.tipo} size={16} /> <span style={{ minWidth: 0 }}>{e.hora ? `${String(e.hora).slice(0, 5)} · ` : ''}{e.titulo}</span>
           </div>
         ))}
@@ -1591,7 +1592,7 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
 
 function Etiqueta({ Icono, tipo, color, fondo, borde = 'transparent', hecho, alTocar, children, ...resto }) {
   return (
-    <div {...resto} onClick={alTocar} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 10, background: fondo, color, border: `1.5px solid ${borde}`, fontSize: 14, fontWeight: 700, alignSelf: 'flex-start', maxWidth: '100%' }}>
+    <div {...resto} onClick={alTocar} style={{ cursor: alTocar ? 'pointer' : undefined, display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 10, background: fondo, color, border: `1.5px solid ${borde}`, fontSize: 14, fontWeight: 700, alignSelf: 'flex-start', maxWidth: '100%' }}>
       {Icono ? <Icono size={16} weight="fill" /> : <IconoEvento tipo={tipo} size={16} />}
       <span style={{ minWidth: 0 }}>{children}</span>
       {hecho && <CheckCircle size={16} weight="fill" />}
