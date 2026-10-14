@@ -877,6 +877,9 @@ try {
   ok('descanso: marcar la última serie (fuera de orden) también arranca el temporizador', await p.locator('[data-descanso="contando"]').isVisible()
     && /Descanso/.test(await p.locator('[data-descanso]').innerText()));
   await foto(p, '04f4-descanso-ultima-serie');
+  ok('rutina: «Mi semana» en la barra pegada arriba, a mano aunque se esté abajo en la rutina',
+    await p.locator('[data-avance-rutina] [data-volver-semana]').isVisible()
+    && await p.locator('[data-avance-rutina] [data-volver-semana]').evaluate(b => { const r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }));
   await p.locator('[data-descanso]').getByRole('button', { name: 'Saltar' }).click();
   await banca.getByRole('button', { name: 'Deshacer serie 3' }).click();
   await espera(300);
@@ -1760,6 +1763,15 @@ try {
     await pleg.click(); await espera(300);
     ok('circuito: un toque lo vuelve a abrir y la flechita lo pliega otra vez', (await pq.p.locator('[data-circuito]').count()) === 1
       && await (async () => { await pq.p.locator('[data-circuito] [data-plegar]').click(); await espera(300); return (await pq.p.locator('[data-circuito-plegado]').count()) === 1; })());
+    // Desde abajo de la rutina, «Mi semana» vuelve sin subir; al entrar de
+    // nuevo, lo marcado sigue ahí.
+    await pq.p.locator('[data-terminar]').scrollIntoViewIfNeeded(); await espera(300);
+    await pq.p.locator('[data-avance-rutina] [data-volver-semana]').click();
+    await pq.p.locator('[data-view="entrena"] [data-vista="semana"]').waitFor({ timeout: 5000 });
+    await pq.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await pq.p.locator('[data-circuito-plegado]').waitFor({ timeout: 10000 }).catch(() => {});
+    ok('rutina: «Mi semana» desde abajo vuelve a la semana y al volver a entrar lo marcado sigue',
+      (await pq.p.locator('[data-circuito-plegado]').count()) === 1);
     ok('sin errores de JavaScript (circuito plegado)', pq.errores.length === 0, pq.errores.join(' | '));
     await pq.ctx.close();
   }

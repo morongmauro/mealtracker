@@ -977,7 +977,14 @@ function VistaRutina({ name, rutinaId, onVolver }) {
           boxShadow: '0 1px 2px rgba(0,0,0,0.05), 0 8px 20px -10px rgba(0,0,0,0.18)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, minHeight: 24 }}>
-            <span style={{ fontWeight: 700, color: TEXT, flex: 1 }}>{ejHechos}/{ejTotal} ejercicios</span>
+            {/* Volver a la semana desde cualquier punto de la rutina, sin subir
+                hasta arriba. Lo marcado queda guardado y el reloj sigue. */}
+            <button data-volver-semana onClick={onVolver} aria-label="Volver a mi semana" style={{
+              flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 2, height: 28, padding: '0 10px 0 6px',
+              borderRadius: 999, border: 0, background: 'rgba(118,118,128,0.14)', color: TEXT, cursor: 'pointer',
+              fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+            }}><ChevronLeft size={16} /> Mi semana</button>
+            <span style={{ fontWeight: 700, color: TEXT, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ejHechos}/{ejTotal} ejercicios</span>
             {inicio && hechas > 0 && <RelojSesion desde={inicio} v2 />}
           </div>
           {ejTotal <= 16 ? (
