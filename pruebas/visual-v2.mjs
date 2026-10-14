@@ -348,6 +348,8 @@ try {
   if (process.env.VISTA) {
     const pv = await abrir('Mauro Morón', { caliente: true, });
     await espera(4500);
+    // VISTA_SIN_ARO=1: el aro y el objeto se esconden (para componer propuestas encima).
+    if (process.env.VISTA_SIN_ARO) await pv.p.addStyleTag({ content: '[data-aro-cabecera],[data-ilus-cabecera],[data-objeto-cabecera]{visibility:hidden!important}' });
     const cab = async (n) => { await espera(2600); await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-${n}.png`), clip: { x: 0, y: 0, width: 390, height: 420 } }); };
     await cab('dash');
     await pv.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await cab('entreno');
