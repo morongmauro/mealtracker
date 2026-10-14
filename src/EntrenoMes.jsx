@@ -1185,6 +1185,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
       {listo && modo === 'hoy' && (
         <HoyTeToca dia={dHoy} P={P} nombre={nombre} ejerciciosDe={ejerciciosDe}
           alEntrenar={alEntrenar} alRegistrarActividad={() => setRegistrando(hoy)}
+          alReabrir={async (id) => { const r = await api.reabrir(nombre, id, hoy); if (r && r.ok) { await cargar(hoy.slice(0, 7)); alEntrenar(id); } }}
           alAgregar={puedeAgregar(dHoy) ? () => setEligiendo(hoy) : null}
           alQuitar={dHoy?.extra ? () => quitarRutina(hoy) : null}
           alCambio={() => recargar([hoy])} />
@@ -1364,7 +1365,8 @@ function AccionDirecta({ ev, fecha, nombre, alCerrar, alCambio }) {
 }
 
 // ── Lo que toca hoy, todo junto ──────────────────────────────────────────
-function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActividad, alAgregar, alQuitar, alCambio }) {
+function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegistrarActividad, alAgregar, alQuitar, alCambio }) {
+  const [reabriendo, setReabriendo] = useState(false);
   const hoy = hoyLocal();
   const r = dia?.rutina;
   const hecha = dia?.estado === 'completada';
@@ -1377,7 +1379,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
     <div data-hoy-te-toca>
       <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '4px 2px 12px' }}>Hoy te toca</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {r ? (
+        {r ? (<>
           <button onClick={() => alEntrenar(r.id)} data-hoy-rutina style={{
             // Siempre relleno del color de la sección (también ya hecha: con
             // el chulo blanco), para que lo de hoy sea lo primero que se ve.
@@ -1404,7 +1406,15 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alRegistrarActivi
               <CaretRight size={15} weight="bold" />
             </span>
           </button>
-        ) : dia?.hecho ? (
+          {/* La terminó hace poco y se equivocó (un toque de más): se reabre
+              con todo lo marcado, para corregir y cerrar otra vez. Solo 3 h. */}
+          {hecha && dia.reabrible && alReabrir && (
+            <button data-reabrir disabled={reabriendo} onClick={async () => { setReabriendo(true); try { await alReabrir(r.id); } finally { setReabriendo(false); } }} style={{
+              alignSelf: 'flex-start', border: 'none', background: 'none', padding: '0 4px', marginTop: -2, cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 13.5, fontWeight: 600, color: TEXT_MUTED, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, opacity: reabriendo ? 0.6 : 1,
+            }}>{reabriendo ? 'Reabriendo…' : '¿Te equivocaste al terminar? Reabrir la rutina'}</button>
+          )}
+        </>) : dia?.hecho ? (
           <div style={{ ...cajaDia, border: `1.5px solid ${P.base}` }}>
             <CheckCircle size={20} weight="fill" color={P.base} /> <span>Hoy entrenaste <b>{dia.hecho.nombre}</b>.</span>
           </div>

@@ -1710,6 +1710,10 @@ export default function MealTracker() {
       // …y la tiene INSTALADA en la pantalla de inicio desde la dirección
       // nueva (la vieja instalada no cuenta): el CRM lleva esa cuenta.
       pwa_nueva_at: (() => { try { return localStorage.getItem('mt:pwaNuevaAt') || undefined; } catch (e) { return undefined; } })(),
+      // Cómo la abrió esta vez: desde su ícono (instalada) o en una pestaña
+      // del navegador. El CRM avisa a quién recordarle instalarla.
+      abre_en: esAppInstalada() ? 'instalada' : 'navegador',
+      abre_en_at: new Date().toISOString(),
       // En vivo: comidas y agua de HOY
       today,
       today_entries: entries,
@@ -7859,16 +7863,23 @@ function AvisoCalculo({ texto }) {
   );
 }
 
+// Con la visual nueva, la explicación larga sale solo la PRIMERA vez (se
+// lee una vez y luego estorba en el chat); después, una línea y los botones.
+const NOTA_RECETARIO_VISTA = 'mt:notaRecetarioVista';
 function NotaRecetario({ onAbrir, query = '', v2 = v2Activa() }) {
+  const [larga] = useState(() => { try { return !(v2 && localStorage.getItem(NOTA_RECETARIO_VISTA)); } catch (e) { return true; } });
+  useEffect(() => { if (v2 && larga) { try { localStorage.setItem(NOTA_RECETARIO_VISTA, '1'); } catch (e) { /* nada */ } } }, [v2, larga]);
   if (typeof onAbrir !== 'function') return null;
   return (
-    <div className="mt-3 p-3 rounded-[16px]" style={{
+    <div className="mt-3 p-3 rounded-[16px]" data-nota-recetario={larga ? 'larga' : 'corta'} style={{
       background: v2 ? '#F4F1EB' : `linear-gradient(135deg, ${ACCENT_PASTEL}50, rgba(255,255,255,0.25))`,
       border: '1px solid rgba(255,255,255,0.6)',
     }}>
       <div className="text-[11.5px]" style={{ color: TEXT, lineHeight: 1.55 }}>
-        Esto son <strong>proporciones con tus ingredientes registrados</strong> — lo que ya comes, en las cantidades que cuadran tu meta.
-        Aparte, está el <strong>Recetario</strong>: platos completos con su paso a paso, algunos con estos mismos ingredientes y otros con ingredientes distintos.
+        {larga ? <>
+          Esto son <strong>proporciones con tus ingredientes registrados</strong> — lo que ya comes, en las cantidades que cuadran tu meta.
+          Aparte, está el <strong>Recetario</strong>: platos completos con su paso a paso, algunos con estos mismos ingredientes y otros con ingredientes distintos.
+        </> : <>Proporciones con lo que ya comes. Para platos completos, el <strong>Recetario</strong>.</>}
       </div>
       <div className="mt-2.5 flex items-center gap-2 flex-wrap">
         {query && <BotonRecetario v2={v2} label="Recetas con esto" onClick={() => onAbrir({ query })} />}

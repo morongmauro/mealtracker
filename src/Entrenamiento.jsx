@@ -615,6 +615,15 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const [datos, setDatos] = useState(() => leerRutinaLocal(almacen, rutinaId));
   const [sinRed, setSinRed] = useState(false);     // se abrió con la copia del teléfono
   const [sesion, setSesion] = useState(null);
+  const [reabriendo, setReabriendo] = useState(false);
+  const reabrir = async () => {
+    if (!sesion) return;
+    setReabriendo(true);
+    try {
+      const r = await entrenoApi.reabrir(name, rutinaId, sesion.fecha);
+      if (r && r.ok) setSesion(s => ({ ...s, estado: 'en_curso', finalizada_en: null }));
+    } finally { setReabriendo(false); }
+  };
   const [marcadas, setMarcadas] = useState(() => sobre({}, marcadasDeCola(name, rutinaId, hoyLocal())));   // "reId:serie" → { reps, peso }
   const [cargando, setCargando] = useState(() => !leerRutinaLocal(almacen, rutinaId));
   const [actualizando, setActualizando] = useState(true);
@@ -1060,6 +1069,18 @@ function VistaRutina({ name, rutinaId, onVolver }) {
 
       {datos.ejercicios.length === 0 && (
         <Tarjeta><Vacio texto="Esta rutina todavía no tiene ejercicios." /></Tarjeta>
+      )}
+
+      {/* Ya la terminó hace poco (menos de 3 h) y volvió a entrar: puede
+          reabrirla para corregir (desmarcar lo que no hizo, cerrarla otra
+          vez o dejarla como «no pude»). Nada se borra. */}
+      {sesion && sesion.estado === 'completada' && sesion.finalizada_en && Date.now() - Date.parse(sesion.finalizada_en) < 3 * 60 * 60 * 1000 && (
+        <div data-ya-terminada style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: '#FFFFFF', borderRadius: 16, padding: '11px 14px', marginBottom: 12, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)' }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: TEXT_MUTED, lineHeight: 1.35 }}>Ya la terminaste. ¿Te equivocaste al cerrarla?</span>
+          <button data-reabrir disabled={reabriendo} onClick={reabrir} style={{ border: 'none', borderRadius: 999, padding: '8px 14px', background: '#1D1D1F', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: reabriendo ? 0.6 : 1 }}>
+            {reabriendo ? 'Reabriendo…' : 'Reabrir la rutina'}
+          </button>
+        </div>
       )}
 
       {/* Un circuito de 3 vueltas se recorre A→B→A→B→A→B, no A tres veces y

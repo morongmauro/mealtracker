@@ -41,6 +41,8 @@ export const api = {
   abrir:  (name, rutina_id, { crear = true, fecha } = {}) => pedir({ accion: 'abrir', name, rutina_id, crear, fecha }),
   serie:  (name, datos)     => pedir({ accion: 'serie', name, ...datos }),
   cerrar: (name, datos)     => pedir({ accion: 'cerrar', name, ...datos }),
+  // Deshacer el «Terminar» de hoy (3 h): la sesión vuelve a en curso con sus series.
+  reabrir: (name, rutina_id, fecha) => pedir({ accion: 'reabrir', name, rutina_id, fecha }),
   actividad:       (name, datos) => pedir({ accion: 'actividad', name, ...datos }),
   borrarActividad: (name, id)    => pedir({ accion: 'borrar_actividad', name, id }),
   // Mover una rutina a otro día (solo esa fecha; si el destino tenía rutina, se intercambian).

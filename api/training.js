@@ -121,6 +121,7 @@ export default async function handler(req, res) {
     if (!esGet && accion === 'abrir') return res.status(200).json(await abrirSesion(cliente, cuerpo, hoy));
     if (!esGet && accion === 'serie') return res.status(200).json(await guardarSerie(cliente, cuerpo));
     if (!esGet && accion === 'cerrar') return res.status(200).json(await cerrarSesion(cliente, cuerpo));
+    if (!esGet && accion === 'reabrir') return res.status(200).json(await reabrirSesion(cliente, cuerpo, hoy));
     if (!esGet && accion === 'registrar') return res.status(200).json(await registrarEvento(cliente, cuerpo, hoy));
     if (!esGet && accion === 'mover') return res.status(200).json(await moverRutina(cliente, cuerpo, hoy));
     if (!esGet && accion === 'agregar_rutina') return res.status(200).json(await agregarRutina(cliente, cuerpo, hoy));
@@ -647,7 +648,7 @@ async function abrirSesion(cliente, cuerpo, hoy) {
   const fecha = (/^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || ''))
     && cuerpo.fecha <= hoy && cuerpo.fecha >= sumarDiasISO(hoy, -1)) ? cuerpo.fecha : hoy;
 
-  const ya = await sb(`sesiones?select=id,estado,rpe,notas_cliente&cliente_id=eq.${cliente.id}`
+  const ya = await sb(`sesiones?select=id,estado,rpe,notas_cliente,fecha,finalizada_en&cliente_id=eq.${cliente.id}`
     + `&rutina_id=eq.${rutina.id}&fecha=eq.${fecha}&limit=1`);
   if (Array.isArray(ya) && ya[0]) {
     // Solo las series que siguen marcadas. Una serie desmarcada se queda en la
@@ -685,6 +686,35 @@ async function abrirSesion(cliente, cuerpo, hoy) {
 }
 
 // Que la sesión sea suya antes de escribirle nada.
+// ¿Se puede deshacer el «Terminar»? Solo hoy y dentro de las 3 horas
+// siguientes al cierre: después, lo que marcó ya es historia.
+const REABRIR_MS = 3 * 60 * 60 * 1000;
+export const esReabrible = (s, ahora = Date.now()) => !!(s && s.finalizada_en && ahora - Date.parse(s.finalizada_en) < REABRIR_MS);
+
+// REABRIR: el cliente terminó la rutina por error (un toque de más, o la
+// cerró sin querer) y quiere volver a ella. La sesión vuelve a «en curso»
+// con todas sus series: desde la rutina puede desmarcar lo que no hizo y
+// cerrarla otra vez (o dejarla como «no pude entrenar»). Nada se borra.
+export async function reabrirSesion(cliente, cuerpo, hoy) {
+  const rutinaId = cuerpo.rutina_id;
+  if (!rutinaId) return { ok: false, motivo: 'sin_id' };
+  // La misma regla de fechas que al abrir: hoy, o ayer (la rutina del lunes
+  // que abrió desde «Tu semana» el martes queda fechada el lunes).
+  const fecha = (/^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || ''))
+    && cuerpo.fecha <= hoy && cuerpo.fecha >= sumarDiasISO(hoy, -1)) ? cuerpo.fecha : hoy;
+  const ya = await sb(`sesiones?select=id,estado,finalizada_en&cliente_id=eq.${cliente.id}`
+    + `&rutina_id=eq.${encodeURIComponent(rutinaId)}&fecha=eq.${fecha}&limit=1`);
+  const s = Array.isArray(ya) ? ya[0] : null;
+  if (!s) return { ok: false, motivo: 'no_hay' };
+  if (s.estado !== 'completada') return { ok: true, sesion_id: s.id, ya_abierta: true };
+  if (!esReabrible(s)) return { ok: false, motivo: 'tarde' };
+  await sb(`sesiones?id=eq.${s.id}&estado=eq.completada`, {
+    method: 'PATCH',
+    body: JSON.stringify({ estado: 'en_curso', finalizada_en: null, duracion_seg: null, rpe: null, cerrada_auto: false }),
+  });
+  return { ok: true, sesion_id: s.id };
+}
+
 async function sesionPropia(clienteId, sesionId) {
   if (!sesionId) return null;
   const s = await sb(`sesiones?select=id,cliente_id,rutina_id,iniciada_en&id=eq.${encodeURIComponent(sesionId)}&cliente_id=eq.${clienteId}&limit=1`);
@@ -859,7 +889,7 @@ async function verMes(cliente, ym, hoy) {
   // Las tres cosas que pasaron, en paralelo: tres viajes encadenados por un
   // mes se notan en el teléfono.
   const [ses, act, evs, regs, catalogo, hechoAct] = await Promise.all([
-    sb(`sesiones?select=id,rutina_id,fecha,estado,rpe,duracion_seg`
+    sb(`sesiones?select=id,rutina_id,fecha,estado,rpe,duracion_seg,finalizada_en`
       + `&cliente_id=eq.${cliente.id}&fecha=gte.${primero}&fecha=lte.${ultimo}`),
     sb(`actividades?select=id,fecha,tipo,titulo,duracion_min,distancia_km,intensidad`
       + `&cliente_id=eq.${cliente.id}&fecha=gte.${primero}&fecha=lte.${ultimo}`).catch(() => []),
@@ -925,6 +955,8 @@ async function verMes(cliente, ym, hoy) {
       extra: dentro && !!rutinaDe.extraDelCliente && rutinaDe.extraDelCliente(fecha),
       fija: dentro && !!rutinaDe.extra && rutinaDe.extra(fecha) && !rutinaDe.extraDelCliente(fecha),
       estado: s ? s.estado : null,          // completada | saltada | en_curso | null
+      // La cerró hace poco (hoy, menos de 3 h): puede reabrirla si se equivocó.
+      reabrible: !!(s && s.estado === 'completada' && esReabrible(s)),
       rpe: s ? s.rpe : (otra ? otra.rpe : null),
       hecho: otra ? { id: otra.rutina_id, nombre: nombreRutina[otra.rutina_id] || 'Entreno', corto: nombreCorto(nombreRutina[otra.rutina_id] || 'Entreno') } : null,
       inicio_ciclo: !!fase?.fecha_inicio && fecha === fase.fecha_inicio,

@@ -204,10 +204,12 @@ const espera = (ms) => new Promise(r => setTimeout(r, ms));
 // `aviso`: dejar que salga el aviso de «hoy te toca registrar» al abrir. Por
 // defecto se da por visto (si no, tapa todo lo que se prueba después).
 // `nube`: lo que tiene su cuenta en la nube (y la app con la nube aceptada).
-async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null, instalada = false, verComo = null, bitacora = null } = {}) {
+async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null, instalada = false, verComo = null, bitacora = null, ua = null, instalable = false } = {}) {
   const db = base();
   globalThis.fetch = db.fetch;
-  const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota' });
+  const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota', ...(ua ? { userAgent: ua } : {}) });
+  // `instalable`: el navegador ya ofreció su instalador (beforeinstallprompt).
+  if (instalable) await ctx.addInitScript(() => { window.__pwaPrompt = { prompt() { window.__pwaPrompted = true; }, userChoice: new Promise(() => {}) }; });
   await ctx.clock.setFixedTime(new DateReal(FIJO));
   const p = await ctx.newPage();
   const errores = [];
@@ -355,6 +357,24 @@ try {
     console.log('errores', pv.errores.slice(0, 3));
     await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
   }
+  // INSTALAR=1: las fotos de «Instala la app» en un Android (Dash, Ajustes y la hoja).
+  if (process.env.INSTALAR) {
+    const ANDROID = 'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36';
+    const pv = await abrir('Mauro Morón', { caliente: true, ua: ANDROID, instalable: true });
+    await pv.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
+    await espera(2500);
+    await pv.p.screenshot({ path: path.join(CAPTURAS, 'instalar-1-dash.png') });
+    await pv.p.locator('[data-view="dash"] [data-abrir-config]').click();
+    await pv.p.locator('[data-config="instalar"]').waitFor({ timeout: 5000 });
+    await espera(600);
+    await pv.p.screenshot({ path: path.join(CAPTURAS, 'instalar-2-ajustes.png') });
+    await pv.p.locator('[data-config="instalar"]').click();
+    await pv.p.locator('[data-instalar-app] [data-instalar]').waitFor({ timeout: 5000 });
+    await espera(600);
+    await pv.p.screenshot({ path: path.join(CAPTURAS, 'instalar-3-hoja.png') });
+    console.log('errores', pv.errores.slice(0, 3));
+    await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
   // ── Mauro ──
   const { p, ctx, errores, db } = await abrir('Mauro Morón', { aviso: true });
   await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
@@ -460,6 +480,9 @@ try {
     && /HOY · 0 de 4/.test(txtHoy) && /Registrar tu peso/.test(txtHoy) && /Enviar tus fotos/.test(txtHoy) && /Registrar lo que comiste/.test(txtHoy)
     && !/Sobre el programa|cápsula|video/i.test(txtHoy), txtHoy);
   await verTodos.click(); await espera(250);
+  ok('Dash HOY: los íconos son de línea, sin círculo de fondo (no parecen botones)', await dash.locator('[data-icono-hoy]').count() >= 1
+    && await dash.locator('[data-icono-hoy]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)' && !!el.querySelector('svg')));
+  ok('Dash: «Profundiza» un tono más oscuro que los bloques crema', await dash.getByRole('button', { name: /Profundiza/ }).first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(235, 230, 220)'));
   ok('Dash: «Ver todo» despliega el resto (programa, cápsulas, videos)', (await dash.locator('[data-recordatorio]').count()) > nRec
     && /Sobre el programa|cápsula|video/i.test(await dash.locator('[data-recordatorios-dash]').innerText()));
   await verTodos.click(); await espera(150);
@@ -1513,6 +1536,18 @@ try {
   await espera(500);
   ok('fin: «Seguir» vuelve a Hoy', (await fin.count()) === 0 && (await recuerdo.count()) === 0 && await n.p.locator('[data-cabecera-hoy="entreno"]').isVisible());
   ok('fin: la cabecera ya dice que entrenó hoy… o lo que sigue', (await n.p.locator('[data-cabecera-hoy="entreno"] [data-frase]').innerText()).length > 5);
+  // Se equivocó al terminar: vuelve a entrar a esa rutina y «Reabrir» la deja en curso con lo marcado (solo 3 h).
+  await n.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+  await n.p.locator('[data-reabrir]').waitFor({ timeout: 8000 });
+  ok('fin: al volver a la rutina terminada sale «Ya la terminaste. ¿Te equivocaste al cerrarla?» con Reabrir', /Ya la terminaste/.test(await n.p.locator('[data-ya-terminada]').innerText()));
+  await n.p.locator('[data-reabrir]').click();
+  await espera(800);
+  {
+    // Lo marcado: una serie con «Deshacer», o el ejercicio ya plegado («1 serie · hecho»).
+    const franja = await n.p.locator('[data-ya-terminada]').count(), deshacer = (await n.p.getByRole('button', { name: /^Deshacer serie/ }).count()) + (await n.p.getByText(/series? · hecho/).count());
+    const enCurso = n.db.db.sesiones.some(s => s.estado === 'en_curso' && !s.finalizada_en), series = n.db.db.series_log.filter(x => x.completada !== false).length;
+    ok('reabrir: la franja se va, las series siguen marcadas y la sesión queda en curso (nada se borra)', franja === 0 && deshacer >= 1 && enCurso && series >= 1, `franja ${franja} · deshacer ${deshacer} · enCurso ${enCurso} · series ${series}`);
+  }
   ok('sin errores de JavaScript (375 y fin de entreno)', n.errores.length === 0, n.errores.join(' | '));
   await n.ctx.close();
 

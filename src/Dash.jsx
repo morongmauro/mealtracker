@@ -199,7 +199,8 @@ function Profundiza({ children, onClick, color }) {
   return (
     <button onClick={onClick} style={{
       marginTop: 14, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      background: CREMA, border: 'none', borderRadius: 16, padding: '13px 14px 13px 16px', cursor: 'pointer',
+      // Un tono más oscuro que la crema de los bloques: se lee como botón.
+      background: '#EBE6DC', border: 'none', borderRadius: 16, padding: '13px 14px 13px 16px', cursor: 'pointer',
       fontFamily: 'inherit', fontSize: 15, fontWeight: 650, color: TEXT, textAlign: 'left',
     }}>
       <span>{children}</span>
@@ -1211,7 +1212,8 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
       ) : it.marcar ? (
         <button onClick={it.marcar} aria-label="Marcar como hecho" data-marcar style={{ width: 22, height: 22, flex: 'none', borderRadius: 99, border: `2px solid ${it.color}`, background: 'transparent', cursor: 'pointer', padding: 0 }} />
       ) : (
-        <span aria-hidden="true" style={{ width: 22, height: 22, flex: 'none', borderRadius: 99, background: `${it.color}1F`, color: it.color, display: 'grid', placeItems: 'center' }}><it.Icono size={13} weight="bold" /></span>
+        // Ícono de línea, sin círculo de fondo: con círculo parecía un botón.
+        <span aria-hidden="true" data-icono-hoy style={{ width: 22, height: 22, flex: 'none', color: it.color, display: 'grid', placeItems: 'center' }}><it.Icono size={19} weight="regular" /></span>
       )}
       <button onClick={it.ir || it.marcar || undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: '6px 4px 6px 0', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
         <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: TEXT, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: hecho ? 'line-through' : 'none' }}>{it.texto}</span>
