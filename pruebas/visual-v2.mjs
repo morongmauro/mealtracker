@@ -803,7 +803,7 @@ try {
   await espera(300);
   await foto(p, '04c-rutina-fuerza');
   // Marcar sin reps no marca: lleva el dedo a la cajita
-  await p.getByLabel('Peso serie 1').first().locator('xpath=ancestor::div[2]').getByRole('button').click();
+  await p.getByLabel('Peso serie 1').first().locator('xpath=ancestor::div[2]').getByRole('button', { name: /^Marcar serie/ }).click();
   ok('sin reps no se marca la serie', (await p.locator('[aria-label="Deshacer serie 1"]').count()) === 0);
   await p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
   await espera(300);
@@ -886,6 +886,29 @@ try {
   await foto(p, '04f-historial');
   await p.keyboard.press('Escape');
   await espera(300);
+  // Escribir no es hacer: con números sin marcar la fila queda en ámbar; un
+  // toque en lo de la última vez rellena las cajitas; al terminar se pregunta.
+  await banca.getByLabel('Repeticiones serie 2').fill('9'); await espera(200);
+  ok('serie con números sin marcar: el check queda en ámbar (toca para confirmar)', (await banca.locator('[data-serie="re-e1:2"]').getAttribute('data-escrita')) === '1'
+    && await banca.getByRole('button', { name: 'Marcar serie 2' }).evaluate(b => getComputedStyle(b).color === 'rgb(224, 162, 26)'));
+  await banca.locator('[data-serie="re-e1:3"] [data-serie-anterior]').click(); await espera(200);
+  ok('tocar lo de la última vez rellena reps y peso de esa serie (sin marcarla)', (await banca.getByLabel('Repeticiones serie 3').inputValue()) === '7'
+    && (await banca.getByLabel('Peso serie 3').inputValue()) === '157' && (await banca.getByRole('button', { name: 'Marcar serie 3' }).count()) === 1,
+    `${await banca.getByLabel('Repeticiones serie 3').inputValue()} / ${await banca.getByLabel('Peso serie 3').inputValue()}`);
+  await foto(p, '04f5-escritas-ambar');
+  await p.locator('[data-terminar]').click();
+  await p.locator('[data-escritas]').waitFor({ timeout: 5000 });
+  ok('al terminar: pregunta por las series escritas sin marcar, con sus números', /Quedaron 2 series con números sin marcar/.test(await p.locator('[data-escritas]').innerText())
+    && /Barbell Bench Press · serie 2 · 9/.test(await p.locator('[data-escritas]').innerText()) && /serie 3 · 7 × 157 lb/.test(await p.locator('[data-escritas]').innerText()),
+    await p.locator('[data-escritas]').innerText());
+  await foto(p, '04f6-escritas-cierre');
+  await p.locator('[data-escritas-marcar]').click(); await espera(500);
+  ok('«Marcarlas como hechas» las marca con lo escrito y el bloque desaparece', (await banca.getByRole('button', { name: 'Deshacer serie 2' }).count()) === 1
+    && (await banca.getByRole('button', { name: 'Deshacer serie 3' }).count()) === 1 && (await p.locator('[data-escritas]').count()) === 0
+    && /3 de 9 series marcadas|3 de \d+ series/.test(await p.locator('[data-enviar-coach]').locator('xpath=ancestor::div[2]').innerText()));
+  await p.mouse.click(20, 60); await espera(400);   // cerrar la hoja (tocar fuera)
+  await banca.getByRole('button', { name: 'Deshacer serie 2' }).click(); await espera(200);
+  await banca.getByRole('button', { name: 'Deshacer serie 3' }).click(); await espera(200);
   // El descanso sale tras CUALQUIER serie: también la última y aunque se
   // marque fuera de orden (antes, a veces salía y a veces no).
   await p.locator('[data-descanso]').count() && await p.locator('[data-descanso]').getByRole('button', { name: /Saltar|Cerrar/ }).click();

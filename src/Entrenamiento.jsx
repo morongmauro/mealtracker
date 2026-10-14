@@ -8,7 +8,7 @@ import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, fijarClaveTecleado, borrarTecleado } from './entrenoDatos.js';
+import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, fijarClaveTecleado, borrarTecleado, leerTecleado } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
@@ -895,6 +895,32 @@ function VistaRutina({ name, rutinaId, onVolver }) {
   const totalSeries = tramos.reduce((t, tr) => t + tr.vueltas.length
     * tr.vueltas[0].reduce((a, re) => a + (tr.vueltas.length > 1 ? 1 : Math.max(1, re.series || 1)), 0), 0);
   const hechas = Object.keys(marcadas).length;
+  // Series con números escritos pero sin marcar. Escribir no es hacer: nunca
+  // se marcan solas; al terminar se pregunta qué hacer con ellas.
+  const escritas = [];
+  tramos.forEach(tr => {
+    tr.vueltas[0].forEach(re => {
+      const ns = tr.vueltas.length > 1 ? tr.vueltas.map((_, vi) => vi + 1) : Array.from({ length: Math.max(1, re.series || 1) }, (_, k) => k + 1);
+      ns.forEach(n => {
+        if (marcadas[`${re.id}:${n}`]) return;
+        const t = leerTecleado(`${re.id}:${n}`);
+        if (t && (String(t.reps || '').trim() || String(t.peso || '').trim())) escritas.push({ re, n, reps: numero(t.reps), peso: numero(t.peso), unidad: unidadDe(re) });
+      });
+    });
+  });
+  // Marcarlas con lo escrito (las que tienen reps; sin reps no hay serie) o ir a revisarlas.
+  const marcarEscritas = () => { escritas.filter(e => e.reps != null).forEach(e => marcar(e.re, e.n, e.reps, e.peso, null, e.unidad)); };
+  const revisarEscritas = () => {
+    setCerrandoHoja(false);
+    const e = escritas[0];
+    setTimeout(() => {
+      const el = e && document.querySelector(`[data-serie="${e.re.id}:${e.n}"]`);
+      if (!el) return;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.style.transition = 'box-shadow .3s'; el.style.boxShadow = '0 0 0 2px #E0A21A';
+      setTimeout(() => { el.style.boxShadow = ''; }, 2500);
+    }, 60);
+  };
   const EjercicioX = v2 ? EjercicioV2 : Ejercicio;
   // Los tres momentos de la rutina y cuánto va hecho de cada uno.
   const fases = v2 ? fasesDeTramos(tramos) : tramos.map(() => null);
@@ -1125,6 +1151,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       {cerrandoHoja && (
         <HojaCierre
           hechas={hechas} total={totalSeries} guardando={cerrando} error={errorCierre}
+          escritas={escritas} onMarcarEscritas={marcarEscritas} onRevisar={revisarEscritas}
           onCancelar={() => { if (!cerrando) setCerrandoHoja(false); }}
           onCerrar={(rpe, nota) => cerrar('completada', rpe, nota)}
           onSaltar={(nota) => cerrar('saltada', null, nota)}
@@ -1656,9 +1683,12 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descan
 //
 // La nota va debajo y sin obligar. En la práctica "me molestó el hombro en la
 // última serie" le sirve al coach más que el número.
-function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, error }) {
+function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, error, escritas = [], onMarcarEscritas, onRevisar }) {
   const [rpe, setRpe] = useState(null);
   const [nota, setNota] = useState('');
+  // Lo escrito sin marcar: se resuelve aquí (marcar, revisar o dejar sin contar).
+  const [resueltas, setResueltas] = useState(false);
+  const conReps = escritas.filter(e => e.reps != null).length;
 
   return (
     <div style={{
@@ -1687,6 +1717,31 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
             ? `${Math.min(hechas, total)} de ${total} series marcadas${hechas < total ? '. No pasa nada si no completaste todo.' : ''}`
             : 'Si hoy no pudiste entrenar, díselo a tu coach. Cuenta como día saltado, no como entreno.'}
         </div>
+
+        {escritas.length > 0 && !resueltas && (
+          <div data-escritas style={{ marginTop: 16, padding: '12px 13px', borderRadius: 14, background: '#FFF6E0' }}>
+            <div style={{ fontSize: 14.5, fontWeight: 800, color: TEXT }}>
+              {escritas.length === 1 ? 'Quedó 1 serie con números sin marcar' : `Quedaron ${escritas.length} series con números sin marcar`}
+            </div>
+            <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 4, lineHeight: 1.45 }}>
+              {escritas.slice(0, 4).map(e => `${nombresEj(e.re.ejercicio).grande} · serie ${e.n} · ${e.reps != null ? e.reps : '—'}${e.peso != null ? ` × ${String(e.peso).replace('.', ',')} ${e.unidad}` : ''}${e.reps == null ? ' · falta reps' : ''}`).join('  ·  ')}
+              {escritas.length > 4 ? ' …' : ''}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              {conReps > 0 && (
+                <button data-escritas-marcar onClick={() => { onMarcarEscritas && onMarcarEscritas(); setResueltas(true); }} style={{
+                  flex: '1 1 auto', height: 42, borderRadius: 12, border: 0, background: '#1D1D1F', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 750, cursor: 'pointer', padding: '0 14px',
+                }}>Marcarlas como hechas{conReps < escritas.length ? ` (${conReps})` : ''}</button>
+              )}
+              <button data-escritas-revisar onClick={onRevisar} style={{
+                flex: '1 1 auto', height: 42, borderRadius: 12, border: `1.5px solid ${BORDER}`, background: 'transparent', color: TEXT, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer', padding: '0 14px',
+              }}>Revisarlas</button>
+              <button data-escritas-dejar onClick={() => setResueltas(true)} style={{
+                flex: '1 1 100%', height: 36, borderRadius: 12, border: 0, background: 'transparent', color: TEXT_MUTED, fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              }}>Dejarlas sin contar</button>
+            </div>
+          </div>
+        )}
 
         {hechas > 0 && <>
         <div style={{

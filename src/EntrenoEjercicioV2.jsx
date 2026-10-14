@@ -362,6 +362,13 @@ const CAJA = { flex: '1 1 0', minWidth: 0 };
 const ANCHO_ULTIMA = 84;
 const hayUltima = (re) => !!(re?.ultima_vez?.series || []).length;
 // Lo que hizo en ESTA serie la última vez, en gris: «10 × 20 kg».
+// Los números de ESA serie la última vez, en la unidad de hoy (para rellenar
+// las cajitas con un toque). Rellenar no es marcar: el check sigue siendo suyo.
+export function valoresSerieAnterior(re, n, unidad = 'kg') {
+  const x = (re?.ultima_vez?.series || []).find(s => Number(s.serie) === Number(n));
+  if (!x || (x.reps == null && !(Number(x.peso) > 0))) return null;
+  return { reps: x.reps != null ? Number(x.reps) : null, peso: Number(x.peso) > 0 ? convertir(x.peso, x.unidad || 'kg', unidad) : null };
+}
 export function textoSerieAnterior(re, n, unidad = 'kg', soloReps = false) {
   const x = (re?.ultima_vez?.series || []).find(s => Number(s.serie) === Number(n));
   if (!x || (x.reps == null && !x.peso)) return null;
@@ -637,6 +644,18 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   const repsRef = useRef(null);
   const hecha = !!marcada;
   const anterior = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps);
+  // Escribir no es hacer: con números y sin check, la fila queda en ámbar
+  // («toca para confirmar») y al terminar la rutina se pregunta por ellas.
+  const escrita = !hecha && !sinCarga && !!(String(reps).trim() || String(peso).trim());
+  // Un toque en lo de la última vez rellena las cajitas (sin marcar).
+  const rellenar = () => {
+    const v = valoresSerieAnterior(re, n, unidad);
+    if (!v || hecha) return;
+    if (v.reps != null) setReps(String(v.reps));
+    if (!soloReps && v.peso != null) setPeso(coma(v.peso));
+    if (falta) setFalta(false);
+    vibrar(8);
+  };
   useEffect(() => { asegurarCSS(); }, []);
   const celebrar = () => { setPop(p => p + 1); vibrar(12); };
 
@@ -698,7 +717,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   });
 
   return (
-    <div style={{
+    <div data-serie={idSerie} data-escrita={escrita ? '1' : undefined} style={{
       display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0',
       borderRadius: 14, position: 'relative', overflow: 'hidden',
     }}>
@@ -718,15 +737,25 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       )}
       {/* Lo que hizo en esta serie la última vez, en gris: de recordatorio. */}
       {!sinCarga && hayUltima(re) && (
-        <div data-serie-anterior style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#AEAEB2',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>
-          {anterior || ''}
-        </div>
+        anterior && !hecha ? (
+          <button type="button" data-serie-anterior onClick={rellenar} aria-label={`Usar lo de la última vez en la serie ${n}: ${anterior}`} style={{
+            width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#AEAEB2',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums',
+            border: 0, background: 'none', padding: 0, margin: 0, fontFamily: 'inherit', cursor: 'pointer',
+            textDecoration: 'underline dotted', textDecorationColor: '#C7C7CC', textUnderlineOffset: 3,
+          }}>{anterior}</button>
+        ) : (
+          <div data-serie-anterior style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#AEAEB2',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>
+            {anterior || ''}
+          </div>
+        )
       )}
-      <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
+      <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`}
+        title={escrita ? 'Toca para confirmar la serie' : undefined} style={{
         flex: 'none', width: 34, height: 34, borderRadius: 99, cursor: 'pointer', border: 'none',
-        background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
-        color: hecha ? AMARILLO : '#C7C7CC', display: 'grid', placeItems: 'center',
+        background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : `inset 0 0 0 1.6px ${escrita ? '#E0A21A' : '#D1D1D6'}`,
+        color: hecha ? AMARILLO : escrita ? '#E0A21A' : '#C7C7CC', display: 'grid', placeItems: 'center',
       }}><Check size={16} weight="bold" /></button>
     </div>
   );
