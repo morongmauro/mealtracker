@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
+import { useCapaActiva } from './capaActiva.js';
 
 export const REJILLA = '#E7E3D9';
 const TARJETA = '#FFFFFF';
@@ -85,6 +86,9 @@ export function Globo({ x, ancho, texto }) {
 export function Columnas({ datos, color, alto = 128, marca, etiquetaX, textoValor, maximo, tope }) {
   const [ref, ancho] = useAncho();
   const [sel, setSel] = useState(null);
+  // Las barras crecen desde el piso al aparecer (y cada vez que la sección
+  // vuelve al frente), como los aros.
+  const crece = useDesdeCero(1, 80);
   const arriba = 26, abajo = 20, izq = 26;
   const alturaUtil = alto - arriba - abajo;
   const max = Math.max(1, maximo || 0, ...datos.map(d => d.valor || 0), ...datos.map(d => (marca ? marca(d) : 0) || 0));
@@ -115,7 +119,8 @@ export function Columnas({ datos, color, alto = 128, marca, etiquetaX, textoValo
               <rect x={cx - paso / 2} y={arriba - 6} width={paso} height={alturaUtil + 6} fill="transparent" />
               {v > 0 && (
                 <path d={`M${x0},${y(0)} V${y0 + r} Q${x0},${y0} ${x0 + r},${y0} H${x0 + barra - r} Q${x0 + barra},${y0} ${x0 + barra},${y0 + r} V${y(0)} Z`}
-                  fill={color} opacity={(sel == null ? i === datos.length - 1 : sel === i) ? 1 : 0.42} />
+                  fill={color} opacity={(sel == null ? i === datos.length - 1 : sel === i) ? 1 : 0.42}
+                  style={{ transform: `scaleY(${crece})`, transformBox: 'fill-box', transformOrigin: '50% 100%', transition: `transform .9s cubic-bezier(.22,.8,.24,1) ${Math.min(i * 25, 400)}ms` }} />
               )}
               {meta > 0 && (
                 <line x1={cx - barra / 2 - 3} x2={cx + barra / 2 + 3} y1={y(meta)} y2={y(meta)} stroke={TEXT} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
@@ -149,13 +154,19 @@ const RIEL = '#F4F1EB';
 const sinMovimiento = () => typeof window !== 'undefined' && window.matchMedia
   && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Arranca en cero y sube a su valor. Y cada vez que la sección vuelve al
+// frente (ver capaActiva.js) vuelve a cero mientras está escondida y se llena
+// de nuevo al aparecer: las gráficas de todos los módulos se «despliegan» al
+// navegar, aunque la sección siga montada por detrás.
 export function useDesdeCero(valor, retardo = 60) {
+  const activa = useCapaActiva();
   const [v, setV] = useState(() => (sinMovimiento() ? valor : 0));
   useEffect(() => {
     if (sinMovimiento()) { setV(valor); return; }
+    if (!activa) { setV(0); return; }
     const t = setTimeout(() => setV(valor), retardo);
     return () => clearTimeout(t);
-  }, [valor, retardo]);
+  }, [valor, retardo, activa]);
   return v;
 }
 

@@ -43,18 +43,30 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
   // ── El cristal que viaja entre secciones (como la barra de iOS 26) ──
   // Al cambiar de sección, el cristal teñido se despega de donde estaba, se
   // estira al arrancar, se recoge a mitad de camino como una gota, pasa su
-  // tinte al color de la nueva sección y se abre con sus opciones. Mientras
-  // tanto la barra crece un 3,5 % y vuelve. Solo cambian left/width/color de
-  // un elemento chico y la escala de la barra: nada que trabe el teléfono.
+  // tinte al color de la nueva sección y se abre con sus opciones. Todo con
+  // transform y opacity (compositor): nada que trabe ni tiemble.
   useLayoutEffect(() => {
     const nav = navRef.current, g = grupoRef.current, lente = lenteRef.current;
     if (!nav || !g) return undefined;
     const nr = nav.getBoundingClientRect(), gr = g.getBoundingClientRect();
     const c = seccion === 'dash' ? DASH_AZUL : (SECCION[seccion] || DASH_AZUL);
-    const ahora = { seccion, left: gr.left - nr.left, width: gr.width, tint: c.tint };
+    // Dónde queda cada botón cerrado: con el cambio de sección se recolocan,
+    // y en vez de saltar a su sitio nuevo se deslizan desde el viejo.
+    const botones = {};
+    nav.querySelectorAll('[data-seccion-boton]').forEach(b => { botones[b.getAttribute('data-seccion-boton')] = b.getBoundingClientRect().left - nr.left; });
+    const ahora = { seccion, left: gr.left - nr.left, width: gr.width, tint: c.tint, botones };
     const prev = antes.current;
     antes.current = ahora;
     if (!prev || prev.seccion === seccion || !lente || sinMovimiento() || typeof lente.animate !== 'function') return undefined;
+    // Lo que quedó de un viaje anterior se cancela antes de empezar otro.
+    [lente, ...lente.children].forEach(el => { if (el.getAnimations) el.getAnimations().forEach(a => a.cancel()); });
+    Object.keys(ahora.botones).forEach(id => {
+      const b = nav.querySelector(`[data-seccion-boton="${id}"]`);
+      const antesX = prev.botones && prev.botones[id];
+      if (!b || antesX == null || !b.animate || id === prev.seccion) return;
+      const dx = antesX - ahora.botones[id];
+      if (Math.abs(dx) > 0.5) b.animate([{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: VIAJE_MS, easing: CURVA });
+    });
     const dir = ahora.left > prev.left ? 1 : -1;
     const centroA = prev.left + prev.width / 2, centroB = ahora.left + ahora.width / 2;
     const medio = (centroA + centroB) / 2;
@@ -80,8 +92,8 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
     ], { duration: VIAJE_MS, easing: 'linear', fill: 'forwards' });
     if (viejo && viejo.animate) viejo.animate([{ opacity: 1 }, { opacity: 1, offset: .35 }, { opacity: 0, offset: .7 }, { opacity: 0 }], { duration: VIAJE_MS, easing: 'linear', fill: 'forwards' });
     if (nuevoTinte && nuevoTinte.animate) nuevoTinte.animate([{ opacity: 0 }, { opacity: 0, offset: .35 }, { opacity: 1, offset: .7 }, { opacity: 1 }], { duration: VIAJE_MS, easing: 'linear', fill: 'forwards' });
-    // La barra respira: crece apenas mientras la gota viaja.
-    nav.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.035)', offset: .45 }, { transform: 'scale(1)' }], { duration: VIAJE_MS, easing: CURVA });
+    // (La barra ya no «respira»: escalar el cristal obliga a recalcular el
+    // desenfoque de lo de atrás en cada cuadro y el tinte temblaba.)
     // Las opciones de la sección nueva aparecen cuando la gota ya llegó; la
     // sección que se cerró vuelve a su ícono mientras la gota se aleja.
     g.animate([{ opacity: 0 }, { opacity: 0, offset: .3 }, { opacity: 1, offset: .8 }, { opacity: 1 }], { duration: VIAJE_MS, easing: 'linear' });
@@ -95,7 +107,15 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
     return () => { vivo = false; };
   }, [seccion]);
 
-  useLayoutEffect(() => { if (!viajando && lenteRef.current) lenteRef.current.style.opacity = '0'; }, [viajando]);
+  // Al llegar: el tinte del grupo ya está pintado debajo (mismo color), y la
+  // gota se funde encima en 0,16 s. Nada aparece ni se apaga de golpe.
+  useLayoutEffect(() => {
+    const lente = lenteRef.current;
+    if (viajando || !lente || lente.style.opacity === '0') return;
+    if (!lente.animate) { lente.style.opacity = '0'; return; }
+    const a = lente.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'ease-out', fill: 'forwards' });
+    a.onfinish = () => { lente.style.opacity = '0'; try { a.cancel(); } catch (e) {} };
+  }, [viajando]);
 
   // ── La pastilla blanca viaja entre las opciones de la misma sección ──
   useLayoutEffect(() => {
@@ -148,8 +168,6 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
         }
         .bv2-grupo { scrollbar-width: none; }
         .bv2-grupo::-webkit-scrollbar { display: none; }
-        @keyframes bv2Abre { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
-        .bv2-abre { animation: bv2Abre .26s cubic-bezier(.2,.7,.2,1); }
         .bv2-btn { -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform .12s ease, background-color .2s ease, color .2s ease; }
         .bv2-btn:active { transform: scale(.94); }
         .bv2-lente { position: absolute; top: 5px; height: 48px; border-radius: 999px; pointer-events: none; opacity: 0; overflow: hidden; will-change: transform; }
@@ -198,7 +216,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
           const sinSubs = !(s.subs && s.subs.length);
           const subs = sinSubs ? [{ id: '_', label: NOMBRE_SECCION[s.id], icono: Icono }] : s.subs;
           return (
-            <div key={s.id} ref={grupoRef} className="bv2-grupo bv2-abre" role="group" aria-label={NOMBRE_SECCION[s.id]}
+            <div key={s.id} ref={grupoRef} className="bv2-grupo" role="group" aria-label={NOMBRE_SECCION[s.id]}
               style={{
                 flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 2,
                 // Mientras el cristal viaja, el tinte lo pone la lente.

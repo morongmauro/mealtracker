@@ -24,7 +24,7 @@ import { TEXT, TEXT_MUTED } from './theme.js';
 import ObjetoCabecera, { CAJA } from './ObjetoCabecera.jsx';
 import { AnilloMarca } from './GraficasV2.jsx';
 import Blob from './Blob.jsx';
-import { useCapaActiva } from './capaActiva.js';
+import { CapaActiva, useCapaActiva } from './capaActiva.js';
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
@@ -57,6 +57,7 @@ const CSS = `
 [data-cabecera-hoy] .cab-texto > *:nth-child(3) { animation-delay: .12s }
 @keyframes cab-ilus { from { opacity: 0; transform: translate3d(14px, 6px, 0) rotate(-3deg) } to { opacity: 1; transform: none } }
 [data-cabecera-hoy] .cab-ilus { animation: cab-ilus .7s cubic-bezier(.2,.8,.2,1) both .08s; }
+[data-cabecera-hoy] [data-aro-grande] .cab-ilus { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   [data-cabecera-hoy] .cab-m, [data-cabecera-hoy] .cab-texto > *, [data-cabecera-hoy] .cab-ilus { animation: none !important; }
 }`;
@@ -115,9 +116,15 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   // el aro se vuelven a animar (se montan de nuevo).
   const enCapa = useCapaActiva();
   const activo = activoProp && enCapa;
+  // Cuántas veces ha estado al frente. El objeto entra con su animación SOLO
+  // la primera vez que se ve (después se queda quieto: repetirla en cada
+  // cambio de módulo cansaba); el blob nunca se mueve. El aro sí se vuelve a
+  // llenar cada vez (lo hace solo: ver useDesdeCero con la capa activa).
+  const veces = useRef(activo ? 1 : 0);
   const [vez, setVez] = useState(0);
   const antes = useRef(activo);
-  useEffect(() => { if (activo && !antes.current) setVez(v => v + 1); antes.current = activo; }, [activo]);
+  useEffect(() => { if (activo && !antes.current) { veces.current += 1; setVez(v => v + 1); } antes.current = activo; }, [activo]);
+  const objetoAnima = activo && veces.current <= 1;
   const t = TEMAS[tema] || TEMAS.entreno;
   // La ilustración de la sección va a la derecha, cortada por el borde de la
   // pantalla; el texto deja su espacio para no pasar por encima.
@@ -161,7 +168,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       // queda debajo del blob, en gris. Va arriba de la fila (no centrado con
       // la frase): así queda siempre en el mismo sitio, cruzando un poco la
       // banda de arriba, tenga la frase dos líneas o cuatro.
-      <div key={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', alignSelf: 'flex-start', width: 138, marginTop: -18, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none' }}>
+      <div data-vez={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', alignSelf: 'flex-start', width: 138, marginTop: -18, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none' }}>
         {/* Con `alTocar`, la gráfica es un botón: abre qué la compone. */}
         <div className="cab-ilus" data-aro-cabecera={tema} data-aro-tocar={aro.alTocar ? '1' : undefined}
           role={aro.alTocar ? 'button' : undefined} tabIndex={aro.alTocar ? 0 : undefined} aria-label={aro.alTocar ? `${aro.pie}: ${aro.centro}. Ver cómo se calcula` : undefined}
@@ -170,14 +177,16 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
           <div data-blob-cabecera style={{ position: 'relative', width: ARO_G.blob, height: ARO_G.blob }}>
             <Blob color={color} tam={ARO_G.blob} />
             <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+              <CapaActiva.Provider value={activo}>
               <AnilloMarca plano frac={aro.frac} color="#FFFFFF" punto={color} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.3)" etiqueta={aro.pie}>
                 <div style={{ display: 'grid', placeItems: 'center' }}>
                   <div style={{ position: 'relative', width: ARO_G.objAncho, height: ARO_G.objAlto }}>
-                    <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={activo} tono="tres" /></div>
+                    <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={objetoAnima} tono="tres" /></div>
                   </div>
                   <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
                 </div>
               </AnilloMarca>
+              </CapaActiva.Provider>
             </div>
           </div>
           {aro.pie && <div data-aro-pie style={{ marginTop: 8, fontSize: 11.5, fontWeight: 600, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.25 }}>{aro.pie}</div>}
@@ -225,7 +234,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
             // El objeto, metido en su espacio (mismo alto que el aro) y
             // centrado en él: igual en todas las cabeceras.
             position: 'absolute', right: lugar.derecha, top: `calc(${arriba} + ${lugar.arriba}px)`, width: lugar.lado, height: lugar.lado,
-          }}><ObjetoCabecera tema={tema} activo={activo} /></div>
+          }}><ObjetoCabecera tema={tema} activo={objetoAnima} /></div>
           {conAro && (
             <div className="cab-ilus" data-aro-cabecera={tema} data-aro-tocar={aro.alTocar ? '1' : undefined}
               role={aro.alTocar ? 'button' : undefined} onClick={aro.alTocar} style={{

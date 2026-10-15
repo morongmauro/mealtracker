@@ -95,8 +95,10 @@ Reglas:
   cambiar de sección el cristal teñido **viaja** (0,38 s): se despega, se
   recoge como una gota a mitad de camino, pasa su tinte al color de la nueva
   sección, llega y se abre con sus opciones (que van apareciendo desde la
-  mitad del viaje); la barra crece un 3,5 % y vuelve. Sin brillos ni
-  destellos sobre la gota. Entre opciones de la
+  mitad del viaje). La barra no crece ni «respira»: escalar el cristal hace
+  temblar lo desenfocado de atrás. Sin brillos ni destellos sobre la gota;
+  los botones cerrados se deslizan a su sitio nuevo, y al llegar la gota se
+  funde sobre el tinte del grupo (nunca aparece ni se apaga de golpe). Entre opciones de la
   misma sección, la pastilla blanca se desliza (0,26 s). El cristal es
   blanco al 60–48 % con desenfoque de 26 px: lo de atrás se adivina sin
   competir con la letra de la barra.
@@ -164,8 +166,11 @@ Reglas:
 - Todo respeta «reducir movimiento» del teléfono: sin animación, resultado
   final directo.
 - Lo quieto se queda quieto: el objeto de la cabecera entra con su animación
-  (cae, rebota, se abre) y después no flota ni respira. Nada se mueve
-  permanentemente en pantalla.
+  (cae, rebota, se abre) SOLO la primera vez que se ve; al volver a la
+  sección, el objeto y el blob están quietos (repetirlo en cada cambio de
+  módulo cansa). Las gráficas sí se despliegan cada vez que su sección
+  vuelve al frente: los aros se llenan y las columnas crecen desde el piso,
+  en todos los módulos.
 - La entrada: las manchas de la marca salen del centro, el blob blanco y el
   ícono se dibujan, y luego el blob **absorbe** las manchas: el fondo queda
   liso y adentro del blob se encienden los cuatro colores del ícono del

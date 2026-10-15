@@ -1258,7 +1258,9 @@ try {
   await espera(1200);
   await foto(p, '08-comida-hoy');
   ok('Comida: el blob junto a la frase, con el aguacate a tres tonos adentro del aro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
-  ok('Comida: al llegar a Alimentación, el plato se anima ahí (no escondido por debajo de otra sección)', await p.locator('[data-objeto-cabecera="comida"] img').first().evaluate(i => i.src.startsWith('blob:')));
+  // El objeto entra con su animación solo la PRIMERA vez que se ve; al volver
+  // a la sección se queda quieto (repetirla en cada cambio de módulo cansaba).
+  ok('Comida: al volver a Alimentación el plato se queda quieto (la animación fue la primera vez)', await p.locator('[data-objeto-cabecera="comida"] img').first().evaluate(i => !i.src.startsWith('blob:')));
   ok('Hoy de alimentación ya no saluda ni trae herramientas', (await p.getByText('Hola, Mauro').count()) === 0
     && (await p.getByText('Tus herramientas').count()) === 0);
   ok('Hoy de alimentación: la voz del coach según lo comido, sin personajes', await p.locator('[data-cabecera-hoy="comida"] [data-frase]').isVisible()
