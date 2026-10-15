@@ -102,8 +102,9 @@ const nombreParaFrase = (n) => {
 
 export function vozEntreno({ plan, hoy }) {
   const fase = plan && plan.fase;
-  // Solo el día: el «Semana 3 de 8» se quitó de todas las secciones.
-  const etiqueta = etiquetaDia(hoy);
+  // Sin etiqueta de fecha: el día ya se ve en el Dash; repetirlo en cada
+  // módulo sobra.
+  const etiqueta = undefined;
   if (!plan || !plan.ok || !fase) {
     return { etiqueta, a: 'Tu plan viene en camino.' };
   }
@@ -150,7 +151,8 @@ const VAS_BIEN = [
 // `hora` en 0–23. `kcal` lo comido hoy, `meta` la meta del día, `comidas`
 // cuántas registró hoy y `racha` los días seguidos registrando.
 export function vozComida({ hoy, hora, kcal = 0, meta = 0, comidas = 0, racha = 0 }) {
-  const etiqueta = etiquetaDia(hoy, racha >= 3 ? `${racha} días registrando` : '');
+  // Sin la fecha (ya está en el Dash); solo la racha, cuando la hay.
+  const etiqueta = racha >= 3 ? `${racha} días registrando`.toUpperCase() : undefined;
   if (!meta) return { etiqueta, a: 'Así va tu día.', b: delDia(V.sinMeta, hoy) };
   if (!comidas || kcal <= 0) {
     if (hora < 11) return { etiqueta, a: 'Buen día.', b: delDia(V.desayuno, hoy) };
@@ -177,7 +179,7 @@ const APRENDER = [
 
 // `avance`: undefined (cargando), null (sin datos) o { pct, vistas, total }.
 export function vozAprende({ hoy, avance, quedan = 0 }) {
-  const etiqueta = etiquetaDia(hoy);
+  const etiqueta = undefined; // la fecha solo va en el Dash
   if (!avance) return { etiqueta, a: 'Tu aprendizaje.', b: delDia(APRENDER, hoy, 4) };
   if (avance.total && avance.vistas >= avance.total && !quedan) {
     return { etiqueta, a: 'Ya viste todo.', b: 'Lo nuevo aparece aquí primero.' };

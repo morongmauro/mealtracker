@@ -709,10 +709,10 @@ try {
   await foto(p, '04-entreno-hoy');
   ok('Entreno: la gráfica grande junto a la frase, con la kettlebell tenue adentro', await ilusBien(p, 'entreno'));
   const cabE = p.locator('[data-cabecera-hoy="entreno"]');
-  ok('Hoy de entreno: la voz del coach (el día, la semana y la frase de hoy)', await cabE.locator('[data-frase]').isVisible()
-    && /^MARTES 29$/.test(await cabE.locator('[data-etiqueta]').innerText())
+  ok('Hoy de entreno: la voz del coach (la frase de hoy, sin repetir la fecha del Dash)', await cabE.locator('[data-frase]').isVisible()
+    && (await cabE.locator('[data-etiqueta]').count()) === 0
     && /^(Hoy toca|Hecho por hoy|Día de descanso|Hoy no te toca|Semana completa|Tienes un entreno)/.test(await cabE.locator('[data-frase]').innerText()),
-    `${await cabE.locator('[data-etiqueta]').innerText()} | ${await cabE.locator('[data-frase]').innerText()}`);
+    await cabE.locator('[data-frase]').innerText());
   ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);
   // El aro de entreno: rutinas hechas de las planeadas (1/3), «al día» o «N sin hacer», y se explica al tocarlo.
   ok('Entreno: el aro es el progreso de la semana (1/3) y dice si vas al día', /^1\/3$/.test(await cabE.locator('[data-aro-centro]').innerText())

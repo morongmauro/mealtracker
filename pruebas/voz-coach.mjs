@@ -23,8 +23,8 @@ function plan(hoy, cambios = {}) {
   };
 }
 
-caso('la etiqueta: día en mayúsculas y la semana de la fase', () => {
-  igual(vozEntreno({ plan: plan(MAR), hoy: MAR }).etiqueta, 'MARTES 29 · SEMANA 3 DE 8', 'etiqueta');
+caso('la etiqueta: el día solo en el Dash; los módulos no la repiten', () => {
+  igual(vozEntreno({ plan: plan(MAR), hoy: MAR }).etiqueta, undefined, 'etiqueta');
   igual(etiquetaDia('2026-10-02'), 'VIERNES 2', 'sin extra');
 });
 
@@ -78,7 +78,7 @@ caso('comida: según lo registrado y la hora', () => {
   igual(vozComida({ hoy: MAR, hora: 20, kcal: 1950, meta: 2000, comidas: 4 }).a, 'Día en tu meta.', 'en meta');
   igual(vozComida({ hoy: MAR, hora: 20, kcal: 2400, meta: 2000, comidas: 4 }).a, 'Hoy te pasaste un poco.', 'pasado');
   igual(vozComida({ hoy: MAR, hora: 9, meta: 0 }).a, 'Así va tu día.', 'sin meta');
-  igual(vozComida({ hoy: '2026-10-02', hora: 9, kcal: 0, meta: 2000, racha: 5 }).etiqueta, 'VIERNES 2 · 5 DÍAS REGISTRANDO', 'racha en la etiqueta');
+  igual(vozComida({ hoy: '2026-10-02', hora: 9, kcal: 0, meta: 2000, racha: 5 }).etiqueta, '5 DÍAS REGISTRANDO', 'racha en la etiqueta');
   igual(vozComida({ hoy: MAR, hora: 13, kcal: 12345.6, meta: 20000, comidas: 2 }).a, 'Te quedan 7.654 kcal.', 'miles con punto');
 });
 

@@ -129,7 +129,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       )}
       {voz ? (
         <h1 data-frase style={{
-          margin: '8px 0 0', fontSize: fondo ? (conAro ? 'clamp(20px, 5.5vw, 24px)' : 'clamp(24px, 6.8vw, 29px)') : 'clamp(27px, 7.6vw, 34px)', fontWeight: 800, lineHeight: 1.08,
+          margin: voz.etiqueta ? '8px 0 0' : 0, fontSize: fondo ? (conAro ? 'clamp(20px, 5.5vw, 24px)' : 'clamp(24px, 6.8vw, 29px)') : 'clamp(27px, 7.6vw, 34px)', fontWeight: 800, lineHeight: 1.08,
           letterSpacing: '-0.03em', color: TEXT, textWrap: 'balance', maxWidth: 460,
         }}>
           {voz.a}{voz.b && <><br /><span style={{ color: t.tinta }}>{voz.b}</span></>}

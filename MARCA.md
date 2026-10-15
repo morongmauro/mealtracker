@@ -49,7 +49,7 @@ Reglas:
   interlineado 1.02–1.1.
 - Texto: 14–15.5 px, peso 500–600. Secundario 12.5–13 px.
 - Etiquetas pequeñas en mayúsculas: 11–12 px, peso 800, `letter-spacing 0.06em`
-  («MARTES 29 · SEMANA 3 DE 8», «HOY · 1 de 4»).
+  («MARTES 29», solo en el Dash; «HOY · 1 de 4»).
 - Números grandes: peso 800, `tabular-nums`, separador de miles con punto y
   decimales con coma (`toLocaleString('es-CO')`): 2.443, 82,4 kg.
 
