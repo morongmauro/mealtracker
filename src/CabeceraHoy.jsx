@@ -154,9 +154,10 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
     return (
       // El blob del módulo (cuadrado curvo girado), y encima el aro en blanco
       // con el objeto de la sección a tres tonos y el número adentro; el pie
-      // queda debajo del blob, en gris. Subido un poco (translateY) para que
-      // el pie no se pegue a los botones.
-      <div key={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', width: 138, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none', transform: 'translateY(-6px)' }}>
+      // queda debajo del blob, en gris. Va arriba de la fila (no centrado con
+      // la frase): así queda siempre en el mismo sitio, cruzando un poco la
+      // banda de arriba, tenga la frase dos líneas o cuatro.
+      <div key={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', alignSelf: 'flex-start', width: 138, marginTop: -18, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none' }}>
         {/* Con `alTocar`, la gráfica es un botón: abre qué la compone. */}
         <div className="cab-ilus" data-aro-cabecera={tema} data-aro-tocar={aro.alTocar ? '1' : undefined}
           role={aro.alTocar ? 'button' : undefined} tabIndex={aro.alTocar ? 0 : undefined} aria-label={aro.alTocar ? `${aro.pie}: ${aro.centro}. Ver cómo se calcula` : undefined}

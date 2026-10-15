@@ -458,7 +458,7 @@ try {
   }));
 
   await espera(2600);
-  ok('…y al terminar la animación, el objeto flota suave', await p.locator('[data-objeto-cabecera="dash"]').evaluate(d => d.classList.contains('flota') && getComputedStyle(d).animationName === 'obj-flota'));
+  ok('…y al terminar la animación, el objeto se queda quieto (nada flota permanentemente)', await p.locator('[data-objeto-cabecera="dash"]').evaluate(d => !d.classList.contains('flota') && getComputedStyle(d).animationName === 'none'));
   ok('aros de las cabeceras: el punto de la punta va del color del módulo (sobre el aro blanco) y sin borde', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera] [data-anillo] svg').evaluate(s => {
     const puntos = [...s.querySelectorAll('circle')].filter(c => (c.getAttribute('fill') || '').toUpperCase() === '#3C7BD6');
     return puntos.length === 1 && puntos.every(c => !c.getAttribute('stroke'));

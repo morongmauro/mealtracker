@@ -1188,8 +1188,8 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
 
       {listo && modo === 'hoy' && (
         <>
-          <div style={{ height: 1, background: 'rgba(31,31,31,0.09)', margin: '26px 2px 16px' }} />
-          <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '0 2px 12px' }}>Tu semana</h2>
+          {/* Sin línea: lo separa el título y el espacio, como en el Dash. */}
+          <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '18px 2px 12px' }}>Tu semana</h2>
           <div data-vista="semana" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {semana.map((f, i) => {
               const d = porFecha[f];

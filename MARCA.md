@@ -84,7 +84,10 @@ Reglas:
   lo que diría el coach, en el color de la sección) y, a la derecha, el blob
   de la sección con el aro en blanco encima (riel blanco al 30 %, el punto de
   la punta del color de la sección), el objeto de la sección a tres tonos y
-  el número en blanco adentro del aro, y el pie en gris debajo del blob.
+  el número en blanco adentro del aro, y el pie en gris debajo del blob. El
+  blob va siempre en el mismo sitio, arriba de la fila, y cruza un poco la
+  banda de arriba (como una calcomanía sobre el pliegue); no se centra con
+  la frase.
 - **Píldora de arriba**: solo el nombre de la sección, en mayúsculas sobre
   grafito. Se encoge al bajar y vuelve al subir.
 - **Barra de secciones**: cuatro secciones; la abierta se despliega de lado y
@@ -138,6 +141,9 @@ Reglas:
 - Curva `cubic-bezier(.2,.8,.2,1)`, 250–450 ms. Nada rebota.
 - Todo respeta «reducir movimiento» del teléfono: sin animación, resultado
   final directo.
+- Lo quieto se queda quieto: el objeto de la cabecera entra con su animación
+  (cae, rebota, se abre) y después no flota ni respira. Nada se mueve
+  permanentemente en pantalla.
 - Las celebraciones grandes (hoja con la kettlebell) se reservan para
   terminar un entreno o cumplir la meta del día; lo cotidiano se confirma en
   pequeño.

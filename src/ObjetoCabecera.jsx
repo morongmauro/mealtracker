@@ -5,7 +5,7 @@
 // (aprendizaje) y la brújula (Dash): modelados y animados en 3D, con la misma
 // luz de estudio y su sombra en el piso. Cada animación es un WebP animado que
 // suena una sola vez al entrar (cae, rebota, se abre…) y se queda en su último
-// cuadro; después flota muy suave.
+// cuadro, quieto: nada flota permanentemente (cansa y gasta batería).
 //
 // Para que la animación vuelva a empezar cada vez que se entra a la sección,
 // el archivo se trae una sola vez y cada entrada lo pinta con una URL nueva
@@ -39,8 +39,6 @@ const FIN = {
   color: { entreno: finEntreno, comida: finComida, aprende: finAprende, dash: finDash },
   tres: { entreno: tresFinEntreno, comida: tresFinComida, aprende: tresFinAprende, dash: tresFinDash },
 };
-// Cuánto dura cada animación (ms), para empezar a flotar al terminar.
-const DURA = { entreno: 2200, comida: 2400, aprende: 2600, dash: 2400 };
 // Lo dibujado dentro del cuadro (sin el aire transparente), en fracciones
 // del lado: izquierda, arriba, derecha, abajo. Para ubicar el aro y la frase.
 export const CAJA = {
@@ -52,11 +50,9 @@ export const CAJA = {
 };
 
 const CSS = `
-@keyframes obj-flota { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-2.5px) } }
-[data-objeto-cabecera].flota { animation: obj-flota 4.5s ease-in-out infinite; }
 @keyframes obj-aparece { from { opacity: 0 } to { opacity: 1 } }
 [data-objeto-cabecera] img { animation: obj-aparece .18s ease-out both; }
-@media (prefers-reduced-motion: reduce) { [data-objeto-cabecera].flota { animation: none; } }`;
+@media (prefers-reduced-motion: reduce) { [data-objeto-cabecera] img { animation: none; } }`;
 
 const archivos = new Map();   // "tono:tema" → Promise<Blob>
 const traer = (tema, tono) => {
@@ -84,25 +80,22 @@ const esperarEntrada = (fn) => {
 // (blanco, gris y un tono claro del módulo, para ir dentro del aro).
 export default function ObjetoCabecera({ tema, activo = true, tono = 'color', style }) {
   const [src, setSrc] = useState(null);
-  const [flota, setFlota] = useState(false);
   useEffect(() => {
     if (!ANIM[tono][tema]) return undefined;
     // Sin ver la sección: el último cuadro, quieto (así no hay hueco).
-    if (!activo || quieto()) { setSrc(FIN[tono][tema]); setFlota(!activo ? false : true); return undefined; }
-    let vivo = true, url = null, reloj = null;
-    setFlota(false);
+    if (!activo || quieto()) { setSrc(FIN[tono][tema]); return undefined; }
+    let vivo = true, url = null;
     const soltar = esperarEntrada(() => {
       traer(tema, tono).then(blob => {
         if (!vivo) return;
         url = URL.createObjectURL(blob); setSrc(url);
-        reloj = setTimeout(() => vivo && setFlota(true), DURA[tema]);
-      }).catch(() => { if (vivo) { setSrc(FIN[tono][tema]); setFlota(true); } });
+      }).catch(() => { if (vivo) setSrc(FIN[tono][tema]); });
     });
-    return () => { vivo = false; soltar(); clearTimeout(reloj); if (url) setTimeout(() => URL.revokeObjectURL(url), 0); };
+    return () => { vivo = false; soltar(); if (url) setTimeout(() => URL.revokeObjectURL(url), 0); };
   }, [tema, activo, tono]);
   if (!ANIM[tono][tema]) return null;
   return (
-    <div data-objeto-cabecera={tema} data-tono={tono} data-caja={CAJA[tema].join(',')} className={flota ? 'flota' : undefined} style={{ width: '100%', height: '100%', ...style }}>
+    <div data-objeto-cabecera={tema} data-tono={tono} data-caja={CAJA[tema].join(',')} style={{ width: '100%', height: '100%', ...style }}>
       <style>{CSS}</style>
       {src && <img src={src} alt="" draggable={false} style={{ width: '100%', height: '100%', display: 'block' }} />}
     </div>
