@@ -52,7 +52,7 @@ for (const vuelta of [1, 2]) {
     let completo = null;
     const mira = () => {
       const t = performance.now() - desde;
-      const letras = [...document.querySelectorAll('#splash2 .nombre span:not(.linea)')];
+      const letras = [...document.querySelectorAll('#splash2 .nombre .linea, #splash2 .nombre .pto')];
       const trazas = [...document.querySelectorAll('#splash2 .traza')];
       const listo = letras.every(l => +getComputedStyle(l).opacity > 0.98)
         && trazas.every(x => parseFloat(getComputedStyle(x).strokeDashoffset) < 1);

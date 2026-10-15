@@ -393,6 +393,47 @@ try {
     console.log('errores', pv.errores.slice(0, 3));
     await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
   }
+  // RECARGA=1: solo la prueba de recargar a mitad del entreno, con rastro.
+  if (process.env.RECARGA) {
+    const rr = await abrir('Mauro Morón', { caliente: true });
+    await rr.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(800);
+    await rr.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await rr.p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
+    const bancaR = rr.p.locator('[data-ejercicio="Barbell Bench Press"]');
+    await bancaR.getByLabel('Repeticiones serie 1').fill('8');
+    await bancaR.getByLabel('Peso serie 1').fill('60');
+    await bancaR.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(400);
+    console.log('antes de recargar: deshacer =', await bancaR.getByRole('button', { name: 'Deshacer serie 1' }).count(), 'marcar =', await bancaR.getByRole('button', { name: 'Marcar serie 1' }).count());
+    await bancaR.getByLabel('Repeticiones serie 2').fill('7'); await espera(300);
+    await rr.p.reload();
+    for (let i = 1; i <= 8; i++) {
+      await espera(1000);
+      const b2 = rr.p.locator('[data-ejercicio="Barbell Bench Press"]');
+      console.log(`${i}s: warm=${await rr.p.evaluate(() => document.documentElement.className)} ready=${await rr.p.evaluate(() => document.body.classList.contains('app-ready'))} calent=${await rr.p.getByText('Calentamiento y movilidad').count()} deshacer=${await b2.getByRole('button', { name: 'Deshacer serie 1' }).count()} deshacerTodos=${await rr.p.getByRole('button', { name: /Deshacer serie/ }).count()} marcar1=${await b2.getByRole('button', { name: 'Marcar serie 1' }).count()} rep2=${await b2.getByLabel('Repeticiones serie 2').inputValue().catch(() => '?')}`);
+      if (i === 3 || i === 6) await rr.p.screenshot({ path: path.join(CAPTURAS, `recarga-${i}s.png`) });
+    }
+    console.log('errores', rr.errores.slice(0, 3));
+    await rr.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
+  // BARRA=1: el cristal que viaja al cambiar de sección, cuadro a cuadro.
+  if (process.env.BARRA) {
+    const pv = await abrir('Mauro Morón', { caliente: true });
+    await pv.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
+    await pv.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1200);
+    const nav = pv.p.locator('nav[aria-label="Secciones"]');
+    const caja = await nav.boundingBox();
+    const clip = { x: 0, y: Math.max(0, caja.y - 70), width: 390, height: Math.min(844 - Math.max(0, caja.y - 70), caja.height + 90) };
+    await pv.p.screenshot({ path: path.join(CAPTURAS, 'barra-0.png'), clip });
+    const t0 = Date.now();
+    await pv.p.getByRole('button', { name: 'Alimentación', exact: true }).click();
+    for (const t of [40, 120, 200, 280, 380, 520, 800]) {
+      const falta = t - (Date.now() - t0); if (falta > 0) await espera(falta);
+      await pv.p.screenshot({ path: path.join(CAPTURAS, `barra-${t}.png`), clip });
+    }
+    console.log('lente', await pv.p.locator('[data-lente]').evaluate(l => ({ op: getComputedStyle(l).opacity, w: l.getBoundingClientRect().width })));
+    console.log('errores', pv.errores.slice(0, 3));
+    await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
   // INSTALAR=1: las fotos de «Instala la app» en un Android (Dash, Ajustes y la hoja).
   if (process.env.INSTALAR) {
     const ANDROID = 'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36';
@@ -1944,6 +1985,9 @@ try {
     await rr.p.reload(); await espera(1500);
     await rr.p.getByText('Calentamiento y movilidad').waitFor({ timeout: 15000 }).catch(() => {});
     const bancaR2 = rr.p.locator('[data-ejercicio="Barbell Bench Press"]');
+    // La serie marcada vuelve apenas la app termina de armarse tras la
+    // entrada: se le da ese tiempo en vez de mirar en un instante fijo.
+    await bancaR2.getByRole('button', { name: 'Deshacer serie 1' }).waitFor({ timeout: 8000 }).catch(() => {});
     ok('recarga a mitad del entreno: vuelve sola a la rutina abierta', (await rr.p.getByText('Calentamiento y movilidad').count()) === 1);
     ok('…con la serie marcada y lo tecleado sin marcar', (await bancaR2.getByRole('button', { name: 'Deshacer serie 1' }).count()) === 1
       && (await bancaR2.getByLabel('Repeticiones serie 2').inputValue()) === '7', await bancaR2.getByLabel('Repeticiones serie 2').inputValue());

@@ -262,7 +262,7 @@
            1.60–2.70 s  el blob absorbe las manchas: vuelven al centro y se
                         apagan, el fondo queda liso y adentro del blob se
                         encienden los colores del ícono del homescreen
-           2.30–3.26 s  «Entrena con / Método.» grande, en dos líneas como las
+           1.90–3.25 s  «Entrena con / Método.» por líneas, despacio, como las
                         frases de los módulos, letra por letra; «Método.» en
                         amarillo
            1.8–2.9 s    el ícono y el nombre quedan a la vista
@@ -288,6 +288,13 @@
       #splash2 .m3 { background: radial-gradient(closest-side, rgba(70,150,90,.42), rgba(70,150,90,0)); border-radius: 44% 56% 58% 42% / 52% 48% 52% 48%; --x: -160px; --y: 330px; --s: 1.25; }
       #splash2 .m4 { background: radial-gradient(closest-side, rgba(238,132,52,.4), rgba(238,132,52,0)); border-radius: 52% 48% 46% 54% / 44% 56% 46% 54%; --x: 165px; --y: 300px; --s: 1.15; }
       #splash2 .plano { position: absolute; inset: 0; background: #F3F1EB; opacity: 0; }
+      /* El piso: en algunos iPhone la pantalla útil termina unos 50 px antes
+         del borde y lo que hay debajo se corta con una línea recta (se veía
+         como un rectángulo abajo). Aquí las manchas se funden al crema liso
+         antes de llegar ahí, pegado al borde real de la vista (fixed), así
+         la franja de abajo es la continuación del mismo color. */
+      #splash2 .piso { position: fixed; left: 0; right: 0; bottom: 0; height: 190px; pointer-events: none;
+        background: linear-gradient(180deg, rgba(243,241,235,0) 0%, rgba(243,241,235,.85) 55%, #F3F1EB 100%); }
       /* Los colores del ícono, dentro del blob: cuatro manchas chicas recortadas
          con la misma forma (y el mismo giro) del blob. Solo donde el recorte
          por trazado existe; si no, no se muestran y la entrada sigue igual. */
@@ -315,10 +322,12 @@
       #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(var(--centro, 46%) + 112px); margin: 0; text-align: center;
         font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: 40px; line-height: 1.04;
         letter-spacing: -0.035em; color: #1D1D1F; white-space: nowrap; }
-      #splash2 .nombre .linea { display: block; opacity: 1 !important; filter: none !important; transform: none !important; animation: none !important; }
-      /* Todo en grafito; el único acento es el punto, el mismo del ícono. */
-      #splash2 .nombre span { display: inline-block; opacity: 0; transform: translateY(10px); will-change: transform, opacity; }
-      #splash2 .nombre .pto { color: #EDB929; transform: scale(0); }
+      /* Cada línea entra entera, despacio (1,1 s), subiendo apenas: antes
+         entraba letra por letra, y como coincide con el armado de la app por
+         debajo, el teléfono congelaba las letras y las soltaba de golpe.
+         Todo en grafito; el único acento es el punto, el mismo del ícono. */
+      #splash2 .nombre .linea { display: block; opacity: 0; transform: translateY(8px); will-change: transform, opacity; }
+      #splash2 .nombre .pto { display: inline-block; color: #EDB929; transform: scale(0); will-change: transform; }
       html.intro-anda #splash2 .remolino { animation: s2gira 2.6s cubic-bezier(.25,.6,.2,1) forwards; }
       /* Salen y, a los 1,6 s, el blob las absorbe: vuelven al centro
          encogiéndose y apagándose (solo transform y opacidad: sin animar el
@@ -338,8 +347,9 @@
       html.intro-anda #splash2 .t2 { animation: s2traza .85s cubic-bezier(.4,0,.2,1) .6s forwards; }
       html.intro-anda #splash2 .punto { animation: s2pop .5s cubic-bezier(.3,1.9,.5,1) 1.38s forwards; }
       html.intro-anda #splash2 .halo { animation: s2halo .9s ease-out 1.4s forwards; }
-      html.intro-anda #splash2 .nombre span { animation: s2letra .5s cubic-bezier(.2,.8,.2,1) forwards; }
-      html.intro-anda #splash2 .nombre .pto { animation: s2pop2 .4s cubic-bezier(.3,1.9,.5,1) 2.86s forwards; }
+      html.intro-anda #splash2 .nombre .l1 { animation: s2letra 1.1s cubic-bezier(.2,.7,.2,1) 1.9s forwards; }
+      html.intro-anda #splash2 .nombre .l2 { animation: s2letra 1.1s cubic-bezier(.2,.7,.2,1) 2.15s forwards; }
+      html.intro-anda #splash2 .nombre .pto { animation: s2pop2 .4s cubic-bezier(.3,1.9,.5,1) 2.95s forwards; }
       @keyframes s2gira { from { transform: rotate(-160deg); } to { transform: rotate(0deg); } }
       @keyframes s2sale { 0% { opacity: 0; transform: translate(0, 0) scale(.12); } 18% { opacity: 1; } 55% { transform: translate(calc(var(--x) * .7), calc(var(--y) * .7)) scale(calc(var(--s) * 1.08)); } 100% { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--s)); } }
       @keyframes s2respira { from { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--s)); } to { opacity: 1; transform: translate(var(--x), var(--y)) scale(calc(var(--s) * 1.08)); } }
@@ -395,6 +405,7 @@
       <div class="escena">
         <div class="remolino"><div class="m m1"></div><div class="m m2"></div><div class="m m3"></div><div class="m m4"></div></div>
         <div class="velo"></div>
+        <div class="piso"></div>
         <svg class="disco" viewBox="0 0 200 200" aria-hidden="true"><path fill="#FFFFFF" d="M200.0 100.0L199.8 127.7L199.2 139.8L198.2 149.1L196.8 156.9L195.0 163.6L192.7 169.4L190.0 174.6L186.9 179.2L183.3 183.3L179.2 186.9L174.6 190.0L169.4 192.7L163.6 195.0L156.9 196.8L149.1 198.2L139.8 199.2L127.7 199.8L100.0 200.0L72.3 199.8L60.2 199.2L50.9 198.2L43.1 196.8L36.4 195.0L30.6 192.7L25.4 190.0L20.8 186.9L16.7 183.3L13.1 179.2L10.0 174.6L7.3 169.4L5.0 163.6L3.2 156.9L1.8 149.1L0.8 139.8L0.2 127.7L0.0 100.0L0.2 72.3L0.8 60.2L1.8 50.9L3.2 43.1L5.0 36.4L7.3 30.6L10.0 25.4L13.1 20.8L16.7 16.7L20.8 13.1L25.4 10.0L30.6 7.3L36.4 5.0L43.1 3.2L50.9 1.8L60.2 0.8L72.3 0.2L100.0 0.0L127.7 0.2L139.8 0.8L149.1 1.8L156.9 3.2L163.6 5.0L169.4 7.3L174.6 10.0L179.2 13.1L183.3 16.7L186.9 20.8L190.0 25.4L192.7 30.6L195.0 36.4L196.8 43.1L198.2 50.9L199.2 60.2L199.8 72.3Z"/></svg>
         <div class="dentro" aria-hidden="true"><i class="d1"></i><i class="d2"></i><i class="d3"></i><i class="d4"></i></div>
         <!-- El ícono de la app: la línea de la gráfica es el cuerpo de la
@@ -407,7 +418,7 @@
           <g transform="translate(256 262) scale(.9) translate(-256 -248)">
             <circle class="halo" cx="120" cy="300" r="28.8" fill="#F2C94C"/>
             <circle class="punto" cx="120" cy="300" r="28.8" fill="#F2C94C"/></g></svg></div>
-        <p class="nombre"><span class="linea"><span style="animation-delay:2.300s">E</span><span style="animation-delay:2.330s">n</span><span style="animation-delay:2.360s">t</span><span style="animation-delay:2.390s">r</span><span style="animation-delay:2.420s">e</span><span style="animation-delay:2.450s">n</span><span style="animation-delay:2.480s">a</span><span style="animation-delay:2.510s">&nbsp;</span><span style="animation-delay:2.540s">c</span><span style="animation-delay:2.570s">o</span><span style="animation-delay:2.600s">n</span></span><span class="linea metodo"><span style="animation-delay:2.630s">M</span><span style="animation-delay:2.660s">é</span><span style="animation-delay:2.690s">t</span><span style="animation-delay:2.720s">o</span><span style="animation-delay:2.750s">d</span><span style="animation-delay:2.780s">o</span><span class="pto">.</span></span></p>
+        <p class="nombre"><span class="linea l1">Entrena con</span><span class="linea metodo l2">Método<span class="pto">.</span></span></p>
       </div>
       <script>
         // La secuencia espera a que la app esté armada (main.jsx la arranca);
