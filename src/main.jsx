@@ -181,21 +181,26 @@ if (typeof window !== 'undefined') {
   // seguro de todos. Así la versión nueva entra apenas abren, sin esperar.
   checkVersion().then(applyIfReady);
   setInterval(checkVersion, 5 * 60 * 1000);
+  // Al volver a la app NO se recarga delante del cliente: se veía la pantalla
+  // donde quedó, luego todo en blanco y luego el Dash, como si la app
+  // fallara. Tampoco al salir (en el teléfono esa recarga quedaba a medias y
+  // se terminaba de ver al volver). La actualización entra:
+  //   - al abrir la app en frío (arriba), o
+  //   - al volver tras ≥ 30 min fuera: ahí sí se recarga, pero con la
+  //     entrada animada completa (se borra la marca de «ya arrancó»), que es
+  //     lo que se espera al abrir la app después de un rato.
+  let ocultaDesde = 0;
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      // Al VOLVER a la app: aplica lo pendiente y, clave, re-verifica y
-      // aplica EN ESE MISMO instante si hay build nuevo. En el teléfono la
-      // pestaña no se recarga sola al reabrirla (solo "despierta"), y el
-      // orden anterior (aplicar → verificar) obligaba a DOS ciclos de
-      // salir/volver para recibir una actualización. Ahora basta UNO: el
-      // regreso es el momento seguro por excelencia — el cliente aún no
-      // ha empezado a interactuar.
+    if (document.visibilityState !== 'visible') { ocultaDesde = Date.now(); return; }
+    const fuera = ocultaDesde ? Date.now() - ocultaDesde : 0;
+    ocultaDesde = 0;
+    const aplicarConEntrada = () => {
+      if (!updateReady || fuera < 30 * 60 * 1000) return;
+      try { sessionStorage.removeItem('mt:booted'); } catch (e) {}
       applyIfReady();
-      checkVersion().then(applyIfReady);
-    } else {
-      // Al salir de la app es el otro momento seguro para recargar.
-      applyIfReady();
-    }
+    };
+    aplicarConEntrada();
+    checkVersion().then(aplicarConEntrada);
   });
 }
 

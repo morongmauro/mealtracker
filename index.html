@@ -270,7 +270,10 @@
          Arranca apenas se abre (nunca pantalla vacía) y solo anima opacidad y
          movimiento, que el teléfono mueve aunque esté ocupado armando la app:
          nada de desenfoques animados, que eran lo que la «congelaba». */
-      html.splash-v2 #splash2 { position: fixed; top: -60px; left: 0; right: 0; bottom: -200px; z-index: 9999; display: block;
+      /* will-change: opacity: la entrada vive en su propia capa desde el
+         primer cuadro, así al desvanecerse al final nada se vuelve a dibujar
+         (el texto se veía «en negrita» un instante justo ahí). */
+      html.splash-v2 #splash2 { position: fixed; top: -60px; left: 0; right: 0; bottom: -200px; z-index: 9999; display: block; will-change: opacity; -webkit-font-smoothing: antialiased;
         overflow: hidden; pointer-events: none; background: #F3F1EB; transition: opacity .6s cubic-bezier(.5,0,.75,0); }
       html.warm-start #splash2 { display: none !important; }
       html.warm-start.intro-repite #splash2 { display: block !important; }
@@ -329,8 +332,12 @@
          entraba letra por letra, y como coincide con el armado de la app por
          debajo, el teléfono congelaba las letras y las soltaba de golpe.
          Todo en grafito; el único acento es el punto, el mismo del ícono. */
-      #splash2 .nombre .linea { display: block; opacity: 0; transform: translateY(6px); will-change: transform, opacity; }
-      #splash2 .nombre .pto { display: inline-block; color: #EDB929; transform: scale(0); will-change: transform; }
+      /* Las líneas solo cambian de opacidad (nada de mover ni escalar texto:
+         cada vez que el texto cambia de capa o de escala, el teléfono lo
+         vuelve a dibujar y por un cuadro se ve más grueso o más fino). El
+         punto amarillo tampoco escala: aparece. */
+      #splash2 .nombre .linea { display: block; opacity: 0; }
+      #splash2 .nombre .pto { display: inline-block; color: #EDB929; opacity: 0; }
       html.intro-anda #splash2 .remolino { animation: s2gira 2.6s cubic-bezier(.25,.6,.2,1) forwards; }
       /* Salen y, a los 1,6 s, el blob las absorbe: vuelven al centro
          encogiéndose y apagándose (solo transform y opacidad: sin animar el
@@ -352,7 +359,7 @@
       html.intro-anda #splash2 .halo { animation: s2halo .9s ease-out 1.4s forwards; }
       html.intro-anda #splash2 .nombre .l1 { animation: s2letra 1.5s cubic-bezier(.3,.5,.2,1) 1.9s forwards; }
       html.intro-anda #splash2 .nombre .l2 { animation: s2letra 1.5s cubic-bezier(.3,.5,.2,1) 2.2s forwards; }
-      html.intro-anda #splash2 .nombre .pto { animation: s2pop2 .4s cubic-bezier(.3,1.9,.5,1) 3.4s forwards; }
+      html.intro-anda #splash2 .nombre .pto { animation: s2pop2 .35s ease-out 3.15s forwards; }
       @keyframes s2gira { from { transform: rotate(-160deg); } to { transform: rotate(0deg); } }
       @keyframes s2sale { 0% { opacity: 0; transform: translate(0, 0) scale(.12); } 18% { opacity: 1; } 55% { transform: translate(calc(var(--x) * .7), calc(var(--y) * .7)) scale(calc(var(--s) * 1.08)); } 100% { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--s)); } }
       @keyframes s2respira { from { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--s)); } to { opacity: 1; transform: translate(var(--x), var(--y)) scale(calc(var(--s) * 1.08)); } }
@@ -363,8 +370,8 @@
       @keyframes s2traza { to { stroke-dashoffset: 0; } }
       @keyframes s2pop { to { transform: scale(1); } }
       @keyframes s2halo { 0% { transform: scale(.6); opacity: .7; } 100% { transform: scale(2.6); opacity: 0; } }
-      @keyframes s2letra { to { opacity: 1; transform: none; } }
-      @keyframes s2pop2 { to { opacity: 1; transform: scale(1); } }
+      @keyframes s2letra { to { opacity: 1; } }
+      @keyframes s2pop2 { to { opacity: 1; } }
       @media (prefers-reduced-motion: reduce) {
         #splash2 * { animation-duration: 0.01s !important; animation-delay: 0s !important; transition: none !important; }
       }

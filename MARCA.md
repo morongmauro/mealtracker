@@ -106,8 +106,16 @@ Reglas:
   después de abrir la app y quedan montadas con su scroll y su estado: el
   primer toque y los siguientes son el mismo fundido. Lo que entra con
   animación (objeto, aro) lo repite cada vez que su sección vuelve al frente.
+- **Páginas, no ventanas**: lo que es una vista de una sección (el calendario
+  de comidas, el de entreno, el recetario, la galería) es una PÁGINA con las
+  manchas de fondo, la píldora de marca arriba y la voz de la sección con su
+  etiqueta («CALENDARIO»); se sale por la barra. Las ventanas se reservan
+  para acciones cortas (registrar peso, confirmar, un aviso).
 - **Hojas (sheets)**: suben desde abajo, asa gris, título en 17 px, fondo
   blanco; el fondo de atrás no se mueve.
+- **Actualizaciones**: nunca se recarga delante del cliente. La versión
+  nueva entra al abrir en frío o al volver tras 30 min fuera, y entonces
+  con la entrada animada completa, como un arranque normal.
 - **Botones de fila** («Profundiza», «Ver todo»): crema oscura, texto
   grafito 15 px peso 650, flecha en el color de la sección.
 
@@ -163,6 +171,8 @@ Reglas:
   liso y adentro del blob se encienden los cuatro colores del ícono del
   homescreen. El nombre entra mientras los colores se absorben, por líneas
   y despacio (1,5 s cada una), en grafito con el punto amarillo al final.
+  El texto solo cambia de opacidad: nunca se mueve, escala ni cambia de
+  capa (cada redibujo del texto se ve como un cambio de grosor).
   La app se arma por debajo recién cuando el nombre ya entró (3,7 s), para
   no trabarlo. Dura 4,7 s y sale solo la primera vez del día.
 - Las celebraciones grandes (hoja con la kettlebell) se reservan para

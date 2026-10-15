@@ -24,6 +24,7 @@ const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { CapaActiva } from './capaActiva.js';
+import Firma from './Firma.jsx';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada, enDireccionNueva } from './mudanza.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero, ArcoApple, PuntaApple, rielDe } from './GraficasV2.jsx';
@@ -5335,7 +5336,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
   const remSinVer = coachReminders.some(r => !r.done_at && !r.seen_at);
   const subV2 = seccionV2 === 'entreno' ? entrenoSub
     : seccionV2 === 'aprende' ? aprendeSub
-    : seccionV2 === 'comida' ? (showRecetario ? 'recetas' : tab) : null;
+    : seccionV2 === 'comida' ? (showRecetario ? 'recetas' : (v2 && showPerformanceModal && goals) ? 'calendario' : tab) : null;
   const seccionesV2 = [
     { id: 'dash', subs: [] },
     ...(trainingOn ? [{ id: 'entreno', subs: [
@@ -5358,6 +5359,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
   ];
   const irSubV2 = (sec, op) => {
     haptic(6);
+    if (sec !== 'comida') setShowPerformanceModal(false);
     if (sec === 'dash') {
       setShowRecetario(false); setShowLearning(false); setShowTraining(false); setShowDash(true);
       if (!showDash) setDashReinicio(x => x + 1);
@@ -5372,9 +5374,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       if (op === 'herr') { openActionsSheet(); return; }
       if (op === 'calendario') {
         if (!goals) { avisarMetaPendiente(); return; }
+        if (showPerformanceModal && seccionV2 === 'comida' && !showRecetario) { const el = document.querySelector('[data-view="calendario-comida"]'); if (el) el.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+        setShowDash(false); setShowLearning(false); setShowTraining(false); setShowRecetario(false);
         setPerfVentana('mes'); setShowPerformanceModal(true);
         return;
       }
+      setShowPerformanceModal(false);
       if (op === 'recetas') {
         if (!goals) { avisarMetaPendiente(); return; }
         if (showRecetario) { setRecetarioScrollSig(x => x + 1); return; }
@@ -6349,7 +6354,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 // Cerrar sesión: la información queda en el teléfono y en la
                 // nube; solo pide la contraseña para volver a entrar.
                 cerrarSesion: sesionV2 ? () => { haptic(8); guardarSesion(''); setSesionV2(''); try { sessionStorage.removeItem('mt:cuentaSaltada'); } catch (e) {} setCuentaSaltada(false); } : null,
-                calendarioComida: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setPerfVentana('mes'); setShowPerformanceModal(true); },
+                calendarioComida: () => irSubV2('comida', 'calendario'),
                 // Sin la cuenta, el recorrido ni la mudanza encima: entonces
                 // puede salir la bienvenida a la Comunidad.
                 ventanaLibre: !(name && !cuentaSaltada && (!sesionV2 || cuentaAbierta)) && !recorrido && !mudanza && !primeraVez,
@@ -6885,8 +6890,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           onClose={() => { setShowPlannerModal(false); setPlannerProposal(null); }} />
       )}
 
-      {showPerformanceModal && goals && (
+      {showPerformanceModal && goals && !(v2 && (seccionV2 !== 'comida' || showRecetario)) && (
+        <PaginaOVentana v2={v2}>
         <PerformanceModal
+          pagina={v2}
           history={history}
           historyDetail={historyDetail}
           entries={entries}
@@ -6925,6 +6932,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             goToChat();
             inputApiRef.current?.setText(dateStr === today ? '' : `El ${fraseFecha(dateStr, today)} comí `);
           }} />
+        </PaginaOVentana>
       )}
 
       {showCapabilitiesModal && (
@@ -9173,6 +9181,26 @@ function Row({ label, val, diff, unit, color }) {
 // disparar el cierre INSTANTÁNEO sin esperar al re-render del padre.
 const ModalCloseContext = React.createContext(null);
 
+// Visual nueva: el calendario de comidas se abre como PÁGINA de Alimentación
+// (misma capa que el recetario: manchas de fondo, píldora de marca arriba y
+// la barra abajo), no como ventana. En la visual de siempre, la ventana.
+function PaginaOVentana({ v2, children }) {
+  if (!v2) return children;
+  return (
+    <div data-view="calendario-comida" data-capa-v2 data-activa="" className="fixed inset-0 overflow-y-auto" style={{ zIndex: 38, background: BG }}>
+      <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, background: BG_STAINS }} />
+      <div style={{
+        position: 'relative', maxWidth: 560, margin: '0 auto', padding: '0 20px',
+        paddingTop: 'calc(46px + env(safe-area-inset-top, 0px) + 12px)',
+        paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 0px))',
+      }}>
+        {children}
+        <Firma style={{ marginTop: 28 }} />
+      </div>
+    </div>
+  );
+}
+
 function ModalShell({ children, onClose, maxWidth = 'max-w-md', fondo = null }) {
   // Cierre instantáneo en mobile: mutamos el DOM directamente (display:none)
   // SIN setState — igual que closeActionsSheet. Eso evita re-renderizar el
@@ -9764,7 +9792,7 @@ function goalsVigentes(goalsHistory, currentGoals, date) {
 }
 
 function PerformanceModal({ history, historyDetail, entries, goals, today, name, wellbeing, goalsHistory, onClose,
-                           ventanaInicial, onBorrarComida, onBorrarDia, onEditarComida, onAgregarComida }) {
+                           ventanaInicial, onBorrarComida, onBorrarDia, onEditarComida, onAgregarComida, pagina = false }) {
   // El día que se está mirando en la pestaña "Día". Arranca en hoy.
   // Dentro de Alimentación: ventana de tiempo. "Tendencia" se quitó — a 12
   // semanas casi nadie la entendía y el mes ya cuenta esa historia.
@@ -10533,11 +10561,15 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     );
   };
 
+  // Visual nueva: ya no es una ventana, es una PÁGINA de Alimentación (como
+  // el calendario de Entrenamiento): la voz de la sección arriba, con su
+  // etiqueta, y el contenido en la página con las manchas de fondo.
+  const Marco = pagina ? MarcoPagina : MarcoVentana;
   return (
-    <ModalShell onClose={onClose} maxWidth="max-w-xl" fondo={v2p ? FONDO_V2 : null}>
-      <ModalHeader accent={v2p ? SECCION.comida.ink : TEXT_MUTED} label={v2p ? 'CALENDARIO DE COMIDAS' : 'Mis gráficas'} title={v2p ? null : (name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido')} onClose={onClose} />
+    <Marco onClose={onClose} fondo={v2p ? FONDO_V2 : null}>
+      {!pagina && <ModalHeader accent={v2p ? SECCION.comida.ink : TEXT_MUTED} label={v2p ? 'CALENDARIO DE COMIDAS' : 'Mis gráficas'} title={v2p ? null : (name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido')} onClose={onClose} />}
       {/* Visual nueva: la voz de la sección, en dos tonos y sin curva */}
-      {v2p && <div style={{ marginTop: -26 }}><CabeceraHoy tema="comida" fondo={false} voz={{ a: 'Cada día suma.', b: 'Mira cómo vas.', sub: 'Qué comiste cada día y qué tan cerca quedaste de tu meta.' }} /></div>}
+      {v2p && <div style={{ marginTop: pagina ? 0 : -26 }}><CabeceraHoy tema="comida" fondo={false} voz={{ etiqueta: pagina ? 'CALENDARIO' : undefined, a: 'Cada día suma.', b: 'Mira cómo vas.', sub: 'Qué comiste cada día y qué tan cerca quedaste de tu meta.' }} /></div>}
 
       {/* UNA sola sección, tres ventanas de tiempo. Antes esto vivía partido
           en dos botones —"Mi semana" y "Calendario"— que contaban lo mismo
@@ -10775,9 +10807,11 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           <span>Sin registro</span>
         </div>
       </div>
-    </ModalShell>
+    </Marco>
   );
 }
+const MarcoVentana = ({ children, onClose, fondo }) => <ModalShell onClose={onClose} maxWidth="max-w-xl" fondo={fondo}>{children}</ModalShell>;
+const MarcoPagina = ({ children }) => <div data-pagina-calendario-comida>{children}</div>;
 
 // ═══════════════════════════════════════════════════════════════════════
 // UN DÍA · lo que comió, con sus macros, y se puede corregir

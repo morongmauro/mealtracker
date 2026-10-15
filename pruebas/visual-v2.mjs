@@ -1338,9 +1338,14 @@ try {
   }));
   // Calendario de comidas desde la barra
   await p.getByRole('button', { name: 'Calendario', exact: true }).click();
-  await p.getByText('Calendario de comidas').waitFor({ timeout: 5000 });
+  await p.locator('[data-pagina-calendario-comida]').waitFor({ timeout: 5000 });
   await espera(600);
   await foto(p, '10c-calendario-comidas');
+  ok('calendario de comidas: es una página de Alimentación (no una ventana), con su etiqueta CALENDARIO como el de entreno',
+    (await p.locator('[data-view="calendario-comida"]').count()) === 1 && (await p.getByRole('dialog').count()) === 0
+    && /CALENDARIO/.test(await p.locator('[data-pagina-calendario-comida] [data-cabecera-hoy="comida"]').innerText())
+    && !/CALENDARIO DE COMIDAS/.test(await p.locator('[data-pagina-calendario-comida]').innerText()));
+  ok('calendario de comidas: la barra marca Calendario', await p.locator('nav[aria-label="Secciones"] [data-activo="1"]').evaluate(el => /Calendario/.test(el.getAttribute('aria-label') || el.textContent)));
   const calC = p.locator('[data-calendario-comidas]');
   ok('calendario de comidas: con la forma del de entreno (días en verde, casillas blancas)', (await calC.count()) === 1
     && await calC.getByText('Lun', { exact: true }).evaluate(el => getComputedStyle(el).color === 'rgb(70, 150, 90)')
@@ -1349,13 +1354,13 @@ try {
     const cs = getComputedStyle(el); return cs.backgroundColor === 'rgb(255, 255, 255)' && cs.color === 'rgb(42, 106, 58)' && el.getAttribute('aria-pressed') === 'true';
   }));
   ok('calendario de comidas: las gráficas son las del Dash', (await p.locator('[data-grafica-comida]').count()) === 3
-    && (await p.locator('.fixed.inset-0.z-50 svg rect').count()) > 10);
+    && (await p.locator('[data-view="calendario-comida"] svg rect').count()) > 10);
   ok('calendario de comidas: sin oliva', await p.evaluate(() => {
     const oliva = /rgb\((1[2-4]\d), (1[4-5]\d), (8\d|9\d)\)|rgb\(212, 218, 184\)|rgb\(74, 82, 56\)/;
-    const caja = [...document.querySelectorAll('.fixed.inset-0.z-50')].pop();
+    const caja = document.querySelector('[data-view="calendario-comida"]');
     return ![...caja.querySelectorAll('*')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor));
   }));
-  await p.locator('.fixed.inset-0.z-50 [data-grafica-comida]').first().scrollIntoViewIfNeeded();
+  await p.locator('[data-view="calendario-comida"] [data-grafica-comida]').first().scrollIntoViewIfNeeded();
   await espera(300);
   await foto(p, '10d-graficas-comidas');
   // La vista de un día, con la estética de la marca.
@@ -1367,9 +1372,9 @@ try {
   }));
   await foto(p, '10e-dia-comidas');
   ok('barra de Alimentación: Calendario abre el calendario de comidas', true);
-  await p.getByRole('button', { name: 'Cerrar' }).last().dispatchEvent('pointerdown');
-  await espera(800);
   await p.getByRole('button', { name: 'Chat', exact: true }).click();
+  await espera(600);
+  ok('calendario de comidas: tocar otra opción de la barra lo cierra', (await p.locator('[data-view="calendario-comida"]').count()) === 0);
   await espera(900);
   await foto(p, '09-comida-chat');
   // iPhone: la zona de la muesca a veces llega DESPUÉS de abrir. La tarjeta de
@@ -1539,8 +1544,8 @@ try {
   await p.getByRole('button', { name: 'Calendario', exact: true }).click(); await espera(1200);
   ok('Calendario de comidas: su frase', /Cada día suma\./.test(await p.getByRole('dialog').or(p.locator('body')).locator('[data-cabecera-hoy="comida"] [data-frase]').last().innerText()));
   await foto(p, '18d-calendario-comidas-voz');
-  await p.getByRole('button', { name: 'Cerrar' }).last().click(); await espera(500);
   await p.getByRole('button', { name: 'Dash', exact: true }).click(); await espera(600);
+  ok('calendario de comidas: al irse a otro módulo se cierra', (await p.locator('[data-view="calendario-comida"]').count()) === 0);
   // Alimentación abre siempre en Hoy (aunque se haya quedado en el Chat)
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(700);
