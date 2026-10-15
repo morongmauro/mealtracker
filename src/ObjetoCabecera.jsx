@@ -20,9 +20,25 @@ import finEntreno from './assets/cabecera/entreno-fin.webp';
 import finComida from './assets/cabecera/comida-fin.webp';
 import finAprende from './assets/cabecera/aprende-fin.webp';
 import finDash from './assets/cabecera/dash-fin.webp';
+// Los mismos objetos a tres tonos (blanco, gris y un tono claro del módulo),
+// sin sombra de piso: para ir dentro del aro, sobre el blob de la cabecera.
+import tresEntreno from './assets/cabecera/entreno-tres.webp';
+import tresComida from './assets/cabecera/comida-tres.webp';
+import tresAprende from './assets/cabecera/aprende-tres.webp';
+import tresDash from './assets/cabecera/dash-tres.webp';
+import tresFinEntreno from './assets/cabecera/entreno-tres-fin.webp';
+import tresFinComida from './assets/cabecera/comida-tres-fin.webp';
+import tresFinAprende from './assets/cabecera/aprende-tres-fin.webp';
+import tresFinDash from './assets/cabecera/dash-tres-fin.webp';
 
-const ANIM = { entreno: animEntreno, comida: animComida, aprende: animAprende, dash: animDash };
-const FIN = { entreno: finEntreno, comida: finComida, aprende: finAprende, dash: finDash };
+const ANIM = {
+  color: { entreno: animEntreno, comida: animComida, aprende: animAprende, dash: animDash },
+  tres: { entreno: tresEntreno, comida: tresComida, aprende: tresAprende, dash: tresDash },
+};
+const FIN = {
+  color: { entreno: finEntreno, comida: finComida, aprende: finAprende, dash: finDash },
+  tres: { entreno: tresFinEntreno, comida: tresFinComida, aprende: tresFinAprende, dash: tresFinDash },
+};
 // Cuánto dura cada animación (ms), para empezar a flotar al terminar.
 const DURA = { entreno: 2200, comida: 2400, aprende: 2600, dash: 2400 };
 // Lo dibujado dentro del cuadro (sin el aire transparente), en fracciones
@@ -42,10 +58,11 @@ const CSS = `
 [data-objeto-cabecera] img { animation: obj-aparece .18s ease-out both; }
 @media (prefers-reduced-motion: reduce) { [data-objeto-cabecera].flota { animation: none; } }`;
 
-const archivos = new Map();   // tema → Promise<Blob>
-const traer = (tema) => {
-  if (!archivos.has(tema)) archivos.set(tema, fetch(ANIM[tema]).then(r => { if (!r.ok) throw new Error('sin archivo'); return r.blob(); }));
-  return archivos.get(tema);
+const archivos = new Map();   // "tono:tema" → Promise<Blob>
+const traer = (tema, tono) => {
+  const k = `${tono}:${tema}`;
+  if (!archivos.has(k)) archivos.set(k, fetch(ANIM[tono][tema]).then(r => { if (!r.ok) throw new Error('sin archivo'); return r.blob(); }));
+  return archivos.get(k);
 };
 const quieto = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
@@ -63,27 +80,29 @@ const esperarEntrada = (fn) => {
   return () => { ob.disconnect(); clearTimeout(t); };
 };
 
-export default function ObjetoCabecera({ tema, activo = true, style }) {
+// `tono`: 'color' (el objeto a todo color, con su sombra de piso) o 'tres'
+// (blanco, gris y un tono claro del módulo, para ir dentro del aro).
+export default function ObjetoCabecera({ tema, activo = true, tono = 'color', style }) {
   const [src, setSrc] = useState(null);
   const [flota, setFlota] = useState(false);
   useEffect(() => {
-    if (!ANIM[tema]) return undefined;
+    if (!ANIM[tono][tema]) return undefined;
     // Sin ver la sección: el último cuadro, quieto (así no hay hueco).
-    if (!activo || quieto()) { setSrc(FIN[tema]); setFlota(!activo ? false : true); return undefined; }
+    if (!activo || quieto()) { setSrc(FIN[tono][tema]); setFlota(!activo ? false : true); return undefined; }
     let vivo = true, url = null, reloj = null;
     setFlota(false);
     const soltar = esperarEntrada(() => {
-      traer(tema).then(blob => {
+      traer(tema, tono).then(blob => {
         if (!vivo) return;
         url = URL.createObjectURL(blob); setSrc(url);
         reloj = setTimeout(() => vivo && setFlota(true), DURA[tema]);
-      }).catch(() => { if (vivo) { setSrc(FIN[tema]); setFlota(true); } });
+      }).catch(() => { if (vivo) { setSrc(FIN[tono][tema]); setFlota(true); } });
     });
     return () => { vivo = false; soltar(); clearTimeout(reloj); if (url) setTimeout(() => URL.revokeObjectURL(url), 0); };
-  }, [tema, activo]);
-  if (!ANIM[tema]) return null;
+  }, [tema, activo, tono]);
+  if (!ANIM[tono][tema]) return null;
   return (
-    <div data-objeto-cabecera={tema} data-caja={CAJA[tema].join(',')} className={flota ? 'flota' : undefined} style={{ width: '100%', height: '100%', ...style }}>
+    <div data-objeto-cabecera={tema} data-tono={tono} data-caja={CAJA[tema].join(',')} className={flota ? 'flota' : undefined} style={{ width: '100%', height: '100%', ...style }}>
       <style>{CSS}</style>
       {src && <img src={src} alt="" draggable={false} style={{ width: '100%', height: '100%', display: 'block' }} />}
     </div>

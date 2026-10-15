@@ -244,7 +244,8 @@ export function PuntaApple({ m, r, grosor, frac, color, transicion, radioPunto }
 
 // `plano`: sin degradado ni sombras, un solo color y su riel casi blanco
 // (las cabeceras, junto al objeto 3D). El punto blanco de la punta se queda.
-export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = null, etiqueta, plano = false, children }) {
+// `punto`: el color del punto de la punta (blanco; del módulo cuando el aro va en blanco).
+export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = null, etiqueta, plano = false, punto = '#FFFFFF', children }) {
   const objetivo = Math.max(0, Math.min(1, Number(frac) || 0));
   const f = useDesdeCero(objetivo);
   const r = (tam - grosor) / 2, m = tam / 2;
@@ -261,7 +262,7 @@ export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = null, 
             {/* El punto blanco de la punta se queda siempre, también al 100 %. */}
             {f > 0.001 && (
               <g style={{ transform: `rotate(${f * 360}deg)`, transformOrigin: `${m}px ${m}px`, transition: `transform ${curva}` }}>
-                <circle cx={m + r} cy={m} r={grosor * 0.2} fill="#FFFFFF" />
+                <circle cx={m + r} cy={m} r={grosor * 0.2} fill={punto} />
               </g>
             )}
           </g>

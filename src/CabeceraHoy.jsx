@@ -23,6 +23,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TEXT, TEXT_MUTED } from './theme.js';
 import ObjetoCabecera, { CAJA } from './ObjetoCabecera.jsx';
 import { AnilloMarca } from './GraficasV2.jsx';
+import Blob from './Blob.jsx';
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
@@ -96,10 +97,10 @@ function lugarDelObjeto(caja) {
   };
 }
 
-// Con gráfica (las cabeceras de la visual nueva): la gráfica grande es la
-// protagonista, con el objeto 3D chico y tenue adentro, y el porcentaje y su
-// texto debajo.
-const ARO_G = { tam: 94, grosor: 7, objAncho: 46, objAlto: 36 };
+// Con gráfica (las cabeceras de la visual nueva): el blob del módulo es el
+// protagonista, con el aro en blanco encima, el objeto a tres tonos y el
+// número adentro, y el pie debajo.
+const ARO_G = { blob: 122, tam: 92, grosor: 7, objAncho: 46, objAlto: 34 };
 function lugarEnCaja(caja, ancho, alto) {
   const [l, t, r, b] = caja;
   const lado = Math.min(ancho / (r - l), alto / (b - t));
@@ -149,25 +150,32 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   // centrado a la altura de la gráfica, sin hueco debajo.
   const aroGrande = grande ? (() => {
     const dentro = lugarEnCaja(CAJA[tema] || CAJA.entreno, ARO_G.objAncho, ARO_G.objAlto);
+    const color = COLOR_ARO[tema] || TEXT;
     return (
-      // Subida un poco (translateY): el texto de abajo de la gráfica quedaba
-      // pegado a los botones. Sin cambiar el alto de la fila.
-      <div key={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', width: 138, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none', transform: 'translateY(-8px)' }}>
+      // El blob del módulo (cuadrado curvo girado), y encima el aro en blanco
+      // con el objeto de la sección a tres tonos y el número adentro; el pie
+      // queda debajo del blob, en gris. Subido un poco (translateY) para que
+      // el pie no se pegue a los botones.
+      <div key={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', width: 138, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none', transform: 'translateY(-6px)' }}>
         {/* Con `alTocar`, la gráfica es un botón: abre qué la compone. */}
         <div className="cab-ilus" data-aro-cabecera={tema} data-aro-tocar={aro.alTocar ? '1' : undefined}
           role={aro.alTocar ? 'button' : undefined} tabIndex={aro.alTocar ? 0 : undefined} aria-label={aro.alTocar ? `${aro.pie}: ${aro.centro}. Ver cómo se calcula` : undefined}
           onClick={aro.alTocar} onKeyDown={aro.alTocar ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); aro.alTocar(); } } : undefined}
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animationDelay: '.1s', pointerEvents: aro.alTocar ? 'auto' : undefined, cursor: aro.alTocar ? 'pointer' : undefined }}>
-          <div style={{ position: 'relative', width: ARO_G.tam, height: ARO_G.tam }}>
-            {/* El aro y su punto, nítidos: lo tenue es solo el objeto. */}
-            <div><AnilloMarca plano frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.9)" etiqueta={aro.pie} /></div>
-            {/* El objeto, chico y tenue, adentro de la gráfica. */}
-            <div style={{ position: 'absolute', left: (ARO_G.tam - ARO_G.objAncho) / 2, top: (ARO_G.tam - ARO_G.objAlto) / 2, width: ARO_G.objAncho, height: ARO_G.objAlto, opacity: 0.5 }}>
-              <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={activo} /></div>
+          <div data-blob-cabecera style={{ position: 'relative', width: ARO_G.blob, height: ARO_G.blob }}>
+            <Blob color={color} tam={ARO_G.blob} />
+            <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+              <AnilloMarca plano frac={aro.frac} color="#FFFFFF" punto={color} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.3)" etiqueta={aro.pie}>
+                <div style={{ display: 'grid', placeItems: 'center' }}>
+                  <div style={{ position: 'relative', width: ARO_G.objAncho, height: ARO_G.objAlto }}>
+                    <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={activo} tono="tres" /></div>
+                  </div>
+                  <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
+                </div>
+              </AnilloMarca>
             </div>
           </div>
-          <div data-aro-centro style={{ marginTop: 6, fontSize: 17, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
-          {aro.pie && <div data-aro-pie style={{ marginTop: 2, fontSize: 11, fontWeight: 500, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.25 }}>{aro.pie}</div>}
+          {aro.pie && <div data-aro-pie style={{ marginTop: 8, fontSize: 11.5, fontWeight: 600, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.25 }}>{aro.pie}</div>}
         </div>
       </div>
     );

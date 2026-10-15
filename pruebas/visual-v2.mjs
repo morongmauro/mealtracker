@@ -320,19 +320,24 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const r = document.createRange(); r.selectNodeContents(frase);
   const lineas = [...r.getClientRects()];
   const derechaTexto = Math.max(...lineas.map(l => l.right));
-  // La gráfica grande a la derecha de la frase, sin taparla y entera en la
-  // pantalla; el objeto, chico y tenue, ADENTRO de la gráfica; el porcentaje
-  // y su texto, debajo de la gráfica.
+  // El blob del módulo a la derecha de la frase, sin taparla y entero en la
+  // pantalla; encima, el aro en blanco; el objeto (a tres tonos, nítido) y el
+  // número ADENTRO del aro; el pie debajo del blob.
   const aro = document.querySelector(`[data-cabecera-hoy="${tema}"] [data-aro-cabecera]`);
   const an = aro && aro.querySelector('[data-anillo]');
   const centro = aro && aro.querySelector('[data-aro-centro]');
-  if (!an || !centro) { console.log('ilusBien', tema, 'sin gráfica'); return false; }
-  const a = an.getBoundingClientRect(), k = centro.getBoundingClientRect();
+  const blob = aro && aro.querySelector('svg[data-blob]');
+  const pie = aro && aro.querySelector('[data-aro-pie]');
+  if (!an || !centro || !blob) { console.log('ilusBien', tema, 'sin gráfica'); return false; }
+  // La caja del blob sin girar (el svg girado sobresale por las esquinas).
+  const a = an.getBoundingClientRect(), k = centro.getBoundingClientRect(), b = aro.querySelector('[data-blob-cabecera]').getBoundingClientRect(), pf = pie ? pie.getBoundingClientRect() : null;
   const opac = Number(getComputedStyle(caja.parentElement.parentElement).opacity);
-  const bien = a.width >= 88 && a.left >= 0 && a.right <= innerWidth - 8 && derechaTexto <= a.left + 4
-    && g.left >= a.left && g.right <= a.right && g.top >= a.top && g.bottom <= a.bottom && (g.right - g.left) <= 64 && opac < 0.8
-    && k.top >= a.bottom - 1 && Math.abs((k.left + k.right) / 2 - (a.left + a.right) / 2) <= 4 && f.top < a.bottom;
-  if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top, g.bottom], a: [a.left, a.right, a.top, a.bottom], derechaTexto, opac, k: [k.left, k.top] }));
+  const bien = a.width >= 88 && b.left >= 0 && b.right <= innerWidth - 4 && derechaTexto <= b.left + 4
+    && g.left >= a.left && g.right <= a.right && g.top >= a.top && g.bottom <= a.bottom && (g.right - g.left) <= 64 && opac === 1
+    && k.top >= a.top && k.bottom <= a.bottom + 1 && Math.abs((k.left + k.right) / 2 - (a.left + a.right) / 2) <= 4 && f.top < a.bottom
+    && caja.dataset.tono === 'tres' && getComputedStyle(centro).color === 'rgb(255, 255, 255)'
+    && (!pf || pf.top >= b.bottom - 2);
+  if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top, g.bottom], a: [a.left, a.right, a.top, a.bottom], b: [b.left, b.right, b.bottom], derechaTexto, opac, k: [k.left, k.top, k.bottom], tono: caja.dataset.tono }));
   return bien;
 }, tema);
 // El recorrido completo (ya no se puede saltar): Empezar y Siguiente hasta Finalizar.
@@ -439,19 +444,24 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
   ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0)
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
-  ok('Dash: la gráfica grande junto a la frase, con la brújula tenue adentro y el porcentaje debajo', await ilusBien(p, 'dash'));
-  ok('aro de la cabecera: plano (un color, sin degradado ni sombras) y el riel casi blanco', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
-    const an = a.querySelector('[data-anillo]');
-    const sinSombra = ![...a.querySelectorAll('*')].some(d => /drop-shadow/.test(getComputedStyle(d).filter)) && !a.querySelector('[data-aro-piso]') && !an.querySelector('filter, mask');
-    const riel = [...an.querySelectorAll('svg circle')].some(c => /rgba\(255, ?255, ?255, ?0\.9\)/.test(c.getAttribute('stroke') || ''));
-    return an.dataset.plano === '1' && sinSombra && riel;
+  ok('Dash: el blob junto a la frase, con la brújula a tres tonos y el porcentaje en blanco adentro del aro', await ilusBien(p, 'dash'));
+  ok('cabecera: el blob azul girado 12° con sombra suave; encima el aro plano en blanco con riel blanco al 30 %', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
+    const an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob]');
+    const path = blob && blob.querySelector('path');
+    const m = new DOMMatrix(getComputedStyle(blob).transform); const giro = Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI);
+    const sombra = /drop-shadow/.test(getComputedStyle(blob).filter) && getComputedStyle(blob).filter.includes('60, 123, 214');
+    const aroSinSombra = !an.querySelector('filter, mask') && !/drop-shadow/.test(getComputedStyle(an).filter);
+    const circulos = [...an.querySelectorAll('svg circle')];
+    const riel = circulos.some(c => /rgba\(255, ?255, ?255, ?0\.3\)/.test(c.getAttribute('stroke') || ''));
+    const blanco = circulos.some(c => (c.getAttribute('stroke') || '').toUpperCase() === '#FFFFFF');
+    return an.dataset.plano === '1' && path && path.getAttribute('fill') === '#3C7BD6' && giro === -12 && sombra && aroSinSombra && riel && blanco;
   }));
 
   await espera(2600);
   ok('…y al terminar la animación, el objeto flota suave', await p.locator('[data-objeto-cabecera="dash"]').evaluate(d => d.classList.contains('flota') && getComputedStyle(d).animationName === 'obj-flota'));
-  ok('aros de las cabeceras: el punto de la punta es blanco y sin borde', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera] [data-anillo] svg').evaluate(s => {
-    const blancos = [...s.querySelectorAll('circle')].filter(c => (c.getAttribute('fill') || '').toUpperCase() === '#FFFFFF');
-    return blancos.length >= 1 && blancos.every(c => !c.getAttribute('stroke'));
+  ok('aros de las cabeceras: el punto de la punta va del color del módulo (sobre el aro blanco) y sin borde', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera] [data-anillo] svg').evaluate(s => {
+    const puntos = [...s.querySelectorAll('circle')].filter(c => (c.getAttribute('fill') || '').toUpperCase() === '#3C7BD6');
+    return puntos.length === 1 && puntos.every(c => !c.getAttribute('stroke'));
   }));
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
     const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));
@@ -707,7 +717,7 @@ try {
   ok('Entrenamiento abre en Hoy', (await p.getByRole('button', { name: 'Hoy', exact: true }).first().getAttribute('aria-current')) === 'page');
   ok('sin la navegación de arriba del módulo', (await p.getByRole('button', { name: 'Resumen', exact: true }).count()) === 0);
   await foto(p, '04-entreno-hoy');
-  ok('Entreno: la gráfica grande junto a la frase, con la kettlebell tenue adentro', await ilusBien(p, 'entreno'));
+  ok('Entreno: el blob junto a la frase, con la kettlebell a tres tonos y el 1/3 adentro del aro', await ilusBien(p, 'entreno'));
   const cabE = p.locator('[data-cabecera-hoy="entreno"]');
   ok('Hoy de entreno: la voz del coach (la frase de hoy, sin repetir la fecha del Dash)', await cabE.locator('[data-frase]').isVisible()
     && (await cabE.locator('[data-etiqueta]').count()) === 0
@@ -1202,7 +1212,7 @@ try {
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(1200);
   await foto(p, '08-comida-hoy');
-  ok('Comida: la gráfica grande junto a la frase, con el plato tenue adentro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
+  ok('Comida: el blob junto a la frase, con el aguacate a tres tonos adentro del aro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
   ok('Comida: al llegar a Alimentación, el plato se anima ahí (no escondido por debajo de otra sección)', await p.locator('[data-objeto-cabecera="comida"] img').first().evaluate(i => i.src.startsWith('blob:')));
   ok('Hoy de alimentación ya no saluda ni trae herramientas', (await p.getByText('Hola, Mauro').count()) === 0
     && (await p.getByText('Tus herramientas').count()) === 0);

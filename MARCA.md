@@ -75,10 +75,16 @@ Reglas:
   punto blanco en la punta, como el ícono. Se llena una vez al aparecer (~1 s,
   sin rebote). Todos los aros grandes son este. Cada aro se **explica al
   tocarlo** (qué mide y de qué se compone).
+- **Blob de la marca** (`Blob.jsx`): un cuadrado de lados y esquinas curvos
+  (superelipse), siempre girado 12° para que el giro se note, con una sombra
+  suave de su propio color. Blanco detrás del ícono en la entrada; del color
+  de la sección en las cabeceras. Es la pieza de color de cada pantalla.
 - **Cabecera de «Hoy»**: banda delgada del color de la sección, manchas
   difuminadas, la frase del coach en dos tiempos (lo que pasa, en grafito;
-  lo que diría el coach, en el color de la sección), el aro de la gráfica
-  clave a la derecha y el objeto 3D de la sección tenue dentro.
+  lo que diría el coach, en el color de la sección) y, a la derecha, el blob
+  de la sección con el aro en blanco encima (riel blanco al 30 %, el punto de
+  la punta del color de la sección), el objeto de la sección a tres tonos y
+  el número en blanco adentro del aro, y el pie en gris debajo del blob.
 - **Píldora de arriba**: solo el nombre de la sección, en mayúsculas sobre
   grafito. Se encoge al bajar y vuelve al subir.
 - **Barra de secciones**: cuatro secciones; la abierta se despliega de lado y
@@ -99,8 +105,11 @@ Reglas:
   cuerpo. **Sin cara en las cabeceras; con cara solo en celebraciones**
   (ojos cerrados en arco y sonrisa ancha, estilo Headspace). Nunca se le
   despegan los brazos: se animan desde el hombro.
-- Objetos de cabecera: kettlebell con barra (entreno), plato (comida), libro
-  (aprende), bandera y papelillo (Dash). Mismo tamaño y posición en todas.
+- Objetos de cabecera: kettlebell (entreno), aguacate (comida), libro
+  (aprende), brújula (Dash). Dentro del aro van **a tres tonos**: blanco en la
+  luz, gris en los medios y un tono claro de la sección en la sombra, sin
+  sombra de piso (`<tema>-tres.webp`, generados a partir de los originales a
+  color, que no se tocan). Mismo tamaño y posición en todas.
 
 ## 7. La voz del coach (textos)
 
