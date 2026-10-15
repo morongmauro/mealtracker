@@ -24,6 +24,7 @@ import { TEXT, TEXT_MUTED } from './theme.js';
 import ObjetoCabecera, { CAJA } from './ObjetoCabecera.jsx';
 import { AnilloMarca } from './GraficasV2.jsx';
 import Blob from './Blob.jsx';
+import { useCapaActiva } from './capaActiva.js';
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
@@ -107,10 +108,13 @@ function lugarEnCaja(caja, ancho, alto) {
   return { lado, left: ancho / 2 - lado * (l + r) / 2, top: alto / 2 - lado * (t + b) / 2 };
 }
 
-export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', ilustracion = true, aro = null, activo = true, children }) {
-  // `activo`: la sección está al frente. Alimentación queda montada por debajo
-  // de las demás; cada vez que vuelve al frente, el objeto y el aro se
-  // vuelven a animar (se montan de nuevo).
+export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = false, fondo = true, sangria = '20px', arriba = '0px', ilustracion = true, aro = null, activo: activoProp = true, children }) {
+  // `activo`: la sección está al frente. Todas las secciones quedan montadas
+  // aunque no se vean (Alimentación por debajo; Dash, Entrenamiento y
+  // Aprendizaje en su capa); cada vez que una vuelve al frente, el objeto y
+  // el aro se vuelven a animar (se montan de nuevo).
+  const enCapa = useCapaActiva();
+  const activo = activoProp && enCapa;
   const [vez, setVez] = useState(0);
   const antes = useRef(activo);
   useEffect(() => { if (activo && !antes.current) setVez(v => v + 1); antes.current = activo; }, [activo]);

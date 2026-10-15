@@ -95,14 +95,17 @@ Reglas:
   cambiar de sección el cristal teñido **viaja** (0,38 s): se despega, se
   recoge como una gota a mitad de camino, pasa su tinte al color de la nueva
   sección, llega y se abre con sus opciones (que van apareciendo desde la
-  mitad del viaje); la barra crece un 3,5 % y vuelve. Entre opciones de la
+  mitad del viaje); la barra crece un 3,5 % y vuelve. Sin brillos ni
+  destellos sobre la gota. Entre opciones de la
   misma sección, la pastilla blanca se desliza (0,26 s). El cristal es
   blanco al 60–48 % con desenfoque de 26 px: lo de atrás se adivina sin
   competir con la letra de la barra.
 - **Cambiar de sección**: la página nueva se funde encima de la anterior
   (0,28 s, lo que tarda la gota en llegar); nada desaparece ni «carga». Las
-  secciones ya abiertas (Dash, Entrenamiento, Aprendizaje) quedan montadas
-  por detrás con su scroll y su estado: volver es instantáneo.
+  secciones (Dash, Entrenamiento, Aprendizaje) se montan escondidas poco
+  después de abrir la app y quedan montadas con su scroll y su estado: el
+  primer toque y los siguientes son el mismo fundido. Lo que entra con
+  animación (objeto, aro) lo repite cada vez que su sección vuelve al frente.
 - **Hojas (sheets)**: suben desde abajo, asa gris, título en 17 px, fondo
   blanco; el fondo de atrás no se mueve.
 - **Botones de fila** («Profundiza», «Ver todo»): crema oscura, texto

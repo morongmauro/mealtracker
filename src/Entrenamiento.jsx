@@ -5,7 +5,7 @@ import EntrenoResumen from './EntrenoResumen.jsx';
 import EntrenoFotos from './EntrenoFotos.jsx';
 import EntrenoActividad, { ChipActividad, TarjetaCardioCoach } from './EntrenoActividad.jsx';
 import EntrenoFicha from './EntrenoFicha.jsx';
-import EntrenoGaleria from './EntrenoGaleria.jsx';
+import EntrenoGaleria, { precargarGaleria } from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
 import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, fijarClaveTecleado, borrarTecleado, leerTecleado } from './entrenoDatos.js';
@@ -171,7 +171,7 @@ export async function precargar(name) {
   const r = await api({ accion: 'plan', name });
   if (r && r.ok && !cachePlan.has(name)) cachePlan.set(name, r);
   precargarMeses(name);
-  if (r && r.ok) precargarRutinas(name, r);
+  if (r && r.ok) precargarRutinas(name, r).then(() => precargarGaleria(name));
   return r && r.ok ? r : null;
 }
 

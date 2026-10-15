@@ -241,11 +241,11 @@
          iPhone agranda la vista un instante después y el fondo «crecía».
          El color del arranque (manifest.json, background_color) es el mismo
          crema: antes era blanco y se veía una franja blanca abajo. */
-      /* `optional`: si la letra no llegó a tiempo se usa la de reserva y NO se
-         cambia a mitad de la animación (ese cambio se veía como un fallo en
-         el texto). Viene precargada (link rel=preload), así que casi siempre
-         está lista desde el primer cuadro. */
-      @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: optional;
+      /* `block`: el texto no se pinta con otra letra mientras llega esta (un
+         cambio de letra a mitad de la animación se veía como un fallo). El
+         nombre aparece a los 1,9 s y la letra viene precargada (20 KB, link
+         rel=preload), así que está lista mucho antes. */
+      @font-face { font-family: 'ECM Splash'; font-weight: 300 900; font-display: block;
         src: url('/fonts/figtree.woff2') format('woff2-variations'), url('/fonts/figtree.woff2') format('woff2'); }
       #splash2 { display: none; }
       html.splash-v2 #splash { display: none; }
@@ -276,8 +276,8 @@
       html.warm-start.intro-repite #splash2 { display: block !important; }
       body.app-ready #splash2 { opacity: 0; }
       #splash2 .fondo { position: absolute; inset: 0; background: linear-gradient(180deg, #FAF9F6, #F3F1EB); }
+      #splash2 { --centro: calc(var(--alto-pantalla, 100lvh) * 0.46); }
       #splash2 .escena { position: absolute; left: 0; right: 0; top: 60px; height: calc(100vh + 200px); height: calc(var(--alto-pantalla, 100lvh) + 200px);
-        --centro: calc(var(--alto-pantalla, 100lvh) * 0.46);
         transform-origin: 50% var(--centro, 46%);
         transition: transform .6s cubic-bezier(.5,0,.75,0); will-change: transform; }
       body.app-ready #splash2 .escena { transform: scale(1.6); }
@@ -319,7 +319,10 @@
       #splash2 .traza { stroke-dasharray: 100 100; stroke-dashoffset: 100; }
       #splash2 .punto, #splash2 .halo { transform-box: fill-box; transform-origin: center; transform: scale(0); }
       #splash2 .halo { opacity: 0; }
-      #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(var(--centro, 46%) + 112px); margin: 0; text-align: center;
+      /* El nombre va FUERA de .escena: al salir, la escena hace zoom (el blob
+         crece hacia la app) y el nombre no debe crecer con ella (se veía como
+         un cambio brusco de letra); solo se desvanece con el fondo. */
+      #splash2 .nombre { position: absolute; left: 0; right: 0; top: calc(60px + var(--centro, 46%) + 112px); margin: 0; text-align: center; z-index: 3;
         font-family: 'ECM Splash', -apple-system, system-ui, sans-serif; font-weight: 800; font-size: 40px; line-height: 1.04;
         letter-spacing: -0.035em; color: #1D1D1F; white-space: nowrap; }
       /* Cada línea entra entera, despacio (1,1 s), subiendo apenas: antes
@@ -417,11 +420,11 @@
           <g transform="translate(256 262) scale(.9) translate(-256 -248)">
             <circle class="halo" cx="120" cy="300" r="28.8" fill="#F2C94C"/>
             <circle class="punto" cx="120" cy="300" r="28.8" fill="#F2C94C"/></g></svg></div>
-        <p class="nombre"><span class="linea l1">Entrena con</span><span class="linea metodo l2">Método<span class="pto">.</span></span></p>
       </div>
       <!-- El piso va FUERA de .escena: .escena lleva will-change: transform y
            eso atrapa a cualquier fixed de adentro (quedaba 200 px por debajo
            de la vista y nunca tapaba nada). Aquí sí se pega al borde real. -->
+      <p class="nombre"><span class="linea l1">Entrena con</span><span class="linea metodo l2">Método<span class="pto">.</span></span></p>
       <div class="piso"></div>
       <script>
         // La secuencia espera a que la app esté armada (main.jsx la arranca);

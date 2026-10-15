@@ -141,6 +141,23 @@ function EstantesV2({ visibles, alAbrir }) {
 // y se refresca por detrás.
 const cacheGaleria = new Map();
 
+// La galería completa (rutinas + ejercicios con video) se trae en un rato
+// libre al abrir la app (ver precargar en Entrenamiento.jsx): el primer
+// toque a Galería ya no muestra «cargando».
+const traerGaleria = async (nombre) => {
+  const lista = await api.rutinas(nombre);
+  if (!lista.ok) return null;
+  const detalles = await Promise.all((lista.rutinas || []).map(r => api.rutina(nombre, r.id)));
+  return (lista.rutinas || []).map((r, i) => ({
+    id: r.id, nombre: r.nombre,
+    ejercicios: detalles[i] && detalles[i].ok ? detalles[i].rutina.ejercicios : [],
+  }));
+};
+export async function precargarGaleria(nombre) {
+  if (!nombre || cacheGaleria.has(nombre)) return;
+  try { const r = await traerGaleria(nombre); if (r && !cacheGaleria.has(nombre)) cacheGaleria.set(nombre, r); } catch (e) { /* al abrir se vuelve a pedir */ }
+}
+
 export default function Galeria({ nombre }) {
   const [rutinas, setRutinasEstado] = useState(() => cacheGaleria.get(nombre) || null);
   const setRutinas = (v) => { cacheGaleria.set(nombre, v); setRutinasEstado(v); };

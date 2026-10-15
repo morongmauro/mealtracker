@@ -67,9 +67,6 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
       { offset: .74, left: `${ahora.left - dir * 6}px`, width: `${ahora.width * 1.05}px`, backgroundColor: ahora.tint, transform: 'scaleY(1.04)' },
       { offset: 1, left: `${ahora.left}px`, width: `${ahora.width}px`, backgroundColor: ahora.tint, transform: 'scaleY(1)' },
     ], { duration: VIAJE_MS, easing: 'linear', fill: 'forwards' });
-    // El brillo que recorre la gota, como la luz sobre un cristal.
-    const brillo = lente.firstElementChild;
-    if (brillo && brillo.animate) brillo.animate([{ opacity: 0, transform: 'translateX(-60%)' }, { opacity: .9, transform: 'translateX(0)', offset: .5 }, { opacity: 0, transform: 'translateX(60%)' }], { duration: VIAJE_MS, fill: 'forwards' });
     // La barra respira: crece apenas mientras la gota viaja.
     nav.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.035)', offset: .45 }, { transform: 'scale(1)' }], { duration: VIAJE_MS, easing: CURVA });
     // Las opciones de la sección nueva aparecen cuando la gota ya llegó; la
@@ -139,14 +136,13 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
         .bv2-btn { -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform .12s ease, background-color .2s ease, color .2s ease; }
         .bv2-btn:active { transform: scale(.94); }
         .bv2-lente { position: absolute; top: 5px; height: 48px; border-radius: 999px; pointer-events: none; opacity: 0; box-shadow: inset 0 1px 0 rgba(255,255,255,.7); overflow: hidden; }
-        .bv2-lente i { position: absolute; inset: 0; border-radius: 999px; opacity: 0; background: linear-gradient(100deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.55) 50%, rgba(255,255,255,0) 70%); }
       `}</style>
       <nav ref={navRef} aria-label="Secciones" className="bv2-cristal" style={{
         pointerEvents: 'auto', maxWidth: 460, margin: '0 auto', borderRadius: 999, position: 'relative',
         display: 'flex', alignItems: 'center', gap: 4, padding: 5, transformOrigin: '50% 100%',
       }}>
         {/* El cristal que viaja (solo se ve mientras cambia de sección). */}
-        <div ref={lenteRef} className="bv2-lente" data-lente aria-hidden="true"><i /></div>
+        <div ref={lenteRef} className="bv2-lente" data-lente aria-hidden="true" />
         {secciones.map(s => {
           // El Dash en la barra va en azul, como su cabecera (el amarillo
           // de SECCION.dash queda para los recordatorios).

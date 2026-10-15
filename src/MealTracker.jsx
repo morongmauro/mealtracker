@@ -23,6 +23,7 @@ const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
+import { CapaActiva } from './capaActiva.js';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada, enDireccionNueva } from './mudanza.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero, ArcoApple, PuntaApple, rielDe } from './GraficasV2.jsx';
@@ -792,6 +793,25 @@ export default function MealTracker() {
   // Al volver al Dash desde la barra, el Dash se abre en su inicio (ver Dash.jsx).
   const [dashReinicio, setDashReinicio] = useState(0);
   useEffect(() => { if (v2 && !showTraining) pausarCapa(capaEntrenaRef.current); }, [v2, showTraining]);
+  // Y se montan por adelantado, escondidas, en un rato libre después de la
+  // entrada: Entrenamiento a los ~3 s y Aprendizaje (el centro, por detrás)
+  // a los ~7 s. Así el PRIMER toque a cada sección también es un fundido
+  // entre páginas ya armadas, no una capa vacía que se llena de golpe.
+  useEffect(() => {
+    if (!v2 || view !== 'main' || !name) return undefined;
+    const idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 2500 }) : setTimeout(f, 400));
+    const t1 = setTimeout(() => idle(() => { if (trainingOn) setCapasVistas(c => (c.entrena ? c : { ...c, entrena: true })); }), 3000);
+    const t2 = setTimeout(() => idle(() => {
+      if (!learningUrl) return;
+      setCapasVistas(c => (c.aprende ? c : { ...c, aprende: true }));
+      if (!learningSrcRef.current) {
+        let uid = cloudUserIdRef.current;
+        if (!uid) { try { uid = localStorage.getItem('cloudUserId'); } catch (e) {} }
+        setLearningSrc(urlCentro(learningUrl, { uid, name, go: 'lecturas' }));
+      }
+    }), 7000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [v2, view, name, trainingOn, learningUrl]);
   useEffect(() => { aplicarV2(v2); }, [v2]);
   // La píldora de arriba se encoge al bajar y vuelve a su tamaño al subir (o
   // al llegar arriba). Se escucha el scroll de cualquier capa (cada sección
@@ -6294,10 +6314,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
             background: 'linear-gradient(0deg, rgba(237,236,229,0.96) 0%, rgba(237,236,229,0.72) 42%, rgba(237,236,229,0.3) 72%, rgba(237,236,229,0) 100%)',
           }} />}
+          <CapaActiva.Provider value={showTraining}>
           <Suspense fallback={null}>
             <Entrenamiento name={name} seccionV2={v2 ? entrenoSub : null} alSeccionV2={setEntrenoSub}
               recordatorios={v2 ? { pendientes: coachReminders.filter(r => !r.done_at).length, abrir: () => { haptic(8); setActiveModal('reminders'); } } : null} />
           </Suspense>
+          </CapaActiva.Provider>
         </div>
       )}
 
@@ -6305,6 +6327,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {(showDash || (v2 && capasVistas.dash)) && (
         <div data-view="dash" data-capa-v2 {...capaProps(showDash)} className="fixed inset-0 overflow-y-auto" style={{ zIndex: showDash ? 37 : 36, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: v2 ? BG_STAINS_DASH : BG_STAINS }} />
+          <CapaActiva.Provider value={showDash}>
           <Suspense fallback={null}>
             <Dash name={name} history={history} detalle={historyDetail} goals={goals} kcalHoy={totals?.kcal || 0} reinicio={dashReinicio}
               avisoPago={paymentDue && !paymentDue.bloqueo ? <PaymentNotice v2={v2} info={paymentDue} style={{ marginTop: '16px' }} /> : null}
@@ -6332,11 +6355,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 ventanaLibre: !(name && !cuentaSaltada && (!sesionV2 || cuentaAbierta)) && !recorrido && !mudanza && !primeraVez,
               }} />
           </Suspense>
+          </CapaActiva.Provider>
         </div>
       )}
 
       {(showLearning || (v2 && capasVistas.aprende)) && (
         <div data-capa-v2 data-aprende {...capaProps(showLearning)} className="fixed inset-0" style={{ zIndex: showLearning ? 37 : 36, background: BG }}>
+          <CapaActiva.Provider value={showLearning}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
           {/* El difuminado SUPERIOR ya no se dibuja aquí: se pintaba encima
               del iframe y por tanto también sobre el botón de "volver" del
@@ -6388,6 +6413,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </Suspense>
             </div>
           )}
+          </CapaActiva.Provider>
         </div>
       )}
 
