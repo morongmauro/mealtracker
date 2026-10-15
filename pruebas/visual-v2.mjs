@@ -424,10 +424,14 @@ try {
     const caja = await nav.boundingBox();
     const clip = { x: 0, y: Math.max(0, caja.y - 70), width: 390, height: Math.min(844 - Math.max(0, caja.y - 70), caja.height + 90) };
     await pv.p.screenshot({ path: path.join(CAPTURAS, 'barra-0.png'), clip });
-    const t0 = Date.now();
+    // Se congelan las animaciones recién creadas y se recorren a mano: la
+    // captura tarda más que un cuadro y, en vivo, los tiempos se corren.
     await pv.p.getByRole('button', { name: 'Alimentación', exact: true }).click();
+    await pv.p.evaluate(() => document.getAnimations().forEach(a => { if (a.playState === 'running') a.pause(); }));
+    console.log('animaciones', await pv.p.evaluate(() => document.getAnimations().length));
     for (const t of [40, 120, 200, 280, 380, 520, 800]) {
-      const falta = t - (Date.now() - t0); if (falta > 0) await espera(falta);
+      await pv.p.evaluate(t => document.getAnimations().forEach(a => { try { a.currentTime = Math.min(t, (a.effect.getTiming().duration || 0) + (a.effect.getTiming().delay || 0)); } catch (e) {} }), t);
+      await espera(60);
       await pv.p.screenshot({ path: path.join(CAPTURAS, `barra-${t}.png`), clip });
     }
     console.log('lente', await pv.p.locator('[data-lente]').evaluate(l => ({ op: getComputedStyle(l).opacity, w: l.getBoundingClientRect().width })));

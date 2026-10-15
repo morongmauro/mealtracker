@@ -64,8 +64,8 @@ Reglas:
 - Las secciones de una pantalla se separan con el título y el espacio, sin
   líneas (ni grises ni de color): 18 px arriba del título, 12 px hasta su
   tarjeta.
-- Cristal (barra de secciones, botones redondos): fondo blanco al 78–88 %,
-  `backdrop-filter: blur(16px)`, borde claro arriba. Sin sombras pesadas.
+- Cristal (barra de secciones, botones redondos): fondo blanco al 60–88 %,
+  `backdrop-filter: blur(16–26px)`, borde claro arriba. Sin sombras pesadas.
 - Los botones redondos de atajo miden 42 px de círculo con ícono de 19 px y la
   palabra debajo en 11 px. Van juntos, no repartidos por todo el ancho.
 
@@ -91,7 +91,13 @@ Reglas:
 - **Píldora de arriba**: solo el nombre de la sección, en mayúsculas sobre
   grafito. Se encoge al bajar y vuelve al subir.
 - **Barra de secciones**: cuatro secciones; la abierta se despliega de lado y
-  muestra sus opciones; las otras quedan en su ícono con su palabra corta.
+  muestra sus opciones; las otras quedan en su ícono con su palabra corta. Al
+  cambiar de sección el cristal teñido **viaja** (0,52 s): se despega, se
+  recoge como una gota a mitad de camino, pasa su tinte al color de la nueva
+  sección, llega y se abre con sus opciones; la barra crece un 3,5 % y
+  vuelve. Entre opciones de la misma sección, la pastilla blanca se desliza
+  (0,32 s). El cristal es blanco al 74–60 % con desenfoque de 26 px: lo de
+  atrás se adivina sin competir con la letra de la barra.
 - **Hojas (sheets)**: suben desde abajo, asa gris, título en 17 px, fondo
   blanco; el fondo de atrás no se mueve.
 - **Botones de fila** («Profundiza», «Ver todo»): crema oscura, texto
