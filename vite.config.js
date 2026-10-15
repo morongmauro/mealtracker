@@ -37,7 +37,7 @@ function buildVersionPlugin() {
 // de la app se ejecuta mientras se dibuja el ícono, el teléfono se ocupa y la
 // animación se traba a la mitad. Este plugin hace que el código y los estilos
 // se DESCARGUEN desde el primer instante (modulepreload / preload) pero se
-// EJECUTEN cuando el ícono y el nombre ya entraron (~1,8 s desde que arrancó). Sin
+// EJECUTEN cuando el ícono y el nombre ya entraron (~3,7 s desde que arrancó). Sin
 // entrada (recargas, otros clientes) se cargan al tiro, como siempre. Los
 // estilos van antes que el código, para que la app nunca se vea sin estilo.
 function entradaSinTrabasPlugin() {
@@ -56,7 +56,7 @@ function entradaSinTrabasPlugin() {
 (function () {
   var JS = ${JSON.stringify(js[1])}, CSS = ${JSON.stringify(css)};
   var r = document.documentElement, hecho = false;
-  var espera = r.classList.contains('intro-anda') ? Math.max(0, (window.__introDesde || 0) + 1800 - performance.now()) : 0;
+  var espera = r.classList.contains('intro-anda') ? Math.max(0, (window.__introDesde || 0) + 3700 - performance.now()) : 0;
   var pendientes = CSS.length;
   function codigo() {
     if (hecho) return; hecho = true;

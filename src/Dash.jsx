@@ -344,7 +344,7 @@ const Marco = React.forwardRef(({ children }, ref) => (
 const cacheDash = new Map();
 const cacheAprende = new Map();
 
-export default function Dash({ name, history, detalle = {}, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null, kcalHoy = 0 }) {
+export default function Dash({ name, history, detalle = {}, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null, kcalHoy = 0, reinicio = 0 }) {
   const hoy = hoyLocal();
   const [ent, setEnt] = useState(() => cacheDash.get(name) || null);
   // El plan de la semana (la rutina de hoy, para el bloque «Hoy»): el mismo
@@ -356,6 +356,10 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   const [falloEnt, setFalloEnt] = useState(false);
   const [midiendo, setMidiendo] = useState(false);
   const [vista, setVista] = useState('inicio');
+  // Visual nueva: el Dash queda montado por detrás al ir a otra sección.
+  // Al volver a él desde la barra (reinicio cambia) se abre en su inicio,
+  // como siempre, pero sin armarse de cero ni volver a pedir los datos.
+  useEffect(() => { if (reinicio) setVista('inicio'); }, [reinicio]);
   // Qué aro se está explicando (las props de ExplicacionAro), o null.
   const [explicarAro, setExplicarAro] = useState(null);
   const [aprende, setAprende] = useState(() => (cacheAprende.has(name) ? cacheAprende.get(name) : undefined));   // undefined = cargando, null = sin datos

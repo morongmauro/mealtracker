@@ -24,7 +24,7 @@ const CORTO = { dash: 'Dash', entreno: 'Entreno', comida: 'Comida', aprende: 'Ap
 // ¿Sin movimiento? (ajuste del teléfono): el cambio es directo, sin viaje.
 const sinMovimiento = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 // Duración del viaje del cristal entre secciones y de la pastilla entre opciones.
-const VIAJE_MS = 520, PASTILLA_MS = 320;
+const VIAJE_MS = 380, PASTILLA_MS = 260;
 const CURVA = 'cubic-bezier(.2,.8,.2,1)';
 
 // secciones: [{ id, subs: [{ id, label, icono? }] }] en el orden de la barra.
@@ -74,9 +74,9 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
     nav.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.035)', offset: .45 }, { transform: 'scale(1)' }], { duration: VIAJE_MS, easing: CURVA });
     // Las opciones de la sección nueva aparecen cuando la gota ya llegó; la
     // sección que se cerró vuelve a su ícono mientras la gota se aleja.
-    g.animate([{ opacity: 0 }, { opacity: 0, offset: .55 }, { opacity: 1 }], { duration: VIAJE_MS, easing: 'linear' });
+    g.animate([{ opacity: 0 }, { opacity: 0, offset: .3 }, { opacity: 1, offset: .8 }, { opacity: 1 }], { duration: VIAJE_MS, easing: 'linear' });
     const cerrado = nav.querySelector(`[data-seccion-boton="${prev.seccion}"]`);
-    if (cerrado && cerrado.animate) cerrado.animate([{ opacity: 0, transform: 'scale(.7)' }, { opacity: 0, offset: .35 }, { opacity: 1, transform: 'none', offset: .7 }, { opacity: 1 }], { duration: VIAJE_MS, easing: 'linear' });
+    if (cerrado && cerrado.animate) cerrado.animate([{ opacity: 0, transform: 'scale(.7)' }, { opacity: 0, offset: .25 }, { opacity: 1, transform: 'none', offset: .6 }, { opacity: 1 }], { duration: VIAJE_MS, easing: 'linear' });
     let vivo = true;
     const fin = () => { if (!vivo) return; lente.style.opacity = '0'; setViajando(false); };
     anim.onfinish = fin; anim.oncancel = fin;
@@ -122,8 +122,8 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
       <style>{`
         .bv2-cristal {
           /* Lo de atrás se adivina, pero no compite con la letra de la barra:
-             un poco más de blanco y de desenfoque que antes. */
-          background: linear-gradient(180deg, rgba(255,255,255,0.74), rgba(255,255,255,0.60));
+             blanco al 60 % y desenfoque de 26 px. */
+          background: linear-gradient(180deg, rgba(255,255,255,0.60), rgba(255,255,255,0.48));
           -webkit-backdrop-filter: blur(26px) saturate(160%);
           backdrop-filter: blur(26px) saturate(160%);
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), inset 0 0 0 1px rgba(255,255,255,0.45),

@@ -638,6 +638,8 @@ export default function MealTracker() {
   // como salir a otra página en vez de una sección más de la app.
   const [showLearning, setShowLearning] = useState(false);
   const [learningSrc, setLearningSrc] = useState('');
+  const learningSrcRef = useRef('');
+  useEffect(() => { learningSrcRef.current = learningSrc; }, [learningSrc]);
   // Re-tap en la pestaña activa = "llévame al inicio": señales que disparan
   // el scroll (Recetario) o la recarga del iframe (Aprendizaje).
   const [recetarioScrollSig, setRecetarioScrollSig] = useState(0);
@@ -763,6 +765,33 @@ export default function MealTracker() {
   // (Deslizar entre páginas se quitó: chocaba con el scroll de lado del
   // calendario, la galería y los videos. Se navega con la barra.)
   const v2 = esV2(name);
+  // Capa de navegación (visual nueva): una sección que ya se abrió NO se
+  // desmonta al cambiar a otra; se queda montada y escondida (visibility),
+  // con su scroll y su estado, y al volver aparece con un fundido corto en
+  // vez de armarse de cero (que era el «desaparece, piensa, carga y salta»).
+  const [capasVistas, setCapasVistas] = useState({ entrena: false, dash: false, aprende: false });
+  useEffect(() => {
+    if (!v2) return;
+    setCapasVistas(c => {
+      const n = { entrena: c.entrena || showTraining, dash: c.dash || showDash, aprende: c.aprende || showLearning };
+      return (n.entrena === c.entrena && n.dash === c.dash && n.aprende === c.aprende) ? c : n;
+    });
+  }, [v2, showTraining, showDash, showLearning]);
+  // Atributos de cada capa: activa (se ve y se toca) o guardada (escondida
+  // e inerte: ni foco ni toques le llegan). Al guardarse, lo que estuviera
+  // sonando dentro (un video de la rutina) se pausa.
+  const capaProps = (activa) => ({ 'data-activa': activa ? '' : undefined, inert: activa ? undefined : '' });
+  const pausarCapa = (el) => {
+    if (!el) return;
+    try {
+      el.querySelectorAll('video').forEach(v => { try { v.pause(); } catch (e) {} });
+      el.querySelectorAll('iframe').forEach(f => { try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*'); } catch (e) {} });
+    } catch (e) {}
+  };
+  const capaEntrenaRef = useRef(null);
+  // Al volver al Dash desde la barra, el Dash se abre en su inicio (ver Dash.jsx).
+  const [dashReinicio, setDashReinicio] = useState(0);
+  useEffect(() => { if (v2 && !showTraining) pausarCapa(capaEntrenaRef.current); }, [v2, showTraining]);
   useEffect(() => { aplicarV2(v2); }, [v2]);
   // La píldora de arriba se encoge al bajar y vuelve a su tamaño al subir (o
   // al llegar arriba). Se escucha el scroll de cualquier capa (cada sección
@@ -2885,7 +2914,13 @@ export default function MealTracker() {
     url = urlCentro(learningUrl, { uid, name, go, goId });
     // Overlay interno (iframe), no window.open: así no aparece la barra de
     // URL del navegador y el centro se siente una sección más de la app.
-    setLearningSrc(url);
+    // Visual nueva: si el centro ya está cargado (la capa queda montada
+    // aunque se esté en otra sección), se le pide la pantalla por mensaje
+    // en vez de recargarlo; solo con una pieza concreta (id) se recarga.
+    const marco = learningFrameRef.current && learningFrameRef.current.contentWindow;
+    if (v2Activa() && learningSrcRef.current && marco && !goId) {
+      try { marco.postMessage({ tipo: 'em-ir', a: go || 'home' }, '*'); } catch (e) { setLearningSrc(url); }
+    } else setLearningSrc(url);
     setShowRecetario(false);
     setShowDash(false);
     setShowTraining(false);
@@ -5305,6 +5340,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     haptic(6);
     if (sec === 'dash') {
       setShowRecetario(false); setShowLearning(false); setShowTraining(false); setShowDash(true);
+      if (!showDash) setDashReinicio(x => x + 1);
       return;
     }
     if (sec === 'entreno') {
@@ -6248,8 +6284,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {/* MÓDULO DE ENTRENAMIENTO — mismo tratamiento que el centro de
           recursos: overlay con iframe, no window.open, para que no aparezca
           la barra de URL del navegador y se sienta una sección más. */}
-      {showTraining && (
-        <div data-view="entrena" data-capa-v2 className="fixed inset-0 overflow-y-auto" style={{ zIndex: 37, background: BG }}>
+      {(showTraining || (v2 && capasVistas.entrena)) && (
+        <div ref={capaEntrenaRef} data-view="entrena" data-capa-v2 {...capaProps(showTraining)} className="fixed inset-0 overflow-y-auto" style={{ zIndex: showTraining ? 37 : 36, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: v2 ? BG_STAINS_ENTRENO : BG_STAINS }} />
           {/* Con la barra de cristal nueva lo de atrás tiene que verse: sin
               el difuminado de abajo. */}
@@ -6266,11 +6302,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       )}
 
       {/* DASH (visual nueva): cómo vas en todo, en una pantalla. */}
-      {showDash && (
-        <div data-view="dash" data-capa-v2 className="fixed inset-0 overflow-y-auto" style={{ zIndex: 37, background: BG }}>
+      {(showDash || (v2 && capasVistas.dash)) && (
+        <div data-view="dash" data-capa-v2 {...capaProps(showDash)} className="fixed inset-0 overflow-y-auto" style={{ zIndex: showDash ? 37 : 36, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: v2 ? BG_STAINS_DASH : BG_STAINS }} />
           <Suspense fallback={null}>
-            <Dash name={name} history={history} detalle={historyDetail} goals={goals} kcalHoy={totals?.kcal || 0}
+            <Dash name={name} history={history} detalle={historyDetail} goals={goals} kcalHoy={totals?.kcal || 0} reinicio={dashReinicio}
               avisoPago={paymentDue && !paymentDue.bloqueo ? <PaymentNotice v2={v2} info={paymentDue} style={{ marginTop: '16px' }} /> : null}
               alIr={(sec, op) => irSubV2(sec, op)} entrenoOn={trainingOn}
               racha={streak} pendientes={coachReminders.filter(r => !r.done_at).length}
@@ -6299,8 +6335,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         </div>
       )}
 
-      {showLearning && (
-        <div data-capa-v2 className="fixed inset-0" style={{ zIndex: 37, background: BG }}>
+      {(showLearning || (v2 && capasVistas.aprende)) && (
+        <div data-capa-v2 data-aprende {...capaProps(showLearning)} className="fixed inset-0" style={{ zIndex: showLearning ? 37 : 36, background: BG }}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
           {/* El difuminado SUPERIOR ya no se dibuja aquí: se pintaba encima
               del iframe y por tanto también sobre el botón de "volver" del

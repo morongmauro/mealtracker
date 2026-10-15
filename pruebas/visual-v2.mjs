@@ -624,7 +624,7 @@ try {
     el.dispatchEvent(new TouchEvent('touchend', { bubbles: true, touches: [], changedTouches: [toque(60)] }));
   });
   await espera(600);
-  ok('deslizar de lado no cambia de sección', (await p.locator('[data-view="dash"]').count()) === 1 && (await p.locator('[data-view="entrena"]').count()) === 0);
+  ok('deslizar de lado no cambia de sección', (await p.locator('[data-view="dash"][data-activa]').count()) === 1 && (await p.locator('[data-view="entrena"][data-activa]').count()) === 0);
   await dash.getByRole('button', { name: /Recordatorios/ }).click();
   await p.getByText('Mis recordatorios', { exact: true }).last().waitFor({ timeout: 5000 });
   ok('Recordatorios sin oliva', await p.evaluate(() => {

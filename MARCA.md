@@ -92,12 +92,17 @@ Reglas:
   grafito. Se encoge al bajar y vuelve al subir.
 - **Barra de secciones**: cuatro secciones; la abierta se despliega de lado y
   muestra sus opciones; las otras quedan en su ícono con su palabra corta. Al
-  cambiar de sección el cristal teñido **viaja** (0,52 s): se despega, se
+  cambiar de sección el cristal teñido **viaja** (0,38 s): se despega, se
   recoge como una gota a mitad de camino, pasa su tinte al color de la nueva
-  sección, llega y se abre con sus opciones; la barra crece un 3,5 % y
-  vuelve. Entre opciones de la misma sección, la pastilla blanca se desliza
-  (0,32 s). El cristal es blanco al 74–60 % con desenfoque de 26 px: lo de
-  atrás se adivina sin competir con la letra de la barra.
+  sección, llega y se abre con sus opciones (que van apareciendo desde la
+  mitad del viaje); la barra crece un 3,5 % y vuelve. Entre opciones de la
+  misma sección, la pastilla blanca se desliza (0,26 s). El cristal es
+  blanco al 60–48 % con desenfoque de 26 px: lo de atrás se adivina sin
+  competir con la letra de la barra.
+- **Cambiar de sección**: la página nueva se funde encima de la anterior
+  (0,28 s, lo que tarda la gota en llegar); nada desaparece ni «carga». Las
+  secciones ya abiertas (Dash, Entrenamiento, Aprendizaje) quedan montadas
+  por detrás con su scroll y su estado: volver es instantáneo.
 - **Hojas (sheets)**: suben desde abajo, asa gris, título en 17 px, fondo
   blanco; el fondo de atrás no se mueve.
 - **Botones de fila** («Profundiza», «Ver todo»): crema oscura, texto
@@ -153,8 +158,10 @@ Reglas:
 - La entrada: las manchas de la marca salen del centro, el blob blanco y el
   ícono se dibujan, y luego el blob **absorbe** las manchas: el fondo queda
   liso y adentro del blob se encienden los cuatro colores del ícono del
-  homescreen. El nombre entra después, en grafito con el punto amarillo.
-  Dura 4,2 s y sale solo la primera vez del día.
+  homescreen. El nombre entra mientras los colores se absorben, por líneas
+  y despacio (1,5 s cada una), en grafito con el punto amarillo al final.
+  La app se arma por debajo recién cuando el nombre ya entró (3,7 s), para
+  no trabarlo. Dura 4,7 s y sale solo la primera vez del día.
 - Las celebraciones grandes (hoja con la kettlebell) se reservan para
   terminar un entreno o cumplir la meta del día; lo cotidiano se confirma en
   pequeño.
