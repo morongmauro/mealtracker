@@ -173,8 +173,11 @@ Reglas:
   liso y adentro del blob se encienden los cuatro colores del ícono del
   homescreen. El nombre entra mientras los colores se absorben, por líneas
   y despacio (1,5 s cada una), en grafito con el punto amarillo al final.
-  El texto solo cambia de opacidad: nunca se mueve, escala ni cambia de
-  capa (cada redibujo del texto se ve como un cambio de grosor).
+  El nombre NO es texto: son los contornos de Figtree 800 como trazos
+  vectoriales (index.html), dibujados como el blob. Así no depende de
+  ninguna fuente ni de los ajustes de texto que trae la hoja de la app al
+  cargarse (eso lo redibujaba más grueso y movido 0,7 px por un instante,
+  medido cuadro a cuadro en el teléfono).
   La app se arma por debajo recién cuando el nombre ya entró (3,7 s), para
   no trabarlo. Dura 4,7 s y sale solo la primera vez del día.
 - Las celebraciones grandes (hoja con la kettlebell) se reservan para
