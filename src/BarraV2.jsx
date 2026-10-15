@@ -24,7 +24,7 @@ const CORTO = { dash: 'Dash', entreno: 'Entreno', comida: 'Comida', aprende: 'Ap
 // ¿Sin movimiento? (ajuste del teléfono): el cambio es directo, sin viaje.
 const sinMovimiento = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
 // Duración del viaje del cristal entre secciones y de la pastilla entre opciones.
-const VIAJE_MS = 380, PASTILLA_MS = 260;
+const PASTILLA_MS = 260;
 const CURVA = 'cubic-bezier(.2,.8,.2,1)';
 
 // secciones: [{ id, subs: [{ id, label, icono? }] }] en el orden de la barra.
@@ -32,90 +32,33 @@ const CURVA = 'cubic-bezier(.2,.8,.2,1)';
 export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, punto = {}, barRef, oculta }) {
   const grupoRef = useRef(null);
   const navRef = useRef(null);
-  const lenteRef = useRef(null);
   // Dónde estaba el cristal de la sección abierta (relativo a la barra) la
   // última vez que se pintó, y qué sección era: con eso el cristal VIAJA de
   // ahí a la nueva en vez de cambiar de golpe.
   const antes = useRef(null);
-  const [viajando, setViajando] = useState(false);
   const ultimaSub = useRef(null);
 
-  // ── El cristal que viaja entre secciones (como la barra de iOS 26) ──
-  // Al cambiar de sección, el cristal teñido se despega de donde estaba, se
-  // estira al arrancar, se recoge a mitad de camino como una gota, pasa su
-  // tinte al color de la nueva sección y se abre con sus opciones. Todo con
-  // transform y opacity (compositor): nada que trabe ni tiemble.
+  // ── Al cambiar de sección: nada viaja. El grupo nuevo aparece con un
+  // fundido suave (CSS, ver .bv2-grupo) y los botones cerrados se deslizan a
+  // su sitio nuevo en vez de saltar (solo transform: compositor). ──
   useLayoutEffect(() => {
-    const nav = navRef.current, g = grupoRef.current, lente = lenteRef.current;
-    if (!nav || !g) return undefined;
-    const nr = nav.getBoundingClientRect(), gr = g.getBoundingClientRect();
-    const c = seccion === 'dash' ? DASH_AZUL : (SECCION[seccion] || DASH_AZUL);
-    // Dónde queda cada botón cerrado: con el cambio de sección se recolocan,
-    // y en vez de saltar a su sitio nuevo se deslizan desde el viejo.
+    const nav = navRef.current;
+    if (!nav) return undefined;
+    const nr = nav.getBoundingClientRect();
     const botones = {};
     nav.querySelectorAll('[data-seccion-boton]').forEach(b => { botones[b.getAttribute('data-seccion-boton')] = b.getBoundingClientRect().left - nr.left; });
-    const ahora = { seccion, left: gr.left - nr.left, width: gr.width, tint: c.tint, botones };
     const prev = antes.current;
-    antes.current = ahora;
-    if (!prev || prev.seccion === seccion || !lente || sinMovimiento() || typeof lente.animate !== 'function') return undefined;
-    // Lo que quedó de un viaje anterior se cancela antes de empezar otro.
-    [lente, ...lente.children].forEach(el => { if (el.getAnimations) el.getAnimations().forEach(a => a.cancel()); });
-    Object.keys(ahora.botones).forEach(id => {
+    antes.current = { seccion, botones };
+    if (!prev || prev.seccion === seccion || sinMovimiento()) return undefined;
+    Object.keys(botones).forEach(id => {
       const b = nav.querySelector(`[data-seccion-boton="${id}"]`);
       const antesX = prev.botones && prev.botones[id];
       if (!b || antesX == null || !b.animate || id === prev.seccion) return;
-      const dx = antesX - ahora.botones[id];
-      if (Math.abs(dx) > 0.5) b.animate([{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: VIAJE_MS, easing: CURVA });
+      const dx = antesX - botones[id];
+      if (Math.abs(dx) > 0.5) b.animate([{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: PASTILLA_MS, easing: CURVA });
     });
-    const dir = ahora.left > prev.left ? 1 : -1;
-    const centroA = prev.left + prev.width / 2, centroB = ahora.left + ahora.width / 2;
-    const medio = (centroA + centroB) / 2;
-    setViajando(true);
-    // La gota mide lo que medirá al llegar y se mueve SOLO con transform y
-    // opacity (lo que el compositor anima sin el hilo principal): así no
-    // tartamudea aunque la app esté armando la página nueva. El tinte
-    // cambia por fundido entre dos capas (la del color viejo y la del nuevo).
-    const W = Math.max(1, ahora.width);
-    lente.style.left = `${ahora.left}px`; lente.style.width = `${W}px`;
-    lente.style.transformOrigin = '0 50%';
-    const [viejo, nuevoTinte] = lente.children;
-    if (viejo) viejo.style.backgroundColor = prev.tint;
-    if (nuevoTinte) nuevoTinte.style.backgroundColor = ahora.tint;
-    lente.style.opacity = '1';
-    const tr = (x, w, sy) => `translateX(${x - ahora.left}px) scaleX(${w / W}) scaleY(${sy})`;
-    const anim = lente.animate([
-      { offset: 0, transform: tr(prev.left, prev.width, 1) },
-      { offset: .22, transform: tr(prev.left + dir * Math.min(24, prev.width * .12), Math.max(56, prev.width * .78), .92) },
-      { offset: .5, transform: tr(medio - 48, 96, .88) },
-      { offset: .74, transform: tr(ahora.left - dir * 6, ahora.width * 1.05, 1.04) },
-      { offset: 1, transform: tr(ahora.left, ahora.width, 1) },
-    ], { duration: VIAJE_MS, easing: 'linear', fill: 'forwards' });
-    if (viejo && viejo.animate) viejo.animate([{ opacity: 1 }, { opacity: 1, offset: .35 }, { opacity: 0, offset: .7 }, { opacity: 0 }], { duration: VIAJE_MS, easing: 'linear', fill: 'forwards' });
-    if (nuevoTinte && nuevoTinte.animate) nuevoTinte.animate([{ opacity: 0 }, { opacity: 0, offset: .35 }, { opacity: 1, offset: .7 }, { opacity: 1 }], { duration: VIAJE_MS, easing: 'linear', fill: 'forwards' });
-    // (La barra ya no «respira»: escalar el cristal obliga a recalcular el
-    // desenfoque de lo de atrás en cada cuadro y el tinte temblaba.)
-    // Las opciones de la sección nueva aparecen cuando la gota ya llegó; la
-    // sección que se cerró vuelve a su ícono mientras la gota se aleja.
-    g.animate([{ opacity: 0 }, { opacity: 0, offset: .3 }, { opacity: 1, offset: .8 }, { opacity: 1 }], { duration: VIAJE_MS, easing: 'linear' });
-    const cerrado = nav.querySelector(`[data-seccion-boton="${prev.seccion}"]`);
-    if (cerrado && cerrado.animate) cerrado.animate([{ opacity: 0, transform: 'scale(.7)' }, { opacity: 0, offset: .25 }, { opacity: 1, transform: 'none', offset: .6 }, { opacity: 1 }], { duration: VIAJE_MS, easing: 'linear' });
-    let vivo = true;
-    // Al llegar, primero vuelve el tinte del grupo (React) y SOLO entonces se
-    // apaga la gota (ver el efecto de abajo): nunca un cuadro sin color.
-    const fin = () => { if (!vivo) return; setViajando(false); };
-    anim.onfinish = fin; anim.oncancel = fin;
-    return () => { vivo = false; };
+    return undefined;
   }, [seccion]);
-
-  // Al llegar: el tinte del grupo ya está pintado debajo (mismo color), y la
-  // gota se funde encima en 0,16 s. Nada aparece ni se apaga de golpe.
-  useLayoutEffect(() => {
-    const lente = lenteRef.current;
-    if (viajando || !lente || lente.style.opacity === '0') return;
-    if (!lente.animate) { lente.style.opacity = '0'; return; }
-    const a = lente.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'ease-out', fill: 'forwards' });
-    a.onfinish = () => { lente.style.opacity = '0'; try { a.cancel(); } catch (e) {} };
-  }, [viajando]);
 
   // ── La pastilla blanca viaja entre las opciones de la misma sección ──
   useLayoutEffect(() => {
@@ -170,15 +113,13 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
         .bv2-grupo::-webkit-scrollbar { display: none; }
         .bv2-btn { -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: transform .12s ease, background-color .2s ease, color .2s ease; }
         .bv2-btn:active { transform: scale(.94); }
-        .bv2-lente { position: absolute; top: 5px; height: 48px; border-radius: 999px; pointer-events: none; opacity: 0; overflow: hidden; will-change: transform; }
-        .bv2-lente i { position: absolute; inset: 0; border-radius: 999px; }
+        @keyframes bv2Aparece { from { opacity: 0; } to { opacity: 1; } }
+        .bv2-grupo { animation: bv2Aparece .3s ease-out; }
       `}</style>
       <nav ref={navRef} aria-label="Secciones" className="bv2-cristal" style={{
         pointerEvents: 'auto', maxWidth: 460, margin: '0 auto', borderRadius: 999, position: 'relative',
         display: 'flex', alignItems: 'center', gap: 4, padding: 5, transformOrigin: '50% 100%',
       }}>
-        {/* El cristal que viaja (solo se ve mientras cambia de sección). */}
-        <div ref={lenteRef} className="bv2-lente" data-lente aria-hidden="true"><i /><i /></div>
         {secciones.map(s => {
           // El Dash en la barra va en azul, como su cabecera (el amarillo
           // de SECCION.dash queda para los recordatorios).
@@ -219,8 +160,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
             <div key={s.id} ref={grupoRef} className="bv2-grupo" role="group" aria-label={NOMBRE_SECCION[s.id]}
               style={{
                 flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 2,
-                // Mientras el cristal viaja, el tinte lo pone la lente.
-                background: viajando ? 'transparent' : c.tint, borderRadius: 999, padding: 4, overflowX: 'auto',
+                background: c.tint, borderRadius: 999, padding: 4, overflowX: 'auto',
               }}>
               {/* El ícono de la sección se queda a la vista con sus opciones
                   abiertas: se sabe en qué parte de la app se está. */}

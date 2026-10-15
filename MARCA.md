@@ -91,14 +91,11 @@ Reglas:
 - **Píldora de arriba**: solo el nombre de la sección, en mayúsculas sobre
   grafito. Se encoge al bajar y vuelve al subir.
 - **Barra de secciones**: cuatro secciones; la abierta se despliega de lado y
-  muestra sus opciones; las otras quedan en su ícono con su palabra corta. Al
-  cambiar de sección el cristal teñido **viaja** (0,38 s): se despega, se
-  recoge como una gota a mitad de camino, pasa su tinte al color de la nueva
-  sección, llega y se abre con sus opciones (que van apareciendo desde la
-  mitad del viaje). La barra no crece ni «respira»: escalar el cristal hace
-  temblar lo desenfocado de atrás. Sin brillos ni destellos sobre la gota;
-  los botones cerrados se deslizan a su sitio nuevo, y al llegar la gota se
-  funde sobre el tinte del grupo (nunca aparece ni se apaga de golpe). Entre opciones de la
+  muestra sus opciones sobre un tinte de su color; las otras quedan en su
+  ícono con su palabra corta. Al cambiar de sección nada viaja ni crece: el
+  grupo nuevo con su tinte aparece con un fundido corto (0,3 s) y los
+  botones cerrados se deslizan a su sitio nuevo. La barra no «respira»
+  (escalar el cristal hace temblar lo desenfocado de atrás). Entre opciones de la
   misma sección, la pastilla blanca se desliza (0,26 s). El cristal es
   blanco al 60–48 % con desenfoque de 26 px: lo de atrás se adivina sin
   competir con la letra de la barra.
