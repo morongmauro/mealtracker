@@ -144,6 +144,11 @@ Reglas:
 - Lo quieto se queda quieto: el objeto de la cabecera entra con su animación
   (cae, rebota, se abre) y después no flota ni respira. Nada se mueve
   permanentemente en pantalla.
+- La entrada: las manchas de la marca salen del centro, el blob blanco y el
+  ícono se dibujan, y luego el blob **absorbe** las manchas: el fondo queda
+  liso y adentro del blob se encienden los cuatro colores del ícono del
+  homescreen. El nombre entra después, en grafito con el punto amarillo.
+  Dura 4,2 s y sale solo la primera vez del día.
 - Las celebraciones grandes (hoja con la kettlebell) se reservan para
   terminar un entreno o cumplir la meta del día; lo cotidiano se confirma en
   pequeño.

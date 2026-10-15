@@ -63,7 +63,7 @@ for (const vuelta of [1, 2]) {
     };
     mira();
   }));
-  ok(`vuelta ${vuelta} · ícono + nombre completos a los ${Math.round(tiempos.completo)} ms`, tiempos.completo != null && tiempos.completo < 2100, JSON.stringify(tiempos));
+  ok(`vuelta ${vuelta} · ícono + nombre completos a los ${Math.round(tiempos.completo)} ms`, tiempos.completo != null && tiempos.completo < 3600, JSON.stringify(tiempos));
   ok(`vuelta ${vuelta} · y se ven ${Math.round(tiempos.sale - tiempos.completo)} ms antes de pasar a la app`, tiempos.sale && tiempos.sale - tiempos.completo >= 800, JSON.stringify(tiempos));
 
   // Que no se trabe: cuadros mientras se dibuja el ícono y sale el nombre.

@@ -73,14 +73,15 @@ if (typeof window !== 'undefined') {
   const raiz = document.documentElement;
   const splashV2 = raiz.classList.contains('splash-v2');
   const conEntrada = raiz.classList.contains('intro-completa');
-  const ENTRADA_MS = 2900;
+  const ENTRADA_MS = 4200;
   const cerrarEntrada = () => {
     document.body.classList.add('app-ready');
     if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F3F1EB'); }
     try { sessionStorage.setItem('mt:booted', '1'); } catch (e) {}
   };
-  // Cierra la entrada 2,9 s después de que arrancó (o en cuanto la app esté
-  // armada, si tardó más).
+  // Cierra la entrada 4,2 s después de que arrancó (o en cuanto la app esté
+  // armada, si tardó más): el nombre termina de entrar a los ~3,3 s y se
+  // ve al menos 0,8 s con el blob ya convertido en el ícono.
   const correrEntrada = () => {
     const desde = (window.__empezarIntro && window.__empezarIntro()) || performance.now();
     setTimeout(cerrarEntrada, Math.max(80, desde + ENTRADA_MS - performance.now()));
