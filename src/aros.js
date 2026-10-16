@@ -82,8 +82,12 @@ export const adherenciaEntreno = (semana) => {
   return Math.max(0, Math.min(1, base + extra));
 };
 
-// El pie del aro: «al día» o cuánto se quedó atrás.
-export const pieSemana = (pendientes, cosa = 'sin hacer') => (pendientes > 0 ? `Semana · ${pendientes} ${cosa}` : 'Semana · al día');
+// El pie del aro: «al día» o, en neutro, lo que YA se hizo. Nunca lo que
+// falta: el blob no regaña al entrar (lo que quedó atrás se ve al tocarlo
+// y en su sección); solo puntualiza lo hecho.
+export const pieSemana = (pendientes, hechas = 0, cosa = 'hechas') => (pendientes > 0
+  ? (hechas > 0 ? `Semana · ${hechas} ${cosa}` : 'Semana · en marcha')
+  : 'Semana · al día');
 
 // Sin datos todavía (sin fase, sin metas) el aro sale igual, vacío y con
 // «—»: antes desaparecía y la cabecera cambiaba de forma.
@@ -91,12 +95,12 @@ export const aroVacio = (pie) => ({ frac: 0, centro: '—', pie });
 export const aroDe = (frac, pie) => (frac == null ? aroVacio(pie) : { frac, centro: `${Math.round(frac * 100)}%`, pie });
 
 export const aroEntrenoDe = (prog) => (prog
-  ? { frac: prog.planeadas ? prog.hechas / prog.planeadas : 0, centro: `${prog.hechas}/${prog.planeadas}`, pie: pieSemana(prog.pendientes) }
+  ? { frac: prog.planeadas ? prog.hechas / prog.planeadas : 0, centro: `${prog.hechas}/${prog.planeadas}`, pie: pieSemana(prog.pendientes, prog.hechas, prog.hechas === 1 ? 'hecha' : 'hechas') }
   : aroVacio('Semana · entreno'));
 
 export function aroComida(history, goals, hoy) {
   const c = progresoComida(history, goals, hoy);
-  return { frac: c.registrados / c.total, centro: `${c.registrados}/${c.total}`, pie: pieSemana(c.pendientes, 'sin registrar') };
+  return { frac: c.registrados / c.total, centro: `${c.registrados}/${c.total}`, pie: pieSemana(c.pendientes, c.registrados, c.registrados === 1 ? 'día registrado' : 'días registrados') };
 }
 
 // El aro del Dash: el % de la semana completada, promedio del entreno (rutinas
@@ -120,5 +124,6 @@ export function aroSemana(semana, history, goals, aprende, hoy) {
   const con = partes.map(p => p.frac).filter(x => x != null);
   const pendientes = partes.reduce((a, p) => a + (p.pendientes || 0), 0);
   const frac = con.length ? con.reduce((a, x) => a + x, 0) / con.length : null;
-  return { frac: frac == null ? 0 : frac, centro: pct(frac), pie: pieSemana(pendientes) };
+  // En el Dash no hay una sola cosa que contar: «al día» o «en marcha».
+  return { frac: frac == null ? 0 : frac, centro: pct(frac), pie: pendientes > 0 ? 'Semana · en marcha' : 'Semana · al día' };
 }

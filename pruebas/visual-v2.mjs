@@ -577,7 +577,7 @@ try {
   // El aro de la cabecera se toca y explica qué lo compone, sin deuda.
   // El aro es el PROGRESO de la semana (no «sin deuda» siempre en 100 %): se
   // llena con lo hecho y el pie dice «al día» o cuánto se quedó atrás.
-  ok('Dash: el aro dice «Semana · al día» o «Semana · N sin hacer» y el centro es el % de la semana (no 100 % un martes)', /^Semana · (al día|\d+ sin hacer)$/.test(await dash.locator('[data-aro-pie]').first().innerText())
+  ok('Dash: el aro dice «Semana · al día» o «Semana · en marcha» (nunca lo que falta) y el centro es el % de la semana (no 100 % un martes)', /^Semana · (al día|en marcha)$/.test(await dash.locator('[data-aro-pie]').first().innerText())
     && /^\d+%$/.test(await dash.locator('[data-cabecera-hoy="dash"] [data-aro-centro]').innerText()) && (await dash.locator('[data-cabecera-hoy="dash"] [data-aro-centro]').innerText()) !== '100%',
     `${await dash.locator('[data-aro-pie]').first().innerText()} · ${await dash.locator('[data-cabecera-hoy="dash"] [data-aro-centro]').innerText()}`);
   await dash.locator('[data-aro-tocar]').first().click();
@@ -769,9 +769,9 @@ try {
     && /^(Hoy toca|Hecho por hoy|Día de descanso|Hoy no te toca|Semana completa|Tienes un entreno)/.test(await cabE.locator('[data-frase]').innerText()),
     await cabE.locator('[data-frase]').innerText());
   ok('…sin firma y sin personajes en la cabecera', (await cabE.locator('[data-firma-coach]').count()) === 0 && (await cabE.locator('[data-dibujo]').count()) === 0);
-  // El aro de entreno: rutinas hechas de las planeadas (1/3), «al día» o «N sin hacer», y se explica al tocarlo.
-  ok('Entreno: el aro es el progreso de la semana (1/3) y dice si vas al día', /^1\/3$/.test(await cabE.locator('[data-aro-centro]').innerText())
-    && /^Semana · (al día|\d+ sin hacer)$/.test(await cabE.locator('[data-aro-pie]').innerText()), `${await cabE.locator('[data-aro-centro]').innerText()} · ${await cabE.locator('[data-aro-pie]').innerText()}`);
+  // El aro de entreno: rutinas hechas de las planeadas (1/3), «al día» o lo hecho en neutro, y se explica al tocarlo.
+  ok('Entreno: el aro es el progreso de la semana (1/3) y el pie dice «al día» o lo hecho, nunca lo que falta', /^1\/3$/.test(await cabE.locator('[data-aro-centro]').innerText())
+    && /^Semana · (al día|en marcha|\d+ hechas?)$/.test(await cabE.locator('[data-aro-pie]').innerText()) && !/sin/.test(await cabE.locator('[data-aro-pie]').innerText()), `${await cabE.locator('[data-aro-centro]').innerText()} · ${await cabE.locator('[data-aro-pie]').innerText()}`);
   await cabE.locator('[data-aro-tocar]').click();
   await p.locator('[data-explicacion-aro]').waitFor({ timeout: 5000 });
   ok('Entreno: tocar el aro explica (1 de 3, al día)', /1 de 3/.test(await p.locator('[data-explicacion-aro]').innerText()) && /Al día/.test(await p.locator('[data-explicacion-aro]').innerText()), await p.locator('[data-explicacion-aro]').innerText());
@@ -1271,8 +1271,8 @@ try {
   // la primera comida de hoy, abajo solo el aro de calorías.
   {
     const cabC = p.locator('[data-cabecera-hoy="comida"]');
-    ok('Comida: el aro es días registrados de 7 y dice si vas al día', /^\d\/7$/.test(await cabC.locator('[data-aro-centro]').innerText())
-      && /^Semana · (al día|\d+ sin registrar)$/.test(await cabC.locator('[data-aro-pie]').innerText()), `${await cabC.locator('[data-aro-centro]').innerText()} · ${await cabC.locator('[data-aro-pie]').innerText()}`);
+    ok('Comida: el aro es días registrados de 7 y el pie dice «al día» o lo registrado, nunca lo que falta', /^\d\/7$/.test(await cabC.locator('[data-aro-centro]').innerText())
+      && /^Semana · (al día|en marcha|\d+ días? registrados?)$/.test(await cabC.locator('[data-aro-pie]').innerText()) && !/sin/.test(await cabC.locator('[data-aro-pie]').innerText()), `${await cabC.locator('[data-aro-centro]').innerText()} · ${await cabC.locator('[data-aro-pie]').innerText()}`);
     await cabC.locator('[data-aro-tocar]').click();
     await p.locator('[data-explicacion-aro]').waitFor({ timeout: 5000 });
     ok('Comida: tocar el aro explica los días registrados', /de 7/.test(await p.locator('[data-explicacion-aro]').innerText()) && /Al día/.test(await p.locator('[data-explicacion-aro]').innerText()), await p.locator('[data-explicacion-aro]').innerText());

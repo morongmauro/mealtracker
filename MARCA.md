@@ -28,7 +28,7 @@ amable, tono), Nike Training (cabeceras con frase grande).
 | Crema oscura | `#EBE6DC` | Botones de fila («Profundiza»): un tono más oscuro que la crema para que se lean como botón. |
 | Blanco | `#FFFFFF` | Tarjetas. |
 | Gris texto | `#6B6B6B` / `#9A9A9A` | Secundario / terciario. |
-| Aviso | `#B4541D` | «N sin hacer», lo que quedó atrás. Solo texto, nunca fondos rojos. |
+| Aviso | `#B4541D` | «N sin hacer», lo que quedó atrás, solo dentro de la explicación del aro y en su sección. Solo texto, nunca fondos rojos. |
 | Macros | proteína `#D77A61`, carbos `#D4B581`, grasas `#6B7A8F` | Siempre los mismos en aros, barras y calendario. |
 
 Reglas:
@@ -161,8 +161,10 @@ Reglas:
   Pasarse no es fiesta: se dice claro y sin castigo.
 - **Sin deuda**: nada le dice al cliente «vas mal» por lo que todavía no
   tocaba. Los aros son progreso de la semana («1/3», «2/7») y el pie dice
-  «Semana · al día» o «Semana · N sin hacer». La deuda solo aparece cuando es
-  real.
+  «Semana · al día» o, en neutro, lo hecho («Semana · 2 hechas», «Semana ·
+  3 días registrados», «Semana · en marcha»): el blob no regaña al entrar.
+  Lo que quedó atrás («N sin hacer») solo se ve al tocar el aro y en su
+  sección, y solo cuando es real.
 - Un mensaje por hecho: no se confirma lo mismo tres veces. Deshacer es
   discreto; el aviso legal es una línea.
 - Las explicaciones largas salen **una vez** (primera vez) y luego se acortan.

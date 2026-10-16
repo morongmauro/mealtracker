@@ -6417,7 +6417,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             // muestra el mismo % que el Dash; se lo mandamos al centro.
             onLoad={v2 ? (ev) => {
               const w = ev.currentTarget.contentWindow;
-              leerAprendizajeConCache(name).then(a => { if (a && w) { try { w.postMessage({ tipo: 'em-aprende', pct: a.pct }, '*'); } catch (e) { /* sin centro */ } } }).catch(() => {});
+              // Con sus partes: el centro explica el aro al tocarlo, como los demás.
+              leerAprendizajeConCache(name).then(a => { if (a && w) { try { w.postMessage({ tipo: 'em-aprende', pct: a.pct, vistas: a.vistas, total: a.total, bloques: (a.bloques || []).map(b => ({ titulo: b.titulo, vistas: b.vistas, total: b.total })) }, '*'); } catch (e) { /* sin centro */ } } }).catch(() => {});
             } : undefined}
             style={{
               position: 'absolute', top: 0, left: 0, width: '100%',
