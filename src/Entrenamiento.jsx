@@ -22,6 +22,7 @@ import ExplicacionAro from './ExplicacionAro.jsx';
 import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind } from '@phosphor-icons/react';
 import Respira from './Respira.jsx';
 import Reconocimiento from './Reconocimiento.jsx';
+import { prepararSonido, sonarFinDescanso } from './sonidoDescanso.js';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
@@ -698,16 +699,37 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', alVolver); };
   }, [descanso]);
 
-  // Al llegar a cero: un toque corto, si el teléfono lo permite. No suena
-  // nada: mucha gente entrena con música y un pitido encima molesta.
+  // Al llegar a cero: suena (dos notas) y vibra, para quien no está mirando
+  // la pantalla (sonidoDescanso.js). Si la app estaba en segundo plano, al
+  // volver se recalcula el tiempo y, si ya pasó, suena entonces.
   const yaAvisado = useRef(false);
   useEffect(() => {
     if (!descanso) { yaAvisado.current = false; return; }
     if (restante <= 0 && !yaAvisado.current) {
       yaAvisado.current = true;
-      try { navigator.vibrate && navigator.vibrate([50, 90, 50]); } catch (e) {}
+      sonarFinDescanso();
     }
   }, [restante, descanso]);
+
+  // Con la rutina abierta la pantalla no se apaga sola (Wake Lock, donde el
+  // teléfono lo permita): así el descanso corre y el pitido llega aunque el
+  // teléfono esté en el banco. Se suelta al salir y se vuelve a pedir al
+  // volver de otra app.
+  useEffect(() => {
+    if (!v2Activa() || typeof navigator === 'undefined' || !navigator.wakeLock) return undefined;
+    let candado = null, vivo = true;
+    const pedir = async () => {
+      if (!vivo || document.visibilityState !== 'visible') return;
+      try { candado = await navigator.wakeLock.request('screen'); } catch (e) { candado = null; }
+    };
+    pedir();
+    document.addEventListener('visibilitychange', pedir);
+    return () => {
+      vivo = false;
+      document.removeEventListener('visibilitychange', pedir);
+      if (candado) { try { candado.release(); } catch (e) {} }
+    };
+  }, []);
 
   // Cuántas series de ESTA rutina siguen en el teléfono sin subir.
   const deEsta = useCallback((x) => x.name === name && x.rutina_id === rutinaId && x.fecha === fecha, [name, rutinaId, fecha]);
@@ -790,7 +812,12 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
     // el del ejercicio; en un circuito, el corto entre estaciones o el largo
     // al terminar la vuelta.
     const seg = Number(descansoSeg);
-    if (Number.isFinite(seg) && seg > 0) setDescanso({ segundos: seg, fin: Date.now() + seg * 1000 });
+    if (Number.isFinite(seg) && seg > 0) {
+      // El toque de marcar deja el audio listo: así el pitido del final puede
+      // sonar solo (el iPhone no deja sonar nada que no arrancó con un toque).
+      prepararSonido();
+      setDescanso({ segundos: seg, fin: Date.now() + seg * 1000 });
+    }
     escribirSerie({
       rutina_ejercicio_id: re.id, ejercicio_id: re.ejercicio.id,
       serie_num: serie, reps, peso, unidad, completada: true,

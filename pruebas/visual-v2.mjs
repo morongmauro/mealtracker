@@ -1669,7 +1669,22 @@ try {
   await espera(1200);
   await n.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
   await n.p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
+  // Las reproducciones de audio se cuentan (el pitido del descanso).
+  await n.p.evaluate(() => { window.__sonidos = 0; const play = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { if (this.volume > 0) window.__sonidos++; return play.apply(this, arguments).catch(() => {}); }; });
   await n.p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
+  await espera(300);
+  // Y una serie de un ejercicio con descanso (la banca: 2 min); el calentamiento no tiene.
+  await n.p.locator('[data-ejercicio="Barbell Bench Press"]').getByLabel('Repeticiones serie 1').fill('8');
+  await n.p.locator('[data-ejercicio="Barbell Bench Press"]').getByRole('button', { name: 'Marcar serie 1' }).click();
+  await espera(300);
+  ok('descanso: al marcar la serie arranca el descanso del ejercicio', (await n.p.locator('[data-descanso="contando"]').count()) === 1);
+  // El reloj salta al final del descanso: suena el pitido y vibra.
+  await n.ctx.clock.setFixedTime(new DateReal(FIJO + 130000));
+  await espera(900);
+  ok('descanso: al acabar, la barra dice «Listo» y suena el pitido (dos notas) para quien no mira la pantalla', (await n.p.locator('[data-descanso="listo"]').count()) === 1
+    && await n.p.evaluate(() => window.__sonidos >= 1), await n.p.evaluate(() => 'sonidos=' + window.__sonidos));
+  await n.ctx.clock.setFixedTime(new DateReal(FIJO));
+  await n.p.locator('[data-descanso]').getByRole('button', { name: 'Cerrar' }).click();
   await espera(300);
   await n.p.locator('[data-terminar]').click();
   // La intensidad es obligatoria: sin ella no se puede enviar.

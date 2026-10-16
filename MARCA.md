@@ -171,6 +171,11 @@ Reglas:
   día al entrar en meta (kcal 90–110 % y proteína ≥ 90 %); completa al quinto
   día en meta o en el día perfecto. Aprendizaje, cada 3 cápsulas, cada 2
   videos y al completar la fase (el centro avisa cada pieza con `em-visto`).
+- **El descanso avisa**: al llegar a cero suena un pitido corto de dos notas
+  y vibra (`sonidoDescanso.js`), para quien no mira la pantalla. Es un
+  `<audio>` con un WAV generado en la app, que en el iPhone suena aunque el
+  interruptor esté en silencio, y queda listo con el toque de marcar la
+  serie. Con la rutina abierta la pantalla no se apaga sola (Wake Lock).
 - **Última semana del ciclo** (`AvisoCicloFin.jsx`): una ventana, una sola
   vez por ciclo, el primer día que abra la app dentro de la última semana;
   la línea del ciclo arriba, cifras reales (entrenos que quedan, qué toca
