@@ -105,6 +105,11 @@ Reglas:
   después de abrir la app y quedan montadas con su scroll y su estado: el
   primer toque y los siguientes son el mismo fundido. Lo que entra con
   animación (objeto, aro) lo repite cada vez que su sección vuelve al frente.
+  Una capa escondida no puede recibir NADA: además de `inert`, opacidad 0 y
+  `pointer-events: none`, lo que lleve dentro con `visibility` propio
+  (el iframe del centro, un video) se esconde aparte, porque un iframe
+  «visible» detrás de todo se traga los gestos táctiles de la pantalla
+  entera (el chat dejó de subir por eso).
 - **Páginas, no ventanas**: lo que es una vista de una sección (el calendario
   de comidas, el de entreno, el recetario, la galería) es una PÁGINA con las
   manchas de fondo, la píldora de marca arriba y la voz de la sección con su

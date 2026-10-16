@@ -18,6 +18,16 @@
   opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity .2s ease-in, visibility 0s linear .2s;
 }
+/* Dentro de una capa escondida, el iframe del centro (y cualquier video)
+   también se esconde de verdad: el iframe trae visibility:visible propio y,
+   aunque su capa esté a opacidad 0 y sin pointer-events, el navegador le
+   seguía entregando los gestos táctiles de toda la pantalla: el chat de
+   Alimentación no se dejaba subir. Se oculta con el mismo retardo que la
+   capa para que el fundido entre secciones no parpadee. */
+[data-capa-v2]:not([data-activa]) iframe, [data-capa-v2]:not([data-activa]) video {
+  visibility: hidden !important; pointer-events: none !important;
+  transition: visibility 0s linear .2s;
+}
 @keyframes capaEntra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 /* La página nueva termina de entrar cuando la gota de la barra llega (≈0,28 s). */
 [data-capa-v2][data-activa] { animation: capaEntra .28s ease-out; }

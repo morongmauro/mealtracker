@@ -1458,6 +1458,22 @@ try {
   await p.mouse.click(195, 300);
   await espera(300);
   ok('chat: al salir del campo sin enviar también vuelve', await barraVisible());
+  // Con el teclado cerrado, el chat se deja subir con el dedo AUNQUE las otras
+  // capas (con el iframe del centro) ya estén montadas por detrás. El iframe
+  // traía visibility:visible propio y se tragaba los gestos táctiles.
+  {
+    const sel = '.fixed.inset-0.max-w-2xl';
+    await p.evaluate((sel) => { document.querySelector(sel).scrollTop = 2000; }, sel);
+    await espera(150);
+    const cdp = await p.context().newCDPSession(p);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 195, y: 300 }] });
+    for (let i = 1; i <= 6; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 195, y: 300 + 50 * i }] }); await espera(16); }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await espera(400);
+    const r = await p.evaluate((sel) => ({ top: document.querySelector(sel).scrollTop, iframes: document.querySelectorAll('[data-capa-v2]:not([data-activa]) iframe').length, vis: [...document.querySelectorAll('[data-capa-v2]:not([data-activa]) iframe')].map(f => getComputedStyle(f).visibility).join(',') }), sel);
+    ok('chat: con el teclado cerrado se deja subir con el dedo (iframe del centro escondido de verdad por detrás)', r.top < 1990 && r.iframes >= 1 && r.vis === 'hidden', JSON.stringify(r));
+    await cdp.detach();
+  }
 
   // ── Aprendizaje: Lecturas · Videos · Sobre el programa (sin «Hoy») ──
   await p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
