@@ -2097,7 +2097,12 @@ export default function MealTracker() {
       const alto = vv ? vv.height : window.innerHeight;
       const abajo = Math.max(0, Math.round(window.innerHeight - (arriba + alto)));
       const arribaPx = Math.round(arriba);
-      const kbOpen = (window.innerHeight - alto) > 100;
+      // Teclado abierto = la vista se encogió Y hay un campo con el foco. Solo
+      // con la altura, en algunos teléfonos quedaba «abierto» para siempre y
+      // el chat ya no dejaba subir; sin un campo enfocado no hay teclado.
+      const foco = document.activeElement;
+      const editable = !!foco && (foco.tagName === 'INPUT' || foco.tagName === 'TEXTAREA' || foco.isContentEditable);
+      const kbOpen = editable && (window.innerHeight - alto) > 100;
       keyboardOpenRef.current = kbOpen;
       setKeyboardOpen(kbOpen);
 
@@ -2160,6 +2165,9 @@ export default function MealTracker() {
     }
     window.addEventListener('resize', pedir);
     window.addEventListener('orientationchange', pedir);
+    // Al perder el foco el campo (teclado cerrado) se vuelve a medir.
+    document.addEventListener('focusin', pedir);
+    document.addEventListener('focusout', pedir);
     colocar();
     return () => {
       if (raf) cancelAnimationFrame(raf);
@@ -2169,6 +2177,8 @@ export default function MealTracker() {
       }
       window.removeEventListener('resize', pedir);
       window.removeEventListener('orientationchange', pedir);
+      document.removeEventListener('focusin', pedir);
+      document.removeEventListener('focusout', pedir);
     };
   }, []);
 
