@@ -13,7 +13,6 @@ import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
-import { IlustracionPesas } from './IlustracionesHoy.jsx';
 import { vozEntreno, vozFinEntreno } from './vozCoach.js';
 import Firma from './Firma.jsx';
 import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
@@ -22,6 +21,7 @@ import { aroEntrenoDe, progresoEntrenoDelPlan } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
 import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind } from '@phosphor-icons/react';
 import Respira from './Respira.jsx';
+import Reconocimiento from './Reconocimiento.jsx';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
@@ -257,7 +257,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     return (
       <Envoltorio>
         <VistaRutina
-          name={name} rutinaId={rutinaId}
+          name={name} rutinaId={rutinaId} plan={plan}
           onVolver={() => { setRutinaId(null); borrarRutinaAbierta(); cargarPlan(); }}
         />
       </Envoltorio>
@@ -600,7 +600,7 @@ function FilaDia({ d, onAbrir }) {
 }
 
 // ── UNA RUTINA, Y SU EJECUCIÓN ────────────────────────────────────────────
-function VistaRutina({ name, rutinaId, onVolver }) {
+function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
   // Se abre AL INSTANTE con la copia guardada en el teléfono (la precarga deja
   // las de la semana listas) y lo del servidor llega por detrás, con un
   // «Actualizando…» pequeño mientras tanto. Antes había que esperar dos
@@ -1179,7 +1179,7 @@ function VistaRutina({ name, rutinaId, onVolver }) {
       <HojaNota abierta={!!nota} nombre={name} contexto={nota} alCerrar={() => setNota(null)} />
 
       {records && <HojaRecords records={records} alCerrar={() => { setRecords(null); alTerminar(() => { if (v2) onVolver(); else setRemate(true); }); }} />}
-      {fin && <HojaFin fin={fin} alCerrar={() => { setFin(null); alTerminar(onVolver); }} />}
+      {fin && <HojaFin fin={fin} plan={plan} rutinaId={rutinaId} alCerrar={() => { setFin(null); alTerminar(onVolver); }} />}
 
       <EntrenoActividad
         abierta={!!cardioFinal}
@@ -1280,84 +1280,65 @@ const VOZ_SECCION = {
 // El único momento de la rutina con personaje: la kettlebell levantando la
 // barra, la frase del coach, lo que hizo y, si batió algo, sus récords. Un
 // toque en «Seguir» (o fuera) vuelve a Hoy.
-const CSS_FIN = `
-@keyframes fin-fondo { from { opacity: 0 } to { opacity: 1 } }
-@keyframes fin-sube { from { opacity: 0; transform: translateY(24px) scale(.98) } to { opacity: 1; transform: none } }
-@keyframes fin-salta { 0% { transform: translateY(14px) scale(.9); opacity: 0 } 60% { transform: translateY(-4px) scale(1.02); opacity: 1 } 100% { transform: none } }
-[data-fin-entreno] { animation: fin-fondo .25s ease both }
-[data-fin-entreno] .fin-tarjeta { animation: fin-sube .45s cubic-bezier(.2,.8,.2,1) both }
-[data-fin-entreno] .fin-dibujo { animation: fin-salta .7s .12s cubic-bezier(.2,.8,.2,1) both }
-@keyframes fin-llena { from { transform: scaleX(0) } to { transform: scaleX(1) } }
-[data-fin-entreno] .fin-llena { transform-origin: left center; animation: fin-llena 1.1s .25s cubic-bezier(.22,.8,.24,1) both }
-@media (prefers-reduced-motion: reduce) { [data-fin-entreno], [data-fin-entreno] * { animation: none !important } }`;
 
-function HojaFin({ fin, alCerrar }) {
+// El cierre de la rutina: el reconocimiento de Entrenamiento. Cada vez que
+// termina, la versión corta (cifras y «Seguir»); cuando cierra la última
+// rutina de la semana o hay récord, la completa, con el blob y los puntos de
+// la semana. La semana sale del plan, con la rutina que se acaba de cerrar
+// ya contada como hecha (el plan de atrás se refresca al volver).
+function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
   const A = SECCION.entreno;
-  useEffect(() => { asegurarCSS(); vibrar([20, 50, 20, 50, 40]); }, []);
+  const hoy = hoyLocal();
   const marca = (r) => r.peso ? `${r.peso} ${r.unidad || 'kg'} × ${r.reps}` : `${r.reps} reps`;
-  const frase = vozFinEntreno({ hoy: hoyLocal(), hechos: fin.hechos, total: fin.total, records: fin.records.length });
+  const frase = vozFinEntreno({ hoy, hechos: fin.hechos, total: fin.total, records: fin.records.length });
   const [respira, setRespira] = useState(false);
+  const dias = ((plan && plan.dias) || []).map(d => ({ ...d }));
+  const propia = (d) => d.rutina && d.rutina.id === rutinaId;
+  const nombre = (dias.find(propia) || {}).rutina?.nombre || '';
+  const cerrada = dias.find(d => propia(d) && !d.hecha && d.fecha <= hoy) || dias.find(d => propia(d) && !d.hecha);
+  if (cerrada) cerrada.hecha = true;
+  const conRutina = dias.filter(d => d.rutina);
+  const hechas = conRutina.filter(d => d.hecha).length, planeadas = conRutina.length;
+  const semanaCerrada = planeadas > 0 && hechas >= planeadas;
+  const grande = semanaCerrada || fin.records.length > 0;
+  const puntos = dias.length ? dias.map(d => (d.rutina && d.hecha) ? 'hecho' : d.fecha === hoy ? 'hoy' : 'nada') : null;
+  const titulo = [nombre ? `${nombre}, hecho.` : 'Entreno hecho.', semanaCerrada ? 'Semana cerrada.' : (planeadas ? `Entreno ${hechas} de ${planeadas}.` : null)];
+  const chips = [
+    [<><Conteo valor={fin.hechos} ms={900} /><span style={{ color: TEXT_LIGHT, fontWeight: 600 }}>/{fin.total}</span></>, 'ejercicios'],
+    [<Conteo valor={fin.series} ms={900} />, 'series'],
+  ];
+  if (fin.minutos != null) chips.push([<Conteo valor={fin.minutos} ms={900} />, fin.minutos === 1 ? 'minuto' : 'minutos']);
+  else if (fin.kilos > 0) chips.push([<Conteo valor={fin.kilos} ms={1100} />, 'kg movidos']);
   return (
-    <div data-fin-entreno onClick={alCerrar} style={{
-      position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(31,31,28,0.42)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-    }}>
-      <style>{CSS_FIN}</style>
-      <Confeti y="34%" piezas={36} />
-      <div className="fin-tarjeta" onClick={e => e.stopPropagation()} style={{
-        background: '#FFFFFF', borderRadius: 28, maxWidth: 380, width: '100%', overflow: 'hidden',
-        boxShadow: '0 20px 60px rgba(0,0,0,.25)', maxHeight: '88vh', overflowY: 'auto',
-      }}>
-        <div style={{ position: 'relative', height: 150, background: `radial-gradient(70% 90% at 70% 10%, #B9BEC6 0%, rgba(185,190,198,0) 70%), radial-gradient(60% 80% at 10% 90%, #F4DC93 0%, rgba(244,220,147,0) 70%), #EEEFF1`, display: 'grid', placeItems: 'end center' }}>
-          <div className="fin-dibujo" style={{ width: 210, height: 130, marginBottom: 6, marginRight: 40 }}><IlustracionPesas /></div>
-        </div>
-        <div style={{ padding: '18px 20px 20px' }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.08 }}>Entreno hecho.</div>
-          <div style={{ fontSize: 17, fontWeight: 700, color: '#C9A43E', letterSpacing: '-0.01em', lineHeight: 1.3, marginTop: 4 }}>{frase}</div>
-          {/* Lo que hizo, subiendo desde cero; y la barra que se llena hasta
-              donde llegó. */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))', gap: 8, marginTop: 16 }}>
-            <div style={datoFin}><b style={datoFinNum}><Conteo valor={fin.hechos} ms={900} /><span style={{ color: TEXT_LIGHT, fontWeight: 600 }}>/{fin.total}</span></b><span style={datoFinPie}>ejercicios</span></div>
-            <div style={datoFin}><b style={datoFinNum}><Conteo valor={fin.series} ms={900} /></b><span style={datoFinPie}>series</span></div>
-            {fin.minutos != null && <div style={datoFin}><b style={datoFinNum}><Conteo valor={fin.minutos} ms={900} /></b><span style={datoFinPie}>{fin.minutos === 1 ? 'minuto' : 'minutos'}</span></div>}
-            {fin.kilos > 0 && <div style={datoFin}><b style={datoFinNum}><Conteo valor={fin.kilos} ms={1100} /></b><span style={datoFinPie}>kg movidos</span></div>}
-            {fin.records.length > 0 && <div className="mt-pop" style={{ ...datoFin, background: A.tint, animationDelay: '.9s' }}><b style={{ ...datoFinNum, color: A.ink }}>{fin.records.length}</b><span style={datoFinPie}>{fin.records.length === 1 ? 'récord' : 'récords'}</span></div>}
-          </div>
-          <div data-fin-barra style={{ height: 8, borderRadius: 99, background: '#EEEAE1', marginTop: 12, overflow: 'hidden' }}>
-            <div className="fin-llena" style={{ height: '100%', width: `${fin.total ? Math.round((fin.hechos / fin.total) * 100) : 0}%`, borderRadius: 99, background: `linear-gradient(90deg, #A9AFB8, ${A.base})` }} />
-          </div>
-          {fin.records.length > 0 && (
-            <div data-records style={{ marginTop: 14 }}>
-              {fin.records.map(r => (
-                <div key={r.ejercicio_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: '1px solid #EFEBE3' }}>
-                  <span style={{ width: 32, height: 32, borderRadius: 99, background: A.tint, color: A.ink, display: 'grid', placeItems: 'center', flex: 'none' }}><TrophyV2 size={17} weight="fill" /></span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 700, color: TEXT, lineHeight: 1.25 }}>{r.nombre}</div>
-                    <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 1 }}>
-                      <b style={{ color: A.ink }}>{marca(r)}</b>
-                      {r.antes ? `  · antes ${marca(r.antes)}` : r.primera_vez ? '  · primera vez' : ''}
-                    </div>
+    <>
+      <Reconocimiento tema="entreno" grande={grande} attrs={{ 'data-fin-entreno': '' }}
+        numero={{ valor: hechas, sufijo: `/${planeadas}`, pie: 'RUTINAS · SEMANA' }} puntos={puntos}
+        etiqueta="Entreno hecho" titulo={titulo} linea={frase} chips={chips}
+        boton={{ texto: 'Seguir', onClick: alCerrar }}
+        enlace={v2Activa() ? { texto: '¿Bajamos pulsaciones? Respira', icono: <Wind size={18} weight="fill" data-fin-respira-icono="" />, onClick: () => setRespira(true) } : null}
+        alCerrar={alCerrar}>
+        {fin.kilos > 0 && fin.minutos != null && (
+          <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 10 }}><b style={{ color: TEXT }}>{fin.kilos.toLocaleString('es-CO')} kg</b> movidos en total.</div>
+        )}
+        {fin.records.length > 0 && (
+          <div data-records style={{ marginTop: 12 }}>
+            {fin.records.map(r => (
+              <div key={r.ejercicio_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 16, background: '#F3F1EB', marginTop: 6 }}>
+                <span style={{ width: 28, height: 28, borderRadius: 99, background: '#F2C94C', color: TEXT, display: 'grid', placeItems: 'center', flex: 'none' }}><TrophyV2 size={15} weight="fill" /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: TEXT, lineHeight: 1.25 }}>Récord · {r.nombre}</div>
+                  <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginTop: 1 }}>
+                    <b style={{ color: A.ink }}>{marca(r)}</b>
+                    {r.antes ? ` · antes ${marca(r.antes)}` : r.primera_vez ? ' · primera vez' : ''}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-          <button onClick={alCerrar} style={{
-            width: '100%', marginTop: 18, padding: '14px 18px', borderRadius: 14, border: 0,
-            background: TEXT, color: '#fff', fontSize: 15.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-          }}>Seguir</button>
-          {/* Visual nueva: bajar pulsaciones con la respiración guiada. */}
-          {v2Activa() && (
-            <button data-fin-respira onClick={() => setRespira(true)} style={{
-              width: '100%', marginTop: 8, padding: '12px 16px', borderRadius: 14, border: 0, background: '#EEF3FB',
-              color: '#2F6CC4', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}><Wind size={18} weight="fill" /> ¿Bajamos pulsaciones? Respira</button>
-          )}
-        </div>
-      </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Reconocimiento>
       {respira && <div onClick={e => e.stopPropagation()}><Respira titulo="Bajamos pulsaciones" alCerrar={() => setRespira(false)} /></div>}
-    </div>
+    </>
   );
 }
 // El reloj del entreno, en la barra de avance: arranca con la primera serie.
@@ -1376,9 +1357,6 @@ function RelojSesion({ desde, v2 = false }) {
   );
 }
 
-const datoFin = { flex: 1, background: '#F4F1EB', borderRadius: 14, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 };
-const datoFinNum = { fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.1 };
-const datoFinPie = { fontSize: 12, color: TEXT_MUTED, fontWeight: 600 };
 
 function HojaRecords({ records, alCerrar }) {
   const marca = (r) => r.peso ? `${r.peso} ${r.unidad || 'kg'} × ${r.reps}` : `${r.reps} repeticiones`;

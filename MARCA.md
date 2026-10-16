@@ -159,6 +159,23 @@ Reglas:
 - Tú, nunca usted. Primera persona del coach cuando aplica («Te lo dejé yo»).
 - Se celebra solo lo real: una rutina hecha con series, una meta cumplida.
   Pasarse no es fiesta: se dice claro y sin castigo.
+- **Reconocimiento, un solo sistema** (`Reconocimiento.jsx`) para entreno,
+  comida y aprendizaje: la ilustración es el dato. El blob del módulo con el
+  número grande adentro, las manchas de la sección detrás y la semana (o la
+  fase) en siete puntos; nada de objeto ni personaje. El número cuenta desde
+  cero, los puntos se encienden uno a uno, el blob respira una vez. Debajo,
+  etiqueta, título en dos líneas, la voz del coach, tres cifras, un botón y
+  un enlace. La versión corta (sin portada ni puntos) casi siempre; la
+  completa cuando pesa: Entreno, cada «Terminar» es corta y la completa al
+  cerrar la última rutina de la semana o con récord. Alimentación, una vez al
+  día al entrar en meta (kcal 90–110 % y proteína ≥ 90 %); completa al quinto
+  día en meta o en el día perfecto. Aprendizaje, cada 3 cápsulas, cada 2
+  videos y al completar la fase (el centro avisa cada pieza con `em-visto`).
+- **Última semana del ciclo** (`AvisoCicloFin.jsx`): una ventana, una sola
+  vez por ciclo, el primer día que abra la app dentro de la última semana;
+  la línea del ciclo arriba, cifras reales (entrenos que quedan, qué toca
+  hoy, cuándo termina) y «Ver mi calendario». Vista = `mt:avisoCicloFin`,
+  viaja a la nube.
 - **Sin deuda**: nada le dice al cliente «vas mal» por lo que todavía no
   tocaba. Los aros son progreso de la semana («1/3», «2/7») y el pie dice
   «Semana · al día» o, en neutro, lo hecho («Semana · 2 hechas», «Semana ·

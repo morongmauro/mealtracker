@@ -204,8 +204,10 @@ const espera = (ms) => new Promise(r => setTimeout(r, ms));
 // `aviso`: dejar que salga el aviso de «hoy te toca registrar» al abrir. Por
 // defecto se da por visto (si no, tapa todo lo que se prueba después).
 // `nube`: lo que tiene su cuenta en la nube (y la app con la nube aceptada).
-async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null, instalada = false, verComo = null, bitacora = null, ua = null, instalable = false } = {}) {
+async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null, instalada = false, verComo = null, bitacora = null, ua = null, instalable = false, ajustar = null } = {}) {
   const db = base();
+  // `ajustar`: tocar la base falsa antes de abrir (otra fase, otro ciclo…).
+  if (ajustar) ajustar(db);
   globalThis.fetch = db.fetch;
   const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota', ...(ua ? { userAgent: ua } : {}) });
   // `instalable`: el navegador ya ofreció su instalador (beforeinstallprompt).
@@ -275,7 +277,7 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
       }
       // «almuerzo grande» llena el día: para ver la hoja de meta cumplida.
       if (/almuerzo grande/.test(ultimo)) {
-        const grande = { intent: 'log_meal', meal: 'lunch', log_date: null, items: [{ name: 'Almuerzo', amount: '1 plato', kcal: 2300, p: 110, c: 240, g: 62, fiber: 0, omega3: 0, sugar: 0, needs_quantity: false }], message: null };
+        const grande = { intent: 'log_meal', meal: 'lunch', log_date: null, items: [{ name: 'Almuerzo', amount: '1 plato', kcal: 2300, p: 152, c: 240, g: 62, fiber: 0, omega3: 0, sugar: 0, needs_quantity: false }], message: null };
         return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(grande) }] }) });
       }
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(huevos) }] }) });
@@ -1439,12 +1441,19 @@ try {
   const metaC = p.locator('[data-meta-comida]');
   await metaC.waitFor({ timeout: 8000 }).catch(() => {});
   await espera(1400);
-  ok('meta de comida: sale la hoja con la kettlebell verde comiendo, sus macros y confeti verde', (await metaC.count()) === 1
-    && /Meta del día, cumplida/.test(await metaC.innerText()) && (await metaC.locator('svg[data-dibujo="meta-comida"]').count()) === 1
-    && (await metaC.locator('[data-meta-macros] > div').count()) === 3 && (await p.locator('[data-aviso-suma]').count()) === 0);
+  ok('meta de comida: al entrar el día en meta (kcal 90–110 % y proteína ≥ 90 %) sube la hoja de reconocimiento de Alimentación: «Día en meta», tres cifras y confeti', (await metaC.count()) === 1
+    && (await metaC.getAttribute('data-reconocimiento')) === 'comida' && /Día en meta\./.test(await metaC.innerText()) && /kcal · meta/.test(await metaC.innerText())
+    && (await metaC.locator('[data-rc-chip]').count()) === 3 && (await p.locator('[data-aviso-suma]').count()) === 0, await metaC.innerText().catch(() => ''));
+  ok('meta de comida: el enlace lleva al calendario de comidas', (await metaC.locator('[data-rc-enlace]').count()) === 1 && /calendario de comidas/.test(await metaC.locator('[data-rc-enlace]').innerText()));
   await foto(p, '09d-meta-comida');
   await metaC.getByRole('button', { name: 'Seguir' }).click(); await espera(400);
   ok('meta de comida: «Seguir» la cierra', (await metaC.count()) === 0);
+  // Una vez al día: seguir registrando ya no la vuelve a abrir.
+  await p.locator('.msg-input').click();
+  await p.keyboard.type('2 huevos más');
+  await p.keyboard.press('Enter');
+  await espera(1500);
+  ok('meta de comida: sale UNA vez al día (lo que siga registrando no la repite)', (await p.locator('[data-meta-comida]').count()) === 0);
   // Las demás respuestas (una consulta) con la jerarquía de la marca.
   await p.locator('.msg-input').click();
   await p.keyboard.type('cuántas calorías tiene una manzana');
@@ -1487,6 +1496,26 @@ try {
   // ── Aprendizaje: Lecturas · Videos · Sobre el programa (sin «Hoy») ──
   await p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
   await espera(1400);
+  // El reconocimiento de aprendizaje: el centro avisa cada pieza vista
+  // (em-visto); a la tercera cápsula nueva sube la hoja, sobre el centro.
+  await p.evaluate(() => { window.postMessage({ tipo: 'em-visto', source: 'capsula', key: 'cap:prueba-1' }, '*'); });
+  await espera(900);
+  ok('aprendizaje: una cápsula vista no abre nada todavía', (await p.locator('[data-reconocimiento="aprende"]').count()) === 0);
+  await p.evaluate(() => { window.postMessage({ tipo: 'em-visto', source: 'capsula', key: 'cap:prueba-2' }, '*'); });
+  await espera(600);
+  await p.evaluate(() => { window.postMessage({ tipo: 'em-visto', source: 'capsula', key: 'cap:prueba-3' }, '*'); });
+  const recoA = p.locator('[data-reconocimiento="aprende"]');
+  await recoA.waitFor({ timeout: 8000 }).catch(() => {});
+  await espera(1200);
+  ok('aprendizaje: a la tercera cápsula sube la hoja completa: «Tres cápsulas más», el blob con N de la fase, puntos y tres cifras', (await recoA.count()) === 1
+    && /Tres cápsulas más\./.test(await recoA.innerText()) && (await recoA.locator('[data-rc-portada]').count()) === 1 && (await recoA.locator('[data-rc-puntos] i').count()) >= 1
+    && (await recoA.locator('[data-rc-chip]').count()) === 3 && /material visto/.test(await recoA.innerText()), await recoA.innerText().catch(() => ''));
+  await foto(p, '12z-reconocimiento-aprende');
+  await recoA.getByRole('button', { name: 'Seguir leyendo' }).click(); await espera(400);
+  ok('aprendizaje: «Seguir leyendo» la cierra, y repetir la misma cápsula no cuenta', (await recoA.count()) === 0 && await (async () => {
+    await p.evaluate(() => { window.postMessage({ tipo: 'em-visto', source: 'capsula', key: 'cap:prueba-3' }, '*'); }); await espera(800);
+    return (await p.locator('[data-reconocimiento="aprende"]').count()) === 0;
+  })());
   const marco = p.frameLocator('iframe[title="Centro de aprendizaje"]');
   const textosBarra = () => p.evaluate(() => [...document.querySelectorAll('nav[aria-label="Secciones"] [role="group"] button')].map(b => b.textContent.trim()));
   ok('Aprendizaje abre en Lecturas, sin «Hoy»', /lecturas/.test(await marco.locator('#t').textContent())
@@ -1581,10 +1610,28 @@ try {
   await p.getByRole('button', { name: 'Dash', exact: true }).click();
   await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor();
   ok('vuelve al Dash', true);
+  // ── Última semana del ciclo: la ventana, una sola vez por ciclo ──
+  ok('ciclo: en una semana que no es la última no sale ningún aviso', (await p.locator('[data-aviso-ciclo]').count()) === 0);
   ok('sin errores de JavaScript (Mauro)', errores.length === 0, errores.join(' | '));
   await ctx.close();
 
   // ── Teléfono angosto ──
+  {
+    const u = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => { db.db.fases[0].fecha_inicio = hace(11); } });
+    const av = u.p.locator('[data-aviso-ciclo]');
+    await av.waitFor({ timeout: 10000 }).catch(() => {});
+    await espera(600);
+    ok('ciclo: en la última semana, al abrir, sale la ventana «Última semana. Ciérrala fuerte.» con la línea del ciclo y las cifras', (await av.count()) === 1
+      && /Última semana\./.test(await av.innerText()) && /Ciclo nuevo/.test(await av.innerText()) && /semana 12 de 12/.test(await av.innerText())
+      && /entrenos? pendientes?/.test(await av.innerText()) && /hoy te toca/.test(await av.innerText()) && /termina el ciclo/.test(await av.innerText()), await av.innerText().catch(() => ''));
+    await foto(u.p, '12y-aviso-ciclo');
+    await av.locator('[data-ciclo-entendido]').click(); await espera(400);
+    ok('ciclo: «Entendido» la cierra y queda guardada como vista', (await av.count()) === 0 && await u.p.evaluate(() => localStorage.getItem('mt:avisoCicloFin') === 'f1'));
+    await u.p.reload(); await espera(4000);
+    ok('ciclo: al volver a abrir no vuelve a salir (una vez por ciclo)', (await u.p.locator('[data-aviso-ciclo]').count()) === 0);
+    ok('ciclo: sin errores de JavaScript', u.errores.length === 0, u.errores.join(' | '));
+    await u.ctx.close();
+  }
   const n = await abrir('Mauro Morón', { ancho: 375, caliente: true });
   await n.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }).catch(() => {});
   ok('apertura caliente (la usó hace 5 min): también abre en el Dash', await n.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).isVisible());
@@ -1633,15 +1680,14 @@ try {
   await fin.waitFor({ timeout: 8000 });
   ok('fin: confeti con los colores de la marca', (await n.p.locator('.mt-confeti i').count()) > 20);
   await espera(1500);
-  ok('fin: los números suben y dicen los minutos', /\d+\s*minutos?/.test(await fin.innerText()) && (await fin.locator('[data-fin-barra]').count()) === 1);
-  ok('fin: «Entreno hecho.» con la frase del coach y lo que hizo', (await fin.getByText('Entreno hecho.').count()) === 1
+  ok('fin: es la hoja de reconocimiento de Entrenamiento, los números suben y dicen los minutos', (await fin.getAttribute('data-reconocimiento')) === 'entreno'
+    && /\d+\s*minutos?/.test(await fin.innerText()) && (await fin.locator('[data-rc-chip]').count()) === 3);
+  ok('fin: «Push, hecho.» con el entreno N de la semana, la frase del coach y lo que hizo', /Push, hecho\./.test(await fin.innerText()) && /Entreno \d de \d\./.test(await fin.innerText())
     && /1\/7\s*ejercicios/.test(await fin.innerText()) && (await fin.locator('[data-firma-coach]').count()) === 0, await fin.innerText());
-  ok('fin: la kettlebell levantando la barra, con cara (para darle personalidad), entera', await fin.locator('[data-dibujo="pesas"]').evaluate(el => {
-    const r = el.getBoundingClientRect(); return r.width > 150 && r.left >= 0 && r.right <= innerWidth && !!el.querySelector('.kb-ojos');
-  }));
+  ok('fin: sin cerrar la semana ni récord, la versión corta (sin blob ni puntos)', (await fin.locator('[data-rc-portada]').count()) === 0 && (await fin.locator('[data-rc-puntos]').count()) === 0);
   await foto(n.p, '16-fin-entreno');
   ok('fin: «¿Bajamos pulsaciones? Respira» abre la respiración guiada', await (async () => {
-    await fin.locator('[data-fin-respira]').click();
+    await fin.locator('[data-rc-enlace]').click();
     const rs = n.p.locator('[data-respira]');
     await rs.waitFor({ timeout: 3000 }).catch(() => {});
     const bien = (await rs.count()) === 1 && /Bajamos pulsaciones/i.test(await rs.innerText());

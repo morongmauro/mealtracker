@@ -127,3 +127,28 @@ export function aroSemana(semana, history, goals, aprende, hoy) {
   // En el Dash no hay una sola cosa que contar: «al día» o «en marcha».
   return { frac: frac == null ? 0 : frac, centro: pct(frac), pie: pendientes > 0 ? 'Semana · en marcha' : 'Semana · al día' };
 }
+
+// Los días de la semana (lunes a domingo) en meta de calorías: entre el 90 y
+// el 110 % de la meta, la misma regla con la que el calendario de comidas
+// pinta un día «en meta». `hoyEnMeta` fuerza el de hoy (lo que se acaba de
+// registrar puede no estar todavía en el historial). También la racha: días
+// seguidos en meta terminando hoy (puede venir de la semana pasada).
+export function diasEnMeta(history = {}, goals = {}, hoy = hoyLocal(), hoyEnMeta = null) {
+  const meta = Number(goals && goals.kcal) || 0;
+  const enMetaDe = (f) => {
+    if (f === hoy && hoyEnMeta != null) return !!hoyEnMeta;
+    const t = history && history[f];
+    if (!meta || !t || !(Number(t.kcal) > 0)) return false;
+    const pct = (Number(t.kcal) / meta) * 100;
+    return pct >= 90 && pct <= 110;
+  };
+  const lunes = lunesDe(hoy);
+  const dias = [];
+  for (let i = 0; i < 7; i++) {
+    const f = sumarDias(lunes, i);
+    dias.push({ fecha: f, enMeta: enMetaDe(f), hoy: f === hoy, futuro: f > hoy });
+  }
+  let racha = 0;
+  for (let f = hoy; racha < 120 && enMetaDe(f); f = sumarDias(f, -1)) racha++;
+  return { dias, enMeta: dias.filter(d => d.enMeta).length, racha };
+}

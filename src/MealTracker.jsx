@@ -32,6 +32,8 @@ import CabeceraHoy, { TEMAS as TEMAS_CABECERA } from './CabeceraHoy.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
 import { AvisoSuma } from './Celebraciones.jsx';
 const MetaComida = lazy(() => import('./MetaComida.jsx'));
+const Reconocimiento = lazy(() => import('./Reconocimiento.jsx'));
+const AvisoCicloFin = lazy(() => import('./AvisoCicloFin.jsx'));
 import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
 import { hayNovedad, marcarVisto } from './novedades.js';
 import { vozComida } from './vozCoach.js';
@@ -50,6 +52,7 @@ import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
 import CuentaV2, { leerSesion, guardarSesion } from './CuentaV2.jsx';
 import { aroComida, progresoComida } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
+import { sumarDias } from './entrenoDatos.js';
 import { pasosInstalar } from './InstalarApp.jsx';
 import { leerAprendizajeConCache } from './aprendizaje.js';
 
@@ -531,8 +534,11 @@ recibirMudanza();
 // teléfono nuevo o una instalación nueva empiezan sin la marca). Antes
 // viajaba y, al entrar con la cuenta, la nube decía «ya lo hizo».
 const PREF_FIJAS = ['entreno:unidades', 'entreno:cal:vista2', 'mt:perfectDays', 'mt:coachEditsApplied',
-  'mt:bienvenidaComunidad', 'mt:pushIntroShown'];
+  'mt:bienvenidaComunidad', 'mt:pushIntroShown', 'mt:avisoCicloFin', 'mt:recoAprende'];
 const PREF_LISTAS = ['mt:perfectDays', 'mt:coachEditsApplied'];
+// Una hoja de «día en meta» por día: la fecha de la última.
+const recoComidaHoy = (hoy) => { try { return localStorage.getItem('mt:recoComida') === hoy; } catch (e) { return false; } };
+const marcarRecoComida = (hoy) => { try { localStorage.setItem('mt:recoComida', hoy); } catch (e) {} };
 const esPrefDispositivo = (k) => !!k && (PREF_FIJAS.includes(k) || k.startsWith('entreno:unidad:'));
 const leerPrefsDispositivo = () => {
   const o = {};
@@ -626,6 +632,10 @@ export default function MealTracker() {
   const [avisoSuma, setAvisoSuma] = useState(null);
   // Visual nueva: la hoja de «meta del día cumplida» (o «día perfecto»).
   const [metaComida, setMetaComida] = useState(null);
+  // Reconocimiento de aprendizaje (cada 3 cápsulas, cada 2 videos, fase
+  // completa) y el aviso de última semana del ciclo.
+  const [recoAprende, setRecoAprende] = useState(null);
+  const [avisoCiclo, setAvisoCiclo] = useState(null);
   const kcalVistasRef = useRef(null);
   const silenciarSumaRef = useRef(true);
   const [editingEntry, setEditingEntry] = useState(null);
@@ -2361,10 +2371,13 @@ export default function MealTracker() {
     const suma = Math.round(totals.kcal - prev);
     if (suma <= 0) return;
     const ahora = totals.kcal, antes = prev, meta = goals && goals.kcal ? goals.kcal : 0;
-    const enMeta = !!meta && antes < meta * 0.95 && ahora >= meta * 0.95;
-    // Al llegar a la meta, en vez del aviso chico sube la hoja de celebración.
-    if (enMeta) { setAvisoSuma(null); setMetaComida({ perfecto: false, k: Date.now() }); return; }
-    setAvisoSuma({ suma, antes, ahora, meta, enMeta, k: Date.now() });
+    // El día entra en meta: calorías entre el 90 y el 110 % de la meta y la
+    // proteína al 90 % o más. UNA vez al día: ya en meta, lo que siga
+    // registrando no vuelve a abrir la hoja (solo el aviso chico).
+    const metaP = goals && goals.p ? Number(goals.p) : 0;
+    const enMeta = !!meta && ahora >= meta * 0.9 && ahora <= meta * 1.1 && (!metaP || totals.p >= metaP * 0.9);
+    if (enMeta && !recoComidaHoy(today)) { marcarRecoComida(today); setAvisoSuma(null); setMetaComida({ perfecto: false, k: Date.now() }); return; }
+    setAvisoSuma({ suma, antes, ahora, meta, enMeta: false, k: Date.now() });
   }, [entries]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -2374,7 +2387,7 @@ export default function MealTracker() {
     if (isInRange(totals.kcal, goals.kcal) && isInRange(totals.p, goals.p) &&
         isInRange(totals.c, goals.c) && isInRange(totals.g, goals.g)) {
       setPerfectDayShown(true);
-      if (v2Activa()) { setAvisoSuma(null); setMetaComida({ perfecto: true, k: Date.now() }); }
+      if (v2Activa()) { if (!recoComidaHoy(today)) { marcarRecoComida(today); setAvisoSuma(null); setMetaComida({ perfecto: true, k: Date.now() }); } }
       else { haptic([30, 50, 30, 50, 60]); setActiveModal('perfect'); }
       window.storage.get('perfectDays').then(res => {
         const arr = res?.value ? JSON.parse(res.value) : [];
@@ -2870,6 +2883,87 @@ export default function MealTracker() {
     };
     window.addEventListener('message', alLlegar);
     return () => window.removeEventListener('message', alLlegar);
+  }, []);
+
+  // RECONOCIMIENTO DE APRENDIZAJE. El centro avisa cada pieza vista
+  // (em-visto). Cada 3 cápsulas, cada 2 videos, o al completar las cápsulas
+  // de la fase, sube la hoja. Lo visto se cuenta aquí (clave por pieza, así
+  // repetir una no suma) y se cruza con el avance del centro; la primera vez
+  // arranca desde lo que ya llevaba, para no celebrar lo viejo.
+  useEffect(() => {
+    const alVer = async (ev) => {
+      const d = ev && ev.data;
+      if (!d || d.tipo !== 'em-visto' || !d.source || !d.key || !name || !v2Activa()) return;
+      const tipo = d.source === 'capsula' ? 'cap' : d.source === 'podcast' ? 'pod' : null;
+      if (!tipo) return;
+      const id = String(d.key).replace(/^(cap|pod):/, '');
+      let est = {};
+      try { est = JSON.parse(localStorage.getItem('mt:recoAprende') || '{}') || {}; } catch (e) { est = {}; }
+      const vistas = new Set(Array.isArray(est[tipo]) ? est[tipo] : []);
+      if (vistas.has(id)) return;
+      vistas.add(id); est[tipo] = [...vistas];
+      let avance = null;
+      try { avance = await leerAprendizajeConCache(name); } catch (e) { avance = null; }
+      const bloqueDe = (k) => (avance && avance.bloques || []).find(b => b.k === k) || null;
+      const bloque = bloqueDe(tipo === 'cap' ? 'capsula' : 'podcast');
+      const piezas = bloque ? bloque.piezas || [] : [];
+      // Lo visto: lo que el centro ya devuelve más lo visto aquí.
+      const ids = new Set(piezas.filter(p => p.vista).map(p => String(p.id)));
+      vistas.forEach(x => ids.add(x));
+      const n = ids.size, total = bloque ? bloque.total : 0;
+      const paso = tipo === 'cap' ? 3 : 2;
+      const celKey = `${tipo}Cel`;
+      if (est[celKey] == null) est[celKey] = Math.max(0, n - 1);   // la primera vez: desde lo que ya llevaba
+      const completa = tipo === 'cap' && total > 0 && n >= total && !est.capCompleta;
+      const toca = n - est[celKey] >= paso || completa;
+      if (toca) { est[celKey] = n; if (completa) est.capCompleta = true; }
+      try { localStorage.setItem('mt:recoAprende', JSON.stringify(est)); } catch (e) {}
+      if (!toca) return;
+      const siguiente = piezas.find(p => !p.vista && !ids.has(String(p.id)));
+      const pods = bloqueDe('podcast');
+      setRecoAprende({
+        k: Date.now(), tipo, n, total, completa, pct: avance ? avance.pct : null,
+        caps: tipo === 'cap' ? n : (bloqueDe('capsula') ? bloqueDe('capsula').vistas : 0),
+        pods: tipo === 'pod' ? n : (pods ? pods.vistas : 0),
+        siguiente: siguiente ? siguiente.title : null,
+      });
+    };
+    window.addEventListener('message', alVer);
+    return () => window.removeEventListener('message', alVer);
+  }, [name]);
+
+  // ÚLTIMA SEMANA DEL CICLO. Una vez por ciclo, el primer día que abra la
+  // app dentro de la última semana: la ventana. Vista = guardada por ciclo
+  // (viaja a la nube con las preferencias). Espera a que no haya otra cosa
+  // encima.
+  const avisosListos = view === 'main' && !!name && !(paymentDue && paymentDue.bloqueo) && cloudConsent !== null && !mudanza && !activeModal;
+  useEffect(() => {
+    if (!v2 || !avisosListos || !trainingOn || avisoCiclo) return undefined;
+    let vivo = true;
+    const t = setTimeout(async () => {
+      try {
+        const m = await import('./Entrenamiento.jsx');
+        const plan = m.precargar && await m.precargar(name);
+        if (!vivo || !plan || !plan.fase) return;
+        const f = plan.fase;
+        if (!f.semanas || !f.semana_actual || f.semana_actual !== f.semanas) return;
+        const clave = f.id || `${f.nombre || ''}|${f.fecha_inicio || ''}`;
+        let visto = '';
+        try { visto = localStorage.getItem('mt:avisoCicloFin') || ''; } catch (e) {}
+        if (visto === clave) return;
+        const hoy = plan.hoy || today;
+        const dias = Array.isArray(plan.dias) ? plan.dias : [];
+        const pendientes = dias.filter(d => d.rutina && !d.hecha && d.fecha >= hoy).length;
+        const deHoy = dias.find(d => d.fecha === hoy);
+        const hoyToca = deHoy && deHoy.rutina ? deHoy.rutina.nombre : null;
+        const fin = f.fecha_inicio ? sumarDias(f.fecha_inicio, f.semanas * 7 - 1) : null;
+        setAvisoCiclo({ fase: f, pendientes, hoyToca, fin, clave });
+      } catch (e) { /* sin plan: sin aviso */ }
+    }, 1500);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [v2, avisosListos, trainingOn, name]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const cerrarAvisoCiclo = useCallback(() => {
+    setAvisoCiclo(a => { if (a) { try { localStorage.setItem('mt:avisoCicloFin', a.clave); } catch (e) {} } return null; });
   }, []);
 
   // Consulta silenciosa: si Mauro publicó una cápsula nueva, el punto tiene
@@ -6831,7 +6925,25 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       )}
 
       {avisoSuma && <AvisoSuma key={avisoSuma.k} evento={avisoSuma} alCerrar={() => setAvisoSuma(null)} />}
-      {metaComida && <Suspense fallback={null}><MetaComida key={metaComida.k} perfecto={metaComida.perfecto} totals={totals} goals={goals} alCerrar={() => setMetaComida(null)} /></Suspense>}
+      {metaComida && <Suspense fallback={null}><MetaComida key={metaComida.k} perfecto={metaComida.perfecto} totals={totals} goals={goals} history={history} hoy={today}
+        alCerrar={() => setMetaComida(null)} alCalendario={v2 ? () => { setMetaComida(null); irSubV2('comida', 'calendario'); } : null} /></Suspense>}
+      {recoAprende && <Suspense fallback={null}>
+        <Reconocimiento key={recoAprende.k} tema="aprende" grande
+          numero={{ valor: recoAprende.n, sufijo: recoAprende.total ? `/${recoAprende.total}` : '', pie: recoAprende.tipo === 'cap' ? 'CÁPSULAS DE LA FASE' : 'VIDEOS' }}
+          puntos={Array.from({ length: Math.max(1, Math.min(7, recoAprende.total || recoAprende.n)) }, (_, i) => (i < Math.min(7, recoAprende.n) ? (i === Math.min(7, recoAprende.n) - 1 ? 'hoy' : 'hecho') : 'nada'))}
+          etiqueta="Aprendizaje"
+          titulo={recoAprende.completa ? ['Fase completa.', 'Todas las cápsulas, leídas.']
+            : recoAprende.tipo === 'cap' ? ['Tres cápsulas más.', recoAprende.total && recoAprende.n * 2 >= recoAprende.total && recoAprende.n < recoAprende.total ? 'Mitad de la fase.' : (recoAprende.total ? `${recoAprende.n} de ${recoAprende.total}.` : null)]
+            : ['Dos videos más.', recoAprende.total ? `${recoAprende.n} de ${recoAprende.total}.` : null]}
+          linea={`Lo que entiendes, lo sostienes.${recoAprende.siguiente ? ` La próxima: ${recoAprende.siguiente}.` : ''}`}
+          chips={[[String(recoAprende.caps), recoAprende.caps === 1 ? 'cápsula leída' : 'cápsulas leídas'], [recoAprende.pct != null ? `${recoAprende.pct} %` : '—', 'material visto'], [String(recoAprende.pods), recoAprende.pods === 1 ? 'video visto' : 'videos vistos']]}
+          boton={{ texto: recoAprende.tipo === 'cap' ? 'Seguir leyendo' : 'Seguir' }} enlace={{ texto: 'Más tarde' }}
+          alCerrar={() => setRecoAprende(null)} />
+      </Suspense>}
+      {avisoCiclo && <Suspense fallback={null}>
+        <AvisoCicloFin fase={avisoCiclo.fase} pendientes={avisoCiclo.pendientes} hoyToca={avisoCiclo.hoyToca} fin={avisoCiclo.fin}
+          alCerrar={cerrarAvisoCiclo} alCalendario={() => { cerrarAvisoCiclo(); irSubV2('entrena', 'calendario'); }} />
+      </Suspense>}
 
       {/* Peso, fotos o medidas que el coach pidió para HOY: apenas abre la app
           (a todos). Espera a que no haya otra cosa encima. */}

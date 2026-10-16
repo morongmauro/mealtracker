@@ -246,6 +246,7 @@ async function verPlan(cliente, hoy) {
   return {
     ok: true, hoy, cliente: cliente.nombre,
     fase: {
+      id: fase.id, fecha_inicio: fase.fecha_inicio || null,
       nombre: nombreFase(fase.nombre), objetivo: objetivoCliente(fase.objetivo),
       semanas: fase.semanas, semana_actual: semanaDeFase(fase, hoy),
       dias_semana: fase.dias_semana || [],
