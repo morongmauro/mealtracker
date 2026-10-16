@@ -321,7 +321,7 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const lineas = [...r.getClientRects()];
   const derechaTexto = Math.max(...lineas.map(l => l.right));
   // El blob del módulo a la derecha de la frase, sin taparla y entero en la
-  // pantalla; encima, el aro en blanco; el objeto (a tres tonos, nítido) y el
+  // pantalla; encima, el aro en blanco; el objeto (a dos colores, nítido) y el
   // número ADENTRO del aro; el pie debajo del blob.
   const aro = document.querySelector(`[data-cabecera-hoy="${tema}"] [data-aro-cabecera]`);
   const an = aro && aro.querySelector('[data-anillo]');
@@ -335,7 +335,7 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const bien = a.width >= 88 && b.left >= 0 && b.right <= innerWidth - 4 && derechaTexto <= b.left + 4
     && g.left >= a.left && g.right <= a.right && g.top >= a.top && g.bottom <= a.bottom && (g.right - g.left) <= 64 && opac === 1
     && k.top >= a.top && k.bottom <= a.bottom + 1 && Math.abs((k.left + k.right) / 2 - (a.left + a.right) / 2) <= 4 && f.top < a.bottom
-    && caja.dataset.tono === 'tres' && getComputedStyle(centro).color === 'rgb(255, 255, 255)'
+    && caja.dataset.tono === 'dos' && getComputedStyle(centro).color === 'rgb(255, 255, 255)'
     && (!pf || pf.top >= b.bottom - 2);
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top, g.bottom], a: [a.left, a.right, a.top, a.bottom], b: [b.left, b.right, b.bottom], derechaTexto, opac, k: [k.left, k.top, k.bottom], tono: caja.dataset.tono }));
   return bien;
@@ -489,7 +489,7 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
   ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0)
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
-  ok('Dash: el blob junto a la frase, con la brújula a tres tonos y el porcentaje en blanco adentro del aro', await ilusBien(p, 'dash'));
+  ok('Dash: el blob junto a la frase, con la brújula a dos colores y el porcentaje en blanco adentro del aro', await ilusBien(p, 'dash'));
   ok('cabecera: el blob azul girado 12° con sombra suave; encima el aro plano en blanco con riel blanco al 30 %', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
     const an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob]');
     const path = blob && blob.querySelector('path');
@@ -762,7 +762,7 @@ try {
   ok('Entrenamiento abre en Hoy', (await p.getByRole('button', { name: 'Hoy', exact: true }).first().getAttribute('aria-current')) === 'page');
   ok('sin la navegación de arriba del módulo', (await p.getByRole('button', { name: 'Resumen', exact: true }).count()) === 0);
   await foto(p, '04-entreno-hoy');
-  ok('Entreno: el blob junto a la frase, con la kettlebell a tres tonos y el 1/3 adentro del aro', await ilusBien(p, 'entreno'));
+  ok('Entreno: el blob junto a la frase, con la kettlebell a dos colores y el 1/3 adentro del aro', await ilusBien(p, 'entreno'));
   const cabE = p.locator('[data-cabecera-hoy="entreno"]');
   ok('Hoy de entreno: la voz del coach (la frase de hoy, sin repetir la fecha del Dash)', await cabE.locator('[data-frase]').isVisible()
     && (await cabE.locator('[data-etiqueta]').count()) === 0
@@ -1257,7 +1257,7 @@ try {
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(1200);
   await foto(p, '08-comida-hoy');
-  ok('Comida: el blob junto a la frase, con el aguacate a tres tonos adentro del aro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
+  ok('Comida: el blob junto a la frase, con el aguacate a dos colores adentro del aro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
   // El objeto entra con su animación solo la PRIMERA vez que se ve; al volver
   // a la sección se queda quieto (repetirla en cada cambio de módulo cansaba).
   ok('Comida: al volver a Alimentación el plato se queda quieto (la animación fue la primera vez)', await p.locator('[data-objeto-cabecera="comida"] img').first().evaluate(i => !i.src.startsWith('blob:')));
@@ -1397,9 +1397,18 @@ try {
   }));
   const barraVisible = () => p.evaluate(() => { const n = document.querySelector('nav[aria-label="Secciones"]'); const w = n && n.parentElement; return !!w && getComputedStyle(w).visibility !== 'hidden' && getComputedStyle(w).display !== 'none'; });
   ok('chat: la barra de módulos se ve antes de escribir', await barraVisible());
+  // La portada del chat es la de Hoy en Alimentación (verde de la sección) y
+  // no cambia de alto al compactarse la tarjeta ni al escribir.
+  const portada = () => p.evaluate(() => { const b = document.querySelector('[data-portada-chat]'); const cs = getComputedStyle(b); return { alto: b.getBoundingClientRect().height, fondo: cs.backgroundImage + cs.backgroundColor }; });
+  const portada0 = await portada();
+  ok('chat: la portada lleva los verdes de Alimentación (los mismos de Hoy)', /156, 207, 168/.test(portada0.fondo) && /240, 248, 241/.test(portada0.fondo), portada0.fondo.slice(0, 120));
+  await p.evaluate(() => { const el = document.querySelector('.fixed.inset-0.max-w-2xl'); el.scrollTop = 400; el.dispatchEvent(new Event('scroll')); });
+  await espera(500);
+  ok('chat: al bajar (tarjeta compacta) la portada no cambia de alto', Math.abs((await portada()).alto - portada0.alto) < 1);
   await p.locator('.msg-input').click();
   await espera(300);
   ok('chat: al tocar el campo de texto la barra se esconde', !(await barraVisible()));
+  { const pe = await portada(); ok('chat: al escribir la portada sigue igual (mismo alto y color)', Math.abs(pe.alto - portada0.alto) < 1 && pe.fondo === portada0.fondo); }
   await foto(p, '09b-chat-escribiendo');
   // Con el 5.5 caído, el chat igual responde: la consulta va al de siempre.
   falla55.on = true; modelosPedidos.length = 0;

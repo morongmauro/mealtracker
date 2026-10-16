@@ -110,6 +110,11 @@ Reglas:
   (el iframe del centro, un video) se esconde aparte, porque un iframe
   «visible» detrás de todo se traga los gestos táctiles de la pantalla
   entera (el chat dejó de subir por eso).
+- **El chat de Alimentación es una página más de la sección**: mismo fondo y
+  manchas que Hoy y Recetas, y su portada arriba es la de Hoy en Alimentación
+  (verdes de la sección apagándose hacia abajo). La portada no cambia de alto
+  ni de color al bajar ni al tocar la barra de texto: la cabecera quieta es
+  lo que dice «sigues en el mismo sitio».
 - **Páginas, no ventanas**: lo que es una vista de una sección (el calendario
   de comidas, el de entreno, el recetario, la galería) es una PÁGINA con las
   manchas de fondo, la píldora de marca arriba y la voz de la sección con su
@@ -135,10 +140,14 @@ Reglas:
   (ojos cerrados en arco y sonrisa ancha, estilo Headspace). Nunca se le
   despegan los brazos: se animan desde el hombro.
 - Objetos de cabecera: kettlebell (entreno), aguacate (comida), libro
-  (aprende), brújula (Dash). Dentro del aro van **a tres tonos**: blanco en la
-  luz, gris en los medios y un tono claro de la sección en la sombra, sin
-  sombra de piso (`<tema>-tres.webp`, generados a partir de los originales a
-  color, que no se tocan). Mismo tamaño y posición en todas.
+  (aprende), brújula (Dash). Dentro del aro van **a dos colores exactos**:
+  blanco y el tono suave de la sección (#C9CED6, #BFE3C7, #BFD8F5, #FBDCC2),
+  cortados por partes del objeto (cuerpo/asa, pulpa/piel y hueso, esfera/aro y
+  aguja, páginas/tapa), sin brillos ni un tercer tono, con la sombra de piso
+  suave del render (`<tema>-dos.webp` y `-dos-fin.webp`, generados cuadro a
+  cuadro a partir de los originales a color, que no se tocan; el libro
+  también en el centro, `img/cabecera-aprende-dos*.webp`). Mismo tamaño y
+  posición en todas.
 
 ## 7. La voz del coach (textos)
 

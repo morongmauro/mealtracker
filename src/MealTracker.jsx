@@ -28,7 +28,7 @@ import Firma from './Firma.jsx';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada, enDireccionNueva } from './mudanza.js';
 import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero, ArcoApple, PuntaApple, rielDe } from './GraficasV2.jsx';
-import CabeceraHoy from './CabeceraHoy.jsx';
+import CabeceraHoy, { TEMAS as TEMAS_CABECERA } from './CabeceraHoy.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
 import { AvisoSuma } from './Celebraciones.jsx';
 const MetaComida = lazy(() => import('./MetaComida.jsx'));
@@ -5650,7 +5650,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             agua a la izquierda, al revés. Cada pantalla se reconoce por su
             mezcla sin dejar de ser la misma app. Capa fixed aparte porque iOS
             ignora background-attachment dentro de scrollers. */}
-        <div className={`fixed pointer-events-none bg-stains-chat${loading && !v2 ? ' thinking' : ''}`} style={{
+        {/* Visual nueva: el MISMO fondo de Hoy y Recetas, byte a byte (las
+            manchas sin agrandar). */}
+        <div className={`fixed pointer-events-none bg-stains-chat${loading && !v2 ? ' thinking' : ''}`} style={v2 ? { inset: 0, background: BG_STAINS } : {
           top: '-16%', left: '-16%', right: '-16%', bottom: '-16%',
           background: BG_STAINS,
           willChange: loading ? 'transform' : 'auto',
@@ -5685,7 +5687,21 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             extremo superior y va POR ENCIMA del scroller pero por debajo de
             la tarjeta de metas: antes vivía dentro del scroller y el velo de
             esa tarjeta la tapaba entera. */}
-        <div ref={chatBandRef} className="fixed left-0 right-0 top-0 pointer-events-none" style={{
+        {/* Visual nueva: la portada del chat es la MISMA de Hoy en
+            Alimentación (fondo y manchas verdes de la sección, apagándose
+            hacia abajo) y no cambia de alto ni de color al escribir o al
+            bajar: antes se encogía al compactarse la tarjeta y parecía que la
+            cabecera cambiaba de color al tocar la barra de texto. */}
+        <div ref={chatBandRef} data-portada-chat className="fixed left-0 right-0 top-0 pointer-events-none" style={v2 ? (() => { const t = TEMAS_CABECERA.comida; return {
+          zIndex: 25,
+          height: `calc(${headerH}px + 210px)`,
+          background: `radial-gradient(closest-side, ${t.m1} 0%, ${t.m1}00 100%) calc(100% + 30vw) -10vw / 95vw 95vw no-repeat,
+            radial-gradient(closest-side, ${t.m2} 0%, ${t.m2}00 100%) -27vw 100% / 80vw 80vw no-repeat,
+            radial-gradient(closest-side, ${t.m3}BF 0%, ${t.m3}00 100%) calc(100% + 12vw) 70% / 58vw 58vw no-repeat,
+            ${t.base}`,
+          WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 55%, transparent 100%)',
+          maskImage: 'linear-gradient(180deg, #000 0%, #000 55%, transparent 100%)',
+        }; })() : {
           // Debajo de la tarjeta de metas (z-30) y de la píldora (z-50), pero
           // ENCIMA del scroller: los degradados se ven, y de paso hacen de
           // diluido para el contenido que pasa por detrás.

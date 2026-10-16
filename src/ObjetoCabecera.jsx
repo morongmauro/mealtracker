@@ -30,14 +30,26 @@ import tresFinEntreno from './assets/cabecera/entreno-tres-fin.webp';
 import tresFinComida from './assets/cabecera/comida-tres-fin.webp';
 import tresFinAprende from './assets/cabecera/aprende-tres-fin.webp';
 import tresFinDash from './assets/cabecera/dash-tres-fin.webp';
+// Y a DOS colores exactos (blanco + el tono suave del módulo), sin brillos y
+// con su sombra de piso suave: el que va hoy dentro del aro.
+import dosEntreno from './assets/cabecera/entreno-dos.webp';
+import dosComida from './assets/cabecera/comida-dos.webp';
+import dosAprende from './assets/cabecera/aprende-dos.webp';
+import dosDash from './assets/cabecera/dash-dos.webp';
+import dosFinEntreno from './assets/cabecera/entreno-dos-fin.webp';
+import dosFinComida from './assets/cabecera/comida-dos-fin.webp';
+import dosFinAprende from './assets/cabecera/aprende-dos-fin.webp';
+import dosFinDash from './assets/cabecera/dash-dos-fin.webp';
 
 const ANIM = {
   color: { entreno: animEntreno, comida: animComida, aprende: animAprende, dash: animDash },
   tres: { entreno: tresEntreno, comida: tresComida, aprende: tresAprende, dash: tresDash },
+  dos: { entreno: dosEntreno, comida: dosComida, aprende: dosAprende, dash: dosDash },
 };
 const FIN = {
   color: { entreno: finEntreno, comida: finComida, aprende: finAprende, dash: finDash },
   tres: { entreno: tresFinEntreno, comida: tresFinComida, aprende: tresFinAprende, dash: tresFinDash },
+  dos: { entreno: dosFinEntreno, comida: dosFinComida, aprende: dosFinAprende, dash: dosFinDash },
 };
 // Lo dibujado dentro del cuadro (sin el aire transparente), en fracciones
 // del lado: izquierda, arriba, derecha, abajo. Para ubicar el aro y la frase.
@@ -76,8 +88,9 @@ const esperarEntrada = (fn) => {
   return () => { ob.disconnect(); clearTimeout(t); };
 };
 
-// `tono`: 'color' (el objeto a todo color, con su sombra de piso) o 'tres'
-// (blanco, gris y un tono claro del módulo, para ir dentro del aro).
+// `tono`: 'color' (el objeto a todo color, con su sombra de piso), 'tres'
+// (blanco, gris y un tono claro del módulo) o 'dos' (blanco + tono suave del
+// módulo, sin brillos, con sombra suave: el de dentro del aro).
 export default function ObjetoCabecera({ tema, activo = true, tono = 'color', style }) {
   const [src, setSrc] = useState(null);
   useEffect(() => {

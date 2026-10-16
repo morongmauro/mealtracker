@@ -100,7 +100,7 @@ function lugarDelObjeto(caja) {
 }
 
 // Con gráfica (las cabeceras de la visual nueva): el blob del módulo es el
-// protagonista, con el aro en blanco encima, el objeto a tres tonos y el
+// protagonista, con el aro en blanco encima, el objeto a dos colores y el
 // número adentro, y el pie debajo.
 const ARO_G = { blob: 122, tam: 92, grosor: 7, objAncho: 46, objAlto: 34 };
 function lugarEnCaja(caja, ancho, alto) {
@@ -164,7 +164,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
     const color = COLOR_ARO[tema] || TEXT;
     return (
       // El blob del módulo (cuadrado curvo girado), y encima el aro en blanco
-      // con el objeto de la sección a tres tonos y el número adentro; el pie
+      // con el objeto de la sección a dos colores y el número adentro; el pie
       // queda debajo del blob, en gris. Va arriba de la fila (no centrado con
       // la frase): así queda siempre en el mismo sitio, cruzando un poco la
       // banda de arriba, tenga la frase dos líneas o cuatro.
@@ -181,7 +181,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
               <AnilloMarca plano frac={aro.frac} color="#FFFFFF" punto={color} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.3)" etiqueta={aro.pie}>
                 <div style={{ display: 'grid', placeItems: 'center' }}>
                   <div style={{ position: 'relative', width: ARO_G.objAncho, height: ARO_G.objAlto }}>
-                    <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={objetoAnima} tono="tres" /></div>
+                    <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={objetoAnima} tono="dos" /></div>
                   </div>
                   <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
                 </div>
