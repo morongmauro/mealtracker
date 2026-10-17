@@ -19,7 +19,7 @@ import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
 import { aroEntrenoDe, progresoEntrenoDelPlan } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
-import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind } from '@phosphor-icons/react';
+import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind, Snowflake, Fire } from '@phosphor-icons/react';
 import Respira from './Respira.jsx';
 import Reconocimiento from './Reconocimiento.jsx';
 import { prepararSonido, sonarFinDescanso } from './sonidoDescanso.js';
@@ -1720,6 +1720,31 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descan
 //
 // La nota va debajo y sin obligar. En la práctica "me molestó el hombro en la
 // última serie" le sirve al coach más que el número.
+// La intensidad, del 1 al 10: de azul suave (fácil) a amarillo y a rojo (al
+// límite). Del 6 al 9 es la zona de progreso. Cada número dice qué significa.
+const INTENSIDAD_TONOS = [[1, [141, 186, 240]], [5, [242, 201, 76]], [8, [238, 132, 52]], [10, [214, 69, 65]]];
+function tonoIntensidad(n, a = 1) {
+  for (let i = 0; i < INTENSIDAD_TONOS.length - 1; i++) {
+    const [x, c1] = INTENSIDAD_TONOS[i], [y, c2] = INTENSIDAD_TONOS[i + 1];
+    if (n <= y) { const t = (n - x) / (y - x); return `rgba(${c1.map((v, k) => Math.round(v + (c2[k] - v) * t)).join(',')},${a})`; }
+  }
+  return `rgba(214,69,65,${a})`;
+}
+const tintaIntensidad = (n) => {
+  for (let i = 0; i < INTENSIDAD_TONOS.length - 1; i++) {
+    const [x, c1] = INTENSIDAD_TONOS[i], [y, c2] = INTENSIDAD_TONOS[i + 1];
+    if (n <= y) { const t = (n - x) / (y - x); return `rgb(${c1.map((v, k) => Math.round((v + (c2[k] - v) * t) * 0.62)).join(',')})`; }
+  }
+  return 'rgb(133,43,40)';
+};
+const SIGNIFICADO_INTENSIDAD = (n) => n <= 2 ? ['Muy suave', 'Podías seguir mucho más']
+  : n <= 4 ? ['Suave', 'Cómodo, sin esfuerzo real']
+  : n === 5 ? ['Moderado', 'Trabajaste, con margen de sobra']
+  : n <= 7 ? ['Exigente', 'Te costó, con reps en reserva']
+  : n === 8 ? ['Muy exigente', 'Una o dos reps más, no más']
+  : n === 9 ? ['Casi al límite', 'Quizá una rep más']
+  : ['Al límite', 'No salía ni una más'];
+
 function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, error, escritas = [], onMarcarEscritas, onRevisar }) {
   const [rpe, setRpe] = useState(null);
   const [nota, setNota] = useState('');
@@ -1746,12 +1771,19 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
           margin: '0 auto 16px',
         }} />
 
-        <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>
-          {hechas > 0 ? 'Terminaste' : 'Aún no marcas ninguna serie'}
+        {hechas > 0 && (
+          <div data-cierre-check style={{
+            width: 50, height: 50, borderRadius: '50%', display: 'grid', placeItems: 'center', marginBottom: 12,
+            background: 'linear-gradient(145deg, #4A88E0, #2F68C0)', boxShadow: '0 8px 20px rgba(60,123,214,.32)',
+          }}><Check size={26} strokeWidth={3} color="#fff" /></div>
+        )}
+        {/* Sin «x de y series»: lo que cuenta es que entrenó, no lo que faltó. */}
+        <div style={{ fontSize: hechas > 0 ? 27 : 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+          {hechas > 0 ? 'Entreno terminado' : 'Aún no marcas ninguna serie'}
         </div>
-        <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 3 }}>
+        <div style={{ fontSize: hechas > 0 ? 15 : 13, color: TEXT_MUTED, marginTop: 4 }}>
           {hechas > 0
-            ? `${Math.min(hechas, total)} de ${total} series marcadas${hechas < total ? '. No pasa nada si no completaste todo.' : ''}`
+            ? 'Buen trabajo. Cuéntale a tu coach cómo te fue.'
             : 'Si hoy no pudiste entrenar, díselo a tu coach. Cuenta como día saltado, no como entreno.'}
         </div>
 
@@ -1781,33 +1813,55 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
         )}
 
         {hechas > 0 && <>
-        <div style={{
-          fontSize: 11.5,
-          fontWeight: 800, color: TEXT_LIGHT, margin: '20px 0 9px',
-        }}>¿Qué tan duro se sintió? <span style={{ color: rpe ? TEXT_LIGHT : '#C75A4A' }}>· obligatorio</span></div>
+        <div style={{ fontSize: 17, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em', margin: '22px 0 2px' }}>¿Qué tan intensa fue tu sesión?</div>
+        <div style={{ fontSize: 13, color: TEXT_LIGHT, marginBottom: 12 }}>Del 1 al 10. Lo usa tu coach para ajustar tu plan.</div>
 
-        {/* Del 1 al 10, en una fila. Números grandes y separados: se toca con
-            el pulgar, de pie, con el teléfono en una mano. */}
-        <div style={{ display: 'flex', gap: 5 }}>
-          {Array.from({ length: 10 }, (_, i) => i + 1).map(n => {
-            const activo = rpe === n;
-            return (
-              <button key={n} onClick={() => setRpe(activo ? null : n)}
-                aria-label={`Percepción ${n}`}
-                style={{
-                  flex: 1, minWidth: 0, height: 44, borderRadius: 11, cursor: 'pointer',
-                  border: activo ? 0 : `1px solid ${BORDER}`,
-                  background: activo ? ACCENT_DARK : 'transparent',
-                  color: activo ? '#fff' : TEXT_MUTED,
-                  fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: 0,
-                }}>{n}</button>
-            );
-          })}
+        {/* Del 1 al 10, en una fila, cada número con su tono: azul suave → amarillo →
+            rojo. Grandes y separados: se toca con el pulgar, de pie. */}
+        <div data-escala-intensidad style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Snowflake size={19} weight="bold" color="#5B97E3" style={{ flex: 'none' }} aria-hidden="true" />
+          <div style={{ flex: 1, minWidth: 0, display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 4 }}>
+            {Array.from({ length: 10 }, (_, i) => i + 1).map(n => {
+              const activo = rpe === n;
+              return (
+                <button key={n} onClick={() => setRpe(activo ? null : n)}
+                  aria-label={`Percepción ${n}`} aria-pressed={activo}
+                  style={{
+                    minWidth: 0, height: 44, borderRadius: 12, cursor: 'pointer', border: 0, padding: 0,
+                    background: tonoIntensidad(n, activo ? 1 : 0.17),
+                    color: activo ? '#fff' : tintaIntensidad(n),
+                    fontSize: 15, fontWeight: 750, fontFamily: 'inherit',
+                    transform: activo ? 'scale(1.12)' : 'none', transition: 'transform .15s ease, background .15s ease',
+                    boxShadow: activo ? `0 6px 14px ${tonoIntensidad(n, 0.45)}` : 'none',
+                  }}>{n}</button>
+              );
+            })}
+          </div>
+          <Fire size={19} weight="fill" color="#D64541" style={{ flex: 'none' }} aria-hidden="true" />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-          <span style={{ fontSize: 11, color: TEXT_LIGHT }}>suave</span>
-          <span style={{ fontSize: 11, color: TEXT_LIGHT }}>al límite</span>
+        {/* Del 6 al 9: la zona donde se progresa. */}
+        <div style={{ display: 'flex', gap: 5, marginTop: 7 }}>
+          <span style={{ width: 19, flex: 'none' }} />
+          <div style={{ flex: 1, minWidth: 0, display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 4 }}>
+            <div data-zona-progreso style={{ gridColumn: '6 / 10', textAlign: 'center' }}>
+              <div style={{ height: 7, border: '2px solid #46965A', borderTop: 0, borderRadius: '0 0 8px 8px' }} />
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#46965A', marginTop: 4, whiteSpace: 'nowrap' }}>Zona de progreso</div>
+            </div>
+          </div>
+          <span style={{ width: 19, flex: 'none' }} />
         </div>
+        {rpe && (() => {
+          const [nombre, que] = SIGNIFICADO_INTENSIDAD(rpe);
+          return (
+            <div data-significado-intensidad style={{ marginTop: 12, padding: '11px 14px', borderRadius: 14, background: SURFACE_2, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <b style={{ fontSize: 23, fontWeight: 850, color: tonoIntensidad(rpe), letterSpacing: '-0.02em', minWidth: 24, textAlign: 'center' }}>{rpe}</b>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: TEXT }}>{nombre}</span>
+                <span style={{ display: 'block', fontSize: 12.5, color: TEXT_MUTED, marginTop: 1 }}>{que}{rpe >= 6 && rpe <= 9 ? ' · zona de progreso' : ''}</span>
+              </span>
+            </div>
+          );
+        })()}
         </>}
 
         <textarea
@@ -1836,7 +1890,7 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
               background: rpe ? ACCENT_DARK : BORDER, color: rpe ? '#fff' : TEXT_LIGHT, fontSize: 15, fontWeight: 700,
               cursor: guardando || !rpe ? 'default' : 'pointer', opacity: guardando ? 0.7 : 1,
               fontFamily: 'inherit',
-            }}>{guardando ? 'Guardando…' : rpe ? 'Enviar a mi coach' : 'Marca qué tan duro se sintió'}</button>
+            }}>{guardando ? 'Guardando…' : rpe ? 'Enviar a mi coach' : 'Elige tu intensidad'}</button>
         )}
 
         {/* "No pude entrenar hoy" existía en la primera versión del módulo y

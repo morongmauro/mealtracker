@@ -1066,7 +1066,8 @@ try {
   await p.locator('[data-escritas-marcar]').click(); await espera(500);
   ok('«Marcarlas como hechas» las marca con lo escrito y el bloque desaparece', (await banca.getByRole('button', { name: 'Deshacer serie 2' }).count()) === 1
     && (await banca.getByRole('button', { name: 'Deshacer serie 3' }).count()) === 1 && (await p.locator('[data-escritas]').count()) === 0
-    && /3 de 9 series marcadas|3 de \d+ series/.test(await p.locator('[data-enviar-coach]').locator('xpath=ancestor::div[2]').innerText()));
+    && /Entreno terminado/.test(await p.locator('[data-enviar-coach]').locator('xpath=ancestor::div[2]').innerText())
+    && !/series marcadas/.test(await p.locator('[data-enviar-coach]').locator('xpath=ancestor::div[2]').innerText()));
   await p.mouse.click(20, 60); await espera(400);   // cerrar la hoja (tocar fuera)
   await banca.getByRole('button', { name: 'Deshacer serie 2' }).click(); await espera(200);
   await banca.getByRole('button', { name: 'Deshacer serie 3' }).click(); await espera(200);
@@ -1736,8 +1737,19 @@ try {
   await espera(300);
   await n.p.locator('[data-terminar]').click();
   // La intensidad es obligatoria: sin ella no se puede enviar.
-  ok('cierre: sin marcar la intensidad no deja enviar', await n.p.locator('[data-enviar-coach]').isDisabled() && /Marca qué tan duro/.test(await n.p.locator('[data-enviar-coach]').innerText()));
+  ok('cierre: sin marcar la intensidad no deja enviar', await n.p.locator('[data-enviar-coach]').isDisabled() && /Elige tu intensidad/.test(await n.p.locator('[data-enviar-coach]').innerText()));
+  {
+    const hoja = n.p.locator('[data-escala-intensidad]').locator('xpath=ancestor::div[contains(@style,"border-radius: 22px")][1]');
+    const txt = await hoja.innerText().catch(() => '');
+    ok('cierre: «Entreno terminado», la pregunta nueva y sin «x de y» ni «obligatorio»', /Entreno terminado/.test(txt) && /¿Qué tan intensa fue tu sesión\?/.test(txt)
+      && !/series marcadas/.test(txt) && !/obligatorio/i.test(txt) && !/duro/.test(txt), txt.slice(0, 300));
+    const tonos = await n.p.evaluate(() => [1, 5, 10].map(k => getComputedStyle(document.querySelector(`[aria-label="Percepción ${k}"]`)).backgroundColor));
+    ok('cierre: los números van de azul suave a amarillo y a rojo', /141, 186, 240/.test(tonos[0]) && /242, 201, 76/.test(tonos[1]) && /214, 69, 65/.test(tonos[2]), JSON.stringify(tonos));
+    ok('cierre: del 6 al 9 marcado como «Zona de progreso»', /Zona de progreso/.test(await n.p.locator('[data-zona-progreso]').innerText()));
+  }
   await n.p.getByRole('button', { name: 'Percepción 7' }).click();
+  ok('cierre: al elegir el 7 dice qué significa («Exigente» · zona de progreso)', /Exigente/.test(await n.p.locator('[data-significado-intensidad]').innerText()) && /zona de progreso/.test(await n.p.locator('[data-significado-intensidad]').innerText()));
+  await foto(n.p, '15b-cierre-intensidad');
   await n.p.getByRole('button', { name: 'Enviar a mi coach' }).click();
   const fin = n.p.locator('[data-fin-entreno]');
   await fin.waitFor({ timeout: 8000 });
