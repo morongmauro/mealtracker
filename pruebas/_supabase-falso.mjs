@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 // `obligatorias`: columnas NOT NULL sin valor por defecto que sirva desde la
 // API. `user_id` en sesiones y actividades es el caso real: su default es
 // auth.uid(), que con la service_role vale null.
-export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {},
+export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}, estricto = false,
   obligatorias = { sesiones: ['user_id'], actividades: ['user_id'], mediciones_corporales: ['user_id'], notas_entreno: ['user_id'] } } = {}) {
   const db = {};
   for (const [t, filas] of Object.entries(tablas)) db[t] = filas.map(f => ({ ...f }));
@@ -55,6 +55,14 @@ export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}
       const pedidas = sel.split(',').map(x => x.split(':').pop().split('->')[0].trim());
       const malas = pedidas.filter(c => c !== '*' && !columnas[tabla].includes(c));
       if (malas.length) return respuesta(400, { message: `column ${tabla}.${malas[0]} does not exist` });
+    }
+
+    // `estricto`: escribir una columna que la tabla no declara también da 400
+    // (PGRST204), como cuando falta correr una migración.
+    if (estricto && columnas[tabla] && (metodo === 'POST' || metodo === 'PATCH')) {
+      const c = JSON.parse(opts.body);
+      const mala = (Array.isArray(c) ? c : [c]).flatMap(Object.keys).find(k => !columnas[tabla].includes(k));
+      if (mala) return respuesta(400, { code: 'PGRST204', message: `Could not find the '${mala}' column of '${tabla}' in the schema cache` });
     }
 
     const filtros = [];

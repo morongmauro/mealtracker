@@ -756,6 +756,11 @@ async function guardarSerie(cliente, cuerpo) {
     completada: cuerpo.completada !== false,
   };
   if (!fila.ejercicio_id) return { ok: false, motivo: 'sin_ejercicio' };
+  // A qué hora la marcó EN SU TELÉFONO. Con la cola sin señal una serie puede
+  // llegar al servidor minutos después, y la hora de llegada (created_at)
+  // diría mal cuánto tardó entre series. Con esto el coach ve el tiempo real
+  // de cada ejercicio, de los descansos y de la rutina entera.
+  const marcadaEn = horaDeMarca(cuerpo.marcada_en);
 
   // Marcar la misma serie dos veces la ACTUALIZA, no la duplica: el cliente
   // corrige el peso que puso mal sin que queden dos filas peleando.
@@ -767,18 +772,43 @@ async function guardarSerie(cliente, cuerpo) {
   const porLinea = fila.rutina_ejercicio_id
     ? `rutina_ejercicio_id=eq.${encodeURIComponent(fila.rutina_ejercicio_id)}`
     : `ejercicio_id=eq.${encodeURIComponent(fila.ejercicio_id)}&rutina_ejercicio_id=is.null`;
-  const previa = await sb(`series_log?select=id&sesion_id=eq.${sesion.id}`
+  const previa = await sb(`series_log?select=*&sesion_id=eq.${sesion.id}`
     + `&${porLinea}&serie_num=eq.${num}&limit=1`);
-  if (Array.isArray(previa) && previa[0]) {
-    const upd = await sb(`series_log?id=eq.${previa[0].id}`, {
-      method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(fila),
-    });
+  const antes = Array.isArray(previa) ? previa[0] : null;
+  // Corregir el peso de una serie ya marcada no le cambia la hora: la serie
+  // se hizo cuando se marcó la primera vez. Desmarcada y vuelta a marcar, sí.
+  const conHora = Date.now() - sinColumnaHora > 10 * 60e3 && fila.completada && marcadaEn && !(antes && antes.completada && antes.marcada_en)
+    ? { ...fila, marcada_en: marcadaEn } : fila;
+  // La columna llega con carga/migracion-tiempos-series.sql; sin ella la
+  // serie se guarda igual, sin la hora.
+  const escribir = (ruta, metodo) => sb(ruta, {
+    method: metodo, headers: { Prefer: 'return=representation' }, body: JSON.stringify(conHora),
+  }).catch(e => {
+    if (conHora === fila) throw e;
+    sinColumnaHora = Date.now();
+    return sb(ruta, { method: metodo, headers: { Prefer: 'return=representation' }, body: JSON.stringify(fila) });
+  });
+  if (antes) {
+    const upd = await escribir(`series_log?id=eq.${antes.id}`, 'PATCH');
     return { ok: true, serie: Array.isArray(upd) ? upd[0] : upd, actualizada: true };
   }
-  const ins = await sb('series_log', {
-    method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(fila),
-  });
+  const ins = await escribir('series_log', 'POST');
   return { ok: true, serie: Array.isArray(ins) ? ins[0] : ins, actualizada: false };
+}
+
+// Si la base todavía no tiene la columna, no se intenta en cada serie: se
+// vuelve a probar a los 10 minutos (por si ya se corrió el SQL).
+let sinColumnaHora = 0;
+
+// La hora que manda el teléfono, si es creíble: ni del futuro (reloj
+// adelantado: se usa la del servidor) ni de hace más de una semana.
+function horaDeMarca(v) {
+  const t = v ? new Date(v) : null;
+  const ahora = Date.now();
+  if (!t || !Number.isFinite(t.getTime())) return new Date(ahora).toISOString();
+  if (t.getTime() > ahora + 2 * 60e3) return new Date(ahora).toISOString();
+  if (t.getTime() < ahora - 7 * 864e5) return null;
+  return t.toISOString();
 }
 
 async function cerrarSesion(cliente, cuerpo) {
@@ -792,10 +822,13 @@ async function cerrarSesion(cliente, cuerpo) {
   // cualquier promedio que el coach mire después. Si no marcó ninguna serie,
   // no hay duración que reportar — mejor null que un número inventado.
   let dur = null;
-  const primeras = await sb(`series_log?select=created_at&sesion_id=eq.${sesion.id}`
-    + `&order=created_at.asc&limit=1`);
-  const inicio = Array.isArray(primeras) && primeras[0] ? primeras[0].created_at : null;
-  if (inicio) dur = Math.max(0, Math.round((ahora - new Date(inicio)) / 1000));
+  // La hora de la primera serie es la que marcó en el teléfono (marcada_en);
+  // las series de antes de esa columna, la de llegada.
+  const primeras = await sb(`series_log?select=*&sesion_id=eq.${sesion.id}&completada=is.true`);
+  const horas = (Array.isArray(primeras) ? primeras : [])
+    .map(x => new Date(x.marcada_en || x.created_at).getTime()).filter(Number.isFinite);
+  const inicio = horas.length ? Math.min(...horas) : null;
+  if (inicio) dur = Math.max(0, Math.round((ahora - inicio) / 1000));
   // Qué récords batió hoy. Se mira ANTES de marcar la sesión como cerrada
   // porque da igual el estado: lo que cuenta son las series que dejó.
   let records = [];

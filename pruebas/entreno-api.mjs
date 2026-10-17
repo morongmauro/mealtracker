@@ -649,5 +649,43 @@ await caso('tiempo: aterrizado con lo que tarda de verdad (y su ritmo en las dem
   igual(de('r2'), 8, 'Lower (nunca hecha): el estimado con su ritmo');
 });
 
+const ok = (v, qué) => { if (!v) throw new Error(qué); };
+
+await caso('tiempos: cada serie guarda la hora en que la marcó en el teléfono (aunque llegue tarde)', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  const a = await llamar(handler, { accion: 'abrir', name: yo, rutina_id: 'r1' });
+  const hace = (min) => new Date(Date.now() - min * 60e3).toISOString();
+  const b = { accion: 'serie', name: yo, sesion_id: a.sesion.id, rutina_ejercicio_id: 're1', ejercicio_id: 'e1' };
+  // Marcadas sin señal hace 40 y 37 minutos; suben ahora.
+  await llamar(handler, { ...b, serie_num: 1, reps: 8, peso: 60, marcada_en: hace(40) });
+  await llamar(handler, { ...b, serie_num: 2, reps: 8, peso: 60, marcada_en: hace(37) });
+  const fila = (n) => sb.db.series_log.find(l => l.sesion_id === a.sesion.id && l.serie_num === n);
+  const minutos = (n) => Math.round((Date.now() - new Date(fila(n).marcada_en)) / 60e3);
+  igual([minutos(1), minutos(2)], [40, 37], 'minutos atrás de cada serie');
+  // Corregir el peso después no le cambia la hora.
+  const antes = fila(1).marcada_en;
+  await llamar(handler, { ...b, serie_num: 1, reps: 8, peso: 62.5, marcada_en: hace(1) });
+  igual([fila(1).peso, fila(1).marcada_en], [62.5, antes], 'corregida: peso nuevo, misma hora');
+  // Un reloj adelantado no deja horas del futuro.
+  await llamar(handler, { ...b, serie_num: 3, reps: 8, peso: 60, marcada_en: new Date(Date.now() + 3 * 3600e3).toISOString() });
+  ok(new Date(fila(3).marcada_en).getTime() <= Date.now() + 1000, 'sin horas del futuro');
+  // La duración se cuenta desde la primera serie que marcó, no desde que subió.
+  const c = await llamar(handler, { accion: 'cerrar', name: yo, sesion_id: a.sesion.id, rpe: 7 });
+  const ses = sb.db.sesiones.find(s => s.id === a.sesion.id);
+  ok(c.ok && ses.duracion_seg >= 39 * 60 && ses.duracion_seg <= 41 * 60, `duración ${ses.duracion_seg}s ≈ 40 min`);
+});
+
+await caso('tiempos: sin la columna nueva (falta el SQL) la serie se guarda igual', async () => {
+  const sb = crearSupabaseFalso({
+    estricto: true,
+    columnas: { series_log: ['id', 'sesion_id', 'rutina_ejercicio_id', 'ejercicio_id', 'serie_num', 'reps', 'peso', 'unidad', 'rir', 'completada', 'created_at'] },
+    tablas: base().db,
+  });
+  globalThis.fetch = sb.fetch;
+  const a = await llamar(handler, { accion: 'abrir', name: yo, rutina_id: 'r1' });
+  const r = await llamar(handler, { accion: 'serie', name: yo, sesion_id: a.sesion.id, rutina_ejercicio_id: 're1', ejercicio_id: 'e1', serie_num: 1, reps: 8, peso: 60, marcada_en: new Date().toISOString() });
+  igual([r.ok, sb.db.series_log.filter(l => l.sesion_id === a.sesion.id).length], [true, 1], 'guardada');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

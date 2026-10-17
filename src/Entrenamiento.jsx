@@ -818,9 +818,11 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
       prepararSonido();
       setDescanso({ segundos: seg, fin: Date.now() + seg * 1000 });
     }
+    // La hora del toque viaja con la serie: si espera en la cola sin señal,
+    // el coach igual ve cuánto tardó de verdad entre una serie y otra.
     escribirSerie({
       rutina_ejercicio_id: re.id, ejercicio_id: re.ejercicio.id,
-      serie_num: serie, reps, peso, unidad, completada: true,
+      serie_num: serie, reps, peso, unidad, completada: true, marcada_en: new Date().toISOString(),
     });
   }, [escribirSerie, inicio, claveInicio]);
 
