@@ -1385,15 +1385,15 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegi
             <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.85 }}>
               {hecha ? 'Fuerza · ya la hiciste' : dia.estado === 'en_curso' ? 'Fuerza · a medias' : dia.extra ? 'Fuerza · la añadiste tú' : 'Fuerza'}
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginTop: 2 }}>{r.nombre}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15, marginTop: 2 }}>{r.nombre}</div>
             {(n || r.minutos) && (
-              <div style={{ fontSize: 13.5, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
+              <div style={{ fontSize: 13.5, lineHeight: 1.3, marginTop: 3, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
                 {[n ? `${n} ejercicio${n === 1 ? '' : 's'}` : null, r.minutos ? `~${r.minutos} min` : null].filter(Boolean).join(' · ')}
               </div>
             )}
             {/* Que se vea que esto es lo que se toca para entrar a la rutina. */}
             <span data-hoy-empezar style={{
-              marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: P.ink,
+              marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: P.ink,
               borderRadius: 999, padding: '9px 14px 9px 16px', fontSize: 15, fontWeight: 800,
             }}>
               {hecha && <CheckCircle size={17} weight="fill" color={P.base} />}

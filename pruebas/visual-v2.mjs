@@ -843,6 +843,14 @@ try {
   ok('añadir: el Pull queda hoy, «la añadiste tú»', (db.db.rutina_extras || []).length === 1
     && /la añadiste tú/.test(await hoyV.locator('[data-hoy-rutina]').innerText()));
   ok('«Hoy»: la rutina dice cuánto dura (calculado), en chico', /\d+ ejercicios? · ~\d+ min/.test(await hoyV.locator('[data-hoy-rutina]').innerText()), await hoyV.locator('[data-hoy-rutina]').innerText());
+  {
+    const aire = await hoyV.locator('[data-hoy-rutina]').evaluate(el => {
+      const t = [...el.children][1].getBoundingClientRect(), b = el.querySelector('[data-hoy-empezar]').getBoundingClientRect();
+      return Math.round(b.top - t.bottom);
+    });
+    ok('«Hoy»: poco aire entre el nombre, el tiempo y el botón', aire <= 34, `${aire}px`);
+    await hoyV.locator('[data-hoy-rutina]').screenshot({ path: path.join(CAPTURAS, 'v2-hoy-tarjeta.png') }).catch(() => {});
+  }
   await foto(p, '04h-hoy-anadida');
   // La rutina por dentro: el Push del lunes, desde su día
   // Con la red lenta: la rutina ya se precargó, así que abre al instante y
