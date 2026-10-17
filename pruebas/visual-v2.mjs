@@ -842,6 +842,7 @@ try {
   await espera(1200);
   ok('añadir: el Pull queda hoy, «la añadiste tú»', (db.db.rutina_extras || []).length === 1
     && /la añadiste tú/.test(await hoyV.locator('[data-hoy-rutina]').innerText()));
+  ok('«Hoy»: la rutina dice cuánto dura (calculado), en chico', /\d+ ejercicios? · ~\d+ min/.test(await hoyV.locator('[data-hoy-rutina]').innerText()), await hoyV.locator('[data-hoy-rutina]').innerText());
   await foto(p, '04h-hoy-anadida');
   // La rutina por dentro: el Push del lunes, desde su día
   // Con la red lenta: la rutina ya se precargó, así que abre al instante y
@@ -857,6 +858,9 @@ try {
   await p.locator('[data-aviso="actualizando"]').waitFor({ state: 'detached', timeout: 8000 });
   Object.assign(lento, { accion: null, ms: 0 });
   await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
+  // Cuánto dura: calculado con series, descansos y cambios (api/_tiempo.js).
+  ok('rutina: debajo del nombre, en chico, cuánto dura y cuántos ejercicios', /^~\d+ min · \d+ ejercicios$/.test((await p.locator('[data-rutina-minutos]').innerText().catch(() => '')).trim()),
+    await p.locator('[data-rutina-minutos]').innerText().catch(() => 'no está'));
   ok('la rutina se parte en calentamiento, fuerza y enfriamiento',
     (await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()) === 1 && (await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()) === 1,
     `${await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()} / ${await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()} / ${await p.getByText('Enfriamiento').count()}`);

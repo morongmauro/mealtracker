@@ -49,6 +49,7 @@ import {
 import { alertarCoach } from './_alerta.js';
 import { whatsappCoach, textoNotaWhatsapp } from './_whatsapp.js';
 import { completarMusculos } from './_musculos.js';
+import { minutosDeRutinas, segundosRutina, minutosAterrizados } from './_tiempo.js';
 import { fechaCorte } from './_pagos.js';
 import manejarRelojes from './_relojes.js';
 import manejarVerComo from './_ver-como.js';
@@ -173,6 +174,10 @@ async function verPlan(cliente, hoy) {
     (Array.isArray(re) ? re : []).forEach(x => { conteo[x.rutina_id] = (conteo[x.rutina_id] || 0) + 1; });
   }
 
+  // Cuánto dura cada una: calculado (series, descansos, cambios) y aterrizado
+  // con lo que tarda de verdad este cliente (_tiempo.js).
+  const minDe = await minutosDeRutinas(sb, cliente.id, lista.map(r => r.id)).catch(() => ({}));
+
   // Las sesiones de ESTA semana, para marcar los días ya entrenados.
   const lunes = (() => {
     const [y, m, d] = hoy.split('-').map(Number);
@@ -220,7 +225,7 @@ async function verPlan(cliente, hoy) {
       descanso: !r,
       rutina: r ? {
         id: r.id, nombre: r.nombre, tipo: r.tipo_sesion,
-        minutos: r.duracion_estimada_min || null,
+        minutos: minDe[r.id] || r.duracion_estimada_min || null,
         ejercicios: conteo[r.id] || 0,
       } : null,
       hecha: !!(s && s.estado === 'completada'),
@@ -236,7 +241,7 @@ async function verPlan(cliente, hoy) {
       complementarias: complementariasDe(fase, lista, fecha).map(c => {
         const sc = estadoBloque(c, fecha);
         return {
-          id: c.id, nombre: c.nombre, tipo: c.tipo_sesion, minutos: c.duracion_estimada_min || null,
+          id: c.id, nombre: c.nombre, tipo: c.tipo_sesion, minutos: minDe[c.id] || c.duracion_estimada_min || null,
           ejercicios: conteo[c.id] || 0, hecha: !!(sc && sc.estado === 'completada'), en_curso: !!(sc && sc.estado === 'en_curso'),
         };
       }),
@@ -326,6 +331,16 @@ async function verRutina(cliente, rutinaId, hoy) {
   const porId = {};
   (Array.isArray(ejs) ? ejs : []).forEach(e => { porId[e.id] = completarMusculos(e); });
 
+  // Cuánto dura: el cálculo con estos ejercicios, aterrizado con lo que tarda
+  // el cliente (sus veces en esta rutina y su ritmo en las demás).
+  let minutos = null;
+  try {
+    const est = segundosRutina(lista.map(x => ({ ...x, nombre_ej: porId[x.ejercicio_id] ? (porId[x.ejercicio_id].alias || porId[x.ejercicio_id].nombre) : null })),
+      Array.isArray(bloques) ? bloques : []);
+    const m = await minutosDeRutinas(sb, cliente.id, [rutina.id]).catch(() => ({}));
+    minutos = m[rutina.id] || minutosAterrizados(est) || null;
+  } catch (e) { minutos = null; }
+
   // Lo último que levantó en cada ejercicio: es lo que de verdad se mira
   // antes de cargar la barra. Se lee de SUS sesiones, no de las de nadie más.
   //
@@ -346,6 +361,7 @@ async function verRutina(cliente, rutinaId, hoy) {
     ok: true, hoy, cardio,
     rutina: {
       ...limpiarRutina(rutina),
+      ...(minutos ? { minutos } : {}),
       bloques: (Array.isArray(bloques) ? bloques : []).map(b => ({
         id: b.id, nombre: b.nombre, tipo: b.tipo, vueltas: b.vueltas,
         descanso_seg: b.descanso_seg, descanso_entre_seg: b.descanso_entre_seg ?? null,
@@ -886,6 +902,7 @@ async function verMes(cliente, ym, hoy) {
       await quitadosDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`));
   }
   const musculos = await musculosDeRutinas(rutinas);
+  const minDe = await minutosDeRutinas(sb, cliente.id, rutinas.map(r => r.id)).catch(() => ({}));
 
   // Las tres cosas que pasaron, en paralelo: tres viajes encadenados por un
   // mes se notan en el teléfono.
@@ -942,12 +959,12 @@ async function verMes(cliente, ym, hoy) {
     const bloques = dentro ? complementariasDe(fase, rutinas, fecha).map(c => {
       const sc = sesiones.filter(x => x.fecha === fecha && x.rutina_id === c.id);
       const hecha = sc.find(x => x.estado === 'completada') || sc.find(x => x.estado === 'en_curso') || null;
-      return { id: c.id, nombre: c.nombre, corto: nombreCorto(c.nombre), minutos: c.duracion_estimada_min || null, estado: hecha ? hecha.estado : null };
+      return { id: c.id, nombre: c.nombre, corto: nombreCorto(c.nombre), minutos: minDe[c.id] || c.duracion_estimada_min || null, estado: hecha ? hecha.estado : null };
     }) : [];
     dias.push({
       fecha, dia: letra, es_hoy: fecha === hoy,
       semana: dentro ? Math.floor((Date.parse(fecha) - Date.parse(fase.fecha_inicio)) / 86400000 / 7) + 1 : null,
-      rutina: r ? { id: r.id, nombre: r.nombre, corto: nombreCorto(r.nombre), minutos: r.duracion_estimada_min || null } : null,
+      rutina: r ? { id: r.id, nombre: r.nombre, corto: nombreCorto(r.nombre), minutos: minDe[r.id] || r.duracion_estimada_min || null } : null,
       // Los bloques aparte de ese día, debajo de la fuerza.
       complementarias: bloques,
       movida: dentro && !!rutinaDe.movida && rutinaDe.movida(fecha),
@@ -1270,6 +1287,7 @@ async function verRutinas(cliente) {
   (Array.isArray(ejs) ? ejs : []).forEach(e => { musDe[e.id] = e.musculos_primarios || []; });
 
   const porDia = repartirPorDia(fase, rutinas);
+  const minDe = await minutosDeRutinas(sb, cliente.id, rutinas.map(r => r.id)).catch(() => ({}));
   return {
     ok: true,
     fase: {
@@ -1282,7 +1300,7 @@ async function verRutinas(cliente) {
       const dia = Object.keys(porDia).find(d => porDia[d] && porDia[d].id === r.id) || null;
       return {
         id: r.id, nombre: r.nombre, descripcion: r.descripcion,
-        tipo: r.tipo_sesion, minutos: r.duracion_estimada_min || null,
+        tipo: r.tipo_sesion, minutos: minDe[r.id] || r.duracion_estimada_min || null,
         ejercicios: suyos.length, dia, musculos: mus,
         ...(esComplementaria(r) ? { complementaria: true, dias: diasDeRutina(r) } : {}),
       };

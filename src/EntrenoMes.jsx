@@ -1738,7 +1738,7 @@ function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejercicios
   const est = estadoCal(dia, hoy);
   const r = dia?.rutina || dia?.hecho || null;
   const n = r ? ejerciciosDe[r.id] : null;
-  const sub = !r ? null : est === 'hecha' ? 'Hecha' : est === 'movida' ? (dia.extra ? 'La añadiste tú' : 'La moviste tú') : est === 'perdida' ? 'No se hizo' : (n ? `${n} ejercicio${n === 1 ? '' : 's'}` : 'Por hacer');
+  const sub = !r ? null : est === 'hecha' ? 'Hecha' : est === 'movida' ? (dia.extra ? 'La añadiste tú' : 'La moviste tú') : est === 'perdida' ? 'No se hizo' : ([n ? `${n} ejercicio${n === 1 ? '' : 's'}` : null, r.minutos ? `~${r.minutos} min` : null].filter(Boolean).join(' · ') || 'Por hacer');
   const extras = [
     // Con los mismos íconos que el mes y la leyenda: báscula, persona trotando y $.
     ...(dia?.eventos || []).map(e => ({ k: e.id, c: e.registra ? PUNTO.registro : e.tipo === 'actividad' ? PUNTO.cardio : TEXT_LIGHT,

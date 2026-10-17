@@ -56,8 +56,10 @@ const pedir = async (db, cuerpo) => { globalThis.fetch = db.fetch; return llamar
   const r = await pedir(db, { accion: 'plan' });
   const dia = (d) => r.dias.find(x => x.dia === d);
   ok('semana: el lunes la fuerza sigue siendo Push (el bloque no le quita el día)', dia('L').rutina?.nombre === 'Push' && dia('L').hecha, JSON.stringify(dia('L')));
-  ok('semana: el lunes, debajo, el bloque «Elbow Recovery» hecho, con sus 2 ejercicios y 9 min', dia('L').complementarias?.length === 1 && dia('L').complementarias[0].nombre === 'Elbow Recovery'
-    && dia('L').complementarias[0].hecha && dia('L').complementarias[0].ejercicios === 2 && dia('L').complementarias[0].minutos === 9, JSON.stringify(dia('L').complementarias));
+  // Los minutos son los calculados (2 × 3 series de 6-8 con 90 s y un cambio:
+  // 705 s → 12 min), no los 9 que se escribieron a mano en la rutina.
+  ok('semana: el lunes, debajo, el bloque «Elbow Recovery» hecho, con sus 2 ejercicios y 12 min (calculados)', dia('L').complementarias?.length === 1 && dia('L').complementarias[0].nombre === 'Elbow Recovery'
+    && dia('L').complementarias[0].hecha && dia('L').complementarias[0].ejercicios === 2 && dia('L').complementarias[0].minutos === 12, JSON.stringify(dia('L').complementarias));
   ok('semana: el miércoles no hay fuerza (descanso) y el bloque sale igual, sin hacer', dia('X').descanso && dia('X').complementarias.length === 1 && !dia('X').complementarias[0].hecha);
   ok('semana: el bloque con días no sale en «También en tu ciclo»', !(r.sueltas || []).some(x => x.id === 'rb'), JSON.stringify(r.sueltas));
 

@@ -171,6 +171,12 @@ Reglas:
   día al entrar en meta (kcal 90–110 % y proteína ≥ 90 %); completa al quinto
   día en meta o en el día perfecto. Aprendizaje, cada 3 cápsulas, cada 2
   videos y al completar la fase (el centro avisa cada pieza con `em-visto`).
+- **Cuánto dura la rutina** (`api/_tiempo.js`): «~30 min» en chico donde se
+  decide entrenar (Hoy, Tu semana, el bloque Hoy del Dash, la lista de
+  rutinas y debajo del nombre al abrirla). Es el mismo cálculo del CRM (series
+  × reps al tempo + preparación + descansos + cambios entre ejercicios),
+  aterrizado con lo que tarda el cliente: si ya hizo esa rutina pesa su
+  mediana real; si no, su ritmo en las demás. Redondeado de 5 en 5 desde 15.
 - **El descanso avisa**: al llegar a cero suena un pitido corto de dos notas
   y vibra (`sonidoDescanso.js`), para quien no mira la pantalla. Es un
   `<audio>` con un WAV generado en la app, que en el iPhone suena aunque el
