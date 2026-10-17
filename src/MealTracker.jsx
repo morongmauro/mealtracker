@@ -636,6 +636,8 @@ export default function MealTracker() {
   // completa) y el aviso de última semana del ciclo.
   const [recoAprende, setRecoAprende] = useState(null);
   const [avisoCiclo, setAvisoCiclo] = useState(null);
+  // La última semana del ciclo, para Recordatorios (no ocupa «Hoy te toca»).
+  const [cicloUltima, setCicloUltima] = useState(null);
   const kcalVistasRef = useRef(null);
   const silenciarSumaRef = useRef(true);
   const [editingEntry, setEditingEntry] = useState(null);
@@ -2948,15 +2950,17 @@ export default function MealTracker() {
         const f = plan.fase;
         if (!f.semanas || !f.semana_actual || f.semana_actual !== f.semanas) return;
         const clave = f.id || `${f.nombre || ''}|${f.fecha_inicio || ''}`;
-        let visto = '';
-        try { visto = localStorage.getItem('mt:avisoCicloFin') || ''; } catch (e) {}
-        if (visto === clave) return;
         const hoy = plan.hoy || today;
         const dias = Array.isArray(plan.dias) ? plan.dias : [];
         const pendientes = dias.filter(d => d.rutina && !d.hecha && d.fecha >= hoy).length;
         const deHoy = dias.find(d => d.fecha === hoy);
         const hoyToca = deHoy && deHoy.rutina ? deHoy.rutina.nombre : null;
         const fin = f.fecha_inicio ? sumarDias(f.fecha_inicio, f.semanas * 7 - 1) : null;
+        // En Recordatorios toda la semana; la ventana, una sola vez por ciclo.
+        setCicloUltima({ num: f.semanas, pendientes, fin });
+        let visto = '';
+        try { visto = localStorage.getItem('mt:avisoCicloFin') || ''; } catch (e) {}
+        if (visto === clave) return;
         setAvisoCiclo({ fase: f, pendientes, hoyToca, fin, clave });
       } catch (e) { /* sin plan: sin aviso */ }
     }, 1500);
@@ -6956,7 +6960,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
       {activeModal === 'reminders' && (
         <RemindersModal onClose={() => setActiveModal(null)} onActivate={activarPush}
-          coachReminders={coachReminders} onToggleReminder={toggleCoachReminder} />
+          coachReminders={coachReminders} onToggleReminder={toggleCoachReminder} ciclo={v2 ? cicloUltima : null} />
       )}
 
       {activeModal === 'favorites' && (
@@ -9497,7 +9501,7 @@ function WeeklyModal({ history, goals, onClose }) {
 // Antes el único punto de entrada era el banner (que desaparece al activar
 // o posponer): quien lo cerraba no tenía cómo volver a activarlos ni ver
 // si estaban andando. Este modal muestra el estado real y los horarios.
-function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleReminder }) {
+function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleReminder, ciclo = null }) {
   // checking | unsupported | denied | inactive | active
   const [status, setStatus] = useState('checking');
   const [busy, setBusy] = useState(false);
@@ -9543,6 +9547,22 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-md">
       <ModalHeader accent={acento} label={v2 ? 'Recordatorios' : 'Ajustes'} title="Mis recordatorios" onClose={onClose} />
+
+      {/* La última semana del ciclo: la ventana sale una vez; después queda
+          aquí, como aviso de contexto (no es algo que marcar). */}
+      {ciclo && (
+        <div data-recordatorio-ciclo className="mb-4" style={{ display: 'flex', alignItems: 'center', gap: 12, background: crema, borderRadius: 18, padding: '13px 14px' }}>
+          <span style={{ width: 38, height: 38, borderRadius: 11, background: TEXT, color: '#F2C94C', display: 'grid', placeItems: 'center', flex: 'none', fontSize: 13.5, fontWeight: 800 }}>S{ciclo.num}</span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 15, fontWeight: 750, color: TEXT }}>Última semana del ciclo</span>
+            <span style={{ display: 'block', fontSize: 13, color: TEXT_MUTED, lineHeight: 1.4, marginTop: 1 }}>
+              La próxima cambian algunos ejercicios. {ciclo.pendientes
+                ? `Cierra esta con ${ciclo.pendientes === 1 ? 'tu entreno' : `tus ${ciclo.pendientes} entrenos`}.`
+                : 'Esta ya la cerraste.'}
+            </span>
+          </span>
+        </div>
+      )}
 
       {/* Recordatorios que el COACH dejó para este cliente. Tocar = marcar
           cumplido (el coach lo ve ✓ en su CRM en el próximo refresco). */}

@@ -106,17 +106,9 @@ export default function Reconocimiento({
             </div>
           </div>
         )}
-        {grande && Array.isArray(puntos) && puntos.length > 0 && (
-          <div data-rc-puntos style={{ display: 'flex', justifyContent: 'center', gap: 9, padding: '16px 0 0' }}>
-            {puntos.map((p, i) => (
-              <i key={i} className="rc-p" data-punto={p} style={{
-                width: 12, height: 12, borderRadius: '50%', display: 'block', animationDelay: `${0.35 + i * 0.08}s`,
-                background: p === 'hecho' ? color : p === 'hoy' ? '#F2C94C' : tono,
-              }} />
-            ))}
-          </div>
-        )}
-        <div style={{ padding: grande ? '14px 22px 20px' : '22px 22px 20px' }}>
+        {/* Sin puntos debajo del blob: parecían de un carrusel (algo que se
+            desliza) y el número del blob ya dice cómo va la semana. */}
+        <div style={{ padding: grande ? '18px 22px 20px' : '22px 22px 20px' }}>
           {etiqueta && <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: TEXT_MUTED }}>{etiqueta}</div>}
           <div data-rc-titulo style={{ fontSize: 27, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.06, marginTop: 6 }}>
             {lineas.map((l, i) => <div key={i}>{l}</div>)}

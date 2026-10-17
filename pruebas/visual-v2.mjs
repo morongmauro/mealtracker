@@ -1456,7 +1456,7 @@ try {
   ok('meta de comida: al entrar el día en meta (kcal 90–110 % y proteína ≥ 90 %) sube la hoja de reconocimiento de Alimentación: «Día en meta», tres cifras y confeti', (await metaC.count()) === 1
     && (await metaC.getAttribute('data-reconocimiento')) === 'comida' && /Día en meta\./.test(await metaC.innerText()) && /kcal · meta/.test(await metaC.innerText())
     && (await metaC.locator('[data-rc-chip]').count()) === 3 && (await p.locator('[data-aviso-suma]').count()) === 0, await metaC.innerText().catch(() => ''));
-  ok('meta de comida: siempre la ventana completa (blob con los días en meta y la semana en puntos)', (await metaC.locator('[data-rc-portada]').count()) === 1 && (await metaC.locator('[data-rc-puntos]').count()) === 1);
+  ok('meta de comida: siempre la ventana completa (blob con los días en meta), sin puntos de carrusel debajo', (await metaC.locator('[data-rc-portada]').count()) === 1 && (await metaC.locator('[data-rc-puntos]').count()) === 0);
   ok('meta de comida: el enlace lleva al calendario de comidas', (await metaC.locator('[data-rc-enlace]').count()) === 1 && /calendario de comidas/.test(await metaC.locator('[data-rc-enlace]').innerText()));
   await foto(p, '09d-meta-comida');
   await metaC.getByRole('button', { name: 'Seguir' }).click(); await espera(400);
@@ -1521,7 +1521,7 @@ try {
   await recoA.waitFor({ timeout: 8000 }).catch(() => {});
   await espera(1200);
   ok('aprendizaje: a la tercera cápsula sube la hoja completa: «Tres cápsulas más», el blob con N de la fase, puntos y tres cifras', (await recoA.count()) === 1
-    && /Tres cápsulas más\./.test(await recoA.innerText()) && (await recoA.locator('[data-rc-portada]').count()) === 1 && (await recoA.locator('[data-rc-puntos] i').count()) >= 1
+    && /Tres cápsulas más\./.test(await recoA.innerText()) && (await recoA.locator('[data-rc-portada]').count()) === 1 && (await recoA.locator('[data-rc-puntos]').count()) === 0
     && (await recoA.locator('[data-rc-chip]').count()) === 3 && /material visto/.test(await recoA.innerText()), await recoA.innerText().catch(() => ''));
   await foto(p, '12z-reconocimiento-aprende');
   await recoA.getByRole('button', { name: 'Seguir leyendo' }).click(); await espera(400);
@@ -1641,11 +1641,15 @@ try {
     await av.locator('[data-ciclo-entendido]').click(); await espera(400);
     ok('ciclo: «Entendido» la cierra y queda guardada como vista', (await av.count()) === 0 && await u.p.evaluate(() => localStorage.getItem('mt:avisoCicloFin') === 'f1'));
     await u.p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
-    const tarjetaCiclo = u.p.locator('[data-ultima-semana]');
-    await tarjetaCiclo.waitFor({ timeout: 8000 }).catch(() => {});
-    ok('ciclo: en Entrenamiento, bajo «Hoy te toca», queda la tarjeta «Última semana del ciclo» toda la semana', (await tarjetaCiclo.count()) === 1
-      && /Última semana del ciclo/.test(await tarjetaCiclo.innerText()) && /S12/.test(await tarjetaCiclo.innerText()) && /cambian algunos ejercicios/.test(await tarjetaCiclo.innerText()), await tarjetaCiclo.innerText().catch(() => ''));
-    await foto(u.p, '12y2-tarjeta-ultima-semana');
+    await espera(1500);
+    ok('ciclo: «Hoy te toca» no se llena con el aviso del ciclo', (await u.p.locator('[data-hoy-te-toca]').count()) === 1 && !/Última semana del ciclo/.test(await u.p.locator('[data-hoy-te-toca]').innerText()));
+    await u.p.locator('[data-view="entrena"]').getByRole('button', { name: /Recordatorios|Avisos/ }).first().click();
+    const recCiclo = u.p.locator('[data-recordatorio-ciclo]');
+    await recCiclo.waitFor({ timeout: 6000 }).catch(() => {});
+    ok('ciclo: queda en Recordatorios toda la semana (S12 · Última semana del ciclo)', (await recCiclo.count()) === 1
+      && /Última semana del ciclo/.test(await recCiclo.innerText()) && /S12/.test(await recCiclo.innerText()) && /cambian algunos ejercicios/.test(await recCiclo.innerText()), await recCiclo.innerText().catch(() => 'no está'));
+    await foto(u.p, '12y2-recordatorio-ciclo');
+    await u.p.keyboard.press('Escape'); await espera(300);
     await u.p.reload(); await espera(4000);
     ok('ciclo: al volver a abrir no vuelve a salir (una vez por ciclo)', (await u.p.locator('[data-aviso-ciclo]').count()) === 0);
     ok('ciclo: sin errores de JavaScript', u.errores.length === 0, u.errores.join(' | '));
@@ -1743,7 +1747,7 @@ try {
     && /\d+\s*minutos?/.test(await fin.innerText()) && (await fin.locator('[data-rc-chip]').count()) === 3);
   ok('fin: «Push, hecho.» con el entreno de la semana en palabras, la frase del coach y lo que hizo (sin «x de y»)', /Push, hecho\./.test(await fin.innerText()) && /(Primer|Segundo|Tercer|Cuarto|Quinto|Sexto|Séptimo) entreno de la semana\./.test(await fin.innerText())
     && /\b1\s*ejercicio\b/.test(await fin.innerText()) && !/\d+\s*\/\s*7\s*ejercicios/.test(await fin.innerText()) && (await fin.locator('[data-firma-coach]').count()) === 0, await fin.innerText());
-  ok('fin: siempre la ventana completa, con el blob (rutinas de la semana) y la semana en puntos', (await fin.locator('[data-rc-portada]').count()) === 1 && (await fin.locator('[data-rc-puntos]').count()) === 1
+  ok('fin: siempre la ventana completa, con el blob (rutinas de la semana) y sin puntos debajo', (await fin.locator('[data-rc-portada]').count()) === 1 && (await fin.locator('[data-rc-puntos]').count()) === 0
     && /RUTINAS · SEMANA/.test(await fin.locator('[data-rc-portada]').innerText()));
   ok('fin: sin cerrar la semana no es el anuncio especial', (await fin.getAttribute('data-especial')) === null && (await fin.locator('[data-rc-sello]').count()) === 0);
   await foto(n.p, '16-fin-entreno');
