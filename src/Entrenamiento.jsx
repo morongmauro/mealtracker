@@ -1336,19 +1336,24 @@ function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
   const conRutina = dias.filter(d => d.rutina);
   const hechas = conRutina.filter(d => d.hecha).length, planeadas = conRutina.length;
   const semanaCerrada = planeadas > 0 && hechas >= planeadas;
-  const grande = semanaCerrada || fin.records.length > 0;
+  // Siempre la ventana completa (con el blob y la semana en puntos). Cerrar
+  // todo lo planeado de la semana es el anuncio especial.
   const puntos = dias.length ? dias.map(d => (d.rutina && d.hecha) ? 'hecho' : d.fecha === hoy ? 'hoy' : 'nada') : null;
-  const titulo = [nombre ? `${nombre}, hecho.` : 'Entreno hecho.', semanaCerrada ? 'Semana cerrada.' : (planeadas ? `Entreno ${hechas} de ${planeadas}.` : null)];
+  const ORD = ['Primer', 'Segundo', 'Tercer', 'Cuarto', 'Quinto', 'Sexto', 'Séptimo'];
+  const titulo = [nombre ? `${nombre}, hecho.` : 'Entreno hecho.',
+    semanaCerrada ? 'Semana completa.' : (hechas >= 1 && hechas <= 7 ? `${ORD[hechas - 1]} entreno de la semana.` : null)];
+  // Sin «x de y»: lo que hizo, no lo que le faltó.
   const chips = [
-    [<><Conteo valor={fin.hechos} ms={900} /><span style={{ color: TEXT_LIGHT, fontWeight: 600 }}>/{fin.total}</span></>, 'ejercicios'],
-    [<Conteo valor={fin.series} ms={900} />, 'series'],
+    ...(fin.hechos > 0 ? [[<Conteo valor={fin.hechos} ms={900} />, fin.hechos === 1 ? 'ejercicio' : 'ejercicios']] : []),
+    [<Conteo valor={fin.series} ms={900} />, fin.series === 1 ? 'serie' : 'series'],
   ];
+  if (fin.minutos != null && fin.kilos > 0 && fin.hechos === 0) chips.push([<Conteo valor={fin.kilos} ms={1100} />, 'kg movidos']);
   if (fin.minutos != null) chips.push([<Conteo valor={fin.minutos} ms={900} />, fin.minutos === 1 ? 'minuto' : 'minutos']);
   else if (fin.kilos > 0) chips.push([<Conteo valor={fin.kilos} ms={1100} />, 'kg movidos']);
   return (
     <>
-      <Reconocimiento tema="entreno" grande={grande} attrs={{ 'data-fin-entreno': '' }}
-        numero={{ valor: hechas, sufijo: `/${planeadas}`, pie: 'RUTINAS · SEMANA' }} puntos={puntos}
+      <Reconocimiento tema="entreno" grande especial={semanaCerrada} attrs={{ 'data-fin-entreno': '' }}
+        numero={planeadas ? { valor: hechas, sufijo: `/${planeadas}`, pie: 'RUTINAS · SEMANA' } : { valor: fin.series, pie: 'SERIES' }} puntos={puntos}
         etiqueta="Entreno hecho" titulo={titulo} linea={frase} chips={chips}
         boton={{ texto: 'Seguir', onClick: alCerrar }}
         enlace={v2Activa() ? { texto: '¿Bajamos pulsaciones? Respira', icono: <Wind size={18} weight="fill" data-fin-respira-icono="" />, onClick: () => setRespira(true) } : null}

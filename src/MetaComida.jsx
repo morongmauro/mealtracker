@@ -21,12 +21,23 @@ export default function MetaComida({ totals, goals, history = {}, hoy, perfecto 
   const metaP = Math.round(goals?.p || 0);
   const prot = Math.round(totals?.p || 0);
   const { dias, enMeta, racha } = diasEnMeta(history, goals, hoy, true);
-  const grande = perfecto || enMeta >= 5;
+  // Siempre la ventana completa. Cinco días en meta en la semana es el anuncio
+  // especial, UNA vez por semana (los días siguientes en meta, la normal).
+  const lunes = (dias[0] && dias[0].fecha) || hoy;
+  const [especial] = React.useState(() => {
+    if (enMeta < 5) return false;
+    try { if (localStorage.getItem('mt:recoComidaSemana') === lunes) return false; localStorage.setItem('mt:recoComidaSemana', lunes); } catch (e) {}
+    return true;
+  });
   const puntos = dias.map(d => (d.enMeta ? 'hecho' : d.hoy ? 'hoy' : 'nada'));
-  const titulo = perfecto
+  const titulo = especial
+    ? ['Semana lograda.', `${ORDINAL[Math.min(7, enMeta) - 1]} día en meta.`]
+    : perfecto
     ? ['Día perfecto.', 'Las cuatro metas, en rango.']
     : ['Día en meta.', enMeta >= 1 && enMeta <= 7 ? `${ORDINAL[enMeta - 1]} de la semana.` : null];
-  const linea = perfecto
+  const linea = especial
+    ? 'Cinco días o más dentro de tu rango esta semana. Esto es lo que mueve el resultado.'
+    : perfecto
     ? 'Calorías, proteína, carbos y grasa dentro del 5 %. Así se construye el resultado.'
     : 'Calorías y proteína dentro de tu rango. Así se construye el resultado.';
   const chips = [
@@ -35,7 +46,7 @@ export default function MetaComida({ totals, goals, history = {}, hoy, perfecto 
     [String(racha), racha === 1 ? 'día en meta' : 'días seguidos'],
   ];
   return (
-    <Reconocimiento tema="comida" grande={grande} attrs={{ 'data-meta-comida': '', 'data-perfecto': perfecto ? '1' : undefined }}
+    <Reconocimiento tema="comida" grande especial={especial} attrs={{ 'data-meta-comida': '', 'data-perfecto': perfecto ? '1' : undefined }}
       numero={{ valor: enMeta, sufijo: '/7', pie: 'DÍAS EN META' }} puntos={puntos}
       etiqueta="Alimentación" titulo={titulo} linea={linea} chips={chips}
       boton={{ texto: 'Seguir', onClick: alCerrar }}

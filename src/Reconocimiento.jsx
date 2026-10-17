@@ -8,9 +8,10 @@
 // puntos se encienden uno a uno y el blob respira una vez. Debajo, la voz
 // del coach y tres cifras que importan. Un botón, un enlace.
 //
-// `grande`: con portada y puntos (cerrar la semana, un récord, el quinto día
-// en meta, la fase completa). Sin él, la versión corta: etiqueta, título,
-// cifras y botones.
+// `grande`: con portada y puntos. Es la de siempre al terminar un entreno,
+// al entrar el día en meta y en aprendizaje. Sin él, la versión corta.
+// `especial`: la semana completa (todo el entreno planeado, o cinco días en
+// meta de comida): sello «Semana completa» en la portada y más confeti.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect } from 'react';
 import Blob from './Blob.jsx';
@@ -53,7 +54,7 @@ const estiloEnlace = {
 // boton: { texto, onClick } · enlace: { texto, onClick } · attrs: atributos
 // extra del fondo (data-… para las pruebas).
 export default function Reconocimiento({
-  tema = 'entreno', grande = false, confeti = true, numero = null, puntos = null,
+  tema = 'entreno', grande = false, especial = false, confeti = true, numero = null, puntos = null,
   etiqueta = '', titulo = [], linea = '', chips = [], boton = { texto: 'Seguir' }, enlace = null,
   attrs = {}, children = null, alCerrar,
 }) {
@@ -64,22 +65,33 @@ export default function Reconocimiento({
   const lineas = Array.isArray(titulo) ? titulo.filter(Boolean) : [titulo];
   const mancha = (c, extra) => ({ position: 'absolute', borderRadius: '50%', background: `radial-gradient(closest-side, ${c}, ${c}00)`, ...extra });
   return (
-    <div data-reconocimiento={tema} data-grande={grande ? '1' : undefined} {...attrs} onClick={alCerrar} style={{
+    <div data-reconocimiento={tema} data-grande={grande ? '1' : undefined} data-especial={especial ? '1' : undefined} {...attrs} onClick={alCerrar} style={{
       position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(31,31,28,0.42)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 14px',
     }}>
       <style>{CSS}</style>
-      {confeti && <Confeti y="30%" piezas={34} colores={CONFETI[tema] || CONFETI.entreno} />}
+      {confeti && <Confeti y="30%" piezas={especial ? 70 : 34} colores={CONFETI[tema] || CONFETI.entreno} />}
       <div className="rc-tarjeta" onClick={e => e.stopPropagation()} style={{
         background: '#FFFFFF', borderRadius: 30, maxWidth: 400, width: '100%', overflow: 'hidden',
         boxShadow: '0 24px 60px rgba(0,0,0,.26)', maxHeight: '90vh', overflowY: 'auto', fontFamily: 'inherit',
       }}>
         {grande && (
-          <div data-rc-portada style={{ position: 'relative', height: 200, overflow: 'hidden', background: t.base }}>
+          <div data-rc-portada style={{ position: 'relative', height: especial ? 214 : 200, overflow: 'hidden', background: t.base }}>
             <div style={mancha(t.m1, { width: 260, height: 260, right: -90, top: -110 })} />
             <div style={mancha(t.m2, { width: 220, height: 220, left: -80, bottom: -110 })} />
             <div style={mancha(`${t.m3}BF`, { width: 180, height: 180, right: -40, bottom: -90 })} />
-            <div className="rc-blob" style={{ position: 'absolute', left: '50%', top: '50%', width: 150, height: 150, margin: '-75px 0 0 -75px' }}>
+            {especial && (
+              <div data-rc-sello style={{
+                position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', zIndex: 2,
+                display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px 6px 9px', borderRadius: 999,
+                background: 'rgba(255,255,255,.94)', boxShadow: '0 4px 14px rgba(0,0,0,.12)', whiteSpace: 'nowrap',
+                fontSize: 11, fontWeight: 800, letterSpacing: '.08em', color: TEXT,
+              }}>
+                <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#F2C94C', display: 'grid', placeItems: 'center', fontSize: 11 }}>★</span>
+                SEMANA COMPLETA
+              </div>
+            )}
+            <div className="rc-blob" style={{ position: 'absolute', left: '50%', top: especial ? '56%' : '50%', width: 150, height: 150, margin: '-75px 0 0 -75px' }}>
               <Blob color={color} tam={150} />
               {numero && (
                 <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#fff', textAlign: 'center' }}>

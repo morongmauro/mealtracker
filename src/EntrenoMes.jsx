@@ -1164,6 +1164,12 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const dHoy = porFecha[hoy];
   const dHoySemana = dHoy?.semana || null;
   const semanasFase = fase?.desde && fase?.hasta ? Math.ceil((aFecha(fase.hasta) - aFecha(fase.desde)) / 864e5 / 7) : null;
+  // Última semana del ciclo: una tarjeta fija bajo «Hoy te toca» toda esa
+  // semana (la ventana sale una sola vez; esto lo deja a la vista).
+  const semanaCicloHoy = dHoySemana || (fase?.desde ? Math.floor((aFecha(hoy) - aFecha(fase.desde)) / 864e5 / 7) + 1 : null);
+  const ultimaSemana = semanasFase && semanasFase > 1 && semanaCicloHoy === semanasFase && (!fase.hasta || hoy <= fase.hasta)
+    ? { num: semanasFase, pendientes: semana.filter(f => { const d = porFecha[f]; return f >= hoy && d?.rutina && d.estado !== 'completada'; }).length }
+    : null;
 
   return (
     <div data-calendario-v2={modo} style={{ touchAction: arrastre ? 'none' : undefined }}>
@@ -1178,7 +1184,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
 
       {/* ── HOY TE TOCA ── */}
       {listo && modo === 'hoy' && (
-        <HoyTeToca dia={dHoy} P={P} nombre={nombre} ejerciciosDe={ejerciciosDe}
+        <HoyTeToca dia={dHoy} P={P} nombre={nombre} ejerciciosDe={ejerciciosDe} ultimaSemana={ultimaSemana}
           alEntrenar={alEntrenar} alRegistrarActividad={() => setRegistrando(hoy)}
           alReabrir={async (id) => { const r = await api.reabrir(nombre, id, hoy); if (r && r.ok) { await cargar(hoy.slice(0, 7)); alEntrenar(id); } }}
           alAgregar={puedeAgregar(dHoy) ? () => setEligiendo(hoy) : null}
@@ -1360,7 +1366,7 @@ function AccionDirecta({ ev, fecha, nombre, alCerrar, alCambio }) {
 }
 
 // ── Lo que toca hoy, todo junto ──────────────────────────────────────────
-function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegistrarActividad, alAgregar, alQuitar, alCambio }) {
+function HoyTeToca({ dia, P, nombre, ejerciciosDe, ultimaSemana = null, alEntrenar, alReabrir, alRegistrarActividad, alAgregar, alQuitar, alCambio }) {
   const [reabriendo, setReabriendo] = useState(false);
   const hoy = hoyLocal();
   const r = dia?.rutina;
@@ -1374,6 +1380,22 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegi
     <div data-hoy-te-toca>
       <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '4px 2px 12px' }}>Hoy te toca</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {ultimaSemana && (
+          <div data-ultima-semana style={{
+            display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 18,
+            background: '#fff', border: `1.5px solid ${TEXT}`,
+          }}>
+            <span style={{ width: 42, height: 42, borderRadius: 12, background: TEXT, color: '#F2C94C', display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 800, flex: 'none' }}>S{ultimaSemana.num}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em' }}>Última semana del ciclo</div>
+              <div style={{ fontSize: 13, color: TEXT_MUTED, lineHeight: 1.35, marginTop: 1 }}>
+                La próxima cambian algunos ejercicios. {ultimaSemana.pendientes
+                  ? `Cierra esta con tu${ultimaSemana.pendientes === 1 ? '' : 's'} ${ultimaSemana.pendientes === 1 ? 'entreno' : `${ultimaSemana.pendientes} entrenos`}.`
+                  : 'Esta ya la cerraste.'}
+              </div>
+            </div>
+          </div>
+        )}
         {r ? (<>
           <button onClick={() => alEntrenar(r.id)} data-hoy-rutina style={{
             // Siempre relleno del color de la sección (también ya hecha: con
