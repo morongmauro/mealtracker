@@ -55,7 +55,10 @@ export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, ba
         background: 'rgba(255,255,255,0.78)', WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)',
         boxShadow: '0 5px 14px rgba(30,40,60,0.09), inset 0 0 0 0.5px rgba(255,255,255,0.9)',
       }}>
-        <Icono size={19} weight="fill" color={color} />
+        {/* Todos en tono: ícono de línea grafito en el círculo blanco (antes
+            cada uno de un color y se veía de juguete). Lo único de color es
+            el aviso rojo de novedades. */}
+        <Icono size={20} weight="regular" color="#1D1D1F" />
         {badge > 0 && (
           <span data-badge style={{
             position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99,

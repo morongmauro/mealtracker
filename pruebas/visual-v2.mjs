@@ -542,7 +542,7 @@ try {
     const alSubir = await chica();
     await dash.evaluate(el => { el.scrollTop = 0; el.dispatchEvent(new Event('scroll', { bubbles: false })); });
     await espera(150);
-    ok('píldora: se encoge al bajar y vuelve al subir', alBajar === true && alSubir === false && (await chica()) === false, `${alBajar} ${alSubir}`);
+    ok('píldora: se va al bajar (no se monta sobre nada) y vuelve al subir del todo', alBajar === true && alSubir === true && (await chica()) === false, `${alBajar} ${alSubir}`);
   }
   ok('Comunidad ya no es una tarjeta grande arriba de las gráficas', (await dash.locator('[data-atajos] [data-abrir-comunidad]').count()) === 1
     && (await dash.locator('[data-atajos] [data-abrir-config]').count()) === 1);

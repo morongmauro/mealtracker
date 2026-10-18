@@ -160,14 +160,21 @@ if (typeof window !== 'undefined') {
     } catch (e) { /* sin red: se reintenta luego */ }
   };
 
-  const applyIfReady = () => {
+  // `arranque`: la app recién se abre en frío. Ahí se actualiza aunque haya
+  // una rutina abierta: la rutina y lo tecleado están guardados y vuelven
+  // solos al recargar (entrenoDatos.js), y todavía no se tocó nada. Antes
+  // esperaba a que se cerrara la rutina y una rutina olvidada dejaba la app
+  // vieja hasta 8 horas.
+  const applyIfReady = (arranque = false) => {
     if (!updateReady) return;
-    // Con una rutina abierta no se recarga: el cliente perdía la rutina y lo
-    // tecleado al minimizar. La actualización entra cuando la cierre.
-    try {
-      const r = JSON.parse(localStorage.getItem('mt:rutinaAbierta') || 'null');
-      if (r && r.id && Date.now() - (r.t || 0) < 8 * 3600 * 1000) return;
-    } catch (e) { /* sin almacenamiento */ }
+    // Con la app en uso y una rutina abierta no se recarga delante del
+    // cliente: entra cuando la cierre (o al abrir la app la próxima vez).
+    if (!arranque) {
+      try {
+        const r = JSON.parse(localStorage.getItem('mt:rutinaAbierta') || 'null');
+        if (r && r.id && Date.now() - (r.t || 0) < 8 * 3600 * 1000) return;
+      } catch (e) { /* sin almacenamiento */ }
+    }
     // Guard anti-bucle: si tras recargar la caché sigue sirviendo este mismo
     // bundle viejo, no volvemos a recargar (evita un loop infinito de reloads;
     // el próximo intento llega solo con el siguiente ciclo de visibilidad).
@@ -181,7 +188,7 @@ if (typeof window !== 'undefined') {
   // Al abrir la app: si este bundle ya es viejo, recarga de inmediato — el
   // usuario recién llega y no ha empezado a interactuar, es el momento más
   // seguro de todos. Así la versión nueva entra apenas abren, sin esperar.
-  checkVersion().then(applyIfReady);
+  checkVersion().then(() => applyIfReady(true));
   setInterval(checkVersion, 5 * 60 * 1000);
   // Al volver a la app NO se recarga delante del cliente: se veía la pantalla
   // donde quedó, luego todo en blanco y luego el Dash, como si la app

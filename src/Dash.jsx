@@ -51,7 +51,7 @@ const AZUL = SECCION.entreno.base;       // el entrenamiento, en todo el Dash
 // «Entrenamiento», «Alimentación»… y ordenan la lectura.
 const Tarjeta = (props) => <TarjetaBase colorTitulo={DASH_AZUL.base} {...props} />;
 const VERDE = SECCION.comida.base;       // la alimentación
-const AMBAR = '#C98A0B';                  // el cuerpo (peso), en el tono del Dash
+const AMBAR = '#EE8434';                  // el cuerpo (peso): naranja de marca, como en las gráficas
 const GRASA = C_FAT;                      // el % de grasa: el mismo tono de las grasas
 const NARANJA = SECCION.aprende.base;     // el aprendizaje
 const CREMA = '#F4F1EB';                  // pastillas y bloques internos
@@ -558,7 +558,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Fuerza, semana a semana{promedio8 != null ? ` · ${promedio8} % de lo planeado` : ''}</div>
               <Linea puntos={ochoSemanas} color={AZUL} alto={54}
-                textoValor={(p) => `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} />
+                textoValor={(p) => `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} extremos={(p) => `${p.v} % · ${fechaCorta(p.fecha)}`} />
             </div>
           )}
           <Profundiza color={AZUL} onClick={() => setVista('entreno')}>Profundiza en tus gráficas de entrenamiento</Profundiza>
@@ -602,7 +602,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Tus calorías, últimos 14 días</div>
                 <Linea puntos={kcal14} color={VERDE} alto={54}
-                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v)} kcal`} />
+                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v)} kcal`} extremos={(p) => `${fmt(p.v)} kcal · ${fechaCorta(p.fecha)}`} />
               </div>
             )}
           </>
@@ -796,7 +796,7 @@ function ProgresoPesos({ pesos }) {
                   <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
                 </div>
                 <Linea puntos={e.puntos.map(p => ({ v: p.kg, fecha: p.fecha }))} color={AZUL}
-                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
+                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} extremos={(p) => `${fmt(p.v, 1)} kg · ${fechaCorta(p.fecha)}`} />
               </>) : (
                 <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 1, paddingBottom: 4 }}>Una sesión ({fechaCorta(ult.fecha)}). La línea sale con la segunda.</div>
               )}
@@ -905,7 +905,7 @@ function DetalleEntreno({ ent, falloEnt, cargar }) {
                   <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
                 </div>
                 <Linea puntos={e.puntos.map(p => ({ v: p.e1rm, fecha: p.fecha }))} color={AZUL}
-                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
+                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} extremos={(p) => `${fmt(p.v, 1)} kg · ${fechaCorta(p.fecha)}`} />
               </div>
             ))}
           </div>

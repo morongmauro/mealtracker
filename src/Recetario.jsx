@@ -6,7 +6,7 @@ import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, In
 // Paleta, sombras y tipografía compartidas — ver src/theme.js.
 import {
   ACCENT as ACCENT_BASE, ACCENT_DARK as ACCENT_DARK_BASE, ACCENT_PASTEL as ACCENT_PASTEL_BASE, ACCENT_LIGHT as ACCENT_LIGHT_BASE,
-  C_PROTEIN, C_CARBS, C_FAT,
+  C_PROTEIN, C_CARBS, C_CARBS_TEXTO, C_FAT,
   BG, BG_STAINS, SURFACE, SURFACE_2, BORDER, TEXT, TEXT_MUTED, TEXT_LIGHT,
   FONT_UI, FONT_DISPLAY, SHADOW_CARD,
 } from './theme.js';
@@ -1767,7 +1767,7 @@ function MenuTotales({ dia, g, chico = false }) {
         {r0(dia.totals.kcal)}<span className="font-semibold" style={{ color: TEXT_LIGHT, fontSize: chico ? 9 : 10 }}> kcal</span>
       </span>
       <span className="num font-bold" style={{ color: C_PROTEIN, fontSize: chico ? 11 : 12 }}>P{r0(dia.totals.p)}</span>
-      <span className="num font-bold" style={{ color: C_CARBS, fontSize: chico ? 11 : 12 }}>C{r0(dia.totals.c)}</span>
+      <span className="num font-bold" style={{ color: C_CARBS_TEXTO, fontSize: chico ? 11 : 12 }}>C{r0(dia.totals.c)}</span>
       <span className="num font-bold" style={{ color: C_FAT, fontSize: chico ? 11 : 12 }}>G{r0(dia.totals.g)}</span>
       <span className="px-2 py-0.5 rounded-full font-bold"
         style={{ background: `${col}1A`, color: col, fontSize: 9 }}>
@@ -2934,7 +2934,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           <div className="ml-auto flex items-center gap-2.5 num text-[12px] font-bold whitespace-nowrap">
             <span style={{ color: TEXT }}>{g.kcal}<span className="text-[9px] font-semibold" style={{ color: TEXT_LIGHT }}> kcal</span></span>
             <span style={{ color: C_PROTEIN }}>P{g.p}</span>
-            <span style={{ color: C_CARBS }}>C{g.c}</span>
+            <span style={{ color: C_CARBS_TEXTO }}>C{g.c}</span>
             <span style={{ color: C_FAT }}>G{g.g}</span>
           </div>
         </div>
@@ -3104,7 +3104,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                 <div className="flex items-center gap-2.5 mt-1.5 text-[11px] font-semibold num">
                   <span style={{ color: TEXT_MUTED }}>{r0(sc.totals.kcal)} kcal</span>
                   <span style={{ color: C_PROTEIN }}>P{r0(sc.totals.p)}</span>
-                  <span style={{ color: C_CARBS }}>C{r0(sc.totals.c)}</span>
+                  <span style={{ color: C_CARBS_TEXTO }}>C{r0(sc.totals.c)}</span>
                   <span style={{ color: C_FAT }}>G{r0(sc.totals.g)}</span>
                 </div>
               </div>

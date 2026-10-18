@@ -15,13 +15,16 @@ export const ACCENT_DARK = '#4A5238';    // oliva profundo para texto sobre clar
 export const ACCENT_PASTEL = '#D4DAB8';
 export const ACCENT_LIGHT = '#F1F3E5';
 
-// Macros — desaturados, con pasteles para fondos
-export const C_PROTEIN = '#D77A61';      // terracota
-export const C_PROTEIN_PASTEL = '#F2CBBE';
-export const C_CARBS = '#D4B581';        // mostaza miel
-export const C_CARBS_PASTEL = '#EDDCBC';
-export const C_FAT = '#6B7A8F';          // azul humo
-export const C_FAT_PASTEL = '#CDD2DB';
+// Macros — los tres de la marca, iguales en toda la app (barras, aros,
+// chips P · C · G): proteína naranja, carbos amarillo, grasa azul. Ninguno
+// rojo (se leía como alerta). Con pasteles para fondos.
+export const C_PROTEIN = '#EE8434';      // naranja de marca
+export const C_PROTEIN_PASTEL = '#FAD9BF';
+export const C_CARBS = '#E3B23C';        // amarillo de marca (un punto más hondo, para que se lea sobre blanco)
+export const C_CARBS_TEXTO = '#B98A12';  // el amarillo cuando es letra chica
+export const C_CARBS_PASTEL = '#F6E5B5';
+export const C_FAT = '#3C7BD6';          // azul de marca
+export const C_FAT_PASTEL = '#CFE0F6';
 export const C_WATER = '#5BA3C7';
 
 // Neutros

@@ -43,7 +43,7 @@ import { aplicarV2 } from './v2-fuentes.js';
 // Paleta y tipografía: única fuente de verdad en src/theme.js.
 import {
   ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT,
-  C_PROTEIN, C_PROTEIN_PASTEL, C_CARBS, C_CARBS_PASTEL, C_FAT, C_FAT_PASTEL, C_WATER,
+  C_PROTEIN, C_PROTEIN_PASTEL, C_CARBS, C_CARBS_TEXTO, C_CARBS_PASTEL, C_FAT, C_FAT_PASTEL, C_WATER,
   BG, BG_STAINS, BG_STAINS_DASH, BG_STAINS_ENTRENO, BG_STAINS_WARM, BG_STAINS_COOL, SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
   SUCCESS, WARN, DANGER, DANGER_SOFT, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
   SECCION,
@@ -826,22 +826,17 @@ export default function MealTracker() {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [v2, view, name, trainingOn, learningUrl]);
   useEffect(() => { aplicarV2(v2); }, [v2]);
-  // La píldora de arriba se encoge al bajar y vuelve a su tamaño al subir (o
-  // al llegar arriba). Se escucha el scroll de cualquier capa (cada sección
-  // tiene su propio contenedor), en fase de captura.
+  // La píldora de arriba se ve al entrar a la sección y se desvanece en
+  // cuanto se baja (no se monta sobre nada); vuelve al subir del todo, como
+  // los títulos grandes del iPhone. Se escucha el scroll de cualquier capa
+  // (cada sección tiene su propio contenedor), en fase de captura.
   const [pildoraChica, setPildoraChica] = useState(false);
   useEffect(() => {
     if (!v2) return;
-    const ultimo = new WeakMap();
     const onScroll = (e) => {
       const el = e.target === document ? document.scrollingElement : e.target;
       if (!el || typeof el.scrollTop !== 'number') return;
-      // La primera vez que se mueve una capa se cuenta desde arriba (0).
-      const y = el.scrollTop, antes = ultimo.has(el) ? ultimo.get(el) : 0;
-      ultimo.set(el, y);
-      if (y <= 24) { setPildoraChica(false); return; }
-      if (y - antes > 6) setPildoraChica(true);
-      else if (antes - y > 6) setPildoraChica(false);
+      setPildoraChica(el.scrollTop > 24);
     };
     document.addEventListener('scroll', onScroll, true);
     return () => document.removeEventListener('scroll', onScroll, true);
@@ -5698,15 +5693,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       }}>
         <div className="max-w-2xl mx-auto px-4">
           <div className="inline-flex items-baseline gap-2 rounded-full" data-pildora-marca data-chica={v2 && pildoraChica ? '1' : undefined} style={{
-            pointerEvents: 'auto',
+            pointerEvents: v2 && pildoraChica ? 'none' : 'auto',
             background: 'rgba(31,31,31,0.90)',
             backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
             padding: '9px 16px 8px',
             boxShadow: '0 1px 0 rgba(255,255,255,0.10) inset, 0 10px 28px rgba(20,22,14,0.28), 0 2px 6px rgba(20,22,14,0.12)',
-            // Visual nueva: se encoge al bajar (sin cambiar el alto que mide
-            // headerRef: es una transformación) y vuelve al subir.
-            transform: v2 && pildoraChica ? 'scale(0.72)' : 'scale(1)', transformOrigin: 'left center',
-            transition: 'transform .28s cubic-bezier(.2,.8,.2,1)',
+            // Visual nueva: al bajar se desvanece y sube un poco (sin cambiar
+            // el alto que mide headerRef: es opacidad y transformación).
+            opacity: v2 && pildoraChica ? 0 : 1,
+            transform: v2 && pildoraChica ? 'translateY(-10px) scale(0.94)' : 'none', transformOrigin: 'left center',
+            transition: 'opacity .22s ease, transform .28s cubic-bezier(.2,.8,.2,1)',
           }}>
             <span className="display font-normal" style={{
               color: '#FFF',
@@ -5918,7 +5914,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
               {macroTip && MACRO_INFO[macroTip] && (
                 <div className="text-[10.5px] text-center mt-1.5 px-1 fade-up" style={{ color: TEXT_MUTED, lineHeight: 1.35 }}>
-                  <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#9C7C3C' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
+                  <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#B98A12' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
                 </div>
               )}
             </>
@@ -5940,7 +5936,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               </div>
               {macroTip && MACRO_INFO[macroTip] && (
                 <div className="text-[11px] text-center mt-2 px-2 fade-up" style={{ color: TEXT_MUTED, lineHeight: 1.4 }}>
-                  <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#9C7C3C' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
+                  <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#B98A12' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
                 </div>
               )}
               {/* El acceso a "Mi Semana" vive SOLO en el header — tenerlo
@@ -6390,7 +6386,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       ))}
                     </div>
                     <div className="num" style={{ display: 'flex', gap: 10, fontSize: 12, fontWeight: 700, marginTop: 6 }}>
-                      <span style={{ color: C_PROTEIN }}>P {fmt1(e.p)}g</span><span style={{ color: C_CARBS }}>C {fmt1(e.c)}g</span><span style={{ color: C_FAT }}>G {fmt1(e.g)}g</span>
+                      <span style={{ color: C_PROTEIN }}>P {fmt1(e.p)}g</span><span style={{ color: C_CARBS_TEXTO }}>C {fmt1(e.c)}g</span><span style={{ color: C_FAT }}>G {fmt1(e.g)}g</span>
                     </div>
                   </div>
                 ))}
@@ -6413,7 +6409,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     </div>
                     <div className="flex gap-3 mt-2.5 pt-2.5 text-[11px] font-bold num" style={{ borderTop: '1px solid rgba(138,149,88,0.14)' }}>
                       <span style={{ color: C_PROTEIN }}>P {fmt1(e.p)}g</span>
-                      <span style={{ color: '#9C7C3C' }}>C {fmt1(e.c)}g</span>
+                      <span style={{ color: '#B98A12' }}>C {fmt1(e.c)}g</span>
                       <span style={{ color: C_FAT }}>G {fmt1(e.g)}g</span>
                     </div>
                   </div>
@@ -8174,7 +8170,7 @@ function TarjetaComidaV2({ e, isHistorical, goals, totals, quantityWarning, esFa
   const r1 = (x) => Math.round((x ?? 0) * 10) / 10;
   const macros = (o, tam = 12.5) => (
     <span className="num" style={{ display: 'inline-flex', gap: 10, fontSize: tam, fontWeight: 700 }}>
-      <span style={{ color: C_PROTEIN }}>P {r1(o.p)}g</span><span style={{ color: C_CARBS }}>C {r1(o.c)}g</span><span style={{ color: C_FAT }}>G {r1(o.g)}g</span>
+      <span style={{ color: C_PROTEIN }}>P {r1(o.p)}g</span><span style={{ color: C_CARBS_TEXTO }}>C {r1(o.c)}g</span><span style={{ color: C_FAT }}>G {r1(o.g)}g</span>
     </span>
   );
   const meta = goals && goals.kcal ? goals.kcal : 0;
@@ -8332,7 +8328,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                       <span className="block text-[13.5px] font-bold truncate" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{r.name}</span>
                       <span className="block text-[10.5px] mt-0.5" style={{ color: TEXT_LIGHT }}>{r.slot} · {r.time}</span>
                       <span className="block text-[11px] mt-1 num" style={{ color: TEXT_MUTED }}>
-                        {r.kcal} kcal · <span style={{ color: C_PROTEIN }}>P{r.p}</span> <span style={{ color: C_CARBS }}>C{r.c}</span> <span style={{ color: C_FAT }}>G{r.g}</span>
+                        {r.kcal} kcal · <span style={{ color: C_PROTEIN }}>P{r.p}</span> <span style={{ color: C_CARBS_TEXTO }}>C{r.c}</span> <span style={{ color: C_FAT }}>G{r.g}</span>
                       </span>
                       <span className="block text-[10.5px] mt-1 truncate" style={{ color: TEXT_LIGHT }}>
                         Lleva: {r.ing.join(', ')}{r.nIng > r.ing.length ? '…' : ''}
@@ -8509,8 +8505,8 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 8px 24px rgba(212,181,129,0.22), 0 1px 4px rgba(0,0,0,0.05)',
         }}>
           <div className="flex items-center gap-1.5 mb-2">
-            <Star size={13} strokeWidth={2.2} style={{ color: C_CARBS, fill: C_CARBS }} />
-            <span className="text-[11px] font-bold" style={{ color: C_CARBS }}>
+            <Star size={13} strokeWidth={2.2} style={{ color: C_CARBS_TEXTO, fill: C_CARBS }} />
+            <span className="text-[11px] font-bold" style={{ color: C_CARBS_TEXTO }}>
               Guardado en favoritos · no cuenta en tu día
             </span>
           </div>
@@ -8521,7 +8517,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           <div className="flex gap-3 text-xs num mb-2">
             <span style={{ color: ACCENT, fontWeight: 600 }}>{Math.round(d.kcal || 0)} kcal</span>
             <span style={{ color: C_PROTEIN }}>P {Math.round(d.p || 0)}g</span>
-            <span style={{ color: C_CARBS }}>C {Math.round(d.c || 0)}g</span>
+            <span style={{ color: C_CARBS_TEXTO }}>C {Math.round(d.c || 0)}g</span>
             <span style={{ color: C_FAT }}>G {Math.round(d.g || 0)}g</span>
           </div>
           <div className="text-[11px]" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
@@ -8582,7 +8578,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           <div className="flex gap-3 text-xs num">
             <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(d.kcal)} kcal</span>
             <span style={{ color: C_PROTEIN }}>P {fmt1(d.p)}g</span>
-            <span style={{ color: C_CARBS }}>C {fmt1(d.c)}g</span>
+            <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(d.c)}g</span>
             <span style={{ color: C_FAT }}>G {fmt1(d.g)}g</span>
           </div>
           <div className="mt-2 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
@@ -8642,7 +8638,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                   <div className="flex gap-3 text-[11px] num mb-2">
                     <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(totalK)} kcal</span>
                     <span style={{ color: C_PROTEIN }}>P {fmt1(totalP)}</span>
-                    <span style={{ color: C_CARBS }}>C {fmt1(totalC)}</span>
+                    <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(totalC)}</span>
                     <span style={{ color: C_FAT }}>G {fmt1(totalG)}</span>
                   </div>
                   {a.change_note && (
@@ -8665,7 +8661,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
               <div className="flex gap-3 text-[11px] num">
                 <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(after.kcal)} kcal</span>
                 <span style={{ color: C_PROTEIN }}>P {fmt1(after.p)}</span>
-                <span style={{ color: C_CARBS }}>C {fmt1(after.c)}</span>
+                <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(after.c)}</span>
                 <span style={{ color: C_FAT }}>G {fmt1(after.g)}</span>
               </div>
             </div>
@@ -8697,8 +8693,8 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)'
         }}>
           <div className="flex items-center gap-2 mb-2">
-            <Star size={12} style={{ color: C_CARBS }} />
-            <span className="text-[11.5px] font-semibold" style={{ color: C_CARBS }}>Ajuste de tus favoritos</span>
+            <Star size={12} style={{ color: C_CARBS_TEXTO }} />
+            <span className="text-[11.5px] font-semibold" style={{ color: C_CARBS_TEXTO }}>Ajuste de tus favoritos</span>
           </div>
           {d.summary && (
             <div className="text-[13px] mb-2 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
@@ -8742,7 +8738,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
               return (
                 <div key={idx} className="p-3 rounded-xl" style={{ background: SURFACE_2, boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 3px 12px rgba(60,70,50,0.08)' }}>
                   <div className="flex items-center gap-1.5 mb-1">
-                    <Star size={11} style={{ color: C_CARBS }} />
+                    <Star size={11} style={{ color: C_CARBS_TEXTO }} />
                     <span className="text-[12px] font-semibold" style={{ color: TEXT }}>{a.favorite_name || 'Favorito'}</span>
                   </div>
                   {a.original_summary && (
@@ -8757,7 +8753,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                   <div className="flex gap-3 text-[11px] num mb-2">
                     <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(totalK)} kcal</span>
                     <span style={{ color: C_PROTEIN }}>P {fmt1(totalP)}</span>
-                    <span style={{ color: C_CARBS }}>C {fmt1(totalC)}</span>
+                    <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(totalC)}</span>
                     <span style={{ color: C_FAT }}>G {fmt1(totalG)}</span>
                   </div>
                   {a.change_note && (
@@ -8780,7 +8776,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
               <div className="flex gap-3 text-[11px] num">
                 <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(after.kcal)} kcal</span>
                 <span style={{ color: C_PROTEIN }}>P {fmt1(after.p)}</span>
-                <span style={{ color: C_CARBS }}>C {fmt1(after.c)}</span>
+                <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(after.c)}</span>
                 <span style={{ color: C_FAT }}>G {fmt1(after.g)}</span>
               </div>
               {(() => {
@@ -8885,7 +8881,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                     cliente aprende y sabe qué ajustar. */}
                 <div className="flex gap-2.5 text-[10px] num mt-0.5">
                   <span style={{ color: C_PROTEIN }}>P {fmt1(it.p ?? 0)}g</span>
-                  <span style={{ color: C_CARBS }}>C {fmt1(it.c ?? 0)}g</span>
+                  <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(it.c ?? 0)}g</span>
                   <span style={{ color: C_FAT }}>G {fmt1(it.g ?? 0)}g</span>
                 </div>
               </div>
@@ -8898,7 +8894,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             </div>
             <div className="flex gap-3 text-[10px] mt-1 num">
               <span style={{ color: C_PROTEIN }}>P {Math.round((e.p ?? 0) * 10) / 10}g</span>
-              <span style={{ color: C_CARBS }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
+              <span style={{ color: C_CARBS_TEXTO }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
               <span style={{ color: C_FAT }}>G {Math.round((e.g ?? 0) * 10) / 10}g</span>
             </div>
           </div>
@@ -8980,7 +8976,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                       <div className="text-[10px] pt-1.5 mt-1.5 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
                         <span>≈ {Math.round(opt.subtotal.kcal || 0)} kcal</span>
                         <span style={{ color: C_PROTEIN }}>P {Math.round((opt.subtotal.p || 0) * 10) / 10}g</span>
-                        <span style={{ color: C_CARBS }}>C {Math.round((opt.subtotal.c || 0) * 10) / 10}g</span>
+                        <span style={{ color: C_CARBS_TEXTO }}>C {Math.round((opt.subtotal.c || 0) * 10) / 10}g</span>
                         <span style={{ color: C_FAT }}>G {Math.round((opt.subtotal.g || 0) * 10) / 10}g</span>
                       </div>
                     )}
@@ -9048,7 +9044,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                       <div className="text-[10px] pt-1.5 mt-1.5 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
                         <span>≈ {Math.round(opt.subtotal.kcal || 0)} kcal</span>
                         <span style={{ color: C_PROTEIN }}>P {Math.round((opt.subtotal.p || 0) * 10) / 10}g</span>
-                        <span style={{ color: C_CARBS }}>C {Math.round((opt.subtotal.c || 0) * 10) / 10}g</span>
+                        <span style={{ color: C_CARBS_TEXTO }}>C {Math.round((opt.subtotal.c || 0) * 10) / 10}g</span>
                         <span style={{ color: C_FAT }}>G {Math.round((opt.subtotal.g || 0) * 10) / 10}g</span>
                       </div>
                     )}
@@ -9153,7 +9149,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             </div>
             <div className="flex gap-3 text-[10px] mt-1 num">
               <span style={{ color: C_PROTEIN }}>P {Math.round((e.p ?? 0) * 10) / 10}g</span>
-              <span style={{ color: C_CARBS }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
+              <span style={{ color: C_CARBS_TEXTO }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
               <span style={{ color: C_FAT }}>G {Math.round((e.g ?? 0) * 10) / 10}g</span>
             </div>
           </div>
@@ -9249,7 +9245,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                   <div className="flex gap-3 text-[10px] num">
                     <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{Math.round(e.kcal ?? 0)} kcal</span>
                     <span style={{ color: C_PROTEIN }}>P {Math.round((e.p ?? 0) * 10) / 10}g</span>
-                    <span style={{ color: C_CARBS }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
+                    <span style={{ color: C_CARBS_TEXTO }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
                     <span style={{ color: C_FAT }}>G {Math.round((e.g ?? 0) * 10) / 10}g</span>
                   </div>
                 </div>
@@ -9506,7 +9502,7 @@ function WeeklyModal({ history, goals, onClose }) {
                 </div>
                 <div className="flex gap-3 mt-1 text-[10px] num">
                   <span style={{ color: C_PROTEIN }}>P {t.p}g</span>
-                  <span style={{ color: C_CARBS }}>C {t.c}g</span>
+                  <span style={{ color: C_CARBS_TEXTO }}>C {t.c}g</span>
                   <span style={{ color: C_FAT }}>G {t.g}g</span>
                 </div>
               </div>
@@ -9797,7 +9793,7 @@ function FavoriteNameModal({ entry, todayEntriesCount = 0, onConfirm, onCancel, 
           </div>
           <button onClick={() => onSaveWholeDay(value)}
             className="w-full py-2.5 rounded-xl text-[12px] font-semibold transition active:scale-[0.98]"
-            style={{ background: C_CARBS_PASTEL, color: C_CARBS, border: `1px solid ${C_CARBS}` }}>
+            style={{ background: C_CARBS_PASTEL, color: C_CARBS_TEXTO, border: `1px solid ${C_CARBS}` }}>
             Mejor guarda el día completo
           </button>
         </div>
@@ -11123,7 +11119,7 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
                       ))}
                     </div>
                     <div className="num" style={{ display: 'flex', gap: 10, fontSize: 12, fontWeight: 700, marginTop: 6 }}>
-                      <span style={{ color: C_PROTEIN }}>P {r1(e.p)}g</span><span style={{ color: C_CARBS }}>C {r1(e.c)}g</span><span style={{ color: C_FAT }}>G {r1(e.g)}g</span>
+                      <span style={{ color: C_PROTEIN }}>P {r1(e.p)}g</span><span style={{ color: C_CARBS_TEXTO }}>C {r1(e.c)}g</span><span style={{ color: C_FAT }}>G {r1(e.g)}g</span>
                     </div>
                   </div>
                 ))}
@@ -11241,7 +11237,7 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
                   <div className="text-[10px] num mt-1.5 pt-1.5 border-t flex gap-3" style={{ borderColor: BORDER_SOFT }}>
                     <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{Math.round(e.kcal ?? 0)} kcal</span>
                     <span style={{ color: C_PROTEIN }}>P{Math.round((e.p ?? 0) * 10) / 10}</span>
-                    <span style={{ color: C_CARBS }}>C{Math.round((e.c ?? 0) * 10) / 10}</span>
+                    <span style={{ color: C_CARBS_TEXTO }}>C{Math.round((e.c ?? 0) * 10) / 10}</span>
                     <span style={{ color: C_FAT }}>G{Math.round((e.g ?? 0) * 10) / 10}</span>
                   </div>
                 </div>
@@ -11519,7 +11515,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="text-[11.5px] font-bold" style={{ color: ACCENT_DARK }}>{m.meal}</div>
                 {m.from_favorite && (
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: C_CARBS_PASTEL, color: C_CARBS }}>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: C_CARBS_PASTEL, color: C_CARBS_TEXTO }}>
                     <Star size={9} strokeWidth={2.2} />
                     De tus favoritos
                   </div>
@@ -11537,7 +11533,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
                 <div className="text-[10px] pt-2 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
                   <span>{m.subtotal.kcal} kcal</span>
                   <span style={{ color: C_PROTEIN }}>P {m.subtotal.p}g</span>
-                  <span style={{ color: C_CARBS }}>C {m.subtotal.c}g</span>
+                  <span style={{ color: C_CARBS_TEXTO }}>C {m.subtotal.c}g</span>
                   <span style={{ color: C_FAT }}>G {m.subtotal.g}g</span>
                 </div>
               )}

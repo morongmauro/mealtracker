@@ -16,10 +16,6 @@ import { SECCION, DASH_AZUL } from './theme.js';
 
 export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: ForkKnife, aprende: GraduationCap };
 export const NOMBRE_SECCION = { dash: 'Dash', entreno: 'Entrenamiento', comida: 'Alimentación', aprende: 'Aprendizaje' };
-// Rótulo corto bajo el ícono de las secciones cerradas: un ícono solo no
-// siempre se entiende, y con el nombre se sabe dónde tocar.
-
-const CORTO = { dash: 'Dash', entreno: 'Entreno', comida: 'Comida', aprende: 'Aprende' };
 
 // ¿Sin movimiento? (ajuste del teléfono): el cambio es directo, sin viaje.
 const sinMovimiento = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
@@ -134,13 +130,15 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                   // Se encogen antes que el grupo abierto: en un teléfono
                   // angosto ceden espacio a las opciones, que son las que
                   // tienen texto.
-                  flex: muyApretada ? '1 1 34px' : apretada ? '1 1 40px' : '1 1 48px', minWidth: muyApretada ? 34 : apretada ? 38 : 47, height: 48, borderRadius: 999, border: 'none',
+                  flex: muyApretada ? '1 1 34px' : apretada ? '1 1 38px' : '1 1 42px', minWidth: muyApretada ? 34 : apretada ? 36 : 40, height: 48, borderRadius: 999, border: 'none',
                   background: 'transparent', color: '#6A6860', position: 'relative',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   gap: 1, cursor: 'pointer', padding: 0, fontFamily: 'inherit',
                 }}>
-                <Icono size={21} weight="regular" />
-                {!apretada && <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.1 }}>{CORTO[s.id]}</span>}
+                {/* Una sola regla en todas las secciones: la abierta enseña sus
+                    opciones con nombre; las cerradas, solo su ícono (con nombre
+                    no cabían y «Galería» se cortaba). */}
+                <Icono size={22} weight="regular" />
                 {punto[s.id] && (
                   // El puntito de novedad, en el color de la sección: se queda
                   // hasta que la persona entra a ver qué hay.
