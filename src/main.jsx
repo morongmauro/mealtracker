@@ -36,7 +36,7 @@ const esperaEntrada = (() => {
   if (typeof window === 'undefined' || !import.meta.env.DEV) return 0;
   const r = document.documentElement;
   if (!r.classList.contains('intro-anda') || r.classList.contains('warm-start')) return 0;
-  return Math.max(0, (window.__introDesde || 0) + 3700 - performance.now());
+  return Math.max(0, (window.__introDesde || 0) + 2000 - performance.now());
 })();
 
 const montar = () => ReactDOM.createRoot(document.getElementById('root')).render(
@@ -73,21 +73,23 @@ if (typeof window !== 'undefined') {
   const raiz = document.documentElement;
   const splashV2 = raiz.classList.contains('splash-v2');
   const conEntrada = raiz.classList.contains('intro-completa');
-  const ENTRADA_MS = 4700;
+  const ENTRADA_MS = 2700;
   const cerrarEntrada = () => {
     document.body.classList.add('app-ready');
     if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F3F1EB'); }
     try { sessionStorage.setItem('mt:booted', '1'); } catch (e) {}
   };
-  // Cierra la entrada 4,7 s después de que arrancó (o en cuanto la app esté
-  // armada, si tardó más): el nombre termina de entrar a los ~3,7 s y se
-  // ve al menos 1 s con el blob ya convertido en el ícono. La app se arma
-  // recién a los 3,7 s, con el nombre ya puesto: armarla antes (a los 1,8 s)
+  // Cierra la entrada 2,7 s después de que arrancó (o en cuanto la app esté
+  // armada, si tardó más): el nombre termina de entrar a los ~2 s y se ve
+  // quieto ~0,7 s más, con el blob ya convertido en el ícono. La app se arma
+  // recién a los 2 s, con todo ya quieto: armarla mientras algo se mueve
   // congelaba las letras a mitad de camino y las soltaba de golpe.
   const correrEntrada = () => {
     const desde = (window.__empezarIntro && window.__empezarIntro()) || performance.now();
     setTimeout(cerrarEntrada, Math.max(80, desde + ENTRADA_MS - performance.now()));
   };
+  // Por si algo se traba: la app nunca queda escondida debajo de la entrada.
+  if (splashV2 && conEntrada) setTimeout(cerrarEntrada, 9000);
   if (warmStart || !splashV2) {
     // La de siempre (otros clientes): mínimo 2,2 s; recarga en la misma sesión: nada.
     const MIN = warmStart ? 0 : 2200;
