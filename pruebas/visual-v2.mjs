@@ -337,7 +337,7 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const bien = a.width >= 88 && b.left >= 0 && b.right <= innerWidth - 4 && derechaTexto <= b.left + 4
     && g.left >= a.left && g.right <= a.right && g.top >= a.top && g.bottom <= a.bottom && (g.right - g.left) <= 64 && opac === 1
     && k.top >= a.top && k.bottom <= a.bottom + 1 && Math.abs((k.left + k.right) / 2 - (a.left + a.right) / 2) <= 4 && f.top < a.bottom
-    && caja.dataset.tono === 'color' && getComputedStyle(centro).color === 'rgb(31, 31, 31)'
+    && caja.dataset.tono === 'dos' && getComputedStyle(centro).color === 'rgb(31, 31, 31)'
     && (!pf || pf.top >= b.bottom - 2);
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top, g.bottom], a: [a.left, a.right, a.top, a.bottom], b: [b.left, b.right, b.bottom], derechaTexto, opac, k: [k.left, k.top, k.bottom], tono: caja.dataset.tono }));
   return bien;
@@ -491,7 +491,7 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
   ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0)
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
-  ok('Dash: el blob junto a la frase, con la brújula a color y el porcentaje en grafito adentro del aro', await ilusBien(p, 'dash'));
+  ok('Dash: el blob junto a la frase, con la brújula a dos colores y el porcentaje en grafito adentro del aro', await ilusBien(p, 'dash'));
   ok('cabecera: el blob en tinte suave del azul, girado 12° con sombra suave de su color; encima el aro plano azul con riel blanco', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
     const an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob]');
     const path = blob && blob.querySelector('path');
@@ -764,7 +764,7 @@ try {
   ok('Entrenamiento abre en Hoy', (await p.getByRole('button', { name: 'Hoy', exact: true }).first().getAttribute('aria-current')) === 'page');
   ok('sin la navegación de arriba del módulo', (await p.getByRole('button', { name: 'Resumen', exact: true }).count()) === 0);
   await foto(p, '04-entreno-hoy');
-  ok('Entreno: el blob junto a la frase, con la kettlebell a color y el 1/3 adentro del aro', await ilusBien(p, 'entreno'));
+  ok('Entreno: el blob junto a la frase, con la kettlebell a dos colores y el 1/3 adentro del aro', await ilusBien(p, 'entreno'));
   const cabE = p.locator('[data-cabecera-hoy="entreno"]');
   ok('Hoy de entreno: la voz del coach (la frase de hoy, sin repetir la fecha del Dash)', await cabE.locator('[data-frase]').isVisible()
     && (await cabE.locator('[data-etiqueta]').count()) === 0
@@ -1274,7 +1274,7 @@ try {
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(1200);
   await foto(p, '08-comida-hoy');
-  ok('Comida: el blob junto a la frase, con el aguacate a color adentro del aro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
+  ok('Comida: el blob junto a la frase, con el aguacate a dos colores adentro del aro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
   // El objeto entra con su animación solo la PRIMERA vez que se ve; al volver
   // a la sección se queda quieto (repetirla en cada cambio de módulo cansaba).
   ok('Comida: al volver a Alimentación el plato se queda quieto (la animación fue la primera vez)', await p.locator('[data-objeto-cabecera="comida"] img').first().evaluate(i => !i.src.startsWith('blob:')));
