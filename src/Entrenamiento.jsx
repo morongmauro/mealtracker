@@ -22,7 +22,7 @@ import ExplicacionAro from './ExplicacionAro.jsx';
 import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind, Snowflake, Fire } from '@phosphor-icons/react';
 import Respira from './Respira.jsx';
 import Reconocimiento from './Reconocimiento.jsx';
-import { prepararSonido, sonarFinDescanso } from './sonidoDescanso.js';
+import { prepararSonido, sonarInicioDescanso, programarFinDescanso, sonarFinDescanso } from './sonidoDescanso.js';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
@@ -699,15 +699,25 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', alVolver); };
   }, [descanso]);
 
-  // Al llegar a cero: suena (dos notas) y vibra, para quien no está mirando
-  // la pantalla (sonidoDescanso.js). Si la app estaba en segundo plano, al
-  // volver se recalcula el tiempo y, si ya pasó, suena entonces.
+  // El pitido del final queda programado en el reloj del audio en cuanto
+  // empieza (o cambia, con +15 s) el descanso, y se cancela al saltarlo.
+  const programado = useRef(null);
+  useEffect(() => {
+    if (!descanso) return undefined;
+    const quedan = (descanso.fin - Date.now()) / 1000;
+    programado.current = quedan > 0 ? programarFinDescanso(quedan) : null;
+    return () => { if (programado.current) programado.current.cancelar(); programado.current = null; };
+  }, [descanso]);
+
+  // Al llegar a cero: vibra y, si el pitido no quedó programado, suena el de
+  // respaldo (sonidoDescanso.js). Si la app estaba en segundo plano, al
+  // volver se recalcula el tiempo y, si ya pasó, avisa entonces.
   const yaAvisado = useRef(false);
   useEffect(() => {
     if (!descanso) { yaAvisado.current = false; return; }
     if (restante <= 0 && !yaAvisado.current) {
       yaAvisado.current = true;
-      sonarFinDescanso();
+      sonarFinDescanso({ yaProgramado: !!(programado.current && programado.current.vivo) });
     }
   }, [restante, descanso]);
 
@@ -815,7 +825,9 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
     if (Number.isFinite(seg) && seg > 0) {
       // El toque de marcar deja el audio listo: así el pitido del final puede
       // sonar solo (el iPhone no deja sonar nada que no arrancó con un toque).
+      // Y una nota corta avisa que empezó el descanso.
       prepararSonido();
+      sonarInicioDescanso();
       setDescanso({ segundos: seg, fin: Date.now() + seg * 1000 });
     }
     // La hora del toque viaja con la serie: si espera en la cola sin señal,

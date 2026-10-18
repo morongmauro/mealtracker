@@ -1,13 +1,20 @@
 // ─────────────────────────────────────────────────────────────────────────
-// EL PITIDO DEL DESCANSO
+// LOS PITIDOS DEL DESCANSO
 //
-// Al acabar el descanso entre series suena un aviso corto (dos notas) y
-// vibra, para quien no está mirando la pantalla. Es un <audio> con un WAV
-// generado aquí mismo, no Web Audio: en el iPhone, Web Audio se calla con
-// el interruptor de silencio, y el <audio> (que el sistema trata como
-// música) sí se oye. El iPhone solo deja sonar lo que arrancó con un toque:
-// por eso `prepararSonido()` se llama al marcar la serie (un toque) y deja
-// el audio «desbloqueado» para que `sonarFinDescanso()` suene solo después.
+// Al empezar el descanso (al marcar la serie) suena una nota corta, y al
+// acabar, dos notas y vibra, para quien no está mirando la pantalla.
+//
+// Va por dos caminos a la vez, porque el iPhone pone trabas:
+//  · Web Audio: el pitido del final se deja PROGRAMADO en el reloj del audio
+//    en el mismo toque de marcar, así suena a su hora aunque la página vaya
+//    lenta. Con `navigator.audioSession.type = 'playback'` (iPhone con iOS
+//    17 o más) suena también con el interruptor de silencio puesto.
+//  · Un <audio> con un WAV generado aquí: el respaldo cuando Web Audio no
+//    está disponible o el teléfono lo dejó dormido.
+// El iPhone solo deja sonar lo que arrancó con un toque: por eso todo se
+// «desbloquea» en `prepararSonido()`, que se llama al marcar la serie.
+// Antes el desbloqueo bajaba el volumen a 0, pero en el iPhone el volumen
+// no se puede cambiar desde la página y el pitido del final no llegaba.
 // ─────────────────────────────────────────────────────────────────────────
 
 let audio = null;
@@ -54,27 +61,84 @@ function elemento() {
   return audio;
 }
 
+// ── Web Audio ──
+let ctx = null;
+function contexto() {
+  if (ctx) return ctx;
+  const AC = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
+  if (!AC) return null;
+  try { ctx = new AC(); } catch (e) { ctx = null; }
+  return ctx;
+}
+const vivo = () => !!ctx && ctx.state === 'running';
+
+// Una nota con ataque y caída suaves, a la hora `t` del reloj del audio.
+function nota(c, f, t, dur, vol = 0.32) {
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = 'sine'; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(c.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+  return o;
+}
+
 // Se llama dentro de un toque (marcar una serie): deja el audio listo para
-// sonar solo más tarde. Suena en silencio (volumen 0) y se corta.
+// sonar solo más tarde.
 export function prepararSonido() {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  const c = contexto();
+  if (c) {
+    try {
+      if (c.state !== 'running') c.resume();
+      // Un instante de silencio: en el iPhone es lo que «abre» el audio.
+      const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource();
+      s.buffer = b; s.connect(c.destination); s.start(0);
+    } catch (e) {}
+  }
   const a = elemento();
   if (!a || listo) return;
   try {
-    a.volume = 0;
+    // Desbloquear el <audio> sin que se oiga: en silencio (muted), no con
+    // volumen 0 (el iPhone no deja cambiar el volumen).
+    a.muted = true;
     const p = a.play();
-    const fin = () => { try { a.pause(); a.currentTime = 0; } catch (e) {} a.volume = 1; listo = true; };
-    if (p && typeof p.then === 'function') p.then(fin).catch(() => { a.volume = 1; });
+    const fin = () => { try { a.pause(); a.currentTime = 0; } catch (e) {} a.muted = false; listo = true; };
+    if (p && typeof p.then === 'function') p.then(fin).catch(() => { a.muted = false; });
     else fin();
   } catch (e) { /* sin audio: solo vibra */ }
 }
 
-// Al acabar el descanso: suena (si el teléfono lo deja) y vibra.
-export function sonarFinDescanso() {
+// Al empezar el descanso: una nota corta y suave (va dentro del toque).
+export function sonarInicioDescanso() {
+  const c = contexto();
+  if (!c) return false;
+  try { nota(c, 659.3, c.currentTime + 0.02, 0.16, 0.22); return true; } catch (e) { return false; }
+}
+
+// El pitido del final, programado ya: suena en `seg` segundos aunque la
+// página vaya lenta. Devuelve con qué cancelarlo (saltar, +15 s) o null si
+// no se pudo programar (entonces suena el respaldo al llegar a cero).
+export function programarFinDescanso(seg) {
+  const c = contexto();
+  if (!c || !(seg > 0)) return null;
+  try {
+    const t = c.currentTime + seg;
+    const nodos = [nota(c, 880, t, 0.14), nota(c, 1174.7, t + 0.21, 0.22)];
+    return { cancelar: () => nodos.forEach(o => { try { o.stop(); } catch (e) {} }), vivo: vivo() };
+  } catch (e) { return null; }
+}
+
+// Al acabar el descanso: vibra y, si el pitido no quedó programado, suena
+// el respaldo.
+export function sonarFinDescanso({ yaProgramado = false } = {}) {
   try { navigator.vibrate && navigator.vibrate([120, 80, 120, 80, 220]); } catch (e) {}
+  if (yaProgramado) return true;
   const a = elemento();
   if (!a) return false;
   try {
-    a.volume = 1;
+    a.muted = false;
     a.currentTime = 0;
     const p = a.play();
     if (p && typeof p.catch === 'function') p.catch(() => {});

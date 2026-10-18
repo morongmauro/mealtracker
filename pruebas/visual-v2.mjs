@@ -1773,7 +1773,15 @@ try {
   await n.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
   await n.p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
   // Las reproducciones de audio se cuentan (el pitido del descanso).
-  await n.p.evaluate(() => { window.__sonidos = 0; const play = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { if (this.volume > 0) window.__sonidos++; return play.apply(this, arguments).catch(() => {}); }; });
+  // Se cuentan las dos vías: el <audio> de respaldo (si suena, no en silencio)
+  // y las notas de Web Audio (al empezar el descanso y al acabar).
+  await n.p.evaluate(() => {
+    window.__sonidos = 0; window.__notas = [];
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () { if (!this.muted && this.volume > 0) window.__sonidos++; return play.apply(this, arguments).catch(() => {}); };
+    const start = OscillatorNode.prototype.start;
+    OscillatorNode.prototype.start = function (t) { window.__notas.push({ f: this.frequency.value, t: t - this.context.currentTime }); return start.apply(this, arguments); };
+  });
   await n.p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
   await espera(300);
   // Y una serie de un ejercicio con descanso (la banca: 2 min); el calentamiento no tiene.
@@ -1781,11 +1789,16 @@ try {
   await n.p.locator('[data-ejercicio="Barbell Bench Press"]').getByRole('button', { name: 'Marcar serie 1' }).click();
   await espera(300);
   ok('descanso: al marcar la serie arranca el descanso del ejercicio', (await n.p.locator('[data-descanso="contando"]').count()) === 1);
+  // Al marcar: una nota corta ya, y el pitido del final (dos notas) queda programado a los 2 min.
+  ok('descanso: suena al empezar y el pitido del final queda programado para cuando acaba', await n.p.evaluate(() => {
+    const ns = window.__notas;
+    return ns.some(x => x.t < 0.5) && ns.filter(x => x.t > 110 && x.t < 125).length === 2;
+  }), await n.p.evaluate(() => JSON.stringify(window.__notas)));
   // El reloj salta al final del descanso: suena el pitido y vibra.
   await n.ctx.clock.setFixedTime(new DateReal(FIJO + 130000));
   await espera(900);
   ok('descanso: al acabar, la barra dice «Listo» y suena el pitido (dos notas) para quien no mira la pantalla', (await n.p.locator('[data-descanso="listo"]').count()) === 1
-    && await n.p.evaluate(() => window.__sonidos >= 1), await n.p.evaluate(() => 'sonidos=' + window.__sonidos));
+    && await n.p.evaluate(() => window.__sonidos >= 1 || window.__notas.filter(x => x.t > 110).length === 2), await n.p.evaluate(() => 'sonidos=' + window.__sonidos));
   await n.ctx.clock.setFixedTime(new DateReal(FIJO));
   await n.p.locator('[data-descanso]').getByRole('button', { name: 'Cerrar' }).click();
   await espera(300);
