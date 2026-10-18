@@ -248,7 +248,7 @@
       html.splash-v2 #splash { display: none; }
       /* Entrada con el ÍCONO de la app (visual nueva), como la haría Apple:
            0.00–1.10 s  cuatro manchas de la marca nacen juntas en el centro
-                        como gotas de tinta y giran en espiral hacia afuera
+                        y giran hasta quedar pegadas al ícono, como un halo
            0.12–0.72 s  el blob blanco aparece en el centro
            0.22–1.05 s  las líneas del ícono se dibujan solas, como una gráfica
                         que se llena: primero el asa, después el cuerpo
@@ -285,11 +285,14 @@
         transition: transform .5s cubic-bezier(.4,0,.2,1); will-change: transform; }
       body.app-ready #splash2 .escena { transform: scale(1.18); }
       #splash2 .remolino { position: absolute; left: 50%; top: var(--centro, 46%); width: 0; height: 0; }
-      #splash2 .m { position: absolute; width: 420px; height: 360px; margin: -180px 0 0 -210px; filter: blur(30px); opacity: 0; will-change: transform, opacity; }
-      #splash2 .m1 { background: radial-gradient(closest-side, rgba(60,123,214,.46), rgba(60,123,214,0)); border-radius: 48% 52% 44% 56% / 55% 42% 58% 45%; --x: -150px; --y: -300px; --s: 1.25; }
-      #splash2 .m2 { background: radial-gradient(closest-side, rgba(242,201,76,.52), rgba(242,201,76,0)); border-radius: 56% 44% 52% 48% / 46% 56% 44% 54%; --x: 160px; --y: -280px; --s: 1.15; }
-      #splash2 .m3 { background: radial-gradient(closest-side, rgba(70,150,90,.42), rgba(70,150,90,0)); border-radius: 44% 56% 58% 42% / 52% 48% 52% 48%; --x: -160px; --y: 330px; --s: 1.25; }
-      #splash2 .m4 { background: radial-gradient(closest-side, rgba(238,132,52,.4), rgba(238,132,52,0)); border-radius: 52% 48% 46% 54% / 44% 56% 46% 54%; --x: 165px; --y: 300px; --s: 1.15; }
+      /* Halo: las manchas nacen y se quedan pegadas al ícono, como un brillo,
+         y el resto de la pantalla queda crema limpio (antes llenaban toda la
+         pantalla, pálidas y con velo blanco: se veía como niebla lavada). */
+      #splash2 .m { position: absolute; width: 250px; height: 220px; margin: -110px 0 0 -125px; filter: blur(26px); opacity: 0; will-change: transform, opacity; }
+      #splash2 .m1 { background: radial-gradient(closest-side, rgba(60,123,214,.62), rgba(60,123,214,0)); border-radius: 48% 52% 44% 56% / 55% 42% 58% 45%; --x: -80px; --y: -78px; --s: 1.25; }
+      #splash2 .m2 { background: radial-gradient(closest-side, rgba(242,201,76,.7), rgba(242,201,76,0)); border-radius: 56% 44% 52% 48% / 46% 56% 44% 54%; --x: 82px; --y: -74px; --s: 1.15; }
+      #splash2 .m3 { background: radial-gradient(closest-side, rgba(70,150,90,.58), rgba(70,150,90,0)); border-radius: 44% 56% 58% 42% / 52% 48% 52% 48%; --x: -80px; --y: 82px; --s: 1.25; }
+      #splash2 .m4 { background: radial-gradient(closest-side, rgba(238,132,52,.58), rgba(238,132,52,0)); border-radius: 52% 48% 46% 54% / 44% 56% 46% 54%; --x: 84px; --y: 80px; --s: 1.15; }
       #splash2 .plano { position: absolute; inset: 0; background: #F3F1EB; opacity: 0; }
       /* El piso: en algunos iPhone la pantalla útil termina unos 50 px antes
          del borde y lo que hay debajo se corta con una línea recta (se veía
@@ -311,7 +314,7 @@
       #splash2 .dentro .d2 { right: -40px; top: -40px; background: radial-gradient(closest-side, rgba(242,201,76,.55), rgba(242,201,76,0)); }
       #splash2 .dentro .d3 { left: -40px; bottom: -40px; background: radial-gradient(closest-side, rgba(70,150,90,.46), rgba(70,150,90,0)); }
       #splash2 .dentro .d4 { right: -40px; bottom: -40px; background: radial-gradient(closest-side, rgba(238,132,52,.46), rgba(238,132,52,0)); }
-      #splash2 .velo { position: absolute; inset: 0; opacity: 0; background: radial-gradient(70% 38% at 50% var(--centro, 46%), rgba(255,255,255,.92), rgba(255,255,255,0) 70%); }
+      #splash2 .velo { display: none; position: absolute; inset: 0; opacity: 0; background: radial-gradient(70% 38% at 50% var(--centro, 46%), rgba(255,255,255,.92), rgba(255,255,255,0) 70%); }
       /* Detrás del ícono: el blob de la marca, un cuadrado de lados y
          esquinas curvos (superelipse) girado 12°, blanco y con sombra suave. */
       #splash2 .disco { position: absolute; left: 50%; top: var(--centro, 46%); width: 184px; height: 184px; margin: -92px 0 0 -92px; overflow: visible;
