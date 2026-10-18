@@ -191,7 +191,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
                   <div style={{ position: 'relative', width: ARO_G.objAncho, height: ARO_G.objAlto }}>
                     <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={objetoAnima} tono="dos" /></div>
                   </div>
-                  <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
+                  <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
                 </div>
               </AnilloMarca>
               </CapaActiva.Provider>

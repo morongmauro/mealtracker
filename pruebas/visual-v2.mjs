@@ -337,7 +337,7 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const bien = a.width >= 88 && b.left >= 0 && b.right <= innerWidth - 4 && derechaTexto <= b.left + 4
     && g.left >= a.left && g.right <= a.right && g.top >= a.top && g.bottom <= a.bottom && (g.right - g.left) <= 64 && opac === 1
     && k.top >= a.top && k.bottom <= a.bottom + 1 && Math.abs((k.left + k.right) / 2 - (a.left + a.right) / 2) <= 4 && f.top < a.bottom
-    && caja.dataset.tono === 'dos' && getComputedStyle(centro).color === 'rgb(255, 255, 255)'
+    && caja.dataset.tono === 'dos' && getComputedStyle(centro).color === ({ dash: 'rgb(60, 123, 214)', entreno: 'rgb(95, 102, 112)', comida: 'rgb(70, 150, 90)', aprende: 'rgb(238, 132, 52)' })[tema]
     && (!pf || pf.top >= b.bottom - 2);
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top, g.bottom], a: [a.left, a.right, a.top, a.bottom], b: [b.left, b.right, b.bottom], derechaTexto, opac, k: [k.left, k.top, k.bottom], tono: caja.dataset.tono }));
   return bien;
@@ -984,7 +984,7 @@ try {
   await p.mouse.move(cajaH.x + cajaH.width / 2, cajaH.y + cajaH.height / 2);
   await p.mouse.wheel(0, 500); await espera(400);
   ok('la ficha se deja recorrer con scroll', await hs.evaluate(el => el.scrollHeight > el.clientHeight && el.scrollTop > 0));
-  ok('características con los músculos marcados', await p.getByText(/^Principal:/).first().isVisible());
+  ok('características con los músculos marcados', await p.locator('[data-leyenda-musculos]').first().isVisible());
   ok('ficha: la misma franja de marca arriba («FICHA» y el nombre)', await p.locator('[data-hoja-marca]').evaluate(el => /Ficha/i.test(el.innerText) && el.querySelector('[data-hoja-nombre]').textContent.trim().length > 2));
   await foto(p, '04e-ficha-scroll');
   // El video del ejercicio: limpio, en bucle, sin sonido ni controles
@@ -1291,7 +1291,17 @@ try {
   ok('la ficha pinta el cuerpo nuevo con lo que trabaja', (await p.locator('path[data-activo="1"]').count()) >= 4);
   ok('la ficha trae las características abiertas', await p.locator('dl dt', { hasText: 'Tipo' }).first().isVisible());
   ok('la ficha ya no dice «cómo se hace»', (await p.getByRole('dialog').last().getByText(/Cómo se hace/i).count()) === 0);
-  await p.getByText(/^Principal:/).first().scrollIntoViewIfNeeded();
+  // Opción 1A: «Frente» y «Espalda» arriba, el mapa tenue de los demás
+  // músculos para orientarse, y los nombres en píldoras («Trabaja» / «Ayudan»).
+  ok('figura 1A: frente y espalda rotulados arriba, mapa tenue y nombres en píldoras', await p.getByRole('dialog').last().evaluate(d => {
+    const caras = [...d.querySelectorAll('[data-cara-figura]')].map(x => x.textContent);
+    const mapa = [...d.querySelectorAll('path[data-musculo]:not([data-activo])')];
+    const act = d.querySelector('path[data-activo="1"]');
+    const pild = [...d.querySelectorAll('[data-pildora-musculo]')];
+    return caras.join('|') === 'Frente|Espalda' && mapa.length > 10 && mapa.every(x => x.getAttribute('fill') === '#DCDCE1')
+      && ['#EE8434', '#F8CBA6'].includes(act.getAttribute('fill')) && pild.length >= 2 && pild.every(x => !/_/.test(x.textContent));
+  }));
+  await p.locator('[data-leyenda-musculos]').first().scrollIntoViewIfNeeded();
   await espera(400);
   await foto(p, '07b-ficha-cuerpo');
   await p.keyboard.press('Escape');

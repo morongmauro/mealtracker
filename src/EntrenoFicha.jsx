@@ -163,11 +163,11 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
           </button>
           {verCaracs && v2Activa() && tieneMusculos && (
             <div style={{ marginTop: 10 }}>
-              <div style={{ background: '#F7F5EF', borderRadius: 16, padding: '14px 12px 12px' }}>
+              <div style={{ padding: '4px 2px 2px' }}>
                 <FiguraMusculos
                   primarios={e.musculos_primarios || []}
                   secundarios={e.musculos_secundarios || []}
-                  alto={230}
+                  alto={262}
                 />
               </div>
               {/* «Principal» y «También trabaja» ya van en la leyenda de la figura. */}
