@@ -22,6 +22,7 @@ const AprendeHoy = lazy(() => import('./AprendeHoy.jsx'));
 const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
+import DiaComidas from './DiaComidas.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { CapaActiva } from './capaActiva.js';
 import Firma from './Firma.jsx';
@@ -836,11 +837,23 @@ export default function MealTracker() {
     const onScroll = (e) => {
       const el = e.target === document ? document.scrollingElement : e.target;
       if (!el || typeof el.scrollTop !== 'number') return;
+      // En Aprendizaje manda el scroll del centro (abajo), no el de las capas
+      // de atrás, que pueden moverse solas al cambiar de sección.
+      if (showLearningRef.current) return;
       setPildoraChica(el.scrollTop > 24);
     };
     document.addEventListener('scroll', onScroll, true);
-    return () => document.removeEventListener('scroll', onScroll, true);
+    // Aprendizaje vive en un iframe: su scroll no llega aquí, así que el
+    // centro avisa cuánto bajó (em-scroll) y la píldora hace lo mismo.
+    const alCentro = (ev) => {
+      const d = ev && ev.data;
+      if (!d || d.tipo !== 'em-scroll' || !showLearningRef.current) return;
+      setPildoraChica(Number(d.y) > 24);
+    };
+    window.addEventListener('message', alCentro);
+    return () => { document.removeEventListener('scroll', onScroll, true); window.removeEventListener('message', alCentro); };
   }, [v2]);
+  useEffect(() => { setPildoraChica(false); }, [showLearning]);
   // El aro de la cabecera de comida, tocado: qué mide.
   const [explicarAroComida, setExplicarAroComida] = useState(false);
   // Con la visual nueva, la app SIEMPRE abre en el Dash, que es el que te
@@ -6346,14 +6359,20 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </div>
             </>)}
 
-            {/* Comidas de hoy */}
+            {/* Comidas de hoy. Visual nueva: el día por comidas (Desayuno,
+                Almuerzo, Cena, Snacks), cada una con su «+» que abre el chat
+                con la comida ya puesta, y el atajo para dictar todo el día. */}
             {v2 ? (
-              <h2 data-titulo-comidas style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '18px 2px 10px' }}>Lo que comiste hoy</h2>
-            ) : (
+              <DiaComidas entries={entries}
+                alAgregar={(m) => {
+                  haptic(8); setTab('chat');
+                  setTimeout(() => { const api = inputApiRef.current; if (api) { api.setText(`${m.nombre}: `); api.focus && api.focus(); } }, 80);
+                }}
+                alDictar={() => { haptic(8); setTab('chat'); startVoice(); }} />
+            ) : (<>
             <div className="text-[13.5px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em', margin: '22px 0 10px' }}>
               Hoy
             </div>
-            )}
             {entries.length === 0 ? (
               <div className="rounded-[28px] p-5 text-center" style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 8px 22px rgba(96,102,72,0.10)' }}>
                 <div className="text-[14px] font-semibold" style={{ color: TEXT }}>Aún no registras nada hoy</div>
@@ -6363,33 +6382,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   style={{ background: TEXT, color: '#FFF' }}>
                   Ir al chat
                 </button>
-              </div>
-            ) : v2 ? (
-              // Visual nueva: las mismas tarjetas que el día del calendario —
-              // la comida en verde y mayúscula, el total a la derecha, los
-              // alimentos en filas cortas y los macros en sus colores.
-              <div data-comidas-hoy-v2 style={{ display: 'grid', gap: 8 }}>
-                {entries.map(e => (
-                  <div key={e.id} data-comida-hoy style={{ background: '#FFFFFF', borderRadius: 18, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', padding: '11px 13px 10px', lineHeight: 1.25 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal || 'comida'}</span>
-                      {e.time && <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{e.time}</span>}
-                      <span style={{ flex: 1 }} />
-                      <span className="num" style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{Math.round(e.kcal)} <span style={{ fontSize: 12, color: TEXT_MUTED }}>kcal</span></span>
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      {(e.items || []).map((it, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '4px 0', borderTop: i ? '1px solid #F2EFE8' : 0 }}>
-                          <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: TEXT }}>{it.name}{it.amount ? <span style={{ fontWeight: 500, color: TEXT_MUTED }}> · {it.amount}</span> : null}</span>
-                          <span className="num" style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, flex: 'none' }}>{Math.round(it.kcal || 0)} kcal</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="num" style={{ display: 'flex', gap: 10, fontSize: 12, fontWeight: 700, marginTop: 6 }}>
-                      <span style={{ color: C_PROTEIN }}>P {fmt1(e.p)}g</span><span style={{ color: C_CARBS_TEXTO }}>C {fmt1(e.c)}g</span><span style={{ color: C_FAT }}>G {fmt1(e.g)}g</span>
-                    </div>
-                  </div>
-                ))}
               </div>
             ) : (
               <div className="space-y-3">
@@ -6416,6 +6408,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 ))}
               </div>
             )}
+            </>)}
 
             {/* Firma — réplica exacta de .em-signature del Centro de Aprendizaje.
                 Sin el botón "Cerrar sesión" que lleva allá: en la app del cliente
@@ -7497,6 +7490,7 @@ const InputBar = memo(function InputBar({
         writeDom(next); setText(next);
       },
       clear: () => { writeDom(''); setText(''); },
+      focus: () => { const el = divRef.current; if (el && el.focus) { el.focus(); writeDom(el.textContent || ''); } },
     };
     return () => { apiRef.current = null; };
   }, [apiRef, writeDom]);

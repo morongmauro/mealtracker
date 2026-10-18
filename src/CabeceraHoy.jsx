@@ -28,6 +28,12 @@ import { CapaActiva, useCapaActiva } from './capaActiva.js';
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
+// El blob en tinte suave: el color del módulo mezclado con blanco (un pastel
+// que no grita), y el aro encima en el color pleno.
+const pastel = (hex, f = 0.24) => {
+  const n = parseInt(hex.slice(1), 16), m = (c) => Math.round(255 - (255 - c) * f);
+  return '#' + [m(n >> 16), m((n >> 8) & 255), m(n & 255)].map(v => v.toString(16).padStart(2, '0')).join('');
+};
 
 // banda: degradado de la banda · m1/m2/m3: manchas · base: fondo detrás de
 // las manchas · tinta: la segunda línea de la frase (contraste para letra
@@ -175,15 +181,17 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
           onClick={aro.alTocar} onKeyDown={aro.alTocar ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); aro.alTocar(); } } : undefined}
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animationDelay: '.1s', pointerEvents: aro.alTocar ? 'auto' : undefined, cursor: aro.alTocar ? 'pointer' : undefined }}>
           <div data-blob-cabecera style={{ position: 'relative', width: ARO_G.blob, height: ARO_G.blob }}>
-            <Blob color={color} tam={ARO_G.blob} />
+            {/* Misma forma de siempre; el tono es un pastel del módulo y la
+                sombra, suave, de su color. */}
+            <Blob color={pastel(color)} sombraColor={color} tam={ARO_G.blob} />
             <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
               <CapaActiva.Provider value={activo}>
-              <AnilloMarca plano frac={aro.frac} color="#FFFFFF" punto={color} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.3)" etiqueta={aro.pie}>
+              <AnilloMarca plano frac={aro.frac} color={color} punto="#FFFFFF" tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.85)" etiqueta={aro.pie}>
                 <div style={{ display: 'grid', placeItems: 'center' }}>
                   <div style={{ position: 'relative', width: ARO_G.objAncho, height: ARO_G.objAlto }}>
-                    <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={objetoAnima} tono="dos" /></div>
+                    <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={objetoAnima} tono="color" /></div>
                   </div>
-                  <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
+                  <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
                 </div>
               </AnilloMarca>
               </CapaActiva.Provider>

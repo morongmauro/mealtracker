@@ -21,12 +21,13 @@ function superelipse(n = 3.8, S = 200, N = 72) {
 export const BLOB_PATH = superelipse();
 export const BLOB_GIRO = -12;
 
-// `color`: el del módulo. `sombra`: true pinta la sombra suave del mismo color.
-export default function Blob({ color, tam = 120, sombra = true, style, ...resto }) {
+// `color`: el del relleno. `sombra`: true pinta la sombra suave; `sombraColor`
+// (por defecto el mismo del relleno) es el color de esa sombra.
+export default function Blob({ color, tam = 120, sombra = true, sombraColor = null, style, ...resto }) {
   return (
     <svg data-blob width={tam} height={tam} viewBox="0 0 200 200" aria-hidden="true" {...resto} style={{
       display: 'block', overflow: 'visible', transform: `rotate(${BLOB_GIRO}deg)`,
-      filter: sombra ? `drop-shadow(0 16px 28px ${color}66) drop-shadow(0 2px 6px rgba(30,30,40,.08))` : undefined,
+      filter: sombra ? `drop-shadow(0 16px 28px ${sombraColor || color}${sombraColor ? '40' : '66'}) drop-shadow(0 2px 6px rgba(30,30,40,.06))` : undefined,
       ...style,
     }}>
       <path d={BLOB_PATH} fill={color} />

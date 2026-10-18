@@ -337,7 +337,7 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const bien = a.width >= 88 && b.left >= 0 && b.right <= innerWidth - 4 && derechaTexto <= b.left + 4
     && g.left >= a.left && g.right <= a.right && g.top >= a.top && g.bottom <= a.bottom && (g.right - g.left) <= 64 && opac === 1
     && k.top >= a.top && k.bottom <= a.bottom + 1 && Math.abs((k.left + k.right) / 2 - (a.left + a.right) / 2) <= 4 && f.top < a.bottom
-    && caja.dataset.tono === 'dos' && getComputedStyle(centro).color === 'rgb(255, 255, 255)'
+    && caja.dataset.tono === 'color' && getComputedStyle(centro).color === 'rgb(31, 31, 31)'
     && (!pf || pf.top >= b.bottom - 2);
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top, g.bottom], a: [a.left, a.right, a.top, a.bottom], b: [b.left, b.right, b.bottom], derechaTexto, opac, k: [k.left, k.top, k.bottom], tono: caja.dataset.tono }));
   return bien;
@@ -491,23 +491,23 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
   ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0)
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
-  ok('Dash: el blob junto a la frase, con la brújula a dos colores y el porcentaje en blanco adentro del aro', await ilusBien(p, 'dash'));
-  ok('cabecera: el blob azul girado 12° con sombra suave; encima el aro plano en blanco con riel blanco al 30 %', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
+  ok('Dash: el blob junto a la frase, con la brújula a color y el porcentaje en grafito adentro del aro', await ilusBien(p, 'dash'));
+  ok('cabecera: el blob en tinte suave del azul, girado 12° con sombra suave de su color; encima el aro plano azul con riel blanco', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
     const an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob]');
     const path = blob && blob.querySelector('path');
     const m = new DOMMatrix(getComputedStyle(blob).transform); const giro = Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI);
     const sombra = /drop-shadow/.test(getComputedStyle(blob).filter) && getComputedStyle(blob).filter.includes('60, 123, 214');
     const aroSinSombra = !an.querySelector('filter, mask') && !/drop-shadow/.test(getComputedStyle(an).filter);
     const circulos = [...an.querySelectorAll('svg circle')];
-    const riel = circulos.some(c => /rgba\(255, ?255, ?255, ?0\.3\)/.test(c.getAttribute('stroke') || ''));
-    const blanco = circulos.some(c => (c.getAttribute('stroke') || '').toUpperCase() === '#FFFFFF');
-    return an.dataset.plano === '1' && path && path.getAttribute('fill') === '#3C7BD6' && giro === -12 && sombra && aroSinSombra && riel && blanco;
+    const riel = circulos.some(c => /rgba\(255, ?255, ?255, ?0\.85\)/.test(c.getAttribute('stroke') || ''));
+    const azul = circulos.some(c => (c.getAttribute('stroke') || '').toUpperCase() === '#3C7BD6');
+    return an.dataset.plano === '1' && path && path.getAttribute('fill').toUpperCase() === '#D0DFF5' && giro === -12 && sombra && aroSinSombra && riel && azul;
   }));
 
   await espera(2600);
   ok('…y al terminar la animación, el objeto se queda quieto (nada flota permanentemente)', await p.locator('[data-objeto-cabecera="dash"]').evaluate(d => !d.classList.contains('flota') && getComputedStyle(d).animationName === 'none'));
-  ok('aros de las cabeceras: el punto de la punta va del color del módulo (sobre el aro blanco) y sin borde', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera] [data-anillo] svg').evaluate(s => {
-    const puntos = [...s.querySelectorAll('circle')].filter(c => (c.getAttribute('fill') || '').toUpperCase() === '#3C7BD6');
+  ok('aros de las cabeceras: el punto de la punta va en blanco (sobre el aro del color del módulo) y sin borde', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera] [data-anillo] svg').evaluate(s => {
+    const puntos = [...s.querySelectorAll('circle')].filter(c => (c.getAttribute('fill') || '').toUpperCase() === '#FFFFFF');
     return puntos.length === 1 && puntos.every(c => !c.getAttribute('stroke'));
   }));
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
@@ -764,7 +764,7 @@ try {
   ok('Entrenamiento abre en Hoy', (await p.getByRole('button', { name: 'Hoy', exact: true }).first().getAttribute('aria-current')) === 'page');
   ok('sin la navegación de arriba del módulo', (await p.getByRole('button', { name: 'Resumen', exact: true }).count()) === 0);
   await foto(p, '04-entreno-hoy');
-  ok('Entreno: el blob junto a la frase, con la kettlebell a dos colores y el 1/3 adentro del aro', await ilusBien(p, 'entreno'));
+  ok('Entreno: el blob junto a la frase, con la kettlebell a color y el 1/3 adentro del aro', await ilusBien(p, 'entreno'));
   const cabE = p.locator('[data-cabecera-hoy="entreno"]');
   ok('Hoy de entreno: la voz del coach (la frase de hoy, sin repetir la fecha del Dash)', await cabE.locator('[data-frase]').isVisible()
     && (await cabE.locator('[data-etiqueta]').count()) === 0
@@ -809,26 +809,26 @@ try {
   ok('tu semana: tocar las fotos abre directo para mandarlas por WhatsApp (sin la hoja del día)',
     (await p.locator('[data-accion-directa="fotos"] [data-fotos-whatsapp]').count()) === 1
     && /^https:\/\/wa\.me\/\d+\?text=/.test(await p.locator('[data-accion-directa="fotos"] [data-fotos-whatsapp]').getAttribute('href'))
-    && (await p.getByText('Para registrar').count()) === 0);
+    && (await p.getByText('Para registrar', { exact: true }).count()) === 0);
   await foto(p, '04f1-semana-fotos');
   await p.keyboard.press('Escape'); await espera(500);
   await filaHoy.locator('[data-evento="peso"]').click();
   await p.getByText('Actualiza tu peso').waitFor({ timeout: 5000 });
   ok('tu semana: tocar el peso abre directo la ventana para actualizarlo (y avisar al coach)',
-    (await p.getByRole('button', { name: 'Guardar y enviar a mi coach' }).count()) === 1 && (await p.getByText('Para registrar').count()) === 0);
+    (await p.getByRole('button', { name: 'Guardar y enviar a mi coach' }).count()) === 1 && (await p.getByText('Para registrar', { exact: true }).count()) === 0);
   await foto(p, '04f2-semana-peso');
   await p.keyboard.press('Escape'); await espera(500);
   await filaHoy.locator('[data-evento="actividad"]').click();
   await p.getByText('Minutos', { exact: true }).waitFor({ timeout: 5000 });
   ok('tu semana: tocar el cardio abre directo su formulario (tiempo y lo demás opcional)',
-    (await p.getByText('Para registrar').count()) === 0 && (await p.getByText(/De tu coach:/).count()) >= 1);
+    (await p.getByText('Para registrar', { exact: true }).count()) === 0 && (await p.getByText(/De tu coach:/).count()) >= 1);
   await foto(p, '04f3-semana-cardio');
   await p.keyboard.press('Escape'); await espera(500);
   ok('tu semana: nada se registró solo con abrir', !(db.db.evento_registros || []).length);
   await filaHoy.getByText('29', { exact: true }).click();
   await espera(500);
   ok('tu semana: tocar la fecha o el blanco de la fila no abre otra ventana (ya se ve todo ahí)', (await p.locator('[data-hoja-scroll]').count()) === 0
-    && (await p.getByText('Para registrar').count()) === 0);
+    && (await p.getByText('Para registrar', { exact: true }).count()) === 0);
   // Añadir una rutina hoy (martes, libre): el Push repetiría lo del lunes → avisa
   await hoyV.getByRole('button', { name: 'Añadir una rutina' }).click();
   await p.locator('[data-elegir-rutina]').waitFor({ timeout: 5000 });
@@ -1133,7 +1133,7 @@ try {
   await foto(p, '05a-ten-en-cuenta');
   // Registrar desde el día
   await cal.locator(`[data-vista="mes"] [data-fecha="${hoy}"]`).click();
-  await p.getByText('Para registrar').waitFor({ timeout: 5000 });
+  await p.getByText('Para registrar', { exact: true }).waitFor({ timeout: 5000 });
   ok('al tocar el día: el detalle dice la fecha de corte', (await p.getByText('Fecha de corte de tu mensualidad').count()) === 1);
   ok('al tocar el día: añadir cardio o deporte (debajo de la rutina)', (await p.locator('[data-acciones-dia] [data-accion="actividad"]').count()) === 1);
   await espera(300);
@@ -1274,7 +1274,7 @@ try {
   await p.getByRole('button', { name: 'Alimentación', exact: true }).click();
   await espera(1200);
   await foto(p, '08-comida-hoy');
-  ok('Comida: el blob junto a la frase, con el aguacate a dos colores adentro del aro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
+  ok('Comida: el blob junto a la frase, con el aguacate a color adentro del aro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
   // El objeto entra con su animación solo la PRIMERA vez que se ve; al volver
   // a la sección se queda quieto (repetirla en cada cambio de módulo cansaba).
   ok('Comida: al volver a Alimentación el plato se queda quieto (la animación fue la primera vez)', await p.locator('[data-objeto-cabecera="comida"] img').first().evaluate(i => !i.src.startsWith('blob:')));
@@ -1512,6 +1512,16 @@ try {
   // ── Aprendizaje: Lecturas · Videos · Sobre el programa (sin «Hoy») ──
   await p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
   await espera(1400);
+  {
+    // El centro vive en un iframe: avisa su scroll (em-scroll) y la píldora
+    // hace lo mismo que en las otras secciones.
+    const chica = () => p.locator('[data-pildora-marca]').evaluate(el => el.getAttribute('data-chica') === '1');
+    const antes = await chica();
+    await p.evaluate(() => window.postMessage({ tipo: 'em-scroll', y: 300 }, '*')); await espera(150);
+    const alBajar = await chica();
+    await p.evaluate(() => window.postMessage({ tipo: 'em-scroll', y: 0 }, '*')); await espera(150);
+    ok('Aprendizaje: la píldora se va al bajar en el centro y vuelve arriba del todo', antes === false && alBajar === true && (await chica()) === false, `${antes} ${alBajar}`);
+  }
   // El reconocimiento de aprendizaje: el centro avisa cada pieza vista
   // (em-visto); a la tercera cápsula nueva sube la hoja, sobre el centro.
   await p.evaluate(() => { window.postMessage({ tipo: 'em-visto', source: 'capsula', key: 'cap:prueba-1' }, '*'); });
