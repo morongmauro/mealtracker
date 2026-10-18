@@ -1748,7 +1748,7 @@ try {
     ok('cierre: del 6 al 9 marcado como «Zona de progreso»', /Zona de progreso/.test(await n.p.locator('[data-zona-progreso]').innerText()));
   }
   await n.p.getByRole('button', { name: 'Percepción 7' }).click();
-  ok('cierre: al elegir el 7 dice qué significa («Exigente» · zona de progreso)', /Exigente/.test(await n.p.locator('[data-significado-intensidad]').innerText()) && /zona de progreso/.test(await n.p.locator('[data-significado-intensidad]').innerText()));
+  ok('cierre: al elegir el 7 dice su nombre («Exigente»), sin explicación', (await n.p.locator('[data-significado-intensidad]').innerText()).replace(/\s+/g, ' ').trim() === '7 Exigente', await n.p.locator('[data-significado-intensidad]').innerText());
   await foto(n.p, '15b-cierre-intensidad');
   await n.p.getByRole('button', { name: 'Enviar a mi coach' }).click();
   const fin = n.p.locator('[data-fin-entreno]');

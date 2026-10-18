@@ -1,4 +1,5 @@
 {
+  "git": { "deploymentEnabled": { "claude/*": false, "claude/**": false } },
   "rewrites": [
     {
       "source": "/manifest-app.json",

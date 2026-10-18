@@ -1721,7 +1721,7 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descan
 // La nota va debajo y sin obligar. En la práctica "me molestó el hombro en la
 // última serie" le sirve al coach más que el número.
 // La intensidad, del 1 al 10: de azul suave (fácil) a amarillo y a rojo (al
-// límite). Del 6 al 9 es la zona de progreso. Cada número dice qué significa.
+// límite). Del 6 al 9 es la zona de progreso. Cada número dice su nombre.
 const INTENSIDAD_TONOS = [[1, [141, 186, 240]], [5, [242, 201, 76]], [8, [238, 132, 52]], [10, [214, 69, 65]]];
 function tonoIntensidad(n, a = 1) {
   for (let i = 0; i < INTENSIDAD_TONOS.length - 1; i++) {
@@ -1737,13 +1737,9 @@ const tintaIntensidad = (n) => {
   }
   return 'rgb(133,43,40)';
 };
-const SIGNIFICADO_INTENSIDAD = (n) => n <= 2 ? ['Muy suave', 'Podías seguir mucho más']
-  : n <= 4 ? ['Suave', 'Cómodo, sin esfuerzo real']
-  : n === 5 ? ['Moderado', 'Trabajaste, con margen de sobra']
-  : n <= 7 ? ['Exigente', 'Te costó, con reps en reserva']
-  : n === 8 ? ['Muy exigente', 'Una o dos reps más, no más']
-  : n === 9 ? ['Casi al límite', 'Quizá una rep más']
-  : ['Al límite', 'No salía ni una más'];
+// Solo el nombre de cada número (Mauro aprobó los nombres, sin explicación).
+const SIGNIFICADO_INTENSIDAD = (n) => n <= 2 ? 'Muy suave' : n <= 4 ? 'Suave' : n === 5 ? 'Moderado'
+  : n <= 7 ? 'Exigente' : n === 8 ? 'Muy exigente' : n === 9 ? 'Casi al límite' : 'Al límite';
 
 function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, error, escritas = [], onMarcarEscritas, onRevisar }) {
   const [rpe, setRpe] = useState(null);
@@ -1851,14 +1847,11 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
           <span style={{ width: 19, flex: 'none' }} />
         </div>
         {rpe && (() => {
-          const [nombre, que] = SIGNIFICADO_INTENSIDAD(rpe);
+          const nombre = SIGNIFICADO_INTENSIDAD(rpe);
           return (
             <div data-significado-intensidad style={{ marginTop: 12, padding: '11px 14px', borderRadius: 14, background: SURFACE_2, display: 'flex', alignItems: 'center', gap: 12 }}>
               <b style={{ fontSize: 23, fontWeight: 850, color: tonoIntensidad(rpe), letterSpacing: '-0.02em', minWidth: 24, textAlign: 'center' }}>{rpe}</b>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: TEXT }}>{nombre}</span>
-                <span style={{ display: 'block', fontSize: 12.5, color: TEXT_MUTED, marginTop: 1 }}>{que}{rpe >= 6 && rpe <= 9 ? ' · zona de progreso' : ''}</span>
-              </span>
+              <span style={{ minWidth: 0, fontSize: 14.5, fontWeight: 700, color: TEXT }}>{nombre}</span>
             </div>
           );
         })()}
