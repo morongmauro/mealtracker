@@ -35,3 +35,8 @@
   [data-capa-v2][data-activa] { animation: none; }
   [data-capa-v2][data-view="entrena"], [data-capa-v2][data-view="dash"], [data-capa-v2][data-aprende] { transition: none; }
 }
+
+/* Video del centro a pantalla completa (el centro lo pide al girar el
+   teléfono): el centro tapa todo, también la barra de abajo. */
+html.em-video-completo [data-aprende]{z-index:2147483000 !important;}
+html.em-video-completo iframe[data-centro]{position:fixed !important;inset:0 !important;width:100% !important;height:100% !important;z-index:2147483000 !important;visibility:visible !important;}

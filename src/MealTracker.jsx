@@ -2887,6 +2887,21 @@ export default function MealTracker() {
     return () => window.removeEventListener('message', alLlegar);
   }, []);
 
+  // VIDEO A PANTALLA COMPLETA EN EL CENTRO. Al girar el teléfono (o tocar
+  // el botón) el centro pone el video a pantalla entera y avisa: el centro
+  // pasa a ocupar toda la pantalla, por encima de la barra de la app. Por
+  // DOM directo (una clase en <html>), sin re-render del árbol.
+  useEffect(() => {
+    const alPedir = (ev) => {
+      const d = ev && ev.data;
+      if (!d || d.tipo !== 'em-pantalla-completa') return;
+      document.documentElement.classList.toggle('em-video-completo', !!d.on);
+    };
+    window.addEventListener('message', alPedir);
+    return () => { window.removeEventListener('message', alPedir); document.documentElement.classList.remove('em-video-completo'); };
+  }, []);
+  useEffect(() => { if (!showLearning) document.documentElement.classList.remove('em-video-completo'); }, [showLearning]);
+
   // RECONOCIMIENTO DE APRENDIZAJE. El centro avisa cada pieza vista
   // (em-visto). Cada 3 cápsulas, cada 2 videos, o al completar las cápsulas
   // de la fase, sube la hoja. Lo visto se cuenta aquí (clave por pieza, así
@@ -6511,6 +6526,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             key={learningKey}
             title="Centro de aprendizaje"
             src={learningSrc}
+            data-centro
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
             // Visual nueva: el aro «Material visto» de la cabecera de Lecturas
             // muestra el mismo % que el Dash; se lo mandamos al centro.
             onLoad={v2 ? (ev) => {
