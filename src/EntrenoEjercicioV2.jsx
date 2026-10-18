@@ -182,26 +182,28 @@ const textoDescansoCorto = (seg) => {
 };
 
 // ── Los botones de cada ejercicio ─────────────────────────────────────────
-// Ficha, Tu récord, Historial y Nota, en una fila pareja. «La última vez»
-// ya no va escrita dentro de la tarjeta: se come mucha pantalla y solo la
-// consulta quien la necesita.
-// `compacto`: solo el símbolo, cuadrado y angosto (la nota al coach: se usa,
-// pero no necesita un botón del tamaño de la ficha).
+// Ficha, Historial y Nota al coach, en una fila de píldoras BLANCAS con sombra
+// (como los botones redondos de arriba), con el texto al lado del ícono. Antes
+// eran cajas del mismo gris que los campos donde se escribe y se confundían:
+// lo gris se llena, lo blanco con sombra se toca.
+// `corto`: el texto que va cuando el espacio es angosto (los circuitos).
 function Botones({ items, chico = false }) {
-  const columnas = items.map(it => (it.compacto ? '46px' : 'minmax(0, 1fr)')).join(' ');
   return (
-    <div data-botones style={{ display: 'grid', gridTemplateColumns: columnas, gap: 7, marginTop: chico ? 8 : 10 }}>
-      {items.map(({ Icono, texto, onClick, compacto }) => (
-        <button key={texto} onClick={onClick} aria-label={compacto ? texto : undefined} title={compacto ? texto : undefined} data-compacto={compacto ? '1' : undefined} style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          height: chico ? 40 : 44, padding: '0 2px', borderRadius: 13, border: 'none', gap: 1,
-          background: CAMPO, color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
-          fontSize: 11.5, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0,
-        }}>
-          <Icono size={compacto ? 19 : chico ? 16 : 17} color={GRAFITO} />
-          {!compacto && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{texto}</span>}
-        </button>
-      ))}
+    <div data-botones style={{ display: 'flex', gap: chico ? 6 : 7, marginTop: chico ? 8 : 9, minWidth: 0 }}>
+      {items.map(({ Icono, texto, corto, onClick }) => {
+        const visible = chico && corto ? corto : texto;
+        return (
+          <button key={texto} onClick={onClick} aria-label={visible !== texto ? texto : undefined} data-pildora-ejercicio style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: chico ? '0 10px' : '0 11px',
+            borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)',
+            fontSize: 13, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0, flex: '0 1 auto',
+          }}>
+            <Icono size={15} color={GRAFITO} style={{ flex: 'none' }} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{visible}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -211,7 +213,7 @@ function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota }) {
     { Icono: FilmStrip, texto: 'Ficha', onClick: abrirFicha },
     // El récord va dentro del historial: un botón menos por ejercicio.
     ...(sinCarga ? [] : [{ Icono: ClockCounterClockwise, texto: 'Historial', onClick: abrirUltima }]),
-    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', onClick: onNota, compacto: true }] : []),
+    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', corto: 'Nota', onClick: onNota }] : []),
   ];
 }
 
@@ -382,7 +384,7 @@ export function textoSerieAnterior(re, n, unidad = 'kg', soloReps = false) {
 function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = null }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 1,
+      display: 'flex', alignItems: 'center', gap: 8, marginTop: 9, marginBottom: 1,
       fontSize: 11.5, fontWeight: 700, color: GRIS, letterSpacing: '.04em',
     }}>
       <div style={{ width: 22, flex: 'none' }} />
@@ -451,7 +453,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
   }
 
   return (
-    <div data-ejercicio={e?.alias || e?.nombre} data-ahora={ahora ? '1' : undefined} style={{ ...TARJETA, padding: '12px 13px 11px' }}>
+    <div data-ejercicio={e?.alias || e?.nombre} data-ahora={ahora ? '1' : undefined} style={{ ...TARJETA, padding: '11px 13px 9px' }}>
       <style>{CSS_RUTINA}</style>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <Miniatura e={e} alTocar={() => setFicha(true)} />
@@ -468,7 +470,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </div>
       </div>
       {/* Lo recetado, en una línea con sus íconos. */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 8, fontSize: 13.5, color: '#3A3A3C', fontWeight: 600 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 7, fontSize: 13.5, color: '#3A3A3C', fontWeight: 600 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           <ListBullets size={15} />
           {re.series > 1 ? `${re.series} series × ` : ''}{textoReps(re)}
@@ -712,10 +714,11 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
     );
   }
 
-  // Campos grises sin borde; al tocarlos, blancos con contorno grafito. Ya
+  // Campos grises sin borde (30 px: la tarjeta más baja); al tocarlos, blancos
+  // con contorno grafito. Ya
   // marcada, la serie queda en limpio: los números en negrita, sin caja.
   const campo = (malo) => ({
-    width: '100%', height: 34, padding: '0 6px', borderRadius: 10, textAlign: 'center', border: 'none',
+    width: '100%', height: 30, padding: '0 6px', borderRadius: 10, textAlign: 'center', border: 'none',
     background: hecha ? 'transparent' : CAMPO,
     boxShadow: malo ? 'inset 0 0 0 1.5px #D9785F' : 'none',
     fontSize: 16, fontWeight: 700, color: TEXT, outline: 'none', opacity: 1, WebkitTextFillColor: TEXT,

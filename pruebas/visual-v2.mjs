@@ -1014,11 +1014,14 @@ try {
   ok('por ejercicio: Ficha, Historial y Nota al coach (sin «Tu récord» aparte)', (await p.getByRole('button', { name: /Tu récord/ }).count()) === 0);
   ok('circuitos (calentamiento): cada ejercicio sobre blanco, con el mismo contraste de botones y casillas que en Fuerza', (await p.locator('[data-ejercicio-circuito]').count()) >= 1
     && await p.locator('[data-ejercicio-circuito]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)'));
-  ok('«Nota al coach» por ejercicio: compacto, solo el símbolo, más angosto que Ficha', await p.evaluate(() => {
-    const bs = [...document.querySelectorAll('[data-botones] button[data-compacto]')];
-    return bs.length >= 3 && bs.every(b => b.getAttribute('aria-label') === 'Nota al coach' && !b.querySelector('span')
-      && b.getBoundingClientRect().width < 60 && b.getBoundingClientRect().width < b.parentElement.firstElementChild.getBoundingClientRect().width / 2);
+  ok('botones del ejercicio: píldoras blancas con sombra de 30 px (no del gris de los campos), con «Nota al coach» escrito', await p.evaluate(() => {
+    const bs = [...document.querySelectorAll('[data-botones] button[data-pildora-ejercicio]')];
+    const campo = document.querySelector('[data-ejercicio] input[aria-label^="Repeticiones"]');
+    const notas = bs.filter(b => /Nota/.test(b.textContent));
+    return bs.length >= 6 && notas.length >= 3 && bs.every(b => { const cs = getComputedStyle(b); return Math.round(b.getBoundingClientRect().height) === 30 && cs.backgroundColor === 'rgb(255, 255, 255)' && cs.boxShadow !== 'none'; })
+      && campo && Math.round(campo.getBoundingClientRect().height) === 30 && getComputedStyle(campo).backgroundColor === 'rgb(242, 242, 244)';
   }));
+
   await p.getByRole('button', { name: /Historial/ }).first().click();
   await p.locator('[data-tu-record]').waitFor({ timeout: 5000 });
   const antesSc = await scRut();
