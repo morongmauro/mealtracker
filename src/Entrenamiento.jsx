@@ -1127,7 +1127,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
           {v2 && tramo.vueltas.length > 1 ? (
             <CircuitoV2 tramo={tramo} marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar}
               unidadDe={unidadDe} onUnidad={cambiarUnidad}
-              onNota={(re) => setNota({ titulo: re.ejercicio.nombre, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })} />
+              onNota={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })} />
           ) : (<>
           {tramo.bloque && <CabeceraBloque b={tramo.bloque} v2={v2} />}
           {tramo.vueltas.map((vuelta, vi) => (
@@ -1150,7 +1150,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
                     : undefined}
                   compacto={vi > 0}
                   unidad={unidadDe(re)} onUnidad={() => cambiarUnidad(re)}
-                  onNota={() => setNota({ titulo: re.ejercicio.nombre, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })}
+                  onNota={() => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })}
                   ahora={re.id === ahoraId}
                   marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />
               ))}

@@ -20,7 +20,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets } from '@phosphor-icons/react';
 import EntrenoFicha from './EntrenoFicha.jsx';
-import { Hoja } from './entrenoUI.jsx';
+import { Hoja, FONDO_TARJETA_HOJA } from './entrenoUI.jsx';
 import { miniatura, numero, descansoEnCircuito, sinPeso, convertir, leerTecleado, guardarTecleado } from './entrenoDatos.js';
 import { nombresEj } from './v2.js';
 import { SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, BORDER, SECCION } from './theme.js';
@@ -300,8 +300,12 @@ export function GraficaPesos({ puntos, unidad = 'kg', alto = 110 }) {
   );
 }
 
-// HISTORIAL: la última vez serie por serie, la gráfica de cómo han subido
-// los pesos y, debajo (plegadas), las sesiones anteriores.
+// HISTORIAL: arriba la franja de marca con la foto y el nombre; abajo, en
+// tarjetas grandes, el récord y cuánto ha subido, la última vez serie por
+// serie, la gráfica de cómo han subido los pesos y (plegadas) las sesiones
+// anteriores.
+const tarjetaHoja = { padding: '12px 14px', borderRadius: 18, background: FONDO_TARJETA_HOJA, marginBottom: 10 };
+const rotuloHoja = { fontSize: 12.5, color: '#636366', fontWeight: 600 };
 export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
   const [todas, setTodas] = useState(false);
   if (!re) return null;
@@ -312,45 +316,64 @@ export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
   const opciones = { unidad, soloReps };
   const antes = (u?.historial || []).slice(1);
   const puntos = soloReps ? [] : pesosPorSesion(u?.historial, unidad);
+  const pri = puntos[0], ult = puntos[puntos.length - 1];
+  const subio = puntos.length >= 2 ? Math.round((ult.peso - pri.peso) * 10) / 10 : null;
+  const rec = u?.record;
+  const series = (u?.series || []).filter(x => x.reps != null || x.peso);
   return (
-    <Hoja abierta={abierto} alCerrar={alCerrar} titulo={`Historial · ${n.grande}`} alto="80vh">
-      {!u ? <div style={{ ...cajaHoja, fontSize: 14, color: TEXT_MUTED }}>{NADA_AUN}</div> : (<>
-        {u.record && (
-          <div data-tu-record style={{ ...cajaHoja, display: 'flex', gap: 12, alignItems: 'center' }}>
-            <span style={{ width: 40, height: 40, borderRadius: 99, background: SECCION.entreno.tint, color: AZUL_TINTA, display: 'grid', placeItems: 'center', flex: 'none' }}>
-              <Trophy size={20} weight="fill" />
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12.5, color: TEXT_MUTED, fontWeight: 650 }}>
-                Tu récord · {u.record.peso && !soloReps ? 'El peso más alto que has levantado' : 'Tu mejor serie'}
+    <Hoja abierta={abierto} alCerrar={alCerrar} titulo={`Historial · ${n.grande}`} alto="80vh"
+      marca={{ etiqueta: 'Historial', nombre: n.grande, foto: miniatura(re.ejercicio) }}>
+      {!u ? <div style={{ ...tarjetaHoja, fontSize: 14, color: TEXT_MUTED }}>{NADA_AUN}</div> : (<>
+        {(rec || subio != null) && (
+          <div style={{ display: 'flex', gap: 10 }}>
+            {rec && (
+              <div data-tu-record style={{ ...tarjetaHoja, flex: 1, minWidth: 0 }}>
+                <div style={rotuloHoja}>Tu récord</div>
+                <div data-record style={{ fontSize: 24, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                  {rec.peso ? `${coma(convertir(rec.peso, rec.unidad || 'kg', unidad))} ${unidad}` : `${rec.reps} reps${lado ? ' por lado' : ''}`}
+                </div>
+                <div style={{ fontSize: 12, color: TEXT_LIGHT }}>{rec.peso ? `${rec.reps} reps${lado ? ' por lado' : ''} · ` : ''}{fechaCorta(rec.fecha)}</div>
               </div>
-              <div data-record style={{ fontSize: 24, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-                {u.record.peso ? `${coma(convertir(u.record.peso, u.record.unidad || 'kg', unidad))} ${unidad}` : `${u.record.reps} reps${lado ? ' por lado' : ''}`}
-                <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED, marginLeft: 8 }}>{u.record.peso ? `${u.record.reps} reps${lado ? ' por lado' : ''} · ` : ''}{fechaCorta(u.record.fecha)}</span>
+            )}
+            {subio != null && (
+              <div data-subiste style={{ ...tarjetaHoja, flex: 1, minWidth: 0 }}>
+                <div style={rotuloHoja}>Desde el {fechaCorta(pri.fecha)}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: subio > 0 ? '#2F7F45' : TEXT, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                  {subio > 0 ? '+' : ''}{coma(subio)} {unidad}
+                </div>
+                <div style={{ fontSize: 12, color: TEXT_LIGHT }}>{puntos.length} sesiones</div>
               </div>
-            </div>
+            )}
           </div>
         )}
-        <div data-ultima style={{ ...cajaHoja, fontSize: 15, color: TEXT, lineHeight: 1.6 }}>
-          <div style={{ fontSize: 12.5, color: TEXT_MUTED, fontWeight: 650, marginBottom: 2 }}>La última vez · {fechaCorta(u.fecha)}</div>
-          {lineasUltima(u.series, lado, opciones).map(l => <div key={l}>{l}</div>)}
+        <div data-ultima style={tarjetaHoja}>
+          <div style={{ ...rotuloHoja, marginBottom: 4 }}>La última vez · {fechaCorta(u.fecha)}</div>
+          {series.map((x, i) => {
+            const reps = x.reps != null ? `${x.reps} reps${lado ? ' por lado' : ''}` : '';
+            const peso = soloReps && !x.peso ? '' : x.peso ? `${coma(convertir(x.peso, x.unidad || 'kg', unidad))} ${unidad}` : 'sin peso';
+            return (
+              <div key={i} aria-label={lineasUltima([x], lado, opciones)[0]} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', fontSize: 15, color: TEXT }}>
+                <span aria-hidden="true" style={{ width: 22, height: 22, borderRadius: 99, background: '#FFFFFF', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700, color: '#636366', flex: 'none' }}>{x.serie}</span>
+                <span aria-hidden="true" style={{ flex: 1 }}>{reps}</span>
+                {peso && <b aria-hidden="true" style={{ fontWeight: 800 }}>{peso}</b>}
+              </div>
+            );
+          })}
         </div>
         {puntos.length >= 2 && (
-          <div data-progreso-pesos style={{ ...cajaHoja, paddingBottom: 10 }}>
-            <div style={{ fontSize: 12.5, color: TEXT_MUTED, fontWeight: 650, marginBottom: 6 }}>
-              Progreso de pesos · lo más pesado de cada sesión
-            </div>
+          <div data-progreso-pesos style={{ ...tarjetaHoja, paddingBottom: 10 }}>
+            <div style={{ ...rotuloHoja, marginBottom: 6 }}>Progreso de pesos</div>
             <GraficaPesos puntos={puntos} unidad={unidad} />
           </div>
         )}
         {antes.length > 0 && (
           <button onClick={() => setTodas(v => !v)} style={{
-            marginTop: 12, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
+            marginTop: 4, border: 'none', background: 'transparent', padding: '10px 0', cursor: 'pointer',
             fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: AZUL_TINTA,
           }}>{todas ? 'Ocultar las anteriores' : `Ver las ${antes.length} sesiones anteriores`}</button>
         )}
         {todas && antes.map(h => (
-          <div key={h.fecha} style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}`, fontSize: 13.5, color: TEXT_MUTED, lineHeight: 1.55 }}>
+          <div key={h.fecha} style={{ ...tarjetaHoja, fontSize: 13.5, color: TEXT_MUTED, lineHeight: 1.55 }}>
             <div style={{ fontWeight: 700, color: TEXT }}>{fechaCorta(h.fecha)}</div>
             {lineasUltima(h.series, lado, opciones).map(l => <div key={l}>{l}</div>)}
           </div>

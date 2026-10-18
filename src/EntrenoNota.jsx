@@ -6,7 +6,9 @@
 // del que habla: así no hay que adivinar a qué se refiere.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
-import { api } from './entrenoDatos.js';
+import { ChatCircleText } from '@phosphor-icons/react';
+import { api, miniatura } from './entrenoDatos.js';
+import { v2Activa, nombresEj } from './v2.js';
 import { Hoja, Boton, TEXT, TEXT_MUTED, TEXT_LIGHT, BORDER, SURFACE_2 } from './entrenoUI.jsx';
 
 const SUGERENCIAS = {
@@ -35,7 +37,8 @@ export default function HojaNota({ abierta, nombre, contexto, alCerrar }) {
   };
 
   return (
-    <Hoja abierta={abierta} alCerrar={alCerrar} titulo={`Nota para tu coach · ${contexto.titulo}`} alto="78vh">
+    <Hoja abierta={abierta} alCerrar={alCerrar} titulo={`Nota para tu coach · ${contexto.titulo}`} alto="78vh"
+      marca={v2Activa() ? { etiqueta: 'Nota al coach', nombre: contexto.ejercicio ? nombresEj(contexto.ejercicio).grande : contexto.titulo, foto: contexto.ejercicio ? miniatura(contexto.ejercicio) : null, Icono: ChatCircleText } : null}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
         {SUGERENCIAS[tipo].map(s => (
           <button key={s} onClick={() => setTexto(t => (t ? `${t} ${s}` : s))} style={{

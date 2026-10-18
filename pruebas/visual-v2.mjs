@@ -985,6 +985,7 @@ try {
   await p.mouse.wheel(0, 500); await espera(400);
   ok('la ficha se deja recorrer con scroll', await hs.evaluate(el => el.scrollHeight > el.clientHeight && el.scrollTop > 0));
   ok('características con los músculos marcados', await p.getByText(/^Principal:/).first().isVisible());
+  ok('ficha: la misma franja de marca arriba («FICHA» y el nombre)', await p.locator('[data-hoja-marca]').evaluate(el => /Ficha/i.test(el.innerText) && el.querySelector('[data-hoja-nombre]').textContent.trim().length > 2));
   await foto(p, '04e-ficha-scroll');
   // El video del ejercicio: limpio, en bucle, sin sonido ni controles
   const play = p.locator('[data-hoja-scroll] button').filter({ hasText: '▶' }).first();
@@ -1028,8 +1029,12 @@ try {
   await p.mouse.move(195, 700); await p.mouse.wheel(0, 600); await espera(300);
   ok('con la hoja abierta la rutina de atrás no se mueve', (await scRut()) === antesSc, `${antesSc} → ${await scRut()}`);
   await foto(p, '04d-tu-record');
-  ok('historial: arriba el récord, el peso más alto en la unidad elegida', (await p.getByText(/El peso más alto que has levantado/).count()) === 1
+  ok('historial: arriba el récord, el peso más alto en la unidad elegida', (await p.locator('[data-tu-record]').getByText(/^Tu récord$/).count()) === 1
     && /lb/.test(await p.locator('[data-record]').textContent()), await p.locator('[data-record]').textContent());
+  // Opción B: la franja de Entrenamiento arriba con la foto, «HISTORIAL» y el nombre.
+  ok('historial: arriba la franja de marca con la foto, qué ventana es y el nombre', await p.locator('[data-hoja-marca]').evaluate(el =>
+    /Historial/i.test(el.innerText) && /Bench Press/.test(el.querySelector('[data-hoja-nombre]').textContent) && !!el.querySelector('img')
+    && parseFloat(getComputedStyle(el.querySelector('[data-hoja-nombre]')).fontSize) >= 19));
   await p.keyboard.press('Escape');
   await espera(300);
   const banca = p.locator('[data-ejercicio="Barbell Bench Press"]');
@@ -1050,11 +1055,20 @@ try {
     await banca.getByLabel('Repeticiones serie 1').evaluate(el => String(el.getBoundingClientRect().width)));
   await banca.getByRole('button', { name: /Historial/ }).click();
   await p.locator('[data-ultima]').waitFor({ timeout: 5000 });
-  ok('historial: la última vez serie por serie, pasado a lb', (await p.locator('[data-ultima]').getByText(/^Serie 1: 8 reps · 157 lb$/).count()) === 1,
+  ok('historial: la última vez serie por serie, pasado a lb', (await p.locator('[data-ultima] [aria-label="Serie 1: 8 reps · 157 lb"]').count()) === 1,
     await p.locator('[data-ultima]').textContent());
+  ok('historial: al lado del récord, cuánto ha subido desde la primera sesión', /Desde el .+\n\+?[\d,]+ lb\n\d+ sesiones/.test(await p.locator('[data-subiste]').innerText()),
+    await p.locator('[data-subiste]').innerText());
   ok('historial: la gráfica de progreso de pesos, de la primera a la última sesión', (await p.locator('[data-progreso-pesos] svg[data-grafica-pesos]').count()) === 1
     && /157 lb/.test(await p.locator('[data-grafica-pesos]').textContent()));
   await foto(p, '04f-historial');
+  await p.keyboard.press('Escape');
+  await espera(300);
+  await banca.getByRole('button', { name: /Nota/ }).click();
+  await p.locator('[data-hoja-marca]').waitFor({ timeout: 5000 });
+  ok('nota al coach: la misma franja de marca, con la foto del ejercicio y su nombre', await p.locator('[data-hoja-marca]').evaluate(el =>
+    /Nota al coach/i.test(el.innerText) && /Bench Press/.test(el.querySelector('[data-hoja-nombre]').textContent) && !!el.querySelector('img')),
+    await p.locator('[data-hoja-marca]').innerText().catch(() => 'sin franja'));
   await p.keyboard.press('Escape');
   await espera(300);
   // Escribir no es hacer: con números sin marcar la fila queda en ámbar; un

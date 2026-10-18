@@ -179,7 +179,11 @@ export function Fallo({ motivo, alReintentar }) {
 // Para el detalle del ejercicio y el registro de actividad. En el teléfono
 // una hoja se cierra deslizando y no pierde el contexto de atrás, que es lo
 // que se quiere cuando estás a media rutina.
-export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh' }) {
+// `marca` (Historial, Nota al coach, Ficha): arriba va la franja del color de
+// Entrenamiento, como las cabeceras, con la foto del ejercicio (o un ícono),
+// qué ventana es y el nombre en grande. Así se siente de la app y no una
+// ventana genérica. { etiqueta, nombre, chico?, foto?, Icono? }
+export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca = null }) {
   // Con la hoja abierta, el fondo no debe moverse: en el móvil el scroll se
   // "contagia" a la página de atrás y al cerrar apareces en otro sitio.
   // Ojo: la página de atrás no es el <body> sino la capa de la sección
@@ -221,6 +225,7 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh' }) {
         {/* La barrita de arrastre va en su propia fila, no superpuesta: al
             posicionarla absoluta sobre la cabecera se cruzaba encima del
             título de los ejercicios con nombre largo. */}
+        {marca ? <CabezaMarca marca={marca} alCerrar={alCerrar} /> : (<>
         <div style={{ padding: '8px 0 0', flexShrink: 0 }}>
           <div style={{ width: 36, height: 4, borderRadius: 999, background: BORDER, margin: '0 auto' }} />
         </div>
@@ -234,6 +239,7 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh' }) {
             width: 30, height: 30, borderRadius: 999, fontSize: 15, cursor: 'pointer', flexShrink: 0,
           }}>✕</button>
         </div>
+        </>)}
         {/* minHeight 0: sin esto el área no se encoge dentro de la hoja,
             el contenido se desborda y NO hay scroll (el fallo de «Ficha»,
             «Nota» y «Tu récord» en el teléfono). */}
@@ -246,6 +252,39 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh' }) {
     </div>
   );
   return typeof document !== 'undefined' ? createPortal(hoja, document.body) : hoja;
+}
+
+// La cabecera de marca de la hoja (ver `marca` arriba).
+export const FONDO_TARJETA_HOJA = '#F6F6F8';
+function CabezaMarca({ marca, alCerrar }) {
+  const { etiqueta, nombre, chico, foto, Icono } = marca;
+  return (
+    <div data-hoja-marca style={{ background: 'linear-gradient(180deg, #C8CCD2 0%, #E2E4E8 100%)', padding: '8px 18px 16px', flexShrink: 0 }}>
+      <div style={{ width: 36, height: 5, borderRadius: 999, background: 'rgba(255,255,255,0.7)', margin: '0 auto 4px' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
+        {(foto || Icono) && (
+          <span aria-hidden="true" style={{
+            width: foto ? 56 : 44, height: 44, borderRadius: 12, overflow: 'hidden', flex: 'none',
+            background: foto ? '#9AA08F' : 'rgba(255,255,255,0.75)', display: 'grid', placeItems: 'center',
+          }}>
+            {foto ? <img src={foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              : <Icono size={22} color="#1D1D1F" />}
+          </span>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#454B54' }}>{etiqueta}</div>
+          <div data-hoja-nombre style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15, color: '#1D1D1F' }}>{nombre}</div>
+          {chico && <div style={{ fontSize: 12.5, color: '#5F6670', marginTop: 2 }}>{chico}</div>}
+        </div>
+        <button onClick={alCerrar} aria-label="Cerrar" style={{
+          border: 'none', background: 'rgba(255,255,255,0.75)', width: 30, height: 30, borderRadius: 999,
+          cursor: 'pointer', flexShrink: 0, display: 'grid', placeItems: 'center', padding: 0,
+        }}>
+          <svg viewBox="0 0 256 256" width="13" height="13" fill="#3A3A3C" aria-hidden="true"><path d="M208.49,191.51a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.52a12,12,0,0,1,17,17L145,128Z" /></svg>
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ── Barra de progreso ─────────────────────────────────────────────────────
