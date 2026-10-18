@@ -2,7 +2,9 @@
 // LOS PITIDOS DEL DESCANSO
 //
 // Al empezar el descanso (al marcar la serie) suena una nota corta, y al
-// acabar, dos notas y vibra, para quien no está mirando la pantalla.
+// acabar, una ALARMA corta (bip-bip-bip-bip, dos veces, como la de un reloj
+// deportivo) y vibra, para quien no está mirando la pantalla. Dos notas
+// suaves no se oían en el gimnasio.
 //
 // Va por dos caminos a la vez, porque el iPhone pone trabas:
 //  · Web Audio: el pitido del final se deja PROGRAMADO en el reloj del audio
@@ -20,10 +22,29 @@
 let audio = null;
 let listo = false;
 
-// Dos notas (La5 y Re6), 44,1 kHz, mono, 16 bits, con ataque y caída suaves.
+// La alarma del final: dos tandas de cuatro bips cortos y agudos (~1,2 s).
+// Agudo (2 kHz) y con onda cuadrada: es lo que mejor se oye por el altavoz
+// del teléfono, aunque haya música o ruido alrededor.
+const F_ALARMA = 2093;
+const BIP = 0.07, ENTRE_BIPS = 0.05, ENTRE_TANDAS = 0.24;
+const BIPS_ALARMA = (() => {
+  const t = []; let a = 0;
+  for (let g = 0; g < 2; g++) {
+    for (let k = 0; k < 4; k++) { t.push(a); a += BIP + ENTRE_BIPS; }
+    a += ENTRE_TANDAS - ENTRE_BIPS;
+  }
+  return t;
+})();
+
+// La misma alarma en WAV, 22 kHz, mono, 16 bits (el respaldo <audio>).
 function wavDataUri() {
   const sr = 22050;
-  const notas = [[880, 0.14], [0, 0.07], [1174.7, 0.2]];
+  const notas = [];
+  BIPS_ALARMA.forEach((t, i) => {
+    const antes = i ? t - (BIPS_ALARMA[i - 1] + BIP) : 0;
+    if (antes > 0) notas.push([0, antes]);
+    notas.push([F_ALARMA, BIP]);
+  });
   const total = Math.round(sr * notas.reduce((a, n) => a + n[1], 0));
   const datos = new Int16Array(total);
   let i = 0;
@@ -32,8 +53,11 @@ function wavDataUri() {
     for (let k = 0; k < n; k++, i++) {
       if (!f) { datos[i] = 0; continue; }
       const t = k / sr;
-      const env = Math.min(1, k / (sr * 0.012), (n - k) / (sr * 0.04));
-      datos[i] = Math.round(Math.sin(2 * Math.PI * f * t) * 0.55 * env * 32767);
+      const env = Math.min(1, k / (sr * 0.004), (n - k) / (sr * 0.012));
+      // Cuadrada suavizada (fundamental + 3.º y 5.º armónicos): suena a alarma.
+      const w = 2 * Math.PI * f * t;
+      const onda = Math.sin(w) + Math.sin(3 * w) / 3 + Math.sin(5 * w) / 5;
+      datos[i] = Math.round(onda * 0.5 * env * 32767);
     }
   }
   const buf = new ArrayBuffer(44 + datos.length * 2);
@@ -73,11 +97,11 @@ function contexto() {
 const vivo = () => !!ctx && ctx.state === 'running';
 
 // Una nota con ataque y caída suaves, a la hora `t` del reloj del audio.
-function nota(c, f, t, dur, vol = 0.32) {
+function nota(c, f, t, dur, vol = 0.32, tipo = 'sine') {
   const o = c.createOscillator(), g = c.createGain();
-  o.type = 'sine'; o.frequency.value = f;
+  o.type = tipo; o.frequency.value = f;
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(vol, t + (tipo === 'sine' ? 0.012 : 0.004));
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(g); g.connect(c.destination);
   o.start(t); o.stop(t + dur + 0.02);
@@ -125,7 +149,7 @@ export function programarFinDescanso(seg) {
   if (!c || !(seg > 0)) return null;
   try {
     const t = c.currentTime + seg;
-    const nodos = [nota(c, 880, t, 0.14), nota(c, 1174.7, t + 0.21, 0.22)];
+    const nodos = BIPS_ALARMA.map(d => nota(c, F_ALARMA, t + d, BIP, 0.2, 'square'));
     return { cancelar: () => nodos.forEach(o => { try { o.stop(); } catch (e) {} }), vivo: vivo() };
   } catch (e) { return null; }
 }

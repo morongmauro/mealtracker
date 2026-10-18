@@ -1795,16 +1795,16 @@ try {
   await n.p.locator('[data-ejercicio="Barbell Bench Press"]').getByRole('button', { name: 'Marcar serie 1' }).click();
   await espera(300);
   ok('descanso: al marcar la serie arranca el descanso del ejercicio', (await n.p.locator('[data-descanso="contando"]').count()) === 1);
-  // Al marcar: una nota corta ya, y el pitido del final (dos notas) queda programado a los 2 min.
-  ok('descanso: suena al empezar y el pitido del final queda programado para cuando acaba', await n.p.evaluate(() => {
-    const ns = window.__notas;
-    return ns.some(x => x.t < 0.5) && ns.filter(x => x.t > 110 && x.t < 125).length === 2;
+  // Al marcar: una nota corta ya, y la alarma del final (dos tandas de 4 bips agudos) queda programada a los 2 min.
+  ok('descanso: suena al empezar y la alarma corta del final queda programada para cuando acaba', await n.p.evaluate(() => {
+    const ns = window.__notas, fin = ns.filter(x => x.t > 110 && x.t < 125);
+    return ns.some(x => x.t < 0.5) && fin.length === 8 && fin.every(x => x.f > 1500);
   }), await n.p.evaluate(() => JSON.stringify(window.__notas)));
   // El reloj salta al final del descanso: suena el pitido y vibra.
   await n.ctx.clock.setFixedTime(new DateReal(FIJO + 130000));
   await espera(900);
   ok('descanso: al acabar, la barra dice «Listo» y suena el pitido (dos notas) para quien no mira la pantalla', (await n.p.locator('[data-descanso="listo"]').count()) === 1
-    && await n.p.evaluate(() => window.__sonidos >= 1 || window.__notas.filter(x => x.t > 110).length === 2), await n.p.evaluate(() => 'sonidos=' + window.__sonidos));
+    && await n.p.evaluate(() => window.__sonidos >= 1 || window.__notas.filter(x => x.t > 110).length === 8), await n.p.evaluate(() => 'sonidos=' + window.__sonidos));
   await n.ctx.clock.setFixedTime(new DateReal(FIJO));
   await n.p.locator('[data-descanso]').getByRole('button', { name: 'Cerrar' }).click();
   await espera(300);
@@ -1820,7 +1820,7 @@ try {
   await espera(400);
   ok('por tiempo: la ventanita negra cuenta el ejercicio, con pitido al empezar y el del final a los 30 s', /Child's Pose/.test(await n.p.locator('[data-cuenta-ejercicio]').innerText())
     && /0:(30|29)/.test(await n.p.locator('[data-cuenta-ejercicio]').innerText())
-    && await n.p.evaluate(() => window.__notas.some(x => x.t < 0.5) && window.__notas.filter(x => x.t > 25 && x.t < 35).length === 2),
+    && await n.p.evaluate(() => window.__notas.some(x => x.t < 0.5) && window.__notas.filter(x => x.t > 25 && x.t < 35).length === 8),
     await n.p.evaluate(() => JSON.stringify(window.__notas)));
   await n.ctx.clock.setFixedTime(new DateReal(FIJO + 40000));
   await espera(900);
