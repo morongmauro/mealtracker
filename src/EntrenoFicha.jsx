@@ -168,10 +168,7 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
                   alto={230}
                 />
               </div>
-              <div style={{ fontSize: 13.5, color: TEXT, marginTop: 8, lineHeight: 1.5 }}>
-                <b>Principal:</b> {nombresMusculos(e.musculos_primarios).join(', ') || '—'}
-                {(e.musculos_secundarios || []).length > 0 && <><br /><b>También trabaja:</b> {nombresMusculos(e.musculos_secundarios).join(', ')}</>}
-              </div>
+              {/* «Principal» y «También trabaja» ya van en la leyenda de la figura. */}
             </div>
           )}
           {verCaracs && (

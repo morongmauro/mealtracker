@@ -715,7 +715,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   // Campos grises sin borde; al tocarlos, blancos con contorno grafito. Ya
   // marcada, la serie queda en limpio: los números en negrita, sin caja.
   const campo = (malo) => ({
-    width: '100%', height: 36, padding: '0 6px', borderRadius: 11, textAlign: 'center', border: 'none',
+    width: '100%', height: 34, padding: '0 6px', borderRadius: 10, textAlign: 'center', border: 'none',
     background: hecha ? 'transparent' : CAMPO,
     boxShadow: malo ? 'inset 0 0 0 1.5px #D9785F' : 'none',
     fontSize: 16, fontWeight: 700, color: TEXT, outline: 'none', opacity: 1, WebkitTextFillColor: TEXT,
@@ -724,7 +724,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
 
   return (
     <div data-serie={idSerie} data-escrita={escrita ? '1' : undefined} style={{
-      display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0',
+      display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0',
       borderRadius: 14, position: 'relative', overflow: 'hidden',
     }}>
       {brillo}
@@ -760,7 +760,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       )}
       <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`}
         title={escrita ? 'Falta marcar esta serie' : undefined} style={{
-        flex: 'none', width: 34, height: 34, borderRadius: 99, cursor: 'pointer', border: 'none',
+        flex: 'none', width: 32, height: 32, borderRadius: 99, cursor: 'pointer', border: 'none',
         background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
         color: hecha ? AMARILLO : '#C7C7CC', display: 'grid', placeItems: 'center',
       }}><Check size={16} weight="bold" /></button>

@@ -322,7 +322,7 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
 
   if (paso === 'nada') return null;
   return (
-    <VentanaMarca data-cuenta-v2={paso} paso={enEtapa} pasos={etapas.length} simbolo={v.simbolo} titulo={v.titulo} texto={v.texto}>
+    <VentanaMarca data-cuenta-v2={paso} paso={enEtapa} pasos={etapas.length} simbolo={v.simbolo} titulo={v.titulo} texto={v.texto} sinIcono={paso === 'entrar'}>
       {v.cuerpo}
     </VentanaMarca>
   );

@@ -1658,8 +1658,6 @@ function estadoCal(dia, hoy) {
   }
   return dia.hecho ? 'hecha' : null;
 }
-// «Lower + Core»: que el «+» no quede solo en un renglón.
-const nombreConMas = (t) => String(t || '').replace(/ \+ /g, ' + ');
 
 function ChipCal({ nombre, estado, arrastre }) {
   const hecha = estado === 'hecha';
@@ -1669,10 +1667,14 @@ function ChipCal({ nombre, estado, arrastre }) {
     : { background: GRIS_CAL, color: GRAFITO_CAL };
   return (
     <div {...(arrastre || {})} onContextMenu={e => e.preventDefault()} data-chip={hecha ? 'hecha' : estado === 'movida' ? 'movida' : estado === 'perdida' ? 'perdida' : 'pendiente'} style={{
-      ...st, borderRadius: 7, padding: '3px 3px', fontSize: 10.5, fontWeight: 700, lineHeight: 1.15, letterSpacing: '-0.03em', textAlign: 'left',
-      overflowWrap: 'normal', wordBreak: 'keep-all', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', cursor: arrastre ? 'grab' : 'pointer',
+      // Una sola línea, como el Calendario de Apple en vista de mes: el nombre
+      // se recorta con un desvanecido al borde (completo al tocar el día).
+      ...st, borderRadius: 7, padding: '3px 4px', fontSize: 10.5, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.03em', textAlign: 'left',
+      whiteSpace: 'nowrap', overflow: 'hidden',
+      WebkitMaskImage: 'linear-gradient(90deg, #000 78%, transparent)', maskImage: 'linear-gradient(90deg, #000 78%, transparent)',
+      WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', cursor: arrastre ? 'grab' : 'pointer',
     }}>
-      {nombreConMas(nombre)}
+      {String(nombre || '').replace(/ \+ /g, '+')}
     </div>
   );
 }

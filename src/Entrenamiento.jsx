@@ -1173,16 +1173,15 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
       )}
 
       {datos.ejercicios.length > 0 && v2 && (
-        // Visual nueva (estilo Apple): cápsula grafito que se ve siempre; antes
-        // de la primera serie, con contorno, y rellena en cuanto se entrena.
+        // Visual nueva (estilo Apple): cápsula grafito rellena siempre: es el
+        // botón principal de la pantalla (con contorno parecía apagado).
         <button data-terminar
           onClick={() => { setDescanso(null); setErrorCierre(null); setCerrandoHoja(true); }}
           style={{
             width: '100%', marginTop: 14, height: 54, borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            border: 0, boxShadow: hechas > 0 ? '0 10px 24px -10px rgba(0,0,0,0.45)' : 'inset 0 0 0 1.5px #1D1D1F',
-            background: hechas > 0 ? '#1D1D1F' : '#FFFFFF',
-            color: hechas > 0 ? '#fff' : '#1D1D1F',
+            border: 0, boxShadow: '0 10px 24px -10px rgba(0,0,0,0.45)',
+            background: '#1D1D1F', color: '#fff',
             fontSize: 16, fontWeight: 750,
           }}>
           <CheckCircle size={20} weight="bold" />
@@ -1880,7 +1879,7 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
             onClick={() => { if (rpe) onCerrar(rpe, nota); }} disabled={guardando || !rpe}
             style={{
               width: '100%', marginTop: 14, padding: '15px 18px', borderRadius: 15, border: 0,
-              background: rpe ? ACCENT_DARK : BORDER, color: rpe ? '#fff' : TEXT_LIGHT, fontSize: 15, fontWeight: 700,
+              background: rpe ? '#1D1D1F' : BORDER, color: rpe ? '#fff' : TEXT_LIGHT, fontSize: 15, fontWeight: 700,   // grafito: la acción principal
               cursor: guardando || !rpe ? 'default' : 'pointer', opacity: guardando ? 0.7 : 1,
               fontFamily: 'inherit',
             }}>{guardando ? 'Guardando…' : rpe ? 'Enviar a mi coach' : 'Elige tu intensidad'}</button>

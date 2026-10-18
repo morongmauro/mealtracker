@@ -274,7 +274,9 @@ function Conteo({ n, texto, color, fondo }) {
 
 // Una línea de 2px con su punto final. Sin ejes: es una tendencia, y el número
 // que importa va escrito al lado.
-function Linea({ puntos, color, alto = 46, textoValor }) {
+// `extremos(p)`: el texto del primer y el último punto, que van debajo de la
+// línea en sus puntas (de dónde partiste y dónde vas), sin tener que tocarla.
+function Linea({ puntos, color, alto = 46, textoValor, extremos }) {
   const [ref, ancho] = useAncho();
   const [sel, setSel] = useState(null);
   const vals = puntos.map(p => p.v);
@@ -310,6 +312,12 @@ function Linea({ puntos, color, alto = 46, textoValor }) {
         <circle cx={x(sel ?? ult)} cy={y(puntos[sel ?? ult].v)} r="4.5" fill={color} />
       </svg>}
       {textoValor && sel != null && <Globo x={x(sel)} ancho={ancho} texto={textoValor(puntos[sel])} />}
+      {extremos && puntos.length >= 2 && (
+        <div data-extremos style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12.5, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>
+          <span>{extremos(puntos[0])}</span>
+          <span style={{ color: TEXT, fontWeight: 650 }}>{extremos(puntos[ult])}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -1136,14 +1144,14 @@ function Cuerpo({ medidas, cargando, alMedir }) {
             <div data-linea-peso style={{ marginTop: 12 }}>
               <div style={{ fontSize: 13, color: TEXT_MUTED }}>Peso desde el {fechaCorta(conPeso[0].fecha)}</div>
               <Linea puntos={conPeso.map(m => ({ v: m.peso, fecha: m.fecha }))} color={AMBAR} alto={52}
-                textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} />
+                textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} extremos={(p) => `${fmt(p.v, 1)} kg · ${fechaCorta(p.fecha)}`} />
             </div>
           )}
           {conGrasa.length >= 2 && (
             <div data-linea-grasa style={{ marginTop: 10 }}>
               <div style={{ fontSize: 13, color: TEXT_MUTED }}>% de grasa desde el {fechaCorta(conGrasa[0].fecha)}</div>
               <Linea puntos={conGrasa.map(m => ({ v: m.grasa_pct, fecha: m.fecha }))} color={GRASA} alto={52}
-                textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} %`} />
+                textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} %`} extremos={(p) => `${fmt(p.v, 1)} % · ${fechaCorta(p.fecha)}`} />
             </div>
           )}
         </>
@@ -1222,7 +1230,9 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
         <span aria-hidden="true" data-icono-hoy style={{ width: 22, height: 22, flex: 'none', color: it.color, display: 'grid', placeItems: 'center' }}><it.Icono size={19} weight="regular" /></span>
       )}
       <button onClick={it.ir || it.marcar || undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: '6px 4px 6px 0', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: TEXT, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: hecho ? 'line-through' : 'none' }}>{it.texto}</span>
+        {/* Peso normal (no negrita en cada renglón) y hasta dos líneas: el
+            texto completo, sin «…» a la mitad. */}
+        <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 500, color: TEXT, lineHeight: 1.3, letterSpacing: '-0.005em', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden', textDecoration: hecho ? 'line-through' : 'none' }}>{it.texto}</span>
         {it.ir && !hecho && <CaretRight size={16} color={TEXT_LIGHT} style={{ flex: 'none' }} />}
       </button>
     </div>

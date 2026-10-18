@@ -836,7 +836,8 @@ export default function MealTracker() {
     const onScroll = (e) => {
       const el = e.target === document ? document.scrollingElement : e.target;
       if (!el || typeof el.scrollTop !== 'number') return;
-      const y = el.scrollTop, antes = ultimo.has(el) ? ultimo.get(el) : y;
+      // La primera vez que se mueve una capa se cuenta desde arriba (0).
+      const y = el.scrollTop, antes = ultimo.has(el) ? ultimo.get(el) : 0;
       ultimo.set(el, y);
       if (y <= 24) { setPildoraChica(false); return; }
       if (y - antes > 6) setPildoraChica(true);
@@ -6043,8 +6044,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       </div>
 
       {/* Input bar */}
-      {/* Jump-to-latest floating arrow — appears when scrolled away from bottom */}
-      {showJumpToLatest && tab === 'chat' && (
+      {/* Jump-to-latest floating arrow — appears when scrolled away from bottom.
+          Solo con el chat a la vista: la pestaña sigue en «chat» aunque
+          encima esté el Dash, Entrenamiento, Aprendizaje o el Recetario. */}
+      {showJumpToLatest && tab === 'chat' && !showDash && !showTraining && !showLearning && !showRecetario && (
         <button
           onClick={() => { haptic(6); const sc = chatScrollRef.current; if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' }); }}
           className="fixed z-40 rounded-full transition active:scale-95 flex items-center justify-center"

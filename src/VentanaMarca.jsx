@@ -79,7 +79,8 @@ export function SimboloVentana({ children }) {
 }
 
 // `paso`/`pasos`: los puntitos de avance (sin ellos, no se muestran).
-export default function VentanaMarca({ paso = null, pasos = 0, simbolo = null, titulo, texto, children, z = 9000, ...resto }) {
+// `sinIcono`: sin el ícono de la app arriba (la de la contraseña ya lleva el candado).
+export default function VentanaMarca({ paso = null, pasos = 0, simbolo = null, titulo, texto, children, z = 9000, sinIcono = false, ...resto }) {
   return (
     <div data-ventana-marca {...resto} role="dialog" aria-modal="true" aria-label={typeof titulo === 'string' ? titulo : undefined} style={{
       position: 'fixed', inset: 0, zIndex: z, overflowY: 'auto', color: GRAFITO,
@@ -92,7 +93,7 @@ export default function VentanaMarca({ paso = null, pasos = 0, simbolo = null, t
           ícono y la tarjeta juntos, en el medio. Si no cabe, se desliza. */}
       <div style={{ position: 'relative', minHeight: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: 460, margin: '0 auto',
         padding: 'calc(env(safe-area-inset-top, 0px) + 28px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px)', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 20 }}><IconoApp tam={78} /></div>
+        {!sinIcono && <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 20 }}><IconoApp tam={78} /></div>}
         <div className="vm-tarjeta" style={{
           background: 'rgba(255,255,255,0.72)', WebkitBackdropFilter: 'blur(30px) saturate(1.4)', backdropFilter: 'blur(30px) saturate(1.4)',
           borderRadius: 32, boxShadow: '0 30px 60px rgba(40,40,50,0.12), inset 0 0 0 1px rgba(255,255,255,0.7)', padding: '26px 22px 18px',

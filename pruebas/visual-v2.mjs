@@ -919,8 +919,8 @@ try {
     const a = c('calentamiento'), b = c('fuerza');
     return !!a && !!b && a !== b;
   }));
-  ok('el botón de terminar se ve (cápsula con contorno grafito antes de empezar)', await p.locator('[data-terminar]').evaluate(b => {
-    const cs = getComputedStyle(b); return /inset/.test(cs.boxShadow) && cs.color === 'rgb(29, 29, 31)' && parseFloat(cs.borderTopLeftRadius) >= 27;
+  ok('el botón de terminar se ve (cápsula grafito rellena, el principal de la pantalla)', await p.locator('[data-terminar]').evaluate(b => {
+    const cs = getComputedStyle(b); return cs.backgroundColor === 'rgb(29, 29, 31)' && cs.color === 'rgb(255, 255, 255)' && parseFloat(cs.borderTopLeftRadius) >= 27;
   }));
   ok('rutina estilo Apple: el primer ejercicio sin terminar dice AHORA, video chico al lado, campos grises sin borde', await p.evaluate(() => {
     const ahora = document.querySelectorAll('[data-ahora="1"]');
@@ -1106,8 +1106,10 @@ try {
   }));
   ok('mes: casillas compactas y nombres cortos', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => { const h = el.getBoundingClientRect().height; return h >= 66 && h <= 90; })
     && (await cal.getByText(/Training/).count()) === 0, String(await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => el.getBoundingClientRect().height)));
-  ok('mes: cada día con rutina dice su nombre, entero y legible', await cal.locator('[data-vista="mes"] [data-chip]').evaluateAll(cs => cs.length >= 8
-    && cs.every(c => c.scrollWidth <= c.clientWidth + 1 && c.scrollHeight <= c.clientHeight + 1 && parseFloat(getComputedStyle(c).fontSize) >= 10.5 && c.textContent.trim().length > 1)));
+  // Como el Calendario de Apple: una sola línea, el nombre recortado con un
+  // desvanecido al borde (entero al tocar el día).
+  ok('mes: cada día con rutina dice su nombre en una sola línea legible', await cal.locator('[data-vista="mes"] [data-chip]').evaluateAll(cs => cs.length >= 8
+    && cs.every(c => getComputedStyle(c).whiteSpace === 'nowrap' && c.getBoundingClientRect().height <= 20 && parseFloat(getComputedStyle(c).fontSize) >= 10.5 && c.textContent.trim().length > 1)));
   ok('mes: la leyenda es pequeña y la ayuda va en una sola fila', await cal.locator('[data-leyenda]').evaluate(el => parseFloat(getComputedStyle(el).fontSize) <= 12)
     && /Cómo mover o añadir rutinas/.test(await cal.locator('[data-ten-en-cuenta]').innerText()));
   ok('por hacer en gris; hecha en grafito y con ✓ junto al día', await cal.locator('[data-vista="mes"] [data-chip="pendiente"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(242, 242, 247)' && getComputedStyle(el).color === 'rgb(29, 29, 31)')
