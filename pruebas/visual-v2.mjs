@@ -337,7 +337,7 @@ const ilusBien = (p, tema) => p.evaluate((tema) => {
   const bien = a.width >= 88 && b.left >= 0 && b.right <= innerWidth - 4 && derechaTexto <= b.left + 4
     && g.left >= a.left && g.right <= a.right && g.top >= a.top && g.bottom <= a.bottom && (g.right - g.left) <= 64 && opac === 1
     && k.top >= a.top && k.bottom <= a.bottom + 1 && Math.abs((k.left + k.right) / 2 - (a.left + a.right) / 2) <= 4 && f.top < a.bottom
-    && caja.dataset.tono === 'dos' && getComputedStyle(centro).color === 'rgb(31, 31, 31)'
+    && caja.dataset.tono === 'dos' && getComputedStyle(centro).color === 'rgb(255, 255, 255)'
     && (!pf || pf.top >= b.bottom - 2);
   if (!bien) console.log('ilusBien', tema, JSON.stringify({ g: [g.left, g.right, g.top, g.bottom], a: [a.left, a.right, a.top, a.bottom], b: [b.left, b.right, b.bottom], derechaTexto, opac, k: [k.left, k.top, k.bottom], tono: caja.dataset.tono }));
   return bien;
@@ -1118,10 +1118,10 @@ try {
   }));
   ok('mes: casillas compactas y nombres cortos', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => { const h = el.getBoundingClientRect().height; return h >= 66 && h <= 90; })
     && (await cal.getByText(/Training/).count()) === 0, String(await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => el.getBoundingClientRect().height)));
-  // Como el Calendario de Apple: una sola línea, el nombre recortado con un
-  // desvanecido al borde (entero al tocar el día).
-  ok('mes: cada día con rutina dice su nombre en una sola línea legible', await cal.locator('[data-vista="mes"] [data-chip]').evaluateAll(cs => cs.length >= 8
-    && cs.every(c => getComputedStyle(c).whiteSpace === 'nowrap' && c.getBoundingClientRect().height <= 20 && parseFloat(getComputedStyle(c).fontSize) >= 10.5 && c.textContent.trim().length > 1)));
+  // El nombre entero y sin desvanecido (Mauro no quiere degradado en los rectángulos).
+  ok('mes: cada día con rutina dice su nombre, entero y legible, sin desvanecido', await cal.locator('[data-vista="mes"] [data-chip]').evaluateAll(cs => cs.length >= 8
+    && cs.every(c => c.scrollWidth <= c.clientWidth + 1 && c.scrollHeight <= c.clientHeight + 1 && parseFloat(getComputedStyle(c).fontSize) >= 10.5 && c.textContent.trim().length > 1
+      && (getComputedStyle(c).maskImage || 'none') === 'none' && (getComputedStyle(c).webkitMaskImage || 'none') === 'none')));
   ok('mes: la leyenda es pequeña y la ayuda va en una sola fila', await cal.locator('[data-leyenda]').evaluate(el => parseFloat(getComputedStyle(el).fontSize) <= 12)
     && /Cómo mover o añadir rutinas/.test(await cal.locator('[data-ten-en-cuenta]').innerText()));
   ok('por hacer en gris; hecha en grafito y con ✓ junto al día', await cal.locator('[data-vista="mes"] [data-chip="pendiente"]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(242, 242, 247)' && getComputedStyle(el).color === 'rgb(29, 29, 31)')

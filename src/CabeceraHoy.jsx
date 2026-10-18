@@ -40,12 +40,12 @@ const pastel = (hex, f = 0.24) => {
 // grande sobre claro).
 export const TEMAS = {
   // Entrenamiento: grises con un toque de amarillo suave (mancha y frase).
-  entreno: { banda: ['#B9BFC7', '#CDD1D7'], m1: '#A3AAB3', m2: '#D5D9DE', m3: '#F4DC93', base: '#EFF0F2', tinta: '#C9A43E' },
-  comida:  { banda: ['#C3E3CB', '#D6EDDC'], m1: '#9CCFA8', m2: '#D7EEDC', m3: '#F7E1A0', base: '#F0F8F1', tinta: '#2F7F45' },
-  aprende: { banda: ['#F7CFAF', '#FADFCA'], m1: '#F6B98C', m2: '#FBE0CB', m3: '#A9C6EE', base: '#FDF3EA', tinta: '#C95F17' },
+  entreno: { banda: ['#888E97', '#90969E'], m1: '#A3AAB3', m2: '#D5D9DE', m3: '#F4DC93', base: '#EFF0F2', tinta: '#C9A43E' },
+  comida:  { banda: ['#7EB98D', '#87BD94'], m1: '#9CCFA8', m2: '#D7EEDC', m3: '#F7E1A0', base: '#F0F8F1', tinta: '#2F7F45' },
+  aprende: { banda: ['#F2A66B', '#F3AD78'], m1: '#F6B98C', m2: '#FBE0CB', m3: '#A9C6EE', base: '#FDF3EA', tinta: '#C95F17' },
   // El Dash, todo en azules: banda más intensa y manchas de varios tonos
   // de azul; la segunda línea de la frase, en el azul de la sección.
-  dash:    { banda: ['#86ADE5', '#A3C2EE'], m1: '#7FA6E2', m2: '#B9D0F3', m3: '#5E92DA', m4: '#D0DFF6', base: '#E3ECF9', tinta: '#2F6CC4' },
+  dash:    { banda: ['#5D92DD', '#6A9BE1'], m1: '#7FA6E2', m2: '#B9D0F3', m3: '#5E92DA', m4: '#D0DFF6', base: '#E3ECF9', tinta: '#2F6CC4' },
 };
 
 const CSS = `
@@ -191,7 +191,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
                   <div style={{ position: 'relative', width: ARO_G.objAncho, height: ARO_G.objAlto }}>
                     <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={objetoAnima} tono="dos" /></div>
                   </div>
-                  <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
+                  <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
                 </div>
               </AnilloMarca>
               </CapaActiva.Provider>
