@@ -158,7 +158,7 @@ export default function FiguraMusculos({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 14, height: alto }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: v2 ? 28 : 14, height: alto }}>
         {v2 ? (
           <>
             {cara !== 'espalda' && (

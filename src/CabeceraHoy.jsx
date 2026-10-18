@@ -186,7 +186,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
             <Blob color={pastel(color)} sombraColor={color} tam={ARO_G.blob} />
             <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
               <CapaActiva.Provider value={activo}>
-              <AnilloMarca plano frac={aro.frac} color={color} punto="#FFFFFF" tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.85)" etiqueta={aro.pie}>
+              <AnilloMarca plano frac={aro.frac} color={color} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.85)" etiqueta={aro.pie}>
                 <div style={{ display: 'grid', placeItems: 'center' }}>
                   <div style={{ position: 'relative', width: ARO_G.objAncho, height: ARO_G.objAlto }}>
                     <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={objetoAnima} tono="dos" /></div>

@@ -492,15 +492,17 @@ try {
   ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0)
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
   ok('Dash: el blob junto a la frase, con la brújula a dos colores y el porcentaje en grafito adentro del aro', await ilusBien(p, 'dash'));
-  ok('cabecera: el blob en tinte suave del azul, girado 12° con sombra suave de su color; encima el aro plano azul con riel blanco', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
+  // Opción B de los aros: azul pleno y una luz continua (tajadas de medio grado) hacia el punto blanco; sin sombras.
+  ok('cabecera: el blob en tinte suave del azul, girado 12° con sombra suave de su color; encima el aro azul con luz hacia la punta y riel blanco', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
     const an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob]');
     const path = blob && blob.querySelector('path');
     const m = new DOMMatrix(getComputedStyle(blob).transform); const giro = Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI);
     const sombra = /drop-shadow/.test(getComputedStyle(blob).filter) && getComputedStyle(blob).filter.includes('60, 123, 214');
-    const aroSinSombra = !an.querySelector('filter, mask') && !/drop-shadow/.test(getComputedStyle(an).filter);
+    const aroSinSombra = !an.querySelector('filter') && !/drop-shadow/.test(getComputedStyle(an).filter);
     const circulos = [...an.querySelectorAll('svg circle')];
     const riel = circulos.some(c => /rgba\(255, ?255, ?255, ?0\.85\)/.test(c.getAttribute('stroke') || ''));
-    const azul = circulos.some(c => (c.getAttribute('stroke') || '').toUpperCase() === '#3C7BD6');
+    const tajadas = [...an.querySelectorAll('g[mask] path')].map(x => x.getAttribute('fill'));
+    const azul = circulos.some(c => (c.getAttribute('fill') || '').toUpperCase() === '#3C7BD6') && tajadas.length > 100 && new Set(tajadas).size > 20;
     return an.dataset.plano === '1' && path && path.getAttribute('fill').toUpperCase() === '#D0DFF5' && giro === -12 && sombra && aroSinSombra && riel && azul;
   }));
 

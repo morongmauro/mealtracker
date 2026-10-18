@@ -5,7 +5,7 @@
 // aparte para que el calendario de comidas use EXACTAMENTE las mismas: el
 // Dash va en su propio chunk y el calendario vive en la app principal.
 // ─────────────────────────────────────────────────────────────────────────
-import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
 import { useCapaActiva } from './capaActiva.js';
 
@@ -196,27 +196,37 @@ const tonos = (color) => {
   return c ? { osc: mezcla(c, [0, 0, 0], 0.18), cla: mezcla(c, [255, 255, 255], 0.3) } : null;
 };
 
-// El trazo del aro con su degradado. `frac` es lo que se ve (se anima);
-// `objetivo`, hasta dónde llega (de ahí sale el degradado). El centro en
-// (m, m); empieza arriba y va en el sentido del reloj.
+// El trazo del aro (opción B de Mauro): el color pleno del módulo y, solo
+// en el último tramo, una luz suave que se aclara hasta la punta, donde va
+// el punto blanco. `frac` es lo que se ve (se anima); `objetivo`, hasta dónde
+// llega (de ahí sale dónde empieza la luz). El centro en (m, m); empieza
+// arriba y va en el sentido del reloj.
+// El degradado va en tajadas de medio grado que se montan un poco entre sí:
+// con las de 4° de antes se veían los escalones de tono a lo largo del trazo.
+const TRAMO_LUZ = 110;   // grados que dura la luz antes de la punta
 export function ArcoApple({ m, r, grosor, frac, objetivo = frac, color, transicion }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const t = tonos(color);
   const L = 2 * Math.PI * r;
   const visible = frac > 0 ? 1 : 0;
+  const G = Math.max(0.0001, Math.min(1, objetivo)) * 360;
+  const R = r + grosor;
+  const cuñas = useMemo(() => {
+    if (!t) return null;
+    const p = (a) => { const rad = a * Math.PI / 180; return `${(m + R * Math.sin(rad)).toFixed(2)},${(m - R * Math.cos(rad)).toFixed(2)}`; };
+    const desde = Math.max(0, G - TRAMO_LUZ), base = aRGB(color), luz = aRGB(t.cla);
+    const capa = ((grosor / 2) / r) * (180 / Math.PI) + 2;
+    const out = [];
+    for (let a = desde; a < G; a += 0.5) {
+      out.push(<path key={a} d={`M${m},${m} L${p(a)} A${R},${R} 0 0 1 ${p(Math.min(G + 0.3, a + 0.9))} Z`} fill={mezcla(base, luz, (a + 0.25 - desde) / (G - desde))} />);
+    }
+    // La tapa redonda de la punta, ya en el tono de la luz.
+    out.push(<path key="tapa" d={`M${m},${m} L${p(G)} A${R},${R} 0 0 1 ${p(Math.min(359.9, G + capa))} Z`} fill={t.cla} />);
+    return out;
+  }, [color, G, m, r, R, grosor]);
   if (!t) {
     return <circle cx={m} cy={m} r={r} fill="none" stroke={color} strokeWidth={grosor} strokeLinecap="round" transform={`rotate(-90 ${m} ${m})`}
       strokeDasharray={L} strokeDashoffset={L * (1 - frac)} style={{ transition: transicion, opacity: visible }} />;
-  }
-  const G = Math.max(0.0001, Math.min(1, objetivo)) * 360;
-  const capa = ((grosor / 2) / r) * (180 / Math.PI) + 2;
-  const R = r + grosor;
-  const p = (a) => { const rad = a * Math.PI / 180; return `${(m + R * Math.sin(rad)).toFixed(2)},${(m - R * Math.cos(rad)).toFixed(2)}`; };
-  const cuñas = [];
-  for (let a = 0; a < 360; a += 4) {
-    const medio = a + 2;
-    const fill = medio <= G ? mezcla(aRGB(t.osc), aRGB(t.cla), medio / G) : medio <= G + capa ? t.cla : t.osc;
-    cuñas.push(<path key={a} d={`M${m},${m} L${p(a)} A${R},${R} 0 0 1 ${p(Math.min(360, a + 4.6))} Z`} fill={fill} />);
   }
   return (
     <g>
@@ -226,26 +236,31 @@ export function ArcoApple({ m, r, grosor, frac, objetivo = frac, color, transici
             strokeDasharray={L} strokeDashoffset={L * (1 - frac)} style={{ transition: transicion }} />
         </mask>
       </defs>
-      <g mask={`url(#ma${id})`} style={{ opacity: visible, transition: 'opacity .2s' }}>{cuñas}</g>
+      <g mask={`url(#ma${id})`} style={{ opacity: visible, transition: 'opacity .2s' }}>
+        <circle cx={m} cy={m} r={R} fill={color} />
+        {cuñas}
+      </g>
     </g>
   );
 }
 
 // La punta: la tapa redonda con su sombrita y, encima, el punto blanco.
 // Va dentro de un grupo ya girado -90° (la punta en (m + r, m) al inicio).
-export function PuntaApple({ m, r, grosor, frac, color, transicion, radioPunto }) {
+export function PuntaApple({ m, r, grosor, frac, color, transicion, radioPunto, sombra = true }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const t = tonos(color);
   return (
     <g style={{ transform: `rotate(${frac * 360}deg)`, transformOrigin: `${m}px ${m}px`, transition: `transform ${transicion}, opacity .2s`, opacity: frac > 0.02 ? 1 : 0 }}>
       {t && (
         <>
-          <defs>
-            <filter id={`so${id}`} x="-100%" y="-100%" width="300%" height="300%">
-              <feDropShadow dx="0" dy="0" stdDeviation={Math.max(0.6, grosor * 0.16)} floodColor="#000" floodOpacity="0.3" />
-            </filter>
-          </defs>
-          <circle cx={m + r} cy={m} r={grosor / 2} fill={t.cla} filter={`url(#so${id})`} />
+          {sombra && (
+            <defs>
+              <filter id={`so${id}`} x="-100%" y="-100%" width="300%" height="300%">
+                <feDropShadow dx="0" dy="0" stdDeviation={Math.max(0.6, grosor * 0.16)} floodColor="#000" floodOpacity="0.3" />
+              </filter>
+            </defs>
+          )}
+          <circle cx={m + r} cy={m} r={grosor / 2} fill={t.cla} filter={sombra ? `url(#so${id})` : undefined} />
         </>
       )}
       <circle cx={m + r} cy={m} r={radioPunto ?? Math.max(1.5, grosor / 2 - 2.5)} fill="#FFFFFF" />
@@ -253,36 +268,23 @@ export function PuntaApple({ m, r, grosor, frac, color, transicion, radioPunto }
   );
 }
 
-// `plano`: sin degradado ni sombras, un solo color y su riel casi blanco
-// (las cabeceras, junto al objeto 3D). El punto blanco de la punta se queda.
-// `punto`: el color del punto de la punta (blanco; del módulo cuando el aro va en blanco).
-export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = null, etiqueta, plano = false, punto = '#FFFFFF', children }) {
+// `plano` (las cabeceras, junto al objeto 3D): el mismo trazo con su luz
+// hacia la punta, sobre un riel casi blanco y sin sombras. El punto blanco de
+// la punta se queda siempre.
+export function AnilloMarca({ frac, color, tam = 118, grosor = 11, riel = null, etiqueta, plano = false, children }) {
   const objetivo = Math.max(0, Math.min(1, Number(frac) || 0));
   const f = useDesdeCero(objetivo);
   const r = (tam - grosor) / 2, m = tam / 2;
   const curva = '1s cubic-bezier(.22,.8,.24,1)';
-  const L = 2 * Math.PI * r;
   return (
     <div data-anillo data-plano={plano ? '1' : undefined} style={{ position: 'relative', width: tam, height: tam, flex: 'none' }}>
       <svg width={tam} height={tam} role="img" aria-label={etiqueta} style={{ overflow: 'visible' }}>
         <circle cx={m} cy={m} r={r} fill="none" stroke={riel || rielDe(color, 0.07, RIEL)} strokeWidth={grosor} />
-        {plano ? (
-          <g transform={`rotate(-90 ${m} ${m})`}>
-            {f > 0.001 && <circle cx={m} cy={m} r={r} fill="none" stroke={color} strokeWidth={grosor} strokeLinecap="round"
-              strokeDasharray={`${L * f} ${L}`} style={{ transition: `stroke-dasharray ${curva}` }} />}
-            {/* El punto blanco de la punta se queda siempre, también al 100 %. */}
-            {f > 0.001 && (
-              <g style={{ transform: `rotate(${f * 360}deg)`, transformOrigin: `${m}px ${m}px`, transition: `transform ${curva}` }}>
-                <circle cx={m + r} cy={m} r={grosor * 0.2} fill={punto} />
-              </g>
-            )}
-          </g>
-        ) : (<>
-          <ArcoApple m={m} r={r} grosor={grosor} frac={f} objetivo={objetivo} color={color} transicion={`stroke-dashoffset ${curva}`} />
-          <g transform={`rotate(-90 ${m} ${m})`}>
-            <PuntaApple m={m} r={r} grosor={grosor} frac={f} color={color} transicion={curva} />
-          </g>
-        </>)}
+        <ArcoApple m={m} r={r} grosor={grosor} frac={f} objetivo={objetivo} color={color} transicion={`stroke-dashoffset ${curva}`} />
+        <g transform={`rotate(-90 ${m} ${m})`}>
+          <PuntaApple m={m} r={r} grosor={grosor} frac={f} color={color} transicion={curva}
+            radioPunto={plano ? grosor * 0.22 : undefined} sombra={!plano} />
+        </g>
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
         <div>{children}</div>
