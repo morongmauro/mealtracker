@@ -22,8 +22,8 @@ import ExplicacionAro from './ExplicacionAro.jsx';
 import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind, Snowflake, Fire } from '@phosphor-icons/react';
 import Respira from './Respira.jsx';
 import Reconocimiento from './Reconocimiento.jsx';
-import { prepararSonido, sonarInicioDescanso, programarFinDescanso, sonarFinDescanso } from './sonidoDescanso.js';
-import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento } from './EntrenoEjercicioV2.jsx';
+import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
+import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado } from './EntrenoEjercicioV2.jsx';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
@@ -705,8 +705,11 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
   useEffect(() => {
     if (!descanso) return undefined;
     const quedan = (descanso.fin - Date.now()) / 1000;
-    programado.current = quedan > 0 ? programarFinDescanso(quedan) : null;
-    return () => { if (programado.current) programado.current.cancelar(); programado.current = null; };
+    const p = quedan > 0 ? programarFinDescanso(quedan) : null;
+    programado.current = p;
+    // Se cancela solo si se corta ANTES de la hora (saltar, +15 s): al llegar
+    // a cero el pitido ya está sonando y no se toca.
+    return () => { if (p && Date.now() < descanso.fin - 100) p.cancelar(); programado.current = null; };
   }, [descanso]);
 
   // Al llegar a cero: vibra y, si el pitido no quedó programado, suena el de
@@ -810,12 +813,19 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
     cola.vaciar();
   }, [asegurarSesion, name, rutinaId, fecha]);
 
-  const marcar = useCallback((re, serie, reps, peso, descansoSeg, unidad = 'kg') => {
+  // El reloj del entreno arranca con lo primero que se hace (una serie o un
+  // ejercicio por tiempo). Se recuerda en el teléfono por si cierra y vuelve.
+  const arrancarReloj = useCallback(() => {
+    if (inicio || !v2Activa()) return;
+    const t = Date.now(); setInicio(t); vibrar([16, 40, 16]);
+    try { localStorage.setItem(claveInicio, String(t)); } catch (e) { /* sin almacenamiento: el reloj vive mientras esté abierta */ }
+  }, [inicio, claveInicio]);
+
+  // `silencio`: sin la nota de «empieza el descanso» (al acabar un ejercicio
+  // por tiempo ya sonó el pitido del final).
+  const marcar = useCallback((re, serie, reps, peso, descansoSeg, unidad = 'kg', { silencio = false } = {}) => {
     const clave = `${re.id}:${serie}`;
-    if (!inicio && v2Activa()) {
-      const t = Date.now(); setInicio(t); vibrar([16, 40, 16]);
-      try { localStorage.setItem(claveInicio, String(t)); } catch (e) { /* sin almacenamiento: el reloj vive mientras esté abierta */ }
-    }
+    arrancarReloj();
     setMarcadas(m => ({ ...m, [clave]: { reps, peso, unidad } }));   // optimista: el check no espera a la red
     tocadas.current[clave] = { reps, peso, unidad };
     // El descanso lo decide quien pinta la fila: entre series de un ejercicio
@@ -827,7 +837,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
       // sonar solo (el iPhone no deja sonar nada que no arrancó con un toque).
       // Y una nota corta avisa que empezó el descanso.
       prepararSonido();
-      sonarInicioDescanso();
+      if (!silencio) sonarInicioDescanso();
       setDescanso({ segundos: seg, fin: Date.now() + seg * 1000 });
     }
     // La hora del toque viaja con la serie: si espera en la cola sin señal,
@@ -836,7 +846,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
       rutina_ejercicio_id: re.id, ejercicio_id: re.ejercicio.id,
       serie_num: serie, reps, peso, unidad, completada: true, marcada_en: new Date().toISOString(),
     });
-  }, [escribirSerie, inicio, claveInicio]);
+  }, [escribirSerie, arrancarReloj]);
 
   const desmarcar = useCallback((re, serie) => {
     const clave = `${re.id}:${serie}`;
@@ -847,6 +857,62 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
       serie_num: serie, reps: null, peso: null, completada: false,
     });
   }, [escribirSerie]);
+
+  // ── Ejercicios por tiempo («30 s») ──
+  // La cuenta atrás va en la misma ventanita negra que el descanso: pitido al
+  // empezar (en el toque), pitido al terminar (programado) y la serie se
+  // marca sola. «Por lado» cuenta los dos lados seguidos, con una nota a la
+  // mitad para cambiar. Si el coach puso descanso, arranca después.
+  // { clave, re, n, seg, lados, descansoSeg, unidad, fin, pausa (ms que quedaban) }
+  const [cuenta, setCuenta] = useState(null);
+  const [quedaCuenta, setQuedaCuenta] = useState(0);
+  useEffect(() => {
+    if (!cuenta || cuenta.pausa != null) return undefined;
+    const tic = () => setQuedaCuenta(Math.max(0, cuenta.fin - Date.now()));
+    tic();
+    const id = setInterval(tic, 250);
+    const alVolver = () => { if (document.visibilityState === 'visible') tic(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', alVolver); };
+  }, [cuenta]);
+  const programadoCuenta = useRef(null);
+  useEffect(() => {
+    if (!cuenta || cuenta.pausa != null) return undefined;
+    const quedan = (cuenta.fin - Date.now()) / 1000;
+    const p = quedan > 0 ? programarFinDescanso(quedan) : null;
+    const mitad = cuenta.lados > 1 && quedan - cuenta.seg > 0 ? programarAviso(quedan - cuenta.seg) : null;
+    programadoCuenta.current = p;
+    return () => {
+      if (Date.now() < cuenta.fin - 100) { if (p) p.cancelar(); if (mitad) mitad.cancelar(); }
+      programadoCuenta.current = null;
+    };
+  }, [cuenta]);
+  const terminarCuenta = useCallback((c, silencio) => {
+    setCuenta(null);
+    const r = /^\s*\d+\s*$/.test(String(c.re.reps || '')) ? Number(c.re.reps) : null;
+    marcar(c.re, c.n, r, null, c.descansoSeg, c.unidad, { silencio });
+  }, [marcar]);
+  useEffect(() => {
+    if (cuenta && cuenta.pausa == null && cuenta.fin <= Date.now()) {
+      sonarFinDescanso({ yaProgramado: !!(programadoCuenta.current && programadoCuenta.current.vivo) });
+      terminarCuenta(cuenta, true);
+    }
+  }, [quedaCuenta, cuenta, terminarCuenta]);
+  const empezarCuenta = useCallback((re, n, seg, descansoSeg, unidad) => {
+    prepararSonido();
+    sonarInicioDescanso();
+    arrancarReloj();
+    setDescanso(null);
+    const lados = porLado(re) ? 2 : 1;
+    setCuenta({ clave: `${re.id}:${n}`, re, n, seg, lados, descansoSeg, unidad, fin: Date.now() + seg * lados * 1000, pausa: null });
+  }, [arrancarReloj]);
+  const alternarPausa = () => {
+    if (!cuenta) return;
+    if (cuenta.pausa == null) { setCuenta({ ...cuenta, pausa: Math.max(0, cuenta.fin - Date.now()) }); return; }
+    prepararSonido();
+    setCuenta({ ...cuenta, fin: Date.now() + cuenta.pausa, pausa: null });
+  };
+  const ctxCuenta = { empezar: empezarCuenta, activa: cuenta ? cuenta.clave : null };
 
   const cerrar = useCallback(async (estado, rpe, nota) => {
     if (cerrando) return;
@@ -1128,6 +1194,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
           luego B tres veces. Por eso las vueltas se pintan como secciones:
           antes el bloque salía con UNA fila por ejercicio y no había dónde
           marcar la segunda vuelta ni la tercera. */}
+      <CuentaEjercicio.Provider value={ctxCuenta}>
       {tramos.map((tramo, ti) => (
         <React.Fragment key={tramo.clave}>
           {fases[ti] && fases[ti] !== fases[ti - 1] && (
@@ -1172,10 +1239,15 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
         </React.Fragment>
       ))}
 
+      </CuentaEjercicio.Provider>
+
       {/* Sin enfriamiento en la rutina: el cardio va al final, antes de terminar. */}
       {!fases.includes('enfriamiento') && tarjetasCardio}
 
-      {descanso && (
+      {cuenta && (
+        <BarraCuenta cuenta={cuenta} queda={quedaCuenta} onPausa={alternarPausa} onListo={() => terminarCuenta(cuenta, false)} />
+      )}
+      {descanso && !cuenta && (
         <BarraDescanso v2={v2}
           segundos={descanso.segundos}
           restante={restante}
@@ -1188,7 +1260,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
         // Visual nueva (estilo Apple): cápsula grafito rellena siempre: es el
         // botón principal de la pantalla (con contorno parecía apagado).
         <button data-terminar
-          onClick={() => { setDescanso(null); setErrorCierre(null); setCerrandoHoja(true); }}
+          onClick={() => { setDescanso(null); setCuenta(null); setErrorCierre(null); setCerrandoHoja(true); }}
           style={{
             width: '100%', marginTop: 14, height: 54, borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -1202,7 +1274,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
       )}
       {datos.ejercicios.length > 0 && !v2 && (
         <button
-          onClick={() => { setDescanso(null); setErrorCierre(null); setCerrandoHoja(true); }}
+          onClick={() => { setDescanso(null); setCuenta(null); setErrorCierre(null); setCerrandoHoja(true); }}
           style={{
             width: '100%', marginTop: 6, padding: '15px 18px', borderRadius: 16, border: 0,
             background: hechas > 0 ? ACCENT_DARK : SURFACE_2,
@@ -1405,7 +1477,11 @@ function RelojSesion({ desde, v2 = false }) {
       flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 99,
       background: v2 ? 'rgba(118,118,128,0.12)' : SECCION.entreno.base, color: v2 ? TEXT : '#fff', fontWeight: 750, fontVariantNumeric: 'tabular-nums',
       fontSize: v2 ? 14 : undefined,
-    }}><Timer size={13} strokeWidth={2.4} />{h ? `${h}:${String(m).padStart(2, '0')}` : m}:{ss}</span>
+    }} aria-label="Tiempo de entreno">
+      {/* «Entreno»: es el tiempo total que lleva el entreno, para que no se
+          confunda con el descanso ni con la cuenta de un ejercicio. */}
+      {v2 ? <span style={{ fontSize: 11, fontWeight: 700, color: '#636366' }}>Entreno</span> : <Timer size={13} strokeWidth={2.4} />}
+      {h ? `${h}:${String(m).padStart(2, '0')}` : m}:{ss}</span>
   );
 }
 
@@ -1931,6 +2007,39 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
 // para que se vea mientras se hace scroll por los ejercicios. Cuando llega a
 // cero se queda en 0:00 un momento con el aviso, en vez de desaparecer sola:
 // si desapareciera, quien no estaba mirando no se entera de nada.
+// La cuenta atrás de un ejercicio por tiempo: la misma ventanita negra que
+// el descanso, con el nombre del ejercicio (y el lado, si es por lado).
+function BarraCuenta({ cuenta, queda, onPausa, onListo }) {
+  const total = cuenta.seg * cuenta.lados * 1000;
+  const q = cuenta.pausa != null ? cuenta.pausa : queda;
+  const lado = cuenta.lados > 1 ? (q > cuenta.seg * 1000 ? 1 : 2) : null;
+  const enLado = Math.ceil((lado === 1 ? q - cuenta.seg * 1000 : q) / 1000);
+  const mm = Math.floor(Math.max(0, enLado) / 60), ss = String(Math.max(0, enLado) % 60).padStart(2, '0');
+  const pct = total > 0 ? Math.max(0, Math.min(1, q / total)) : 0;
+  const r = 11, c = 2 * Math.PI * r;
+  return (
+    <div data-cuenta-ejercicio={cuenta.pausa != null ? 'pausa' : 'contando'} style={{
+      position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 3,
+      borderRadius: 20, background: '#1D1D1F', color: '#fff', boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+      display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px 10px 14px',
+    }}>
+      <svg width="28" height="28" viewBox="0 0 28 28" style={{ flex: 'none' }} aria-hidden="true">
+        <circle cx="14" cy="14" r={r} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="3" />
+        <circle cx="14" cy="14" r={r} fill="none" stroke="#F2C94C" strokeWidth="3" strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 14 14)" style={{ transition: 'stroke-dashoffset .25s linear' }} />
+      </svg>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {nombresEj(cuenta.re.ejercicio).grande}{lado ? ` · Lado ${lado}` : ''}
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 750, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}>{mm}:{ss}</div>
+      </div>
+      <button onClick={onPausa} style={btnDescansoV2}>{cuenta.pausa != null ? 'Seguir' : 'Pausa'}</button>
+      <button onClick={onListo} style={btnDescansoV2}>Listo</button>
+    </div>
+  );
+}
+
 function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
   const listo = restante <= 0;
   const mm = Math.floor(Math.max(0, restante) / 60);

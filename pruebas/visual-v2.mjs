@@ -968,7 +968,13 @@ try {
   // Marcar sin reps no marca: lleva el dedo a la cajita
   await p.getByLabel('Peso serie 1').first().locator('xpath=ancestor::div[2]').getByRole('button', { name: /^Marcar serie/ }).click();
   ok('sin reps no se marca la serie', (await p.locator('[aria-label="Deshacer serie 1"]').count()) === 0);
-  await p.getByRole('button', { name: 'Marcar serie 1' }).first().click();
+  // El calentamiento empieza con «Running · 3 min suave»: es por tiempo, así
+  // que se arranca con «Empezar 3 min» y aquí se da por hecho con «Listo».
+  ok('calentamiento por tiempo: «Empezar 3 min» en vez del check', /Empezar 3 min/.test(await p.locator('[data-serie-tiempo="re-e7:1"] [data-empezar-tiempo]').innerText()));
+  await p.locator('[data-serie-tiempo="re-e7:1"] [data-empezar-tiempo]').click();
+  await espera(300);
+  ok('…y al tocarlo sale la ventanita negra con la cuenta del ejercicio', /Running/.test(await p.locator('[data-cuenta-ejercicio]').innerText()));
+  await p.locator('[data-cuenta-ejercicio]').getByRole('button', { name: 'Listo' }).click();
   await espera(300);
   ok('el calentamiento se marca con un toque y se pliega', (await p.getByText('1 de 3', { exact: true }).count()) === 1 && (await p.locator('[data-plegado]').count()) >= 1);
   ok('el avance sube por ejercicio terminado', (await p.getByText('1/7 ejercicios').count()) === 1);
@@ -1802,6 +1808,26 @@ try {
   await n.ctx.clock.setFixedTime(new DateReal(FIJO));
   await n.p.locator('[data-descanso]').getByRole('button', { name: 'Cerrar' }).click();
   await espera(300);
+  // Ejercicio por tiempo («Child's Pose · 30 s»): «▶ Empezar 30 s» abre la cuenta
+  // atrás en la ventanita negra, suena al empezar, el final queda programado y
+  // al acabar la serie se marca sola.
+  await n.p.evaluate(() => { window.__notas = []; });
+  const filaTiempo = 're-e10:1';
+  const botonTiempo = n.p.locator(`[data-serie-tiempo="${filaTiempo}"] [data-empezar-tiempo]`);
+  await botonTiempo.scrollIntoViewIfNeeded();
+  ok('por tiempo: el botón dice «Empezar 30 s»', /Empezar 30 s/.test(await botonTiempo.innerText()));
+  await botonTiempo.click();
+  await espera(400);
+  ok('por tiempo: la ventanita negra cuenta el ejercicio, con pitido al empezar y el del final a los 30 s', /Child's Pose/.test(await n.p.locator('[data-cuenta-ejercicio]').innerText())
+    && /0:(30|29)/.test(await n.p.locator('[data-cuenta-ejercicio]').innerText())
+    && await n.p.evaluate(() => window.__notas.some(x => x.t < 0.5) && window.__notas.filter(x => x.t > 25 && x.t < 35).length === 2),
+    await n.p.evaluate(() => JSON.stringify(window.__notas)));
+  await n.ctx.clock.setFixedTime(new DateReal(FIJO + 40000));
+  await espera(900);
+  ok('por tiempo: al acabar se cierra la cuenta y la serie queda hecha', (await n.p.locator('[data-cuenta-ejercicio]').count()) === 0
+    && (await n.p.locator(`[data-serie-tiempo="${filaTiempo}"]`).count()) === 0);
+  await n.ctx.clock.setFixedTime(new DateReal(FIJO));
+  ok('el reloj de arriba dice «Entreno»: es el tiempo total', /^Entreno/.test(await n.p.locator('[data-reloj-sesion]').innerText()));
   await n.p.locator('[data-terminar]').click();
   // La intensidad es obligatoria: sin ella no se puede enviar.
   ok('cierre: sin marcar la intensidad no deja enviar', await n.p.locator('[data-enviar-coach]').isDisabled() && /Elige tu intensidad/.test(await n.p.locator('[data-enviar-coach]').innerText()));

@@ -17,7 +17,7 @@
 // última vez y el récord están a un toque, en sus botones. En los ejercicios
 // de peso corporal solo se piden reps.
 // ─────────────────────────────────────────────────────────────────────────
-import React, { useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets } from '@phosphor-icons/react';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { Hoja, FONDO_TARJETA_HOJA } from './entrenoUI.jsx';
@@ -120,6 +120,26 @@ export function textoReps(re) {
   return porLado(re) && !RE_LADO.test(r) ? `${conReps} por lado` : conReps;
 }
 export const textoDescanso = (seg) => (Number(seg) > 0 ? `Descanso ${Number(seg)} s` : 'Sin descanso');
+
+// Los ejercicios por tiempo («30 s», «45 seg», «1 min», «1:30 min»): cuántos
+// segundos dura cada uno (en un rango, el primero). Si no es por tiempo, null.
+export function segundosDeTiempo(texto) {
+  const t = String(texto || '').toLowerCase().trim();
+  let m = t.match(/^(\d+):(\d{2})(?!\d)/);
+  if (m) return Number(m[1]) * 60 + Number(m[2]);
+  const num = '(\\d+(?:[.,]\\d+)?)(?:\\s*[-–]\\s*\\d+(?:[.,]\\d+)?)?\\s*';
+  m = t.match(new RegExp('^' + num + '(s|seg|segs|segundos?|sec|secs|"|″)(?![a-z])'));
+  if (m) return Math.round(Number(m[1].replace(',', '.')));
+  m = t.match(new RegExp('^' + num + "(min|mins|minutos?|'|′)(?![a-z])"));
+  if (m) return Math.round(Number(m[1].replace(',', '.')) * 60);
+  return null;
+}
+export const textoTiempo = (seg) => (seg < 60 ? `${seg} s` : seg % 60 ? `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')} min` : `${seg / 60} min`);
+
+// La cuenta atrás de los ejercicios por tiempo vive en la rutina
+// (Entrenamiento.jsx), con la ventanita negra; las filas solo la arrancan.
+// { empezar(re, n, seg, descansoSeg, unidad), activa: 'reId:serie' | null }
+export const CuentaEjercicio = createContext(null);
 
 // «La última vez», serie por serie y dicho entero: «Serie 1: 12 reps por lado · 15 kg».
 // Con `unidad` el peso se pasa a la unidad de hoy (la que eligió en
@@ -662,6 +682,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
 }
 
 function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarcar, sinCarga, soloReps = false }) {
+  const cuenta = useContext(CuentaEjercicio);
   // Lo tecleado sin marcar vuelve si la página se recargó a mitad del entreno.
   const idSerie = `${re.id}:${n}`;
   const tecleado = marcada ? null : leerTecleado(idSerie);
@@ -716,6 +737,32 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
     celebrar();
   };
   const brillo = pop > 0 && hecha ? <span key={pop} className="mt-barrido" aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none' }} /> : null;
+
+  // Por tiempo («30 s»): en vez del check, «▶ Empezar 30 s». Arranca la
+  // cuenta atrás en la ventanita negra, con pitido al empezar y al terminar,
+  // y la serie se marca sola al acabar.
+  const segTiempo = sinCarga ? segundosDeTiempo(re.reps) : null;
+  if (segTiempo && cuenta && !hecha) {
+    const enCurso = cuenta.activa === idSerie;
+    return (
+      <div data-serie-tiempo={idSerie} style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 40, padding: '0 5px 0 14px',
+        borderRadius: 14, background: CAMPO, boxSizing: 'border-box',
+      }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600, color: '#3A3A3C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {re.series > 1 ? `Serie ${n} · ${textoReps(re)}` : textoReps(re)}
+        </span>
+        <button data-empezar-tiempo onClick={() => cuenta.empezar(re, n, segTiempo, descansoSeg, unidad)} disabled={enCurso}
+          aria-label={enCurso ? `Serie ${n} en curso` : `Empezar ${textoTiempo(segTiempo)}, serie ${n}`} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 999, border: 'none',
+          background: GRAFITO, color: '#FFFFFF', fontSize: 13, fontWeight: 700, cursor: enCurso ? 'default' : 'pointer', fontFamily: 'inherit',
+          flex: 'none', opacity: enCurso ? 0.55 : 1,
+        }}>
+          <Play size={12} weight="fill" /> {enCurso ? 'En curso' : `Empezar ${textoTiempo(segTiempo)}`}
+        </button>
+      </div>
+    );
+  }
 
   if (sinCarga) {
     return (

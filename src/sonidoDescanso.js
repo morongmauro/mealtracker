@@ -130,6 +130,16 @@ export function programarFinDescanso(seg) {
   } catch (e) { return null; }
 }
 
+// Una nota sola programada (por lado: «cambia de lado» a la mitad).
+export function programarAviso(seg) {
+  const c = contexto();
+  if (!c || !(seg > 0)) return null;
+  try {
+    const o = nota(c, 880, c.currentTime + seg, 0.18);
+    return { cancelar: () => { try { o.stop(); } catch (e) {} }, vivo: vivo() };
+  } catch (e) { return null; }
+}
+
 // Al acabar el descanso: vibra y, si el pitido no quedó programado, suena
 // el respaldo.
 export function sonarFinDescanso({ yaProgramado = false } = {}) {
