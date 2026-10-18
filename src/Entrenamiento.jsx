@@ -11,7 +11,7 @@ import HojaNota from './EntrenoNota.jsx';
 import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, fijarClaveTecleado, borrarTecleado, leerTecleado } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
-import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
+import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { vozEntreno, vozFinEntreno } from './vozCoach.js';
 import Firma from './Firma.jsx';
@@ -1251,8 +1251,8 @@ function PildoraRecordatorios({ pendientes = 0, abrir }) {
   // Visual nueva: los botones de cristal (círculo y palabra debajo).
   if (v2Activa()) return (
     <FilaCristal style={{ margin: '0 0 14px' }}>
-      <BotonCristal icono={Bell} color="#C95F17" badge={pendientes} rotulo="Avisos" onClick={abrir}>Recordatorios</BotonCristal>
-      {WHATSAPP_COACH && <BotonCristal icono={ChatCircle} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
+      <BotonCristal tono={TONO_ATAJOS.entreno} icono={Bell} color="#C95F17" badge={pendientes} rotulo="Avisos" onClick={abrir}>Recordatorios</BotonCristal>
+      {WHATSAPP_COACH && <BotonCristal tono={TONO_ATAJOS.entreno} icono={ChatCircle} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
     </FilaCristal>
   );
   return (

@@ -78,10 +78,12 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
                       : primeroVacio && primeroVacio.k === m.k ? 'Toca + para registrarlo' : '—'}
                   </div>
                 </div>
+                {/* Se ve un círculo de 34 px; se toca en 44 (lo que pide Apple). */}
                 <button type="button" data-agregar-momento={m.k} onClick={() => alAgregar && alAgregar(m)} aria-label={`Registrar ${m.nombre.toLowerCase()}`}
-                  style={{ width: 34, height: 34, borderRadius: 99, flex: 'none', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center',
-                    background: '#FFFFFF', boxShadow: 'inset 0 0 0 1.6px #D1D1D6', color: TEXT }}>
-                  <Plus size={16} weight="bold" />
+                  style={{ width: 44, height: 44, margin: -5, borderRadius: 99, flex: 'none', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', background: 'none', padding: 0, color: TEXT }}>
+                  <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 99, display: 'grid', placeItems: 'center', background: '#FFFFFF', boxShadow: 'inset 0 0 0 1.6px #D1D1D6' }}>
+                    <Plus size={16} weight="bold" />
+                  </span>
                 </button>
               </div>
               {lista.map(e => <Registro key={e.id} e={e} />)}

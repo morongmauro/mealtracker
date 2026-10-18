@@ -41,7 +41,11 @@ export function Pastilla({ icono: Icono, children, onClick, href, badge, color =
 // Chico a propósito, para no quitarle protagonismo a la cabecera.
 // `rotulo`: la palabra corta de abajo; `children` queda como nombre completo
 // para el lector de pantalla (p. ej. «Escribirle al coach»).
-export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, badge, color = TEXT, ancho = 56, ...resto }) {
+// El color del trazo de los botones de cristal, el de cada sección (Entreno
+// es grafito).
+export const TONO_ATAJOS = { dash: '#3C7BD6', entreno: '#1D1D1F', comida: '#46965A', aprende: '#EE8434' };
+
+export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, badge, color = TEXT, tono = '#1D1D1F', ancho = 56, ...resto }) {
   const Tag = href ? 'a' : 'button';
   return (
     <Tag onClick={onClick} href={href} target={href ? '_blank' : undefined} rel={href ? 'noopener noreferrer' : undefined}
@@ -55,10 +59,9 @@ export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, ba
         background: 'rgba(255,255,255,0.78)', WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)',
         boxShadow: '0 5px 14px rgba(30,40,60,0.09), inset 0 0 0 0.5px rgba(255,255,255,0.9)',
       }}>
-        {/* Todos en tono: ícono de línea grafito en el círculo blanco (antes
-            cada uno de un color y se veía de juguete). Lo único de color es
-            el aviso rojo de novedades. */}
-        <Icono size={20} weight="regular" color="#1D1D1F" />
+        {/* Ícono de línea en el color de la sección (todos los de una
+            sección iguales), sobre el círculo blanco. */}
+        <Icono size={20} weight="regular" color={tono} data-tono-icono={tono} />
         {badge > 0 && (
           <span data-badge style={{
             position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99,

@@ -1588,7 +1588,13 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
             <span style={{ width: 7, height: 7, borderRadius: 99, background: P.base }} /> {a.titulo || a.tipo}{a.duracion_min ? ` · ${a.duracion_min} min` : ''}
           </div>
         ))}
-        {dia?.corte_pago && <Etiqueta Icono={CurrencyCircleDollar} color={AMBAR_PAGO} fondo="#FBF1DC">Corte de tu mensualidad</Etiqueta>}
+        {/* Un aviso, no un botón: sin la píldora rellena (se confundía con
+            las etiquetas que sí se tocan, como Peso o Registro fotográfico). */}
+        {dia?.corte_pago && (
+          <div data-corte-pago style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 650, color: AMBAR_PAGO }}>
+            <CurrencyCircleDollar size={16} weight="fill" /> <span style={{ minWidth: 0 }}>Corte de tu mensualidad</span>
+          </div>
+        )}
         {nada && <div style={{ fontSize: 14, color: TEXT_LIGHT, display: 'flex', alignItems: 'center', gap: 6 }}><Moon size={15} /> {dia ? 'Descanso' : '—'}</div>}
       </div>
     </div>
@@ -1625,8 +1631,11 @@ const vidrioCal = {
   background: 'rgba(255,255,255,0.86)', WebkitBackdropFilter: 'blur(20px)', backdropFilter: 'blur(20px)',
   borderRadius: 24, padding: '12px 10px 14px', boxShadow: '0 10px 30px rgba(40,40,50,0.07)',
 };
+// Se ve un círculo de 34 px, pero se toca en 44 (lo que pide Apple): el
+// círculo es el fondo dibujado al centro de una caja más grande.
 const flechaCal = {
-  width: 34, height: 34, borderRadius: 999, border: 'none', background: 'rgba(118,118,128,0.12)', color: TEXT, cursor: 'pointer',
+  width: 44, height: 44, margin: -5, borderRadius: 999, border: 'none', color: TEXT, cursor: 'pointer',
+  background: 'radial-gradient(circle, rgba(118,118,128,0.12) 0 16.5px, rgba(118,118,128,0) 17px)',
   display: 'grid', placeItems: 'center',
 };
 const PUNTO = { cardio: '#46965A', registro: '#AF52DE', pago: AMARILLO_CAL };

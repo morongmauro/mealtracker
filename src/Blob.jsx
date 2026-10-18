@@ -27,7 +27,11 @@ export default function Blob({ color, tam = 120, sombra = true, sombraColor = nu
   return (
     <svg data-blob width={tam} height={tam} viewBox="0 0 200 200" aria-hidden="true" {...resto} style={{
       display: 'block', overflow: 'visible', transform: `rotate(${BLOB_GIRO}deg)`,
-      filter: sombra ? `drop-shadow(0 16px 28px ${sombraColor || color}${sombraColor ? '40' : '66'}) drop-shadow(0 2px 6px rgba(30,30,40,.06))` : undefined,
+      // Con `sombraColor` (las cabeceras): una sombra corta y tenue, que
+      // apenas separa el blob del fondo (la de antes era grande y pesaba).
+      filter: !sombra ? undefined : sombraColor
+        ? `drop-shadow(0 6px 12px ${sombraColor}2E) drop-shadow(0 1px 3px rgba(30,30,40,.05))`
+        : `drop-shadow(0 16px 28px ${color}66) drop-shadow(0 2px 6px rgba(30,30,40,.06))`,
       ...style,
     }}>
       <path d={BLOB_PATH} fill={color} />

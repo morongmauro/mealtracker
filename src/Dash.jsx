@@ -18,7 +18,7 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge } from '@phosphor-icons/react';
+import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, HandTap } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
@@ -31,7 +31,7 @@ import { Hoja } from './entrenoUI.jsx';
 import { IconoEvento } from './iconosEntreno.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
-import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
+import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.jsx';
 import VentanaMarca, { BotonVentana } from './VentanaMarca.jsx';
 
 const CLAVE_BIENVENIDA = 'mt:bienvenidaComunidad';
@@ -312,6 +312,13 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos }) {
         <circle cx={x(sel ?? ult)} cy={y(puntos[sel ?? ult].v)} r="4.5" fill={color} />
       </svg>}
       {textoValor && sel != null && <Globo x={x(sel)} ancho={ancho} texto={textoValor(puntos[sel])} />}
+      {/* La línea se toca para ver cada punto: que se note (antes se veía
+          como un dibujo y nadie sabía que respondía). */}
+      {textoValor && sel == null && puntos.length > 1 && (
+        <div data-pista-linea style={{ position: 'absolute', top: 2, right: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: TEXT_LIGHT, pointerEvents: 'none' }}>
+          <HandTap size={14} weight="regular" />Toca la línea
+        </div>
+      )}
       {extremos && puntos.length >= 2 && (
         <div data-extremos style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12.5, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>
           <span>{extremos(puntos[0])}</span>
@@ -468,12 +475,12 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       <FilaCristal data-atajos style={{ marginTop: 6, justifyContent: 'flex-start', gap: 10 }}>
         {/* Respira vive donde hace falta (el día de descanso, el cierre de la
             rutina y Ajustes); el Reto vuelve aquí cuando haya un reto. */}
-        {wa && <BotonCristal icono={ChatCircle} color="#25A35A" ancho={54} href={wa}>Coach</BotonCristal>}
-        <BotonCristal icono={UsersThree} color="#2F6CC4" ancho={54} badge={nuevosComunidad} data-abrir-comunidad rotulo="Comunidad"
+        {wa && <BotonCristal tono={TONO_ATAJOS.dash} icono={ChatCircle} color="#25A35A" ancho={54} href={wa}>Coach</BotonCristal>}
+        <BotonCristal tono={TONO_ATAJOS.dash} icono={UsersThree} color="#2F6CC4" ancho={54} badge={nuevosComunidad} data-abrir-comunidad rotulo="Comunidad"
           aria-label={`Comunidad${nuevosComunidad ? ` · ${nuevosComunidad} ${nuevosComunidad === 1 ? 'nueva' : 'nuevas'}` : ''}`}
           onClick={() => setVista('comunidad')}>Comunidad</BotonCristal>
-        {acciones.recordatorios && <BotonCristal icono={Bell} color="#C95F17" ancho={54} badge={pendientes} rotulo="Avisos" onClick={acciones.recordatorios}>Recordatorios</BotonCristal>}
-        <BotonCristal icono={GearSix} color="#636366" ancho={54} data-abrir-config rotulo="Ajustes" onClick={() => setVista('config')}>Configuración</BotonCristal>
+        {acciones.recordatorios && <BotonCristal tono={TONO_ATAJOS.dash} icono={Bell} color="#C95F17" ancho={54} badge={pendientes} rotulo="Avisos" onClick={acciones.recordatorios}>Recordatorios</BotonCristal>}
+        <BotonCristal tono={TONO_ATAJOS.dash} icono={GearSix} color="#636366" ancho={54} data-abrir-config rotulo="Ajustes" onClick={() => setVista('config')}>Configuración</BotonCristal>
       </FilaCristal>
 
       {/* En el navegador del teléfono (no instalada): instalarla, primero. */}
@@ -1125,7 +1132,7 @@ function Cuerpo({ medidas, cargando, alMedir }) {
   const ultGrasa = conGrasa[conGrasa.length - 1];
   return (
     <Tarjeta titulo="Peso y % de grasa"
-      accion={<button onClick={alMedir} style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: AMBAR, cursor: 'pointer' }}>+ Registrar</button>}>
+      accion={<button onClick={alMedir} style={{ border: 'none', background: 'transparent', padding: '11px 8px', margin: '-11px -8px', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: AMBAR, cursor: 'pointer' }}>+ Registrar</button>}>
       {cargando ? (
         <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Cargando…</div>
       ) : !medidas.length ? (
@@ -1229,7 +1236,7 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
         // Ícono de línea, sin círculo de fondo: con círculo parecía un botón.
         <span aria-hidden="true" data-icono-hoy style={{ width: 22, height: 22, flex: 'none', color: it.color, display: 'grid', placeItems: 'center' }}><it.Icono size={19} weight="regular" /></span>
       )}
-      <button onClick={it.ir || it.marcar || undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: '6px 4px 6px 0', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+      <button onClick={it.ir || it.marcar || undefined} style={{ flex: 1, minWidth: 0, minHeight: 40, display: 'flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: '6px 4px 6px 0', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
         {/* Peso normal (no negrita en cada renglón) y hasta dos líneas: el
             texto completo, sin «…» a la mitad. */}
         <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 500, color: TEXT, lineHeight: 1.3, letterSpacing: '-0.005em', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden', textDecoration: hecho ? 'line-through' : 'none' }}>{it.texto}</span>
@@ -1244,7 +1251,7 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
           HOY{hoyItems.length ? <span style={{ color: todoHecho ? '#2F7F45' : TEXT }}> · {todoHecho ? 'todo listo ✓' : `${hoyHechos} de ${hoyItems.length}`}</span> : null}
         </span>
         {items.length > 0 && (
-          <button data-ver-recordatorios onClick={() => setTodos(t => !t)} style={{ border: 0, background: 'none', padding: '0 4px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>
+          <button data-ver-recordatorios onClick={() => setTodos(t => !t)} style={{ border: 0, background: 'none', padding: '12px 8px', margin: '-12px -4px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>
             {todos ? 'Ver menos' : `Ver todo (${items.length})`}
           </button>
         )}

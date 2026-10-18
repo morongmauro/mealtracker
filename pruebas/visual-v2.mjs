@@ -530,6 +530,14 @@ try {
       return Math.round(c.width) === 42 && Math.round(c.height) === 42 && t.top >= c.bottom && t.height > 0; })
       && bs.map(b => b.lastElementChild.textContent).join(',') === 'Coach,Comunidad,Avisos,Ajustes';
   }));
+  ok('atajos del Dash: el ícono va en el azul del Dash', await dash.evaluate(() => {
+    const ics = [...document.querySelectorAll('[data-atajos] [data-boton-cristal] [data-tono-icono]')];
+    return ics.length === 4 && ics.every(i => i.getAttribute('data-tono-icono') === '#3C7BD6');
+  }));
+  ok('Dash: las líneas que se tocan lo dicen («Toca la línea»)', (await dash.locator('[data-pista-linea]').count()) >= 1
+    && /Toca la línea/.test(await dash.locator('[data-pista-linea]').first().innerText()));
+  ok('cabecera: la sombra del blob es corta y tenue (no la grande de antes)', await p.locator('[data-cabecera-hoy="dash"] svg[data-blob]').evaluate(b => { const f = getComputedStyle(b).filter; return /drop-shadow/.test(f) && !/28px/.test(f) && /12px/.test(f); }));
+  ok('Dash: «Ver todo» se toca en 44 px de alto (se ve igual de chico)', await dash.evaluate(() => { const b = document.querySelector('[data-ver-recordatorios]'); return !b || b.getBoundingClientRect().height >= 40; }));
   // La píldora de arriba: sin subtítulo, y se encoge al bajar / vuelve al subir.
   ok('píldora de marca: solo el nombre de la sección, sin «Entrena con Método» debajo', await p.locator('[data-pildora-marca]').evaluate(el => el.children.length === 1 && /DASH|INICIO|TU SEMANA|HOY/i.test(el.textContent) && !/Entrena con Método/.test(el.textContent)), await p.locator('[data-pildora-marca]').innerText());
   {
@@ -652,7 +660,7 @@ try {
   await foto(p, '03-dash-final');
   ok('dash: la firma al final', await p.locator('[data-view="dash"] [data-firma]').isVisible());
   ok('dash: composición corporal con la línea de peso y la de grasa, y cifras compactas',
-    (await p.locator('[data-linea-peso] svg').count()) === 1 && (await p.locator('[data-linea-grasa] svg').count()) === 1
+    (await p.locator('[data-linea-peso] svg:not([data-pista-linea] svg)').count()) === 1 && (await p.locator('[data-linea-grasa] svg:not([data-pista-linea] svg)').count()) === 1
     && await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height <= 62),
     String(await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height)));
   await p.getByRole('button', { name: /Profundiza en tus gráficas de entrenamiento/ }).click();
@@ -802,6 +810,7 @@ try {
   ok('hoy: nombres cortos que se leen enteros', (await hoyV.getByText('Lower + Core', { exact: true }).count()) === 1
     && (await hoyV.getByText(/Training/).count()) === 0);
   ok('hoy: el corte de pago se ve en la semana', (await hoyV.getByText('Corte de tu mensualidad').count()) >= 1);
+  ok('hoy: el corte de pago es un aviso (sin la píldora rellena de lo que se toca)', await hoyV.locator('[data-corte-pago]').first().evaluate(el => /rgba\(0, 0, 0, 0\)|transparent/.test(getComputedStyle(el).backgroundColor)).catch(() => false));
   // «Tu semana»: cada cosa del día abre directo lo suyo, no la hoja del día.
   const filaHoy = hoyV.locator(`[data-vista="semana"] [data-fecha="${hoy}"]`);
   await filaHoy.locator('[data-evento="fotos"]').click();
@@ -1275,6 +1284,10 @@ try {
   await espera(1200);
   await foto(p, '08-comida-hoy');
   ok('Comida: el blob junto a la frase, con el aguacate a dos colores adentro del aro', (await p.locator('[data-objeto-cabecera="comida"] img').count()) >= 1 && await ilusBien(p, 'comida'));
+  ok('Comida · Hoy: el día armado en Desayuno, Almuerzo, Cena y Snacks, con el atajo para dictar', (await p.locator('[data-dia-comidas] [data-momento]').count()) >= 4
+    && (await p.locator('[data-agregar-momento]').count()) === 4 && (await p.locator('[data-dictar-dia]').count()) === 1);
+  ok('Comida · Hoy: el + se ve de 34 px y se toca en 44', await p.locator('[data-agregar-momento="almuerzo"]').evaluate(b => { const r = b.getBoundingClientRect(), c = b.firstElementChild.getBoundingClientRect(); return Math.round(r.width) === 44 && Math.round(c.width) === 34; }));
+  ok('Comida: los atajos van en el verde de Alimentación', await p.evaluate(() => { const ics = [...document.querySelectorAll('[data-tono-icono]')].filter(i => i.checkVisibility && i.checkVisibility() && !i.closest('[inert]')); return ics.length >= 2 && ics.every(i => i.getAttribute('data-tono-icono') === '#46965A'); }));
   // El objeto entra con su animación solo la PRIMERA vez que se ve; al volver
   // a la sección se queda quieto (repetirla en cada cambio de módulo cansaba).
   ok('Comida: al volver a Alimentación el plato se queda quieto (la animación fue la primera vez)', await p.locator('[data-objeto-cabecera="comida"] img').first().evaluate(i => !i.src.startsWith('blob:')));

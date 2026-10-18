@@ -27,7 +27,7 @@ import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { CapaActiva } from './capaActiva.js';
 import Firma from './Firma.jsx';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada, enDireccionNueva } from './mudanza.js';
-import { Pastilla, BotonCristal, FilaCristal } from './PastillaV2.jsx';
+import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero, ArcoApple, PuntaApple, rielDe } from './GraficasV2.jsx';
 import CabeceraHoy, { TEMAS as TEMAS_CABECERA } from './CabeceraHoy.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
@@ -6173,10 +6173,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <FilaCristal style={{ marginTop: '-4px' }}>
                   {/* Recordatorios y mensualidad viven en el Dash; aquí, solo la
                       campanita, escribirle al coach y las opciones. */}
-                  <BotonCristal icono={BellV2} color="#C95F17" rotulo="Avisos" badge={coachReminders.filter(r => !r.done_at).length}
+                  <BotonCristal tono={TONO_ATAJOS.comida} icono={BellV2} color="#C95F17" rotulo="Avisos" badge={coachReminders.filter(r => !r.done_at).length}
                     onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</BotonCristal>
-                  {WHATSAPP_COACH && <BotonCristal icono={ChatV2} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
-                  <BotonCristal icono={OpcionesV2} color={SECCION.comida.base}
+                  {WHATSAPP_COACH && <BotonCristal tono={TONO_ATAJOS.comida} icono={ChatV2} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
+                  <BotonCristal tono={TONO_ATAJOS.comida} icono={OpcionesV2} color={SECCION.comida.base}
                     onClick={() => { haptic(8); openActionsSheet(); }}>Opciones</BotonCristal>
                 </FilaCristal>
               </div>
