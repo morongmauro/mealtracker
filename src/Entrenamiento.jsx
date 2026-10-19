@@ -12,8 +12,10 @@ import HojaNota from './EntrenoNota.jsx';
 import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, fijarClaveTecleado, borrarTecleado, leerTecleado } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
+import { enVerComo } from './verComo.js';
 import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
+import { CabezaCompacta } from './VistaCompacta.jsx';
 import { vozEntreno, vozFinEntreno } from './vozCoach.js';
 import Firma from './Firma.jsx';
 import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
@@ -112,6 +114,9 @@ const SECCIONES = [
 // (que sondea metas y recordatorios cada minuto) creaba un componente NUEVO y
 // React desmontaba la rutina abierta entera: se perdía el cronómetro de
 // descanso y lo tecleado sin marcar, a mitad del entreno.
+// Vista compacta: lo que se elige arriba de Entrenamiento (la Galería va en «Más»).
+const OPCIONES_COMPACTA = [['hoy', 'Hoy'], ['mes', 'Calendario']];
+
 const Envoltorio = ({ children }) => (
   <div style={{
     position: 'relative', maxWidth: 560, margin: '0 auto', padding: '0 20px',
@@ -205,7 +210,7 @@ export async function precargarRutinas(name, plan) {
   }
 }
 
-export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, recordatorios = null, avisoPago = null }) {
+export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, recordatorios = null, avisoPago = null, compacta = false }) {
   const [plan, setPlan] = useState(() => cachePlan.get(name) || null);
   const [cargando, setCargando] = useState(() => !cachePlan.has(name));
   // La rutina que quedó abierta (si la página se recargó o la app se cerró a
@@ -279,7 +284,9 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
       <Envoltorio>
         <NavSi seccion={seccion} setSeccion={setSeccion} />
         {/* La voz de la sección, con la letra de la marca y sin curva */}
-        {seccionV2 && VOZ_SECCION[seccion] && <CabeceraHoy tema="entreno" fondo={false} voz={VOZ_SECCION[seccion]} />}
+        {/* Vista compacta: título y Hoy | Calendario, sin cabecera grande. */}
+        {compacta && seccion === 'mes' ? <CabezaCompacta titulo="Entrenamiento" opciones={OPCIONES_COMPACTA} activa={seccion} alElegir={setSeccion} />
+          : seccionV2 && VOZ_SECCION[seccion] && <CabeceraHoy tema="entreno" fondo={false} voz={VOZ_SECCION[seccion]} />}
         {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={setRutinaId}
           ejerciciosDe={Object.fromEntries((plan?.dias || []).flatMap(d => [...(d.rutina ? [[d.rutina.id, d.rutina.ejercicios]] : []), ...(d.complementarias || []).map(c => [c.id, c.ejercicios])]))} />}
         {seccion === 'rutinas' && <EntrenoRutinas nombre={name} alEntrenar={setRutinaId} />}
@@ -295,9 +302,11 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     return (
       <Envoltorio>
         <NavSi seccion={seccion} setSeccion={setSeccion} />
+        {compacta ? <CabezaCompacta titulo="Entrenamiento" opciones={OPCIONES_COMPACTA} activa={seccion} alElegir={setSeccion} /> : (<>
         {seccionV2 && <CabeceraHoy tema="entreno" voz={vozEntreno({ plan, hoy: hoyLocal() })}
         arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} />}
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
+        </>)}
         <Tarjeta>
           <Fila icono={<Info size={18} color={TEXT_LIGHT} />} titulo="Todavía no hay nada aquí" />
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
@@ -311,10 +320,15 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   return (
     <Envoltorio>
       <NavSi seccion={seccion} setSeccion={setSeccion} />
+      {compacta ? (
+        <CabezaCompacta titulo="Entrenamiento" aro={aroEntreno(plan)} alTocarAro={() => setExplicarAro(true)}
+          opciones={OPCIONES_COMPACTA} activa={seccion} alElegir={setSeccion} />
+      ) : (<>
       {seccionV2 && <CabeceraHoy tema="entreno" voz={vozEntreno({ plan, hoy: hoyLocal() })}
         arriba={`calc(${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)`} aro={{ ...aroEntreno(plan), alTocar: () => setExplicarAro(true) }} />}
-      {explicarAro && <ExplicacionAro {...explicacionAro()} alCerrar={() => setExplicarAro(false)} />}
       {recordatorios && <PildoraRecordatorios {...recordatorios} />}
+      </>)}
+      {explicarAro && <ExplicacionAro {...explicacionAro()} alCerrar={() => setExplicarAro(false)} />}
       {v2Activa() ? (
         // Visual nueva: lo de HOY todo junto (fuerza, registros, lo del coach
         // y añadir actividad) y, debajo, la semana con el detalle de cada
@@ -946,6 +960,38 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
     window.addEventListener('pointerdown', alTocar, { once: true, capture: true });
     return () => window.removeEventListener('pointerdown', alTocar, { capture: true });
   }, [habiaReloj]);
+
+  // Minimizada con un descanso (o un ejercicio por tiempo) corriendo: el
+  // iPhone congela la app y el pitido no sonaría hasta volver. Se deja un
+  // aviso en el servidor y el teléfono recibe la notificación al terminar
+  // (api/_descanso.js). Al volver, o al saltarlo, el aviso se cancela.
+  const avisoMin = useRef(null);
+  const mandarAviso = (que, cuerpo) => {
+    try {
+      fetch(`/api/push-cron?descanso=${que}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {});
+    } catch (e) { /* sin red: queda el pitido al volver */ }
+  };
+  useEffect(() => {
+    if (enVerComo()) return undefined;
+    const alCambiar = () => {
+      if (document.visibilityState === 'hidden') {
+        const c = cuenta && cuenta.pausa == null ? cuenta : null;
+        const fin = c ? c.fin : descanso ? descanso.fin : null;
+        if (!fin || fin - Date.now() < 4000 || avisoMin.current) return;
+        const id = `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+        avisoMin.current = id;
+        mandarAviso('programar', {
+          id, name, fin, titulo: c ? 'Tiempo cumplido' : 'Descanso listo',
+          cuerpo: c ? `${nombresEj(c.re.ejercicio).grande}: listo.` : 'A la siguiente serie.',
+        });
+      } else if (avisoMin.current) {
+        mandarAviso('cancelar', { id: avisoMin.current });
+        avisoMin.current = null;
+      }
+    };
+    document.addEventListener('visibilitychange', alCambiar);
+    return () => document.removeEventListener('visibilitychange', alCambiar);
+  }, [descanso, cuenta, name]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // La cuenta guardada vuelve cuando ya está la rutina (hace falta el
   // ejercicio). Si terminó con la app cerrada, la serie se marca sola.

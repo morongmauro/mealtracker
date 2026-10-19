@@ -22,6 +22,8 @@ const AprendeHoy = lazy(() => import('./AprendeHoy.jsx'));
 const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
+import { BarraCompacta, HojaMas, gruposMas } from './VistaCompacta.jsx';
+import { useVistaCompacta, puedeCompacta, guardarVista, adoptarVistaNube, leerVista } from './vistaApp.js';
 import DiaComidas from './DiaComidas.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { CapaActiva } from './capaActiva.js';
@@ -780,6 +782,18 @@ export default function MealTracker() {
   // (Deslizar entre páginas se quitó: chocaba con el scroll de lado del
   // calendario, la galería y los videos. Se navega con la barra.)
   const v2 = esV2(name);
+  // Vista compacta (vistaApp.js): abajo solo Entreno, Comida y «Más».
+  const compacta = useVistaCompacta(name) && v2;
+  const [masAbierto, setMasAbierto] = useState(false);
+  // Lo que se pide al Dash desde «Más» (Configuración, Comunidad).
+  const [dashPedido, setDashPedido] = useState(null);
+  const irSubV2Ref = useRef(null);
+  // Al entrar (o al pasar a la compacta), si estaba en el Dash, abre en lo
+  // que toca hoy: el Dash vive en «Más».
+  useEffect(() => {
+    if (!compacta || view !== 'main' || !showDashRef.current || !irSubV2Ref.current) return;
+    irSubV2Ref.current(trainingOn ? 'entreno' : 'comida', trainingOn ? 'hoy' : 'chat');
+  }, [compacta, view]);   // eslint-disable-line react-hooks/exhaustive-deps
   // Capa de navegación (visual nueva): una sección que ya se abrió NO se
   // desmonta al cambiar a otra; se queda montada y escondida (visibility),
   // con su scroll y su estado, y al volver aparece con un fundido corto en
@@ -1460,6 +1474,8 @@ export default function MealTracker() {
             : local);
         }
         aplicarPrefsDispositivo(d.prefs_dispositivo);
+        // La vista (completa o compacta): si el coach la cambió en el CRM.
+        adoptarVistaNube(d.vista_app);
         // Menús del Recetario: si en este teléfono no hay, se traen los de la cuenta.
         if (Array.isArray(d.recetario_menus) && d.recetario_menus.length) {
           try { if (!localStorage.getItem('mt:menus_guardados')) localStorage.setItem('mt:menus_guardados', JSON.stringify(d.recetario_menus)); } catch (e) {}
@@ -1784,6 +1800,8 @@ export default function MealTracker() {
       // Cómo la abrió esta vez: desde su ícono (instalada) o en una pestaña
       // del navegador. El CRM avisa a quién recordarle instalarla.
       abre_en: esAppInstalada() ? 'instalada' : 'navegador',
+      // La vista que eligió (completa o compacta), con cuándo: el CRM la muestra.
+      vista_app: leerVista() || undefined,
       abre_en_at: new Date().toISOString(),
       // En vivo: comidas y agua de HOY
       today,
@@ -5567,6 +5585,17 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     dash: ['rgba(143,179,232,0.40)', 'rgba(110,158,224,0.22)', 'rgba(198,218,246,0.50)'],
     entreno: ['rgba(169,175,184,0.32)', 'rgba(244,220,147,0.30)', 'rgba(205,210,216,0.38)'],
   };
+  // «Más» de la vista compacta: a dónde lleva cada cuadro.
+  const irMasCompacta = (dest) => {
+    if (dest === 'galeria') return irSubV2('entreno', 'galeria');
+    if (dest === 'comida-hoy') return irSubV2('comida', 'hoy');
+    if (dest === 'recetas') return irSubV2('comida', 'recetas');
+    if (dest === 'comida-calendario') return irSubV2('comida', 'calendario');
+    if (dest === 'aprende') return irSubV2('aprende', 'lecturas');
+    irSubV2('dash');
+    if (dest === 'config' || dest === 'comunidad') setDashPedido({ v: dest, n: Date.now() });
+  };
+  irSubV2Ref.current = irSubV2;
   const irSeccionV2 = (sec) => {
     if (sec === 'dash') return irSubV2('dash');
     if (sec === 'entreno') return irSubV2('entreno', 'hoy');
@@ -6452,7 +6481,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           }} />}
           <CapaActiva.Provider value={showTraining}>
           <Suspense fallback={null}>
-            <Entrenamiento name={name} seccionV2={v2 ? entrenoSub : null} alSeccionV2={setEntrenoSub}
+            <Entrenamiento name={name} seccionV2={v2 ? entrenoSub : null} alSeccionV2={setEntrenoSub} compacta={compacta}
               recordatorios={v2 ? { pendientes: coachReminders.filter(r => !r.done_at).length, abrir: () => { haptic(8); setActiveModal('reminders'); } } : null} />
           </Suspense>
           </CapaActiva.Provider>
@@ -6465,7 +6494,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed inset-0 pointer-events-none" style={{ background: v2 ? BG_STAINS_DASH : BG_STAINS }} />
           <CapaActiva.Provider value={showDash}>
           <Suspense fallback={null}>
-            <Dash name={name} history={history} detalle={historyDetail} goals={goals} kcalHoy={totals?.kcal || 0} reinicio={dashReinicio}
+            <Dash name={name} history={history} detalle={historyDetail} goals={goals} kcalHoy={totals?.kcal || 0} reinicio={dashReinicio} abrir={dashPedido}
               avisoPago={paymentDue && !paymentDue.bloqueo ? <PaymentNotice v2={v2} info={paymentDue} style={{ marginTop: '16px' }} /> : null}
               alIr={(sec, op) => irSubV2(sec, op)} entrenoOn={trainingOn}
               racha={streak} pendientes={coachReminders.filter(r => !r.done_at).length}
@@ -6486,6 +6515,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 // nube; solo pide la contraseña para volver a entrar.
                 cerrarSesion: sesionV2 ? () => { haptic(8); guardarSesion(''); setSesionV2(''); try { sessionStorage.removeItem('mt:cuentaSaltada'); } catch (e) {} setCuentaSaltada(false); } : null,
                 calendarioComida: () => irSubV2('comida', 'calendario'),
+                // Vista de la app (completa / compacta): por ahora solo quien
+                // está en la prueba (vistaApp.js) ve el cambio en Configuración.
+                vista: puedeCompacta(name) ? { compacta, cambiar: (m) => guardarVista(m) } : null,
                 // Sin la cuenta, el recorrido ni la mudanza encima: entonces
                 // puede salir la bienvenida a la Comunidad.
                 ventanaLibre: !(name && !cuentaSaltada && (!sesionV2 || cuentaAbierta)) && !recorrido && !mudanza && !primeraVez,
@@ -6654,7 +6686,21 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           </div>
       </div>
       )}
-      {v2 && (
+      {v2 && compacta && (<>
+        <BarraCompacta barRef={navBarRef} oculta={actionsExpanded} entrenoOn={trainingOn}
+          activa={seccionV2 === 'entreno' && entrenoSub !== 'galeria' ? 'entreno' : (seccionV2 === 'comida' && subV2 === 'chat' && !showRecetario) ? 'comida' : 'mas'}
+          alEntreno={() => irSubV2('entreno', seccionV2 === 'entreno' && entrenoSub === 'mes' ? 'mes' : 'hoy')}
+          alComida={() => irSubV2('comida', 'chat')}
+          alMas={() => { haptic(6); setMasAbierto(true); }} />
+        <HojaMas abierta={masAbierto} alCerrar={() => setMasAbierto(false)}
+          alVerCompleta={() => guardarVista('completa')}
+          grupos={gruposMas({
+            entrenoOn: trainingOn, aprendeOn: !!learningUrl,
+            whatsapp: WHATSAPP_COACH ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}` : null,
+            ir: irMasCompacta,
+          })} />
+      </>)}
+      {v2 && !compacta && (
         <BarraV2
           barRef={navBarRef}
           oculta={actionsExpanded}

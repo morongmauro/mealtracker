@@ -31,6 +31,8 @@ const falla55 = { on: false };
 const ultimoChat = { texto: '' };
 // Lo que la app sube a su cuenta en la nube (POST /api/sync).
 const postsNube = [];
+// Lo que la app manda para la alarma del descanso minimizada (/api/push-cron?descanso=…).
+const avisosDescanso = [];
 globalThis.Date = class extends DateReal {
   constructor(...a) { super(...(a.length ? a : [FIJO])); }
   static now() { return FIJO; }
@@ -239,6 +241,10 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
       if (lento.accion && cuerpo.accion === lento.accion) await new Promise(r => setTimeout(r, lento.ms));
       const r = await llamar(handler, cuerpo);
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(r) });
+    }
+    if (u.pathname === '/api/push-cron' && u.searchParams.get('descanso')) {
+      try { avisosDescanso.push({ que: u.searchParams.get('descanso'), body: JSON.parse(ruta.request().postData() || '{}') }); } catch (e) {}
+      return ruta.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
     }
     if (u.pathname === '/api/sync' && nube && ruta.request().method() !== 'POST' && u.searchParams.get('identity_for') == null) pulls++;
     if (u.pathname === '/api/sync' && nube) {
@@ -1800,6 +1806,18 @@ try {
     const ns = window.__notas, fin = ns.filter(x => x.t > 110 && x.t < 125);
     return ns.some(x => x.t < 0.5) && fin.length === 8 && fin.every(x => x.f > 1500);
   }), await n.p.evaluate(() => JSON.stringify(window.__notas)));
+  // Minimizar con el descanso corriendo deja la alarma en el servidor (el
+  // iPhone congela la app y el pitido no sonaría); volver la cancela.
+  {
+    const visibilidad = (v) => n.p.evaluate((v) => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => v }); document.dispatchEvent(new Event('visibilitychange')); }, v);
+    avisosDescanso.length = 0;
+    await visibilidad('hidden'); await espera(400);
+    const prog = avisosDescanso.find(a => a.que === 'programar');
+    ok('descanso: al minimizar con el descanso corriendo, la alarma queda programada en el servidor', !!prog && prog.body.name === 'Mauro Morón'
+      && prog.body.fin > FIJO + 100000 && prog.body.titulo === 'Descanso listo', JSON.stringify(avisosDescanso));
+    await visibilidad('visible'); await espera(400);
+    ok('…y al volver a la app se cancela (no llega la notificación)', !!prog && avisosDescanso.some(a => a.que === 'cancelar' && a.body.id === prog.body.id), JSON.stringify(avisosDescanso));
+  }
   // Con la Ficha abierta el descanso sigue a la vista, encima de la hoja.
   await n.p.locator('[data-ejercicio="Barbell Bench Press"]').getByRole('button', { name: /Ficha/ }).first().click();
   await espera(500);
@@ -2173,6 +2191,52 @@ try {
   ok('gracia: reinstalar no da otro día (el servidor ya tiene una instalación anterior)', (await g4.p.getByRole('alertdialog', { name: 'Pago pendiente' }).count()) === 1
     && (await g4.p.locator('[data-view="dash"] [data-aviso-pago]').count()) === 0);
   await g4.ctx.close();
+
+  // ── Vista compacta (por ahora solo Mauro): se activa en Configuración ──
+  {
+    const vc = await abrir('Mauro Morón', { nube: {} });
+    const p = vc.p;
+    await p.locator('nav[aria-label="Secciones"]').waitFor({ timeout: 25000 }); await espera(1500);
+    await p.getByRole('button', { name: /^Dash$/ }).first().click(); await espera(500);
+    await p.locator('[data-abrir-config]').click();
+    await p.locator('[data-elegir-vista]').waitFor({ timeout: 5000 });
+    ok('vista compacta: en Configuración sale «Vista de la app», con la Completa marcada', (await p.locator('[data-vista-opcion="completa"]').getAttribute('aria-pressed')) === 'true'
+      && (await p.locator('[data-vista-opcion="compacta"]').getAttribute('aria-pressed')) === 'false');
+    await foto(p, '30a-config-vista');
+    await p.locator('[data-vista-opcion="compacta"]').click(); await espera(700);
+    ok('vista compacta: al elegirla, abajo quedan Entreno, Comida y Más', JSON.stringify(await p.locator('[data-compacta-boton]').evaluateAll(els => els.map(e => e.dataset.compactaBoton))) === JSON.stringify(['entreno', 'comida', 'mas']),
+      JSON.stringify(await p.locator('[data-compacta-boton]').evaluateAll(els => els.map(e => e.dataset.compactaBoton))));
+    await p.locator('[data-compacta-boton="entreno"]').click(); await espera(1500);
+    const cab = p.locator('[data-view="entrena"] [data-cabeza-compacta]');
+    ok('vista compacta: Entreno con título, aro chico y Hoy | Calendario, sin la cabecera grande', await cab.isVisible()
+      && (await cab.locator('[data-compacta-opcion]').count()) === 2 && (await cab.locator('[data-anillo]').count()) === 1
+      && (await p.locator('[data-view="entrena"] [data-cabecera-hoy="entreno"]').count()) === 0);
+    await foto(p, '30b-compacta-entreno');
+    await cab.locator('[data-compacta-opcion="mes"]').click(); await espera(1500);
+    ok('vista compacta: «Calendario» abre el mes', (await p.locator('[data-view="entrena"] [data-compacta-opcion="mes"]').getAttribute('aria-selected')) === 'true');
+    await p.locator('[data-compacta-boton="comida"]').click(); await espera(1200);
+    ok('vista compacta: Comida abre el chat', (await p.locator('[data-compacta-boton="comida"]').getAttribute('data-activo')) === '1'
+      && (await p.locator('[data-placeholder*="Dicta o escribe"]').count()) >= 1);
+    await foto(p, '30c-compacta-comida');
+    await p.locator('[data-compacta-boton="mas"]').click(); await espera(600);
+    const mas = await p.locator('[data-hoja-mas] [data-mas]').evaluateAll(els => els.map(e => e.dataset.mas));
+    ok('vista compacta: «Más» trae Galería; Tu día, Recetario y Calendario; Tu progreso, Comunidad, Coach y Configuración',
+      ['galeria', 'comida-hoy', 'recetas', 'comida-calendario', 'dash', 'comunidad', 'coach', 'config'].every(x => mas.includes(x)) && (await p.locator('[data-ver-completa]').count()) === 1, JSON.stringify(mas));
+    await foto(p, '30d-compacta-mas');
+    await p.locator('[data-mas="config"]').click(); await espera(900);
+    ok('vista compacta: Más → Configuración la abre', await p.locator('[data-configuracion]').isVisible());
+    await p.locator('[data-compacta-boton="mas"]').click(); await espera(500);
+    await p.locator('[data-ver-completa]').click(); await espera(800);
+    ok('vista compacta: «Ver la completa» vuelve a la barra de siempre', (await p.locator('[data-barra-compacta]').count()) === 0
+      && (await p.locator('[data-seccion-boton], [data-activo]').count()) > 0);
+    ok('sin errores de JavaScript (vista compacta)', vc.errores.length === 0, vc.errores.join(' | '));
+    await vc.ctx.close();
+    // La que pone el coach desde el CRM llega con la nube y manda si es más nueva.
+    const vc2 = await abrir('Mauro Morón', { nube: { vista_app: { modo: 'compacta', desde: new Date(FIJO).toISOString(), por: 'coach' } } });
+    await vc2.p.locator('nav[aria-label="Secciones"]').waitFor({ timeout: 25000 }); await espera(2500);
+    ok('vista compacta: si el coach se la pone en el CRM, la app abre compacta', (await vc2.p.locator('[data-barra-compacta]').count()) === 1);
+    await vc2.ctx.close();
+  }
 
   // ── Otra persona: todo como siempre ──
   const o = await abrir('Ana Pérez');

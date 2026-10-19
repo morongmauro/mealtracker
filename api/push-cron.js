@@ -44,6 +44,7 @@
 import webpush from 'web-push';
 import { verifyCoachToken } from './coach-auth.js';
 import { checkOrigin } from './_guard.js';
+import manejarDescanso from './_descanso.js';
 // La regla de cobro, compartida con el banner de la app. Ver _pagos.js.
 import { leerContexto, evaluarCliente, normalizeName as normPagos, crmHeaders } from './_pagos.js';
 import { agendaDeHoy, cerrarOlvidadas, hoyBogota } from './_entreno.js';
@@ -366,6 +367,8 @@ async function handleCoachSend(req, res) {
 export default async function handler(req, res) {
   applyCors(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
+  // La alarma del descanso con la app minimizada (ver _descanso.js).
+  if (req.query && req.query.descanso) return manejarDescanso(req, res);
   // POST = push manual del coach (llega vía la rewrite /api/push-send)
   if (req.method === 'POST') return handleCoachSend(req, res);
 

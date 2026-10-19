@@ -187,6 +187,8 @@ function summarize(row) {
     // Cómo la abrió la última vez: 'instalada' (desde su ícono) o 'navegador'.
     abre_en: data.abre_en || null,
     abre_en_at: data.abre_en_at || null,
+    // La vista que usa: { modo: 'completa'|'compacta', desde, por: 'cliente'|'coach' }.
+    vista_app: data.vista_app && typeof data.vista_app === 'object' ? data.vista_app : null,
   };
 }
 
@@ -383,7 +385,7 @@ export default async function handler(req, res) {
     if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
     try {
       const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=reminders:data->coach_reminders,reminders_updated:data->reminders_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,pwa_nueva_at:data->pwa_nueva_at,abre_en:data->abre_en,abre_en_at:data->abre_en_at,updated_at`,
+        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=reminders:data->coach_reminders,reminders_updated:data->reminders_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,pwa_nueva_at:data->pwa_nueva_at,abre_en:data->abre_en,abre_en_at:data->abre_en_at,vista_app:data->vista_app,updated_at`,
         { headers: supaHeaders() }
       );
       const rows = await r.json();
@@ -394,6 +396,7 @@ export default async function handler(req, res) {
         // Señales de dispositivo para los badges y el journey del CRM
         pwa_installed_at: rows[0].pwa_installed_at || null,
         pwa_nueva_at: rows[0].pwa_nueva_at || null,
+        vista_app: rows[0].vista_app || null,
         abre_en: rows[0].abre_en || null,
         abre_en_at: rows[0].abre_en_at || null,
         push_enabled_at: rows[0].push_enabled_at || null,
@@ -402,6 +405,31 @@ export default async function handler(req, res) {
       });
     } catch (e) {
       return res.status(500).json({ error: 'reminders get failed', detail: String(e) });
+    }
+  }
+
+  // VISTA — el coach le pone al cliente la vista completa o la compacta. Se
+  // sella con la hora: la app la adopta al sincronizar si es más nueva que
+  // la suya (ver vistaApp.js y sync.js).
+  if (req.method === 'PATCH' && action === 'vista') {
+    const userId = req.query.user_id;
+    if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
+    const modo = (req.body || {}).modo;
+    if (modo !== 'compacta' && modo !== 'completa') return res.status(400).json({ error: 'modo must be compacta or completa' });
+    try {
+      const r1 = await fetch(`${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=data`, { headers: supaHeaders() });
+      const rows = await r1.json();
+      if (!Array.isArray(rows) || rows.length === 0) return res.status(404).json({ error: 'client not found' });
+      const vista = { modo, desde: new Date().toISOString(), por: 'coach' };
+      const r2 = await fetch(`${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}`, {
+        method: 'PATCH',
+        headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ data: { ...(rows[0].data || {}), vista_app: vista }, updated_at: new Date().toISOString() }),
+      });
+      if (!r2.ok) return res.status(500).json({ error: 'vista update failed', detail: await r2.text() });
+      return res.status(200).json({ ok: true, vista_app: vista });
+    } catch (e) {
+      return res.status(500).json({ error: 'vista failed', detail: String(e) });
     }
   }
 

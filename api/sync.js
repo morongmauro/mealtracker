@@ -179,7 +179,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,recetario_menus:data->recetario_menus,novedades_vistas:data->novedades_vistas,prefs_dispositivo:data->prefs_dispositivo,app_nueva_at:data->app_nueva_at,pwa_nueva_at:data->pwa_nueva_at`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,recetario_menus:data->recetario_menus,novedades_vistas:data->novedades_vistas,prefs_dispositivo:data->prefs_dispositivo,app_nueva_at:data->app_nueva_at,pwa_nueva_at:data->pwa_nueva_at,vista_app:data->vista_app`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -213,6 +213,14 @@ export default async function handler(req, res) {
           // cuenta desde ahí, y reinstalar no lo renueva.
           if (existing.pwa_nueva_at && (!dataToWrite.pwa_nueva_at || String(existing.pwa_nueva_at) < String(dataToWrite.pwa_nueva_at))) {
             dataToWrite.pwa_nueva_at = existing.pwa_nueva_at;
+          }
+          // La vista de la app (completa / compacta): gana la más reciente.
+          // El coach la puede cambiar desde el CRM; un teléfono con la copia
+          // de antes no debe devolverla a lo que era.
+          if (existing.vista_app && typeof existing.vista_app === 'object'
+              && (!dataToWrite.vista_app || typeof dataToWrite.vista_app !== 'object'
+                || String(existing.vista_app.desde || '') > String(dataToWrite.vista_app.desde || ''))) {
+            dataToWrite.vista_app = existing.vista_app;
           }
           // Preferencias del teléfono (kg/lb, días perfectos, ventanas ya
           // vistas): se fusionan por clave; las listas (días perfectos,

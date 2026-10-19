@@ -359,7 +359,7 @@ const Marco = React.forwardRef(({ children }, ref) => (
 const cacheDash = new Map();
 const cacheAprende = new Map();
 
-export default function Dash({ name, history, detalle = {}, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null, kcalHoy = 0, reinicio = 0 }) {
+export default function Dash({ name, history, detalle = {}, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null, kcalHoy = 0, reinicio = 0, abrir = null }) {
   const hoy = hoyLocal();
   const [ent, setEnt] = useState(() => cacheDash.get(name) || null);
   // El plan de la semana (la rutina de hoy, para el bloque «Hoy»): el mismo
@@ -375,6 +375,9 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   // Al volver a él desde la barra (reinicio cambia) se abre en su inicio,
   // como siempre, pero sin armarse de cero ni volver a pedir los datos.
   useEffect(() => { if (reinicio) setVista('inicio'); }, [reinicio]);
+  // Desde «Más» (vista compacta) se puede pedir abrir directo Configuración o
+  // la Comunidad. Va DESPUÉS del de arriba: si llegan juntos, gana este.
+  useEffect(() => { if (abrir && abrir.v) setVista(abrir.v); }, [abrir && abrir.n]);   // eslint-disable-line react-hooks/exhaustive-deps
   // Qué aro se está explicando (las props de ExplicacionAro), o null.
   const [explicarAro, setExplicarAro] = useState(null);
   const [aprende, setAprende] = useState(() => (cacheAprende.has(name) ? cacheAprende.get(name) : undefined));   // undefined = cargando, null = sin datos
@@ -454,7 +457,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   if (vista === 'comunidad') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <Comunidad name={name} /></Marco>;
   if (vista === 'config') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
-    <Configuracion name={name} whatsapp={wa} alRecorrido={acciones.recorrido} alPrograma={acciones.programa} alActivarPush={acciones.activarPush} alCerrarSesion={acciones.cerrarSesion} /></Marco>;
+    <Configuracion name={name} whatsapp={wa} alRecorrido={acciones.recorrido} alPrograma={acciones.programa} alActivarPush={acciones.activarPush} alCerrarSesion={acciones.cerrarSesion} vistaApp={acciones.vista} /></Marco>;
 
   // Constancia del entrenamiento en las últimas 8 semanas (% de lo planeado).
   const ochoSemanas = (ent?.semanas || []).slice(-8).filter(w => w.planeados > 0)

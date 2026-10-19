@@ -30,7 +30,7 @@ export const RELOJES = [
   { id: 'apple', nombre: 'Apple Watch', detalle: 'Pronto', listo: false },
 ];
 
-export default function Configuracion({ name, arriba = 0, alRecorrido, alPrograma, whatsapp, alActivarPush, alCerrarSesion }) {
+export default function Configuracion({ name, arriba = 0, alRecorrido, alPrograma, whatsapp, alActivarPush, alCerrarSesion, vistaApp = null }) {
   const [vista, setVista] = useState('inicio');
   const [unidadesAbierta, setUnidadesAbierta] = useState(false);
   const [respira, setRespira] = useState(false);
@@ -58,6 +58,7 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
       {respira && <Respira alCerrar={() => setRespira(false)} />}
       {instalar && <Hoja abierta alCerrar={() => setInstalar(false)} titulo="Instalar la app" alto="70vh"><AvisoInstalar enHoja /></Hoja>}
       <CabeceraHoy tema="dash" fondo={false} voz={{ etiqueta: 'CONFIGURACIÓN', a: 'Tu app,', b: 'a tu manera.' }} />
+      {vistaApp && <ElegirVista compacta={vistaApp.compacta} alCambiar={vistaApp.cambiar} />}
       <div style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA, padding: '4px 0' }}>
         {filas.map((f, i) => {
           const Tag = f.href ? 'a' : 'button';
@@ -147,3 +148,41 @@ export function RelojesLista({ name, arriba = 0, alVolver }) {
 
 const botonSuave = { flex: 'none', height: 36, padding: '0 14px', borderRadius: 12, border: 0, background: '#F1EFE9', color: TEXT, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer' };
 const botonFuerte = { flex: 'none', height: 36, padding: '0 14px', borderRadius: 12, background: '#1F1F1F', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' };
+
+// ── Vista de la app: completa o compacta ───────────────────────────────────
+// Dos tarjetas con un dibujo de cada una: se entiende sin leer. Cambia al
+// instante y se puede volver cuando se quiera (también desde «Más»).
+function ElegirVista({ compacta, alCambiar }) {
+  const AZUL = '#3C7BD6';
+  const Tarjeta = ({ id, titulo, detalle, sel, children }) => (
+    <button data-vista-opcion={id} aria-pressed={sel} onClick={() => !sel && alCambiar(id)} style={{
+      flex: 1, minWidth: 0, background: '#FFFFFF', borderRadius: 18, padding: 10, border: 0, cursor: sel ? 'default' : 'pointer', position: 'relative',
+      boxShadow: sel ? `0 0 0 2.5px ${AZUL}, ${SOMBRA}` : SOMBRA, textAlign: 'left', fontFamily: 'inherit',
+    }}>
+      {sel && <span aria-hidden="true" style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: 99, background: AZUL, color: '#fff', display: 'grid', placeItems: 'center' }}><CheckCircle size={16} weight="fill" /></span>}
+      <div style={{ height: 120, borderRadius: 12, background: '#F4F3EF', position: 'relative', overflow: 'hidden', padding: 8 }}>{children}</div>
+      <div style={{ fontWeight: 800, fontSize: 15, color: TEXT, marginTop: 9 }}>{titulo}</div>
+      <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2 }}>{detalle}</div>
+    </button>
+  );
+  const raya = (h, w = '100%', bg = '#DCDCE1') => <i style={{ display: 'block', height: h, width: w, background: bg, borderRadius: 5, marginBottom: 5 }} />;
+  const barra = (n) => (
+    <div style={{ position: 'absolute', left: 6, right: 6, bottom: 6, height: 15, borderRadius: 9, background: '#fff', display: 'flex', justifyContent: 'space-evenly', alignItems: 'center' }}>
+      {Array.from({ length: n }).map((_, i) => <b key={i} style={{ width: 8, height: 8, borderRadius: 3, background: '#B9B9BF' }} />)}
+    </div>
+  );
+  return (
+    <div data-elegir-vista style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', color: TEXT_MUTED, textTransform: 'uppercase', margin: '0 4px 10px' }}>Vista de la app</div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <Tarjeta id="completa" titulo="Completa" detalle="Todo a la vista" sel={!compacta}>
+          {raya(26)}{raya(8, '60%')}{raya(20)}{raya(20)}{barra(4)}
+        </Tarjeta>
+        <Tarjeta id="compacta" titulo="Compacta" detalle="Solo lo esencial" sel={compacta}>
+          {raya(9, '55%')}{raya(40, '100%', '#FFFFFF')}{raya(12, '100%', '#FFFFFF')}{barra(3)}
+        </Tarjeta>
+      </div>
+      <div style={{ fontSize: 13, color: TEXT_MUTED, margin: '10px 4px 0', lineHeight: 1.4 }}>Puedes cambiarla cuando quieras. No se pierde nada: lo demás queda en «Más».</div>
+    </div>
+  );
+}
