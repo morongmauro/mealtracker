@@ -356,6 +356,9 @@ async function verRutina(cliente, rutinaId, hoy) {
     // El cardio que le dejaste para después de la fuerza hoy.
     cardioDespues(cliente, hoy).catch(() => []),
   ]);
+  // Lo que no tiene nada en la app: lo último que hizo en Trainerize.
+  const sinNada = [...new Set(lista.map(x => x.ejercicio_id))].filter(id => !ultimas[id] && porId[id]).map(id => porId[id]);
+  Object.assign(ultimas, await ultimosDeTrainerize(cliente.id, sinNada).catch(() => ({})));
 
   return {
     ok: true, hoy, cardio,
@@ -414,14 +417,22 @@ async function ultimasSeries(clienteId, ejercicioIds, { excluirSesion = null } =
   const fechaDe = {};
   lista.forEach(s => { fechaDe[s.id] = s.fecha; });
 
-  const logs = await sb(`series_log?select=ejercicio_id,sesion_id,serie_num,reps,peso,unidad`
-    + `&sesion_id=in.(${lista.map(s => s.id).join(',')})&ejercicio_id=in.(${ejercicioIds.join(',')})`
-    + `&completada=is.true`);
+  // Por tandas de sesiones y de mil en mil: Supabase corta cada respuesta en
+  // 1.000 filas SIN avisar y sin orden, así que con meses de historial unos
+  // ejercicios se quedaban sin «última vez» al azar. Y cientos de ids en una
+  // sola URL pasan del largo que aguanta.
+  const logs = [];
+  for (let i = 0; i < lista.length; i += 120) {
+    const ids = lista.slice(i, i + 120).map(s => s.id).join(',');
+    logs.push(...await todas(`series_log?select=ejercicio_id,sesion_id,serie_num,reps,peso,unidad`
+      + `&sesion_id=in.(${ids})&ejercicio_id=in.(${ejercicioIds.join(',')})`
+      + `&completada=is.true&order=id`));
+  }
 
   // Primero se agrupa por ejercicio y fecha: una sesión del mismo día es una
   // entrada del historial.
   const porEjercicio = {};
-  (Array.isArray(logs) ? logs : []).forEach(l => {
+  logs.forEach(l => {
     const fecha = fechaDe[l.sesion_id];
     if (!fecha) return;
     const dias = porEjercicio[l.ejercicio_id] || (porEjercicio[l.ejercicio_id] = {});
@@ -429,48 +440,93 @@ async function ultimasSeries(clienteId, ejercicioIds, { excluirSesion = null } =
   });
 
   const out = {};
-  Object.entries(porEjercicio).forEach(([ejercicioId, dias]) => {
-    const fechas = Object.keys(dias).sort().reverse();   // la más nueva primero
-    const sesion = (f) => ({
-      fecha: f,
-      series: dias[f]
-        .slice().sort((a, b) => a.serie_num - b.serie_num)
-        .map(s => ({ serie: s.serie_num, reps: s.reps, peso: s.peso, unidad: s.unidad })),
-    });
+  Object.entries(porEjercicio).forEach(([ejercicioId, dias]) => { out[ejercicioId] = resumenDeDias(dias); });
+  return out;
+}
 
-    const ultima = sesion(fechas[0]);
-    // `mejor_peso` de la última sesión: es lo que prerrellena el campo. No es
-    // el récord — se llamaba así y confundía. Va con SU unidad: si la última
-    // vez fue en libras, la app lo sabe y abre el ejercicio en libras.
-    let mejor = null;
-    ultima.series.forEach(s => {
-      const kg = aKg(s.peso, s.unidad);
-      if (kg != null && kg > 0 && (!mejor || kg > mejor.kg)) mejor = { kg, peso: Number(s.peso), unidad: s.unidad || 'kg' };
-    });
-    ultima.mejor_peso = mejor ? mejor.peso : null;
-    ultima.unidad = mejor ? mejor.unidad : ((ultima.series[0] && ultima.series[0].unidad) || 'kg');
+// ── LO QUE SE TRAJO DE TRAINERIZE, PARA LO QUE NO TIENE HISTORIAL ───────
+// De Trainerize solo entraron como series las sesiones de las últimas
+// semanas. Lo de ciclos anteriores quedó en la foto del export
+// (`trainerize_resumen.datos.rutinas[].ejercicios[]`: `fecha` y `hist` =
+// [[reps, kg], …]). Si un ejercicio de hoy no tiene NADA en la app, su «última
+// vez» sale de ahí, emparejado por el nombre de Trainerize. Solo lectura: no
+// se escribe nada y lo marcado en la app siempre manda.
+const normNombre = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
-    // El récord: el peso más alto de toda su historia y, con ESE peso, las
-    // reps más altas. Así "60 kg × 8" es una marca real y no el peso de un
-    // día mezclado con las reps de otro. Se compara en kg: 50 lb no le gana
-    // a 40 kg aunque el número sea más grande.
-    let record = null;
-    fechas.forEach(f => {
-      dias[f].forEach(s => {
-        const cand = marcaDe(s, f);
-        if (cand && superaMarca(cand, record)) record = cand;
-      });
-    });
-
-    out[ejercicioId] = {
-      ...ultima,
-      record,
-      // Cuántas veces lo ha hecho en total, aunque solo se manden las últimas.
-      veces: fechas.length,
-      historial: fechas.slice(0, TOPE_HISTORIAL).map(sesion),
-    };
+async function ultimosDeTrainerize(clienteId, ejercicios) {
+  if (!ejercicios.length) return {};
+  let fotos;
+  try {
+    fotos = await sb(`trainerize_resumen?select=exportado,datos&cliente_id=eq.${clienteId}&order=exportado.desc&limit=10`);
+  } catch (e) { return {}; }   // sin la tabla (o sin fotos) no hay nada que añadir
+  // Por nombre, el registro más nuevo de todos los exports.
+  const porNombre = {};
+  (Array.isArray(fotos) ? fotos : []).forEach(f => {
+    ((f.datos && f.datos.rutinas) || []).forEach(r => (r.ejercicios || []).forEach(e => {
+      // Los de tiempo traen segundos donde van las reps; los ⚠ son registros
+      // raros que la carga ya dejó fuera del historial.
+      if (e.tiempo || !e.fecha || !Array.isArray(e.hist) || /⚠/.test(e.ultimo || '')) return;
+      const k = normNombre(e.alias);
+      if (k && (!porNombre[k] || e.fecha > porNombre[k].fecha)) porNombre[k] = { fecha: e.fecha, hist: e.hist };
+    }));
+  });
+  const out = {};
+  ejercicios.forEach(ej => {
+    const t = porNombre[normNombre(ej.alias)] || porNombre[normNombre(ej.nombre)];
+    if (!t) return;
+    const series = t.hist
+      .map((a, i) => ({ serie_num: i + 1, reps: Array.isArray(a) ? a[0] : null, peso: Array.isArray(a) ? a[1] : null, unidad: 'kg' }))
+      .filter(x => Number(x.reps) > 0);
+    if (series.length) out[ej.id] = resumenDeDias({ [t.fecha]: series });
   });
   return out;
+}
+
+// Lo de UN ejercicio a partir de sus series agrupadas por fecha
+// ({ 'aaaa-mm-dd': [{ serie_num, reps, peso, unidad }] }): la última vez,
+// el récord y el historial. Lo usan las series de la app y lo que se trajo
+// de Trainerize.
+function resumenDeDias(dias) {
+  const fechas = Object.keys(dias).sort().reverse();   // la más nueva primero
+  const sesion = (f) => ({
+    fecha: f,
+    series: dias[f]
+      .slice().sort((a, b) => a.serie_num - b.serie_num)
+      .map(s => ({ serie: s.serie_num, reps: s.reps, peso: s.peso, unidad: s.unidad })),
+  });
+
+  const ultima = sesion(fechas[0]);
+  // `mejor_peso` de la última sesión: es lo que prerrellena el campo. No es
+  // el récord — se llamaba así y confundía. Va con SU unidad: si la última
+  // vez fue en libras, la app lo sabe y abre el ejercicio en libras.
+  let mejor = null;
+  ultima.series.forEach(s => {
+    const kg = aKg(s.peso, s.unidad);
+    if (kg != null && kg > 0 && (!mejor || kg > mejor.kg)) mejor = { kg, peso: Number(s.peso), unidad: s.unidad || 'kg' };
+  });
+  ultima.mejor_peso = mejor ? mejor.peso : null;
+  ultima.unidad = mejor ? mejor.unidad : ((ultima.series[0] && ultima.series[0].unidad) || 'kg');
+
+  // El récord: el peso más alto de toda su historia y, con ESE peso, las
+  // reps más altas. Así "60 kg × 8" es una marca real y no el peso de un
+  // día mezclado con las reps de otro. Se compara en kg: 50 lb no le gana
+  // a 40 kg aunque el número sea más grande.
+  let record = null;
+  fechas.forEach(f => {
+    dias[f].forEach(s => {
+      const cand = marcaDe(s, f);
+      if (cand && superaMarca(cand, record)) record = cand;
+    });
+  });
+
+  return {
+    ...ultima,
+    record,
+    // Cuántas veces lo ha hecho en total, aunque solo se manden las últimas.
+    veces: fechas.length,
+    historial: fechas.slice(0, TOPE_HISTORIAL).map(sesion),
+  };
 }
 
 // ¿La sesión que se acaba de cerrar batió algún récord? Se calcula DESPUÉS
@@ -840,6 +896,13 @@ async function cerrarSesion(cliente, cuerpo) {
       const ids = [...new Set(series.map(x => x.ejercicio_id))];
       if (ids.length) {
         const antes = await ultimasSeries(cliente.id, ids, { excluirSesion: sesion.id });
+        // Lo de Trainerize también cuenta como marca a batir: si no, la
+        // primera vez en la app salía «récord» aunque allá levantara más.
+        const faltan = ids.filter(id => !antes[id]);
+        if (faltan.length) {
+          const fichas = await sb(`ejercicios?select=id,nombre,alias&id=in.(${faltan.join(',')})`).catch(() => []);
+          Object.assign(antes, await ultimosDeTrainerize(cliente.id, Array.isArray(fichas) ? fichas : []).catch(() => ({})));
+        }
         const previos = {};
         Object.entries(antes).forEach(([id, v]) => { if (v.record) previos[id] = v.record; });
         records = recordsBatidos(previos, series);

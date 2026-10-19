@@ -687,5 +687,80 @@ await caso('tiempos: sin la columna nueva (falta el SQL) la serie se guarda igua
   igual([r.ok, sb.db.series_log.filter(l => l.sesion_id === a.sesion.id).length], [true, 1], 'guardada');
 });
 
+// ── Historial ────────────────────────────────────────────────────────────
+await caso('historial: con más de 1.000 series guardadas, cada ejercicio sigue teniendo su «última vez»', async () => {
+  const sb = base();
+  const db = sb.db;
+  // 80 sesiones viejas con 15 series de press cada una (1.200 filas) y el remo
+  // solo en la primera: con el corte de 1.000 sin orden, el remo se perdía.
+  for (let k = 1; k <= 80; k++) {
+    db.sesiones.push({ id: `v${k}`, cliente_id: 'c1', rutina_id: 'r1', fecha: mas(lunes, -14 - k), estado: 'completada' });
+    for (let n = 1; n <= 15; n++) db.series_log.push({ id: `z${String(k).padStart(3, '0')}${String(n).padStart(2, '0')}`, sesion_id: `v${k}`, ejercicio_id: 'e1', serie_num: n, reps: 8, peso: 50, unidad: 'kg', completada: true });
+  }
+  db.series_log.unshift({ id: 'a0', sesion_id: 'v80', ejercicio_id: 'e2', serie_num: 1, reps: 10, peso: 40, unidad: 'kg', completada: true });
+  const sb2 = crearSupabaseFalso({ tablas: db, maxFilas: 1000, porDefecto: { sesiones: { estado: 'en_curso' }, series_log: { completada: true } } });
+  globalThis.fetch = sb2.fetch;
+  const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  const remo = r.rutina.ejercicios.find(x => x.id === 're2');
+  const press = r.rutina.ejercicios.find(x => x.id === 're1');
+  igual(remo.ultima_vez && remo.ultima_vez.mejor_peso, 40, 'el remo no se pierde');
+  igual(press.ultima_vez.veces, 81, 'cuenta todas las veces del press');
+});
+
+const fotoTrainerize = (ejercicios) => ({ id: 't1', cliente_id: 'c1', exportado: '2026-10-12', datos: { rutinas: [{ nombre: 'Push', ejercicios }] } });
+
+await caso('historial: lo que no tiene nada en la app sale con lo último de Trainerize', async () => {
+  const sb = base();
+  sb.db.ejercicios.find(e => e.id === 'e2').alias = 'Seated Cable Row';
+  sb.db.trainerize_resumen = [fotoTrainerize([
+    { alias: 'Seated Cable Row', fecha: '2026-08-25', anterior: true, hist: [[10, 45], [9, 50], [8, 50]] },
+  ])];
+  globalThis.fetch = sb.fetch;
+  const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  const remo = r.rutina.ejercicios.find(x => x.id === 're2');
+  igual([remo.ultima_vez.fecha, remo.ultima_vez.mejor_peso, remo.ultima_vez.unidad, remo.ultima_vez.series.length], ['2026-08-25', 50, 'kg', 3], 'última vez de Trainerize');
+  igual([remo.ultima_vez.record.peso, remo.ultima_vez.record.reps], [50, 9], 'su récord');
+});
+
+await caso('historial: lo marcado en la app manda sobre lo de Trainerize', async () => {
+  const sb = base();
+  sb.db.ejercicios.find(e => e.id === 'e1').alias = 'Barbell Bench Press';
+  sb.db.trainerize_resumen = [fotoTrainerize([{ alias: 'Barbell Bench Press', fecha: '2026-08-01', hist: [[5, 90]] }])];
+  globalThis.fetch = sb.fetch;
+  const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  const press = r.rutina.ejercicios.find(x => x.id === 're1');
+  igual([press.ultima_vez.fecha, press.ultima_vez.mejor_peso], [mas(lunes, -7), 60], 'la de la app');
+});
+
+await caso('historial: los de tiempo y los registros raros (⚠) de Trainerize no se usan', async () => {
+  const sb = base();
+  sb.db.ejercicios.find(e => e.id === 'e2').alias = 'Bar Hang';
+  sb.db.trainerize_resumen = [fotoTrainerize([
+    { alias: 'Bar Hang', fecha: '2026-08-25', tiempo: true, hist: [[1200, null]] },
+    { alias: 'Bar Hang', fecha: '2026-08-26', ultimo: '1200 ⚠', hist: [[1200, null]] },
+  ])];
+  globalThis.fetch = sb.fetch;
+  const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  igual(r.rutina.ejercicios.find(x => x.id === 're2').ultima_vez, null, 'sin última vez');
+});
+
+await caso('historial: sin la tabla de Trainerize la rutina abre igual', async () => {
+  const sb = crearSupabaseFalso({ tablas: base().db, columnas: { trainerize_resumen: ['nada'] } });
+  globalThis.fetch = sb.fetch;
+  const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  igual([r.ok, r.rutina.ejercicios.find(x => x.id === 're2').ultima_vez], [true, null], 'abre');
+});
+
+await caso('historial: lo de Trainerize cuenta como marca a batir al cerrar', async () => {
+  const sb = base();
+  sb.db.ejercicios.find(e => e.id === 'e2').alias = 'Seated Cable Row';
+  sb.db.trainerize_resumen = [fotoTrainerize([{ alias: 'Seated Cable Row', fecha: '2026-08-25', hist: [[8, 70]] }])];
+  globalThis.fetch = sb.fetch;
+  const a = await llamar(handler, { accion: 'abrir', name: yo, rutina_id: 'r1' });
+  await llamar(handler, { accion: 'serie', name: yo, sesion_id: a.sesion.id, rutina_ejercicio_id: 're2', ejercicio_id: 'e2', serie_num: 1, reps: 10, peso: 50 });
+  const c = await llamar(handler, { accion: 'cerrar', name: yo, sesion_id: a.sesion.id, rpe: 7 });
+  igual((c.records || []).filter(x => x.ejercicio_id === 'e2').length, 0, 'no es récord: allá hizo 70 kg');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

@@ -10,7 +10,9 @@ import { randomUUID } from 'node:crypto';
 // `obligatorias`: columnas NOT NULL sin valor por defecto que sirva desde la
 // API. `user_id` en sesiones y actividades es el caso real: su default es
 // auth.uid(), que con la service_role vale null.
-export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}, estricto = false,
+// `maxFilas`: como el Supabase de verdad, ninguna respuesta pasa de ese número
+// de filas aunque se pida más (por defecto, sin tope).
+export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}, estricto = false, maxFilas = 0,
   obligatorias = { sesiones: ['user_id'], actividades: ['user_id'], mediciones_corporales: ['user_id'], notas_entreno: ['user_id'] } } = {}) {
   const db = {};
   for (const [t, filas] of Object.entries(tablas)) db[t] = filas.map(f => ({ ...f }));
@@ -89,6 +91,7 @@ export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}
       const lim = Number(u.searchParams.get('limit'));
       if (off) out = out.slice(off);
       if (lim) out = out.slice(0, lim);
+      if (maxFilas) out = out.slice(0, maxFilas);
       return respuesta(200, out.map(f => ({ ...f })));
     }
     if (metodo === 'POST') {
