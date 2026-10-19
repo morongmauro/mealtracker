@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import EntrenoMes, { HoySemana, precargarMeses, AvisoFlotante, ACTUALIZANDO } from './EntrenoMes.jsx';
 import EntrenoRutinas from './EntrenoRutinas.jsx';
 import EntrenoResumen from './EntrenoResumen.jsx';
@@ -685,7 +686,21 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
   // contador que se va restando. Con un contador, minimizar la app o apagar
   // la pantalla congela el intervalo y al volver marca de menos; con un
   // instante, al volver sale el tiempo REAL que queda.
-  const [descanso, setDescanso] = useState(null);
+  //
+  // El descanso y la cuenta de un ejercicio por tiempo se guardan en el
+  // teléfono: el iPhone cierra la app minimizada cuando quiere, y al volver
+  // el reloj seguía... desde cero o no estaba. Con lo guardado vuelve tal
+  // cual, con el tiempo real que queda. Pasados 10 min ya no se trae.
+  const claveReloj = `mt:temporizador:${rutinaId}:${fecha}`;
+  const relojGuardado = useRef(undefined);
+  if (relojGuardado.current === undefined) {
+    try {
+      const g = JSON.parse(localStorage.getItem(claveReloj) || 'null');
+      const fin = g && (g.descanso || g.cuenta) ? (g.descanso || g.cuenta).fin : 0;
+      relojGuardado.current = g && (fin > Date.now() - 10 * 60000 || (g.cuenta && g.cuenta.pausa != null)) ? g : null;
+    } catch (e) { relojGuardado.current = null; }
+  }
+  const [descanso, setDescanso] = useState(() => (relojGuardado.current && relojGuardado.current.descanso) || null);
   const [restante, setRestante] = useState(0);
 
   useEffect(() => {
@@ -715,7 +730,9 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
   // Al llegar a cero: vibra y, si el pitido no quedó programado, suena el de
   // respaldo (sonidoDescanso.js). Si la app estaba en segundo plano, al
   // volver se recalcula el tiempo y, si ya pasó, avisa entonces.
-  const yaAvisado = useRef(false);
+  // Un descanso que ya había terminado mientras la app estaba cerrada no
+  // vuelve a pitar al abrir: se ve «A la siguiente» y listo.
+  const yaAvisado = useRef(!!(descanso && descanso.fin <= Date.now()));
   useEffect(() => {
     if (!descanso) { yaAvisado.current = false; return; }
     if (restante <= 0 && !yaAvisado.current) {
@@ -914,6 +931,45 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
   };
   const ctxCuenta = { empezar: empezarCuenta, activa: cuenta ? cuenta.clave : null };
 
+  // Al volver con un reloj guardado, el iPhone no deja sonar nada hasta que
+  // la persona toca la pantalla: con el primer toque se abre el audio y la
+  // alarma del final se vuelve a programar (al copiar el objeto, los efectos
+  // de arriba la cancelan y la ponen de nuevo con el tiempo que queda).
+  const habiaReloj = useRef(!!relojGuardado.current).current;
+  useEffect(() => {
+    if (!habiaReloj) return undefined;
+    const alTocar = () => {
+      prepararSonido();
+      setDescanso(d => d && d.fin > Date.now() ? { ...d } : d);
+      setCuenta(c => c && c.pausa == null && c.fin > Date.now() ? { ...c } : c);
+    };
+    window.addEventListener('pointerdown', alTocar, { once: true, capture: true });
+    return () => window.removeEventListener('pointerdown', alTocar, { capture: true });
+  }, [habiaReloj]);
+
+  // La cuenta guardada vuelve cuando ya está la rutina (hace falta el
+  // ejercicio). Si terminó con la app cerrada, la serie se marca sola.
+  useEffect(() => {
+    const g = relojGuardado.current;
+    if (!g || !g.cuenta || !datos) return;
+    relojGuardado.current = null;
+    const re = (datos.ejercicios || []).find(x => x.id === g.cuenta.reId);
+    if (re) setCuenta({ ...g.cuenta, re, clave: `${re.id}:${g.cuenta.n}` });
+  }, [datos]);
+  // Y se guarda cada cambio (o se borra al acabar).
+  useEffect(() => {
+    try {
+      if (cuenta) {
+        const { re, clave, ...resto } = cuenta;
+        localStorage.setItem(claveReloj, JSON.stringify({ cuenta: { ...resto, reId: re.id } }));
+      } else if (descanso) {
+        localStorage.setItem(claveReloj, JSON.stringify({ descanso }));
+      } else if (!(relojGuardado.current && relojGuardado.current.cuenta)) {
+        localStorage.removeItem(claveReloj);
+      }
+    } catch (e) { /* sin almacenamiento: el reloj vive mientras la app esté abierta */ }
+  }, [cuenta, descanso, claveReloj]);
+
   const cerrar = useCallback(async (estado, rpe, nota) => {
     if (cerrando) return;
     setCerrando(true);
@@ -952,7 +1008,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
     // Visual nueva: siempre se celebra (y los récords van dentro).
     if (v2Activa()) {
       const seg = r.sesion && r.sesion.duracion_seg != null ? r.sesion.duracion_seg : (inicio ? Math.round((Date.now() - inicio) / 1000) : null);
-      try { localStorage.removeItem(claveInicio); } catch (e) { /* nada */ }
+      try { localStorage.removeItem(claveInicio); localStorage.removeItem(claveReloj); } catch (e) { /* nada */ }
       setFin({ ...conteoRef.current, minutos: seg != null ? Math.max(1, Math.round(seg / 60)) : null, records: r.records || [] });
       return;
     }
@@ -2009,6 +2065,19 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
 // si desapareciera, quien no estaba mirando no se entera de nada.
 // La cuenta atrás de un ejercicio por tiempo: la misma ventanita negra que
 // el descanso, con el nombre del ejercicio (y el lado, si es por lado).
+// La barra negra va a <body> y por encima de todo: abiertas la Ficha, el
+// Historial o la Nota (que también van a <body>), el reloj se seguía
+// contando pero quedaba tapado. Mientras se ve, las hojas dejan sitio abajo
+// (--mt-reloj-alto) para que no tape lo último de la hoja.
+function EncimaDeTodo({ children }) {
+  useEffect(() => {
+    const raiz = document.documentElement;
+    raiz.style.setProperty('--mt-reloj-alto', '84px');
+    return () => raiz.style.removeProperty('--mt-reloj-alto');
+  }, []);
+  return typeof document !== 'undefined' ? createPortal(children, document.body) : children;
+}
+
 function BarraCuenta({ cuenta, queda, onPausa, onListo }) {
   const total = cuenta.seg * cuenta.lados * 1000;
   const q = cuenta.pausa != null ? cuenta.pausa : queda;
@@ -2018,8 +2087,9 @@ function BarraCuenta({ cuenta, queda, onPausa, onListo }) {
   const pct = total > 0 ? Math.max(0, Math.min(1, q / total)) : 0;
   const r = 11, c = 2 * Math.PI * r;
   return (
+    <EncimaDeTodo>
     <div data-cuenta-ejercicio={cuenta.pausa != null ? 'pausa' : 'contando'} style={{
-      position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 3,
+      position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 65,
       borderRadius: 20, background: '#1D1D1F', color: '#fff', boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
       display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px 10px 14px',
     }}>
@@ -2037,6 +2107,7 @@ function BarraCuenta({ cuenta, queda, onPausa, onListo }) {
       <button onClick={onPausa} style={btnDescansoV2}>{cuenta.pausa != null ? 'Seguir' : 'Pausa'}</button>
       <button onClick={onListo} style={btnDescansoV2}>Listo</button>
     </div>
+    </EncimaDeTodo>
   );
 }
 
@@ -2049,8 +2120,9 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
     // Estilo Apple: cápsula grafito con el anillo amarillo que se vacía.
     const r = 11, c = 2 * Math.PI * r;
     return (
+      <EncimaDeTodo>
       <div data-descanso={listo ? 'listo' : 'contando'} style={{
-        position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 3,
+        position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 65,
         borderRadius: 20, background: '#1D1D1F', color: '#fff', boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
         display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px 10px 14px',
       }}>
@@ -2068,6 +2140,7 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
         {!listo && <button onClick={onMas} style={btnDescansoV2}>+15s</button>}
         <button onClick={onSaltar} style={btnDescansoV2}>{listo ? 'Cerrar' : 'Saltar'}</button>
       </div>
+      </EncimaDeTodo>
     );
   }
 

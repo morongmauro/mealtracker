@@ -1800,6 +1800,16 @@ try {
     const ns = window.__notas, fin = ns.filter(x => x.t > 110 && x.t < 125);
     return ns.some(x => x.t < 0.5) && fin.length === 8 && fin.every(x => x.f > 1500);
   }), await n.p.evaluate(() => JSON.stringify(window.__notas)));
+  // Con la Ficha abierta el descanso sigue a la vista, encima de la hoja.
+  await n.p.locator('[data-ejercicio="Barbell Bench Press"]').getByRole('button', { name: /Ficha/ }).first().click();
+  await espera(500);
+  ok('descanso: con la Ficha abierta la barra negra sigue a la vista, encima de la hoja', await n.p.evaluate(() => {
+    const b = document.querySelector('[data-descanso]'); if (!b) return false;
+    const r = b.getBoundingClientRect();
+    const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!document.querySelector('[data-hoja-scroll]') && !!(el && el.closest('[data-descanso]'));
+  }));
+  await n.p.keyboard.press('Escape'); await espera(300);
   // El reloj salta al final del descanso: suena el pitido y vibra.
   await n.ctx.clock.setFixedTime(new DateReal(FIJO + 130000));
   await espera(900);
@@ -1808,6 +1818,35 @@ try {
   await n.ctx.clock.setFixedTime(new DateReal(FIJO));
   await n.p.locator('[data-descanso]').getByRole('button', { name: 'Cerrar' }).click();
   await espera(300);
+  // Si el teléfono cierra la app minimizada, al volver el descanso sigue
+  // donde iba (otra serie de la banca: 2 min; vuelve a los 30 s).
+  {
+    const banca = n.p.locator('[data-ejercicio="Barbell Bench Press"]');
+    await banca.getByLabel('Repeticiones serie 2').fill('8');
+    await banca.getByRole('button', { name: 'Marcar serie 2' }).click();
+    await espera(300);
+    await n.ctx.clock.setFixedTime(new DateReal(FIJO + 30000));
+    await n.p.reload(); await espera(2500);
+    ok('descanso: si la app se cierra y vuelve, el descanso sigue donde iba (no empieza de cero)', (await n.p.locator('[data-descanso="contando"]').count()) === 1
+      && /1:(30|29|31)/.test(await n.p.locator('[data-descanso]').innerText()), await n.p.locator('[data-descanso]').innerText().catch(() => 'sin barra'));
+    await n.p.evaluate(() => {
+      window.__sonidos = 0; window.__notas = [];
+      const play = HTMLMediaElement.prototype.play;
+      HTMLMediaElement.prototype.play = function () { if (!this.muted && this.volume > 0) window.__sonidos++; return play.apply(this, arguments).catch(() => {}); };
+      const start = OscillatorNode.prototype.start;
+      OscillatorNode.prototype.start = function (t) { window.__notas.push({ f: this.frequency.value, t: t - this.context.currentTime }); return start.apply(this, arguments); };
+    });
+    // El primer toque deja el sonido listo otra vez: la alarma del final queda programada.
+    await n.p.locator('[data-reloj-sesion]').click().catch(() => n.p.mouse.click(200, 300));
+    await espera(400);
+    ok('descanso: tras volver, al primer toque la alarma del final queda programada otra vez', await n.p.evaluate(() => window.__notas.filter(x => x.t > 80 && x.t < 100).length === 8),
+      await n.p.evaluate(() => JSON.stringify(window.__notas)));
+    await n.p.locator('[data-descanso]').getByRole('button', { name: 'Saltar' }).click();
+    await espera(200);
+    await n.p.locator('[data-ejercicio="Barbell Bench Press"]').getByRole('button', { name: 'Deshacer serie 2' }).click();
+    await espera(300);
+    await n.ctx.clock.setFixedTime(new DateReal(FIJO));
+  }
   // Ejercicio por tiempo («Child's Pose · 30 s»): «▶ Empezar 30 s» abre la cuenta
   // atrás en la ventanita negra, suena al empezar, el final queda programado y
   // al acabar la serie se marca sola.

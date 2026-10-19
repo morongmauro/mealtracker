@@ -245,7 +245,9 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
             «Nota» y «Tu récord» en el teléfono). */}
         <div data-hoja-scroll="" style={{
           flex: '1 1 auto', minHeight: 0,
-          padding: '16px 18px calc(26px + env(safe-area-inset-bottom, 0px))',
+          // Con el reloj del descanso encima (--mt-reloj-alto), lo último de
+          // la hoja queda por arriba de la barra negra.
+          padding: '16px 18px calc(26px + var(--mt-reloj-alto, 0px) + env(safe-area-inset-bottom, 0px))',
           overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y',
         }}>{children}</div>
       </div>
