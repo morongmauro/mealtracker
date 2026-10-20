@@ -172,7 +172,9 @@ export function useDesdeCero(valor, retardo = 60) {
   const [v, setV] = useState(() => (sinMovimiento() ? valor : 0));
   useEffect(() => {
     if (sinMovimiento()) { setV(valor); return; }
-    if (!activa) { setV(0); return; }
+    // Vista en prueba: se llena solo la primera vez; al cambiar de sección no
+    // se vacía ni se vuelve a llenar (se veía como un temblor en el cambio).
+    if (!activa) { if (!enPrueba()) setV(0); return; }
     const t = setTimeout(() => setV(valor), retardo);
     return () => clearTimeout(t);
   }, [valor, retardo, activa]);

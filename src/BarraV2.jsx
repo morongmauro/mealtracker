@@ -11,11 +11,14 @@
 // separa la barra del contenido; no hace falta sombra pesada.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour } from '@phosphor-icons/react';
+import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour, Compass, Avocado, Brain } from '@phosphor-icons/react';
 import { SECCION, DASH_AZUL } from './theme.js';
 import { enPrueba } from './vistaApp.js';
 
 export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: ForkKnife, aprende: GraduationCap };
+// Vista en prueba: los mismos íconos que van dentro del blob de cada cabecera
+// (brújula, mancuerna, aguacate y mente): un solo idioma en toda la app.
+const ICONO_PRUEBA = { dash: Compass, entreno: Barbell, comida: Avocado, aprende: Brain };
 export const NOMBRE_SECCION = { dash: 'Dash', entreno: 'Entrenamiento', comida: 'Alimentación', aprende: 'Aprendizaje' };
 
 // ¿Sin movimiento? (ajuste del teléfono): el cambio es directo, sin viaje.
@@ -121,7 +124,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
           // El Dash en la barra va en azul, como su cabecera (el amarillo
           // de SECCION.dash queda para los recordatorios).
           const c = s.id === 'dash' ? DASH_AZUL : SECCION[s.id];
-          const Icono = ICONO_SECCION[s.id];
+          const Icono = (enPrueba() ? ICONO_PRUEBA : ICONO_SECCION)[s.id];
           const abierta = s.id === seccion;
           if (!abierta) {
             return (

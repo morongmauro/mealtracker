@@ -427,6 +427,35 @@ try {
     await pv.p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(600);
     await pv.p.getByRole('button', { name: 'Hoy', exact: true }).click().catch(() => {}); await cab('comida');
     await pv.p.getByRole('button', { name: 'Aprendizaje', exact: true }).click(); await pv.p.locator('[data-cabecera-hoy="aprende"]').waitFor({ timeout: 15000 }).catch(() => {}); await espera(2000); await cab('aprende');
+    // VISTA_TIRA=1: fotos seguidas mientras cambia de Entreno a Dash.
+    if (process.env.VISTA_TIRA) {
+      await pv.p.locator('nav [data-seccion-boton="entreno"]').click().catch(() => {}); await espera(1500);
+      await pv.p.evaluate(() => document.querySelector('nav [data-seccion-boton="dash"]').click());
+      for (let i = 0; i < 10; i++) { await pv.p.screenshot({ path: path.join(CAPTURAS, `tira-${i}.png`), clip: { x: 0, y: 0, width: 390, height: 844 } }); }
+    }
+    // VISTA_TRANS=1: qué se mueve, cuadro a cuadro, al cambiar de sección.
+    if (process.env.VISTA_TRANS) {
+      for (const [de, a] of [['entreno', 'dash'], ['dash', 'comida'], ['comida', 'entreno'], ['entreno', 'aprende'], ['aprende', 'dash']]) {
+        await pv.p.locator(`nav [data-seccion-boton="${de}"]`).click().catch(() => {}); await espera(1200);
+        const r = await pv.p.evaluate(async (a) => {
+          const frames = [];
+          const medir = () => {
+            const capas = [...document.querySelectorAll('[data-capa-v2]')].map(c => ({ v: c.dataset.view || (c.hasAttribute('data-aprende') ? 'aprende' : '?'), act: c.hasAttribute('data-activa'), op: +getComputedStyle(c).opacity, tr: getComputedStyle(c).transform, h1: (() => { const h = c.querySelector('[data-cabecera-hoy] h1'); return h ? Math.round(h.getBoundingClientRect().top * 10) / 10 : null; })(), st: c.scrollTop }));
+            const nav = document.querySelector('nav[aria-label="Secciones"]'); const nr = nav && nav.getBoundingClientRect();
+            frames.push({ t: Math.round(performance.now()), capas, nav: nr ? [Math.round(nr.left), Math.round(nr.width)] : null });
+          };
+          document.querySelector(`nav [data-seccion-boton="${a}"]`).click();
+          const t0 = performance.now();
+          await new Promise(res => { const f = () => { medir(); if (performance.now() - t0 < 600) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); });
+          return frames;
+        }, a);
+        // Resumen: saltos de posición (h1 o scroll) de la capa que entra o sale, y cambios de transform.
+        const salt = []; let prev = null;
+        for (const fr of r) { if (prev) fr.capas.forEach((c, i) => { const p = prev.capas[i]; if (!p) return; if (c.h1 != null && p.h1 != null && Math.abs(c.h1 - p.h1) > 0.5) salt.push(`${fr.t - r[0].t}ms ${c.v} h1 ${p.h1}->${c.h1}`); if (c.st !== p.st) salt.push(`${fr.t - r[0].t}ms ${c.v} scroll ${p.st}->${c.st}`); if (c.tr !== p.tr) salt.push(`${fr.t - r[0].t}ms ${c.v} transform ${c.tr}`); }); prev = fr; }
+        const ops = r.filter((_, i) => i % 3 === 0).map(fr => fr.capas.map(c => `${c.v}:${c.op.toFixed(2)}`).join(' ')).join(' | ');
+        console.log(`TRANS ${de}->${a}: ${salt.slice(0, 12).join('; ') || 'sin saltos'}\n   opacidades: ${ops.slice(0, 600)}`);
+      }
+    }
     // VISTA_SUBS=1: también Calendario y Galería de Entreno, y Recetas y Calendario de Alimentación.
     if (process.env.VISTA_SUBS) {
       const sub = async (sec, nombre, archivo) => {

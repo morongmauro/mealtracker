@@ -58,7 +58,7 @@ const CSS_PRUEBA = [
   `[data-capa-v2]{overflow-x:hidden}`,
   // Calendario, Galería, Recetas y el calendario de comida (cabeceras sin
   // franja): sin la píldora de arriba sobraba un hueco; empiezan más arriba.
-  `[data-cabecera-hoy]:not(:has(>[data-banda])){margin-top:-28px!important}`,
+  `[data-cabecera-hoy]:not(:has(>[data-banda])){margin-top:-46px!important}`,
   // Entreno: «Hoy te toca» más grande, con el botón de ancho completo.
   `[data-hoy-rutina]{padding:20px!important;border-radius:28px!important}`,
   `[data-hoy-rutina]>div:nth-child(2){font-size:30px!important;letter-spacing:-0.03em!important}`,
