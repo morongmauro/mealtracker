@@ -26,7 +26,8 @@ import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind, Snowflake, Fi
 import Respira from './Respira.jsx';
 import Reconocimiento from './Reconocimiento.jsx';
 import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
-import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado } from './EntrenoEjercicioV2.jsx';
+import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado, TipIconos } from './EntrenoEjercicioV2.jsx';
+import { rutinaLigera } from './vistaApp.js';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
@@ -717,6 +718,34 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
   const [descanso, setDescanso] = useState(() => (relojGuardado.current && relojGuardado.current.descanso) || null);
   // Vista compacta: el ejercicio que la persona abrió a mano (ver abajo).
   const [abiertoCompacta, setAbiertoCompacta] = useState(null);
+  // Al terminar un ejercicio, la pantalla baja sola al siguiente sin
+  // terminar (vista compacta y la normal más liviana). Solo cuando se acaba
+  // de terminar UNO, no al abrir la rutina ni al recuperar lo guardado.
+  // `siguienteRef` lo llena el pintado de abajo.
+  const siguienteRef = useRef({ items: [], activo: false, abierta: null });
+  const completosAntes = useRef(null);
+  const bajarRef = useRef(null);
+  useEffect(() => {
+    const { items, activo, abierta } = siguienteRef.current;
+    const hechos = new Set(items.filter(x => x.completo).map(x => x.clave));
+    const antes = completosAntes.current;
+    completosAntes.current = items.length ? hechos : null;
+    if (!activo || !antes) return undefined;   // recién abierta
+    const nuevos = [...hechos].filter(c => !antes.has(c));
+    if (nuevos.length !== 1) return undefined;
+    const desde = items.findIndex(x => x.clave === nuevos[0]);
+    const id = abierta || (items.slice(desde + 1).find(x => !x.completo) || {}).clave;
+    if (!id) return undefined;
+    // Sin limpiarlo en el siguiente pintado (el reloj repinta cada segundo):
+    // solo se cancela si sale de la rutina.
+    clearTimeout(bajarRef.current);
+    bajarRef.current = setTimeout(() => {
+      const el = document.querySelector(`[data-re-id="${id}"]`);
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 450);
+    return undefined;
+  });
+  useEffect(() => () => clearTimeout(bajarRef.current), []);
   const [restante, setRestante] = useState(0);
 
   useEffect(() => {
@@ -1181,8 +1210,12 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
   const itemsRutina = tramos.flatMap(tr => (tr.vueltas.length > 1
     ? [{ clave: tr.clave, completo: tr.vueltas.every((v, vi) => v.every(re => marcadas[`${re.id}:${vi + 1}`])) }]
     : tr.vueltas[0].map(re => ({ clave: re.id, completo: Array.from({ length: Math.max(1, re.series || 1) }, (_, k) => k + 1).every(n => marcadas[`${re.id}:${n}`]) }))));
+  // Más liviana en la vista normal (a prueba, vistaApp.js).
+  const ligera = v2 && !compactaRutina && rutinaLigera(name);
   const elegidoVivo = abiertoCompacta && itemsRutina.some(x => x.clave === abiertoCompacta && !x.completo) ? abiertoCompacta : null;
   const abiertaClave = elegidoVivo || (itemsRutina.find(x => !x.completo) || {}).clave || null;
+
+  siguienteRef.current = { items: itemsRutina, activo: compactaRutina || ligera, abierta: compactaRutina ? abiertaClave : null };
 
   const marcarCardio = (id) => setCardio(c => c.map(x => (x.id === id ? { ...x, hecho: true } : x)));
   const tarjetasCardio = cardio.length ? cardio.map(ev => (
@@ -1309,6 +1342,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
           antes el bloque salía con UNA fila por ejercicio y no había dónde
           marcar la segunda vuelta ni la tercera. */}
       <CuentaEjercicio.Provider value={ctxCuenta}>
+      {(ligera || compactaRutina) && tramos.length > 0 && <TipIconos />}
       {tramos.map((tramo, ti) => (
         <React.Fragment key={tramo.clave}>
           {fases[ti] && fases[ti] !== fases[ti - 1] && (
@@ -1320,7 +1354,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
           {v2 && tramo.vueltas.length > 1 ? (
             <CircuitoV2 tramo={tramo} marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar}
               unidadDe={unidadDe} onUnidad={cambiarUnidad}
-              compacta={compactaRutina} cerrado={compactaRutina && abiertaClave !== tramo.clave} alAbrir={() => setAbiertoCompacta(tramo.clave)}
+              compacta={compactaRutina} cerrado={compactaRutina && abiertaClave !== tramo.clave} alAbrir={() => setAbiertoCompacta(tramo.clave)} ligera={ligera}
               onNota={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })} />
           ) : (<>
           {tramo.bloque && <CabeceraBloque b={tramo.bloque} v2={v2} />}
@@ -1346,7 +1380,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
                   unidad={unidadDe(re)} onUnidad={() => cambiarUnidad(re)}
                   onNota={() => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })}
                   ahora={re.id === ahoraId}
-                  {...(compactaRutina ? { compacta: true, cerrado: abiertaClave !== re.id, alAbrir: () => setAbiertoCompacta(re.id) } : {})}
+                  {...(compactaRutina ? { compacta: true, cerrado: abiertaClave !== re.id, alAbrir: () => setAbiertoCompacta(re.id) } : ligera ? { ligera: true } : {})}
                   marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />
               ))}
             </React.Fragment>

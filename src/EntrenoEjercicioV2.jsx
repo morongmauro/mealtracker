@@ -480,7 +480,7 @@ function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = nu
   );
 }
 
-export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg', onUnidad, onNota, ahora = false, compacta = false, cerrado = false, alAbrir }) {
+export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg', onUnidad, onNota, ahora = false, compacta = false, cerrado = false, alAbrir, ligera = false }) {
   const e = re.ejercicio;
   const n = nombresEj(e);
   const [ficha, setFicha] = useState(false);
@@ -532,11 +532,11 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
 
   // Vista compacta: si no es el que toca, cerrado en una línea.
   if (compacta && cerrado) {
-    return <FilaCerrada e={e} texto={recetado} alAbrir={alAbrir} attr={{ 'data-cerrado': '1', 'data-ejercicio-cerrado': e?.alias || e?.nombre }} />;
+    return <FilaCerrada e={e} texto={recetado} alAbrir={alAbrir} attr={{ 'data-cerrado': '1', 'data-ejercicio-cerrado': e?.alias || e?.nombre, 'data-re-id': re.id }} />;
   }
 
   return (
-    <div data-ejercicio={e?.alias || e?.nombre} data-ahora={ahora ? '1' : undefined} data-compacta={compacta ? '1' : undefined} style={{ ...TARJETA, padding: compacta ? '10px 12px 8px' : '11px 13px 9px' }}>
+    <div data-ejercicio={e?.alias || e?.nombre} data-re-id={re.id} data-ahora={ahora ? '1' : undefined} data-compacta={compacta ? '1' : undefined} data-ligera={ligera && !compacta ? '1' : undefined} style={{ ...TARJETA, padding: compacta ? '10px 12px 8px' : '11px 13px 9px', scrollMarginTop: 96 }}>
       <style>{CSS_RUTINA}</style>
       {compacta ? (
         // Compacta: foto chica, el nombre en inglés, lo recetado en una línea
@@ -570,8 +570,19 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         <div style={{ flex: 1, minWidth: 0 }}>
           {ahora && <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
           <Nombres e={e} />
+          {/* Más liviana (a prueba): lo recetado y Ficha · Historial · Nota
+              en UNA fila bajo el nombre, los botones solo con su ícono. */}
+          {ligera && (
+            <div data-recetado-ligero style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#3A3A3C', fontWeight: 600, lineHeight: 1.3 }}>
+                {recetado}{re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}{re.rir != null ? ` · RIR ${re.rir}` : ''} · {textoDescansoCorto(re.descanso_seg).toLowerCase()}
+              </span>
+              <Botones soloIconos items={botones} />
+            </div>
+          )}
         </div>
       </div>
+      {!ligera && (<>
       {/* Lo recetado, en una línea con sus íconos. */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 7, fontSize: 13.5, color: '#3A3A3C', fontWeight: 600 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
@@ -586,6 +597,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
       </div>
 
       <Botones items={botones} />
+      </>)}
       </>)}
 
       {re.notas && (
@@ -618,7 +630,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
 // Todas las vueltas juntas, y cada vez que aparece un ejercicio va con su
 // foto y su nombre: la gente se guía por la imagen, no solo por el nombre.
 // Tras cada estación, el descanso que toca (o «Sin descanso»).
-export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, onUnidad, onNota, compacta = false, cerrado = false, alAbrir }) {
+export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, onUnidad, onNota, compacta = false, cerrado = false, alAbrir, ligera = false }) {
   const b = tramo.bloque || {};
   const vueltas = tramo.vueltas;
   const tipo = { superserie: 'Superserie', circuito: 'Circuito', emom: 'EMOM', amrap: 'AMRAP' }[b.tipo] || 'Circuito';
@@ -682,7 +694,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
   }
 
   return (
-    <div data-circuito style={{ ...TARJETA, padding: '14px 12px 10px' }}>
+    <div data-circuito data-re-id={tramo.clave} style={{ ...TARJETA, padding: '14px 12px 10px', scrollMarginTop: 96 }}>
       <style>{CSS_RUTINA}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ width: 30, height: 30, borderRadius: 99, background: SECCION.entreno.tint, color: AZUL_TINTA, display: 'grid', placeItems: 'center', flex: 'none' }}>
@@ -731,7 +743,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                     </div>
                   </div>
                   {vi === 0 && (
-                    <Botones chico soloIconos={compacta} items={botonesDe({
+                    <Botones chico soloIconos={compacta || ligera} items={botonesDe({
                       sinCarga, onNota: onNota ? () => onNota(re) : null,
                       abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re),
                     })} />
@@ -915,6 +927,27 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
         background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
         color: hecha ? AMARILLO : '#C7C7CC', display: 'grid', placeItems: 'center',
       }}><Check size={16} weight="bold" /></button>
+    </div>
+  );
+}
+
+// La primera vez con los botones en ícono: una nota corta que dice qué es
+// cada uno. Se cierra con «Entendido» y no vuelve a salir.
+const CLAVE_TIP_ICONOS = 'mt:tipIconosRutina';
+export function TipIconos() {
+  const [visto, setVisto] = useState(() => { try { return !!localStorage.getItem(CLAVE_TIP_ICONOS); } catch (e) { return true; } });
+  if (visto) return null;
+  const cerrar = () => { try { localStorage.setItem(CLAVE_TIP_ICONOS, '1'); } catch (e) { /* nada */ } setVisto(true); };
+  const item = (Icono, texto) => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 650, color: TEXT }}>
+      <span style={{ width: 28, height: 28, borderRadius: 99, background: '#FFFFFF', boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)', display: 'grid', placeItems: 'center' }}><Icono size={14} color={GRAFITO} /></span>
+      {texto}
+    </span>
+  );
+  return (
+    <div data-tip-iconos style={{ ...TARJETA, background: '#F6F6F8', boxShadow: 'none', padding: '11px 13px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 14px' }}>
+      {item(FilmStrip, 'Ficha')}{item(ClockCounterClockwise, 'Historial')}{item(ChatCircleText, 'Nota al coach')}
+      <button onClick={cerrar} data-tip-entendido style={{ marginLeft: 'auto', border: 'none', borderRadius: 99, padding: '7px 13px', background: GRAFITO, color: '#fff', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Entendido</button>
     </div>
   );
 }

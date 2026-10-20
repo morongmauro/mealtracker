@@ -357,6 +357,56 @@ const hacerRecorrido = async (p) => {
 const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.png') });
 
 try {
+  // MAQUETA=archivo.json: fotos de propuestas visuales SIN tocar la app. Cada
+  // variante trae { nombre, css, js, pantallas } y se pinta encima de la app
+  // real de Mauro; MAQUETA_FUENTES=carpeta sirve letras en https://maqueta.fuentes/.
+  if (process.env.MAQUETA) {
+    const variantes = JSON.parse(fs.readFileSync(process.env.MAQUETA, 'utf8'));
+    for (const v of variantes) {
+      const pv = await abrir('Mauro Morón', { caliente: true });
+      const p = pv.p;
+      // `alto`: un teléfono muy alto, para ver de una vez cómo sigue el fondo al bajar.
+      if (v.alto) await p.setViewportSize({ width: 390, height: v.alto });
+      if (process.env.MAQUETA_FUENTES) await p.route('https://maqueta.fuentes/**', r => r.fulfill({ status: 200, contentType: 'font/ttf', body: fs.readFileSync(path.join(process.env.MAQUETA_FUENTES, new URL(r.request().url()).pathname.slice(1))) }));
+      const pintar = async () => {
+        if (v.css) await p.addStyleTag({ content: v.css });
+        if (v.js) await p.evaluate(v.js);
+      };
+      await espera(4500); await pintar();
+      const tomar = async (n, { completa = false, alto = v.alto || 844 } = {}) => {
+        await espera(2600); await pintar(); await espera(400);
+        await p.screenshot({ path: path.join(CAPTURAS, `maq-${v.nombre}-${n}.png`), fullPage: completa, ...(completa ? {} : { clip: { x: 0, y: 0, width: 390, height: alto } }) });
+      };
+      const quiere = (n) => !v.pantallas || v.pantallas.includes(n);
+      if (quiere('dash')) await tomar('dash', { completa: !!v.completa });
+      if (quiere('entreno') || quiere('rutina')) {
+        await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click();
+        if (quiere('entreno')) await tomar('entreno', { completa: !!v.completa });
+        if (quiere('rutina')) {
+          await p.locator(`[data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click().catch(() => {});
+          await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }).catch(() => {});
+          await p.locator('[data-tip-entendido]').click().catch(() => {});
+          await p.locator('[data-ejercicio="Barbell Bench Press"]').evaluate(el => el.scrollIntoView({ block: 'center' })).catch(() => {});
+          await tomar('rutina');
+          await p.locator('[data-volver-semana]').first().click().catch(() => {});
+          await espera(800);
+        }
+      }
+      if (quiere('comida')) {
+        await p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(600);
+        await p.getByRole('button', { name: 'Hoy', exact: true }).click().catch(() => {});
+        await tomar('comida', { completa: !!v.completa });
+      }
+      if (quiere('aprende')) {
+        await p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
+        await p.locator('[data-cabecera-hoy="aprende"]').waitFor({ timeout: 15000 }).catch(() => {});
+        await tomar('aprende');
+      }
+      console.log('maqueta', v.nombre, 'errores', pv.errores.slice(0, 3));
+      await pv.ctx.close();
+    }
+    await b.close(); await vite.close(); process.exit(0);
+  }
   // VISTA=1: solo las fotos de la prueba de la gráfica grande en las cabeceras.
   if (process.env.VISTA) {
     const pv = await abrir('Mauro Morón', { caliente: true, });
@@ -923,7 +973,18 @@ try {
   ok('las cajitas van en blanco, sin sugerencias', (await p.getByLabel('Repeticiones serie 1').first().getAttribute('placeholder')) === null
     && (await p.getByLabel('Peso serie 1').first().getAttribute('placeholder')) === null
     && (await p.getByLabel('Repeticiones serie 1').first().inputValue()) === '');
-  ok('lo recetado dice series y reps', (await p.getByText('3 series × 6-12 reps').count()) === 1);
+  // Mauro ve la rutina ligera (a prueba): lo recetado y el descanso en una
+  // fila pegada al nombre, con Ficha · Historial · Nota como íconos.
+  ok('rutina ligera: lo recetado (series, reps y descanso) en una fila con los íconos', await p.evaluate(() => {
+    const filas = [...document.querySelectorAll('[data-ligera] [data-recetado-ligero]')];
+    const f = filas.find(x => /^3 × 6-12 reps · .*descanso/i.test(x.textContent.trim()));
+    return filas.length >= 3 && !!f && f.querySelectorAll('[data-botones-iconos] button').length === 3;
+  }));
+  ok('rutina ligera: una nota la primera vez explica los íconos y «Entendido» la quita para siempre', (await p.locator('[data-tip-iconos]').count()) === 1
+    && /Ficha/.test(await p.locator('[data-tip-iconos]').innerText()) && /Nota al coach/.test(await p.locator('[data-tip-iconos]').innerText()));
+  await foto(p, '04a-rutina-ligera');
+  await p.locator('[data-tip-entendido]').click(); await espera(250);
+  ok('…quitada, no vuelve', (await p.locator('[data-tip-iconos]').count()) === 0 && (await p.evaluate(() => localStorage.getItem('mt:tipIconosRutina'))) === '1');
   ok('la última vez ya no va escrita en la tarjeta', (await p.getByText(/^Serie 1: /).count()) === 0);
   ok('cada ejercicio de fuerza trae Ficha, Historial y Nota (el récord va dentro del historial)', (await p.getByRole('button', { name: /Historial/ }).count()) >= 3
     && (await p.getByRole('button', { name: /Tu récord/ }).count()) === 0);
@@ -1029,11 +1090,11 @@ try {
   ok('por ejercicio: Ficha, Historial y Nota al coach (sin «Tu récord» aparte)', (await p.getByRole('button', { name: /Tu récord/ }).count()) === 0);
   ok('circuitos (calentamiento): cada ejercicio sobre blanco, con el mismo contraste de botones y casillas que en Fuerza', (await p.locator('[data-ejercicio-circuito]').count()) >= 1
     && await p.locator('[data-ejercicio-circuito]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(255, 255, 255)'));
-  ok('botones del ejercicio: píldoras blancas con sombra de 30 px (no del gris de los campos), con «Nota al coach» escrito', await p.evaluate(() => {
+  ok('botones del ejercicio (rutina ligera): círculos blancos con sombra de 34 px, solo el ícono y su nombre para lectores (no del gris de los campos)', await p.evaluate(() => {
     const bs = [...document.querySelectorAll('[data-botones] button[data-pildora-ejercicio]')];
     const campo = document.querySelector('[data-ejercicio] input[aria-label^="Repeticiones"]');
-    const notas = bs.filter(b => /Nota/.test(b.textContent));
-    return bs.length >= 6 && notas.length >= 3 && bs.every(b => { const cs = getComputedStyle(b); return Math.round(b.getBoundingClientRect().height) === 30 && cs.backgroundColor === 'rgb(255, 255, 255)' && cs.boxShadow !== 'none'; })
+    const notas = bs.filter(b => b.getAttribute('aria-label') === 'Nota al coach');
+    return bs.length >= 6 && notas.length >= 3 && bs.every(b => { const cs = getComputedStyle(b); const r = b.getBoundingClientRect(); return Math.round(r.height) === 34 && Math.round(r.width) === 34 && !b.textContent.trim() && cs.backgroundColor === 'rgb(255, 255, 255)' && cs.boxShadow !== 'none'; })
       && campo && Math.round(campo.getBoundingClientRect().height) === 30 && getComputedStyle(campo).backgroundColor === 'rgb(242, 242, 244)';
   }));
 
@@ -1103,12 +1164,26 @@ try {
     && /Barbell Bench Press · serie 2 · 9/.test(await p.locator('[data-escritas]').innerText()) && /serie 3 · 7 × 157 lb/.test(await p.locator('[data-escritas]').innerText()),
     await p.locator('[data-escritas]').innerText());
   await foto(p, '04f6-escritas-cierre');
+  await p.evaluate(() => {
+    window.__bajo = [];
+    const o = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (a) { if (this.dataset && this.dataset.reId) window.__bajo.push(this.dataset.reId); return o.call(this, a); };
+  });
   await p.locator('[data-escritas-marcar]').click(); await espera(500);
   ok('«Marcarlas como hechas» las marca con lo escrito y el bloque desaparece', (await banca.getByRole('button', { name: 'Deshacer serie 2' }).count()) === 1
     && (await banca.getByRole('button', { name: 'Deshacer serie 3' }).count()) === 1 && (await p.locator('[data-escritas]').count()) === 0
     && /Entreno terminado/.test(await p.locator('[data-enviar-coach]').locator('xpath=ancestor::div[2]').innerText())
     && !/series marcadas/.test(await p.locator('[data-enviar-coach]').locator('xpath=ancestor::div[2]').innerText()));
   await p.mouse.click(20, 60); await espera(400);   // cerrar la hoja (tocar fuera)
+  // Con la 1 marcada el press banca queda terminado: baja solo al siguiente.
+  await banca.getByLabel('Repeticiones serie 1').fill('8');
+  await banca.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(1000);
+  ok('rutina ligera: al terminar un ejercicio, la pantalla baja sola al siguiente', await p.evaluate(() => window.__bajo.length === 1 && window.__bajo[0] === 're-e4'),
+    JSON.stringify(await p.evaluate(() => window.__bajo)));
+  await p.locator('[data-descanso]').count() && await p.locator('[data-descanso]').getByRole('button', { name: /Saltar|Cerrar/ }).click();
+  await p.locator('button[data-plegado]').filter({ hasText: 'Barbell Bench Press' }).click(); await espera(250);   // terminado se pliega: abrirlo
+  await banca.getByRole('button', { name: 'Deshacer serie 1' }).click(); await espera(200);
+  await banca.getByLabel('Repeticiones serie 1').fill(''); await espera(200);
   await banca.getByRole('button', { name: 'Deshacer serie 2' }).click(); await espera(200);
   await banca.getByRole('button', { name: 'Deshacer serie 3' }).click(); await espera(200);
   // El descanso sale tras CUALQUIER serie: también la última y aunque se

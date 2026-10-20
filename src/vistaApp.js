@@ -22,6 +22,13 @@ const normal = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 export const puedeCompacta = (nombre) => VISTA_COMPACTA_PRUEBA.includes(normal(nombre));
 
+// La rutina más liviana EN LA VISTA NORMAL (a prueba): Ficha · Historial ·
+// Nota como íconos junto a lo recetado, en una sola fila, y al terminar un
+// ejercicio la pantalla baja sola al siguiente. Para todos: TODOS en true.
+export const RUTINA_LIGERA_PRUEBA = ['mauro moron'];
+export const RUTINA_LIGERA_TODOS = false;
+export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || RUTINA_LIGERA_PRUEBA.includes(normal(nombre));
+
 const valida = (v) => !!v && typeof v === 'object' && (v.modo === 'compacta' || v.modo === 'completa') && typeof v.desde === 'string';
 
 export function leerVista() {
