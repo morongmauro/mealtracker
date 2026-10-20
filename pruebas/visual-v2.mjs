@@ -363,7 +363,8 @@ try {
   if (process.env.MAQUETA) {
     const variantes = JSON.parse(fs.readFileSync(process.env.MAQUETA, 'utf8'));
     for (const v of variantes) {
-      const pv = await abrir('Mauro Morón', { caliente: true });
+      // `prueba`: con la «Vista en prueba».
+      const pv = await abrir('Mauro Morón', { caliente: true, ...(v.prueba ? { extra: { 'mt:vistaApp': JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' }) } } : {}) });
       const p = pv.p;
       // `alto`: un teléfono muy alto, para ver de una vez cómo sigue el fondo al bajar.
       if (v.alto) await p.setViewportSize({ width: 390, height: v.alto });
