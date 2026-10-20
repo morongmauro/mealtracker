@@ -13,6 +13,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour } from '@phosphor-icons/react';
 import { SECCION, DASH_AZUL } from './theme.js';
+import { enPrueba } from './vistaApp.js';
 
 export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: ForkKnife, aprende: GraduationCap };
 export const NOMBRE_SECCION = { dash: 'Dash', entreno: 'Entrenamiento', comida: 'Alimentación', aprende: 'Aprendizaje' };
@@ -153,7 +154,11 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
           // La sección abierta: sus opciones sobre el cristal teñido de su
           // color. Si no tiene opciones (el Dash) va su ícono con su nombre.
           const sinSubs = !(s.subs && s.subs.length);
-          const subs = sinSubs ? [{ id: '_', label: NOMBRE_SECCION[s.id], icono: Icono }] : s.subs;
+          // Vista en prueba: el Dash se arma igual que las demás (su ícono
+          // sobre el color y la pastilla blanca con el nombre); antes la
+          // pastilla tapaba todo el color y quedaba solo un aro azul alrededor.
+          const comoLasDemas = sinSubs && enPrueba();
+          const subs = sinSubs ? [{ id: '_', label: NOMBRE_SECCION[s.id], icono: comoLasDemas ? null : Icono }] : s.subs;
           return (
             <div key={s.id} ref={grupoRef} className="bv2-grupo" role="group" aria-label={NOMBRE_SECCION[s.id]}
               style={{
@@ -162,7 +167,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
               }}>
               {/* El ícono de la sección se queda a la vista con sus opciones
                   abiertas: se sabe en qué parte de la app se está. */}
-              {!sinSubs && !muyApretada && (
+              {(!sinSubs || comoLasDemas) && !muyApretada && (
                 <span aria-hidden="true" data-icono-seccion={s.id} style={{
                   flex: 'none', display: 'grid', placeItems: 'center', width: 22, height: 38, marginLeft: 3, color: c.ink,
                 }}><Icono size={20} weight="fill" /></span>

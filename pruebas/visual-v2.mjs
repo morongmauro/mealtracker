@@ -414,7 +414,13 @@ try {
     await espera(4500);
     // VISTA_SIN_ARO=1: el aro y el objeto se esconden (para componer propuestas encima).
     if (process.env.VISTA_SIN_ARO) await pv.p.addStyleTag({ content: '[data-aro-cabecera],[data-ilus-cabecera],[data-objeto-cabecera]{visibility:hidden!important}' });
-    const cab = async (n) => { await espera(2600); await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-${n}.png`), clip: { x: 0, y: 0, width: 390, height: 420 } }); };
+    const cab = async (n) => { await espera(2600); await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-${n}.png`), clip: { x: 0, y: 0, width: 390, height: 420 } });
+      // VISTA_MEDIR=1: la franja curva de cada sección (alto, ancho, dónde) y la barra de abajo.
+      if (process.env.VISTA_MEDIR) {
+        const m = await pv.p.evaluate(() => { return [...document.querySelectorAll('[data-banda]')].map(b => { const r = b.getBoundingClientRect(), cab = b.closest('[data-cabecera-hoy]'), cr = cab.getBoundingClientRect(); return { tema: cab.dataset.cabeceraHoy, top: Math.round(r.top), alto: Math.round(r.height), ancho: Math.round(r.width), cabTop: Math.round(cr.top), vis: b.checkVisibility({ opacityProperty: true, visibilityProperty: true }) }; }); });
+        console.log('banda', n, JSON.stringify(m));
+        await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-barra-${n}.png`), clip: { x: 0, y: 844 - 110, width: 390, height: 110 } });
+      } };
     await cab('dash');
     await pv.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await cab('entreno');
     await pv.p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(600);
@@ -2286,6 +2292,10 @@ try {
         && !cab.querySelector('[data-objeto-cabecera], canvas') && pie.getBoundingClientRect().top >= frase.getBoundingClientRect().bottom
         && pie.getBoundingClientRect().right <= b.left + 4;
     }));
+    ok('vista en prueba: en la barra, el Dash abierto se arma como las demás (ícono sobre el color y pastilla con el nombre)', await p.evaluate(() => {
+      const g = document.querySelector('[role="group"][aria-label="Dash"]');
+      return !!g && !!g.querySelector('[data-icono-seccion="dash"]') && g.querySelectorAll('button[data-activo="1"] svg').length === 0;
+    }));
     ok('vista en prueba: el punto blanco de las gráficas es más grande (casi el ancho del trazo)', await p.evaluate(() => {
       const ps = [...document.querySelectorAll('[data-view="dash"] [data-punta-blanca]')];
       return ps.length >= 2 && ps.every(c => { const t = c.previousElementSibling; const g = t ? parseFloat(t.getAttribute('r')) * 2 : 0; return !g || parseFloat(c.getAttribute('r')) >= g / 2 - 1.01; });
@@ -2328,6 +2338,21 @@ try {
     await foto(p, '40c-prueba-comida');
     // Entreno y la rutina más liviana.
     await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
+    ok('vista en prueba: la franja curva mide y está igual en Dash, Entreno y Alimentación', await p.evaluate(() => {
+      const r = [...document.querySelectorAll('[data-cabecera-hoy] > [data-banda]')].map(b => { const x = b.getBoundingClientRect(); return [Math.round(x.top), Math.round(x.height), Math.round(x.width), getComputedStyle(b).webkitMaskImage]; });
+      return r.length >= 3 && r.every(x => JSON.stringify(x) === JSON.stringify(r[0])) && r[0][0] === 0;
+    }), await p.evaluate(() => JSON.stringify([...document.querySelectorAll('[data-cabecera-hoy] > [data-banda]')].map(b => [b.closest('[data-cabecera-hoy]').dataset.cabeceraHoy, Math.round(b.getBoundingClientRect().top), Math.round(b.getBoundingClientRect().height)]))));
+    ok('vista en prueba: al cambiar de sección la nueva se funde encima y la anterior se queda detrás hasta que termina (sin moverse)', await p.evaluate(async () => {
+      const ent = document.querySelector('[data-capa-v2][data-view="entrena"]'), dash = document.querySelector('[data-capa-v2][data-view="dash"]');
+      [...document.querySelectorAll('nav [data-seccion-boton="dash"]')][0].click();
+      await new Promise(r => setTimeout(r, 70));
+      const durante = { ent: parseFloat(getComputedStyle(ent).opacity), dash: parseFloat(getComputedStyle(dash).opacity), mueve: getComputedStyle(dash).transform };
+      await new Promise(r => setTimeout(r, 400));
+      const despues = { ent: getComputedStyle(ent).visibility, dash: parseFloat(getComputedStyle(dash).opacity) };
+      [...document.querySelectorAll('nav [data-seccion-boton="entreno"]')][0].click();
+      await new Promise(r => setTimeout(r, 500));
+      return durante.ent === 1 && durante.dash < 1 && (durante.mueve === 'none' || /matrix\(1, 0, 0, 1, 0, 0\)/.test(durante.mueve)) && despues.ent === 'hidden' && despues.dash === 1;
+    }));
     ok('vista en prueba: Entreno con la cifra en el blob y su mancuerna', (await p.locator('[data-cabecera-hoy="entreno"] [data-icono-blob="entreno"]').count()) === 1 && (await p.locator('[data-numero-heroe="entreno"]').count()) === 1);
     await foto(p, '40d-prueba-entreno');
     await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();

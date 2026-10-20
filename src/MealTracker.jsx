@@ -6190,7 +6190,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             {/* Visual nueva: el saludo vive en el Dash; aquí solo el día. */}
             {v2 ? (
               <div>
-                <CabeceraHoy tema="comida" sangria="20px" arriba={`${headerH + 16}px`}
+                <CabeceraHoy tema="comida" sangria="20px" arriba={`${headerH + 10}px`}
                   activo={seccionV2 === 'comida' && !showRecetario}
                   voz={vozComida({ hoy: today, hora: new Date().getHours(), kcal: totals.kcal, meta: goals?.kcal || 0, comidas: entries.length, racha: streak })}
                   aro={{ ...aroComida(history, goals, today), alTocar: () => setExplicarAroComida(true) }} />
@@ -6562,6 +6562,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             // muestra el mismo % que el Dash; se lo mandamos al centro.
             onLoad={v2 ? (ev) => {
               const w = ev.currentTarget.contentWindow;
+              if (prueba && w) {
+                // La franja curva del centro, del mismo alto que la de las otras secciones.
+                const sonda = document.createElement('div');
+                sonda.style.cssText = 'position:fixed;visibility:hidden;height:calc(env(safe-area-inset-top, 0px) + 34px)';
+                document.body.appendChild(sonda);
+                const banda = sonda.offsetHeight; sonda.remove();
+                try { w.postMessage({ tipo: 'em-vista', prueba: true, banda }, '*'); } catch (e) { /* sin centro */ }
+              }
               // Con sus partes: el centro explica el aro al tocarlo, como los demás.
               leerAprendizajeConCache(name).then(a => { if (a && w) { try { w.postMessage({ tipo: 'em-aprende', pct: a.pct, vistas: a.vistas, total: a.total, bloques: (a.bloques || []).map(b => ({ titulo: b.titulo, vistas: b.vistas, total: b.total })) }, '*'); } catch (e) { /* sin centro */ } } }).catch(() => {});
             } : undefined}

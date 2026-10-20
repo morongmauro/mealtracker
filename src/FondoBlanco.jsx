@@ -59,6 +59,18 @@ const CSS_PRUEBA = [
   `[data-hoy-empezar]{display:flex!important;justify-content:center;height:50px;margin-top:16px!important}`,
 ].map(r => r.replace(/(^|\})\s*([^{}]+)\{/g, (m, a, sel) => `${a}${sel.split(',').map(x => `html[data-vista-prueba] ${x.trim()}`).join(',')}{`)).join('\n');
 
+// Cambio de sección (vista en prueba): la franja curva y la cabecera quedan
+// en el mismo sitio en todas, así que solo cambia el color, en un fundido
+// corto. La que entra aparece encima, sin moverse; la que sale se queda
+// detrás hasta que la nueva termina (antes se iban las dos a la vez y por
+// un instante se veía Alimentación por debajo).
+const CSS_CAMBIO = `
+@keyframes capaFunde { from { opacity: 0 } to { opacity: 1 } }
+html[data-vista-prueba] [data-capa-v2][data-activa] { animation: capaFunde .18s ease-out; }
+html[data-vista-prueba]:has([data-capa-v2][data-activa]) [data-capa-v2]:not([data-activa]) { transition: opacity 0s linear .18s, visibility 0s linear .18s; }
+html[data-vista-prueba] [data-capa-v2]:not([data-activa]) { transition: opacity .18s ease-in, visibility 0s linear .18s; }
+@media (prefers-reduced-motion: reduce) { html[data-vista-prueba] [data-capa-v2][data-activa] { animation: none; } }`;
+
 export default function EstiloFondoBlanco({ activo, prueba = false }) {
   React.useEffect(() => {
     const h = document.documentElement;
@@ -66,5 +78,5 @@ export default function EstiloFondoBlanco({ activo, prueba = false }) {
     if (prueba) h.setAttribute('data-vista-prueba', ''); else h.removeAttribute('data-vista-prueba');
     return () => { h.removeAttribute('data-fondo-blanco'); h.removeAttribute('data-vista-prueba'); };
   }, [activo, prueba]);
-  return activo ? <style data-estilo-fondo-blanco>{CSS}{prueba ? '\n' + CSS_PRUEBA : ''}</style> : null;
+  return activo ? <style data-estilo-fondo-blanco>{CSS}{prueba ? '\n' + CSS_PRUEBA + CSS_CAMBIO : ''}</style> : null;
 }
