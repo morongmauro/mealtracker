@@ -14,7 +14,9 @@ import { NOMBRE_SECCION } from './BarraV2.jsx';
 
 const COLOR = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
 
-export default function NumeroHeroe({ tema, centro, pie, alTocar, activo = true }) {
+// `chico`: solo el pie (la cifra va dentro del blob, opción A3); al bajar,
+// la barra de arriba aparece igual.
+export default function NumeroHeroe({ tema, centro, pie, alTocar, activo = true, chico = false }) {
   const ref = useRef(null);
   const [fuera, setFuera] = useState(false);
   useEffect(() => {
@@ -29,13 +31,13 @@ export default function NumeroHeroe({ tema, centro, pie, alTocar, activo = true 
   return (
     <>
       <Tag ref={ref} data-numero-heroe={tema} onClick={alTocar} aria-label={alTocar ? `${pie || ''}: ${centro}. Ver cómo se calcula` : undefined} style={{
-        flex: 1, minWidth: 0, textAlign: 'left', border: 0, background: 'none', padding: 0, fontFamily: 'inherit', color: TEXT,
+        flex: chico ? undefined : 1, display: chico ? 'block' : undefined, minWidth: 0, textAlign: 'left', border: 0, background: 'none', padding: 0, fontFamily: 'inherit', color: TEXT,
         cursor: alTocar ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent',
       }}>
-        <div style={{ fontSize: 'clamp(64px, 19vw, 84px)', fontWeight: 800, lineHeight: 0.9, letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+        {!chico && <div style={{ fontSize: 'clamp(64px, 19vw, 84px)', fontWeight: 800, lineHeight: 0.9, letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
           {num}{resto && <span style={{ fontSize: '0.46em', letterSpacing: '-0.02em', fontWeight: 700, color: resto.startsWith('/') ? '#AEAEB2' : TEXT }}>{resto}</span>}
-        </div>
-        {pie && <div data-numero-pie style={{ fontSize: 15, fontWeight: 600, color: TEXT_MUTED, marginTop: 10 }}>{pie}</div>}
+        </div>}
+        {pie && <div data-numero-pie style={chico ? { fontSize: 13.5, fontWeight: 600, color: TEXT_MUTED, marginTop: 8 } : { fontSize: 15, fontWeight: 600, color: TEXT_MUTED, marginTop: 10 }}>{pie}</div>}
       </Tag>
       {/* La barra de arriba, solo con la sección al frente y el número fuera. */}
       {activo && typeof document !== 'undefined' && createPortal(

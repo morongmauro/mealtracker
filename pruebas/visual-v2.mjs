@@ -409,7 +409,8 @@ try {
   }
   // VISTA=1: solo las fotos de la prueba de la gráfica grande en las cabeceras.
   if (process.env.VISTA) {
-    const pv = await abrir('Mauro Morón', { caliente: true, });
+    // VISTA_PRUEBA=1: con la «Vista en prueba».
+    const pv = await abrir('Mauro Morón', { caliente: true, ...(process.env.VISTA_PRUEBA ? { extra: { 'mt:vistaApp': JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' }) } } : {}) });
     await espera(4500);
     // VISTA_SIN_ARO=1: el aro y el objeto se esconden (para componer propuestas encima).
     if (process.env.VISTA_SIN_ARO) await pv.p.addStyleTag({ content: '[data-aro-cabecera],[data-ilus-cabecera],[data-objeto-cabecera]{visibility:hidden!important}' });
@@ -2275,12 +2276,15 @@ try {
         && banda.getBoundingClientRect().height <= 36 && /252, 252, 253/.test(getComputedStyle(vista).backgroundColor)
         && /radial-gradient/.test(getComputedStyle(vista).backgroundImage) && /60, 123, 214/.test(getComputedStyle(vista).backgroundImage);
     }));
-    ok('vista en prueba: el número grande de la semana a la izquierda y el blob al lado, sin repetir el número dentro del aro', await p.evaluate(() => {
-      const n = document.querySelector('[data-cabecera-hoy="dash"] [data-numero-heroe="dash"]');
-      const blob = document.querySelector('[data-cabecera-hoy="dash"] [data-blob-cabecera]');
-      if (!n || !blob) return false;
-      const fs = parseFloat(getComputedStyle(n.firstElementChild).fontSize), a = n.getBoundingClientRect(), b = blob.getBoundingClientRect();
-      return fs >= 60 && /\d/.test(n.textContent) && a.right <= b.left + 4 && document.querySelectorAll('[data-cabecera-hoy="dash"] [data-aro-centro]').length === 0;
+    ok('vista en prueba (A3): la cifra en grafito dentro del blob con un ícono de línea (sin objeto 3D) y el pie bajo la frase', await p.evaluate(() => {
+      const cab = document.querySelector('[data-cabecera-hoy="dash"]');
+      const blob = cab.querySelector('[data-blob-cabecera]'), c = cab.querySelector('[data-aro-centro]'), ic = cab.querySelector('[data-icono-linea="dash"] svg');
+      const pie = cab.querySelector('[data-numero-heroe="dash"] [data-numero-pie]'), frase = cab.querySelector('[data-frase]');
+      if (!blob || !c || !ic || !pie) return false;
+      const b = blob.getBoundingClientRect(), r = c.getBoundingClientRect();
+      return getComputedStyle(c).color === 'rgb(31, 31, 31)' && /\d/.test(c.textContent) && r.left >= b.left && r.right <= b.right
+        && !cab.querySelector('[data-objeto-cabecera], canvas') && pie.getBoundingClientRect().top >= frase.getBoundingClientRect().bottom
+        && pie.getBoundingClientRect().right <= b.left + 4;
     }));
     ok('vista en prueba: blob de vidrio blanco, girado 12°, con la mancha azul tenue, vidrio borroso detrás, sombra suave azul y riel azul suave', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
       const an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob][data-vidrio]'), capa = a.querySelector('[data-blob-vidrio]');
@@ -2293,12 +2297,13 @@ try {
       const riel = [...an.querySelectorAll('svg circle')].some(c => /rgba\(60, ?123, ?214, ?0\.13\)/.test(c.getAttribute('stroke') || ''));
       return giro === -12 && mancha && interno && vidrio && sombra && riel;
     }));
-    ok('vista en prueba: los atajos en una cápsula chica arriba a la derecha, sin palabras (siguen todos)', await p.evaluate(() => {
-      const f = document.querySelector('[data-view="dash"] [data-atajos]'), n = document.querySelector('[data-numero-heroe="dash"]');
-      if (!f || !n) return false;
+    ok('vista en prueba (A3): los atajos en una sola barrita de vidrio bajo la frase, a la izquierda, sin palabras (siguen todos)', await p.evaluate(() => {
+      const f = document.querySelector('[data-view="dash"] [data-atajos]'), pie = document.querySelector('[data-numero-heroe="dash"] [data-numero-pie]');
+      if (!f || !pie) return false;
       const r = f.getBoundingClientRect(), cs = getComputedStyle(f);
       const palabras = [...f.querySelectorAll('[data-boton-cristal] > span:last-child')].every(x => getComputedStyle(x).display === 'none');
-      return cs.position === 'absolute' && r.right > innerWidth - 30 && r.bottom < n.getBoundingClientRect().top && palabras && f.querySelectorAll('[data-boton-cristal]').length >= 3;
+      return cs.position !== 'absolute' && r.left < 40 && r.width < innerWidth * 0.7 && r.top >= pie.getBoundingClientRect().bottom - 1 && /blur/.test(cs.backdropFilter || cs.webkitBackdropFilter || '')
+        && palabras && f.querySelectorAll('[data-boton-cristal]').length >= 3;
     }));
     ok('vista en prueba: «Ahora» protagonista con su botón; lo demás de hoy en chips', (await p.locator('[data-prota-dash] [data-prota-ir]').count()) === 1
       && (await p.locator('[data-prota-dash] [data-prota-texto]').innerText()).length > 4 && (await p.locator('[data-prota-dash] [data-recordatorio]').count()) >= 1);
@@ -2319,7 +2324,7 @@ try {
     await foto(p, '40c-prueba-comida');
     // Entreno y la rutina más liviana.
     await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
-    ok('vista en prueba: Entreno con su número grande', (await p.locator('[data-numero-heroe="entreno"]').count()) === 1);
+    ok('vista en prueba: Entreno con la cifra en el blob y su ícono de línea', (await p.locator('[data-cabecera-hoy="entreno"] [data-icono-linea="entreno"]').count()) === 1 && (await p.locator('[data-numero-heroe="entreno"]').count()) === 1);
     await foto(p, '40d-prueba-entreno');
     await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
     await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(800);

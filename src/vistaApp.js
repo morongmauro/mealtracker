@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { useEffect, useState } from 'react';
 
-export const VISTA_COMPACTA_PRUEBA = ['mauro moron'];
+export const VISTA_COMPACTA_PRUEBA = ['mauro moron', 'mauro moron2'];
 
 const CLAVE = 'mt:vistaApp';
 const EVENTO = 'mt:vista';

@@ -46,9 +46,9 @@ const CSS_PRUEBA = [
   `[style*="background: rgb(235, 230, 220)"]{background:#fff!important;box-shadow:0 1px 2px rgba(20,20,30,.04),0 6px 16px rgba(20,30,60,.07)!important}`,
   // Campos de la rutina: blancos con un relieve suave (no grises).
   `[data-ejercicio] input,[data-ejercicio-circuito] input{background:#fff!important;box-shadow:inset 0 0 0 1px rgba(20,20,40,.07),inset 0 2px 4px rgba(20,20,40,.04)!important}`,
-  // Atajos: una cápsula de vidrio chica arriba a la derecha (sin palabras).
-  `:has(>[data-cabecera-hoy]){position:relative}`,
-  `[data-cabecera-hoy]~[data-fila-cristal],[data-cabecera-hoy] [data-fila-cristal]{position:absolute!important;z-index:3;top:calc(env(safe-area-inset-top, 0px) + 36px);right:16px;margin:0!important;gap:2px!important;padding:3px;border-radius:999px;background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 4px 14px rgba(20,30,60,.08)}`,
+  // Atajos (A3): los botones en una sola barrita de vidrio, debajo de la
+  // frase, a la izquierda (sin palabras).
+  `[data-cabecera-hoy]~[data-fila-cristal],[data-cabecera-hoy] [data-fila-cristal]{display:inline-flex!important;width:fit-content;margin:10px 0 16px!important;gap:2px!important;padding:3px;border-radius:999px;background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 4px 14px rgba(20,30,60,.08)}`,
   `[data-fila-cristal] [data-boton-cristal]{width:auto!important;gap:0!important}`,
   `[data-fila-cristal] [data-boton-cristal]>span:last-child{display:none}`,
   `[data-fila-cristal] [data-circulo]{width:36px!important;height:36px!important;background:transparent!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}`,
@@ -57,8 +57,6 @@ const CSS_PRUEBA = [
   `[data-hoy-rutina]{padding:20px!important;border-radius:28px!important}`,
   `[data-hoy-rutina]>div:nth-child(2){font-size:30px!important;letter-spacing:-0.03em!important}`,
   `[data-hoy-empezar]{display:flex!important;justify-content:center;height:50px;margin-top:16px!important}`,
-  // La etiqueta de arriba deja sitio a la cápsula.
-  `[data-cabecera-hoy] [data-etiqueta]{padding-right:150px}`,
 ].map(r => r.replace(/(^|\})\s*([^{}]+)\{/g, (m, a, sel) => `${a}${sel.split(',').map(x => `html[data-vista-prueba] ${x.trim()}`).join(',')}{`)).join('\n');
 
 export default function EstiloFondoBlanco({ activo, prueba = false }) {

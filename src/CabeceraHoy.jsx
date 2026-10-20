@@ -27,6 +27,11 @@ import Blob, { BlobVidrio } from './Blob.jsx';
 import { blobVidrio, fondoBlanco, enPrueba, COLORES_MODULO, aclarar } from './vistaApp.js';
 import NumeroHeroe from './NumeroHeroe.jsx';
 import { CapaActiva, useCapaActiva } from './capaActiva.js';
+import { Compass, Barbell, ForkKnife, BookOpen } from '@phosphor-icons/react';
+
+// Vista en prueba (opción A3): dentro del blob, un ícono de línea de la
+// sección en vez del objeto 3D, y la cifra en grafito.
+const ICONO_LINEA = { dash: Compass, entreno: Barbell, comida: ForkKnife, aprende: BookOpen };
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
@@ -147,7 +152,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const conAro = !!(Ilus && aro);
   const lugar = lugarDelObjeto(CAJA[tema] || CAJA.entreno);
   const grande = conAro;
-  // Vista en prueba: el número grande a la izquierda y el blob a su lado.
+  // Vista en prueba (A3): cifra en grafito e ícono de línea dentro del blob.
   const prueba = grande && enPrueba();
   const texto = (
     <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus && !grande ? (conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: !grande && conAro ? 118 : undefined, flex: grande ? 1 : undefined, minWidth: 0 }}>
@@ -165,6 +170,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
         <h1 style={{ margin: '8px 0 0', fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: TEXT }}>{titulo}</h1>
       )}
       {voz?.sub && <p data-sub style={{ margin: '10px 0 0', fontSize: 16, lineHeight: 1.45, color: TEXT_MUTED, maxWidth: 460 }}>{voz.sub}</p>}
+      {prueba && <NumeroHeroe chico tema={tema} centro={aro.centro} pie={aro.pie} alTocar={aro.alTocar} activo={activo} />}
       {firma && <FirmaCoach compacta={fondo} />}
       {children}
     </div>
@@ -185,9 +191,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       // queda debajo del blob, en gris. Va arriba de la fila (no centrado con
       // la frase): así queda siempre en el mismo sitio, cruzando un poco la
       // banda de arriba, tenga la frase dos líneas o cuatro.
-      <div data-vez={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={prueba
-        ? { flex: 'none', alignSelf: 'flex-end', width: 138, marginRight: `calc(10px - ${sangria})`, marginBottom: -6, pointerEvents: 'none' }
-        : { flex: 'none', alignSelf: 'flex-start', width: 138, marginTop: -18, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none' }}>
+      <div data-vez={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', alignSelf: 'flex-start', width: 138, marginTop: -18, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none' }}>
         {/* Con `alTocar`, la gráfica es un botón: abre qué la compone. */}
         <div className="cab-ilus" data-aro-cabecera={tema} data-aro-tocar={aro.alTocar ? '1' : undefined}
           role={aro.alTocar ? 'button' : undefined} tabIndex={aro.alTocar ? 0 : undefined} aria-label={aro.alTocar ? `${aro.pie}: ${aro.centro}. Ver cómo se calcula` : undefined}
@@ -204,12 +208,17 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
             <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
               <CapaActiva.Provider value={activo}>
               <AnilloMarca plano frac={aro.frac} color={color} tam={ARO_G.tam} grosor={ARO_G.grosor} riel={vidrio ? rielVidrio(color) : 'rgba(255,255,255,0.85)'} etiqueta={aro.pie}>
+                {prueba ? (() => { const Ic = ICONO_LINEA[tema] || Compass; return (
+                  <div data-icono-linea={tema} style={{ display: 'grid', placeItems: 'center', gap: 2 }}>
+                    <Ic size={26} weight="bold" color={color} />
+                    <div data-aro-centro style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
+                  </div>); })() : (
                 <div style={{ display: 'grid', placeItems: 'center' }}>
                   <div style={{ position: 'relative', width: ARO_G.objAncho, height: ARO_G.objAlto }}>
                     <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={objetoAnima} tono="dos" /></div>
                   </div>
-                  {!prueba && <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>}
-                </div>
+                  <div data-aro-centro style={{ marginTop: 1, fontSize: 18, fontWeight: 800, color, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
+                </div>)}
               </AnilloMarca>
               </CapaActiva.Provider>
             </div>
@@ -282,13 +291,11 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
           )}
         </div>
       )}
-      {prueba ? (<>
-        {texto}
-        <div data-fila-cabecera data-fila-heroe style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 10, marginTop: 6 }}>
-          <NumeroHeroe tema={tema} centro={aro.centro} pie={aro.pie} alTocar={aro.alTocar} activo={activo} />
-          {aroGrande}
-        </div>
-      </>) : grande ? <div data-fila-cabecera style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10 }}>{texto}{aroGrande}</div> : texto}
+      {prueba ? (
+        // A3: la frase y su pie a la izquierda; el blob, con la cifra, arriba a
+        // la derecha tocando la franja. Los botones van debajo, en su barrita.
+        <div data-fila-cabecera data-fila-heroe style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 10 }}>{texto}{aroGrande}</div>
+      ) : grande ? <div data-fila-cabecera style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10 }}>{texto}{aroGrande}</div> : texto}
     </div>
   );
 }
