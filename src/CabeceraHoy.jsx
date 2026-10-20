@@ -24,13 +24,15 @@ import { TEXT, TEXT_MUTED } from './theme.js';
 import ObjetoCabecera, { CAJA } from './ObjetoCabecera.jsx';
 import { AnilloMarca } from './GraficasV2.jsx';
 import Blob, { BlobVidrio } from './Blob.jsx';
-import { blobVidrio } from './vistaApp.js';
+import { blobVidrio, fondoBlanco, COLORES_MODULO, aclarar } from './vistaApp.js';
 import { CapaActiva, useCapaActiva } from './capaActiva.js';
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
-// La mancha del blob de vidrio: el color de la sección (Entreno, su amarillo).
+// La mancha del blob de vidrio: el color de la sección; con el fondo blanco,
+// también el segundo color, muy suave (vistaApp.js).
 const MANCHA_VIDRIO = { dash: '#3C7BD6', entreno: '#F2C94C', comida: '#46965A', aprende: '#EE8434' };
+const hexDe = (rgb) => aclarar(rgb, 1);
 const rielVidrio = (h) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},0.13)`; };
 // El blob en tinte suave: el color del módulo mezclado con blanco (un pastel
 // que no grita), y el aro encima en el color pleno.
@@ -173,6 +175,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
     const dentro = lugarEnCaja(CAJA[tema] || CAJA.entreno, ARO_G.objAncho, ARO_G.objAlto);
     const color = COLOR_ARO[tema] || TEXT;
     const vidrio = blobVidrio();
+    const blanco = fondoBlanco();
     return (
       // El blob del módulo (cuadrado curvo girado), y encima el aro en blanco
       // con el objeto de la sección a dos colores y el número adentro; el pie
@@ -189,7 +192,9 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
             {/* Misma forma de siempre; el tono es un pastel del módulo y la
                 sombra, suave, de su color. */}
             {vidrio
-              ? <BlobVidrio color={MANCHA_VIDRIO[tema] || color} tam={ARO_G.blob} />
+              ? <BlobVidrio tam={ARO_G.blob}
+                  color={blanco && COLORES_MODULO[tema] ? hexDe(COLORES_MODULO[tema].p) : (MANCHA_VIDRIO[tema] || color)}
+                  segundo={blanco && COLORES_MODULO[tema] ? hexDe(COLORES_MODULO[tema].q) : null} />
               : <Blob color={pastel(color)} sombraColor={color} tam={ARO_G.blob} />}
             <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
               <CapaActiva.Provider value={activo}>
@@ -218,6 +223,8 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       </div>
     );
   }
+  const cm = fondoBlanco() && COLORES_MODULO[tema];
+  const tm = cm ? { ...t, base: 'transparent', m1: aclarar(cm.p, tema === 'entreno' ? 0.42 : 0.36), m2: aclarar(cm.q, 0.22), m3: null, m4: null } : t;
   return (
     <div data-cabecera-hoy={tema} style={{
       position: 'relative',
@@ -225,16 +232,18 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       padding: `calc(${arriba} + ${grande ? 16 : 26}px) ${sangria} ${grande ? 0 : 6}px`,
     }}>
       <style>{CSS}</style>
-      {/* Las manchas: detrás del mensaje, se apagan hacia abajo. */}
+      {/* Las manchas: detrás del mensaje, se apagan hacia abajo. Con el fondo
+          blanco (a prueba): sobre blanco, solo el color del módulo y el
+          segundo, muy suave. */}
       <div aria-hidden="true" style={{
-        position: 'absolute', inset: '0 0 -48px 0', overflow: 'hidden', pointerEvents: 'none', background: t.base,
+        position: 'absolute', inset: '0 0 -48px 0', overflow: 'hidden', pointerEvents: 'none', background: tm.base,
         WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 55%, transparent 100%)',
         maskImage: 'linear-gradient(180deg, #000 0%, #000 55%, transparent 100%)',
       }}>
-        <div className="cab-m cab-m1" style={mancha(t.m1, { width: '95vw', height: '95vw', maxWidth: 520, maxHeight: 520, top: '-10%', right: '-32%' })} />
-        <div className="cab-m cab-m2" style={mancha(t.m2, { width: '80vw', height: '80vw', maxWidth: 440, maxHeight: 440, bottom: '-22%', left: '-34%' })} />
-        <div className="cab-m cab-m3" style={mancha(t.m3, { width: '58vw', height: '58vw', maxWidth: 320, maxHeight: 320, bottom: '-6%', right: '-20%', opacity: 0.75 })} />
-        {t.m4 && <div className="cab-m cab-m4" style={mancha(t.m4, { width: '62vw', height: '62vw', maxWidth: 340, maxHeight: 340, top: '-18%', left: '18%', opacity: 0.8 })} />}
+        <div className="cab-m cab-m1" style={mancha(tm.m1, { width: '95vw', height: '95vw', maxWidth: 520, maxHeight: 520, top: '-10%', right: '-32%' })} />
+        <div className="cab-m cab-m2" style={mancha(tm.m2, { width: '80vw', height: '80vw', maxWidth: 440, maxHeight: 440, bottom: '-22%', left: '-34%' })} />
+        {tm.m3 && <div className="cab-m cab-m3" style={mancha(tm.m3, { width: '58vw', height: '58vw', maxWidth: 320, maxHeight: 320, bottom: '-6%', right: '-20%', opacity: 0.75 })} />}
+        {tm.m4 && <div className="cab-m cab-m4" style={mancha(tm.m4, { width: '62vw', height: '62vw', maxWidth: 340, maxHeight: 340, top: '-18%', left: '18%', opacity: 0.8 })} />}
       </div>
       {/* La banda delgada: solo detrás de la barra de arriba, borde curvo. */}
       {t.banda && <div aria-hidden="true" data-banda style={{

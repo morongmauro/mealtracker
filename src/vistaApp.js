@@ -29,6 +29,26 @@ export const RUTINA_LIGERA_PRUEBA = ['mauro moron'];
 export const RUTINA_LIGERA_TODOS = false;
 export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || RUTINA_LIGERA_PRUEBA.includes(normal(nombre));
 
+// Fondo blanco con el color del módulo (y un segundo color muy suave), sin
+// la píldora negra de arriba y con la franja curva más corta (a prueba).
+// Para todos: FONDO_BLANCO_TODOS en true.
+export const FONDO_BLANCO_PRUEBA = ['mauro moron'];
+export const FONDO_BLANCO_TODOS = false;
+export function fondoBlanco() {
+  if (FONDO_BLANCO_TODOS) return true;
+  try { return FONDO_BLANCO_PRUEBA.includes(normal(JSON.parse(localStorage.getItem('mt:name') || '""'))); } catch (e) { return false; }
+}
+// El color de cada módulo (p) y el segundo, muy suave (q), en «r,g,b».
+export const COLORES_MODULO = {
+  dash:    { p: '60,123,214', q: '242,201,76' },   // azul + amarillo
+  entreno: { p: '95,102,112', q: '242,201,76' },   // gris + amarillo
+  comida:  { p: '70,150,90',  q: '242,201,76' },   // verde + amarillo
+  aprende: { p: '238,132,52', q: '60,123,214' },   // naranja + azul
+};
+// Un color del módulo aclarado con blanco (para las manchas, que van en hex).
+export const aclarar = (rgb, cuanto) => '#' + rgb.split(',').map(Number)
+  .map(c => Math.round(c * cuanto + 255 * (1 - cuanto)).toString(16).padStart(2, '0')).join('');
+
 // El blob de vidrio en las cabeceras (a prueba). Para todos: TODOS en true.
 export const BLOB_VIDRIO_PRUEBA = ['mauro moron'];
 export const BLOB_VIDRIO_TODOS = false;

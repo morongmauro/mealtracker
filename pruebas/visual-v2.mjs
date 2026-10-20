@@ -538,13 +538,21 @@ try {
   await p.getByText('Días de cardio').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
-  ok('Dash: el saludo como las demás cabeceras (dos líneas, la segunda en azul), sin firma, con banda curva y cuatro manchas azules', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
+  // Mauro tiene el fondo blanco (a prueba): dos manchas (azul y el amarillo muy suave) en vez de cuatro.
+  ok('Dash: el saludo como las demás cabeceras (dos líneas, la segunda en azul), sin firma, con banda curva y sus manchas (2 con el fondo blanco de Mauro)', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
     && /^MARTES 29/.test(await p.locator('[data-cabecera-hoy="dash"] [data-etiqueta]').innerText())
     && await p.locator('[data-cabecera-hoy="dash"] [data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(47, 108, 196)')
     && (await p.locator('[data-cabecera-hoy="dash"] [data-sub]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
-    && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === 4);
+    && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === (await p.evaluate(() => document.documentElement.hasAttribute('data-fondo-blanco')) ? 2 : 4));
+  ok('fondo blanco (Mauro): blanco que predomina, sin la píldora negra y con la franja curva corta', await p.evaluate(() => {
+    const h = document.documentElement, pild = document.querySelector('[data-pildora-marca]'), banda = document.querySelector('[data-cabecera-hoy="dash"] [data-banda]');
+    const vista = document.querySelector('[data-view="dash"]');
+    return h.hasAttribute('data-fondo-blanco') && !!pild && getComputedStyle(pild).display === 'none'
+      && banda.getBoundingClientRect().height <= 36 && /252, 252, 253/.test(getComputedStyle(vista).backgroundColor)
+      && /radial-gradient/.test(getComputedStyle(vista).backgroundImage) && /60, 123, 214/.test(getComputedStyle(vista).backgroundImage);
+  }));
   ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0)
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
   ok('Dash: el blob junto a la frase, con la brújula a dos colores y el porcentaje en grafito adentro del aro', await ilusBien(p, 'dash'));

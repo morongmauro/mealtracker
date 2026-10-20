@@ -45,7 +45,7 @@ export default function Blob({ color, tam = 120, sombra = true, sombraColor = nu
 // abajo a la derecha. `color` es el de la mancha. Va dentro de una caja con
 // position relative (el vidrio se pinta detrás, del mismo tamaño).
 const rgba = (h, a) => { const n = parseInt(String(h).slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
-export function BlobVidrio({ color, tam = 120, intensidad = 0.2, style }) {
+export function BlobVidrio({ color, segundo = null, tam = 120, intensidad = 0.2, style }) {
   const id = 'bv' + useId().replace(/[^a-zA-Z0-9]/g, '');
   const k = tam / 200, A = intensidad;
   return (
@@ -66,6 +66,9 @@ export function BlobVidrio({ color, tam = 120, intensidad = 0.2, style }) {
           <radialGradient id={`${id}m`} cx="76%" cy="88%" r="70%">
             <stop offset="0" stopColor={rgba(color, A)} /><stop offset=".45" stopColor={rgba(color, A * 0.35)} /><stop offset="1" stopColor={rgba(color, 0)} />
           </radialGradient>
+          {segundo && <radialGradient id={`${id}s`} cx="14%" cy="96%" r="48%">
+            <stop offset="0" stopColor={rgba(segundo, A * 0.6)} /><stop offset="1" stopColor={rgba(segundo, 0)} />
+          </radialGradient>}
           <linearGradient id={`${id}h`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor="#fff" stopOpacity=".9" /><stop offset=".42" stopColor="#fff" stopOpacity="0" />
           </linearGradient>
@@ -80,6 +83,7 @@ export function BlobVidrio({ color, tam = 120, intensidad = 0.2, style }) {
         </defs>
         <path d={BLOB_PATH} fill={`url(#${id}b)`} filter={`url(#${id}f)`} />
         <path d={BLOB_PATH} fill={`url(#${id}m)`} />
+        {segundo && <path d={BLOB_PATH} fill={`url(#${id}s)`} />}
         <path d={BLOB_PATH} fill={`url(#${id}h)`} transform="translate(100 100) scale(.94) translate(-100 -100)" />
       </svg>
     </>

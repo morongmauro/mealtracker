@@ -23,7 +23,7 @@ const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { BarraCompacta, HojaMas, gruposMas } from './VistaCompacta.jsx';
-import { useVistaCompacta, puedeCompacta, guardarVista, adoptarVistaNube, leerVista } from './vistaApp.js';
+import { useVistaCompacta, puedeCompacta, guardarVista, adoptarVistaNube, leerVista, fondoBlanco } from './vistaApp.js';
 import DiaComidas from './DiaComidas.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { CapaActiva } from './capaActiva.js';
@@ -32,6 +32,7 @@ import { recibirMudanza, enDireccionVieja, urlDeLlegada, enDireccionNueva } from
 import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero, ArcoApple, PuntaApple, rielDe } from './GraficasV2.jsx';
 import CabeceraHoy, { TEMAS as TEMAS_CABECERA } from './CabeceraHoy.jsx';
+import EstiloFondoBlanco from './FondoBlanco.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
 import { AvisoSuma } from './Celebraciones.jsx';
 const MetaComida = lazy(() => import('./MetaComida.jsx'));
@@ -5622,6 +5623,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         ].join(', ')
       }} />
       <FontStyles />
+      {v2 && <EstiloFondoBlanco activo={fondoBlanco()} />}
 
       <style>{`
         .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
