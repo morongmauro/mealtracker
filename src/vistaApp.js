@@ -27,7 +27,7 @@ export const puedeCompacta = (nombre) => VISTA_COMPACTA_PRUEBA.includes(normal(n
 // ejercicio la pantalla baja sola al siguiente. Para todos: TODOS en true.
 export const RUTINA_LIGERA_PRUEBA = ['mauro moron'];
 export const RUTINA_LIGERA_TODOS = false;
-export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || RUTINA_LIGERA_PRUEBA.includes(normal(nombre));
+export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || (RUTINA_LIGERA_PRUEBA.includes(normal(nombre)) && enPrueba());
 
 // Fondo blanco con el color del módulo (y un segundo color muy suave), sin
 // la píldora negra de arriba y con la franja curva más corta (a prueba).
@@ -35,8 +35,7 @@ export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || RUTINA_LIGERA_PRU
 export const FONDO_BLANCO_PRUEBA = ['mauro moron'];
 export const FONDO_BLANCO_TODOS = false;
 export function fondoBlanco() {
-  if (FONDO_BLANCO_TODOS) return true;
-  try { return FONDO_BLANCO_PRUEBA.includes(normal(JSON.parse(localStorage.getItem('mt:name') || '""'))); } catch (e) { return false; }
+  return FONDO_BLANCO_TODOS || (FONDO_BLANCO_PRUEBA.includes(normal(nombreGuardado())) && enPrueba());
 }
 // El color de cada módulo (p) y el segundo, muy suave (q), en «r,g,b».
 export const COLORES_MODULO = {
@@ -53,11 +52,20 @@ export const aclarar = (rgb, cuanto) => '#' + rgb.split(',').map(Number)
 export const BLOB_VIDRIO_PRUEBA = ['mauro moron'];
 export const BLOB_VIDRIO_TODOS = false;
 export function blobVidrio() {
-  if (BLOB_VIDRIO_TODOS) return true;
-  try { return BLOB_VIDRIO_PRUEBA.includes(normal(JSON.parse(localStorage.getItem('mt:name') || '""'))); } catch (e) { return false; }
+  return BLOB_VIDRIO_TODOS || (BLOB_VIDRIO_PRUEBA.includes(normal(nombreGuardado())) && enPrueba());
 }
 
-const valida = (v) => !!v && typeof v === 'object' && (v.modo === 'compacta' || v.modo === 'completa') && typeof v.desde === 'string';
+// Tres vistas: «completa» (la de siempre, la que ven los clientes),
+// «compacta» y «prueba» (la vista en prueba: lo nuevo junto, para compararla
+// con las otras dos antes de dársela a nadie).
+const MODOS = ['completa', 'compacta', 'prueba'];
+const valida = (v) => !!v && typeof v === 'object' && MODOS.includes(v.modo) && typeof v.desde === 'string';
+const nombreGuardado = () => { try { return JSON.parse(localStorage.getItem('mt:name') || '""'); } catch (e) { return ''; } };
+// ¿Está puesta la vista en prueba? (solo para quien puede probarla)
+export function enPrueba() {
+  const v = leerVista();
+  return !!v && v.modo === 'prueba' && puedeCompacta(nombreGuardado());
+}
 
 export function leerVista() {
   try { const v = JSON.parse(localStorage.getItem(CLAVE) || 'null'); return valida(v) ? v : null; } catch (e) { return null; }
@@ -93,4 +101,16 @@ export function useVistaCompacta(nombre) {
     return () => { window.removeEventListener(EVENTO, alCambiar); window.removeEventListener('storage', alCambiar); };
   }, []);
   return puedeCompacta(nombre) && !!v && v.modo === 'compacta';
+}
+
+// La vista que se ve ahora: 'completa' | 'compacta' | 'prueba'.
+export function useModoVista(nombre) {
+  const [v, setV] = useState(leerVista);
+  useEffect(() => {
+    const alCambiar = () => setV(leerVista());
+    window.addEventListener(EVENTO, alCambiar);
+    window.addEventListener('storage', alCambiar);
+    return () => { window.removeEventListener(EVENTO, alCambiar); window.removeEventListener('storage', alCambiar); };
+  }, []);
+  return puedeCompacta(nombre) && v && v.modo !== 'completa' ? v.modo : 'completa';
 }

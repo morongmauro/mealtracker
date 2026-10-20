@@ -23,7 +23,7 @@ const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { BarraCompacta, HojaMas, gruposMas } from './VistaCompacta.jsx';
-import { useVistaCompacta, puedeCompacta, guardarVista, adoptarVistaNube, leerVista, fondoBlanco } from './vistaApp.js';
+import { useVistaCompacta, useModoVista, puedeCompacta, guardarVista, adoptarVistaNube, leerVista, fondoBlanco } from './vistaApp.js';
 import DiaComidas from './DiaComidas.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { CapaActiva } from './capaActiva.js';
@@ -785,6 +785,9 @@ export default function MealTracker() {
   const v2 = esV2(name);
   // Vista compacta (vistaApp.js): abajo solo Entreno, Comida y «Más».
   const compacta = useVistaCompacta(name) && v2;
+  // La vista en prueba (solo quien puede probarla): lo nuevo, junto.
+  const modoVista = useModoVista(name);
+  const prueba = modoVista === 'prueba' && v2;
   const [masAbierto, setMasAbierto] = useState(false);
   // Lo que se pide al Dash desde «Más» (Configuración, Comunidad).
   const [dashPedido, setDashPedido] = useState(null);
@@ -5623,7 +5626,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         ].join(', ')
       }} />
       <FontStyles />
-      {v2 && <EstiloFondoBlanco activo={fondoBlanco()} />}
+      {v2 && <EstiloFondoBlanco activo={fondoBlanco()} prueba={prueba} />}
 
       <style>{`
         .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
@@ -6519,7 +6522,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 calendarioComida: () => irSubV2('comida', 'calendario'),
                 // Vista de la app (completa / compacta): por ahora solo quien
                 // está en la prueba (vistaApp.js) ve el cambio en Configuración.
-                vista: puedeCompacta(name) ? { compacta, cambiar: (m) => guardarVista(m) } : null,
+                vista: puedeCompacta(name) ? { compacta, modo: modoVista, cambiar: (m) => guardarVista(m) } : null,
                 // Sin la cuenta, el recorrido ni la mudanza encima: entonces
                 // puede salir la bienvenida a la Comunidad.
                 ventanaLibre: !(name && !cuentaSaltada && (!sesionV2 || cuentaAbierta)) && !recorrido && !mudanza && !primeraVez,

@@ -35,11 +35,38 @@ const CSS = [
   `[data-cabecera-hoy]:has(>[data-banda]){padding-top:calc(env(safe-area-inset-top, 0px) + 46px)!important}`,
 ].map(r => r.replace(/(^|\})\s*([^{}]+)\{/g, (m, a, sel) => `${a}${sel.split(',').map(x => `html[data-fondo-blanco] ${x.trim()}`).join(',')}{`)).join('\n');
 
-export default function EstiloFondoBlanco({ activo }) {
+// La vista en prueba, además: la paleta solo con los colores de la marca, los
+// atajos en una cápsula de vidrio arriba a la derecha y campos blancos.
+const AZUL = '#3C7BD6';
+const CSS_PRUEBA = [
+  // Lo que era morado (peso, fotos, medición) pasa al azul de la marca.
+  `[color="#6D4FC2"],[color="#8E5BD8"],[style*="color: rgb(109, 79, 194)"],[style*="color: rgb(142, 91, 216)"]{color:${AZUL}!important}`,
+  `[style*="background: rgb(238, 233, 251)"]{background:rgba(60,123,214,.10)!important}`,
+  // «Profundiza»: de la crema a blanco con sombra suave.
+  `[style*="background: rgb(235, 230, 220)"]{background:#fff!important;box-shadow:0 1px 2px rgba(20,20,30,.04),0 6px 16px rgba(20,30,60,.07)!important}`,
+  // Campos de la rutina: blancos con un relieve suave (no grises).
+  `[data-ejercicio] input,[data-ejercicio-circuito] input{background:#fff!important;box-shadow:inset 0 0 0 1px rgba(20,20,40,.07),inset 0 2px 4px rgba(20,20,40,.04)!important}`,
+  // Atajos: una cápsula de vidrio chica arriba a la derecha (sin palabras).
+  `:has(>[data-cabecera-hoy]){position:relative}`,
+  `[data-cabecera-hoy]~[data-fila-cristal],[data-cabecera-hoy] [data-fila-cristal]{position:absolute!important;z-index:3;top:calc(env(safe-area-inset-top, 0px) + 36px);right:16px;margin:0!important;gap:2px!important;padding:3px;border-radius:999px;background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 4px 14px rgba(20,30,60,.08)}`,
+  `[data-fila-cristal] [data-boton-cristal]{width:auto!important;gap:0!important}`,
+  `[data-fila-cristal] [data-boton-cristal]>span:last-child{display:none}`,
+  `[data-fila-cristal] [data-circulo]{width:36px!important;height:36px!important;background:transparent!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}`,
+  `[data-fila-cristal] [data-badge]{top:-1px!important;right:-1px!important;min-width:16px!important;height:16px!important;font-size:10px!important}`,
+  // Entreno: «Hoy te toca» más grande, con el botón de ancho completo.
+  `[data-hoy-rutina]{padding:20px!important;border-radius:28px!important}`,
+  `[data-hoy-rutina]>div:nth-child(2){font-size:30px!important;letter-spacing:-0.03em!important}`,
+  `[data-hoy-empezar]{display:flex!important;justify-content:center;height:50px;margin-top:16px!important}`,
+  // La etiqueta de arriba deja sitio a la cápsula.
+  `[data-cabecera-hoy] [data-etiqueta]{padding-right:150px}`,
+].map(r => r.replace(/(^|\})\s*([^{}]+)\{/g, (m, a, sel) => `${a}${sel.split(',').map(x => `html[data-vista-prueba] ${x.trim()}`).join(',')}{`)).join('\n');
+
+export default function EstiloFondoBlanco({ activo, prueba = false }) {
   React.useEffect(() => {
     const h = document.documentElement;
     if (activo) h.setAttribute('data-fondo-blanco', ''); else h.removeAttribute('data-fondo-blanco');
-    return () => h.removeAttribute('data-fondo-blanco');
-  }, [activo]);
-  return activo ? <style data-estilo-fondo-blanco>{CSS}</style> : null;
+    if (prueba) h.setAttribute('data-vista-prueba', ''); else h.removeAttribute('data-vista-prueba');
+    return () => { h.removeAttribute('data-fondo-blanco'); h.removeAttribute('data-vista-prueba'); };
+  }, [activo, prueba]);
+  return activo ? <style data-estilo-fondo-blanco>{CSS}{prueba ? '\n' + CSS_PRUEBA : ''}</style> : null;
 }

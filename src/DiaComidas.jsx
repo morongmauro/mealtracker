@@ -10,6 +10,7 @@
 import React from 'react';
 import { Sun, SunHorizon, Moon, Cookie, Plus, Microphone } from '@phosphor-icons/react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT, C_PROTEIN, C_CARBS_TEXTO, C_FAT } from './theme.js';
+import { enPrueba } from './vistaApp.js';
 
 export const MOMENTOS = [
   { k: 'desayuno', nombre: 'Desayuno', Icono: Sun },
@@ -58,8 +59,24 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
   entries.forEach(e => { const k = momentoDe(e.meal); if (k) por[k].push(e); else otras.push(e); });
   // El primer momento sin nada es el que invita: «Toca + para registrarlo».
   const primeroVacio = MOMENTOS.find(m => !por[m.k].length);
+  // Vista en prueba: lo que toca registrar ahora es la protagonista, arriba,
+  // con el dictado a mano; el atajo de abajo ya no hace falta.
+  const prota = enPrueba() && primeroVacio;
+  const PREGUNTA = { desayuno: '¿Qué desayunaste?', almuerzo: '¿Qué almorzaste?', cena: '¿Qué cenaste?', snack: '¿Comiste algo entre comidas?' };
   return (
     <div data-dia-comidas>
+      {prota && (
+        <div data-prota-comida style={{ ...TARJETA, borderRadius: 26, padding: 18, marginTop: 14, boxShadow: '0 2px 4px rgba(20,20,30,.04), 0 18px 40px rgba(20,30,60,.10)' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>{PREGUNTA[primeroVacio.k]}</div>
+          <div style={{ fontSize: 14.5, color: TEXT_MUTED, fontWeight: 500, margin: '4px 0 16px' }}>Dímelo con tu voz, en una frase.</div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" data-prota-dictar onClick={alDictar} style={{ flex: 1, height: 52, border: 'none', borderRadius: 999, background: '#46965A', color: '#fff', fontFamily: 'inherit', fontSize: 16, fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}><Microphone size={19} weight="fill" />Dictar</button>
+            <button type="button" data-prota-escribir onClick={() => alAgregar && alAgregar(primeroVacio)} aria-label={`Escribir ${primeroVacio.nombre.toLowerCase()}`} style={{ width: 52, height: 52, border: 'none', borderRadius: 999,
+              background: '#F1F2F4', color: TEXT, display: 'grid', placeItems: 'center', cursor: 'pointer' }}><Plus size={18} weight="bold" /></button>
+          </div>
+        </div>
+      )}
       <h2 data-titulo-comidas style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '18px 2px 10px' }}>Lo que comiste hoy</h2>
       <div style={{ ...TARJETA, padding: '6px 14px 6px' }}>
         {MOMENTOS.map((m, i) => {
@@ -97,7 +114,7 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
           </div>
         )}
       </div>
-      <button type="button" data-dictar-dia onClick={alDictar} style={{ ...TARJETA, width: '100%', marginTop: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+      {!prota && <button type="button" data-dictar-dia onClick={alDictar} style={{ ...TARJETA, width: '100%', marginTop: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: 12, padding: '12px 12px 12px 16px' }}>
         <span style={{ flex: 1 }}>
           <span style={{ display: 'block', fontSize: 15, fontWeight: 750, color: TEXT }}>¿Más rápido?</span>
@@ -106,7 +123,7 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
         <span aria-hidden="true" style={{ width: 48, height: 48, borderRadius: 99, background: TEXT, color: '#FFFFFF', display: 'grid', placeItems: 'center', flex: 'none', boxShadow: '0 8px 18px rgba(0,0,0,0.18)' }}>
           <Microphone size={21} weight="fill" />
         </span>
-      </button>
+      </button>}
     </div>
   );
 }

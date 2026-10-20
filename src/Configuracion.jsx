@@ -58,7 +58,7 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
       {respira && <Respira alCerrar={() => setRespira(false)} />}
       {instalar && <Hoja abierta alCerrar={() => setInstalar(false)} titulo="Instalar la app" alto="70vh"><AvisoInstalar enHoja /></Hoja>}
       <CabeceraHoy tema="dash" fondo={false} voz={{ etiqueta: 'CONFIGURACIÓN', a: 'Tu app,', b: 'a tu manera.' }} />
-      {vistaApp && <ElegirVista compacta={vistaApp.compacta} alCambiar={vistaApp.cambiar} />}
+      {vistaApp && <ElegirVista modo={vistaApp.modo || (vistaApp.compacta ? 'compacta' : 'completa')} alCambiar={vistaApp.cambiar} />}
       <div style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA, padding: '4px 0' }}>
         {filas.map((f, i) => {
           const Tag = f.href ? 'a' : 'button';
@@ -153,28 +153,33 @@ const botonFuerte = { flex: 'none', height: 36, padding: '0 14px', borderRadius:
 // Una fila con interruptor, como las demás de Configuración: encendido es la
 // compacta. Cambia al instante y se puede volver cuando se quiera (también
 // desde «Ver la completa», al final de «Más»).
-function ElegirVista({ compacta, alCambiar }) {
+// Las tres vistas, para probarlas (solo quien puede): la de siempre, la
+// compacta y la vista en prueba (lo nuevo, junto).
+const VISTAS = [
+  ['completa', 'Completa', 'La de siempre, como la ven tus clientes'],
+  ['compacta', 'Compacta', 'Abajo solo Entreno, Comida y Más'],
+  ['prueba', 'En prueba', 'Lo nuevo junto: más blanco, un número grande y una cosa protagonista por pantalla'],
+];
+function ElegirVista({ modo = 'completa', alCambiar }) {
+  const actual = VISTAS.find(v => v[0] === modo) || VISTAS[0];
   return (
-    <div data-elegir-vista style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA, padding: '4px 0', marginBottom: 14 }}>
-      <button role="switch" aria-checked={compacta} data-vista-interruptor onClick={() => alCambiar(compacta ? 'completa' : 'compacta')} style={{
-        display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '13px 16px', border: 0, background: 'transparent',
-        textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', color: 'inherit',
-      }}>
-        <span style={{ width: 38, height: 38, borderRadius: 99, background: '#F1EFE9', color: TEXT, display: 'grid', placeItems: 'center', flex: 'none' }}><SquaresFour size={20} /></span>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: 'block', fontSize: 15.5, fontWeight: 700, color: TEXT }}>Vista compacta</span>
-          <span style={{ display: 'block', fontSize: 13, color: TEXT_MUTED, marginTop: 1 }}>Abajo solo Entreno, Comida y Más</span>
-        </span>
-        <span aria-hidden="true" style={{
-          width: 51, height: 31, borderRadius: 99, flex: 'none', position: 'relative', transition: 'background .2s',
-          background: compacta ? '#34C759' : '#E5E5EA',
-        }}>
-          <span style={{
-            position: 'absolute', top: 2, left: compacta ? 22 : 2, width: 27, height: 27, borderRadius: 99, background: '#fff',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'left .2s',
-          }} />
-        </span>
-      </button>
+    <div data-elegir-vista style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA, padding: '14px 14px 13px', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 11 }}>
+        <span style={{ width: 34, height: 34, borderRadius: 99, background: '#F1EFE9', color: TEXT, display: 'grid', placeItems: 'center', flex: 'none' }}><SquaresFour size={18} /></span>
+        <span style={{ fontSize: 15.5, fontWeight: 700, color: TEXT }}>Vista de la app</span>
+      </div>
+      <div role="radiogroup" aria-label="Vista de la app" style={{ display: 'flex', background: 'rgba(118,118,128,0.12)', borderRadius: 999, padding: 3 }}>
+        {VISTAS.map(([id, nombre]) => {
+          const on = id === actual[0];
+          return (
+            <button key={id} role="radio" aria-checked={on} data-vista-opcion={id} onClick={() => !on && alCambiar(id)} style={{
+              flex: 1, border: 'none', borderRadius: 999, padding: '8px 0', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              background: on ? '#FFFFFF' : 'transparent', color: on ? TEXT : '#5B5B61', boxShadow: on ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+            }}>{nombre}</button>
+          );
+        })}
+      </div>
+      <div data-vista-detalle style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 9, lineHeight: 1.35, padding: '0 2px' }}>{actual[2]}</div>
     </div>
   );
 }

@@ -39,6 +39,7 @@ const bienvenidaVista = () => { try { return !!localStorage.getItem(CLAVE_BIENVE
 const marcarBienvenida = () => { try { localStorage.setItem(CLAVE_BIENVENIDA, new Date().toISOString()); } catch (e) {} };
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
+import { enPrueba } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
 import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe, curvaSuave } from './GraficasV2.jsx';
 import {
@@ -1247,6 +1248,37 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
       </button>
     </div>
   );
+  // Vista en prueba: lo primero que falta hoy es la protagonista (grande y
+  // con su botón); lo demás de hoy, en chips chicos debajo.
+  const pendHoy = hoyItems.filter(i => !i.hecho);
+  if (enPrueba() && pendHoy.length && !todos) {
+    const [p0, ...resto] = pendHoy;
+    return (
+      <section data-recordatorios-dash data-prota-dash data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 18, background: '#FFFFFF', borderRadius: 28, padding: 18,
+        boxShadow: '0 2px 4px rgba(20,20,30,.04), 0 18px 40px rgba(20,30,60,.10)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.09em', color: '#3C7BD6' }}>AHORA</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED }}>{hoyHechos} de {hoyItems.length} hoy</span>
+        </div>
+        <div data-prota-texto style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.025em', color: TEXT, lineHeight: 1.15, margin: '8px 0 16px' }}>{p0.texto}</div>
+        {(p0.ir || p0.marcar) && (
+          <button data-prota-ir onClick={p0.ir || p0.marcar} style={{ width: '100%', height: 52, border: 'none', borderRadius: 999, background: TEXT, color: '#fff', fontFamily: 'inherit', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>Ir ahora</button>
+        )}
+        {resto.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 14 }}>
+            {resto.map(it => (
+              <button key={it.id} data-recordatorio={it.id} onClick={it.ir || it.marcar || undefined} style={{ border: 'none', borderRadius: 99, padding: '6px 11px', background: '#F2F3F5', color: '#5B5B61',
+                fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.texto}</button>
+            ))}
+          </div>
+        )}
+        {/* Nada se pierde: «Ver todo» abre la lista completa de siempre. */}
+        <button data-ver-recordatorios onClick={() => setTodos(true)} style={{ display: 'block', margin: '12px auto 0', border: 0, background: 'none', padding: '8px 12px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: TEXT_MUTED, cursor: 'pointer' }}>
+          Ver todo{items.length + hoyItems.length - 1 > 0 ? ` (${items.length + hoyItems.length - 1})` : ''}
+        </button>
+      </section>
+    );
+  }
   return (
     <section data-recordatorios-dash data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 10, background: '#FFFFFF', borderRadius: 18, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', padding: '7px 6px 3px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 0 0', minHeight: 20 }}>
