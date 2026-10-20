@@ -2200,10 +2200,10 @@ try {
     await p.getByRole('button', { name: /^Dash$/ }).first().click(); await espera(500);
     await p.locator('[data-abrir-config]').click();
     await p.locator('[data-elegir-vista]').waitFor({ timeout: 5000 });
-    ok('vista compacta: en Configuración sale «Vista de la app», con la Completa marcada', (await p.locator('[data-vista-opcion="completa"]').getAttribute('aria-pressed')) === 'true'
-      && (await p.locator('[data-vista-opcion="compacta"]').getAttribute('aria-pressed')) === 'false');
+    ok('vista compacta: en Configuración es una fila con interruptor, apagado', (await p.locator('[data-vista-interruptor]').getAttribute('aria-checked')) === 'false'
+      && await p.locator('[data-elegir-vista]').evaluate(el => el.getBoundingClientRect().height < 80));
     await foto(p, '30a-config-vista');
-    await p.locator('[data-vista-opcion="compacta"]').click(); await espera(700);
+    await p.locator('[data-vista-interruptor]').click(); await espera(700);
     ok('vista compacta: al elegirla, abajo quedan Entreno, Comida y Más', JSON.stringify(await p.locator('[data-compacta-boton]').evaluateAll(els => els.map(e => e.dataset.compactaBoton))) === JSON.stringify(['entreno', 'comida', 'mas']),
       JSON.stringify(await p.locator('[data-compacta-boton]').evaluateAll(els => els.map(e => e.dataset.compactaBoton))));
     await p.locator('[data-compacta-boton="entreno"]').click(); await espera(1500);
@@ -2214,6 +2214,21 @@ try {
     await foto(p, '30b-compacta-entreno');
     await cab.locator('[data-compacta-opcion="mes"]').click(); await espera(1500);
     ok('vista compacta: «Calendario» abre el mes', (await p.locator('[data-view="entrena"] [data-compacta-opcion="mes"]').getAttribute('aria-selected')) === 'true');
+    // La rutina compacta: uno abierto a la vez y los botones solo con su ícono.
+    await cab.locator('[data-compacta-opcion="hoy"]').click(); await espera(1200);
+    await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
+    await espera(600);
+    const rut = p.locator('[data-view="entrena"]');
+    ok('rutina compacta: un solo ejercicio abierto y el resto en una línea', (await rut.locator('[data-ejercicio][data-compacta]').count()) === 1
+      && (await rut.locator('[data-cerrado]').count()) >= 3, `${await rut.locator('[data-ejercicio][data-compacta]').count()} abiertos · ${await rut.locator('[data-cerrado]').count()} cerrados`);
+    ok('rutina compacta: Ficha, Historial y Nota solo con su ícono', (await rut.locator('[data-ejercicio][data-compacta] [data-botones-iconos] button').count()) >= 2
+      && (await rut.locator('[data-ejercicio][data-compacta] [data-botones-iconos]').innerText()).trim() === '');
+    await foto(p, '30e-compacta-rutina');
+    const primero = await rut.locator('[data-ejercicio][data-compacta]').getAttribute('data-ejercicio');
+    await rut.locator('[data-ejercicio-cerrado="Barbell Bench Press"]').click(); await espera(500);
+    ok('rutina compacta: tocar uno cerrado lo abre (y cierra el otro)', (await rut.locator('[data-ejercicio="Barbell Bench Press"][data-compacta]').count()) === 1
+      && (await rut.locator('[data-ejercicio][data-compacta]').count()) === 1 && (await rut.locator(`[data-ejercicio-cerrado="${primero}"]`).count()) === 1, primero);
     await p.locator('[data-compacta-boton="comida"]').click(); await espera(1200);
     ok('vista compacta: Comida abre el chat', (await p.locator('[data-compacta-boton="comida"]').getAttribute('data-activo')) === '1'
       && (await p.locator('[data-placeholder*="Dicta o escribe"]').count()) >= 1);

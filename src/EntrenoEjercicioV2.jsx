@@ -207,7 +207,18 @@ const textoDescansoCorto = (seg) => {
 // eran cajas del mismo gris que los campos donde se escribe y se confundían:
 // lo gris se llena, lo blanco con sombra se toca.
 // `corto`: el texto que va cuando el espacio es angosto (los circuitos).
-function Botones({ items, chico = false }) {
+function Botones({ items, chico = false, soloIconos = false }) {
+  // Vista compacta: solo el ícono, en círculos chicos al lado del nombre.
+  if (soloIconos) return (
+    <div data-botones data-botones-iconos style={{ display: 'flex', gap: 6, flex: 'none' }}>
+      {items.map(({ Icono, texto, onClick }) => (
+        <button key={texto} onClick={onClick} aria-label={texto} title={texto} data-pildora-ejercicio style={{
+          width: 34, height: 34, borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer', padding: 0,
+          boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)', display: 'grid', placeItems: 'center', flex: 'none',
+        }}><Icono size={16} color={GRAFITO} /></button>
+      ))}
+    </div>
+  );
   return (
     <div data-botones style={{ display: 'flex', gap: chico ? 6 : 7, marginTop: chico ? 8 : 9, minWidth: 0 }}>
       {items.map(({ Icono, texto, corto, onClick }) => {
@@ -238,6 +249,25 @@ function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota }) {
 }
 
 const NADA_AUN = 'Todavía no has registrado este ejercicio. Lo que marques hoy será tu primera marca.';
+
+// Vista compacta: lo que sigue va cerrado en una línea (foto chica, nombre y
+// lo recetado). Tocarla lo abre.
+function FilaCerrada({ e, texto, alAbrir, attr = {} }) {
+  const thumb = miniatura(e);
+  return (
+    <button onClick={alAbrir} {...attr} style={{
+      ...TARJETA, width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+      display: 'flex', alignItems: 'center', gap: 11, padding: '9px 13px', marginBottom: 8,
+    }}>
+      <span style={{ width: 38, height: 30, borderRadius: 9, overflow: 'hidden', background: CREMA, flex: 'none', display: 'grid', placeItems: 'center', color: GRIS }}>
+        {thumb ? <img src={thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : <Barbell size={15} />}
+      </span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).grande}</span>
+      <span style={{ fontSize: 12.5, color: GRIS, flex: 'none' }}>{texto}</span>
+      <CaretDown size={15} color="#C7C7CC" />
+    </button>
+  );
+}
 const cajaHoja = { marginTop: 14, padding: '14px 15px', borderRadius: 16, background: '#F7F5F0' };
 
 // TU RÉCORD: el peso más alto que ha levantado en este ejercicio (y con ese
@@ -450,7 +480,7 @@ function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = nu
   );
 }
 
-export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg', onUnidad, onNota, ahora = false }) {
+export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg', onUnidad, onNota, ahora = false, compacta = false, cerrado = false, alAbrir }) {
   const e = re.ejercicio;
   const n = nombresEj(e);
   const [ficha, setFicha] = useState(false);
@@ -495,9 +525,39 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
     );
   }
 
+  const botones = botonesDe({
+    sinCarga, onNota, abrirFicha: () => setFicha(true), abrirRecord: () => setRecord(true), abrirUltima: () => setVerUltima(true),
+  });
+  const recetado = `${re.series > 1 ? `${re.series} × ` : ''}${textoReps(re)}`;
+
+  // Vista compacta: si no es el que toca, cerrado en una línea.
+  if (compacta && cerrado) {
+    return <FilaCerrada e={e} texto={recetado} alAbrir={alAbrir} attr={{ 'data-cerrado': '1', 'data-ejercicio-cerrado': e?.alias || e?.nombre }} />;
+  }
+
   return (
-    <div data-ejercicio={e?.alias || e?.nombre} data-ahora={ahora ? '1' : undefined} style={{ ...TARJETA, padding: '11px 13px 9px' }}>
+    <div data-ejercicio={e?.alias || e?.nombre} data-ahora={ahora ? '1' : undefined} data-compacta={compacta ? '1' : undefined} style={{ ...TARJETA, padding: compacta ? '10px 12px 8px' : '11px 13px 9px' }}>
       <style>{CSS_RUTINA}</style>
+      {compacta ? (
+        // Compacta: foto chica, el nombre en inglés, lo recetado en una línea
+        // y Ficha · Historial · Nota como íconos al lado.
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <Miniatura e={e} alTocar={() => setFicha(true)} ancho={50} alto={40} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: TEXT, lineHeight: 1.18, letterSpacing: '-0.02em' }}>{n.grande}</div>
+            <div style={{ fontSize: 12.5, color: GRIS, marginTop: 2 }}>
+              {recetado}{re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}{re.rir != null ? ` · RIR ${re.rir}` : ''} · {textoDescansoCorto(re.descanso_seg).toLowerCase()}
+            </div>
+          </div>
+          {completo && (
+            <button data-plegar onClick={() => setPlegado(true)} aria-label="Plegar ejercicio" style={{
+              flex: 'none', width: 34, height: 34, borderRadius: 99, border: 'none', cursor: 'pointer',
+              background: CAMPO, color: GRAFITO, display: 'grid', placeItems: 'center',
+            }}><CaretUp size={16} weight="bold" /></button>
+          )}
+          <Botones soloIconos items={botones} />
+        </div>
+      ) : (<>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <Miniatura e={e} alTocar={() => setFicha(true)} />
         {/* Terminado y abierto: la flechita para volver a plegarlo. */}
@@ -525,9 +585,8 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </span>
       </div>
 
-      <Botones items={botonesDe({
-        sinCarga, onNota, abrirFicha: () => setFicha(true), abrirRecord: () => setRecord(true), abrirUltima: () => setVerUltima(true),
-      })} />
+      <Botones items={botones} />
+      </>)}
 
       {re.notas && (
         <div style={{ marginTop: 9, padding: '8px 11px', borderRadius: 11, background: '#FFF6E0', fontSize: 12.5, color: '#6B4E05', lineHeight: 1.45 }}>
@@ -559,7 +618,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
 // Todas las vueltas juntas, y cada vez que aparece un ejercicio va con su
 // foto y su nombre: la gente se guía por la imagen, no solo por el nombre.
 // Tras cada estación, el descanso que toca (o «Sin descanso»).
-export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, onUnidad, onNota }) {
+export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, onUnidad, onNota, compacta = false, cerrado = false, alAbrir }) {
   const b = tramo.bloque || {};
   const vueltas = tramo.vueltas;
   const tipo = { superserie: 'Superserie', circuito: 'Circuito', emom: 'EMOM', amrap: 'AMRAP' }[b.tipo] || 'Circuito';
@@ -598,6 +657,25 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
           <span style={{ display: 'block', fontSize: 13, color: HECHO_TINTA, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombres}</span>
         </span>
         <span style={{ fontSize: 12.5, color: GRIS, flex: 'none' }}>{`${hechas}/${total}`}</span>
+        <CaretDown size={15} color="#C7C7CC" />
+      </button>
+    );
+  }
+
+  if (compacta && cerrado) {
+    const nombres = (vueltas[0] || []).map(re => nombresEj(re.ejercicio).grande).join(' · ');
+    return (
+      <button data-cerrado="1" data-circuito-cerrado onClick={alAbrir} style={{
+        ...TARJETA, width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+        display: 'flex', alignItems: 'center', gap: 11, padding: '9px 13px', marginBottom: 8,
+      }}>
+        <span style={{ width: 30, height: 30, borderRadius: 99, background: SECCION.entreno.tint, color: AZUL_TINTA, display: 'grid', placeItems: 'center', flex: 'none' }}>
+          <ArrowsClockwise size={15} weight="bold" />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: TEXT }}>{tipo} · {vueltas.length} vueltas</span>
+          <span style={{ display: 'block', fontSize: 12.5, color: GRIS, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombres}</span>
+        </span>
         <CaretDown size={15} color="#C7C7CC" />
       </button>
     );
@@ -653,7 +731,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                     </div>
                   </div>
                   {vi === 0 && (
-                    <Botones chico items={botonesDe({
+                    <Botones chico soloIconos={compacta} items={botonesDe({
                       sinCarga, onNota: onNota ? () => onNota(re) : null,
                       abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re),
                     })} />

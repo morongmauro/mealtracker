@@ -8,7 +8,7 @@
 // Oura, Whoop, Polar…, ver cuáles están conectados y desconectarlos.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
-import { Ruler, Bell, Watch, Compass, BookOpenText, WhatsappLogo, CaretRight, CaretLeft, CheckCircle, Wind, DeviceMobile } from '@phosphor-icons/react';
+import { Ruler, Bell, Watch, Compass, BookOpenText, WhatsappLogo, CaretRight, CaretLeft, CheckCircle, Wind, DeviceMobile, SquaresFour } from '@phosphor-icons/react';
 import Respira from './Respira.jsx';
 import AvisoInstalar, { hayQueInstalar } from './InstalarApp.jsx';
 import { Hoja } from './entrenoUI.jsx';
@@ -150,39 +150,31 @@ const botonSuave = { flex: 'none', height: 36, padding: '0 14px', borderRadius: 
 const botonFuerte = { flex: 'none', height: 36, padding: '0 14px', borderRadius: 12, background: '#1F1F1F', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' };
 
 // ── Vista de la app: completa o compacta ───────────────────────────────────
-// Dos tarjetas con un dibujo de cada una: se entiende sin leer. Cambia al
-// instante y se puede volver cuando se quiera (también desde «Más»).
+// Una fila con interruptor, como las demás de Configuración: encendido es la
+// compacta. Cambia al instante y se puede volver cuando se quiera (también
+// desde «Ver la completa», al final de «Más»).
 function ElegirVista({ compacta, alCambiar }) {
-  const AZUL = '#3C7BD6';
-  const Tarjeta = ({ id, titulo, detalle, sel, children }) => (
-    <button data-vista-opcion={id} aria-pressed={sel} onClick={() => !sel && alCambiar(id)} style={{
-      flex: 1, minWidth: 0, background: '#FFFFFF', borderRadius: 18, padding: 10, border: 0, cursor: sel ? 'default' : 'pointer', position: 'relative',
-      boxShadow: sel ? `0 0 0 2.5px ${AZUL}, ${SOMBRA}` : SOMBRA, textAlign: 'left', fontFamily: 'inherit',
-    }}>
-      {sel && <span aria-hidden="true" style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: 99, background: AZUL, color: '#fff', display: 'grid', placeItems: 'center' }}><CheckCircle size={16} weight="fill" /></span>}
-      <div style={{ height: 120, borderRadius: 12, background: '#F4F3EF', position: 'relative', overflow: 'hidden', padding: 8 }}>{children}</div>
-      <div style={{ fontWeight: 800, fontSize: 15, color: TEXT, marginTop: 9 }}>{titulo}</div>
-      <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2 }}>{detalle}</div>
-    </button>
-  );
-  const raya = (h, w = '100%', bg = '#DCDCE1') => <i style={{ display: 'block', height: h, width: w, background: bg, borderRadius: 5, marginBottom: 5 }} />;
-  const barra = (n) => (
-    <div style={{ position: 'absolute', left: 6, right: 6, bottom: 6, height: 15, borderRadius: 9, background: '#fff', display: 'flex', justifyContent: 'space-evenly', alignItems: 'center' }}>
-      {Array.from({ length: n }).map((_, i) => <b key={i} style={{ width: 8, height: 8, borderRadius: 3, background: '#B9B9BF' }} />)}
-    </div>
-  );
   return (
-    <div data-elegir-vista style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', color: TEXT_MUTED, textTransform: 'uppercase', margin: '0 4px 10px' }}>Vista de la app</div>
-      <div style={{ display: 'flex', gap: 10 }}>
-        <Tarjeta id="completa" titulo="Completa" detalle="Todo a la vista" sel={!compacta}>
-          {raya(26)}{raya(8, '60%')}{raya(20)}{raya(20)}{barra(4)}
-        </Tarjeta>
-        <Tarjeta id="compacta" titulo="Compacta" detalle="Solo lo esencial" sel={compacta}>
-          {raya(9, '55%')}{raya(40, '100%', '#FFFFFF')}{raya(12, '100%', '#FFFFFF')}{barra(3)}
-        </Tarjeta>
-      </div>
-      <div style={{ fontSize: 13, color: TEXT_MUTED, margin: '10px 4px 0', lineHeight: 1.4 }}>Puedes cambiarla cuando quieras. No se pierde nada: lo demás queda en «Más».</div>
+    <div data-elegir-vista style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA, padding: '4px 0', marginBottom: 14 }}>
+      <button role="switch" aria-checked={compacta} data-vista-interruptor onClick={() => alCambiar(compacta ? 'completa' : 'compacta')} style={{
+        display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '13px 16px', border: 0, background: 'transparent',
+        textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', color: 'inherit',
+      }}>
+        <span style={{ width: 38, height: 38, borderRadius: 99, background: '#F1EFE9', color: TEXT, display: 'grid', placeItems: 'center', flex: 'none' }}><SquaresFour size={20} /></span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 15.5, fontWeight: 700, color: TEXT }}>Vista compacta</span>
+          <span style={{ display: 'block', fontSize: 13, color: TEXT_MUTED, marginTop: 1 }}>Abajo solo Entreno, Comida y Más</span>
+        </span>
+        <span aria-hidden="true" style={{
+          width: 51, height: 31, borderRadius: 99, flex: 'none', position: 'relative', transition: 'background .2s',
+          background: compacta ? '#34C759' : '#E5E5EA',
+        }}>
+          <span style={{
+            position: 'absolute', top: 2, left: compacta ? 22 : 2, width: 27, height: 27, borderRadius: 99, background: '#fff',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'left .2s',
+          }} />
+        </span>
+      </button>
     </div>
   );
 }

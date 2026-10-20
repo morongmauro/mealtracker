@@ -264,7 +264,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     return (
       <Envoltorio>
         <VistaRutina
-          name={name} rutinaId={rutinaId} plan={plan}
+          name={name} rutinaId={rutinaId} plan={plan} compacta={compacta}
           onVolver={() => { setRutinaId(null); borrarRutinaAbierta(); cargarPlan(); }}
         />
       </Envoltorio>
@@ -616,7 +616,7 @@ function FilaDia({ d, onAbrir }) {
 }
 
 // ── UNA RUTINA, Y SU EJECUCIÓN ────────────────────────────────────────────
-function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
+function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }) {
   // Se abre AL INSTANTE con la copia guardada en el teléfono (la precarga deja
   // las de la semana listas) y lo del servidor llega por detrás, con un
   // «Actualizando…» pequeño mientras tanto. Antes había que esperar dos
@@ -715,6 +715,8 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
     } catch (e) { relojGuardado.current = null; }
   }
   const [descanso, setDescanso] = useState(() => (relojGuardado.current && relojGuardado.current.descanso) || null);
+  // Vista compacta: el ejercicio que la persona abrió a mano (ver abajo).
+  const [abiertoCompacta, setAbiertoCompacta] = useState(null);
   const [restante, setRestante] = useState(0);
 
   useEffect(() => {
@@ -1172,6 +1174,16 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
     }
   }
 
+  // Vista compacta: un ejercicio (o circuito) abierto a la vez. Por defecto,
+  // el primero sin terminar; tocar otro lo abre. Al terminar el abierto, se
+  // abre solo el siguiente.
+  const compactaRutina = compacta && v2;
+  const itemsRutina = tramos.flatMap(tr => (tr.vueltas.length > 1
+    ? [{ clave: tr.clave, completo: tr.vueltas.every((v, vi) => v.every(re => marcadas[`${re.id}:${vi + 1}`])) }]
+    : tr.vueltas[0].map(re => ({ clave: re.id, completo: Array.from({ length: Math.max(1, re.series || 1) }, (_, k) => k + 1).every(n => marcadas[`${re.id}:${n}`]) }))));
+  const elegidoVivo = abiertoCompacta && itemsRutina.some(x => x.clave === abiertoCompacta && !x.completo) ? abiertoCompacta : null;
+  const abiertaClave = elegidoVivo || (itemsRutina.find(x => !x.completo) || {}).clave || null;
+
   const marcarCardio = (id) => setCardio(c => c.map(x => (x.id === id ? { ...x, hecho: true } : x)));
   const tarjetasCardio = cardio.length ? cardio.map(ev => (
     <TarjetaCardioCoach key={ev.id} ev={ev} fecha={fecha} nombre={name} sesionId={sesion?.id || null} enRutina
@@ -1308,6 +1320,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
           {v2 && tramo.vueltas.length > 1 ? (
             <CircuitoV2 tramo={tramo} marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar}
               unidadDe={unidadDe} onUnidad={cambiarUnidad}
+              compacta={compactaRutina} cerrado={compactaRutina && abiertaClave !== tramo.clave} alAbrir={() => setAbiertoCompacta(tramo.clave)}
               onNota={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })} />
           ) : (<>
           {tramo.bloque && <CabeceraBloque b={tramo.bloque} v2={v2} />}
@@ -1333,6 +1346,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null }) {
                   unidad={unidadDe(re)} onUnidad={() => cambiarUnidad(re)}
                   onNota={() => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })}
                   ahora={re.id === ahoraId}
+                  {...(compactaRutina ? { compacta: true, cerrado: abiertaClave !== re.id, alAbrir: () => setAbiertoCompacta(re.id) } : {})}
                   marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />
               ))}
             </React.Fragment>
