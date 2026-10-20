@@ -8,7 +8,7 @@
 // final, el atajo para dictar todo el día de una vez.
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
-import { Sun, SunHorizon, Moon, Cookie, Plus, Microphone } from '@phosphor-icons/react';
+import { Sun, SunHorizon, Moon, Cookie, Plus, Microphone, PencilSimple } from '@phosphor-icons/react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT, C_PROTEIN, C_CARBS_TEXTO, C_FAT } from './theme.js';
 import { enPrueba } from './vistaApp.js';
 
@@ -68,12 +68,14 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
       {prota && (
         <div data-prota-comida style={{ ...TARJETA, borderRadius: 26, padding: 18, marginTop: 14, boxShadow: '0 2px 4px rgba(20,20,30,.04), 0 18px 40px rgba(20,30,60,.10)' }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>{PREGUNTA[primeroVacio.k]}</div>
-          <div style={{ fontSize: 14.5, color: TEXT_MUTED, fontWeight: 500, margin: '4px 0 16px' }}>Dímelo con tu voz, en una frase.</div>
+          <div style={{ fontSize: 14.5, color: TEXT_MUTED, fontWeight: 500, margin: '4px 0 16px' }}>Dímelo o escríbelo, en una frase.</div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button type="button" data-prota-dictar onClick={alDictar} style={{ flex: 1, height: 52, border: 'none', borderRadius: 999, background: '#46965A', color: '#fff', fontFamily: 'inherit', fontSize: 16, fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}><Microphone size={19} weight="fill" />Dictar</button>
-            <button type="button" data-prota-escribir onClick={() => alAgregar && alAgregar(primeroVacio)} aria-label={`Escribir ${primeroVacio.nombre.toLowerCase()}`} style={{ width: 52, height: 52, border: 'none', borderRadius: 999,
-              background: '#F1F2F4', color: TEXT, display: 'grid', placeItems: 'center', cursor: 'pointer' }}><Plus size={18} weight="bold" /></button>
+            {/* Dictar abre el chat con el micrófono ya prendido; Escribir abre
+                el chat con el teclado listo y el momento puesto. */}
+            <button type="button" data-prota-escribir onClick={() => alAgregar && alAgregar(primeroVacio)} aria-label={`Escribir ${primeroVacio.nombre.toLowerCase()}`} style={{ flex: 1, height: 52, border: 'none', borderRadius: 999,
+              background: '#F1F2F4', color: TEXT, fontFamily: 'inherit', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}><PencilSimple size={18} weight="bold" />Escribir</button>
           </div>
         </div>
       )}

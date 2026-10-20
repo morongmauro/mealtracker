@@ -21,11 +21,12 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, Info, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets } from '@phosphor-icons/react';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { Hoja, FONDO_TARJETA_HOJA } from './entrenoUI.jsx';
-import { miniatura, numero, descansoEnCircuito, sinPeso, convertir, leerTecleado, guardarTecleado } from './entrenoDatos.js';
+import { miniatura, urlVideoLimpio, numero, descansoEnCircuito, sinPeso, convertir, leerTecleado, guardarTecleado } from './entrenoDatos.js';
 import { nombresEj } from './v2.js';
 import { SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, BORDER, SECCION } from './theme.js';
 import { asegurarCSS, vibrar } from './Celebraciones.jsx';
 import { enPrueba } from './vistaApp.js';
+import { VideoMini } from './VideoLimpio.jsx';
 
 const AZUL = SECCION.entreno.base;
 const AZUL_TINTA = SECCION.entreno.ink;
@@ -160,10 +161,12 @@ export function textoUltima(series) {
 
 // El video, chico y al lado: está a mano para quien lo quiera ver, sin
 // comerse la pantalla de quien ya se sabe el ejercicio.
-function Miniatura({ e, alTocar, ancho = 68, alto = 52 }) {
+function Miniatura({ e, alTocar, ancho = 68, alto = 52, enVivo = false }) {
   const n = nombresEj(e);
   const thumb = miniatura(e);
   const chica = ancho < 60;
+  // Vista en prueba: el ejercicio que toca ahora se mueve en su cuadrito.
+  const video = enVivo ? urlVideoLimpio(e) : null;
   return (
     <button onClick={alTocar} aria-label={`Ver ${n.grande}`} style={{
       flex: 'none', width: ancho, height: alto, borderRadius: chica ? 11 : 14, overflow: 'hidden', border: 'none', padding: 0,
@@ -172,7 +175,8 @@ function Miniatura({ e, alTocar, ancho = 68, alto = 52 }) {
       {thumb
         ? <img src={thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         : <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: TEXT_LIGHT }}><Barbell size={20} /></span>}
-      {thumb && (
+      {video && <VideoMini src={video} miniatura={thumb} ancho={ancho} alto={alto} />}
+      {thumb && !video && (
         <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
           <span style={{
             width: chica ? 22 : 26, height: chica ? 22 : 26, borderRadius: 99, display: 'grid', placeItems: 'center', paddingLeft: 1,
@@ -561,7 +565,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </div>
       ) : (<>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <Miniatura e={e} alTocar={() => setFicha(true)} />
+        <Miniatura e={e} alTocar={() => setFicha(true)} enVivo={prueba && ahora && !ficha} />
         {/* Terminado y abierto: la flechita para volver a plegarlo. */}
         {completo && (
           <button data-plegar onClick={() => setPlegado(true)} aria-label="Plegar ejercicio" style={{
@@ -639,7 +643,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
 // Todas las vueltas juntas, y cada vez que aparece un ejercicio va con su
 // foto y su nombre: la gente se guía por la imagen, no solo por el nombre.
 // Tras cada estación, el descanso que toca (o «Sin descanso»).
-export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, onUnidad, onNota, compacta = false, cerrado = false, alAbrir, ligera = false }) {
+export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, onUnidad, onNota, compacta = false, cerrado = false, alAbrir, ligera = false, ahora = null }) {
   const prueba = enPrueba();
   const b = tramo.bloque || {};
   const vueltas = tramo.vueltas;
@@ -746,8 +750,9 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                 // confundían con el fondo y se veían más claros que en Fuerza.
                 <div key={re.id} data-ejercicio-circuito style={{ borderRadius: 16, background: '#FFFFFF', boxShadow: 'inset 0 0 0 1px #ECEAE4', padding: '10px 10px 9px' }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <Miniatura e={e} ancho={54} alto={42} alTocar={() => setFicha(re)} />
+                    <Miniatura e={e} ancho={54} alto={42} alTocar={() => setFicha(re)} enVivo={prueba && ahora === `${re.id}:${vi + 1}` && !ficha} />
                     <div style={{ flex: 1, minWidth: 0 }}>
+                      {prueba && ahora === `${re.id}:${vi + 1}` && <span data-ahora-circuito style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
                       {/* Vista en prueba: los íconos arriba a la derecha, como en Fuerza. */}
                       {vi === 0 && ligera && prueba && <div data-botones-arriba style={{ float: 'right', margin: '-2px -2px 4px 8px' }}><Botones soloIconos chicos items={botonesDe({
                         sinCarga, onNota: onNota ? () => onNota(re) : null,

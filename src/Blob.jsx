@@ -7,6 +7,7 @@
 // propio color debajo.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useId } from 'react';
+import { enPrueba } from './vistaApp.js';
 
 function superelipse(n = 3.8, S = 200, N = 72) {
   const c = S / 2, r = S / 2, pts = [];
@@ -66,6 +67,15 @@ export function BlobVidrio({ color, segundo = null, tam = 120, intensidad = 0.2,
           <radialGradient id={`${id}m`} cx="76%" cy="88%" r="70%">
             <stop offset="0" stopColor={rgba(color, A)} /><stop offset=".45" stopColor={rgba(color, A * 0.35)} /><stop offset="1" stopColor={rgba(color, 0)} />
           </radialGradient>
+          {/* Vista en prueba: dos brillos suaves en las esquinas de abajo (como
+              el blob de Aprendizaje): el color de la sección a la derecha y el
+              segundo color a la izquierda. */}
+          {enPrueba() && <radialGradient id={`${id}e1`} cx="88%" cy="90%" r="42%">
+            <stop offset="0" stopColor={rgba(color, 0.3)} /><stop offset="1" stopColor={rgba(color, 0)} />
+          </radialGradient>}
+          {enPrueba() && <radialGradient id={`${id}e2`} cx="10%" cy="92%" r="40%">
+            <stop offset="0" stopColor={rgba(segundo || '#3C7BD6', 0.22)} /><stop offset="1" stopColor={rgba(segundo || '#3C7BD6', 0)} />
+          </radialGradient>}
           {segundo && <radialGradient id={`${id}s`} cx="14%" cy="96%" r="48%">
             <stop offset="0" stopColor={rgba(segundo, A * 0.6)} /><stop offset="1" stopColor={rgba(segundo, 0)} />
           </radialGradient>}
@@ -84,6 +94,8 @@ export function BlobVidrio({ color, segundo = null, tam = 120, intensidad = 0.2,
         <path d={BLOB_PATH} fill={`url(#${id}b)`} filter={`url(#${id}f)`} />
         <path d={BLOB_PATH} fill={`url(#${id}m)`} />
         {segundo && <path d={BLOB_PATH} fill={`url(#${id}s)`} />}
+        {enPrueba() && <path d={BLOB_PATH} fill={`url(#${id}e1)`} />}
+        {enPrueba() && <path d={BLOB_PATH} fill={`url(#${id}e2)`} />}
         <path d={BLOB_PATH} fill={`url(#${id}h)`} transform="translate(100 100) scale(.94) translate(-100 -100)" />
       </svg>
     </>

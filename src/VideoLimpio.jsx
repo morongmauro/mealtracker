@@ -119,3 +119,44 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
     </div>
   );
 }
+
+// ── En miniatura (vista en prueba): el ejercicio que toca AHORA se ve
+// moviéndose en su cuadrito, en bucle y sin sonido, sin tocar nada. YouTube no
+// reproduce en reproductores muy chicos: el reproductor se arma de tamaño
+// normal y se achica con transform hasta cubrir el cuadro. Tocarlo sigue
+// abriendo la ficha con el video grande (lo maneja quien lo contiene).
+const MINI_W = 320, MINI_H = 180;
+export function VideoMini({ src, miniatura, ancho, alto }) {
+  const marco = useRef(null);
+  const [listo, setListo] = useState(false);
+  const url = src + (src.includes('?') ? '&' : '?') + 'enablejsapi=1&origin=' + encodeURIComponent(window.location.origin);
+  const inicio = Number((src.match(/[?&]start=(\d+)/) || [])[1]) || 0;
+  const durRef = useRef(0);
+  useEffect(() => {
+    const mandar = (func, args = []) => { try { marco.current && marco.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*'); } catch (e) { /* nada */ } };
+    let tapa = null;
+    const alMensaje = (ev) => {
+      if (!marco.current || ev.source !== marco.current.contentWindow) return;
+      let d; try { d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch (e) { return; }
+      if (!d || (d.event !== 'infoDelivery' && d.event !== 'onStateChange' && d.event !== 'initialDelivery')) return;
+      const info = d.event === 'onStateChange' ? { playerState: d.info } : (d.info || {});
+      if (info.duration) durRef.current = info.duration;
+      const d0 = durRef.current;
+      if ((info.currentTime != null && d0 && info.currentTime >= d0 - 0.6) || info.playerState === 0) { mandar('seekTo', [inicio, true]); mandar('playVideo'); }
+      if (info.playerState === 1 && !tapa) tapa = setTimeout(() => setListo(true), 250);
+    };
+    window.addEventListener('message', alMensaje);
+    const iv = setInterval(() => { try { marco.current && marco.current.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 'm' }), '*'); } catch (e) { /* nada */ } }, 600);
+    return () => { window.removeEventListener('message', alMensaje); clearInterval(iv); clearTimeout(tapa); };
+  }, [src]);
+  // Cubrir el cuadro (como object-fit: cover) con el video 16:9.
+  const k = Math.max(ancho / MINI_W, alto / MINI_H);
+  return (
+    <span data-video-mini aria-hidden="true" style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', background: '#000' }}>
+      <iframe ref={marco} src={url} title="" tabIndex={-1} allow="autoplay; encrypted-media"
+        style={{ position: 'absolute', left: '50%', top: '50%', width: MINI_W, height: MINI_H + 2 * SOBRA, border: 'none', pointerEvents: 'none',
+          transform: `translate(-50%, -50%) scale(${k})`, transformOrigin: '50% 50%' }} />
+      <span style={{ position: 'absolute', inset: 0, background: miniatura ? `#000 url(${miniatura}) center / cover` : '#000', opacity: listo ? 0 : 1, transition: 'opacity .2s ease' }} />
+    </span>
+  );
+}

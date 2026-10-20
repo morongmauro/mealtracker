@@ -2377,6 +2377,7 @@ try {
     // Alimentación: registrar lo que toca es la protagonista, con el dictado.
     await p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(700);
     await p.getByRole('button', { name: 'Hoy', exact: true }).click().catch(() => {}); await espera(1200);
+    ok('vista en prueba: en Alimentación, Dictar y Escribir con su nombre', /Escribir/.test(await p.locator('[data-prota-comida] [data-prota-escribir]').innerText().catch(() => '')));
     ok('vista en prueba: en Alimentación, «¿Qué desayunaste?» arriba con Dictar (y sin el atajo repetido abajo)', /¿Qué desayunaste\?/.test(await p.locator('[data-prota-comida]').innerText().catch(() => ''))
       && (await p.locator('[data-prota-comida] [data-prota-dictar]').count()) === 1 && (await p.locator('[data-dictar-dia]').count()) === 0);
     await foto(p, '40c-prueba-comida');
@@ -2423,10 +2424,18 @@ try {
         && document.querySelectorAll('[data-ligera] [data-separador-series]').length >= 3
         && campo && getComputedStyle(campo).backgroundColor === 'rgb(242, 242, 244)';
     }));
-    ok('rutina (prueba): la barra de avance más baja y discreta, y lo de abajo se desenfoca al pasar', await p.evaluate(() => {
-      const bar = document.querySelector('[data-avance-rutina]'), velo = document.querySelector('[data-velo-avance]');
-      return !!bar && bar.dataset.discreta === '1' && bar.getBoundingClientRect().height <= 46 && !!velo && /blur/.test(getComputedStyle(velo).backdropFilter || getComputedStyle(velo).webkitBackdropFilter || '');
-    }), await p.evaluate(() => String(document.querySelector('[data-avance-rutina]')?.getBoundingClientRect().height)));
+    ok('rutina (prueba): la barra de avance arriba del todo, de lado a lado, sin velo y con «Volver»', await p.evaluate(() => {
+      const bar = document.querySelector('[data-avance-rutina]'), r = bar && bar.getBoundingClientRect();
+      return !!bar && bar.dataset.discreta === '1' && Math.round(r.top) <= 1 && r.width >= innerWidth - 2 && !document.querySelector('[data-velo-avance]')
+        && /^Volver$/.test(bar.querySelector('[data-volver-semana]').textContent.trim());
+    }), await p.evaluate(() => JSON.stringify(document.querySelector('[data-avance-rutina]')?.getBoundingClientRect())));
+    ok('rutina (prueba): AHORA va en orden: sin nada marcado, está en el primer ejercicio de la rutina (calentamiento incluido) y se mueve en su cuadrito', await p.evaluate(() => {
+      const items = [...document.querySelectorAll('[data-ejercicio], [data-ejercicio-circuito]')];
+      const conAhora = items.filter(x => x.matches('[data-ahora="1"]') || x.querySelector(':scope [data-ahora-circuito]'));
+      const primero = items[0];
+      const conVideo = primero && ([...primero.querySelectorAll('img')].some(i => /ytimg/.test(i.src)) || primero.querySelector('[data-video-mini]'));
+      return conAhora.length === 1 && conAhora[0] === primero && (!conVideo || !!primero.querySelector('[data-video-mini] iframe'));
+    }), await p.evaluate(() => JSON.stringify([...document.querySelectorAll('[data-ejercicio], [data-ejercicio-circuito]')].slice(0, 4).map(x => [x.dataset.ejercicio || 'circ', x.matches('[data-ahora="1"]') || !!x.querySelector('[data-ahora-circuito]')]))));
     ok('rutina ligera: una nota la primera vez explica los íconos', (await p.locator('[data-tip-iconos]').count()) === 1
       && /Ficha/.test(await p.locator('[data-tip-iconos]').innerText()) && /Nota al coach/.test(await p.locator('[data-tip-iconos]').innerText()));
     await foto(p, '40e-prueba-rutina');

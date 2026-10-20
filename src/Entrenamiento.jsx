@@ -1196,8 +1196,20 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
   conteoRef.current = { hechos: ejHechos, total: ejTotal, series: hechas, kilos: Math.round(kilos) };
   // Visual nueva: el ejercicio que toca ahora (el primero suelto sin terminar)
   // lleva su marca «AHORA».
-  let ahoraId = null;
-  if (v2) {
+  let ahoraId = null, ahoraCircuito = null;
+  if (v2 && prueba) {
+    // Vista en prueba: en orden desde el primer ejercicio (también el
+    // calentamiento en circuito): el primero que falta; al marcarlo pasa
+    // al siguiente. En un circuito va por vuelta y estación.
+    afuera: for (const tr of tramos) {
+      if (tr.vueltas.length > 1) {
+        for (let vi = 0; vi < tr.vueltas.length; vi++) for (const re of tr.vueltas[vi]) if (!marcadas[`${re.id}:${vi + 1}`]) { ahoraCircuito = `${re.id}:${vi + 1}`; break afuera; }
+        continue;
+      }
+      const re = tr.vueltas[0].find(x => !Array.from({ length: Math.max(1, x.series || 1) }, (_, k) => k + 1).every(n => marcadas[`${x.id}:${n}`]));
+      if (re) { ahoraId = re.id; break; }
+    }
+  } else if (v2) {
     for (const tr of tramos) {
       if (tr.vueltas.length > 1) continue;
       const re = tr.vueltas[0].find(x => !Array.from({ length: Math.max(1, x.series || 1) }, (_, k) => k + 1).every(n => marcadas[`${x.id}:${n}`]));
@@ -1231,9 +1243,53 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
     if (falta) setCardioFinal(falta); else porDefecto();
   };
 
+  // La barra de avance (ejercicios hechos, reloj y segmentos).
+  const barraAvance = (
+        // Estilo Apple: vidrio, el avance dicho en claro y un segmento por
+        // ejercicio que se va llenando; el reloj del entreno a la derecha.
+        // En la vista en prueba, más baja y discreta: acompaña, no protagoniza.
+        <div data-avance-rutina data-discreta={prueba ? '1' : undefined} style={prueba ? {
+          // Vista en prueba: arriba del todo de la sección, de lado a lado, sin
+          // velo; cubre la zona de la hora del teléfono al quedarse pegada.
+          position: 'sticky', top: 0, zIndex: 20,
+          margin: `calc(-1 * (${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)) -20px 14px`,
+          padding: 'calc(env(safe-area-inset-top, 0px) + 8px) 20px 8px',
+          background: 'rgba(252,252,253,0.9)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)',
+          boxShadow: '0 1px 0 rgba(20,20,40,0.06)',
+        } : {
+          position: 'sticky', top: 'calc(58px + env(safe-area-inset-top, 0px))', zIndex: 20,
+          margin: '0 -4px 6px', padding: '10px 14px 11px', borderRadius: 18,
+          background: 'rgba(250,250,252,0.86)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.05), 0 8px 20px -10px rgba(0,0,0,0.18)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: prueba ? 8 : 10, fontSize: prueba ? 12.5 : 13.5, minHeight: prueba ? 0 : 24 }}>
+            {/* Volver a la semana desde cualquier punto de la rutina, sin subir
+                hasta arriba. Lo marcado queda guardado y el reloj sigue. */}
+            <button data-volver-semana onClick={onVolver} aria-label={prueba ? 'Volver a Hoy' : 'Volver a mi semana'} style={{
+              flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 2, height: prueba ? 24 : 28, padding: prueba ? '0 8px 0 4px' : '0 10px 0 6px',
+              borderRadius: 999, border: 0, background: prueba ? 'transparent' : 'rgba(118,118,128,0.14)', color: prueba ? '#6E6E73' : TEXT, cursor: 'pointer',
+              fontFamily: 'inherit', fontSize: prueba ? 12 : 13, fontWeight: 700,
+            }}><ChevronLeft size={prueba ? 14 : 16} /> {prueba ? 'Volver' : 'Mi semana'}</button>
+            <span style={{ fontWeight: prueba ? 600 : 700, color: prueba ? '#6E6E73' : TEXT, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ejHechos}/{ejTotal} ejercicios</span>
+            {inicio && hechas > 0 && <RelojSesion desde={inicio} v2 />}
+          </div>
+          {ejTotal <= 16 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${ejTotal}, 1fr)`, gap: prueba ? 3 : 4, marginTop: prueba ? 5 : 8 }}>
+              {Array.from({ length: ejTotal }, (_, i) => (
+                <span key={i} data-segmento={i < ejHechos ? 'hecho' : 'falta'} style={{ height: prueba ? 3 : 4, borderRadius: 9, background: i < ejHechos ? '#1D1D1F' : 'rgba(118,118,128,0.18)', transition: 'background .25s ease' }} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ height: prueba ? 3 : 4, borderRadius: 99, background: 'rgba(118,118,128,0.18)', overflow: 'hidden', marginTop: prueba ? 5 : 8 }}>
+              <div style={{ height: '100%', width: `${(ejHechos / ejTotal) * 100}%`, background: '#1D1D1F', borderRadius: 99, transition: 'width .25s ease' }} />
+            </div>
+          )}
+        </div>
+  );
   return (
     <>
-      <Volver onClick={onVolver} />
+      {/* Vista en prueba: la barra de avance va arriba del todo y trae el «Volver». */}
+      {totalSeries > 0 && v2 && prueba ? barraAvance : <Volver onClick={onVolver} />}
       {actualizando && <AvisoFlotante aviso={ACTUALIZANDO} />}
 
       {(sinRed || (pendientes > 0 && avisarPendientes)) && (
@@ -1289,51 +1345,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
 
       {/* Visual nueva: el avance se queda pegado arriba mientras se baja, para
           saber siempre cuánto falta sin volver al principio. */}
-      {totalSeries > 0 && v2 && prueba && (
-        // Vista en prueba: lo que pasa por debajo de la barra se desenfoca y
-        // se apaga suave (antes se leían las letras unas encima de otras).
-        <div aria-hidden="true" data-velo-avance style={{
-          position: 'fixed', left: 0, right: 0, top: 0, zIndex: 19, pointerEvents: 'none',
-          height: 'calc(58px + env(safe-area-inset-top, 0px) + 46px + 26px)',
-          background: 'linear-gradient(180deg, rgba(252,252,253,0.94) 0%, rgba(252,252,253,0.8) 62%, rgba(252,252,253,0) 100%)',
-          WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)',
-          WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 70%, transparent 100%)', maskImage: 'linear-gradient(180deg, #000 0%, #000 70%, transparent 100%)',
-        }} />
-      )}
-      {totalSeries > 0 && v2 && (
-        // Estilo Apple: vidrio, el avance dicho en claro y un segmento por
-        // ejercicio que se va llenando; el reloj del entreno a la derecha.
-        // En la vista en prueba, más baja y discreta: acompaña, no protagoniza.
-        <div data-avance-rutina data-discreta={prueba ? '1' : undefined} style={{
-          position: 'sticky', top: 'calc(58px + env(safe-area-inset-top, 0px))', zIndex: 20,
-          margin: prueba ? '0 6px 6px' : '0 -4px 6px', padding: prueba ? '6px 10px 7px' : '10px 14px 11px', borderRadius: prueba ? 14 : 18,
-          background: prueba ? 'rgba(250,250,252,0.62)' : 'rgba(250,250,252,0.86)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)',
-          boxShadow: prueba ? '0 1px 2px rgba(0,0,0,0.04)' : '0 1px 2px rgba(0,0,0,0.05), 0 8px 20px -10px rgba(0,0,0,0.18)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: prueba ? 8 : 10, fontSize: prueba ? 12.5 : 13.5, minHeight: prueba ? 0 : 24 }}>
-            {/* Volver a la semana desde cualquier punto de la rutina, sin subir
-                hasta arriba. Lo marcado queda guardado y el reloj sigue. */}
-            <button data-volver-semana onClick={onVolver} aria-label="Volver a mi semana" style={{
-              flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 2, height: prueba ? 24 : 28, padding: prueba ? '0 8px 0 4px' : '0 10px 0 6px',
-              borderRadius: 999, border: 0, background: prueba ? 'transparent' : 'rgba(118,118,128,0.14)', color: prueba ? '#6E6E73' : TEXT, cursor: 'pointer',
-              fontFamily: 'inherit', fontSize: prueba ? 12 : 13, fontWeight: 700,
-            }}><ChevronLeft size={prueba ? 14 : 16} /> Mi semana</button>
-            <span style={{ fontWeight: prueba ? 600 : 700, color: prueba ? '#6E6E73' : TEXT, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ejHechos}/{ejTotal} ejercicios</span>
-            {inicio && hechas > 0 && <RelojSesion desde={inicio} v2 />}
-          </div>
-          {ejTotal <= 16 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${ejTotal}, 1fr)`, gap: prueba ? 3 : 4, marginTop: prueba ? 5 : 8 }}>
-              {Array.from({ length: ejTotal }, (_, i) => (
-                <span key={i} data-segmento={i < ejHechos ? 'hecho' : 'falta'} style={{ height: prueba ? 3 : 4, borderRadius: 9, background: i < ejHechos ? '#1D1D1F' : 'rgba(118,118,128,0.18)', transition: 'background .25s ease' }} />
-              ))}
-            </div>
-          ) : (
-            <div style={{ height: prueba ? 3 : 4, borderRadius: 99, background: 'rgba(118,118,128,0.18)', overflow: 'hidden', marginTop: prueba ? 5 : 8 }}>
-              <div style={{ height: '100%', width: `${(ejHechos / ejTotal) * 100}%`, background: '#1D1D1F', borderRadius: 99, transition: 'width .25s ease' }} />
-            </div>
-          )}
-        </div>
-      )}
+      {totalSeries > 0 && v2 && !prueba && barraAvance}
 
       {datos.ejercicios.length === 0 && (
         <Tarjeta><Vacio texto="Esta rutina todavía no tiene ejercicios." /></Tarjeta>
@@ -1368,7 +1380,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
           {v2 && tramo.vueltas.length > 1 ? (
             <CircuitoV2 tramo={tramo} marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar}
               unidadDe={unidadDe} onUnidad={cambiarUnidad}
-              compacta={compactaRutina} cerrado={compactaRutina && abiertaClave !== tramo.clave} alAbrir={() => setAbiertoCompacta(tramo.clave)} ligera={ligera}
+              compacta={compactaRutina} cerrado={compactaRutina && abiertaClave !== tramo.clave} alAbrir={() => setAbiertoCompacta(tramo.clave)} ligera={ligera} ahora={ahoraCircuito}
               onNota={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })} />
           ) : (<>
           {tramo.bloque && <CabeceraBloque b={tramo.bloque} v2={v2} />}
