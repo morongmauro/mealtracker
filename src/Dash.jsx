@@ -1254,28 +1254,31 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   if (enPrueba() && pendHoy.length && !todos) {
     const [p0, ...resto] = pendHoy;
     return (
-      <section data-recordatorios-dash data-prota-dash data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 18, background: '#FFFFFF', borderRadius: 28, padding: 18,
-        boxShadow: '0 2px 4px rgba(20,20,30,.04), 0 18px 40px rgba(20,30,60,.10)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.09em', color: '#3C7BD6' }}>AHORA</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED }}>{hoyHechos} de {hoyItems.length} hoy</span>
+      // Compacta: AHORA, la cuenta y «Ver todo» en una línea; lo que toca y
+      // su botón en otra; lo demás de hoy en una fila de chips que se desliza.
+      <section data-recordatorios-dash data-prota-dash data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 12, background: '#FFFFFF', borderRadius: 24, padding: '12px 14px 12px 16px',
+        boxShadow: '0 2px 4px rgba(20,20,30,.04), 0 14px 32px rgba(20,30,60,.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.09em', color: '#3C7BD6' }}>AHORA <span style={{ color: TEXT_MUTED, fontWeight: 600, letterSpacing: 0 }}>· {hoyHechos} de {hoyItems.length} hoy</span></span>
+          {/* Nada se pierde: «Ver todo» abre la lista completa de siempre. */}
+          <button data-ver-recordatorios onClick={() => setTodos(true)} style={{ border: 0, background: 'none', padding: '10px 6px', margin: '-10px -6px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: TEXT_MUTED, cursor: 'pointer' }}>
+            Ver todo{items.length + hoyItems.length - 1 > 0 ? ` (${items.length + hoyItems.length - 1})` : ''}
+          </button>
         </div>
-        <div data-prota-texto style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.025em', color: TEXT, lineHeight: 1.15, margin: '8px 0 16px' }}>{p0.texto}</div>
-        {(p0.ir || p0.marcar) && (
-          <button data-prota-ir onClick={p0.ir || p0.marcar} style={{ width: '100%', height: 52, border: 'none', borderRadius: 999, background: TEXT, color: '#fff', fontFamily: 'inherit', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>Ir ahora</button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
+          <div data-prota-texto style={{ flex: 1, minWidth: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', color: TEXT, lineHeight: 1.18 }}>{p0.texto}</div>
+          {(p0.ir || p0.marcar) && (
+            <button data-prota-ir onClick={p0.ir || p0.marcar} style={{ flex: 'none', height: 40, padding: '0 16px', border: 'none', borderRadius: 999, background: TEXT, color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Ir ahora</button>
+          )}
+        </div>
         {resto.length > 0 && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 14 }}>
+          <div data-chips-hoy style={{ display: 'flex', gap: 6, marginTop: 10, overflowX: 'auto', scrollbarWidth: 'none', margin: '10px -14px 0 -16px', padding: '0 14px 0 16px' }}>
             {resto.map(it => (
-              <button key={it.id} data-recordatorio={it.id} onClick={it.ir || it.marcar || undefined} style={{ border: 'none', borderRadius: 99, padding: '6px 11px', background: '#F2F3F5', color: '#5B5B61',
-                fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.texto}</button>
+              <button key={it.id} data-recordatorio={it.id} onClick={it.ir || it.marcar || undefined} style={{ flex: 'none', border: 'none', borderRadius: 99, padding: '6px 11px', background: '#F2F3F5', color: '#5B5B61',
+                fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.texto}</button>
             ))}
           </div>
         )}
-        {/* Nada se pierde: «Ver todo» abre la lista completa de siempre. */}
-        <button data-ver-recordatorios onClick={() => setTodos(true)} style={{ display: 'block', margin: '12px auto 0', border: 0, background: 'none', padding: '8px 12px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: TEXT_MUTED, cursor: 'pointer' }}>
-          Ver todo{items.length + hoyItems.length - 1 > 0 ? ` (${items.length + hoyItems.length - 1})` : ''}
-        </button>
       </section>
     );
   }

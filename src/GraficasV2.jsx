@@ -99,9 +99,17 @@ export function Columnas({ datos, color, alto = 128, marca, etiquetaX, textoValo
   const barra = Math.min(22, Math.max(6, paso - 6));
   const y = (v) => arriba + alturaUtil - (v / topeEje) * alturaUtil;
   const marcas = tope ? [0, tope] : [0, topeEje / 2, topeEje];
+  // Vista en prueba: resalta la última barra CON dato (antes la última del
+  // todo, que en una semana a medias es un día vacío, y todas quedaban
+  // lavadas), y las barras llevan su color pleno con un degradado suave.
+  const prueba = enPrueba();
+  let ultimaConDato = datos.length - 1;
+  if (prueba) { ultimaConDato = -1; datos.forEach((d, i) => { if ((d.valor || 0) > 0) ultimaConDato = i; }); }
+  const idGrad = useId().replace(/[^a-zA-Z0-9]/g, '');
   return (
     <div ref={ref} style={{ position: 'relative', marginTop: 8, width: '100%', minWidth: 0, minHeight: alto }}>
       {ancho > 0 && <svg width={ancho} height={alto} style={{ display: 'block', overflow: 'visible' }}>
+        {prueba && <defs><linearGradient id={`cg${idGrad}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} /><stop offset="1" stopColor={color} stopOpacity="0.72" /></linearGradient></defs>}
         {marcas.map(m => (
           <g key={m}>
             <line x1={izq} x2={ancho} y1={y(m)} y2={y(m)} stroke={REJILLA} strokeWidth="1" strokeOpacity="0.6" />
@@ -120,7 +128,7 @@ export function Columnas({ datos, color, alto = 128, marca, etiquetaX, textoValo
               <rect x={cx - paso / 2} y={arriba - 6} width={paso} height={alturaUtil + 6} fill="transparent" />
               {v > 0 && (
                 <path d={`M${x0},${y(0)} V${y0 + r} Q${x0},${y0} ${x0 + r},${y0} H${x0 + barra - r} Q${x0 + barra},${y0} ${x0 + barra},${y0 + r} V${y(0)} Z`}
-                  fill={color} opacity={(sel == null ? i === datos.length - 1 : sel === i) ? 1 : 0.42}
+                  fill={prueba ? `url(#cg${idGrad})` : color} opacity={(sel == null ? i === ultimaConDato : sel === i) ? 1 : (prueba ? 0.62 : 0.42)}
                   style={{ transform: `scaleY(${crece})`, transformBox: 'fill-box', transformOrigin: '50% 100%', transition: `transform .9s cubic-bezier(.22,.8,.24,1) ${Math.min(i * 25, 400)}ms` }} />
               )}
               {meta > 0 && (

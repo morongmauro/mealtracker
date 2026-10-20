@@ -171,7 +171,8 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
         <h1 style={{ margin: '8px 0 0', fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: TEXT }}>{titulo}</h1>
       )}
       {voz?.sub && <p data-sub style={{ margin: '10px 0 0', fontSize: 16, lineHeight: 1.45, color: TEXT_MUTED, maxWidth: 460 }}>{voz.sub}</p>}
-      {prueba && <NumeroHeroe chico tema={tema} centro={aro.centro} pie={aro.pie} alTocar={aro.alTocar} activo={activo} />}
+      {/* Sin la barra que aparecía al bajar con la sección y el % (se pidió quitarla). */}
+      {prueba && <NumeroHeroe chico tema={tema} centro={aro.centro} pie={aro.pie} alTocar={aro.alTocar} activo={false} />}
       {firma && <FirmaCoach compacta={fondo} />}
       {children}
     </div>

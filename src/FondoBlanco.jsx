@@ -52,6 +52,13 @@ const CSS_PRUEBA = [
   `[data-fila-cristal] [data-boton-cristal]>span:last-child{display:none}`,
   `[data-fila-cristal] [data-circulo]{width:36px!important;height:36px!important;background:transparent!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}`,
   `[data-fila-cristal] [data-badge]{top:-1px!important;right:-1px!important;min-width:16px!important;height:16px!important;font-size:10px!important}`,
+  // La franja curva cubre siempre todo el ancho de la pantalla, sea cual sea
+  // el teléfono (centrada en la pantalla, no en la columna del contenido).
+  `[data-cabecera-hoy]>[data-banda]{left:calc(50% - 50vw)!important;right:auto!important;width:100vw!important}`,
+  `[data-capa-v2]{overflow-x:hidden}`,
+  // Calendario, Galería, Recetas y el calendario de comida (cabeceras sin
+  // franja): sin la píldora de arriba sobraba un hueco; empiezan más arriba.
+  `[data-cabecera-hoy]:not(:has(>[data-banda])){margin-top:-28px!important}`,
   // Entreno: «Hoy te toca» más grande, con el botón de ancho completo.
   `[data-hoy-rutina]{padding:20px!important;border-radius:28px!important}`,
   `[data-hoy-rutina]>div:nth-child(2){font-size:30px!important;letter-spacing:-0.03em!important}`,

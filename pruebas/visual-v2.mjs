@@ -427,6 +427,21 @@ try {
     await pv.p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(600);
     await pv.p.getByRole('button', { name: 'Hoy', exact: true }).click().catch(() => {}); await cab('comida');
     await pv.p.getByRole('button', { name: 'Aprendizaje', exact: true }).click(); await pv.p.locator('[data-cabecera-hoy="aprende"]').waitFor({ timeout: 15000 }).catch(() => {}); await espera(2000); await cab('aprende');
+    // VISTA_SUBS=1: también Calendario y Galería de Entreno, y Recetas y Calendario de Alimentación.
+    if (process.env.VISTA_SUBS) {
+      const sub = async (sec, nombre, archivo) => {
+        await pv.p.locator(`nav [data-seccion-boton="${sec}"]`).click().catch(() => {}); await espera(700);
+        await pv.p.getByRole('button', { name: nombre, exact: true }).first().click().catch(() => {}); await espera(2400);
+        await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-sub-${archivo}.png`) });
+      };
+      await sub('entreno', 'Calendario', 'calendario'); await sub('entreno', 'Galería', 'galeria');
+      await sub('comida', 'Recetas', 'recetas'); await sub('comida', 'Calendario', 'cal-comida');
+      for (const [t, n] of [['Semana', 'cal-comida-semana'], ['Día', 'cal-comida-dia']]) {
+        await pv.p.getByRole('button', { name: t, exact: true }).first().click().catch(() => {}); await espera(1500);
+        await pv.p.evaluate(() => { const el = document.querySelector('[data-view="calendario-comida"]'); if (el) el.scrollTop = 600; }); await espera(700);
+        await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-sub-${n}.png`) });
+      }
+    }
     console.log('errores', pv.errores.slice(0, 3));
     await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
   }
@@ -2327,8 +2342,7 @@ try {
     ok('vista en prueba: «Ver todo» abre la lista completa de siempre (no se pierde nada)', (await p.locator('[data-prota-dash]').count()) === 0
       && (await p.locator('[data-recordatorios-dash] [data-recordatorio]').count()) >= 4);
     await dash.evaluate(el => { el.scrollTop = 700; el.dispatchEvent(new Event('scroll')); }); await espera(700);
-    ok('vista en prueba: al bajar, arriba queda una barra de vidrio con la sección y el número', (await p.locator('[data-barra-heroe="dash"][data-visible="1"]').count()) === 1
-      && /Dash/.test(await p.locator('[data-barra-heroe="dash"]').innerText()));
+    ok('vista en prueba: al bajar ya no se despliega la barra con la sección y el %', (await p.locator('[data-barra-heroe]').count()) === 0);
     await foto(p, '40b-prueba-dash-abajo');
     await dash.evaluate(el => { el.scrollTop = 0; el.dispatchEvent(new Event('scroll')); }); await espera(500);
     // Alimentación: registrar lo que toca es la protagonista, con el dictado.
