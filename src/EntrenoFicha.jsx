@@ -15,7 +15,7 @@
 // tiene a un toque.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useState } from 'react';
-import { FilmStrip } from '@phosphor-icons/react';
+import { Info } from '@phosphor-icons/react';
 import { Hoja, Chip, Card, TEXT, TEXT_MUTED, TEXT_LIGHT, SURFACE_2, BORDER_SOFT, ACCENT_DARK } from './entrenoUI.jsx';
 import FiguraMusculos from './FiguraMusculos.jsx';
 import { v2Activa, nombresEj } from './v2.js';
@@ -51,7 +51,7 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
 
   return (
     <Hoja abierta={abierto} alCerrar={alCerrar} titulo={nombresEj(e).grande}
-      marca={v2Activa() ? { etiqueta: 'Ficha', nombre: nombresEj(e).grande, chico: nombresEj(e).chico, Icono: FilmStrip } : null}>
+      marca={v2Activa() ? { etiqueta: 'Ficha', nombre: nombresEj(e).grande, chico: nombresEj(e).chico, Icono: Info } : null}>
       {nombresEj(e).chico && !v2Activa() && (
         <div style={{ fontSize: 13, color: TEXT_LIGHT, margin: '-6px 0 12px' }}>{nombresEj(e).chico}</div>
       )}

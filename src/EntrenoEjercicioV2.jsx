@@ -18,7 +18,7 @@
 // de peso corporal solo se piden reps.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, FilmStrip, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets } from '@phosphor-icons/react';
+import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, Info, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets } from '@phosphor-icons/react';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { Hoja, FONDO_TARJETA_HOJA } from './entrenoUI.jsx';
 import { miniatura, numero, descansoEnCircuito, sinPeso, convertir, leerTecleado, guardarTecleado } from './entrenoDatos.js';
@@ -241,7 +241,7 @@ function Botones({ items, chico = false, soloIconos = false }) {
 
 function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota }) {
   return [
-    { Icono: FilmStrip, texto: 'Ficha', onClick: abrirFicha },
+    { Icono: Info, texto: 'Ficha', onClick: abrirFicha },
     // El récord va dentro del historial: un botón menos por ejercicio.
     ...(sinCarga ? [] : [{ Icono: ClockCounterClockwise, texto: 'Historial', onClick: abrirUltima }]),
     ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', corto: 'Nota', onClick: onNota }] : []),
@@ -946,7 +946,7 @@ export function TipIconos() {
   );
   return (
     <div data-tip-iconos style={{ ...TARJETA, background: '#F6F6F8', boxShadow: 'none', padding: '11px 13px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 14px' }}>
-      {item(FilmStrip, 'Ficha')}{item(ClockCounterClockwise, 'Historial')}{item(ChatCircleText, 'Nota al coach')}
+      {item(Info, 'Ficha')}{item(ClockCounterClockwise, 'Historial')}{item(ChatCircleText, 'Nota al coach')}
       <button onClick={cerrar} data-tip-entendido style={{ marginLeft: 'auto', border: 'none', borderRadius: 99, padding: '7px 13px', background: GRAFITO, color: '#fff', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Entendido</button>
     </div>
   );

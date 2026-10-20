@@ -29,6 +29,14 @@ export const RUTINA_LIGERA_PRUEBA = ['mauro moron'];
 export const RUTINA_LIGERA_TODOS = false;
 export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || RUTINA_LIGERA_PRUEBA.includes(normal(nombre));
 
+// El blob de vidrio en las cabeceras (a prueba). Para todos: TODOS en true.
+export const BLOB_VIDRIO_PRUEBA = ['mauro moron'];
+export const BLOB_VIDRIO_TODOS = false;
+export function blobVidrio() {
+  if (BLOB_VIDRIO_TODOS) return true;
+  try { return BLOB_VIDRIO_PRUEBA.includes(normal(JSON.parse(localStorage.getItem('mt:name') || '""'))); } catch (e) { return false; }
+}
+
 const valida = (v) => !!v && typeof v === 'object' && (v.modo === 'compacta' || v.modo === 'completa') && typeof v.desde === 'string';
 
 export function leerVista() {

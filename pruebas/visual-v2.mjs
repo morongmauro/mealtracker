@@ -549,7 +549,21 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
   ok('Dash: el blob junto a la frase, con la brújula a dos colores y el porcentaje en grafito adentro del aro', await ilusBien(p, 'dash'));
   // Opción B de los aros: azul pleno y una luz continua (tajadas de medio grado) hacia el punto blanco; sin sombras.
+  // Mauro ve el blob de vidrio (a prueba): blanco lechoso con la mancha azul
+  // tenue abajo, brillo y sombra internos, y el riel del aro en azul suave.
+  ok('cabecera (Mauro): blob de vidrio blanco, girado 12°, con la mancha azul tenue, vidrio borroso detrás, sombra suave azul y riel azul suave', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
+    const an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob][data-vidrio]'), capa = a.querySelector('[data-blob-vidrio]');
+    if (!blob || !capa) return false;
+    const m = new DOMMatrix(getComputedStyle(blob).transform); const giro = Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI);
+    const mancha = [...blob.querySelectorAll('radialGradient stop')].some(x => /60, ?123, ?214/.test(x.getAttribute('stop-color') || ''));
+    const interno = !!blob.querySelector('filter feComposite[operator="out"]');
+    const vidrio = /blur/.test(getComputedStyle(capa).backdropFilter || getComputedStyle(capa).webkitBackdropFilter || '');
+    const sombra = /drop-shadow/.test(getComputedStyle(blob).filter) && getComputedStyle(blob).filter.includes('60, 123, 214');
+    const riel = [...an.querySelectorAll('svg circle')].some(c => /rgba\(60, ?123, ?214, ?0\.13\)/.test(c.getAttribute('stroke') || ''));
+    return giro === -12 && mancha && interno && vidrio && sombra && riel;
+  }));
   ok('cabecera: el blob en tinte suave del azul, girado 12° con sombra suave de su color; encima el aro azul con luz hacia la punta y riel blanco', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
+    if (a.querySelector('svg[data-vidrio]')) return true;   // Mauro: el de vidrio (arriba); el resto, este
     const an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob]');
     const path = blob && blob.querySelector('path');
     const m = new DOMMatrix(getComputedStyle(blob).transform); const giro = Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI);
@@ -594,7 +608,7 @@ try {
   }));
   ok('Dash: las líneas que se tocan lo dicen («Toca la línea»)', (await dash.locator('[data-pista-linea]').count()) >= 1
     && /Toca la línea/.test(await dash.locator('[data-pista-linea]').first().innerText()));
-  ok('cabecera: la sombra del blob es corta y tenue (no la grande de antes)', await p.locator('[data-cabecera-hoy="dash"] svg[data-blob]').evaluate(b => { const f = getComputedStyle(b).filter; return /drop-shadow/.test(f) && !/28px/.test(f) && /12px/.test(f); }));
+  ok('cabecera: la sombra del blob es corta y tenue (no la grande de antes)', await p.locator('[data-cabecera-hoy="dash"] svg[data-blob]').evaluate(b => { const f = getComputedStyle(b).filter; return /drop-shadow/.test(f) && !/28px/.test(f) && (/12px/.test(f) || (b.hasAttribute('data-vidrio') && /24px/.test(f))); }));
   ok('Dash: «Ver todo» se toca en 44 px de alto (se ve igual de chico)', await dash.evaluate(() => { const b = document.querySelector('[data-ver-recordatorios]'); return !b || b.getBoundingClientRect().height >= 40; }));
   // La píldora de arriba: sin subtítulo, y se encoge al bajar / vuelve al subir.
   ok('píldora de marca: solo el nombre de la sección, sin «Entrena con Método» debajo', await p.locator('[data-pildora-marca]').evaluate(el => el.children.length === 1 && /DASH|INICIO|TU SEMANA|HOY/i.test(el.textContent) && !/Entrena con Método/.test(el.textContent)), await p.locator('[data-pildora-marca]').innerText());

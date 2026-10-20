@@ -23,11 +23,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TEXT, TEXT_MUTED } from './theme.js';
 import ObjetoCabecera, { CAJA } from './ObjetoCabecera.jsx';
 import { AnilloMarca } from './GraficasV2.jsx';
-import Blob from './Blob.jsx';
+import Blob, { BlobVidrio } from './Blob.jsx';
+import { blobVidrio } from './vistaApp.js';
 import { CapaActiva, useCapaActiva } from './capaActiva.js';
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
+// La mancha del blob de vidrio: el color de la sección (Entreno, su amarillo).
+const MANCHA_VIDRIO = { dash: '#3C7BD6', entreno: '#F2C94C', comida: '#46965A', aprende: '#EE8434' };
+const rielVidrio = (h) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},0.13)`; };
 // El blob en tinte suave: el color del módulo mezclado con blanco (un pastel
 // que no grita), y el aro encima en el color pleno.
 const pastel = (hex, f = 0.24) => {
@@ -168,6 +172,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const aroGrande = grande ? (() => {
     const dentro = lugarEnCaja(CAJA[tema] || CAJA.entreno, ARO_G.objAncho, ARO_G.objAlto);
     const color = COLOR_ARO[tema] || TEXT;
+    const vidrio = blobVidrio();
     return (
       // El blob del módulo (cuadrado curvo girado), y encima el aro en blanco
       // con el objeto de la sección a dos colores y el número adentro; el pie
@@ -183,10 +188,12 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
           <div data-blob-cabecera style={{ position: 'relative', width: ARO_G.blob, height: ARO_G.blob }}>
             {/* Misma forma de siempre; el tono es un pastel del módulo y la
                 sombra, suave, de su color. */}
-            <Blob color={pastel(color)} sombraColor={color} tam={ARO_G.blob} />
+            {vidrio
+              ? <BlobVidrio color={MANCHA_VIDRIO[tema] || color} tam={ARO_G.blob} />
+              : <Blob color={pastel(color)} sombraColor={color} tam={ARO_G.blob} />}
             <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
               <CapaActiva.Provider value={activo}>
-              <AnilloMarca plano frac={aro.frac} color={color} tam={ARO_G.tam} grosor={ARO_G.grosor} riel="rgba(255,255,255,0.85)" etiqueta={aro.pie}>
+              <AnilloMarca plano frac={aro.frac} color={color} tam={ARO_G.tam} grosor={ARO_G.grosor} riel={vidrio ? rielVidrio(color) : 'rgba(255,255,255,0.85)'} etiqueta={aro.pie}>
                 <div style={{ display: 'grid', placeItems: 'center' }}>
                   <div style={{ position: 'relative', width: ARO_G.objAncho, height: ARO_G.objAlto }}>
                     <div style={{ position: 'absolute', left: dentro.left, top: dentro.top, width: dentro.lado, height: dentro.lado }}><ObjetoCabecera tema={tema} activo={objetoAnima} tono="dos" /></div>
