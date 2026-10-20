@@ -27,7 +27,7 @@ import Respira from './Respira.jsx';
 import Reconocimiento from './Reconocimiento.jsx';
 import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado, TipIconos } from './EntrenoEjercicioV2.jsx';
-import { rutinaLigera } from './vistaApp.js';
+import { rutinaLigera, enPrueba } from './vistaApp.js';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
@@ -618,6 +618,8 @@ function FilaDia({ d, onAbrir }) {
 
 // ── UNA RUTINA, Y SU EJECUCIÓN ────────────────────────────────────────────
 function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }) {
+  // Vista en prueba (solo Mauro): barra de avance discreta y velo debajo.
+  const prueba = enPrueba();
   // Se abre AL INSTANTE con la copia guardada en el teléfono (la precarga deja
   // las de la semana listas) y lo del servidor llega por detrás, con un
   // «Actualizando…» pequeño mientras tanto. Antes había que esperar dos
@@ -1287,34 +1289,46 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
 
       {/* Visual nueva: el avance se queda pegado arriba mientras se baja, para
           saber siempre cuánto falta sin volver al principio. */}
+      {totalSeries > 0 && v2 && prueba && (
+        // Vista en prueba: lo que pasa por debajo de la barra se desenfoca y
+        // se apaga suave (antes se leían las letras unas encima de otras).
+        <div aria-hidden="true" data-velo-avance style={{
+          position: 'fixed', left: 0, right: 0, top: 0, zIndex: 19, pointerEvents: 'none',
+          height: 'calc(58px + env(safe-area-inset-top, 0px) + 46px + 26px)',
+          background: 'linear-gradient(180deg, rgba(252,252,253,0.94) 0%, rgba(252,252,253,0.8) 62%, rgba(252,252,253,0) 100%)',
+          WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)',
+          WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 70%, transparent 100%)', maskImage: 'linear-gradient(180deg, #000 0%, #000 70%, transparent 100%)',
+        }} />
+      )}
       {totalSeries > 0 && v2 && (
         // Estilo Apple: vidrio, el avance dicho en claro y un segmento por
         // ejercicio que se va llenando; el reloj del entreno a la derecha.
-        <div data-avance-rutina style={{
+        // En la vista en prueba, más baja y discreta: acompaña, no protagoniza.
+        <div data-avance-rutina data-discreta={prueba ? '1' : undefined} style={{
           position: 'sticky', top: 'calc(58px + env(safe-area-inset-top, 0px))', zIndex: 20,
-          margin: '0 -4px 6px', padding: '10px 14px 11px', borderRadius: 18,
-          background: 'rgba(250,250,252,0.86)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.05), 0 8px 20px -10px rgba(0,0,0,0.18)',
+          margin: prueba ? '0 6px 6px' : '0 -4px 6px', padding: prueba ? '6px 10px 7px' : '10px 14px 11px', borderRadius: prueba ? 14 : 18,
+          background: prueba ? 'rgba(250,250,252,0.62)' : 'rgba(250,250,252,0.86)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)',
+          boxShadow: prueba ? '0 1px 2px rgba(0,0,0,0.04)' : '0 1px 2px rgba(0,0,0,0.05), 0 8px 20px -10px rgba(0,0,0,0.18)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, minHeight: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: prueba ? 8 : 10, fontSize: prueba ? 12.5 : 13.5, minHeight: prueba ? 0 : 24 }}>
             {/* Volver a la semana desde cualquier punto de la rutina, sin subir
                 hasta arriba. Lo marcado queda guardado y el reloj sigue. */}
             <button data-volver-semana onClick={onVolver} aria-label="Volver a mi semana" style={{
-              flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 2, height: 28, padding: '0 10px 0 6px',
-              borderRadius: 999, border: 0, background: 'rgba(118,118,128,0.14)', color: TEXT, cursor: 'pointer',
-              fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-            }}><ChevronLeft size={16} /> Mi semana</button>
-            <span style={{ fontWeight: 700, color: TEXT, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ejHechos}/{ejTotal} ejercicios</span>
+              flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 2, height: prueba ? 24 : 28, padding: prueba ? '0 8px 0 4px' : '0 10px 0 6px',
+              borderRadius: 999, border: 0, background: prueba ? 'transparent' : 'rgba(118,118,128,0.14)', color: prueba ? '#6E6E73' : TEXT, cursor: 'pointer',
+              fontFamily: 'inherit', fontSize: prueba ? 12 : 13, fontWeight: 700,
+            }}><ChevronLeft size={prueba ? 14 : 16} /> Mi semana</button>
+            <span style={{ fontWeight: prueba ? 600 : 700, color: prueba ? '#6E6E73' : TEXT, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ejHechos}/{ejTotal} ejercicios</span>
             {inicio && hechas > 0 && <RelojSesion desde={inicio} v2 />}
           </div>
           {ejTotal <= 16 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${ejTotal}, 1fr)`, gap: 4, marginTop: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${ejTotal}, 1fr)`, gap: prueba ? 3 : 4, marginTop: prueba ? 5 : 8 }}>
               {Array.from({ length: ejTotal }, (_, i) => (
-                <span key={i} data-segmento={i < ejHechos ? 'hecho' : 'falta'} style={{ height: 4, borderRadius: 9, background: i < ejHechos ? '#1D1D1F' : 'rgba(118,118,128,0.18)', transition: 'background .25s ease' }} />
+                <span key={i} data-segmento={i < ejHechos ? 'hecho' : 'falta'} style={{ height: prueba ? 3 : 4, borderRadius: 9, background: i < ejHechos ? '#1D1D1F' : 'rgba(118,118,128,0.18)', transition: 'background .25s ease' }} />
               ))}
             </div>
           ) : (
-            <div style={{ height: 4, borderRadius: 99, background: 'rgba(118,118,128,0.18)', overflow: 'hidden', marginTop: 8 }}>
+            <div style={{ height: prueba ? 3 : 4, borderRadius: 99, background: 'rgba(118,118,128,0.18)', overflow: 'hidden', marginTop: prueba ? 5 : 8 }}>
               <div style={{ height: '100%', width: `${(ejHechos / ejTotal) * 100}%`, background: '#1D1D1F', borderRadius: 99, transition: 'width .25s ease' }} />
             </div>
           )}

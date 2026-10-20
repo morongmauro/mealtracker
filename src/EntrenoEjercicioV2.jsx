@@ -25,6 +25,7 @@ import { miniatura, numero, descansoEnCircuito, sinPeso, convertir, leerTecleado
 import { nombresEj } from './v2.js';
 import { SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, BORDER, SECCION } from './theme.js';
 import { asegurarCSS, vibrar } from './Celebraciones.jsx';
+import { enPrueba } from './vistaApp.js';
 
 const AZUL = SECCION.entreno.base;
 const AZUL_TINTA = SECCION.entreno.ink;
@@ -207,13 +208,13 @@ const textoDescansoCorto = (seg) => {
 // eran cajas del mismo gris que los campos donde se escribe y se confundían:
 // lo gris se llena, lo blanco con sombra se toca.
 // `corto`: el texto que va cuando el espacio es angosto (los circuitos).
-function Botones({ items, chico = false, soloIconos = false }) {
+function Botones({ items, chico = false, soloIconos = false, chicos = false }) {
   // Vista compacta: solo el ícono, en círculos chicos al lado del nombre.
   if (soloIconos) return (
-    <div data-botones data-botones-iconos style={{ display: 'flex', gap: 6, flex: 'none' }}>
+    <div data-botones data-botones-iconos style={{ display: 'flex', gap: chicos ? 2 : 6, flex: 'none' }}>
       {items.map(({ Icono, texto, onClick }) => (
         <button key={texto} onClick={onClick} aria-label={texto} title={texto} data-pildora-ejercicio style={{
-          width: 34, height: 34, borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer', padding: 0,
+          width: chicos ? 32 : 34, height: chicos ? 32 : 34, borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer', padding: 0,
           boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)', display: 'grid', placeItems: 'center', flex: 'none',
         }}><Icono size={16} color={GRAFITO} /></button>
       ))}
@@ -481,6 +482,7 @@ function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = nu
 }
 
 export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg', onUnidad, onNota, ahora = false, compacta = false, cerrado = false, alAbrir, ligera = false }) {
+  const prueba = enPrueba();
   const e = re.ejercicio;
   const n = nombresEj(e);
   const [ficha, setFicha] = useState(false);
@@ -569,6 +571,10 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           {ahora && <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
+          {/* Vista en prueba: Ficha · Historial · Nota arriba a la derecha, a la
+              altura del nombre; el texto les da la vuelta (si el nombre no
+              cabe, sigue en la línea de abajo) y nada queda detrás. */}
+          {ligera && prueba && <div data-botones-arriba style={{ float: 'right', margin: '-2px -4px 4px 8px' }}><Botones soloIconos chicos items={botones} /></div>}
           <Nombres e={e} />
           {/* Más liviana (a prueba): lo recetado y Ficha · Historial · Nota
               en UNA fila bajo el nombre, los botones solo con su ícono. */}
@@ -577,11 +583,14 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
               <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#3A3A3C', fontWeight: 600, lineHeight: 1.3 }}>
                 {recetado}{re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}{re.rir != null ? ` · RIR ${re.rir}` : ''} · {textoDescansoCorto(re.descanso_seg).toLowerCase()}
               </span>
-              <Botones soloIconos items={botones} />
+              {!prueba && <Botones soloIconos items={botones} />}
             </div>
           )}
         </div>
       </div>
+      {/* Vista en prueba: una línea suave separa lo que es el ejercicio de
+          donde se llenan las series. */}
+      {ligera && prueba && <div data-separador-series style={{ height: 1, background: 'rgba(60,60,67,0.09)', margin: '10px 0 2px' }} />}
       {!ligera && (<>
       {/* Lo recetado, en una línea con sus íconos. */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 7, fontSize: 13.5, color: '#3A3A3C', fontWeight: 600 }}>
@@ -631,6 +640,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
 // foto y su nombre: la gente se guía por la imagen, no solo por el nombre.
 // Tras cada estación, el descanso que toca (o «Sin descanso»).
 export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, onUnidad, onNota, compacta = false, cerrado = false, alAbrir, ligera = false }) {
+  const prueba = enPrueba();
   const b = tramo.bloque || {};
   const vueltas = tramo.vueltas;
   const tipo = { superserie: 'Superserie', circuito: 'Circuito', emom: 'EMOM', amrap: 'AMRAP' }[b.tipo] || 'Circuito';
@@ -738,11 +748,16 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Miniatura e={e} ancho={54} alto={42} alTocar={() => setFicha(re)} />
                     <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Vista en prueba: los íconos arriba a la derecha, como en Fuerza. */}
+                      {vi === 0 && ligera && prueba && <div data-botones-arriba style={{ float: 'right', margin: '-2px -2px 4px 8px' }}><Botones soloIconos chicos items={botonesDe({
+                        sinCarga, onNota: onNota ? () => onNota(re) : null,
+                        abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re),
+                      })} /></div>}
                       <Nombres e={e} tam={15} />
                       <div style={{ fontSize: 13, color: '#3A3A3C', fontWeight: 600, marginTop: 3 }}>{textoReps(re)}</div>
                     </div>
                   </div>
-                  {vi === 0 && (
+                  {vi === 0 && !(ligera && prueba) && (
                     <Botones chico soloIconos={compacta || ligera} items={botonesDe({
                       sinCarga, onNota: onNota ? () => onNota(re) : null,
                       abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re),

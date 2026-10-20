@@ -2358,17 +2358,32 @@ try {
     await foto(p, '40d-prueba-entreno');
     await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
     await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(800);
-    ok('rutina ligera: lo recetado (series, reps y descanso) en una fila con los íconos', await p.evaluate(() => {
+    ok('rutina ligera (prueba): lo recetado en su línea y Ficha · Historial · Nota arriba a la derecha, sin tapar ningún texto', await p.evaluate(() => {
       const filas = [...document.querySelectorAll('[data-ligera] [data-recetado-ligero]')];
       const f = filas.find(x => /^3 × 6-12 reps · .*descanso/i.test(x.textContent.trim()));
-      return filas.length >= 3 && !!f && f.querySelectorAll('[data-botones-iconos] button').length === 3;
-    }));
-    ok('rutina ligera: Ficha, Historial y Nota en círculos de 34 px, solo el ícono; los campos blancos', await p.evaluate(() => {
+      if (!(filas.length >= 3 && f)) return false;
+      return filas.every(fila => {
+        const card = fila.closest('[data-ejercicio]'), g = card.querySelector('[data-botones-arriba]');
+        if (!g || g.querySelectorAll('button').length < 2 || fila.querySelector('[data-botones-iconos]')) return false;
+        const b = g.getBoundingClientRect(), col = fila.parentElement;
+        // Ningún pedazo de texto (nombre, nombre en español, recetado) se mete debajo de los botones.
+        const w = document.createTreeWalker(col, NodeFilter.SHOW_TEXT); let n, choca = false;
+        while ((n = w.nextNode())) { if (g.contains(n) || !n.textContent.trim()) continue; const r = document.createRange(); r.selectNodeContents(n);
+          for (const x of r.getClientRects()) if (x.right > b.left + 1 && x.left < b.right - 1 && x.bottom > b.top + 1 && x.top < b.bottom - 1) choca = true; }
+        return !choca;
+      });
+    }), await p.evaluate(() => JSON.stringify([...document.querySelectorAll('[data-ligera] [data-recetado-ligero]')].map(fila => { const card = fila.closest('[data-ejercicio]'), g = card.querySelector('[data-botones-arriba]'); return [card.dataset.ejercicio, !!g, g && g.querySelectorAll('button').length, !!fila.querySelector('[data-botones-iconos]')]; }))));
+    ok('rutina ligera (prueba): íconos solos en círculos, línea suave antes de las series y los campos en su gris suave', await p.evaluate(() => {
       const bs = [...document.querySelectorAll('[data-ligera] [data-botones] button[data-pildora-ejercicio]')];
       const campo = document.querySelector('[data-ejercicio] input[aria-label^="Repeticiones"]');
-      return bs.length >= 6 && bs.every(b => { const r = b.getBoundingClientRect(); return Math.round(r.height) === 34 && !b.textContent.trim(); })
-        && campo && getComputedStyle(campo).backgroundColor === 'rgb(255, 255, 255)';
+      return bs.length >= 6 && bs.every(b => { const h = Math.round(b.getBoundingClientRect().height); return (h === 32 || h === 34) && !b.textContent.trim(); })
+        && document.querySelectorAll('[data-ligera] [data-separador-series]').length >= 3
+        && campo && getComputedStyle(campo).backgroundColor === 'rgb(242, 242, 244)';
     }));
+    ok('rutina (prueba): la barra de avance más baja y discreta, y lo de abajo se desenfoca al pasar', await p.evaluate(() => {
+      const bar = document.querySelector('[data-avance-rutina]'), velo = document.querySelector('[data-velo-avance]');
+      return !!bar && bar.dataset.discreta === '1' && bar.getBoundingClientRect().height <= 46 && !!velo && /blur/.test(getComputedStyle(velo).backdropFilter || getComputedStyle(velo).webkitBackdropFilter || '');
+    }), await p.evaluate(() => String(document.querySelector('[data-avance-rutina]')?.getBoundingClientRect().height)));
     ok('rutina ligera: una nota la primera vez explica los íconos', (await p.locator('[data-tip-iconos]').count()) === 1
       && /Ficha/.test(await p.locator('[data-tip-iconos]').innerText()) && /Nota al coach/.test(await p.locator('[data-tip-iconos]').innerText()));
     await foto(p, '40e-prueba-rutina');

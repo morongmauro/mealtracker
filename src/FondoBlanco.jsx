@@ -44,8 +44,7 @@ const CSS_PRUEBA = [
   `[style*="background: rgb(238, 233, 251)"]{background:rgba(60,123,214,.10)!important}`,
   // «Profundiza»: de la crema a blanco con sombra suave.
   `[style*="background: rgb(235, 230, 220)"]{background:#fff!important;box-shadow:0 1px 2px rgba(20,20,30,.04),0 6px 16px rgba(20,30,60,.07)!important}`,
-  // Campos de la rutina: blancos con un relieve suave (no grises).
-  `[data-ejercicio] input,[data-ejercicio-circuito] input{background:#fff!important;box-shadow:inset 0 0 0 1px rgba(20,20,40,.07),inset 0 2px 4px rgba(20,20,40,.04)!important}`,
+  // Campos de la rutina: se quedan en su gris suave (se pidió volver a él).
   // Atajos (A3): los botones en una sola barrita de vidrio, debajo de la
   // frase, a la izquierda (sin palabras).
   `[data-cabecera-hoy]~[data-fila-cristal],[data-cabecera-hoy] [data-fila-cristal]{display:inline-flex!important;width:fit-content;margin:10px 0 16px!important;gap:2px!important;padding:3px;border-radius:999px;background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 4px 14px rgba(20,30,60,.08)}`,
