@@ -2276,15 +2276,19 @@ try {
         && banda.getBoundingClientRect().height <= 36 && /252, 252, 253/.test(getComputedStyle(vista).backgroundColor)
         && /radial-gradient/.test(getComputedStyle(vista).backgroundImage) && /60, 123, 214/.test(getComputedStyle(vista).backgroundImage);
     }));
-    ok('vista en prueba (A3): la cifra en grafito dentro del blob con un ícono de línea (sin objeto 3D) y el pie bajo la frase', await p.evaluate(() => {
+    ok('vista en prueba (A3 + S2): la cifra grande en grafito dentro del blob con el ícono sólido chico (sin objeto 3D) y el pie bajo la frase', await p.evaluate(() => {
       const cab = document.querySelector('[data-cabecera-hoy="dash"]');
-      const blob = cab.querySelector('[data-blob-cabecera]'), c = cab.querySelector('[data-aro-centro]'), ic = cab.querySelector('[data-icono-linea="dash"] svg');
+      const blob = cab.querySelector('[data-blob-cabecera]'), c = cab.querySelector('[data-aro-centro]'), ic = cab.querySelector('[data-icono-blob="dash"] svg');
       const pie = cab.querySelector('[data-numero-heroe="dash"] [data-numero-pie]'), frase = cab.querySelector('[data-frase]');
       if (!blob || !c || !ic || !pie) return false;
       const b = blob.getBoundingClientRect(), r = c.getBoundingClientRect();
-      return getComputedStyle(c).color === 'rgb(31, 31, 31)' && /\d/.test(c.textContent) && r.left >= b.left && r.right <= b.right
+      return getComputedStyle(c).color === 'rgb(31, 31, 31)' && parseFloat(getComputedStyle(c).fontSize) >= 28 && /\d/.test(c.textContent) && r.left >= b.left && r.right <= b.right
         && !cab.querySelector('[data-objeto-cabecera], canvas') && pie.getBoundingClientRect().top >= frase.getBoundingClientRect().bottom
         && pie.getBoundingClientRect().right <= b.left + 4;
+    }));
+    ok('vista en prueba: el punto blanco de las gráficas es más grande (casi el ancho del trazo)', await p.evaluate(() => {
+      const ps = [...document.querySelectorAll('[data-view="dash"] [data-punta-blanca]')];
+      return ps.length >= 2 && ps.every(c => { const t = c.previousElementSibling; const g = t ? parseFloat(t.getAttribute('r')) * 2 : 0; return !g || parseFloat(c.getAttribute('r')) >= g / 2 - 1.01; });
     }));
     ok('vista en prueba: blob de vidrio blanco, girado 12°, con la mancha azul tenue, vidrio borroso detrás, sombra suave azul y riel azul suave', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
       const an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob][data-vidrio]'), capa = a.querySelector('[data-blob-vidrio]');
@@ -2324,7 +2328,7 @@ try {
     await foto(p, '40c-prueba-comida');
     // Entreno y la rutina más liviana.
     await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
-    ok('vista en prueba: Entreno con la cifra en el blob y su ícono de línea', (await p.locator('[data-cabecera-hoy="entreno"] [data-icono-linea="entreno"]').count()) === 1 && (await p.locator('[data-numero-heroe="entreno"]').count()) === 1);
+    ok('vista en prueba: Entreno con la cifra en el blob y su mancuerna', (await p.locator('[data-cabecera-hoy="entreno"] [data-icono-blob="entreno"]').count()) === 1 && (await p.locator('[data-numero-heroe="entreno"]').count()) === 1);
     await foto(p, '40d-prueba-entreno');
     await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
     await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(800);

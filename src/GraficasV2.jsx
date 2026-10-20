@@ -8,6 +8,7 @@
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
 import { useCapaActiva } from './capaActiva.js';
+import { enPrueba } from './vistaApp.js';
 
 export const REJILLA = '#E7E3D9';
 const TARJETA = '#FFFFFF';
@@ -263,7 +264,8 @@ export function PuntaApple({ m, r, grosor, frac, color, transicion, radioPunto, 
           <circle cx={m + r} cy={m} r={grosor / 2} fill={t.cla} filter={sombra ? `url(#so${id})` : undefined} />
         </>
       )}
-      <circle cx={m + r} cy={m} r={radioPunto ?? Math.max(1.5, grosor / 2 - 2.5)} fill="#FFFFFF" />
+      {/* Vista en prueba: el punto blanco más grande (casi el ancho del trazo). */}
+      <circle data-punta-blanca cx={m + r} cy={m} r={enPrueba() ? Math.max(2.2, grosor / 2 - 1) : (radioPunto ?? Math.max(1.5, grosor / 2 - 2.5))} fill="#FFFFFF" />
     </g>
   );
 }

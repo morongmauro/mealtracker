@@ -27,11 +27,12 @@ import Blob, { BlobVidrio } from './Blob.jsx';
 import { blobVidrio, fondoBlanco, enPrueba, COLORES_MODULO, aclarar } from './vistaApp.js';
 import NumeroHeroe from './NumeroHeroe.jsx';
 import { CapaActiva, useCapaActiva } from './capaActiva.js';
-import { Compass, Barbell, ForkKnife, BookOpen } from '@phosphor-icons/react';
+import { Compass, Barbell, Avocado, Brain } from '@phosphor-icons/react';
 
-// Vista en prueba (opción A3): dentro del blob, un ícono de línea de la
-// sección en vez del objeto 3D, y la cifra en grafito.
-const ICONO_LINEA = { dash: Compass, entreno: Barbell, comida: ForkKnife, aprende: BookOpen };
+// Vista en prueba (A3 + S2): dentro del blob, la cifra grande en grafito y,
+// arriba, chico y sólido, el ícono de la sección (brújula, mancuerna,
+// aguacate, mente) en vez del objeto 3D.
+const ICONO_BLOB = { dash: Compass, entreno: Barbell, comida: Avocado, aprende: Brain };
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
@@ -208,10 +209,10 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
             <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
               <CapaActiva.Provider value={activo}>
               <AnilloMarca plano frac={aro.frac} color={color} tam={ARO_G.tam} grosor={ARO_G.grosor} riel={vidrio ? rielVidrio(color) : 'rgba(255,255,255,0.85)'} etiqueta={aro.pie}>
-                {prueba ? (() => { const Ic = ICONO_LINEA[tema] || Compass; return (
-                  <div data-icono-linea={tema} style={{ display: 'grid', placeItems: 'center', gap: 2 }}>
-                    <Ic size={26} weight="bold" color={color} />
-                    <div data-aro-centro style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{aro.centro}</div>
+                {prueba ? (() => { const Ic = ICONO_BLOB[tema] || Compass; return (
+                  <div data-icono-blob={tema} style={{ display: 'grid', placeItems: 'center', gap: 3 }}>
+                    <Ic size={18} weight="fill" color={color} />
+                    <div data-aro-centro style={{ fontSize: 30, fontWeight: 800, color: TEXT, letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums', lineHeight: 0.9 }}>{aro.centro}</div>
                   </div>); })() : (
                 <div style={{ display: 'grid', placeItems: 'center' }}>
                   <div style={{ position: 'relative', width: ARO_G.objAncho, height: ARO_G.objAlto }}>
