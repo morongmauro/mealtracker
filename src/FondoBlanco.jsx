@@ -56,9 +56,21 @@ const CSS_PRUEBA = [
   // el teléfono (centrada en la pantalla, no en la columna del contenido).
   `[data-cabecera-hoy]>[data-banda]{left:calc(50% - 50vw)!important;right:auto!important;width:100vw!important}`,
   `[data-capa-v2]{overflow-x:hidden}`,
+  // Sin rebote arriba ni abajo: la franja curva se queda pegada al borde y
+  // no se asoma lo de atrás. Y si un teléfono viejo rebota igual, la franja
+  // sigue hacia arriba con su mismo color (nunca se ve un hueco).
+  `[data-capa-v2],.overflow-y-auto{overscroll-behavior-y:none!important}`,
+  `[data-cabecera-hoy]>[data-banda]{top:-100vh!important;border-top:100vh solid var(--banda-tope);box-sizing:content-box}`,
   // Calendario, Galería, Recetas y el calendario de comida (cabeceras sin
   // franja): sin la píldora de arriba sobraba un hueco; empiezan más arriba.
   `[data-cabecera-hoy]:not(:has(>[data-banda])){margin-top:-46px!important}`,
+  // Y arriba, detrás del título, un degradado suave del color de la sección
+  // (con un toque del segundo color a un lado): la página no queda plana.
+  `[data-cabecera-hoy]:not(:has(>[data-banda]))::before{content:'';position:absolute;z-index:-1;pointer-events:none;left:calc(50% - 50vw);width:100vw;top:-60vh;height:calc(60vh + 300px);background:radial-gradient(70% 220px at 100% calc(60vh + 10px),rgba(var(--deg-q),.20),transparent 70%),linear-gradient(180deg,rgba(var(--deg-p),.24) 0%,rgba(var(--deg-p),.24) 60vh,rgba(var(--deg-p),.10) calc(60vh + 140px),rgba(var(--deg-p),0) 100%)}`,
+  `[data-cabecera-hoy="dash"]{--deg-p:60,123,214;--deg-q:242,201,76}`,
+  `[data-cabecera-hoy="entreno"]{--deg-p:95,102,112;--deg-q:242,201,76}`,
+  `[data-cabecera-hoy="comida"]{--deg-p:70,150,90;--deg-q:242,201,76}`,
+  `[data-cabecera-hoy="aprende"]{--deg-p:238,132,52;--deg-q:60,123,214}`,
   // Entreno: «Hoy te toca» más grande, con el botón de ancho completo.
   `[data-hoy-rutina]{padding:20px!important;border-radius:28px!important}`,
   `[data-hoy-rutina]>div:nth-child(2){font-size:30px!important;letter-spacing:-0.03em!important}`,
@@ -66,16 +78,16 @@ const CSS_PRUEBA = [
 ].map(r => r.replace(/(^|\})\s*([^{}]+)\{/g, (m, a, sel) => `${a}${sel.split(',').map(x => `html[data-vista-prueba] ${x.trim()}`).join(',')}{`)).join('\n');
 
 // Cambio de sección (vista en prueba): la franja curva y la cabecera quedan
-// en el mismo sitio en todas, así que solo cambia el color, en un fundido
-// corto. La que entra aparece encima, sin moverse; la que sale se queda
-// detrás hasta que la nueva termina (antes se iban las dos a la vez y por
-// un instante se veía Alimentación por debajo).
+// en el mismo sitio en todas, así que el cambio es directo, en el mismo
+// cuadro: la que entra ya está pintada y la que sale se va a la vez. Con el
+// fundido, por un instante se veían las dos páginas mezcladas (los textos
+// encima de otros, todo más pálido) y eso se leía como un pestañeo.
 const CSS_CAMBIO = `
-@keyframes capaFunde { from { opacity: 0 } to { opacity: 1 } }
-html[data-vista-prueba] [data-capa-v2][data-activa] { animation: capaFunde .18s ease-out; }
-html[data-vista-prueba]:has([data-capa-v2][data-activa]) [data-capa-v2]:not([data-activa]) { transition: opacity 0s linear .18s, visibility 0s linear .18s; }
-html[data-vista-prueba] [data-capa-v2]:not([data-activa]) { transition: opacity .18s ease-in, visibility 0s linear .18s; }
-@media (prefers-reduced-motion: reduce) { html[data-vista-prueba] [data-capa-v2][data-activa] { animation: none; } }`;
+html[data-vista-prueba], html[data-vista-prueba] body { overscroll-behavior: none; }
+html[data-vista-prueba] [data-capa-v2][data-activa] { animation: none !important; }
+html[data-vista-prueba] [data-capa-v2],
+html[data-vista-prueba] [data-capa-v2]:not([data-activa]) iframe,
+html[data-vista-prueba] [data-capa-v2]:not([data-activa]) video { transition: none !important; }`;
 
 export default function EstiloFondoBlanco({ activo, prueba = false }) {
   React.useEffect(() => {

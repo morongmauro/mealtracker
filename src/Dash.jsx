@@ -347,7 +347,8 @@ const Cambio = ({ desde, hasta, unidad, bueno = 'sube' }) => {
 // crearía un componente nuevo y se perdería lo que se tocó en las gráficas.
 const Marco = React.forwardRef(({ children }, ref) => (
   <div ref={ref} style={{
-    position: 'relative', maxWidth: 560, margin: '0 auto', padding: '0 16px',
+    // Vista en prueba: 20 px a los lados, como Entrenamiento y Alimentación.
+    position: 'relative', maxWidth: 560, margin: '0 auto', padding: enPrueba() ? '0 20px' : '0 16px',
     paddingTop: 'calc(62px + env(safe-area-inset-top, 0px))',
     paddingBottom: 'calc(104px + env(safe-area-inset-bottom, 0px))',
   }}>{children}<Firma style={{ marginTop: 28 }} /></div>
@@ -469,7 +470,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   return (
     <Marco ref={raizRef}>
       {/* Saludo: con la misma letra y la voz del coach de las cabeceras de Hoy. */}
-      <CabeceraHoy tema="dash" sangria="16px" arriba="calc(62px + env(safe-area-inset-top, 0px))"
+      <CabeceraHoy tema="dash" sangria={enPrueba() ? '20px' : '16px'} arriba="calc(62px + env(safe-area-inset-top, 0px))"
         voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, b: racha >= 3 ? `${racha} días seguidos.` : 'Mira cómo vas.' }}
         aro={{ ...aroSemana(semana, history, goals, aprende, hoy), alTocar: () => setExplicar(true) }} />
       {/* Atajos: botones de cristal chicos (círculo con el símbolo y la
@@ -479,7 +480,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       <FilaCristal data-atajos style={{ marginTop: 6, justifyContent: 'flex-start', gap: 10 }}>
         {/* Respira vive donde hace falta (el día de descanso, el cierre de la
             rutina y Ajustes); el Reto vuelve aquí cuando haya un reto. */}
-        {wa && <BotonCristal tono={TONO_ATAJOS.dash} icono={ChatCircle} color="#25A35A" ancho={54} href={wa}>Coach</BotonCristal>}
+        {wa && <BotonCristal tono={TONO_ATAJOS.dash} icono={enPrueba() ? WhatsappLogo : ChatCircle} color="#25A35A" ancho={54} href={wa}>Coach</BotonCristal>}
         <BotonCristal tono={TONO_ATAJOS.dash} icono={UsersThree} color="#2F6CC4" ancho={54} badge={nuevosComunidad} data-abrir-comunidad rotulo="Comunidad"
           aria-label={`Comunidad${nuevosComunidad ? ` · ${nuevosComunidad} ${nuevosComunidad === 1 ? 'nueva' : 'nuevas'}` : ''}`}
           onClick={() => setVista('comunidad')}>Comunidad</BotonCristal>

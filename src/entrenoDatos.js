@@ -231,11 +231,28 @@ export function rutinaAbierta() {
     return r;
   } catch (e) { return null; }
 }
-export function guardarRutinaAbierta(id, fecha) {
-  try { localStorage.setItem(CLAVE_ABIERTA, JSON.stringify({ id, fecha, t: Date.now() })); } catch (e) { /* sin almacenamiento */ }
+// `planeada`: el día del calendario del que se abrió (si no era hoy), para
+// preguntar si se pasa a hoy al marcar la primera serie.
+export function guardarRutinaAbierta(id, fecha, planeada = null) {
+  try { localStorage.setItem(CLAVE_ABIERTA, JSON.stringify({ id, fecha, planeada, t: Date.now() })); } catch (e) { /* sin almacenamiento */ }
 }
 export function borrarRutinaAbierta() {
   try { localStorage.removeItem(CLAVE_ABIERTA); } catch (e) { /* nada */ }
+}
+// La rutina EMPEZADA hoy y sin terminar (ya marcó algo): aunque salga de ella
+// a otra sección, Hoy le ofrece «Continuar rutina». Se borra al terminarla.
+const CLAVE_EN_CURSO = 'mt:rutinaEnCurso';
+export function rutinaEnCurso() {
+  try {
+    const r = JSON.parse(localStorage.getItem(CLAVE_EN_CURSO) || 'null');
+    return r && r.id && r.fecha === hoyLocal() ? r : null;
+  } catch (e) { return null; }
+}
+export function guardarRutinaEnCurso(r) {
+  try { localStorage.setItem(CLAVE_EN_CURSO, JSON.stringify({ ...r, t: Date.now() })); } catch (e) { /* sin almacenamiento */ }
+}
+export function borrarRutinaEnCurso() {
+  try { localStorage.removeItem(CLAVE_EN_CURSO); } catch (e) { /* nada */ }
 }
 // Lo tecleado sin marcar, por serie: { "reId:n": { reps, peso } }.
 const claveTecleado = (clave) => `mt:tecleado:${clave}`;

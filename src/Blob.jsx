@@ -49,6 +49,28 @@ const rgba = (h, a) => { const n = parseInt(String(h).slice(1), 16); return `rgb
 export function BlobVidrio({ color, segundo = null, tam = 120, intensidad = 0.2, style }) {
   const id = 'bv' + useId().replace(/[^a-zA-Z0-9]/g, '');
   const k = tam / 200, A = intensidad;
+  // Vista en prueba: el mismo blob de Aprendizaje, tal cual. Blanco entero,
+  // la luz del color de la sección saliendo suave de la esquina de abajo a
+  // la derecha, un toque del segundo color abajo a la izquierda y la sombra
+  // corta de su color. Sin más capas: así se ve igual de sutil en todas.
+  if (enPrueba()) return (
+    <svg data-blob data-vidrio width={tam} height={tam} viewBox="0 0 200 200" aria-hidden="true" style={{
+      display: 'block', overflow: 'visible', position: 'relative', transform: `rotate(${BLOB_GIRO}deg)`,
+      filter: `drop-shadow(0 14px 22px ${rgba(color, 0.16)}) drop-shadow(0 2px 4px rgba(30,30,40,.06))`, ...style,
+    }}>
+      <defs>
+        <radialGradient id={`${id}m`} cx="76%" cy="88%" r="70%">
+          <stop offset="0" stopColor={rgba(color, 0.2)} /><stop offset=".45" stopColor={rgba(color, 0.07)} /><stop offset=".72" stopColor={rgba(color, 0)} />
+        </radialGradient>
+        <radialGradient id={`${id}s`} cx="14%" cy="96%" r="48%">
+          <stop offset="0" stopColor={rgba(segundo || '#3C7BD6', 0.12)} /><stop offset=".7" stopColor={rgba(segundo || '#3C7BD6', 0)} />
+        </radialGradient>
+      </defs>
+      <path d={BLOB_PATH} fill="#FFFFFF" />
+      <path d={BLOB_PATH} fill={`url(#${id}m)`} />
+      <path d={BLOB_PATH} fill={`url(#${id}s)`} />
+    </svg>
+  );
   return (
     <>
       <div aria-hidden="true" data-blob-vidrio style={{
@@ -67,15 +89,6 @@ export function BlobVidrio({ color, segundo = null, tam = 120, intensidad = 0.2,
           <radialGradient id={`${id}m`} cx="76%" cy="88%" r="70%">
             <stop offset="0" stopColor={rgba(color, A)} /><stop offset=".45" stopColor={rgba(color, A * 0.35)} /><stop offset="1" stopColor={rgba(color, 0)} />
           </radialGradient>
-          {/* Vista en prueba: dos brillos suaves en las esquinas de abajo (como
-              el blob de Aprendizaje): el color de la sección a la derecha y el
-              segundo color a la izquierda. */}
-          {enPrueba() && <radialGradient id={`${id}e1`} cx="88%" cy="90%" r="42%">
-            <stop offset="0" stopColor={rgba(color, 0.3)} /><stop offset="1" stopColor={rgba(color, 0)} />
-          </radialGradient>}
-          {enPrueba() && <radialGradient id={`${id}e2`} cx="10%" cy="92%" r="40%">
-            <stop offset="0" stopColor={rgba(segundo || '#3C7BD6', 0.22)} /><stop offset="1" stopColor={rgba(segundo || '#3C7BD6', 0)} />
-          </radialGradient>}
           {segundo && <radialGradient id={`${id}s`} cx="14%" cy="96%" r="48%">
             <stop offset="0" stopColor={rgba(segundo, A * 0.6)} /><stop offset="1" stopColor={rgba(segundo, 0)} />
           </radialGradient>}
@@ -94,8 +107,6 @@ export function BlobVidrio({ color, segundo = null, tam = 120, intensidad = 0.2,
         <path d={BLOB_PATH} fill={`url(#${id}b)`} filter={`url(#${id}f)`} />
         <path d={BLOB_PATH} fill={`url(#${id}m)`} />
         {segundo && <path d={BLOB_PATH} fill={`url(#${id}s)`} />}
-        {enPrueba() && <path d={BLOB_PATH} fill={`url(#${id}e1)`} />}
-        {enPrueba() && <path d={BLOB_PATH} fill={`url(#${id}e2)`} />}
         <path d={BLOB_PATH} fill={`url(#${id}h)`} transform="translate(100 100) scale(.94) translate(-100 -100)" />
       </svg>
     </>

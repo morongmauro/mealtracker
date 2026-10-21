@@ -23,7 +23,7 @@ const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { BarraCompacta, HojaMas, gruposMas } from './VistaCompacta.jsx';
-import { useVistaCompacta, useModoVista, puedeCompacta, guardarVista, adoptarVistaNube, leerVista, fondoBlanco } from './vistaApp.js';
+import { useVistaCompacta, useModoVista, puedeCompacta, guardarVista, adoptarVistaNube, leerVista, fondoBlanco, enPrueba } from './vistaApp.js';
 import DiaComidas from './DiaComidas.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { CapaActiva } from './capaActiva.js';
@@ -2172,7 +2172,7 @@ export default function MealTracker() {
         // la barra de navegación.
         inputBarRef.current.style.paddingBottom = (kbOpen || escribiendoRef.current)
           ? '52px'
-          : 'calc(90px + env(safe-area-inset-bottom, 0px))';
+          : (enPrueba() ? 'calc(106px + env(safe-area-inset-bottom, 0px))' : 'calc(90px + env(safe-area-inset-bottom, 0px))');
       }
       if (navBarRef.current) {
         navBarRef.current.style.transform = '';
@@ -6209,7 +6209,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                       campanita, escribirle al coach y las opciones. */}
                   <BotonCristal tono={TONO_ATAJOS.comida} icono={BellV2} color="#C95F17" rotulo="Avisos" badge={coachReminders.filter(r => !r.done_at).length}
                     onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</BotonCristal>
-                  {WHATSAPP_COACH && <BotonCristal tono={TONO_ATAJOS.comida} icono={ChatV2} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
+                  {WHATSAPP_COACH && <BotonCristal tono={TONO_ATAJOS.comida} icono={enPrueba() ? WhatsappV2 : ChatV2} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
                   <BotonCristal tono={TONO_ATAJOS.comida} icono={OpcionesV2} color={SECCION.comida.base}
                     onClick={() => { haptic(8); openActionsSheet(); }}>Opciones</BotonCristal>
                 </FilaCristal>

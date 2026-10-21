@@ -315,7 +315,7 @@ function MesClasico({ nombre, alEntrenar }) {
         porFecha={porFecha}
         puedeMover={puedeMover(diaAbierto)}
         alCerrar={() => setAbierto(null)}
-        alEntrenar={(id) => { setAbierto(null); alEntrenar(id); }}
+        alEntrenar={(id, plan) => { setAbierto(null); alEntrenar(id, plan); }}
         alRegistrar={(fecha) => { setAbierto(null); setRegistrando(fecha); }}
         alMover={(hasta) => moverRutina(abierto, hasta)}
         alCambio={() => cargar(ym)}
@@ -489,7 +489,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
       {v2 && <AvisosDia dia={dia} fase={fase} P={P} />}
 
       {dia.rutina ? (
-        <Card onClick={() => alEntrenar(dia.rutina.id)} style={{ padding: 15 }}>
+        <Card onClick={() => alEntrenar(dia.rutina.id, !dia.extra && dia.estado !== 'completada' ? dia.fecha : null)} style={{ padding: 15 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 800, fontSize: v2 ? 17 : 15.5 }}>{dia.rutina.nombre}</div>
@@ -1196,7 +1196,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
               return <FilaDiaV2 key={f} fecha={f} etiqueta={DIAS_V2[i]} dia={d} P={P} hoy={hoy} fase={fase}
                 sobre={arrastre && arrastre.sobre === f && arrastre.desde !== f} origen={arrastre && arrastre.desde === f}
                 arrastrable={arrastrable(d)}
-                alEntrenar={(id) => tocar(() => alEntrenar(id))} alEvento={(ev) => abrirEvento(ev, f)} />;
+                alEntrenar={(id, plan) => tocar(() => alEntrenar(id, plan))} alEvento={(ev) => abrirEvento(ev, f)} />;
             })}
           </div>
         </>
@@ -1318,7 +1318,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
         alAgregarRutina={abierto && puedeAgregar(porFecha[abierto]) ? () => setEligiendo(abierto) : null}
         alQuitarRutina={abierto && porFecha[abierto]?.extra ? () => quitarRutina(abierto) : null}
         alCerrar={() => setAbierto(null)}
-        alEntrenar={(id) => { setAbierto(null); alEntrenar(id); }}
+        alEntrenar={(id, plan) => { setAbierto(null); alEntrenar(id, plan); }}
         alRegistrar={(fecha) => { setAbierto(null); setRegistrando(fecha); }}
         alMover={(hasta) => moverRutina(abierto, hasta)}
         alCambio={() => recargar([abierto])}
@@ -1566,7 +1566,7 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
         {dia?.fin_ciclo && <Etiqueta Icono={FlagCheckered} color={P.ink} fondo={P.tint}>Último día de tu ciclo</Etiqueta>}
         {dia?.rutina && (
           <ChipRutina grande nombre={`${corto(dia.rutina)}${dia.extra ? ' · añadida' : ''}`} hecha={dia.estado === 'completada'} movida={dia.movida || dia.extra} P={P} arrastre={arrastrable}
-            alTocar={directo(alEntrenar && (() => alEntrenar(dia.rutina.id)))} />
+            alTocar={directo(alEntrenar && (() => alEntrenar(dia.rutina.id, !dia.extra && dia.estado !== 'completada' ? fecha : null)))} />
         )}
         {dia?.hecho && <ChipRutina grande nombre={`${corto(dia.hecho)}${dia.rutina ? ' (en su lugar)' : ''}`} hecha P={P}
           alTocar={directo(alEntrenar && dia.hecho.id && (() => alEntrenar(dia.hecho.id)))} />}

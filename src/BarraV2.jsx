@@ -11,14 +11,14 @@
 // separa la barra del contenido; no hace falta sombra pesada.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour, Compass, Avocado, Brain } from '@phosphor-icons/react';
+import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour, Compass, Brain } from '@phosphor-icons/react';
 import { SECCION, DASH_AZUL } from './theme.js';
 import { enPrueba } from './vistaApp.js';
 
 export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: ForkKnife, aprende: GraduationCap };
 // Vista en prueba: los mismos íconos que van dentro del blob de cada cabecera
-// (brújula, mancuerna, aguacate y mente): un solo idioma en toda la app.
-const ICONO_PRUEBA = { dash: Compass, entreno: Barbell, comida: Avocado, aprende: Brain };
+// (brújula, mancuerna, cubiertos y mente): un solo idioma en toda la app.
+const ICONO_PRUEBA = { dash: Compass, entreno: Barbell, comida: ForkKnife, aprende: Brain };
 export const NOMBRE_SECCION = { dash: 'Dash', entreno: 'Entrenamiento', comida: 'Alimentación', aprende: 'Aprendizaje' };
 
 // ¿Sin movimiento? (ajuste del teléfono): el cambio es directo, sin viaje.
@@ -90,12 +90,20 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
   // Cuatro opciones con texto (Aprendizaje): todavía más compacta y sin el
   // ícono de la sección, para que quepan enteras en un teléfono de 375 px.
   const muyApretada = subsAbiertas.filter(x => x.label).length >= 4;
+  // Vista en prueba: la barra flota más separada de los bordes del teléfono
+  // y es un poco más alta; detrás, lo que pasa se desvanece hacia blanco
+  // para que el texto de abajo nunca se mezcle con el de la barra.
+  const P = enPrueba();
   return (
     <div ref={barRef} className="fixed left-0 right-0 bottom-0" style={{
       zIndex: 45, pointerEvents: 'none',
-      padding: '0 10px calc(10px + env(safe-area-inset-bottom, 0px))',
+      padding: P ? '0 18px calc(14px + env(safe-area-inset-bottom, 0px))' : '0 10px calc(10px + env(safe-area-inset-bottom, 0px))',
       display: oculta ? 'none' : 'block',
     }}>
+      {P && <div aria-hidden="true" data-velo-barra style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 34px)', pointerEvents: 'none',
+        background: 'linear-gradient(0deg, rgba(252,252,253,0.96) 0%, rgba(252,252,253,0.9) 45%, rgba(252,252,253,0) 100%)',
+      }} />}
       <style>{`
         .bv2-cristal {
           /* Lo de atrás se adivina, pero no compite con la letra de la barra:
@@ -118,7 +126,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
       `}</style>
       <nav ref={navRef} aria-label="Secciones" className="bv2-cristal" style={{
         pointerEvents: 'auto', maxWidth: 460, margin: '0 auto', borderRadius: 999, position: 'relative',
-        display: 'flex', alignItems: 'center', gap: 4, padding: 5, transformOrigin: '50% 100%',
+        display: 'flex', alignItems: 'center', gap: 4, padding: P ? 6 : 5, transformOrigin: '50% 100%',
       }}>
         {secciones.map(s => {
           // El Dash en la barra va en azul, como su cabecera (el amarillo
@@ -134,7 +142,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                   // Se encogen antes que el grupo abierto: en un teléfono
                   // angosto ceden espacio a las opciones, que son las que
                   // tienen texto.
-                  flex: muyApretada ? '1 1 34px' : apretada ? '1 1 38px' : '1 1 42px', minWidth: muyApretada ? 34 : apretada ? 36 : 40, height: 48, borderRadius: 999, border: 'none',
+                  flex: muyApretada ? '1 1 34px' : apretada ? '1 1 38px' : '1 1 42px', minWidth: muyApretada ? 34 : apretada ? 36 : 40, height: P ? 54 : 48, borderRadius: 999, border: 'none',
                   background: 'transparent', color: '#6A6860', position: 'relative',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   gap: 1, cursor: 'pointer', padding: 0, fontFamily: 'inherit',
@@ -166,13 +174,13 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
             <div key={s.id} ref={grupoRef} className="bv2-grupo" role="group" aria-label={NOMBRE_SECCION[s.id]}
               style={{
                 flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 2,
-                background: c.tint, borderRadius: 999, padding: 4, overflowX: 'auto',
+                background: c.tint, borderRadius: 999, padding: P ? 5 : 4, overflowX: 'auto',
               }}>
               {/* El ícono de la sección se queda a la vista con sus opciones
                   abiertas: se sabe en qué parte de la app se está. */}
               {(!sinSubs || comoLasDemas) && !muyApretada && (
                 <span aria-hidden="true" data-icono-seccion={s.id} style={{
-                  flex: 'none', display: 'grid', placeItems: 'center', width: 22, height: 38, marginLeft: 3, color: c.ink,
+                  flex: 'none', display: 'grid', placeItems: 'center', width: 22, height: P ? 44 : 38, marginLeft: 3, color: c.ink,
                 }}><Icono size={20} weight="fill" /></span>
               )}
               {subs.map(o => {
@@ -184,7 +192,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                     aria-current={activo ? 'page' : undefined}
                     aria-label={o.aria || o.label}
                     style={{
-                      flex: 'none', height: 38, borderRadius: 999, border: 'none', cursor: 'pointer',
+                      flex: 'none', height: P ? 44 : 38, borderRadius: 999, border: 'none', cursor: 'pointer',
                       padding: SubIcono && !o.label ? '0 9px' : SubIcono ? '0 12px 0 10px' : muyApretada ? '0 6px' : apretada ? '0 7px' : '0 9px',
                       // La activa es una pastilla de cristal blanco con la letra
                       // en el color de la sección: se distingue sin gritar.

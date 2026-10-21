@@ -27,12 +27,12 @@ import Blob, { BlobVidrio } from './Blob.jsx';
 import { blobVidrio, fondoBlanco, enPrueba, COLORES_MODULO, aclarar } from './vistaApp.js';
 import NumeroHeroe from './NumeroHeroe.jsx';
 import { CapaActiva, useCapaActiva } from './capaActiva.js';
-import { Compass, Barbell, Avocado, Brain } from '@phosphor-icons/react';
+import { Compass, Barbell, ForkKnife, Brain } from '@phosphor-icons/react';
 
 // Vista en prueba (A3 + S2): dentro del blob, la cifra grande en grafito y,
 // arriba, chico y sólido, el ícono de la sección (brújula, mancuerna,
-// aguacate, mente) en vez del objeto 3D.
-const ICONO_BLOB = { dash: Compass, entreno: Barbell, comida: Avocado, aprende: Brain };
+// cubiertos, mente) en vez del objeto 3D.
+const ICONO_BLOB = { dash: Compass, entreno: Barbell, comida: ForkKnife, aprende: Brain };
 
 // El aro de la gráfica más importante de cada sección, en su color.
 const COLOR_ARO = { dash: '#3C7BD6', entreno: '#5F6670', comida: '#46965A', aprende: '#EE8434' };
@@ -193,7 +193,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       // queda debajo del blob, en gris. Va arriba de la fila (no centrado con
       // la frase): así queda siempre en el mismo sitio, cruzando un poco la
       // banda de arriba, tenga la frase dos líneas o cuatro.
-      <div data-vez={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', alignSelf: 'flex-start', width: 138, marginTop: -18, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none' }}>
+      <div data-vez={vez} aria-hidden={aro.alTocar ? undefined : 'true'} data-ilus-cabecera={tema} data-aro-grande style={{ flex: 'none', alignSelf: 'flex-start', width: 138, marginTop: prueba ? -34 : -18, marginRight: `calc(15px - ${sangria})`, pointerEvents: 'none' }}>
         {/* Con `alTocar`, la gráfica es un botón: abre qué la compone. */}
         <div className="cab-ilus" data-aro-cabecera={tema} data-aro-tocar={aro.alTocar ? '1' : undefined}
           role={aro.alTocar ? 'button' : undefined} tabIndex={aro.alTocar ? 0 : undefined} aria-label={aro.alTocar ? `${aro.pie}: ${aro.centro}. Ver cómo se calcula` : undefined}
@@ -263,7 +263,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       </div>
       {/* La banda delgada: solo detrás de la barra de arriba, borde curvo. */}
       {t.banda && <div aria-hidden="true" data-banda style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: `calc(${arriba} + 14px)`, pointerEvents: 'none',
+        '--banda-tope': t.banda[0], position: 'absolute', top: 0, left: 0, right: 0, height: `calc(${arriba} + 14px)`, pointerEvents: 'none',
         background: `linear-gradient(180deg, ${t.banda[0]} 0%, ${t.banda[1]} 100%)`,
         WebkitMaskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
         maskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',

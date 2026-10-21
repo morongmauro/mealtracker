@@ -418,7 +418,7 @@ try {
     const cab = async (n) => { await espera(2600); await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-${n}.png`), clip: { x: 0, y: 0, width: 390, height: 420 } });
       // VISTA_MEDIR=1: la franja curva de cada sección (alto, ancho, dónde) y la barra de abajo.
       if (process.env.VISTA_MEDIR) {
-        const m = await pv.p.evaluate(() => { return [...document.querySelectorAll('[data-banda]')].map(b => { const r = b.getBoundingClientRect(), cab = b.closest('[data-cabecera-hoy]'), cr = cab.getBoundingClientRect(); return { tema: cab.dataset.cabeceraHoy, top: Math.round(r.top), alto: Math.round(r.height), ancho: Math.round(r.width), cabTop: Math.round(cr.top), vis: b.checkVisibility({ opacityProperty: true, visibilityProperty: true }) }; }); });
+        const m = await pv.p.evaluate(() => { return [...document.querySelectorAll('[data-banda]')].map(b => { const r = b.getBoundingClientRect(), cab = b.closest('[data-cabecera-hoy]'), cr = cab.getBoundingClientRect(); return { tema: cab.dataset.cabeceraHoy, top: Math.round(r.top), alto: Math.round(r.height), ancho: Math.round(r.width), cabTop: Math.round(cr.top), vis: b.checkVisibility({ opacityProperty: true, visibilityProperty: true }), blobTop: (() => { const x = cab.querySelector('[data-blob-cabecera]'); return x ? Math.round(x.getBoundingClientRect().top) : null; })() }; }); });
         console.log('banda', n, JSON.stringify(m));
         await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-barra-${n}.png`), clip: { x: 0, y: 844 - 110, width: 390, height: 110 } });
       } };
@@ -432,6 +432,33 @@ try {
       await pv.p.locator('nav [data-seccion-boton="entreno"]').click().catch(() => {}); await espera(1500);
       await pv.p.evaluate(() => document.querySelector('nav [data-seccion-boton="dash"]').click());
       for (let i = 0; i < 10; i++) { await pv.p.screenshot({ path: path.join(CAPTURAS, `tira-${i}.png`), clip: { x: 0, y: 0, width: 390, height: 844 } }); }
+    }
+    // VISTA_LENTO=1: el cambio de sección a cámara lenta (x0,05), fotos seguidas.
+    if (process.env.VISTA_LENTO) {
+      const cdp = await pv.ctx.newCDPSession(pv.p); await cdp.send('Animation.enable');
+      for (const [de, a] of JSON.parse(process.env.VISTA_LENTO_PASOS || '[["dash","entreno"],["entreno","comida"],["comida","dash"]]')) {
+        await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
+        await pv.p.evaluate((de) => document.querySelector(`nav [data-seccion-boton="${de}"]`)?.click(), de); await espera(1800);
+        await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.05 });
+        await pv.p.evaluate((a) => document.querySelector(`nav [data-seccion-boton="${a}"]`).click(), a);
+        for (let i = 0; i < 8; i++) { await pv.p.screenshot({ path: path.join(CAPTURAS, `lento-${de}-${a}-${i}.png`), clip: { x: 0, y: 0, width: 390, height: 844 } }); await espera(450); }
+      }
+      await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
+    }
+    // VISTA_CINE=1: cada cuadro pintado (tiempo real) al cambiar de sección.
+    if (process.env.VISTA_CINE) {
+      const cdp = await pv.ctx.newCDPSession(pv.p);
+      for (const [de, a] of JSON.parse(process.env.VISTA_LENTO_PASOS || '[["dash","entreno"],["entreno","comida"],["comida","dash"]]')) {
+        await pv.p.evaluate((de) => document.querySelector(`nav [data-seccion-boton="${de}"]`)?.click(), de); await espera(1800);
+        let n = 0; const t0 = Date.now();
+        const h = async (f) => { const i = n++; if (i < 40) fs.writeFileSync(path.join(CAPTURAS, `cine-${de}-${a}-${String(i).padStart(2, '0')}-${Date.now() - t0}.jpg`), Buffer.from(f.data, 'base64')); await cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {}); };
+        cdp.on('Page.screencastFrame', h);
+        await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 60, everyNthFrame: 1 });
+        await espera(150);
+        await pv.p.evaluate((a) => document.querySelector(`nav [data-seccion-boton="${a}"]`).click(), a);
+        await espera(900);
+        await cdp.send('Page.stopScreencast'); cdp.off('Page.screencastFrame', h);
+      }
     }
     // VISTA_TRANS=1: qué se mueve, cuadro a cuadro, al cambiar de sección.
     if (process.env.VISTA_TRANS) {
@@ -2324,7 +2351,7 @@ try {
       const h = document.documentElement, pild = document.querySelector('[data-pildora-marca]'), banda = document.querySelector('[data-cabecera-hoy="dash"] [data-banda]');
       const vista = document.querySelector('[data-view="dash"]');
       return h.hasAttribute('data-vista-prueba') && h.hasAttribute('data-fondo-blanco') && !!pild && getComputedStyle(pild).display === 'none'
-        && banda.getBoundingClientRect().height <= 36 && /252, 252, 253/.test(getComputedStyle(vista).backgroundColor)
+        && banda.getBoundingClientRect().bottom <= 40 && /252, 252, 253/.test(getComputedStyle(vista).backgroundColor)
         && /radial-gradient/.test(getComputedStyle(vista).backgroundImage) && /60, 123, 214/.test(getComputedStyle(vista).backgroundImage);
     }));
     ok('vista en prueba (A3 + S2): la cifra grande en grafito dentro del blob con el ícono sólido chico (sin objeto 3D) y el pie bajo la frase', await p.evaluate(() => {
@@ -2345,16 +2372,25 @@ try {
       const ps = [...document.querySelectorAll('[data-view="dash"] [data-punta-blanca]')];
       return ps.length >= 2 && ps.every(c => { const t = c.previousElementSibling; const g = t ? parseFloat(t.getAttribute('r')) * 2 : 0; return !g || parseFloat(c.getAttribute('r')) >= g / 2 - 1.01; });
     }));
-    ok('vista en prueba: blob de vidrio blanco, girado 12°, con la mancha azul tenue, vidrio borroso detrás, sombra suave azul y riel azul suave', await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera]').evaluate(a => {
-      const an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob][data-vidrio]'), capa = a.querySelector('[data-blob-vidrio]');
-      if (!blob || !capa) return false;
+    ok('vista en prueba: el blob es el de Aprendizaje (blanco, girado 12°, la luz azul suave de la esquina y su sombra corta) y cruza un poco la franja', await p.locator('[data-cabecera-hoy="dash"]').evaluate(cab => {
+      const a = cab.querySelector('[data-aro-cabecera]'), an = a.querySelector('[data-anillo]'), blob = a.querySelector('svg[data-blob][data-vidrio]');
+      if (!blob) return false;
       const m = new DOMMatrix(getComputedStyle(blob).transform); const giro = Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI);
-      const mancha = [...blob.querySelectorAll('radialGradient stop')].some(x => /60, ?123, ?214/.test(x.getAttribute('stop-color') || ''));
-      const interno = !!blob.querySelector('filter feComposite[operator="out"]');
-      const vidrio = /blur/.test(getComputedStyle(capa).backdropFilter || getComputedStyle(capa).webkitBackdropFilter || '');
+      const blanco = [...blob.querySelectorAll('path')].some(x => x.getAttribute('fill') === '#FFFFFF');
+      const luz = [...blob.querySelectorAll('radialGradient stop')].some(x => /rgba\(60,123,214,0\.2\)/.test(x.getAttribute('stop-color') || ''));
       const sombra = /drop-shadow/.test(getComputedStyle(blob).filter) && getComputedStyle(blob).filter.includes('60, 123, 214');
       const riel = [...an.querySelectorAll('svg circle')].some(c => /rgba\(60, ?123, ?214, ?0\.13\)/.test(c.getAttribute('stroke') || ''));
-      return giro === -12 && mancha && interno && vidrio && sombra && riel;
+      const banda = cab.querySelector(':scope > [data-banda]').getBoundingClientRect(), caja = cab.querySelector('[data-blob-cabecera]').getBoundingClientRect();
+      return giro === -12 && blanco && luz && sombra && riel && !a.querySelector('[data-blob-vidrio]') && caja.top <= banda.bottom - 18 && caja.top > 0;
+    }));
+    ok('vista en prueba: barra de navegación flotando con margen a los lados, más alta, con lo de atrás desvanecido; Alimentación con cubiertos', await p.evaluate(() => {
+      const nav = document.querySelector('nav[aria-label="Secciones"]'), r = nav.getBoundingClientRect(), velo = document.querySelector('[data-velo-barra]');
+      const cub = document.querySelector('nav [data-seccion-boton="comida"] svg');
+      return r.left >= 16 && innerWidth - r.right >= 16 && r.height >= 64 && !!velo && velo.getBoundingClientRect().top < r.top - 20 && !!cub;
+    }));
+    ok('vista en prueba: el botón del coach lleva el logo de WhatsApp y no rebota la página arriba', await p.evaluate(() => {
+      const b = [...document.querySelectorAll('[data-view="dash"] [data-atajos] a[href*="wa.me"]')][0];
+      return !!b && getComputedStyle(document.querySelector('[data-view="dash"]')).overscrollBehaviorY === 'none' && getComputedStyle(document.documentElement).overscrollBehaviorY === 'none';
     }));
     ok('vista en prueba (A3): los atajos en una sola barrita de vidrio bajo la frase, a la izquierda, sin palabras (siguen todos)', await p.evaluate(() => {
       const f = document.querySelector('[data-view="dash"] [data-atajos]'), pie = document.querySelector('[data-numero-heroe="dash"] [data-numero-pie]');
@@ -2385,18 +2421,17 @@ try {
     await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
     ok('vista en prueba: la franja curva mide y está igual en Dash, Entreno y Alimentación', await p.evaluate(() => {
       const r = [...document.querySelectorAll('[data-cabecera-hoy] > [data-banda]')].map(b => { const x = b.getBoundingClientRect(); return [Math.round(x.top), Math.round(x.height), Math.round(x.width), getComputedStyle(b).webkitMaskImage]; });
-      return r.length >= 3 && r.every(x => JSON.stringify(x) === JSON.stringify(r[0])) && r[0][0] === 0;
+      // Arriba se alarga hacia fuera de la pantalla (con su color) por si el teléfono rebota.
+      return r.length >= 3 && r.every(x => JSON.stringify(x) === JSON.stringify(r[0])) && r[0][0] < 0 && r[0][0] + r[0][1] > 20 && r[0][0] + r[0][1] <= 40;
     }), await p.evaluate(() => JSON.stringify([...document.querySelectorAll('[data-cabecera-hoy] > [data-banda]')].map(b => [b.closest('[data-cabecera-hoy]').dataset.cabeceraHoy, Math.round(b.getBoundingClientRect().top), Math.round(b.getBoundingClientRect().height)]))));
-    ok('vista en prueba: al cambiar de sección la nueva se funde encima y la anterior se queda detrás hasta que termina (sin moverse)', await p.evaluate(async () => {
+    ok('vista en prueba: al cambiar de sección el cambio es directo (sin fundido: nunca se ven dos páginas mezcladas)', await p.evaluate(async () => {
       const ent = document.querySelector('[data-capa-v2][data-view="entrena"]'), dash = document.querySelector('[data-capa-v2][data-view="dash"]');
       [...document.querySelectorAll('nav [data-seccion-boton="dash"]')][0].click();
       await new Promise(r => setTimeout(r, 70));
-      const durante = { ent: parseFloat(getComputedStyle(ent).opacity), dash: parseFloat(getComputedStyle(dash).opacity), mueve: getComputedStyle(dash).transform };
-      await new Promise(r => setTimeout(r, 400));
-      const despues = { ent: getComputedStyle(ent).visibility, dash: parseFloat(getComputedStyle(dash).opacity) };
+      const durante = { ent: getComputedStyle(ent).visibility, dash: parseFloat(getComputedStyle(dash).opacity), mueve: getComputedStyle(dash).transform };
       [...document.querySelectorAll('nav [data-seccion-boton="entreno"]')][0].click();
       await new Promise(r => setTimeout(r, 500));
-      return durante.ent === 1 && durante.dash < 1 && (durante.mueve === 'none' || /matrix\(1, 0, 0, 1, 0, 0\)/.test(durante.mueve)) && despues.ent === 'hidden' && despues.dash === 1;
+      return durante.ent === 'hidden' && durante.dash === 1 && (durante.mueve === 'none' || /matrix\(1, 0, 0, 1, 0, 0\)/.test(durante.mueve));
     }));
     ok('vista en prueba: Entreno con la cifra en el blob y su mancuerna', (await p.locator('[data-cabecera-hoy="entreno"] [data-icono-blob="entreno"]').count()) === 1 && (await p.locator('[data-numero-heroe="entreno"]').count()) === 1);
     await foto(p, '40d-prueba-entreno');
@@ -2424,9 +2459,10 @@ try {
         && document.querySelectorAll('[data-ligera] [data-separador-series]').length >= 3
         && campo && getComputedStyle(campo).backgroundColor === 'rgb(242, 242, 244)';
     }));
-    ok('rutina (prueba): la barra de avance arriba del todo, de lado a lado, sin velo y con «Volver»', await p.evaluate(() => {
-      const bar = document.querySelector('[data-avance-rutina]'), r = bar && bar.getBoundingClientRect();
-      return !!bar && bar.dataset.discreta === '1' && Math.round(r.top) <= 1 && r.width >= innerWidth - 2 && !document.querySelector('[data-velo-avance]')
+    ok('rutina (prueba): la barra de avance es una píldora arriba (sin llegar a los bordes), con el desvanecido detrás y «Volver»', await p.evaluate(() => {
+      const bar = document.querySelector('[data-avance-rutina]'), r = bar && bar.getBoundingClientRect(), velo = document.querySelector('[data-velo-arriba]');
+      return !!bar && bar.dataset.discreta === '1' && r.top >= 2 && r.top <= 14 && r.left >= 12 && r.right <= innerWidth - 12 && parseFloat(getComputedStyle(bar).borderTopLeftRadius) >= 20
+        && !!velo && velo.getBoundingClientRect().bottom > r.bottom && !document.querySelector('[data-velo-avance]')
         && /^Volver$/.test(bar.querySelector('[data-volver-semana]').textContent.trim());
     }), await p.evaluate(() => JSON.stringify(document.querySelector('[data-avance-rutina]')?.getBoundingClientRect())));
     ok('rutina (prueba): AHORA va en orden: sin nada marcado, está en el primer ejercicio de la rutina (calentamiento incluido) y se mueve en su cuadrito', await p.evaluate(() => {
@@ -2455,6 +2491,26 @@ try {
     await banca.getByRole('button', { name: 'Marcar serie 3' }).click(); await espera(1000);
     ok('rutina ligera: al terminar un ejercicio, la pantalla baja sola al siguiente', await p.evaluate(() => window.__bajo.length === 1 && window.__bajo[0] === 're-e4'),
       JSON.stringify(await p.evaluate(() => window.__bajo)));
+    await p.locator('[data-volver-semana]').click(); await espera(1200);
+    ok('Hoy (prueba): la rutina empezada y sin terminar sale arriba con «Continuar»', /RUTINA A MEDIAS/.test(await p.locator('[data-continuar-rutina]').innerText().catch(() => '')));
+    await foto(p, '40f-prueba-continuar');
+    await p.locator('[data-continuar-rutina]').click(); await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(500);
+    ok('…«Continuar» vuelve a la rutina con lo marcado', (await banca.getByRole('button', { name: 'Deshacer serie 1' }).count()) === 1);
+    ok('rutina (prueba): la del lunes ya estaba hecha, así que no pregunta si se pasa a hoy', (await p.locator('[data-pregunta-mover]').count()) === 0);
+    // La del miércoles (sin hacer), abierta hoy martes: al marcar lo primero pregunta si se pasa a hoy.
+    await p.locator('[data-volver-semana]').click(); await espera(1200);
+    await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${sumarDiasISO(lunes, 2)}"] [data-chip]`).first().click(); await espera(1500);
+    const sent = p.locator('[data-ejercicio="Barbell Back Squat"]');
+    await sent.getByLabel('Repeticiones serie 1').fill('6');
+    await sent.getByRole('button', { name: 'Marcar serie 1' }).click();
+    await p.locator('[data-pregunta-mover]').waitFor({ timeout: 4000 }).catch(() => {});
+    const txtMover = await p.locator('[data-pregunta-mover]').innerText().catch(() => '');
+    ok('rutina (prueba): abierta desde otro día sin hacer, al marcar la primera serie pregunta si se pasa a hoy', /estaba para el miércoles \d+/.test(txtMover) && (await p.locator('[data-pasar-hoy]').count()) === 1, txtMover);
+    await foto(p, '40g-prueba-pasar-hoy');
+    await p.getByRole('button', { name: /^Dejarla el miércoles/ }).click().catch(() => {}); await espera(300);
+    await sent.getByLabel('Repeticiones serie 2').fill('6');
+    await sent.getByRole('button', { name: 'Marcar serie 2' }).click(); await espera(400);
+    ok('…pregunta una sola vez', (await p.locator('[data-pregunta-mover]').count()) === 0);
     ok('sin errores de JavaScript (vista en prueba)', vp.errores.length === 0, vp.errores.join(' | '));
     await vp.ctx.close();
   }

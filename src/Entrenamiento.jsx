@@ -9,7 +9,7 @@ import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria, { precargarGaleria } from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, fijarClaveTecleado, borrarTecleado, leerTecleado } from './entrenoDatos.js';
+import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, rutinaEnCurso, guardarRutinaEnCurso, borrarRutinaEnCurso, fechaLarga, codigoDia, fijarClaveTecleado, borrarTecleado, leerTecleado } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { enVerComo } from './verComo.js';
@@ -42,7 +42,7 @@ export function aroEntreno(plan) {
 }
 
 // El acento del módulo sale de entrenoUI: oliva de siempre, azul en la visual nueva.
-import { ACCENT, ACCENT_DARK, ACCENT_PASTEL, SUCCESS } from './entrenoUI.jsx';
+import { ACCENT, ACCENT_DARK, ACCENT_PASTEL, SUCCESS, Hoja, Boton } from './entrenoUI.jsx';
 
 // ─────────────────────────────────────────────────────────────────────────
 // MÓDULO DE ENTRENAMIENTO
@@ -70,6 +70,8 @@ const FADE_TOP = 46;
 const FADE_BOTTOM = 96;
 const CODIGO_DE = (ymd) => { const [y, m, d] = ymd.split('-').map(Number); return 'DLMXJVS'[new Date(y, m - 1, d).getDay()]; };
 const DIAS_LARGO = { L: 'Lunes', M: 'Martes', X: 'Miércoles', J: 'Jueves', V: 'Viernes', S: 'Sábado', D: 'Domingo' };
+// «jueves 23»: el día de una fecha del calendario, dicho corto.
+const diaDe = (iso) => `${DIAS_LARGO[codigoDia(iso)].toLowerCase()} ${Number(String(iso).slice(8))}`;
 
 // Nunca lanza: sin red devuelve { ok:false } y la pantalla lo dice. Antes un
 // fallo de red dejaba la rutina con el spinner girando para siempre.
@@ -217,6 +219,9 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   // La rutina que quedó abierta (si la página se recargó o la app se cerró a
   // mitad del entreno) se vuelve a abrir sola.
   const [rutinaId, setRutinaId] = useState(() => (rutinaAbierta() || {}).id || null);
+  // De qué día del calendario se abrió (si era otro día y no se movió).
+  const [rutinaPlan, setRutinaPlan] = useState(() => (rutinaAbierta() || {}).planeada || null);
+  const abrirRutina = useCallback((id, planeada = null) => { setRutinaPlan(planeada || null); setRutinaId(id); }, []);
   const [seccionPropia, setSeccionPropia] = useState('hoy');
   const seccion = seccionV2 || seccionPropia;
   const setSeccion = seccionV2 ? (alSeccionV2 || (() => {})) : setSeccionPropia;
@@ -265,7 +270,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     return (
       <Envoltorio>
         <VistaRutina
-          name={name} rutinaId={rutinaId} plan={plan} compacta={compacta}
+          name={name} rutinaId={rutinaId} plan={plan} compacta={compacta} planeada={rutinaPlan}
           onVolver={() => { setRutinaId(null); borrarRutinaAbierta(); cargarPlan(); }}
         />
       </Envoltorio>
@@ -288,9 +293,9 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         {/* Vista compacta: título y Hoy | Calendario, sin cabecera grande. */}
         {compacta && seccion === 'mes' ? <CabezaCompacta titulo="Entrenamiento" opciones={OPCIONES_COMPACTA} activa={seccion} alElegir={setSeccion} />
           : seccionV2 && VOZ_SECCION[seccion] && <CabeceraHoy tema="entreno" fondo={false} voz={VOZ_SECCION[seccion]} />}
-        {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={setRutinaId}
+        {seccion === 'mes' && <EntrenoMes nombre={name} alEntrenar={abrirRutina}
           ejerciciosDe={Object.fromEntries((plan?.dias || []).flatMap(d => [...(d.rutina ? [[d.rutina.id, d.rutina.ejercicios]] : []), ...(d.complementarias || []).map(c => [c.id, c.ejercicios])]))} />}
-        {seccion === 'rutinas' && <EntrenoRutinas nombre={name} alEntrenar={setRutinaId} />}
+        {seccion === 'rutinas' && <EntrenoRutinas nombre={name} alEntrenar={abrirRutina} />}
         {seccion === 'resumen' && <EntrenoResumen nombre={name} />}
         {seccion === 'fotos' && <EntrenoFotos name={name} />}
         {seccion === 'galeria' && <EntrenoGaleria nombre={name} />}
@@ -335,13 +340,14 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         // y añadir actividad) y, debajo, la semana con el detalle de cada
         // día. El Calendario queda para el mes: no se repite lo mismo.
         <>
-          <HoySemana nombre={name} alEntrenar={setRutinaId}
+          {enPrueba() && <ContinuarRutina plan={plan} alAbrir={abrirRutina} />}
+          <HoySemana nombre={name} alEntrenar={abrirRutina}
             ejerciciosDe={Object.fromEntries((plan.dias || []).flatMap(d => [...(d.rutina ? [[d.rutina.id, d.rutina.ejercicios]] : []), ...(d.complementarias || []).map(c => [c.id, c.ejercicios])]))} />
-          <Sueltas plan={plan} onAbrir={setRutinaId} />
+          <Sueltas plan={plan} onAbrir={abrirRutina} />
         </>
       ) : (
         <>
-          <VistaSemana plan={plan} onAbrir={setRutinaId} />
+          <VistaSemana plan={plan} onAbrir={abrirRutina} />
           <BloqueActividad name={name} />
         </>
       )}
@@ -367,6 +373,33 @@ function CabeceraFase({ fase: f, v2 = false }) {
       <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em', textTransform: 'uppercase', lineHeight: 1, color: TEXT }}>{f.nombre}</div>
       {f.objetivo && <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 5 }}>{f.objetivo}</div>}
     </div>
+  );
+}
+
+// Vista en prueba: la rutina empezada hoy y sin terminar (salió a otra
+// sección o volvió a su semana): arriba de Hoy, un toque para seguir donde iba.
+function ContinuarRutina({ plan, alAbrir }) {
+  const r = rutinaEnCurso();
+  if (!r) return null;
+  const dias = (plan && plan.dias) || [];
+  const hecha = dias.some(d => d.es_hoy && d.rutina && d.rutina.id === r.id && d.estado === 'completada');
+  if (hecha) return null;
+  let desde = null;
+  try { desde = Number(localStorage.getItem(`mt:inicioEntreno:${r.id}:${r.fecha}`)) || null; } catch (e) { /* nada */ }
+  const hora = desde ? new Date(desde).toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit' }) : null;
+  return (
+    <button data-continuar-rutina onClick={() => alAbrir(r.id)} style={{
+      display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', margin: '0 0 14px', padding: '14px 14px 14px 18px',
+      border: 'none', borderRadius: 24, background: '#FFFFFF', cursor: 'pointer', fontFamily: 'inherit',
+      boxShadow: '0 1px 2px rgba(20,20,30,0.04), 0 8px 22px rgba(20,30,60,0.08)',
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '.08em', color: '#EE8434' }}>RUTINA A MEDIAS</div>
+        <div style={{ fontSize: 17, fontWeight: 800, color: TEXT, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.nombre || 'Tu rutina de hoy'}</div>
+        {hora && <div style={{ fontSize: 13, color: '#6E6E73', fontWeight: 600, marginTop: 2 }}>Empezaste a las {hora}. Lo marcado sigue guardado.</div>}
+      </div>
+      <span style={{ flex: 'none', height: 40, padding: '0 16px', display: 'inline-flex', alignItems: 'center', borderRadius: 999, background: TEXT, color: '#fff', fontSize: 14, fontWeight: 700 }}>Continuar</span>
+    </button>
   );
 }
 
@@ -617,7 +650,7 @@ function FilaDia({ d, onAbrir }) {
 }
 
 // ── UNA RUTINA, Y SU EJECUCIÓN ────────────────────────────────────────────
-function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }) {
+function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, planeada = null }) {
   // Vista en prueba (solo Mauro): barra de avance discreta y velo debajo.
   const prueba = enPrueba();
   // Se abre AL INSTANTE con la copia guardada en el teléfono (la precarga deja
@@ -691,10 +724,30 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
   // tecleado en su primer pintado, antes de que corra cualquier efecto.
   fijarClaveTecleado(`${rutinaId}:${fecha}`);
   useEffect(() => {
-    guardarRutinaAbierta(rutinaId, fecha);
+    guardarRutinaAbierta(rutinaId, fecha, planeada);
     fijarClaveTecleado(`${rutinaId}:${fecha}`);
     return () => fijarClaveTecleado(null);
-  }, [rutinaId, fecha]);
+  }, [rutinaId, fecha, planeada]);
+  // Vista en prueba: abierta desde OTRO día del calendario (sin moverla), al
+  // marcar lo primero se pregunta si se pasa a hoy. Una vez por rutina y día.
+  const [preguntaMover, setPreguntaMover] = useState(false);
+  const [movida, setMovida] = useState(null);       // { ok, texto } tras responder
+  const claveMover = `mt:preguntoMover:${rutinaId}:${fecha}`;
+  const alEmpezar = useCallback(() => {
+    if (!enPrueba()) return;
+    guardarRutinaEnCurso({ id: rutinaId, fecha, nombre: (datos && datos.nombre) || '' });
+    if (!planeada || planeada === fecha) return;
+    try { if (localStorage.getItem(claveMover)) return; localStorage.setItem(claveMover, '1'); } catch (e) { /* sin almacenamiento */ }
+    setPreguntaMover(true);
+  }, [rutinaId, fecha, planeada, datos, claveMover]);
+  const pasarAHoy = async () => {
+    setPreguntaMover(false);
+    const r = await entrenoApi.mover(name, { desde: planeada, hasta: fecha, rutina_id: rutinaId }).catch(() => null);
+    setMovida(r && r.ok
+      ? { ok: true, texto: r.intercambio ? `Listo: quedó hoy, y ${r.intercambio.nombre} pasó al ${diaDe(planeada)}.` : 'Listo: quedó hoy en tu calendario.' }
+      : { ok: false, texto: r && r.motivo === 'semana_pasada' ? 'Ese día ya es de otra semana: queda como entreno de hoy.' : 'No se pudo mover ahora. Lo que marques queda guardado igual.' });
+    setTimeout(() => setMovida(null), 4200);
+  };
   // Visual nueva: cuándo arrancó el entreno (la primera serie marcada), para
   // el reloj de la sesión. Se recuerda en el teléfono por si cierra y vuelve.
   const claveInicio = `mt:inicioEntreno:${rutinaId}:${fecha}`;
@@ -881,9 +934,10 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
   // ejercicio por tiempo). Se recuerda en el teléfono por si cierra y vuelve.
   const arrancarReloj = useCallback(() => {
     if (inicio || !v2Activa()) return;
+    alEmpezar();
     const t = Date.now(); setInicio(t); vibrar([16, 40, 16]);
     try { localStorage.setItem(claveInicio, String(t)); } catch (e) { /* sin almacenamiento: el reloj vive mientras esté abierta */ }
-  }, [inicio, claveInicio]);
+  }, [inicio, claveInicio, alEmpezar]);
 
   // `silencio`: sin la nota de «empieza el descanso» (al acabar un ejercicio
   // por tiempo ya sonó el pitido del final).
@@ -1070,6 +1124,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
     setCerrandoHoja(false);
     // Cerrada: ya no hay rutina abierta ni cajitas por recuperar.
     borrarRutinaAbierta();
+    if ((rutinaEnCurso() || {}).id === rutinaId) borrarRutinaEnCurso();
     borrarTecleado(`${rutinaId}:${fecha}`);
     if (estado === 'saltada') { onVolver(); return; }
     // Si batió algo, se le dice. Es lo único de toda la sesión que
@@ -1249,13 +1304,14 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
         // ejercicio que se va llenando; el reloj del entreno a la derecha.
         // En la vista en prueba, más baja y discreta: acompaña, no protagoniza.
         <div data-avance-rutina data-discreta={prueba ? '1' : undefined} style={prueba ? {
-          // Vista en prueba: arriba del todo de la sección, de lado a lado, sin
-          // velo; cubre la zona de la hora del teléfono al quedarse pegada.
-          position: 'sticky', top: 0, zIndex: 20,
-          margin: `calc(-1 * (${FADE_TOP}px + env(safe-area-inset-top, 0px) + 12px)) -20px 14px`,
-          padding: 'calc(env(safe-area-inset-top, 0px) + 8px) 20px 8px',
-          background: 'rgba(252,252,253,0.9)', backdropFilter: 'blur(20px) saturate(1.6)', WebkitBackdropFilter: 'blur(20px) saturate(1.6)',
-          boxShadow: '0 1px 0 rgba(20,20,40,0.06)',
+          // Vista en prueba: una píldora de vidrio arriba, justo bajo la hora
+          // del teléfono, que no llega de borde a borde. Lo que pasa por
+          // detrás se desvanece (ver `veloArriba`), así nunca se confunde.
+          position: 'sticky', top: 'calc(env(safe-area-inset-top, 0px) + 6px)', zIndex: 20,
+          margin: `calc(-1 * (${FADE_TOP}px + 6px)) 0 14px`,
+          padding: '8px 16px 9px', borderRadius: 999,
+          background: 'rgba(255,255,255,0.78)', backdropFilter: 'blur(22px) saturate(1.6)', WebkitBackdropFilter: 'blur(22px) saturate(1.6)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 1px 2px rgba(20,20,40,0.05), 0 8px 24px rgba(20,30,60,0.10)',
         } : {
           position: 'sticky', top: 'calc(58px + env(safe-area-inset-top, 0px))', zIndex: 20,
           margin: '0 -4px 6px', padding: '10px 14px 11px', borderRadius: 18,
@@ -1286,10 +1342,34 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false }
           )}
         </div>
   );
+  // Vista en prueba: lo que sube por detrás de la píldora de arriba se
+  // desvanece hacia blanco antes de llegar a ella.
+  const veloArriba = (
+    <div aria-hidden="true" data-velo-arriba style={{
+      position: 'fixed', top: 0, left: 0, right: 0, height: 'calc(env(safe-area-inset-top, 0px) + 74px)', zIndex: 19, pointerEvents: 'none',
+      background: 'linear-gradient(180deg, rgba(252,252,253,0.97) 0%, rgba(252,252,253,0.88) 45%, rgba(252,252,253,0) 100%)',
+    }} />
+  );
   return (
     <>
       {/* Vista en prueba: la barra de avance va arriba del todo y trae el «Volver». */}
-      {totalSeries > 0 && v2 && prueba ? barraAvance : <Volver onClick={onVolver} />}
+      {totalSeries > 0 && v2 && prueba ? <>{veloArriba}{barraAvance}</> : <Volver onClick={onVolver} />}
+      {/* Abierta desde otro día del calendario: ¿se pasa a hoy? */}
+      <Hoja abierta={preguntaMover} alCerrar={() => setPreguntaMover(false)} titulo="¿La pasas a hoy?" alto="50vh">
+        <div data-pregunta-mover style={{ fontSize: 15, lineHeight: 1.45, color: TEXT }}>
+          Esta rutina estaba para el <b>{planeada ? diaDe(planeada) : ''}</b>. Si la haces hoy, la paso a hoy para que tu calendario quede al día.
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
+          <Boton ancho onClick={pasarAHoy} data-pasar-hoy>Pasarla a hoy</Boton>
+          <Boton ancho variante="suave" onClick={() => setPreguntaMover(false)} style={{ border: 'none', background: 'rgba(118,118,128,0.12)' }}>Dejarla el {planeada ? diaDe(planeada) : ''}</Boton>
+        </div>
+      </Hoja>
+      {movida && createPortal(
+        <div role="status" data-aviso-movida style={{
+          position: 'fixed', left: 20, right: 20, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 70, margin: '0 auto', maxWidth: 420,
+          padding: '12px 16px', borderRadius: 18, background: 'rgba(31,31,31,0.92)', color: '#fff', fontSize: 14, fontWeight: 600, lineHeight: 1.35,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+        }}>{movida.texto}</div>, document.body)}
       {actualizando && <AvisoFlotante aviso={ACTUALIZANDO} />}
 
       {(sinRed || (pendientes > 0 && avisarPendientes)) && (
@@ -1512,7 +1592,7 @@ function PildoraRecordatorios({ pendientes = 0, abrir }) {
   if (v2Activa()) return (
     <FilaCristal style={{ margin: '0 0 14px' }}>
       <BotonCristal tono={TONO_ATAJOS.entreno} icono={Bell} color="#C95F17" badge={pendientes} rotulo="Avisos" onClick={abrir}>Recordatorios</BotonCristal>
-      {WHATSAPP_COACH && <BotonCristal tono={TONO_ATAJOS.entreno} icono={ChatCircle} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
+      {WHATSAPP_COACH && <BotonCristal tono={TONO_ATAJOS.entreno} icono={enPrueba() ? WhatsappLogo : ChatCircle} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
     </FilaCristal>
   );
   return (
