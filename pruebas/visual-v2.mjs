@@ -2495,7 +2495,7 @@ try {
     ok('Hoy (prueba): la rutina empezada y sin terminar sale arriba con «Continuar»', /RUTINA A MEDIAS/.test(await p.locator('[data-continuar-rutina]').innerText().catch(() => '')));
     await foto(p, '40f-prueba-continuar');
     await p.locator('[data-continuar-rutina]').click(); await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(500);
-    ok('…«Continuar» vuelve a la rutina con lo marcado', (await banca.getByRole('button', { name: 'Deshacer serie 1' }).count()) === 1);
+    ok('…«Continuar» vuelve a la rutina con lo marcado', (await p.locator('[data-avance-rutina] [data-segmento="hecho"]').count()) >= 1);
     ok('rutina (prueba): la del lunes ya estaba hecha, así que no pregunta si se pasa a hoy', (await p.locator('[data-pregunta-mover]').count()) === 0);
     // La del miércoles (sin hacer), abierta hoy martes: al marcar lo primero pregunta si se pasa a hoy.
     await p.locator('[data-volver-semana]').click(); await espera(1200);

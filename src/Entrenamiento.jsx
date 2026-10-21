@@ -1355,14 +1355,17 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
       {/* Vista en prueba: la barra de avance va arriba del todo y trae el «Volver». */}
       {totalSeries > 0 && v2 && prueba ? <>{veloArriba}{barraAvance}</> : <Volver onClick={onVolver} />}
       {/* Abierta desde otro día del calendario: ¿se pasa a hoy? */}
-      <Hoja abierta={preguntaMover} alCerrar={() => setPreguntaMover(false)} titulo="¿La pasas a hoy?" alto="50vh">
+      <Hoja abierta={preguntaMover} alCerrar={() => setPreguntaMover(false)} titulo="¿La pasas a hoy?" alto="80vh">
         <div data-pregunta-mover style={{ fontSize: 15, lineHeight: 1.45, color: TEXT }}>
           Esta rutina estaba para el <b>{planeada ? diaDe(planeada) : ''}</b>. Si la haces hoy, la paso a hoy para que tu calendario quede al día.
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
           <Boton ancho onClick={pasarAHoy} data-pasar-hoy>Pasarla a hoy</Boton>
-          <Boton ancho variante="suave" onClick={() => setPreguntaMover(false)} style={{ border: 'none', background: 'rgba(118,118,128,0.12)' }}>Dejarla el {planeada ? diaDe(planeada) : ''}</Boton>
+          <Boton ancho variante="suave" data-dejarla onClick={() => setPreguntaMover(false)} style={{ border: 'none', background: 'rgba(118,118,128,0.12)' }}>Dejarla el {planeada ? diaDe(planeada) : ''}</Boton>
         </div>
+        {/* El reloj del descanso arranca con la misma serie y flota abajo:
+            los botones quedan por encima de él. */}
+        <div aria-hidden="true" style={{ height: 'calc(var(--mt-reloj-alto, 0px) + 48px)' }} />
       </Hoja>
       {movida && createPortal(
         <div role="status" data-aviso-movida style={{

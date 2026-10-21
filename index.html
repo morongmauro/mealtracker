@@ -115,6 +115,9 @@
         // DOMINIO_NUEVO; mt:probarDireccionNueva, solo pruebas).
         var nueva = location.host === 'entrenaconmetodoapp.vercel.app' || localStorage.getItem('mt:probarDireccionNueva') === '1';
         if (nueva || ['mauro moron'].indexOf(n) !== -1) document.documentElement.classList.add('splash-v2');
+        // Vista en prueba (src/vistaApp.js): la entrada con el blob blanco y
+        // los colores repartidos en sus esquinas, como los blobs de la app.
+        try { var vp = JSON.parse(localStorage.getItem('mt:vistaApp') || 'null'); if (vp && vp.modo === 'prueba' && ['mauro moron', 'mauro moron2'].indexOf(n) !== -1) document.documentElement.classList.add('intro-prueba'); } catch (e) {}
         // Visual nueva en este teléfono (su nombre está en la lista, o se abrió
         // con ?v2=1 para instalarla antes de entrar): el nombre de la app en
         // la pantalla de inicio es «EntrenaMétodo», y al instalarla abre con
@@ -314,12 +317,21 @@
       #splash2 .dentro .d2 { right: -40px; top: -40px; background: radial-gradient(closest-side, rgba(242,201,76,.55), rgba(242,201,76,0)); }
       #splash2 .dentro .d3 { left: -40px; bottom: -40px; background: radial-gradient(closest-side, rgba(70,150,90,.46), rgba(70,150,90,0)); }
       #splash2 .dentro .d4 { right: -40px; bottom: -40px; background: radial-gradient(closest-side, rgba(238,132,52,.46), rgba(238,132,52,0)); }
+      /* Vista en prueba: al absorber las manchas, el blob queda blanco y los
+         cuatro colores se reparten suaves en sus esquinas, con su luz y una
+         sombra de color corta, como los blobs de las cabeceras. */
+      html.intro-prueba #splash2 .dentro i { width: 118px; height: 118px; filter: blur(16px); }
+      html.intro-prueba #splash2 .dentro .d1 { left: -46px; top: -46px; background: radial-gradient(closest-side, rgba(60,123,214,.30), rgba(60,123,214,0)); }
+      html.intro-prueba #splash2 .dentro .d2 { right: -46px; top: -46px; background: radial-gradient(closest-side, rgba(242,201,76,.32), rgba(242,201,76,0)); }
+      html.intro-prueba #splash2 .dentro .d3 { left: -46px; bottom: -46px; background: radial-gradient(closest-side, rgba(70,150,90,.28), rgba(70,150,90,0)); }
+      html.intro-prueba #splash2 .dentro .d4 { right: -46px; bottom: -46px; background: radial-gradient(closest-side, rgba(238,132,52,.30), rgba(238,132,52,0)); }
       #splash2 .velo { display: none; position: absolute; inset: 0; opacity: 0; background: radial-gradient(70% 38% at 50% var(--centro, 46%), rgba(255,255,255,.92), rgba(255,255,255,0) 70%); }
       /* Detrás del ícono: el blob de la marca, un cuadrado de lados y
          esquinas curvos (superelipse) girado 12°, blanco y con sombra suave. */
       #splash2 .disco { position: absolute; left: 50%; top: var(--centro, 46%); width: 184px; height: 184px; margin: -92px 0 0 -92px; overflow: visible;
         filter: drop-shadow(0 22px 34px rgba(30,30,40,.14)) drop-shadow(0 3px 8px rgba(30,30,40,.05));
         opacity: 0; transform: rotate(-12deg) scale(.55); will-change: transform, opacity; }
+      html.intro-prueba #splash2 .disco { filter: drop-shadow(0 18px 30px rgba(60,123,214,.13)) drop-shadow(0 10px 22px rgba(238,132,52,.10)) drop-shadow(0 2px 4px rgba(30,30,40,.06)); }
       #splash2 .escena3d { position: absolute; left: 50%; top: var(--centro, 46%); width: 120px; height: 120px; margin: -60px 0 0 -60px; perspective: 500px; }
       #splash2 .marca { width: 120px; height: 120px; overflow: visible; opacity: 0; }
       #splash2 .traza { stroke-dasharray: 100 100; stroke-dashoffset: 100; }

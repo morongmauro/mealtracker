@@ -66,7 +66,7 @@ const CSS_PRUEBA = [
   `[data-cabecera-hoy]:not(:has(>[data-banda])){margin-top:-46px!important}`,
   // Y arriba, detrás del título, un degradado suave del color de la sección
   // (con un toque del segundo color a un lado): la página no queda plana.
-  `[data-cabecera-hoy]:not(:has(>[data-banda]))::before{content:'';position:absolute;z-index:-1;pointer-events:none;left:calc(50% - 50vw);width:100vw;top:-60vh;height:calc(60vh + 300px);background:radial-gradient(70% 220px at 100% calc(60vh + 10px),rgba(var(--deg-q),.20),transparent 70%),linear-gradient(180deg,rgba(var(--deg-p),.24) 0%,rgba(var(--deg-p),.24) 60vh,rgba(var(--deg-p),.10) calc(60vh + 140px),rgba(var(--deg-p),0) 100%)}`,
+  `[data-cabecera-hoy]:not(:has(>[data-banda]))::before{content:'';position:absolute;z-index:-1;pointer-events:none;left:calc(50% - 50vw);width:100vw;top:-60vh;height:calc(60vh + 260px);background:radial-gradient(55% 200px at 100% 60vh,rgba(var(--deg-p),.16),transparent 72%),radial-gradient(40% 150px at 0% calc(60vh + 40px),rgba(var(--deg-q),.12),transparent 72%)}`,
   `[data-cabecera-hoy="dash"]{--deg-p:60,123,214;--deg-q:242,201,76}`,
   `[data-cabecera-hoy="entreno"]{--deg-p:95,102,112;--deg-q:242,201,76}`,
   `[data-cabecera-hoy="comida"]{--deg-p:70,150,90;--deg-q:242,201,76}`,
