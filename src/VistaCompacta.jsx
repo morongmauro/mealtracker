@@ -8,10 +8,12 @@
 // Ver vistaApp.js para quién la ve y cómo se guarda.
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
-import { Barbell, ForkKnife, SquaresFour, ChartLineUp, GraduationCap, UsersThree, ChatCircle, GearSix, FilmStrip, Sun, BookOpenText, CalendarBlank } from '@phosphor-icons/react';
+import { Barbell, ForkKnife, SquaresFour, ChartLineUp, GraduationCap, UsersThree, ChatCircle, GearSix, FilmStrip, Sun, BookOpenText, CalendarBlank, WhatsappLogo, Compass, Brain } from '@phosphor-icons/react';
 import { Hoja } from './entrenoUI.jsx';
 import { AnilloMarca } from './GraficasV2.jsx';
 import { SECCION, DASH_AZUL, TEXT, TEXT_MUTED } from './theme.js';
+import { BlobVidrio } from './Blob.jsx';
+import { enPrueba } from './vistaApp.js';
 
 const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.07)';
 
@@ -23,13 +25,20 @@ export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, ocul
     { id: 'comida', label: 'Comida', Icono: ForkKnife, tinta: SECCION.comida.tint, color: SECCION.comida.ink, alTocar: alComida },
     { id: 'mas', label: 'Más', Icono: SquaresFour, tinta: 'rgba(118,118,128,0.14)', color: TEXT, alTocar: alMas },
   ];
+  // Vista en prueba: la misma barra flotante de la app en prueba (más alta,
+  // con margen a los lados y lo de atrás desvanecido hacia blanco).
+  const P = enPrueba();
   return (
     <div ref={barRef} data-barra-compacta className="fixed left-0 right-0 bottom-0" style={{
       zIndex: 45, pointerEvents: 'none', display: oculta ? 'none' : 'block',
-      padding: '0 10px calc(10px + env(safe-area-inset-bottom, 0px))',
+      padding: P ? '0 18px calc(14px + env(safe-area-inset-bottom, 0px))' : '0 10px calc(10px + env(safe-area-inset-bottom, 0px))',
     }}>
+      {P && <div aria-hidden="true" data-velo-barra style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 34px)', pointerEvents: 'none',
+        background: 'linear-gradient(0deg, rgba(252,252,253,0.96) 0%, rgba(252,252,253,0.9) 45%, rgba(252,252,253,0) 100%)',
+      }} />}
       <nav aria-label="Secciones" style={{
-        pointerEvents: 'auto', maxWidth: 460, margin: '0 auto', borderRadius: 999, padding: 5,
+        pointerEvents: 'auto', maxWidth: 460, margin: '0 auto', borderRadius: 999, padding: P ? 6 : 5, position: 'relative',
         display: 'flex', gap: 4, alignItems: 'center',
         background: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.60))',
         WebkitBackdropFilter: 'blur(26px) saturate(160%)', backdropFilter: 'blur(26px) saturate(160%)',
@@ -40,7 +49,7 @@ export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, ocul
           return (
             <button key={id} data-compacta-boton={id} data-activo={on ? '1' : '0'} onClick={alTocar} aria-label={label} aria-current={on ? 'page' : undefined}
               style={{
-                flex: 1, height: 52, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                flex: 1, height: P ? 54 : 52, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                 background: on ? tinta : 'transparent', color: on ? color : '#6A6860',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
                 WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
@@ -114,7 +123,7 @@ export function gruposMas({ entrenoOn, aprendeOn, whatsapp, ir }) {
       { id: 'dash', label: 'Tu progreso', Icono: ChartLineUp, ...azul, alTocar: () => ir('dash') },
       ...(aprendeOn ? [{ id: 'aprende', label: 'Aprendizaje', Icono: GraduationCap, ...T('aprende'), alTocar: () => ir('aprende') }] : []),
       { id: 'comunidad', label: 'Comunidad', Icono: UsersThree, ...azul, alTocar: () => ir('comunidad') },
-      ...(whatsapp ? [{ id: 'coach', label: 'Escríbele a tu coach', Icono: ChatCircle, ...gris, href: whatsapp }] : []),
+      ...(whatsapp ? [{ id: 'coach', label: 'Escríbele a tu coach', Icono: enPrueba() ? WhatsappLogo : ChatCircle, ...gris, href: whatsapp }] : []),
       { id: 'config', label: 'Configuración', Icono: GearSix, ...gris, alTocar: () => ir('config') },
     ] },
   ];
@@ -122,12 +131,38 @@ export function gruposMas({ entrenoOn, aprendeOn, whatsapp, ir }) {
 
 // ── La cabecera corta (Entrenamiento compacto) ─────────────────────────────
 // Título, el aro chico de la semana y el cambio entre las opciones.
-export function CabezaCompacta({ titulo, aro, alTocarAro, opciones, activa, alElegir }) {
+// Vista en prueba: el aro va dentro del blob blanco de la marca (como en las
+// cabeceras), con su ícono y la cifra en grafito, y arriba un degradado
+// suave del color de la sección en una esquina.
+const ICONO_TEMA = { entreno: Barbell, comida: ForkKnife, dash: Compass, aprende: Brain };
+const COLOR_TEMA = { entreno: '#5F6670', comida: '#46965A', dash: '#3C7BD6', aprende: '#EE8434' };
+function AroBlob({ aro, tema, alTocar }) {
+  const Ic = ICONO_TEMA[tema] || Barbell, c = COLOR_TEMA[tema] || TEXT;
   return (
-    <div data-cabeza-compacta style={{ margin: '4px 0 16px' }}>
+    <button onClick={alTocar} aria-label="Tu semana" data-aro-blob-compacta style={{ position: 'relative', width: 78, height: 78, border: 'none', background: 'transparent', padding: 0, cursor: alTocar ? 'pointer' : 'default', flex: 'none' }}>
+      <BlobVidrio tam={78} color={c} segundo="#F2C94C" />
+      <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+        <AnilloMarca frac={aro.frac} color={c} tam={60} grosor={5} plano riel={`${c}22`}>
+          <span style={{ display: 'grid', placeItems: 'center', gap: 1 }}>
+            <Ic size={13} weight="fill" color={c} />
+            <span style={{ fontSize: 15, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1 }}>{aro.centro}</span>
+          </span>
+        </AnilloMarca>
+      </span>
+    </button>
+  );
+}
+
+export function CabezaCompacta({ titulo, aro, alTocarAro, opciones, activa, alElegir, tema = 'entreno' }) {
+  const P = enPrueba();
+  return (
+    <div data-cabeza-compacta style={{ margin: '4px 0 16px', position: 'relative' }}>
+      {P && <div aria-hidden="true" style={{ position: 'absolute', zIndex: -1, pointerEvents: 'none', left: 'calc(50% - 50vw)', width: '100vw', top: '-50vh', height: 'calc(50vh + 220px)',
+        background: `radial-gradient(55% 180px at 100% 50vh, ${COLOR_TEMA[tema]}24, transparent 72%), radial-gradient(40% 130px at 0% calc(50vh + 30px), rgba(242,201,76,.10), transparent 72%)` }} />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: '-0.025em', color: TEXT, lineHeight: 1.1 }}>{titulo}</h1>
-        {aro && (
+        {aro && P && <AroBlob aro={aro} tema={tema} alTocar={alTocarAro} />}
+        {aro && !P && (
           <button onClick={alTocarAro} aria-label="Tu semana" style={{ border: 'none', background: 'transparent', padding: 0, cursor: alTocarAro ? 'pointer' : 'default', flex: 'none' }}>
             <AnilloMarca frac={aro.frac} color={SECCION.entreno.base} tam={50} grosor={6} plano>
               <span style={{ fontSize: 12.5, fontWeight: 800, color: SECCION.entreno.ink }}>{aro.centro}</span>

@@ -61,10 +61,12 @@ export function blobVidrio() {
 const MODOS = ['completa', 'compacta', 'prueba'];
 const valida = (v) => !!v && typeof v === 'object' && MODOS.includes(v.modo) && typeof v.desde === 'string';
 const nombreGuardado = () => { try { return JSON.parse(localStorage.getItem('mt:name') || '""'); } catch (e) { return ''; } };
-// ¿Está puesta la vista en prueba? (solo para quien puede probarla)
+// ¿Está puesta la vista en prueba? (solo para quien puede probarla). La
+// compacta también lleva todo lo de la prueba (fondo blanco, blobs, barra,
+// rutina): es la misma app en prueba, con menos cosas a la vista.
 export function enPrueba() {
   const v = leerVista();
-  return !!v && v.modo === 'prueba' && puedeCompacta(nombreGuardado());
+  return !!v && (v.modo === 'prueba' || v.modo === 'compacta') && puedeCompacta(nombreGuardado());
 }
 
 export function leerVista() {

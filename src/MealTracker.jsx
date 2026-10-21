@@ -787,7 +787,8 @@ export default function MealTracker() {
   const compacta = useVistaCompacta(name) && v2;
   // La vista en prueba (solo quien puede probarla): lo nuevo, junto.
   const modoVista = useModoVista(name);
-  const prueba = modoVista === 'prueba' && v2;
+  // La compacta también va con todo lo de la prueba (ver enPrueba en vistaApp.js).
+  const prueba = (modoVista === 'prueba' || modoVista === 'compacta') && v2;
   const [masAbierto, setMasAbierto] = useState(false);
   // Lo que se pide al Dash desde «Más» (Configuración, Comunidad).
   const [dashPedido, setDashPedido] = useState(null);

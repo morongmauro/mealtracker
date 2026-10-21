@@ -117,7 +117,7 @@
         if (nueva || ['mauro moron'].indexOf(n) !== -1) document.documentElement.classList.add('splash-v2');
         // Vista en prueba (src/vistaApp.js): la entrada con el blob blanco y
         // los colores repartidos en sus esquinas, como los blobs de la app.
-        try { var vp = JSON.parse(localStorage.getItem('mt:vistaApp') || 'null'); if (vp && vp.modo === 'prueba' && ['mauro moron', 'mauro moron2'].indexOf(n) !== -1) document.documentElement.classList.add('intro-prueba'); } catch (e) {}
+        try { var vp = JSON.parse(localStorage.getItem('mt:vistaApp') || 'null'); if (vp && (vp.modo === 'prueba' || vp.modo === 'compacta') && ['mauro moron', 'mauro moron2'].indexOf(n) !== -1) document.documentElement.classList.add('intro-prueba'); } catch (e) {}
         // Visual nueva en este teléfono (su nombre está en la lista, o se abrió
         // con ?v2=1 para instalarla antes de entrar): el nombre de la app en
         // la pantalla de inicio es «EntrenaMétodo», y al instalarla abre con

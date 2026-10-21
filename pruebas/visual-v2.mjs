@@ -411,8 +411,20 @@ try {
   // VISTA=1: solo las fotos de la prueba de la gráfica grande en las cabeceras.
   if (process.env.VISTA) {
     // VISTA_PRUEBA=1: con la «Vista en prueba».
-    const pv = await abrir('Mauro Morón', { caliente: true, ...(process.env.VISTA_PRUEBA ? { extra: { 'mt:vistaApp': JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' }) } } : {}) });
+    const pv = await abrir('Mauro Morón', { caliente: true, ...(process.env.VISTA_PRUEBA || process.env.VISTA_MODO ? { extra: { 'mt:vistaApp': JSON.stringify({ modo: process.env.VISTA_MODO || 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' }) } } : {}) });
     await espera(4500);
+    // VISTA_COMPACTA=1 (con VISTA_MODO=compacta): las pantallas de la vista compacta.
+    if (process.env.VISTA_COMPACTA) {
+      const f = async (n) => { await espera(2200); await pv.p.screenshot({ path: path.join(CAPTURAS, `compacta-${n}.png`) }); };
+      const ir = async (b) => { await pv.p.locator(`[data-compacta-boton="${b}"]`).click().catch(() => {}); };
+      console.log('DBG', await pv.p.evaluate(() => [document.documentElement.hasAttribute('data-vista-prueba'), document.documentElement.hasAttribute('data-fondo-blanco'), localStorage.getItem('mt:vistaApp'), localStorage.getItem('mt:name')].join(' | ')));
+      await ir('entreno'); await f('entreno');
+      await pv.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-chip]`).first().click().catch(() => {}); await f('rutina');
+      await pv.p.locator('[data-volver-semana], [data-volver]').first().click().catch(() => {}); await espera(800);
+      await ir('comida'); await f('comida');
+      await ir('mas'); await f('mas');
+      console.log('errores', pv.errores.slice(0, 3)); await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+    }
     // VISTA_SIN_ARO=1: el aro y el objeto se esconden (para componer propuestas encima).
     if (process.env.VISTA_SIN_ARO) await pv.p.addStyleTag({ content: '[data-aro-cabecera],[data-ilus-cabecera],[data-objeto-cabecera]{visibility:hidden!important}' });
     const cab = async (n) => { await espera(2600); await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-${n}.png`), clip: { x: 0, y: 0, width: 390, height: 420 } });
