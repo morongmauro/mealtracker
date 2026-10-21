@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 // ─────────────────────────────────────────────────────────────────────────
 // ENTRENAMIENTO · capa de datos y utilidades
 //
@@ -12,18 +13,61 @@
 // una pantalla en blanco.
 // ─────────────────────────────────────────────────────────────────────────
 
-async function pedir(body) {
+// ── SIN SEÑAL · lo último que respondió el servidor, guardado en el teléfono ──
+// Las lecturas (plan, mes, rutinas, galería, resumen, dash, catálogo,
+// comunidad, medidas) se guardan al llegar. Si después no hay red (o el
+// servidor falla), se devuelve esa copia marcada con `deCache: true`: la
+// pantalla pinta lo último visto en vez de «No pude cargar», y al volver la
+// red se refresca sola (ver `useAlVolverRed`). Las fotos no se guardan: sus
+// enlaces caducan a los 5 minutos.
+const LECTURAS_CACHE = new Set(['plan', 'rutina', 'mes', 'rutinas', 'resumen', 'dash', 'catalogo', 'comunidad', 'medidas']);
+const CACHE_PREFIJO = 'mt:cache:';
+const CACHE_MAX = 60;
+const claveCache = (b) => `${CACHE_PREFIJO}${b.accion}:${String(b.name || '').toLowerCase()}:${b.id || b.ym || ''}`;
+function leerCache(b) {
+  try { const r = JSON.parse(localStorage.getItem(claveCache(b)) || 'null'); return r && r.d ? r.d : null; } catch (e) { return null; }
+}
+function guardarCache(b, d) {
   try {
-    const r = await fetch('/api/training', {
+    localStorage.setItem(claveCache(b), JSON.stringify({ t: Date.now(), d }));
+    // Que no crezca sin fin: se quedan las 60 más recientes.
+    const claves = Object.keys(localStorage).filter(k => k.startsWith(CACHE_PREFIJO));
+    if (claves.length > CACHE_MAX) {
+      claves.map(k => { try { return [k, JSON.parse(localStorage.getItem(k) || '{}').t || 0]; } catch (e) { return [k, 0]; } })
+        .sort((x, y) => x[1] - y[1]).slice(0, claves.length - CACHE_MAX).forEach(([k]) => localStorage.removeItem(k));
+    }
+  } catch (e) { /* sin espacio: se sigue sin guardar */ }
+}
+export const hayCache = (accion, name, extra = '') => !!leerCache({ accion, name, id: extra });
+
+async function pedir(body) {
+  const cachear = LECTURAS_CACHE.has(body.accion);
+  let r;
+  try {
+    const res = await fetch('/api/training', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!r.ok) return { ok: false, motivo: `http_${r.status}` };
-    return await r.json();
+    r = res.ok ? await res.json() : { ok: false, motivo: `http_${res.status}` };
   } catch (e) {
-    return { ok: false, motivo: 'sin_red' };
+    r = { ok: false, motivo: 'sin_red' };
   }
+  if (!cachear) return r;
+  if (r && r.ok) { guardarCache(body, r); return r; }
+  const guardado = leerCache(body);
+  return guardado ? { ...guardado, deCache: true, motivoRed: r.motivo } : r;
+}
+
+// Al volver la señal, las pantallas que estaban mostrando su copia guardada
+// se refrescan solas. `fn` se llama una vez por reconexión.
+export function useAlVolverRed(fn) {
+  useEffect(() => {
+    const alVolver = () => { try { fn(); } catch (e) { /* nada */ } };
+    window.addEventListener('online', alVolver);
+    return () => window.removeEventListener('online', alVolver);
+    /* eslint-disable-next-line */
+  }, []);
 }
 
 export const api = {

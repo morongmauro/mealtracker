@@ -22,7 +22,7 @@ import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, Ch
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
-import { api, hoyLocal, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
+import { api, hoyLocal, sumarDias, aFecha, nombreCorto, useAlVolverRed } from './entrenoDatos.js';
 import { aroSemana, partesSemana, progresoEntreno } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
 import AvisoInstalar from './InstalarApp.jsx';
@@ -39,7 +39,7 @@ const bienvenidaVista = () => { try { return !!localStorage.getItem(CLAVE_BIENVE
 const marcarBienvenida = () => { try { localStorage.setItem(CLAVE_BIENVENIDA, new Date().toISOString()); } catch (e) {} };
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
-import { enPrueba, lote25 } from './vistaApp.js';
+import { enPrueba, lote25, DESVANECIDO_BORDE } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
 import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe, curvaSuave } from './GraficasV2.jsx';
 import {
@@ -431,6 +431,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
     else if (!cacheDash.has(name)) setFalloEnt(true);
   };
   useEffect(() => { if (name) cargar(); /* eslint-disable-next-line */ }, [name]);
+  useAlVolverRed(() => { if (name) cargar(); });
   // Al entrar o salir de «Profundiza» se sube al principio.
   useEffect(() => {
     const sc = raizRef.current && raizRef.current.closest('[data-view="dash"]');
@@ -1274,7 +1275,7 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
           )}
         </div>
         {resto.length > 0 && (
-          <div data-chips-hoy style={{ display: 'flex', gap: 6, marginTop: 10, overflowX: 'auto', scrollbarWidth: 'none', margin: '10px -14px 0 -16px', padding: '0 14px 0 16px' }}>
+          <div data-chips-hoy style={{ display: 'flex', gap: 6, marginTop: 10, overflowX: 'auto', scrollbarWidth: 'none', margin: '10px -14px 0 -16px', padding: '0 14px 0 16px', ...(lote25() ? DESVANECIDO_BORDE : {}) }}>
             {resto.map(it => (
               <button key={it.id} data-recordatorio={it.id} onClick={it.ir || it.marcar || undefined} style={{ flex: 'none', border: 'none', borderRadius: 99, padding: '6px 11px', background: '#F2F3F5', color: '#5B5B61',
                 fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.texto}</button>

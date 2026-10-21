@@ -15,7 +15,8 @@ import { Hoja } from './entrenoUI.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { HojaUnidades, useUnidades } from './Unidades.jsx';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
-import { PRUEBA_TODOS } from './vistaApp.js';
+import { PRUEBA_TODOS, lote25 } from './vistaApp.js';
+import { TIPOS_AVISO, useAvisos, guardarAviso } from './avisos.js';
 
 const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)';
 
@@ -36,6 +37,7 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
   const [unidadesAbierta, setUnidadesAbierta] = useState(false);
   const [respira, setRespira] = useState(false);
   const [instalar, setInstalar] = useState(false);
+  const [avisosAbiertos, setAvisosAbiertos] = useState(false);
   const unidad = useUnidades();
   const [permiso, setPermiso] = useState(() => { try { return Notification.permission; } catch (e) { return 'unsupported'; } });
 
@@ -45,8 +47,11 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
     ...(hayQueInstalar() ? [{ id: 'instalar', Icono: DeviceMobile, titulo: 'Instalar la app', detalle: 'Desde su ícono, a pantalla completa', alTocar: () => setInstalar(true) }] : []),
     { id: 'unidades', Icono: Ruler, titulo: 'Unidades', detalle: `${unidad.peso === 'lb' ? 'Libras (lb)' : 'Kilos (kg)'} · ${unidad.distancia === 'm' ? 'metros' : 'kilómetros'}`, alTocar: () => setUnidadesAbierta(true) },
     { id: 'notificaciones', Icono: Bell, titulo: 'Notificaciones',
-      detalle: permiso === 'granted' ? 'Activadas' : permiso === 'denied' ? 'Bloqueadas: actívalas en los ajustes del teléfono' : permiso === 'unsupported' ? 'Este teléfono no las permite aquí' : 'Toca para activarlas',
-      alTocar: permiso === 'default' && alActivarPush ? async () => { await alActivarPush(); try { setPermiso(Notification.permission); } catch (e) { /* nada */ } } : null },
+      detalle: permiso === 'granted' ? (lote25() ? 'Activadas · elige cuáles recibir' : 'Activadas') : permiso === 'denied' ? 'Bloqueadas: actívalas en los ajustes del teléfono' : permiso === 'unsupported' ? 'Este teléfono no las permite aquí' : 'Toca para activarlas',
+      // Lote 26 (solo Mauro): la fila abre la hoja con un interruptor por
+      // tipo de aviso; si aún no dio permiso, desde ahí mismo lo activa.
+      alTocar: lote25() && permiso !== 'unsupported' ? () => setAvisosAbiertos(true)
+        : permiso === 'default' && alActivarPush ? async () => { await alActivarPush(); try { setPermiso(Notification.permission); } catch (e) { /* nada */ } } : null },
     { id: 'relojes', Icono: Watch, titulo: 'Relojes y anillos', detalle: 'Fitbit, Oura, Whoop, Polar…', alTocar: () => setVista('relojes') },
     { id: 'respira', Icono: Wind, titulo: 'Respira', detalle: 'Uno, tres o cinco minutos para bajar pulsaciones', alTocar: () => setRespira(true) },
     { id: 'recorrido', Icono: Compass, titulo: 'Recorrido de la app', detalle: 'Qué hay en cada sección', alTocar: alRecorrido },
@@ -88,7 +93,53 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
         }}>Cerrar sesión</button>
       )}
       <HojaUnidades abierta={unidadesAbierta} alCerrar={() => setUnidadesAbierta(false)} />
+      <HojaAvisos abierta={avisosAbiertos} alCerrar={() => setAvisosAbiertos(false)} permiso={permiso}
+        alActivar={alActivarPush ? async () => { await alActivarPush(); try { setPermiso(Notification.permission); } catch (e) { /* nada */ } } : null} />
     </div>
+  );
+}
+
+// ── Notificaciones: un interruptor por tipo de aviso (lote 26) ────────────
+// Lo apagado no llega: el servidor lo mira antes de enviar (api/_avisos.js).
+function Interruptor({ encendido, alCambiar, etiqueta, id }) {
+  return (
+    <button role="switch" aria-checked={encendido} aria-label={etiqueta} data-aviso={id} onClick={() => alCambiar(!encendido)} style={{
+      width: 50, height: 30, borderRadius: 999, border: 0, padding: 2, cursor: 'pointer', flex: 'none',
+      background: encendido ? '#46965A' : '#D9D6CE', transition: 'background .18s',
+    }}>
+      <span style={{ display: 'block', width: 26, height: 26, borderRadius: 99, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.25)',
+        transform: encendido ? 'translateX(20px)' : 'translateX(0)', transition: 'transform .18s' }} />
+    </button>
+  );
+}
+
+export function HojaAvisos({ abierta, alCerrar, permiso, alActivar }) {
+  const avisos = useAvisos();
+  return (
+    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Notificaciones" alto="72vh" tono="dash">
+      <div data-hoja-avisos>
+        {permiso !== 'granted' && (
+          <div style={{ background: '#FFF7E0', borderRadius: 16, padding: '12px 14px', marginBottom: 14, fontSize: 14, color: TEXT, lineHeight: 1.45 }}>
+            {permiso === 'denied' ? 'Las notificaciones están bloqueadas para esta app: actívalas en los ajustes del teléfono.' : 'Todavía no has activado los avisos en este teléfono.'}
+            {permiso === 'default' && alActivar && (
+              <button data-activar-avisos onClick={alActivar} style={{ display: 'block', marginTop: 10, border: 0, borderRadius: 999, padding: '10px 16px', background: TEXT, color: '#fff', fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Activar avisos</button>
+            )}
+          </div>
+        )}
+        <div style={{ background: '#FFFFFF', borderRadius: 18, boxShadow: SOMBRA, padding: '2px 0' }}>
+          {TIPOS_AVISO.map((t, i) => (
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', borderTop: i ? '1px solid #EFEBE3' : 0 }}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 15.5, fontWeight: 700, color: TEXT }}>{t.titulo}</span>
+                <span style={{ display: 'block', fontSize: 13, color: TEXT_MUTED, marginTop: 1 }}>{t.detalle}</span>
+              </span>
+              <Interruptor id={t.id} etiqueta={t.titulo} encendido={avisos[t.id] !== false} alCambiar={(v) => guardarAviso(t.id, v)} />
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 13, color: TEXT_LIGHT, marginTop: 12, lineHeight: 1.45 }}>Lo que apagues no te suena en el teléfono; igual lo ves al abrir la app.</div>
+      </div>
+    </Hoja>
   );
 }
 

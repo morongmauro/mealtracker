@@ -143,6 +143,14 @@ function base() {
         { id: 'm3', cliente_id: 'c1', user_id: 'coach', fecha: hace(3), peso: 83.1, grasa_pct: 19.8 },
         { id: 'm4', cliente_id: 'c1', user_id: 'coach', fecha: hace(0), peso: 82.4, grasa_pct: 19.1 },
       ],
+      // Fotos de progreso de Mauro: tres de frente (la primera y la última con
+      // medición cerca; la del medio con su kg) y una sola de lado.
+      fotos_progreso: [
+        { id: 'fp1', cliente_id: 'c1', fecha: hace(9), pose: 'frente', ruta: 'c1/fp1.jpg', peso_kg: null, nota: null },
+        { id: 'fp2', cliente_id: 'c1', fecha: hace(6), pose: 'frente', ruta: 'c1/fp2.jpg', peso_kg: 83.9, nota: null },
+        { id: 'fp3', cliente_id: 'c1', fecha: hace(0), pose: 'frente', ruta: 'c1/fp3.jpg', peso_kg: null, nota: null },
+        { id: 'fp4', cliente_id: 'c1', fecha: hace(0), pose: 'lado', ruta: 'c1/fp4.jpg', peso_kg: null, nota: null },
+      ],
     },
   });
 }
@@ -2655,6 +2663,92 @@ try {
     ok('sin errores de JavaScript (comentario del coach)', cc.errores.length === 0, cc.errores.join(' | '));
     await cc.ctx.close();
   }
+  // ── Lote 26 · remates, chat plegado y hojas con arrastre (solo Mauro) ──
+  {
+    const VP = JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' });
+    const l = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:vistaApp': VP } });
+    const p = l.p;
+    await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }); await espera(2000);
+    ok('lote 26: los chips de «Ahora» se desvanecen en el borde en vez de cortarse', await p.evaluate(() => /linear-gradient/.test(getComputedStyle(document.querySelector('[data-chips-hoy]')).maskImage || getComputedStyle(document.querySelector('[data-chips-hoy]')).webkitMaskImage || '')));
+    await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1200);
+    await p.getByRole('button', { name: 'Galería', exact: true }).click().catch(() => {}); await espera(1500);
+    ok('lote 26: los filtros de la galería también se desvanecen en el borde', await p.evaluate(() => { const f = document.querySelector('[data-filtros-galeria]'); return !!f && /linear-gradient/.test(getComputedStyle(f).maskImage || getComputedStyle(f).webkitMaskImage || ''); }));
+    await p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(900);
+    await p.getByRole('button', { name: 'Calendario', exact: true }).click().catch(() => {}); await espera(1500);
+    ok('lote 26: la leyenda del calendario de comidas deja aire abajo para la barra', await p.evaluate(() => parseFloat(getComputedStyle(document.querySelector('[data-leyenda-comida]')).paddingBottom) >= 80));
+    await p.getByRole('button', { name: 'Chat', exact: true }).click().catch(() => {}); await espera(1500);
+    const plegados = await p.locator('[data-texto-plegable]').count();
+    ok('lote 26: los avisos largos del chat van plegados a 3 líneas con «Saber más»', plegados >= 1 && await p.locator('[data-saber-mas]').first().isVisible()
+      && await p.locator('[data-texto-plegable] > div').first().evaluate(el => getComputedStyle(el).webkitLineClamp === '3'));
+    await p.locator('[data-saber-mas]').first().click(); await espera(200);
+    ok('lote 26: «Saber más» lo despliega entero', await p.locator('[data-texto-plegable]').count() === plegados - 1);
+    // La hoja se cierra arrastrando hacia abajo desde su cabecera.
+    await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1000);
+    await p.getByRole('button', { name: 'Hoy', exact: true }).click().catch(() => {}); await espera(600);
+    await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(800);
+    await p.getByRole('button', { name: 'Ficha' }).nth(3).click();
+    await p.locator('[data-hoja-agarre]').waitFor({ timeout: 5000 }); await espera(300);
+    const toque = (tipo, y) => p.evaluate(([tipo, y]) => {
+      const el = document.querySelector('[data-hoja-agarre]');
+      const t = new Touch({ identifier: 1, target: el, clientX: 190, clientY: y });
+      el.dispatchEvent(new TouchEvent(tipo, { touches: tipo === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true }));
+    }, [tipo, y]);
+    await toque('touchstart', 120); await espera(40); await toque('touchmove', 140); await espera(40); await toque('touchmove', 160); await espera(30);
+    ok('lote 26: al arrastrar poco, la hoja sigue al dedo', await p.locator('[data-hoja-panel]').evaluate(el => /translateY\(40px\)|matrix\(1, 0, 0, 1, 0, 40\)/.test(el.style.transform + ' ' + getComputedStyle(el).transform)));
+    await toque('touchend', 160); await espera(400);
+    ok('lote 26: …y si no pasa de 110 px, vuelve a su sitio', await p.locator('[data-hoja-panel]').count() === 1 && await p.locator('[data-hoja-panel]').evaluate(el => /translateY\(0/.test(el.style.transform)));
+    await toque('touchstart', 120); await espera(40); await toque('touchmove', 200); await espera(40); await toque('touchmove', 300); await espera(40); await toque('touchend', 300); await espera(500);
+    ok('lote 26: arrastrando más de 110 px se cierra', await p.locator('[data-hoja-panel]').count() === 0);
+    // Sin señal: lo último guardado sigue a la vista, con la pastilla «Sin conexión»; al volver la red se quita sola.
+    await l.ctx.setOffline(true); await espera(400);
+    ok('lote 26: sin red aparece la pastilla «Sin conexión»', await p.locator('[data-sin-red]').isVisible());
+    await p.getByRole('button', { name: 'Galería', exact: true }).click().catch(() => {}); await espera(1500);
+    ok('lote 26: sin red, la galería muestra lo último guardado', await p.getByText(/No pude cargar|Sin conexión\. Revisa/).count() === 0 && await p.locator('[data-filtros-galeria]').count() === 1);
+    await p.getByRole('button', { name: 'Hoy', exact: true }).click().catch(() => {}); await espera(1200);
+    ok('lote 26: sin red, la semana de entreno sigue a la vista', await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).count() >= 1);
+    await p.getByRole('button', { name: 'Dash', exact: true }).click().catch(() => {}); await espera(1500);
+    ok('lote 26: sin red, el dash sigue mostrando «Tu semana»', await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).count() === 1);
+    await l.ctx.setOffline(false); await espera(1500);
+    ok('lote 26: al volver la red, la pastilla se quita sola', await p.locator('[data-sin-red]').count() === 0);
+    // Fotos de progreso (solo Mauro): entrada en la barra y desde Hoy; comparar
+    // abre sola con la más vieja contra la más nueva, con kg y semanas.
+    await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1000);
+    await p.getByRole('button', { name: 'Hoy', exact: true }).click().catch(() => {}); await espera(800);
+    ok('lote 26: Hoy de Entreno tiene la entrada «Fotos de progreso»', (await p.locator('[data-atajo-fotos]').count()) === 1);
+    await p.getByRole('button', { name: 'Fotos', exact: true }).first().click();
+    await p.locator('[data-fotos]').waitFor({ timeout: 8000 }); await espera(600);
+    ok('lote 26: fotos abre en Comparar, la más vieja contra la más nueva', (await p.locator('[data-comparar] img').count()) === 2 && /ahora/.test(await p.locator('[data-comparar-lado]').last().getAttribute('data-comparar-lado')));
+    const datos = await p.locator('[data-comparar-datos]').innerText();
+    ok('lote 26: diferencia −2,2 kg (de sus medidas), 9 semanas, 3 fotos', /−2,2 kg/.test(datos) && /9 semanas/.test(datos) && /3/.test(datos), datos);
+    ok('lote 26: la cabecera dice «Mírate con datos.»', /Mírate/.test(await p.locator('[data-view="entrena"]').innerText()));
+    await p.locator('[data-pose="lado"]').click(); await espera(400);
+    ok('lote 26: con una sola foto de lado no hay comparador, solo la galería', (await p.locator('[data-comparar]').count()) === 0 && (await p.locator('[data-galeria-fotos] img').count()) === 1);
+    await p.locator('[data-pose="frente"]').click(); await espera(300);
+    await p.locator('[data-vista-fotos="galeria"]').click(); await espera(400);
+    ok('lote 26: la galería de frente trae las 3, la más nueva primero', (await p.locator('[data-galeria-fotos] img').count()) === 3);
+    await p.locator('[data-galeria-fotos] img').nth(1).click(); await espera(500);
+    ok('lote 26: tocar una de la galería la pone a la izquierda del comparador', (await p.locator('[data-comparar]').count()) === 1 && /83,9 kg/.test(await p.locator('[data-comparar-lado="antes"]').innerText()));
+    await p.locator('[data-tomar-foto]').click(); await p.locator('[data-guia-pose]').waitFor({ timeout: 4000 });
+    ok('lote 26: «Tomar foto de hoy» abre la guía de pose antes de la cámara', await p.locator('[data-abrir-camara]').isVisible() && /misma luz/.test(await p.locator('[data-guia-pose]').innerText()));
+    await p.keyboard.press('Escape'); await espera(500);
+    // Notificaciones: un interruptor por tipo; lo apagado queda en mt:avisos
+    // (viaja a la nube y el servidor no lo envía).
+    await p.getByRole('button', { name: 'Dash', exact: true }).click().catch(() => {}); await espera(1200);
+    await p.locator('[data-view="dash"] [data-abrir-config]').click();
+    await p.locator('[data-config="notificaciones"]').waitFor({ timeout: 5000 });
+    await p.locator('[data-config="notificaciones"]').click();
+    await p.locator('[data-hoja-avisos]').waitFor({ timeout: 4000 }); await espera(300);
+    ok('lote 26: Notificaciones abre la hoja con 4 interruptores (día, coach, ciclo, descanso)', (await p.locator('[data-hoja-avisos] [data-aviso]').count()) === 4 && (await p.locator('[data-aviso="coach"]').getAttribute('aria-checked')) === 'true');
+    await p.locator('[data-aviso="coach"]').click(); await espera(300);
+    ok('lote 26: apagar «Comentarios de tu coach» queda guardado', (await p.locator('[data-aviso="coach"]').getAttribute('aria-checked')) === 'false'
+      && await p.evaluate(() => { try { return JSON.parse(localStorage.getItem('mt:avisos') || '{}').coach === false; } catch (e) { return false; } }));
+    await p.locator('[data-aviso="coach"]').click(); await espera(200);
+    ok('lote 26: …y volver a encenderlo también', await p.evaluate(() => { try { return JSON.parse(localStorage.getItem('mt:avisos') || '{}').coach === true; } catch (e) { return false; } }));
+    await p.keyboard.press('Escape'); await espera(300);
+    ok('sin errores de JavaScript (lote 26)', l.errores.length === 0, l.errores.join(' | '));
+    await l.ctx.close();
+  }
   // ── Otra persona (Ana): no ve nada del comentario del coach (todavía es solo de Mauro) ──
   {
     const VP = JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' });
@@ -2681,6 +2775,7 @@ try {
   await o.p.keyboard.press('Enter');
   await o.p.getByText(/150 g cocido/).last().waitFor({ timeout: 8000 }).catch(() => {});
   ok('otra persona: lo de pesado en crudo aún no le llega (solo Mauro)', /pollo crudo/.test(ultimoChat.texto) && !/PESADO EN CRUDO/.test(ultimoChat.texto));
+  ok('otra persona: no ve «Fotos» en la barra de Entreno (lote 26 es solo de Mauro)', (await o.p.getByRole('button', { name: 'Fotos', exact: true }).count()) === 0);
   ok('sin errores de JavaScript (otra persona)', o.errores.length === 0, o.errores.join(' | '));
   await o.ctx.close();
 

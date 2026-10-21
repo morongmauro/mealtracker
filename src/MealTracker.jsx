@@ -25,7 +25,7 @@ const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { BarraCompacta, HojaMas, gruposMas } from './VistaCompacta.jsx';
 import { useVistaCompacta, useModoVista, puedeCompacta, guardarVista, adoptarVistaNube, leerVista, fondoBlanco, enPrueba, lote25 } from './vistaApp.js';
-import { BlobIcono, CabezaMarcaCompacta } from './entrenoUI.jsx';
+import { BlobIcono, CabezaMarcaCompacta, SinRed } from './entrenoUI.jsx';
 import { ForkKnife as ForkKnifeVacio } from '@phosphor-icons/react';
 import DiaComidas from './DiaComidas.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
@@ -44,7 +44,7 @@ const AvisoCicloFin = lazy(() => import('./AvisoCicloFin.jsx'));
 import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
 import { hayNovedad, marcarVisto } from './novedades.js';
 import { vozComida } from './vozCoach.js';
-import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2, ChatCircle as ChatV2 } from '@phosphor-icons/react';
+import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2, ChatCircle as ChatV2, Camera as CameraV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
 
 // Paleta y tipografía: única fuente de verdad en src/theme.js.
@@ -55,8 +55,12 @@ import {
   SUCCESS, WARN, DANGER, DANGER_SOFT, FONT_UI, FONT_DISPLAY, SHADOW_RAISED,
   SECCION,
 } from './theme.js';
-import { ITEM_SCHEMA, PARSE_SCHEMA, CHAT_SYSTEM_PROMPT } from './chatSpec.js';
-import CuentaV2, { leerSesion, guardarSesion } from './CuentaV2.jsx';
+// Los esquemas y el prompt del chat (44 KB) se cargan la primera vez que se
+// habla con él, no al arrancar la app.
+const cargarChatSpec = () => import('./chatSpec.js');
+import { leerSesion, guardarSesion } from './sesionV2.js';
+// La cuenta (correo + contraseña) se carga solo cuando se muestra.
+const CuentaV2 = lazy(() => import('./CuentaV2.jsx'));
 import { aroComida, progresoComida } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
 import { sumarDias } from './entrenoDatos.js';
@@ -541,7 +545,7 @@ recibirMudanza();
 // teléfono nuevo o una instalación nueva empiezan sin la marca). Antes
 // viajaba y, al entrar con la cuenta, la nube decía «ya lo hizo».
 const PREF_FIJAS = ['entreno:unidades', 'entreno:cal:vista2', 'mt:perfectDays', 'mt:coachEditsApplied',
-  'mt:bienvenidaComunidad', 'mt:pushIntroShown', 'mt:avisoCicloFin', 'mt:recoAprende'];
+  'mt:bienvenidaComunidad', 'mt:pushIntroShown', 'mt:avisoCicloFin', 'mt:recoAprende', 'mt:avisos'];
 const PREF_LISTAS = ['mt:perfectDays', 'mt:coachEditsApplied'];
 // Una hoja de «día en meta» por día: la fecha de la última.
 const recoComidaHoy = (hoy) => { try { return localStorage.getItem('mt:recoComida') === hoy; } catch (e) { return false; } };
@@ -3081,6 +3085,26 @@ export default function MealTracker() {
     setShowTraining(true);
   }, [trainingOn]);
 
+  // A dónde abre un aviso del teléfono: «?ir=entreno» en el enlace (app
+  // cerrada) o el mensaje del service worker (app abierta): el comentario del
+  // coach y el ciclo nuevo llevan a Entrenamiento.
+  const irPedido = useRef(null);
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      const ir = u.searchParams.get('ir');
+      if (ir) { irPedido.current = ir; u.searchParams.delete('ir'); window.history.replaceState({}, '', u.pathname + (u.search || '') + u.hash); }
+    } catch (e) {}
+    const alMensaje = (e) => { if (e && e.data && e.data.ir) irPedido.current = String(e.data.ir); };
+    try { navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', alMensaje); } catch (e) {}
+    return () => { try { navigator.serviceWorker && navigator.serviceWorker.removeEventListener('message', alMensaje); } catch (e) {} };
+  }, []);
+  useEffect(() => {
+    if (view !== 'main' || !trainingOn) return;
+    const ir = irPedido.current;
+    if (ir === 'entreno') { irPedido.current = null; openTraining(); }
+  });
+
   const openLearning = useCallback((destino) => {
     if (!learningUrl) return;
     haptic(8);
@@ -3841,6 +3865,7 @@ CONTEXTO DEL CLIENTE:
 - TABLA DE FECHAS (para "log_date" COPIA la fecha exacta de esta tabla, NO la calcules tú):
 ${dateTable}${pastDaysBlock}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}${favoritesBlock}${appendHint}${voiceHint}${historyBlock}${crudoHint}`;
 
+    const { CHAT_SYSTEM_PROMPT, PARSE_SCHEMA } = await cargarChatSpec();
     const sys = CHAT_SYSTEM_PROMPT;
 
     // Dynamic context goes in the USER message (not the system prompt) so the system
@@ -4998,6 +5023,7 @@ SCHEMA:
 
 EJEMPLO INPUT: "desayuno con 4 huevos revueltos, 2 tostadas integrales con manteca, café negro, creatina con cacao"
 EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo revuelto","amount":"4 unidades (~200g)","kcal":280,"p":24,"c":2,"g":20},{"name":"Pan integral tostado","amount":"2 unidades (~50g)","kcal":130,"p":5,"c":24,"g":2},{"name":"Manteca","amount":"~10g","kcal":72,"p":0,"c":0,"g":8},{"name":"Café negro","amount":"240ml","kcal":2,"p":0,"c":0,"g":0},{"name":"Creatina","amount":"5g","kcal":0,"p":0,"c":0,"g":0},{"name":"Cacao en polvo","amount":"2 cdas (~10g)","kcal":23,"p":2,"c":6,"g":1}],"quantity_warning":"asumí cantidades estándar; ajusta si difiere"}`;
+          const { PARSE_SCHEMA } = await cargarChatSpec();
           const forcedResult = await callClaude(userMsg, forcedSys, { schema: PARSE_SCHEMA, clientText: userMsg, model: modelos().smart });
           const cleanF = forcedResult.replace(/```json|```/g, '').trim();
           const matchF = cleanF.match(/\{[\s\S]*\}/);
@@ -5446,13 +5472,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
   // Visual nueva (instalada con ?v2=1, o un teléfono que ya fue de Mauro):
   // la entrada es la de la cuenta, en negro, con correo y contraseña.
   if (view === 'welcome' && typeof document !== 'undefined' && document.documentElement.classList.contains('marca-v2')) {
-    return <CuentaV2 nombre={null} datosAceptados={cloudConsent === 'accepted'}
+    return <Suspense fallback={null}><CuentaV2 nombre={null} datosAceptados={cloudConsent === 'accepted'}
       alSesion={(s, n) => {
         guardarSesion(s); setSesionV2(s); setCuentaAbierta(true);
         if (n) { setName(n); window.storage.set('name', JSON.stringify(n)).catch(() => {}); }
       }}
       alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush} alRecorrido={() => setRecorrido(true)}
-      alListo={() => { setCuentaAbierta(false); setView('main'); }} />;
+      alListo={() => { setCuentaAbierta(false); setView('main'); }} /></Suspense>;
   }
 
   if (view === 'welcome') {
@@ -5515,6 +5541,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     { id: 'dash', subs: [] },
     ...(trainingOn ? [{ id: 'entreno', subs: [
       { id: 'hoy', label: 'Hoy' }, { id: 'mes', label: 'Calendario' }, { id: 'galeria', label: 'Galería' },
+      // Fotos de progreso (lote 26, solo Mauro): solo el ícono, como el
+      // calendario de comidas, para que quepa en un teléfono.
+      ...(lote25() ? [{ id: 'fotos', label: '', icono: CameraV2, aria: 'Fotos' }] : []),
     ] }] : []),
     { id: 'comida', subs: [
       { id: 'hoy', label: 'Hoy' }, { id: 'chat', label: 'Chat' }, { id: 'recetas', label: 'Recetas' },
@@ -5647,6 +5676,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       }} />
       <FontStyles />
       {v2 && <EstiloFondoBlanco activo={fondoBlanco()} prueba={prueba} l25={lote25()} />}
+      {v2 && lote25() && <SinRed />}
 
       <style>{`
         .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
@@ -7195,19 +7225,19 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {/* Cuenta con contraseña (visual nueva): activarla la primera vez, o
           entrar de nuevo tras cerrar sesión. Encima de todo. */}
       {view === 'main' && v2 && name && !cuentaSaltada && (!sesionV2 || cuentaAbierta) && (
-        <CuentaV2 nombre={name} datosAceptados={cloudConsent === 'accepted'}
+        <Suspense fallback={null}><CuentaV2 nombre={name} datosAceptados={cloudConsent === 'accepted'}
           alSesion={(s) => { guardarSesion(s); setSesionV2(s); setCuentaAbierta(true); }}
           alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush} alRecorrido={() => setRecorrido(true)}
           alListo={() => { setCuentaAbierta(false); terminarPrimeraVez(); }}
-          alSaltar={() => { try { sessionStorage.setItem('mt:cuentaSaltada', '1'); } catch (e) {} setCuentaSaltada(true); setCuentaAbierta(false); }} />
+          alSaltar={() => { try { sessionStorage.setItem('mt:cuentaSaltada', '1'); } catch (e) {} setCuentaSaltada(true); setCuentaAbierta(false); }} /></Suspense>
       )}
       {/* Primera vez en la app nueva con cuenta ya activa: las ventanas de
           primera vez que le falten (datos, avisos, invitación al recorrido),
           una sola vez en este teléfono. */}
       {primeraVez && (
-        <CuentaV2 nombre={name} pendientes datosAceptados={cloudConsent !== null}
+        <Suspense fallback={null}><CuentaV2 nombre={name} pendientes datosAceptados={cloudConsent !== null}
           alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush} alRecorrido={() => setRecorrido(true)}
-          alListo={terminarPrimeraVez} />
+          alListo={terminarPrimeraVez} /></Suspense>
       )}
       {view === 'main' && cloudConsent === null && cuentaRevisada && !mudanza && !primeraVez && (
         <CloudConsentModal onAccept={acceptCloudConsent} onDecline={declineCloudConsent} />
@@ -8573,7 +8603,9 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           </div>
           {/* whitespace-pre-line: los avisos largos se escriben en párrafos
               y hay que respetarlos (un muro de texto no se lee). */}
-          <div className="whitespace-pre-line" style={{ color: TEXT, fontWeight: 500 }}>{message.content}</div>
+          {lote25()
+            ? <TextoPlegable texto={message.content} />
+            : <div className="whitespace-pre-line" style={{ color: TEXT, fontWeight: 500 }}>{message.content}</div>}
           {message.showRecetarioButton && typeof onOpenRecetario === 'function' && (
             <button onClick={() => onOpenRecetario({})}
               className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
@@ -10669,7 +10701,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           })}
         </div>
 
-        <div data-leyenda-comida style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', fontSize: 11.5, color: TEXT_MUTED, marginTop: 8 }}>
+        <div data-leyenda-comida style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', fontSize: 11.5, color: TEXT_MUTED, marginTop: 8, paddingBottom: lote25() ? 86 : 0 }}>
           {[['meta', 'En tu meta (±10%)'], ['encima', 'Por encima ↑'], ['debajo', 'Por debajo ↓']].map(([k, t]) => (
             <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 13, height: 9, borderRadius: 3, ...chip(k), padding: 0 }} />{t}
@@ -12437,6 +12469,22 @@ function SliderRow({ label, color, pct, grams, onChange, darkMode }) {
       </div>
       <input type="range" min="5" max="80" value={pct} onChange={e => onChange(parseInt(e.target.value))}
         className="w-full" style={{ color }} />
+    </div>
+  );
+}
+
+// Lote 25: los avisos largos del chat («La app mejoró», recordatorios) se
+// pliegan a 3 líneas con «Saber más». Un muro de 10 líneas no se lee; tres
+// líneas y un botón, sí. Lo corto se muestra entero.
+function TextoPlegable({ texto, lineas = 3 }) {
+  const [abierto, setAbierto] = useState(false);
+  const largo = String(texto || '');
+  const esLargo = largo.length > 180 || (largo.match(/\n/g) || []).length >= 2;
+  if (!esLargo || abierto) return <div className="whitespace-pre-line" style={{ color: TEXT, fontWeight: 500 }}>{largo}</div>;
+  return (
+    <div data-texto-plegable>
+      <div className="whitespace-pre-line" style={{ color: TEXT, fontWeight: 500, display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: lineas, overflow: 'hidden' }}>{largo}</div>
+      <button type="button" onClick={() => setAbierto(true)} data-saber-mas style={{ border: 'none', background: 'none', padding: '6px 0 0', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: SECCION.comida.ink, cursor: 'pointer', display: 'block' }}>Saber más</button>
     </div>
   );
 }

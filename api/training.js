@@ -626,12 +626,13 @@ export function recordsBatidos(antes, series) {
 // Todo va acotado al `cliente_id` de quien pregunta, igual que el resto del
 // endpoint. No hay ninguna acción que devuelva la foto de otro.
 
-const FOTOS_ACTIVAS = false;
+const FOTOS_ACTIVAS = true;
 const FOTOS_BUCKET = 'progreso';
 // Cinco minutos: suficiente para verlas y demasiado poco para que un enlace
 // reenviado siga abriendo mañana.
 const FOTO_VER_SEG = 300;
 const FOTO_POSES = ['frente', 'lado', 'espalda', 'otra'];
+const FOTO_POSE_NOMBRE = { frente: 'De frente', lado: 'De lado', espalda: 'De espalda', otra: 'Otra pose' };
 const FOTO_TIPOS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic' };
 
 // El storage de Supabase no está bajo /rest/v1, así que no sirve `sb()`.
@@ -715,6 +716,13 @@ async function guardarFoto(cliente, cuerpo, hoy) {
   });
   const f = Array.isArray(fila) ? fila[0] : fila;
   if (!f) return { ok: false, motivo: 'no_se_guardo' };
+  // Al coach le suena el teléfono como con las medidas: una foto nueva es
+  // justo lo que quiere mirar. Si el push falla, la foto ya quedó guardada.
+  await alertarCoach({
+    title: `${cliente.nombre} subió una foto de progreso`,
+    body: [FOTO_POSE_NOMBRE[f.pose] || f.pose, f.peso_kg != null ? `${String(f.peso_kg).replace('.', ',')} kg` : null, f.nota].filter(Boolean).join(' · '),
+    tag: 'ecm-foto',
+  });
   return { ok: true, foto: { id: f.id, fecha: f.fecha, pose: f.pose, peso_kg: f.peso_kg, nota: f.nota, url: await firmarVer(f.ruta).catch(() => null) } };
 }
 

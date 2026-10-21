@@ -138,3 +138,10 @@ export function useModoVista(nombre) {
   if (PRUEBA_TODOS) return v && v.modo === 'compacta' ? 'compacta' : 'prueba';
   return puedeCompacta(nombre) && v && v.modo !== 'completa' ? v.modo : 'completa';
 }
+
+// Filas que se deslizan de lado (chips, filtros): un desvanecido en el borde
+// derecho dice «hay más» sin cortar palabras a la mitad. Lote 25.
+export const DESVANECIDO_BORDE = {
+  WebkitMaskImage: 'linear-gradient(90deg, #000 0, #000 calc(100% - 36px), transparent 100%)',
+  maskImage: 'linear-gradient(90deg, #000 0, #000 calc(100% - 36px), transparent 100%)',
+};

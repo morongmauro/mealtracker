@@ -28,10 +28,8 @@ import { recorridoHecho } from './recorridoEstado.js';
 import { SECCION, DASH_AZUL } from './theme.js';
 
 const GRIS = '#8E8E93', CAMPO = 'rgba(255,255,255,0.85)';
-export const CLAVE_SESION = 'mt:sesion';
-
-export const leerSesion = () => { try { return localStorage.getItem(CLAVE_SESION) || ''; } catch (e) { return ''; } };
-export const guardarSesion = (s) => { try { s ? localStorage.setItem(CLAVE_SESION, s) : localStorage.removeItem(CLAVE_SESION); } catch (e) { /* nada */ } };
+import { CLAVE_SESION, leerSesion, guardarSesion } from './sesionV2.js';
+export { CLAVE_SESION, leerSesion, guardarSesion };
 
 async function pedir(cuerpo) {
   try {

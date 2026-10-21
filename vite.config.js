@@ -87,4 +87,16 @@ export default defineConfig({
   define: {
     __BUILD_VERSION__: JSON.stringify(buildVersion),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // React en su propio trozo: no cambia entre despliegues, así el
+        // teléfono lo conserva en caché y solo baja lo que sí cambió.
+        manualChunks(id) {
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react';
+          return undefined;
+        },
+      },
+    },
+  },
 });

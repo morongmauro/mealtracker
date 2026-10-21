@@ -31,8 +31,15 @@ self.addEventListener('notificationclick', (event) => {
   const url = (event.notification.data && event.notification.data.url) || '/';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      // A dónde abre (?ir=entreno…): con la app ya abierta se le avisa por
+      // mensaje; cerrada, va en el enlace.
+      let ir = null;
+      try { ir = new URL(url, self.location.origin).searchParams.get('ir'); } catch (e) {}
       for (const c of list) {
-        if ('focus' in c) return c.focus();
+        if ('focus' in c) {
+          if (ir) { try { c.postMessage({ ir }); } catch (e) {} }
+          return c.focus();
+        }
       }
       return clients.openWindow(url);
     })

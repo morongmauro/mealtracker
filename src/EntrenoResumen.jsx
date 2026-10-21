@@ -12,7 +12,7 @@
 // La única excepción es celebrar lo cumplido, que sí empuja.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
-import { api, fechaLarga, CATALOGO_MINIMO } from './entrenoDatos.js';
+import { api, fechaLarga, CATALOGO_MINIMO, useAlVolverRed } from './entrenoDatos.js';
 import { MisMedidas } from './EntrenoMedidas.jsx';
 import { Card, Chip, Titulo, Seccion, Cargando, Fallo, Barra,
          ACCENT, ACCENT_DARK, ACCENT_LIGHT, SURFACE_2, BORDER_SOFT,
@@ -34,6 +34,7 @@ export default function Resumen({ nombre }) {
     api.catalogo(nombre).then(r => { if (r.ok && r.catalogo?.length) setCatalogo(r.catalogo); });
     /* eslint-disable-next-line */
   }, [nombre]);
+  useAlVolverRed(cargar);
 
   if (error) return <Fallo motivo={error} alReintentar={cargar} />;
   if (!datos) return <Cargando />;

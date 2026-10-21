@@ -49,6 +49,7 @@ import manejarDescanso from './_descanso.js';
 import { leerContexto, evaluarCliente, normalizeName as normPagos, crmHeaders } from './_pagos.js';
 import { agendaDeHoy, cerrarOlvidadas, hoyBogota } from './_entreno.js';
 import { cerrarSemana } from './_semana.js';
+import { avisosDe, permiteAviso, avisosPorUsuario } from './_avisos.js';
 import { TRAINING_PARA_TODOS, TRAINING_BETA } from './_clients.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -327,6 +328,12 @@ async function handleCoachSend(req, res) {
   const { user_id, name, title, body } = req.body || {};
   const texto = String(body || '').trim().slice(0, 400);
   if (!texto) return res.status(400).json({ error: 'body requerido' });
+  // Tipo del aviso (para el interruptor del cliente) y a dónde abre la app.
+  // 'coach': comentario, respuesta a una nota o mensaje manual. 'ciclo': un
+  // ciclo o rutina nueva. Lo demás se trata como 'coach'.
+  const tipo = String((req.body || {}).tipo || 'coach') === 'ciclo' ? 'ciclo' : 'coach';
+  const urlAviso = /^\/[\w?=&%.-]*$/.test(String((req.body || {}).url || '')) ? String(req.body.url) : '/';
+  const tagAviso = tipo === 'ciclo' ? 'ecm-ciclo' : 'ecm-coach';
 
   try {
     const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,user_id,name,sub`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
@@ -338,15 +345,21 @@ async function handleCoachSend(req, res) {
     if (objetivo.length === 0) {
       return res.status(200).json({ ok: false, causa: 'Este cliente no tiene el push activado en su app (aún no ha tocado "Activar" en el banner de recordatorios).' });
     }
+    // Lo que el cliente apagó en Configuración → Notificaciones no se envía.
+    const prefs = await avisosPorUsuario(SUPABASE_URL, SUPABASE_SERVICE_KEY, objetivo.map(s => s.user_id));
+    const permitidos = objetivo.filter(s => permiteAviso(prefs.get(s.user_id), tipo));
+    if (permitidos.length === 0) {
+      return res.status(200).json({ ok: false, apagado: true, causa: tipo === 'ciclo' ? 'El cliente apagó los avisos de ciclo nuevo en su app. Verá el ciclo al entrar.' : 'El cliente apagó los avisos de su coach en su app. Verá el comentario al abrir el ejercicio.' });
+    }
 
     let sent = 0;
-    for (const s of objetivo) {
+    for (const s of permitidos) {
       try {
         await webpush.sendNotification(s.sub, JSON.stringify({
           title: String(title || 'Tu coach').slice(0, 80),
           body: texto,
-          tag: 'ecm-coach',
-          url: '/',
+          tag: tagAviso,
+          url: urlAviso,
         }));
         sent++;
       } catch (e) {
@@ -417,7 +430,7 @@ export default async function handler(req, res) {
     // 2) Actividad de HOY por cliente (para no molestar a quien ya registró)
     //    + meta de kcal y total consumido (para el cierre del día por %).
     //    Una sola consulta liviana con columnas extraídas del JSON.
-    const ra = await fetch(`${SUPABASE_URL}/rest/v1/user_data?select=user_id,today:data->today,today_entries:data->today_entries,goals:data->goals,totals:data->today_totals`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+    const ra = await fetch(`${SUPABASE_URL}/rest/v1/user_data?select=user_id,today:data->today,today_entries:data->today_entries,goals:data->goals,totals:data->today_totals,prefs:data->prefs_dispositivo`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
     const rows = ra.ok ? await ra.json() : [];
     const activity = new Map(); // user_id → { date, count, goalKcal, kcalHoy }
     for (const r of rows) {
@@ -426,6 +439,7 @@ export default async function handler(req, res) {
         count: Array.isArray(r.today_entries) ? r.today_entries.length : 0,
         goalKcal: Number(r.goals?.kcal) || 0,
         kcalHoy: Number(r.totals?.kcal) || 0,
+        avisos: avisosDe(r.prefs),
       });
     }
 
@@ -461,6 +475,9 @@ export default async function handler(req, res) {
       // Anti-duplicado: si este turno ya se atendió hoy, saltar
       const marca = `${date}#${slot}`;
       if (s.last_slot === marca) continue;
+      // «Recordatorio del día» apagado en su Configuración: el turno se
+      // marca como atendido (abajo) pero no se le envía nada.
+      const quiereDia = permiteAviso(act.avisos, 'dia');
 
       const payloads = [];
       if (slot === 'm') {
@@ -512,7 +529,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({ last_slot: marca }),
       }).catch(() => {});
 
-      for (const p of payloads) {
+      for (const p of (quiereDia ? payloads : [])) {
         try {
           await webpush.sendNotification(s.sub, JSON.stringify({ ...p, url: '/' }));
           sent++;

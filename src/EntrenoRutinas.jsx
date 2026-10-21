@@ -14,7 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { ListBullets as ListaVacio } from '@phosphor-icons/react';
-import { api, DIAS_LARGO, fechaLarga } from './entrenoDatos.js';
+import { api, DIAS_LARGO, fechaLarga, useAlVolverRed } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import { Card, Chip, Titulo, Cargando, Fallo, Vacio, Boton,
          ACCENT_DARK, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT } from './entrenoUI.jsx';
@@ -30,6 +30,7 @@ export default function Rutinas({ nombre, alEntrenar }) {
     setDatos(r);
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [nombre]);
+  useAlVolverRed(cargar);
 
   if (error) return <Fallo motivo={error} alReintentar={cargar} />;
   if (!datos) return <Cargando />;

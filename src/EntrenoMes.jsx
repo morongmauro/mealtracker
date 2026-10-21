@@ -31,7 +31,7 @@ import { createPortal } from 'react-dom';
 import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, CurrencyDollar, PersonSimpleRun, Moon, Info, Wind, Stack } from '@phosphor-icons/react';
 import { Bascula } from './iconosEntreno.jsx';
 import Respira from './Respira.jsx';
-import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto } from './entrenoDatos.js';
+import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto, useAlVolverRed } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import Actividad, { ChipActividad, TarjetaCardioCoach, HojaCardioCoach } from './EntrenoActividad.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
@@ -131,6 +131,7 @@ function MesClasico({ nombre, alEntrenar }) {
     setDatos(r);
   };
   useEffect(() => { setDatos(null); cargar(ym); /* eslint-disable-next-line */ }, [ym, nombre]);
+  useAlVolverRed(() => cargar());
   useEffect(() => {
     api.catalogo(nombre).then(r => setCatalogo(r.ok && r.catalogo?.length ? r.catalogo : CATALOGO_MINIMO));
   }, [nombre]);
@@ -1005,6 +1006,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     });
     /* eslint-disable-next-line */
   }, [necesarios.join(), nombre]);
+  useAlVolverRed(() => necesarios.forEach(m => cargar(m)));
   useEffect(() => {
     api.catalogo(nombre).then(r => {
       if (!r.ok && cacheCatalogo.has(nombre)) return;

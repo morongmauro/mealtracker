@@ -11,8 +11,9 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { v2Activa } from './v2.js';
 import { Barbell as BarbellVacio } from '@phosphor-icons/react';
+import { lote25, DESVANECIDO_BORDE } from './vistaApp.js';
 import React, { useEffect, useMemo, useState } from 'react';
-import { api, miniatura } from './entrenoDatos.js';
+import { api, miniatura, useAlVolverRed } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { nombresEj } from './v2.js';
@@ -179,6 +180,7 @@ export default function Galeria({ nombre }) {
     })));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [nombre]);
+  useAlVolverRed(cargar);
 
   const v2 = v2Activa();
   const todos = useMemo(() => (rutinas ? armarGaleria(rutinas) : []), [rutinas]);
@@ -206,7 +208,7 @@ export default function Galeria({ nombre }) {
       </div>
 
       {rutinas.length > 1 && (
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', margin: '14px -20px 2px', padding: '0 20px 4px', scrollbarWidth: 'none' }}>
+        <div data-filtros-galeria style={{ display: 'flex', gap: 6, overflowX: 'auto', margin: '14px -20px 2px', padding: '0 20px 4px', scrollbarWidth: 'none', ...(lote25() ? DESVANECIDO_BORDE : {}) }}>
           {[{ id: 'todas', nombre: 'Todas' }, ...rutinas].map(r => {
             const activo = filtro === r.id;
             return (

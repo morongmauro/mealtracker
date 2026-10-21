@@ -311,10 +311,12 @@ await caso('el mes marca el inicio del ciclo y la fecha de corte de pago', async
   igual(r2.dias.some(d => d.corte_pago), false, 'sin corte si no está activo');
 });
 
-await caso('las fotos están apagadas', async () => {
+await caso('las fotos de progreso están encendidas (lote 26)', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
-  igual((await llamar(handler, { accion: 'fotos', name: yo })).motivo, 'desactivado', 'ver');
-  igual((await llamar(handler, { accion: 'foto_borrar', name: yo, id: 'x' })).motivo, 'desactivado', 'borrar');
+  const r = await llamar(handler, { accion: 'fotos', name: yo });
+  igual([r.ok, Array.isArray(r.fotos)], [true, true], 'ver: responde la lista (vacía)');
+  igual((await llamar(handler, { accion: 'foto_borrar', name: yo, id: 'x' })).motivo !== 'desactivado', true, 'borrar: ya no dice desactivado');
+  igual((await llamar(handler, { accion: 'foto_guardar', name: yo, ruta: 'otro/foto.jpg', pose: 'frente' })).motivo, 'ruta_ajena', 'guardar una ruta de otro: no');
 });
 
 // Semana en curso (hoy martes): L Push (ya pasó) · M Lower (hoy) · X libre ·

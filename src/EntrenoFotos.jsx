@@ -9,21 +9,25 @@
 //   1. COMPARAR ES LA PANTALLA, no un extra. Una cuadrícula de fotos sueltas
 //      no dice nada. Dos fotos de la misma pose con tres meses de diferencia,
 //      lado a lado, lo dicen todo. Por eso se abre en comparar cuando ya hay
-//      dos de la misma pose.
+//      dos de la misma pose. La diferencia de kg sale de sus medidas.
 //   2. LA POSE SE GUARDA. Comparar una de frente con una de lado no enseña
-//      progreso, enseña que giró. Solo se emparejan poses iguales.
+//      progreso, enseña que giró. Solo se emparejan poses iguales. Y antes de
+//      abrir la cámara sale la guía de pose: misma luz, misma distancia.
 //   3. LOS ENLACES CADUCAN. Lo que llega del servidor son URLs firmadas que
 //      mueren a los 5 minutos. Si la pantalla lleva rato abierta hay que
 //      volver a pedirlas, y por eso se recargan al volver a la pestaña.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Camera, UploadSimple, X } from '@phosphor-icons/react';
 import { api, hoyLocal, fechaLarga } from './entrenoDatos.js';
+import { DESVANECIDO_BORDE } from './vistaApp.js';
 import {
-  Card, Vacio, Cargando, Fallo, Chip,
-  TEXT, TEXT_MUTED, TEXT_LIGHT, SURFACE, SURFACE_2, BORDER,
-  ACCENT, ACCENT_DARK, SHADOW_CARD,
+  Card, Vacio, Cargando, Fallo, Hoja,
+  TEXT, TEXT_MUTED, TEXT_LIGHT, SURFACE_2, SHADOW_CARD,
 } from './entrenoUI.jsx';
 
+const AZUL = '#3C7BD6';
+const VERDE = '#2F7A45';
 const POSES = [
   ['frente', 'De frente'],
   ['lado', 'De lado'],
@@ -43,19 +47,31 @@ const tipoDe = (file) => {
            webp: 'image/webp', heic: 'image/heic' }[ext] || null;
 };
 
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const fechaCorta = (iso) => { const [y, m, d] = String(iso || '').split('-').map(Number); return d && m ? `${d} ${MESES[m - 1]}` : ''; };
+const kg = (n) => `${Number(n).toFixed(1).replace(/\.0$/, '').replace('.', ',')} kg`;
+const dif = (n) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(1).replace('.', ',')} kg`;
+const dias = (a, b) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000);
+const tiempo = (d) => d >= 14 ? `${Math.round(d / 7)} semanas` : d === 1 ? '1 día' : `${d} días`;
+
 export default function EntrenoFotos({ name }) {
   const [estado, setEstado] = useState('cargando');
   const [fotos, setFotos] = useState([]);
-  const [vista, setVista] = useState('galeria');   // galeria | comparar
+  const [medidas, setMedidas] = useState([]);
+  const [vista, setVista] = useState(null);      // null = la que toque | comparar | galeria
   const [pose, setPose] = useState('frente');
+  const [izq, setIzq] = useState(null);           // id de la foto de la izquierda del comparador
   const [subiendo, setSubiendo] = useState(false);
   const [aviso, setAviso] = useState(null);
+  const [guia, setGuia] = useState(false);
+  const camara = useRef(null);
   const archivo = useRef(null);
 
   const cargar = useCallback(async () => {
-    const r = await api.fotos(name);
+    const [r, m] = await Promise.all([api.fotos(name), api.medidas(name).catch(() => null)]);
     if (!r?.ok) { setEstado('error'); return; }
     setFotos(r.fotos || []);
+    setMedidas(m && m.ok ? (m.medidas || []) : []);
     setEstado('listo');
   }, [name]);
 
@@ -69,6 +85,19 @@ export default function EntrenoFotos({ name }) {
     return () => document.removeEventListener('visibilitychange', alVolver);
   }, [cargar]);
 
+  // El peso de una foto: el que trae; si no, la medición más cercana (14 días).
+  const pesoDe = (f) => {
+    if (f.peso_kg != null) return Number(f.peso_kg);
+    const t = Date.parse(`${f.fecha}T12:00:00Z`);
+    let mejor = null, dist = 15 * 86400000;
+    for (const m of medidas) {
+      if (m.peso == null || !m.fecha) continue;
+      const d = Math.abs(Date.parse(`${m.fecha}T12:00:00Z`) - t);
+      if (d < dist) { dist = d; mejor = Number(m.peso); }
+    }
+    return mejor;
+  };
+
   const subir = async (file) => {
     if (!file || subiendo) return;
     const tipo = tipoDe(file);
@@ -77,7 +106,8 @@ export default function EntrenoFotos({ name }) {
 
     setSubiendo(true); setAviso(null);
     try {
-      const permiso = await api.fotoSubir(name, { tipo, pose, fecha: hoyLocal() });
+      const hoy = hoyLocal();
+      const permiso = await api.fotoSubir(name, { tipo, pose, fecha: hoy });
       if (!permiso?.ok) throw new Error(permiso?.motivo || 'sin_permiso');
 
       // El archivo va DIRECTO al storage, no a través de la API: una foto de
@@ -85,178 +115,185 @@ export default function EntrenoFotos({ name }) {
       const r = await fetch(permiso.url, { method: 'PUT', headers: { 'Content-Type': tipo }, body: file });
       if (!r.ok) throw new Error('no_subio');
 
-      const guardada = await api.fotoGuardar(name, { ruta: permiso.ruta, pose, fecha: permiso.fecha });
+      // El peso de hoy (si lo registró) queda pegado a la foto.
+      const pesoHoy = medidas.find(m => m.fecha === hoy && m.peso != null);
+      const guardada = await api.fotoGuardar(name, { ruta: permiso.ruta, pose, fecha: permiso.fecha, peso_kg: pesoHoy ? pesoHoy.peso : undefined });
       if (!guardada?.ok) throw new Error(guardada?.motivo || 'no_se_guardo');
       await cargar();
+      setVista(null);
     } catch (e) {
       setAviso('No pude subir la foto. Revisa la señal y prueba otra vez.');
     } finally {
       setSubiendo(false);
+      if (camara.current) camara.current.value = '';
       if (archivo.current) archivo.current.value = '';
     }
   };
 
-  const borrar = async (foto) => {
-    if (!window.confirm(`¿Borrar la foto del ${fechaLarga(foto.fecha)}? No se puede deshacer.`)) return;
+  const quitar = async (foto) => {
+    if (!window.confirm(`¿Quitar la foto del ${fechaLarga(foto.fecha)}? No se puede deshacer.`)) return;
     setFotos(fs => fs.filter(f => f.id !== foto.id));   // se quita ya: esperar al servidor se siente roto
     const r = await api.fotoBorrar(name, foto.id);
-    if (!r?.ok) { setAviso('No pude borrarla. Vuelve a intentarlo.'); cargar(); }
+    if (!r?.ok) { setAviso('No pude quitarla. Vuelve a intentarlo.'); cargar(); }
   };
 
   if (estado === 'cargando') return <Cargando texto="Buscando tus fotos…" />;
   if (estado === 'error') return <Fallo motivo="No pude cargar tus fotos." alReintentar={cargar} />;
 
-  const deLaPose = fotos.filter(f => f.pose === pose);
+  const deLaPose = fotos.filter(f => f.pose === pose).slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
   const puedeComparar = deLaPose.length >= 2;
+  const vistaReal = vista || (puedeComparar ? 'comparar' : 'galeria');
+
+  const pill = (activo) => ({
+    border: 0, borderRadius: 999, padding: '8px 14px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+    background: activo ? TEXT : '#F1EFE9', color: activo ? '#fff' : TEXT_MUTED, transition: 'background .15s, color .15s', flex: 'none',
+  });
 
   return (
-    <div>
-      <Card style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 13, color: TEXT_MUTED, lineHeight: 1.55 }}>
-          Las ve <strong style={{ color: TEXT }}>solo tu entrenador</strong>, nadie más. Puedes borrarlas
-          cuando quieras. Para que sirvan, hazlas siempre con la misma luz, la misma ropa y a la misma hora.
-        </div>
-      </Card>
-
+    <div data-fotos>
       {/* Qué pose. Va arriba porque decide tanto lo que ves como lo que subes. */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+      <div data-poses style={{ display: 'flex', gap: 6, overflowX: 'auto', whiteSpace: 'nowrap', marginBottom: 12, paddingRight: 36, scrollbarWidth: 'none', ...DESVANECIDO_BORDE }}>
         {POSES.map(([id, lab]) => {
           const n = fotos.filter(f => f.pose === id).length;
-          const activa = pose === id;
-          return (
-            <button key={id} onClick={() => setPose(id)} style={{
-              border: `1px solid ${activa ? ACCENT : BORDER}`,
-              background: activa ? ACCENT : 'transparent',
-              color: activa ? '#fff' : TEXT_MUTED,
-              borderRadius: 999, padding: '6px 13px', fontSize: 12.5, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>{lab}{n ? ` · ${n}` : ''}</button>
-          );
+          return <button key={id} data-pose={id} aria-pressed={pose === id} onClick={() => { setPose(id); setIzq(null); setVista(null); }} style={pill(pose === id)}>{lab}{n ? ` · ${n}` : ''}</button>;
         })}
       </div>
 
-      {aviso && (
-        <div style={{
-          background: '#FDECEA', color: '#8A2E22', borderRadius: 12,
-          padding: '10px 13px', fontSize: 13, marginBottom: 12, lineHeight: 1.5,
-        }}>{aviso}</div>
-      )}
-
-      {/* Añadir */}
-      <input ref={archivo} type="file" accept="image/*" capture="environment"
-             onChange={e => subir(e.target.files?.[0])} style={{ display: 'none' }} />
-      <button onClick={() => archivo.current?.click()} disabled={subiendo} style={{
-        width: '100%', padding: '14px 18px', borderRadius: 15, border: `1px dashed ${BORDER}`,
-        background: SURFACE, color: subiendo ? TEXT_LIGHT : ACCENT_DARK,
-        fontSize: 14.5, fontWeight: 700, cursor: subiendo ? 'default' : 'pointer',
-        fontFamily: 'inherit', marginBottom: 14,
-      }}>
-        {subiendo ? 'Subiendo…' : `📷 Añadir foto ${nombrePose(pose).toLowerCase()}`}
-      </button>
-
-      {deLaPose.length === 0 && (
-        <Vacio icono="📷" titulo={`Sin fotos ${nombrePose(pose).toLowerCase()}`}
-               texto="La primera es la que vale: es contra la que vas a comparar todas las demás." />
-      )}
-
       {puedeComparar && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-          {[['galeria', 'Todas'], ['comparar', 'Comparar']].map(([id, lab]) => (
-            <button key={id} onClick={() => setVista(id)} style={{
-              flex: 1, border: 0, borderRadius: 11, padding: '9px 0',
-              background: vista === id ? SURFACE : 'transparent',
-              boxShadow: vista === id ? SHADOW_CARD : 'none',
-              color: vista === id ? TEXT : TEXT_LIGHT,
-              fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+        <div role="radiogroup" aria-label="Vista" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, background: '#F2EFE8', marginBottom: 12 }}>
+          {[['comparar', 'Comparar'], ['galeria', 'Galería']].map(([id, lab]) => (
+            <button key={id} role="radio" aria-checked={vistaReal === id} data-vista-fotos={id} onClick={() => setVista(id)} style={{
+              flex: 1, height: 38, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700,
+              background: vistaReal === id ? '#fff' : 'transparent', color: vistaReal === id ? TEXT : TEXT_MUTED, boxShadow: vistaReal === id ? SHADOW_CARD : 'none',
             }}>{lab}</button>
           ))}
         </div>
       )}
 
-      {deLaPose.length > 0 && (vista === 'comparar' && puedeComparar
-        ? <Comparar fotos={deLaPose} />
-        : <Galeria fotos={deLaPose} onBorrar={borrar} />)}
+      {aviso && (
+        <div style={{ background: '#FDECEA', color: '#8A2E22', borderRadius: 14, padding: '10px 13px', fontSize: 13.5, marginBottom: 12, lineHeight: 1.5 }}>{aviso}</div>
+      )}
+
+      {deLaPose.length === 0 && (
+        <Vacio Icono={Camera} titulo={`Sin fotos ${nombrePose(pose).toLowerCase()}`}
+               texto="La primera es la que vale: es contra la que vas a comparar todas las demás." />
+      )}
+
+      {deLaPose.length > 0 && (vistaReal === 'comparar' && puedeComparar
+        ? <Comparar fotos={deLaPose} izq={izq} setIzq={setIzq} pesoDe={pesoDe} />
+        : <Galeria fotos={deLaPose} pesoDe={pesoDe} alElegir={puedeComparar ? (f) => { setIzq(f.id); setVista('comparar'); } : null} alQuitar={quitar} />)}
+
+      {/* Añadir: la cámara pasa por la guía de pose; subir una que ya tienes, directo. */}
+      <input ref={camara} type="file" accept="image/*" capture="environment" onChange={e => subir(e.target.files?.[0])} style={{ display: 'none' }} />
+      <input ref={archivo} type="file" accept="image/*" onChange={e => subir(e.target.files?.[0])} style={{ display: 'none' }} />
+      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+        <button data-tomar-foto disabled={subiendo} onClick={() => setGuia(true)} style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 0, borderRadius: 999, padding: '14px 18px',
+          background: TEXT, color: '#fff', fontSize: 15, fontWeight: 750, fontFamily: 'inherit', cursor: 'pointer', opacity: subiendo ? .5 : 1,
+        }}><Camera size={18} weight="bold" />{subiendo ? 'Subiendo…' : 'Tomar foto de hoy'}</button>
+        <button data-subir-foto disabled={subiendo} onClick={() => archivo.current?.click()} style={{
+          display: 'flex', alignItems: 'center', gap: 6, border: 0, borderRadius: 999, padding: '14px 18px', background: '#F1EFE9', color: TEXT,
+          fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', opacity: subiendo ? .5 : 1,
+        }}><UploadSimple size={18} weight="bold" />Subir</button>
+      </div>
+      <div style={{ fontSize: 13, color: TEXT_LIGHT, marginTop: 10, lineHeight: 1.45 }}>
+        Solo las ves tú y tu coach. Puedes quitar cualquiera.
+      </div>
+
+      <GuiaPose abierta={guia} pose={pose} alCerrar={() => setGuia(false)} alAbrirCamara={() => { setGuia(false); camara.current?.click(); }} />
+    </div>
+  );
+}
+
+// ── Etiqueta de fecha · kg sobre la foto ────────────────────────────────
+function Etiqueta({ f, peso, nueva }) {
+  return (
+    <span style={{
+      position: 'absolute', left: 8, top: 8, borderRadius: 999, padding: '4px 9px', fontSize: 12, fontWeight: 750, color: '#fff',
+      background: nueva ? AZUL : 'rgba(31,31,31,.78)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+    }}>{nueva && f.fecha === hoyLocal() ? 'Hoy' : fechaCorta(f.fecha)}{peso != null ? ` · ${kg(peso)}` : ''}</span>
+  );
+}
+
+// ── Dos, lado a lado ────────────────────────────────────────────────────
+// La más vieja contra la más nueva. Tocar la de la izquierda pasa a la
+// siguiente fecha; desde la galería también se elige cuál va ahí.
+function Comparar({ fotos, izq, setIzq, pesoDe }) {
+  const b = fotos[fotos.length - 1];
+  const candidatas = fotos.slice(0, -1);
+  const a = candidatas.find(f => f.id === izq) || candidatas[0];
+  const pa = pesoDe(a), pb = pesoDe(b);
+  const d = dias(a.fecha, b.fecha);
+  const siguiente = () => { const i = candidatas.findIndex(f => f.id === a.id); setIzq(candidatas[(i + 1) % candidatas.length].id); };
+  const img = (f, peso, nueva, onClick) => (
+    <div onClick={onClick} data-comparar-lado={nueva ? 'ahora' : 'antes'} style={{ position: 'relative', cursor: onClick ? 'pointer' : 'default' }}>
+      <img src={f.url} alt={fechaLarga(f.fecha)} style={{ width: '100%', aspectRatio: '3 / 4', objectFit: 'cover', display: 'block', borderRadius: 18, background: SURFACE_2 }} />
+      <Etiqueta f={f} peso={peso} nueva={nueva} />
+    </div>
+  );
+  return (
+    <div data-comparar>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {img(a, pa, false, candidatas.length > 1 ? siguiente : null)}
+        {img(b, pb, true, null)}
+      </div>
+      <div data-comparar-datos style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10, background: '#F6F6F8', borderRadius: 16, padding: '11px 14px' }}>
+        <div><div style={{ fontSize: 12, color: TEXT_MUTED }}>Diferencia</div><div style={{ fontSize: 16, fontWeight: 800, color: pa != null && pb != null ? VERDE : TEXT_LIGHT }}>{pa != null && pb != null ? dif(pb - pa) : 'sin peso'}</div></div>
+        <div><div style={{ fontSize: 12, color: TEXT_MUTED }}>Tiempo</div><div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{tiempo(d)}</div></div>
+        <div><div style={{ fontSize: 12, color: TEXT_MUTED }}>Fotos</div><div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{fotos.length}</div></div>
+      </div>
+      {candidatas.length > 1 && <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 8 }}>Toca la de la izquierda para cambiar la fecha.</div>}
     </div>
   );
 }
 
 // ── Todas, en cuadrícula ────────────────────────────────────────────────
-function Galeria({ fotos, onBorrar }) {
+function Galeria({ fotos, pesoDe, alElegir, alQuitar }) {
+  const orden = fotos.slice().reverse();   // la más nueva primero
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
-      {fotos.map(f => (
-        <div key={f.id} style={{
-          background: SURFACE, borderRadius: 14, overflow: 'hidden', boxShadow: SHADOW_CARD,
-        }}>
-          <img src={f.url} alt={`${nombrePose(f.pose)} · ${fechaLarga(f.fecha)}`} loading="lazy"
-               style={{ width: '100%', aspectRatio: '3 / 4', objectFit: 'cover', display: 'block', background: SURFACE_2 }} />
-          <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: TEXT }}>{fechaLarga(f.fecha)}</div>
-              {f.peso_kg && <div style={{ fontSize: 11.5, color: TEXT_LIGHT }}>{f.peso_kg} kg</div>}
-            </div>
-            <button onClick={() => onBorrar(f)} aria-label="Borrar foto" style={{
-              border: 0, background: 'transparent', color: TEXT_LIGHT,
-              fontSize: 15, cursor: 'pointer', padding: 2, lineHeight: 1,
-            }}>🗑</button>
+    <div data-galeria-fotos style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      {orden.map((f, i) => (
+        <div key={f.id} style={{ position: 'relative' }}>
+          <div onClick={alElegir ? () => alElegir(f) : undefined} style={{ position: 'relative', cursor: alElegir ? 'pointer' : 'default' }}>
+            <img src={f.url} alt={fechaLarga(f.fecha)} loading="lazy" style={{ width: '100%', aspectRatio: '3 / 4', objectFit: 'cover', display: 'block', borderRadius: 16, background: SURFACE_2 }} />
+            <Etiqueta f={f} peso={pesoDe(f)} nueva={i === 0} />
           </div>
+          <button onClick={() => alQuitar(f)} aria-label={`Quitar foto del ${fechaLarga(f.fecha)}`} data-quitar-foto style={{
+            position: 'absolute', right: 6, bottom: 6, width: 28, height: 28, borderRadius: 99, border: 0, cursor: 'pointer',
+            background: 'rgba(255,255,255,.9)', color: TEXT, display: 'grid', placeItems: 'center',
+          }}><X size={14} weight="bold" /></button>
         </div>
       ))}
     </div>
   );
 }
 
-// ── Dos, lado a lado ────────────────────────────────────────────────────
-// Arranca con la más vieja contra la más nueva, que es la comparación que
-// alguien quiere ver. Las dos se pueden cambiar.
-function Comparar({ fotos }) {
-  const orden = [...fotos].sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const [izq, setIzq] = useState(orden[0].id);
-  const [der, setDer] = useState(orden[orden.length - 1].id);
-
-  useEffect(() => {
-    if (!orden.some(f => f.id === izq)) setIzq(orden[0].id);
-    if (!orden.some(f => f.id === der)) setDer(orden[orden.length - 1].id);
-  }, [fotos]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const a = orden.find(f => f.id === izq) || orden[0];
-  const b = orden.find(f => f.id === der) || orden[orden.length - 1];
-  const dias = Math.round((new Date(b.fecha) - new Date(a.fecha)) / 86400000);
-
-  const selector = (valor, set) => (
-    <select value={valor} onChange={e => set(e.target.value)} style={{
-      width: '100%', marginTop: 6, padding: '7px 8px', borderRadius: 10,
-      border: `1px solid ${BORDER}`, background: SURFACE, color: TEXT,
-      fontSize: 12.5, fontFamily: 'inherit', fontWeight: 600,
-    }}>
-      {orden.map(f => <option key={f.id} value={f.id}>{fechaLarga(f.fecha)}{f.peso_kg ? ` · ${f.peso_kg} kg` : ''}</option>)}
-    </select>
-  );
-
+// ── La guía de pose, antes de abrir la cámara ───────────────────────────
+// Para que todas queden iguales y comparables: misma luz, misma distancia,
+// misma ropa. La silueta dice dónde pararse.
+function GuiaPose({ abierta, pose, alCerrar, alAbrirCamara }) {
+  const consejo = { frente: 'Brazos sueltos, pies al ancho de los hombros.', lado: 'Perfil completo, mirada al frente.', espalda: 'De espaldas, brazos sueltos.', otra: 'La misma pose que la vez anterior.' }[pose] || '';
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {[[a, izq, setIzq], [b, der, setDer]].map(([f, v, set], i) => (
-          <div key={i}>
-            <img src={f.url} alt={fechaLarga(f.fecha)}
-                 style={{ width: '100%', aspectRatio: '3 / 4', objectFit: 'cover', display: 'block',
-                          borderRadius: 14, background: SURFACE_2 }} />
-            {selector(v, set)}
-          </div>
-        ))}
-      </div>
-      {dias > 0 && (
-        <div style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: TEXT_MUTED }}>
-          <Chip tono="marca">
-            {dias >= 60 ? `${Math.round(dias / 30)} meses` : `${dias} días`} de diferencia
-          </Chip>
-          {a.peso_kg && b.peso_kg && (
-            <span style={{ marginLeft: 8 }}>
-              {b.peso_kg > a.peso_kg ? '+' : ''}{(b.peso_kg - a.peso_kg).toFixed(1)} kg
-            </span>
-          )}
+    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Guía de pose" alto="78vh">
+      <div data-guia-pose>
+        <div style={{ position: 'relative', background: '#1F1F1F', borderRadius: 22, aspectRatio: '3 / 4', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 14, left: 0, right: 0, textAlign: 'center', color: '#fff', fontSize: 14, fontWeight: 700 }}>{nombrePose(pose)} · misma luz, misma distancia</div>
+          <svg viewBox="0 0 120 220" width="46%" style={{ display: 'block' }} aria-hidden="true">
+            <g fill="none" stroke="rgba(255,255,255,.85)" strokeWidth="2" strokeDasharray="5 5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="60" cy="24" r="15" />
+              <path d="M44 44 C30 48 24 60 22 84 L18 128 L26 130 L32 92 L34 120 L36 214 L48 214 L54 140 L60 120 L66 140 L72 214 L84 214 L86 120 L88 92 L94 130 L102 128 L98 84 C96 60 90 48 76 44 Z" />
+            </g>
+          </svg>
+          <div style={{ position: 'absolute', bottom: 14, left: 0, right: 0, textAlign: 'center', color: 'rgba(255,255,255,.8)', fontSize: 13 }}>{consejo}</div>
         </div>
-      )}
-    </div>
+        <div style={{ fontSize: 14, color: TEXT_MUTED, lineHeight: 1.5, marginTop: 12 }}>
+          Misma hora del día, misma ropa y el teléfono a la misma distancia que la vez anterior. Así la comparación dice la verdad.
+        </div>
+        <button data-abrir-camara onClick={alAbrirCamara} style={{
+          width: '100%', marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 0, borderRadius: 999, padding: '14px 18px',
+          background: TEXT, color: '#fff', fontSize: 15, fontWeight: 750, fontFamily: 'inherit', cursor: 'pointer',
+        }}><Camera size={18} weight="bold" />Abrir la cámara</button>
+      </div>
+    </Hoja>
   );
 }

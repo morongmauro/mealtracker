@@ -10,10 +10,12 @@ import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria, { precargarGaleria } from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, rutinaEnCurso, guardarRutinaEnCurso, borrarRutinaEnCurso, fechaLarga, codigoDia, fijarClaveTecleado, borrarTecleado, leerTecleado } from './entrenoDatos.js';
+import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, rutinaEnCurso, guardarRutinaEnCurso, borrarRutinaEnCurso, fechaLarga, codigoDia, fijarClaveTecleado, borrarTecleado, leerTecleado, useAlVolverRed } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { enVerComo } from './verComo.js';
+import { lote25 } from './vistaApp.js';
+import { avisoPermitido } from './avisos.js';
 import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { CabezaCompacta } from './VistaCompacta.jsx';
@@ -23,7 +25,7 @@ import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
 import { aroEntrenoDe, progresoEntrenoDelPlan } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
-import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind, Snowflake, Fire } from '@phosphor-icons/react';
+import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind, Snowflake, Fire, Camera, CaretRight } from '@phosphor-icons/react';
 import Respira from './Respira.jsx';
 import Reconocimiento from './Reconocimiento.jsx';
 import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
@@ -246,6 +248,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   }, [name]);
 
   useEffect(() => { cargarPlan(); }, [cargarPlan]);
+  useAlVolverRed(cargarPlan);
   // Lo que quedó sin subir de la última vez sube al entrar.
   useEffect(() => { cola.vaciar(); }, []);
 
@@ -319,6 +322,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
         </Tarjeta>
         <BloqueActividad name={name} />
+        {lote25() && seccionV2 && <AtajoFotos onClick={() => setSeccion('fotos')} />}
         {seccionV2 && <Firma style={{ marginTop: 28 }} />}
       </Envoltorio>
     );
@@ -345,6 +349,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
           <HoySemana nombre={name} alEntrenar={abrirRutina}
             ejerciciosDe={Object.fromEntries((plan.dias || []).flatMap(d => [...(d.rutina ? [[d.rutina.id, d.rutina.ejercicios]] : []), ...(d.complementarias || []).map(c => [c.id, c.ejercicios])]))} />
           <Sueltas plan={plan} onAbrir={abrirRutina} />
+          {lote25() && seccionV2 && <AtajoFotos onClick={() => setSeccion('fotos')} />}
         </>
       ) : (
         <>
@@ -1066,6 +1071,9 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
   // (api/_descanso.js). Al volver, o al saltarlo, el aviso se cancela.
   const avisoMin = useRef(null);
   const mandarAviso = (que, cuerpo) => {
+    // «Fin del descanso» apagado en Configuración → Notificaciones: no se
+    // programa nada (el pitido al volver sigue igual).
+    if (que === 'programar' && !avisoPermitido('descanso')) return;
     try {
       fetch(`/api/push-cron?descanso=${que}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), keepalive: true }).catch(() => {});
     } catch (e) { /* sin red: queda el pitido al volver */ }
@@ -1660,6 +1668,7 @@ export function agruparEnTramos(ejercicios, bloqueDe, clase = null) {
 const VOZ_SECCION = {
   mes: { etiqueta: 'CALENDARIO', a: 'Tu semana,', b: 'en orden.' },
   galeria: { etiqueta: 'GALERÍA', a: 'Mira, aprende', b: 'y ejecuta.' },
+  fotos: { etiqueta: 'FOTOS DE PROGRESO', a: 'Mírate', b: 'con datos.' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -2442,3 +2451,20 @@ const Fila = ({ icono, titulo }) => (
 const Vacio = ({ texto }) => (
   <p style={{ fontSize: 13, color: TEXT_MUTED, lineHeight: 1.55, margin: 0 }}>{texto}</p>
 );
+
+// ── Fotos de progreso: la entrada desde Hoy (lote 26, solo Mauro) ─────────
+function AtajoFotos({ onClick }) {
+  return (
+    <button data-atajo-fotos onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginTop: 12, padding: '13px 14px', border: 0,
+      borderRadius: 18, background: '#FFFFFF', boxShadow: SHADOW_CARD, textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', color: TEXT,
+    }}>
+      <span style={{ width: 38, height: 38, borderRadius: 99, background: '#F1EFE9', display: 'grid', placeItems: 'center', flex: 'none' }}><Camera size={20} /></span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 15.5, fontWeight: 750 }}>Fotos de progreso</span>
+        <span style={{ display: 'block', fontSize: 13, color: TEXT_MUTED, marginTop: 1 }}>Mírate con datos: antes y ahora, de la misma pose.</span>
+      </span>
+      <CaretRight size={18} color={TEXT_LIGHT} />
+    </button>
+  );
+}

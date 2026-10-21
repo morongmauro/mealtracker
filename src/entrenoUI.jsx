@@ -16,7 +16,7 @@
 //   complementario va en gris con un punto de color pequeño. Se ve, se
 //   puede tocar, se puede registrar — pero no grita.
 // ─────────────────────────────────────────────────────────────────────────
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { lote25 } from './vistaApp.js';
 import { vibrar } from './vibrar.js';
@@ -228,6 +228,39 @@ export function Fallo({ motivo, alReintentar }) {
 // ventana genérica. { etiqueta, nombre, chico?, foto?, Icono? }
 export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca = null, tono = 'entreno' }) {
   const L25 = lote25();
+  // Lote 25: la hoja se cierra arrastrándola hacia abajo desde su cabecera,
+  // con inercia: si baja más de 110 px o va rápido, se va; si no, vuelve.
+  const panel = useRef(null);
+  const arrastre = useRef(null);
+  const alEmpezar = (e) => {
+    if (!L25 || !panel.current) return;
+    const t = e.touches ? e.touches[0] : e;
+    arrastre.current = { y0: t.clientY, y: t.clientY, t0: Date.now(), t: Date.now() };
+    panel.current.style.transition = 'none';
+  };
+  const alMover = (e) => {
+    const a = arrastre.current; if (!a || !panel.current) return;
+    const t = e.touches ? e.touches[0] : e;
+    const dy = Math.max(0, t.clientY - a.y0);
+    a.vel = (t.clientY - a.y) / Math.max(1, Date.now() - a.t); a.y = t.clientY; a.t = Date.now();
+    panel.current.style.transform = `translateY(${dy}px)`;
+    if (dy > 0 && e.cancelable) e.preventDefault();
+  };
+  const alSoltar = () => {
+    const a = arrastre.current; if (!a || !panel.current) return;
+    arrastre.current = null;
+    // «Rápido» solo si el gesto duró algo: un salto instantáneo no es un gesto.
+    const dy = Math.max(0, a.y - a.y0), rapido = (a.vel || 0) > 0.6 && Date.now() - a.t0 > 60;
+    const el = panel.current;
+    if (dy > 110 || (rapido && dy > 24)) {
+      el.style.transition = 'transform .22s cubic-bezier(.2,.8,.2,1)';
+      el.style.transform = 'translateY(110%)';
+      setTimeout(() => { alCerrar?.(); }, 180);
+    } else {
+      el.style.transition = 'transform .32s cubic-bezier(.2,.8,.2,1)';
+      el.style.transform = 'translateY(0)';
+    }
+  };
   // Con la hoja abierta, el fondo no debe moverse: en el móvil el scroll se
   // "contagia" a la página de atrás y al cerrar apareces en otro sitio.
   // Ojo: la página de atrás no es el <body> sino la capa de la sección
@@ -260,6 +293,7 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       }}>
       <div
+        ref={panel} data-hoja-panel
         onClick={(e) => e.stopPropagation()}
         role="dialog" aria-modal="true" aria-label={titulo || 'Detalle'}
         style={{
@@ -270,8 +304,8 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
         {/* La barrita de arrastre va en su propia fila, no superpuesta: al
             posicionarla absoluta sobre la cabecera se cruzaba encima del
             título de los ejercicios con nombre largo. */}
-        {L25 ? <CabezaMarcaCompacta tono={tono} alCerrar={() => { vibrar('tic'); alCerrar?.(); }}
-            {...(marca || partirTitulo(titulo))} /> : marca ? <CabezaMarca marca={marca} alCerrar={alCerrar} /> : (<>
+        {L25 ? <div data-hoja-agarre onTouchStart={alEmpezar} onTouchMove={alMover} onTouchEnd={alSoltar} onTouchCancel={alSoltar} style={{ touchAction: 'none' }}>
+            <CabezaMarcaCompacta tono={tono} alCerrar={() => { vibrar('tic'); alCerrar?.(); }} {...(marca || partirTitulo(titulo))} /></div> : marca ? <CabezaMarca marca={marca} alCerrar={alCerrar} /> : (<>
         <div style={{ padding: '8px 0 0', flexShrink: 0 }}>
           <div style={{ width: 36, height: 4, borderRadius: 999, background: BORDER, margin: '0 auto' }} />
         </div>
@@ -413,3 +447,23 @@ export function Marca({ estado, style }) {
 export { ACCENT, ACCENT_DARK, ACCENT_PASTEL, ACCENT_LIGHT, SURFACE, SURFACE_2,
          BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT, SUCCESS, WARN, DANGER,
          SHADOW_CARD, FONT_DISPLAY };
+
+// Lote 25 · «Sin conexión»: una pastilla discreta arriba mientras no hay red.
+// Lo que se ve es lo último guardado en el teléfono; al volver la señal se
+// quita sola y las pantallas se refrescan (useAlVolverRed).
+export function SinRed() {
+  const [sin, setSin] = useState(() => typeof navigator !== 'undefined' && navigator.onLine === false);
+  useEffect(() => {
+    const f = () => setSin(navigator.onLine === false);
+    window.addEventListener('online', f); window.addEventListener('offline', f);
+    return () => { window.removeEventListener('online', f); window.removeEventListener('offline', f); };
+  }, []);
+  if (!sin) return null;
+  return (
+    <div data-sin-red role="status" style={{
+      position: 'fixed', left: '50%', top: 'calc(10px + env(safe-area-inset-top, 0px))', transform: 'translateX(-50%)', zIndex: 70,
+      background: 'rgba(31,31,31,0.86)', color: '#fff', borderRadius: 999, padding: '7px 13px', fontSize: 12.5, fontWeight: 650,
+      boxShadow: '0 8px 24px rgba(0,0,0,0.18)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', whiteSpace: 'nowrap', pointerEvents: 'none',
+    }}>Sin conexión · mostrando lo último guardado</div>
+  );
+}

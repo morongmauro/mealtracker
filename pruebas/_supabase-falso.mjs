@@ -45,6 +45,13 @@ export function crearSupabaseFalso({ tablas = {}, columnas = {}, porDefecto = {}
   async function fetchFalso(url, opts = {}) {
     const u = new URL(url);
     const metodo = (opts.method || 'GET').toUpperCase();
+    // Storage: firmar un enlace para ver o para subir (fotos de progreso).
+    const st = u.pathname.match(/\/storage\/v1\/object\/(upload\/)?sign\/([^/]+)\/(.+)$/);
+    if (st) {
+      log.push({ metodo, tabla: 'storage', query: u.pathname });
+      return st[1] ? respuesta(200, { url: `/object/upload/sign/${st[2]}/${st[3]}?token=falso` })
+        : respuesta(200, { signedURL: `/object/sign/${st[2]}/${st[3]}?token=falso` });
+    }
     const m = u.pathname.match(/\/rest\/v1\/([a-z_]+)/);
     if (!m) return respuesta(404, { error: 'ruta' });
     const tabla = m[1];
