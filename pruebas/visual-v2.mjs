@@ -2601,6 +2601,18 @@ try {
     const vc2 = await abrir('Mauro Morón', { nube: { vista_app: { modo: 'compacta', desde: new Date(FIJO).toISOString(), por: 'coach' } } });
     await vc2.p.locator('nav[aria-label="Secciones"]').waitFor({ timeout: 25000 }); await espera(2500);
     ok('vista compacta: si el coach se la pone en el CRM, la app abre compacta', (await vc2.p.locator('[data-barra-compacta]').count()) === 1);
+    // La compacta lleva lo de la completa nueva: el abierto mueve su video en
+    // el cuadrito y una línea separa el ejercicio de las series.
+    await vc2.p.locator('[data-compacta-boton="entreno"]').click(); await espera(1500);
+    await vc2.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click().catch(() => {});
+    await vc2.p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }).catch(() => {}); await espera(900);
+    const abiertoC = vc2.p.locator('[data-view="entrena"] [data-ejercicio][data-compacta]');
+    const vivo = await abiertoC.evaluate(el => {
+      const conVideo = [...el.querySelectorAll('img')].some(i => /ytimg/.test(i.src)) || el.querySelector('[data-video-mini]');
+      return { conVideo: !!conVideo, iframe: !!el.querySelector('[data-video-mini] iframe'), sep: !!el.querySelector('[data-separador-series]') };
+    }).catch(e => ({ error: e.message }));
+    ok('rutina compacta: el ejercicio abierto mueve su video y tiene la línea que separa las series', vivo.sep && (!vivo.conVideo || vivo.iframe), JSON.stringify(vivo));
+    await foto(vc2.p, '30f-compacta-rutina-video');
     await vc2.ctx.close();
   }
 

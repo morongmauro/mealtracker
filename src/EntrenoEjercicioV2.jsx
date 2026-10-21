@@ -548,7 +548,8 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         // Compacta: foto chica, el nombre en inglés, lo recetado en una línea
         // y Ficha · Historial · Nota como íconos al lado.
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <Miniatura e={e} alTocar={() => setFicha(true)} ancho={50} alto={40} />
+          {/* Abierto = el que se está haciendo: el video corre en bucle, como en la completa. */}
+          <Miniatura e={e} alTocar={() => setFicha(true)} ancho={50} alto={40} enVivo={prueba && !ficha} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: TEXT, lineHeight: 1.18, letterSpacing: '-0.02em' }}>{n.grande}</div>
             <div style={{ fontSize: 12.5, color: GRIS, marginTop: 2 }}>
@@ -612,6 +613,8 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
       <Botones items={botones} />
       </>)}
       </>)}
+      {/* Compacta: la misma línea suave entre el ejercicio y las series. */}
+      {compacta && prueba && <div data-separador-series style={{ height: 1, background: 'rgba(60,60,67,0.09)', margin: '10px 0 2px' }} />}
 
       {re.notas && (
         <div style={{ marginTop: 9, padding: '8px 11px', borderRadius: 11, background: '#FFF6E0', fontSize: 12.5, color: '#6B4E05', lineHeight: 1.45 }}>
