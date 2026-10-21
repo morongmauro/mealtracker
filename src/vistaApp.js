@@ -12,6 +12,14 @@
 // diga otra cosa.
 // ─────────────────────────────────────────────────────────────────────────
 import { useEffect, useState } from 'react';
+import { esV2 } from './v2.js';
+
+// Lo que era la «vista en prueba» ya es la app de todos (con la visual nueva):
+// la completa es la nueva y la compacta es la compacta de la nueva. Para
+// volver a probar cosas solo con los nombres de la lista: false.
+// (`mt:pruebaTodos` = '0' lo apaga en este teléfono: solo para las pruebas
+// automáticas, que siguen revisando la vista de antes.)
+export const PRUEBA_TODOS = (() => { try { return localStorage.getItem('mt:pruebaTodos') !== '0'; } catch (e) { return true; } })();
 
 export const VISTA_COMPACTA_PRUEBA = ['mauro moron', 'mauro moron2'];
 
@@ -20,14 +28,14 @@ const EVENTO = 'mt:vista';
 const normal = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/\s+/g, ' ').trim();
 
-export const puedeCompacta = (nombre) => VISTA_COMPACTA_PRUEBA.includes(normal(nombre));
+export const puedeCompacta = (nombre) => PRUEBA_TODOS || VISTA_COMPACTA_PRUEBA.includes(normal(nombre));
 
 // La rutina más liviana EN LA VISTA NORMAL (a prueba): Ficha · Historial ·
 // Nota como íconos junto a lo recetado, en una sola fila, y al terminar un
 // ejercicio la pantalla baja sola al siguiente. Para todos: TODOS en true.
 export const RUTINA_LIGERA_PRUEBA = ['mauro moron'];
 export const RUTINA_LIGERA_TODOS = false;
-export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || (RUTINA_LIGERA_PRUEBA.includes(normal(nombre)) && enPrueba());
+export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || ((PRUEBA_TODOS || RUTINA_LIGERA_PRUEBA.includes(normal(nombre))) && enPrueba());
 
 // Fondo blanco con el color del módulo (y un segundo color muy suave), sin
 // la píldora negra de arriba y con la franja curva más corta (a prueba).
@@ -35,7 +43,7 @@ export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || (RUTINA_LIGERA_PR
 export const FONDO_BLANCO_PRUEBA = ['mauro moron'];
 export const FONDO_BLANCO_TODOS = false;
 export function fondoBlanco() {
-  return FONDO_BLANCO_TODOS || (FONDO_BLANCO_PRUEBA.includes(normal(nombreGuardado())) && enPrueba());
+  return FONDO_BLANCO_TODOS || ((PRUEBA_TODOS || FONDO_BLANCO_PRUEBA.includes(normal(nombreGuardado()))) && enPrueba());
 }
 // El color de cada módulo (p) y el segundo, muy suave (q), en «r,g,b».
 export const COLORES_MODULO = {
@@ -52,7 +60,7 @@ export const aclarar = (rgb, cuanto) => '#' + rgb.split(',').map(Number)
 export const BLOB_VIDRIO_PRUEBA = ['mauro moron'];
 export const BLOB_VIDRIO_TODOS = false;
 export function blobVidrio() {
-  return BLOB_VIDRIO_TODOS || (BLOB_VIDRIO_PRUEBA.includes(normal(nombreGuardado())) && enPrueba());
+  return BLOB_VIDRIO_TODOS || ((PRUEBA_TODOS || BLOB_VIDRIO_PRUEBA.includes(normal(nombreGuardado()))) && enPrueba());
 }
 
 // Tres vistas: «completa» (la de siempre, la que ven los clientes),
@@ -65,6 +73,9 @@ const nombreGuardado = () => { try { return JSON.parse(localStorage.getItem('mt:
 // compacta también lleva todo lo de la prueba (fondo blanco, blobs, barra,
 // rutina): es la misma app en prueba, con menos cosas a la vista.
 export function enPrueba() {
+  // Para todos: la nueva va con la visual nueva (la dirección nueva); en la
+  // vieja, quien no la tiene sigue con la de siempre.
+  if (PRUEBA_TODOS) return esV2(nombreGuardado());
   const v = leerVista();
   return !!v && (v.modo === 'prueba' || v.modo === 'compacta') && puedeCompacta(nombreGuardado());
 }
@@ -114,5 +125,7 @@ export function useModoVista(nombre) {
     window.addEventListener('storage', alCambiar);
     return () => { window.removeEventListener(EVENTO, alCambiar); window.removeEventListener('storage', alCambiar); };
   }, []);
+  // Para todos, «completa» y «prueba» son la misma: la nueva.
+  if (PRUEBA_TODOS) return v && v.modo === 'compacta' ? 'compacta' : 'prueba';
   return puedeCompacta(nombre) && v && v.modo !== 'completa' ? v.modo : 'completa';
 }

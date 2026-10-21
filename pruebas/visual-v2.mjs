@@ -222,6 +222,10 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   p.on('pageerror', e => errores.push(e.message));
   p.on('console', m => { if (m.text().startsWith('ilusBien')) console.log('   ' + m.text()); });
   const guardado = almacen(nombre);
+  // Lo que era la vista en prueba ya es de todos (PRUEBA_TODOS en
+  // src/vistaApp.js). Las pruebas de siempre siguen mirando la vista de antes
+  // con este apagador de pruebas; las de «para todos» lo quitan (extra null).
+  guardado['mt:pruebaTodos'] = '0';
   if (sinNombre) { delete guardado['mt:name']; delete guardado['mt:goals']; }
   if (extra) for (const [k, v] of Object.entries(extra)) { if (v === null) delete guardado[k]; else guardado[k] = v; }
   // Mauro ya entró con su contraseña (la cuenta se prueba aparte, sinSesion)
@@ -1586,6 +1590,11 @@ try {
     && /CALENDARIO/.test(await p.locator('[data-pagina-calendario-comida] [data-cabecera-hoy="comida"]').innerText())
     && !/CALENDARIO DE COMIDAS/.test(await p.locator('[data-pagina-calendario-comida]').innerText()));
   ok('calendario de comidas: la barra marca Calendario', await p.locator('nav[aria-label="Secciones"] [data-activo="1"]').evaluate(el => /Calendario/.test(el.getAttribute('aria-label') || el.textContent)));
+  // Desde el chat, el calendario no deja la barra de escribir encima.
+  await p.getByRole('button', { name: 'Chat', exact: true }).click(); await espera(700);
+  await p.getByRole('button', { name: 'Calendario', exact: true }).click();
+  await p.locator('[data-pagina-calendario-comida]').waitFor({ timeout: 5000 }); await espera(500);
+  ok('del chat al calendario de comidas: la barra de escribir se va', await p.locator('[data-barra-escribir]').evaluate(el => getComputedStyle(el).display === 'none'));
   const calC = p.locator('[data-calendario-comidas]');
   ok('calendario de comidas: con la forma del de entreno (días en verde, casillas blancas)', (await calC.count()) === 1
     && await calC.getByText('Lun', { exact: true }).evaluate(el => getComputedStyle(el).color === 'rgb(70, 150, 90)')
@@ -2810,7 +2819,7 @@ try {
     messages: chatNube,
     prefs_dispositivo: { 'entreno:unidades': 'lb', 'entreno:unidad:ej9': 'kg', 'mt:perfectDays': JSON.stringify(['2026-09-01']), 'mt:pwaInstalledAt': 'no-debe' },
     recetario_menus: [{ id: 'm1', recetas: ['r1'] }],
-  }, extra: { 'mt:probarDireccionNueva': '1', 'mt:messages': '[]', 'mt:perfectDays': JSON.stringify(['2026-09-05']) } });
+  }, extra: { 'mt:probarDireccionNueva': '1', 'mt:messages': '[]', 'mt:perfectDays': JSON.stringify(['2026-09-05']), 'mt:pruebaTodos': null } });
   const comp = om.p.locator('[data-mudanza="comprobacion"]');
   await comp.waitFor({ timeout: 25000 }).catch(() => {});
   const fraseComp = (await comp.locator('[data-encontrado]').textContent().catch(() => '')) || '';
@@ -2834,6 +2843,8 @@ try {
     && !('mt:pwaInstalledAt' in dataSub.prefs_dispositivo), JSON.stringify(dataSub.prefs_dispositivo));
   ok('mudanza: marca para el CRM «ya en la app nueva»', !!ls.nueva && dataSub.app_nueva_at === ls.nueva, `${ls.nueva} / ${dataSub.app_nueva_at}`);
   ok('dirección nueva: la visual nueva es de todos (Ana también)', await om.p.evaluate(() => document.documentElement.hasAttribute('data-v2') && document.documentElement.classList.contains('marca-v2')));
+  ok('app nueva para todos: Ana ve lo que era la vista en prueba (fondo blanco y barra flotante)', await om.p.evaluate(() =>
+    !!document.querySelector('style[data-estilo-fondo-blanco]') && /overscroll-behavior/.test(document.querySelector('style[data-estilo-fondo-blanco]').textContent) && !!document.querySelector('[data-velo-barra]')));
   ok('sin errores de JavaScript (mudanza)', om.errores.length === 0, om.errores.join(' | '));
   await om.ctx.close();
 

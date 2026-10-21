@@ -6956,7 +6956,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       <InputBar
         barRef={inputBarRef}
         apiRef={inputApiRef}
-        hidden={actionsExpanded || tab !== 'chat' || showRecetario || showLearning || showTraining || showDash}
+        hidden={actionsExpanded || tab !== 'chat' || showRecetario || showLearning || showTraining || showDash || (v2 && showPerformanceModal && !!goals)}
         liftPx={keyboardOpen ? 0 : 70}
         recording={recording}
         transcribing={transcribing}

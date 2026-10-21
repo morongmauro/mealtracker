@@ -115,9 +115,10 @@
         // DOMINIO_NUEVO; mt:probarDireccionNueva, solo pruebas).
         var nueva = location.host === 'entrenaconmetodoapp.vercel.app' || localStorage.getItem('mt:probarDireccionNueva') === '1';
         if (nueva || ['mauro moron'].indexOf(n) !== -1) document.documentElement.classList.add('splash-v2');
-        // Vista en prueba (src/vistaApp.js): la entrada con el blob blanco y
+        // La app nueva (src/vistaApp.js › PRUEBA_TODOS; antes solo la vista en
+        // prueba): la entrada con el blob blanco y
         // los colores repartidos en sus esquinas, como los blobs de la app.
-        try { var vp = JSON.parse(localStorage.getItem('mt:vistaApp') || 'null'); if (vp && (vp.modo === 'prueba' || vp.modo === 'compacta') && ['mauro moron', 'mauro moron2'].indexOf(n) !== -1) document.documentElement.classList.add('intro-prueba'); } catch (e) {}
+        try { var vp = JSON.parse(localStorage.getItem('mt:vistaApp') || 'null'); if ((document.documentElement.classList.contains('splash-v2') && localStorage.getItem('mt:pruebaTodos') !== '0') || (vp && (vp.modo === 'prueba' || vp.modo === 'compacta') && ['mauro moron', 'mauro moron2'].indexOf(n) !== -1)) document.documentElement.classList.add('intro-prueba'); } catch (e) {}
         // Visual nueva en este teléfono (su nombre está en la lista, o se abrió
         // con ?v2=1 para instalarla antes de entrar): el nombre de la app en
         // la pantalla de inicio es «EntrenaMétodo», y al instalarla abre con

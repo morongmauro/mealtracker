@@ -15,6 +15,7 @@ import { Hoja } from './entrenoUI.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { HojaUnidades, useUnidades } from './Unidades.jsx';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
+import { PRUEBA_TODOS } from './vistaApp.js';
 
 const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)';
 
@@ -155,12 +156,18 @@ const botonFuerte = { flex: 'none', height: 36, padding: '0 14px', borderRadius:
 // desde «Ver la completa», al final de «Más»).
 // Las tres vistas, para probarlas (solo quien puede): la de siempre, la
 // compacta y la vista en prueba (lo nuevo, junto).
-const VISTAS = [
+const VISTAS_3 = [
   ['completa', 'Completa', 'La de siempre, como la ven tus clientes'],
   ['compacta', 'Compacta', 'Abajo solo Entreno, Comida y Más'],
   ['prueba', 'En prueba', 'Lo nuevo junto: más blanco, un número grande y una cosa protagonista por pantalla'],
 ];
+// Ya para todos: dos, la completa (la nueva) y la compacta.
+const VISTAS_TODOS = [
+  ['prueba', 'Completa', 'Toda la app: Dash, Entreno, Comida y Aprende'],
+  ['compacta', 'Compacta', 'Abajo solo Entreno, Comida y Más'],
+];
 function ElegirVista({ modo = 'completa', alCambiar }) {
+  const VISTAS = PRUEBA_TODOS ? VISTAS_TODOS : VISTAS_3;
   const actual = VISTAS.find(v => v[0] === modo) || VISTAS[0];
   return (
     <div data-elegir-vista style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA, padding: '14px 14px 13px', marginBottom: 14 }}>
