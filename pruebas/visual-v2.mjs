@@ -425,6 +425,13 @@ try {
       await ir('mas'); await f('mas');
       console.log('errores', pv.errores.slice(0, 3)); await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
     }
+    // VISTA_CHAT=1: el chat de Alimentación (en la vista que diga VISTA_MODO).
+    if (process.env.VISTA_CHAT) {
+      if (await pv.p.locator('[data-compacta-boton="comida"]').count()) await pv.p.locator('[data-compacta-boton="comida"]').click();
+      else { await pv.p.getByRole('button', { name: 'Alimentación', exact: true }).click().catch(() => {}); await espera(600); await pv.p.getByRole('button', { name: 'Chat', exact: true }).click().catch(() => {}); }
+      await espera(2500); await pv.p.screenshot({ path: path.join(CAPTURAS, `chat-${process.env.VISTA_MODO || 'prueba'}.png`) });
+      console.log('errores', pv.errores.slice(0, 3)); await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+    }
     // VISTA_SIN_ARO=1: el aro y el objeto se esconden (para componer propuestas encima).
     if (process.env.VISTA_SIN_ARO) await pv.p.addStyleTag({ content: '[data-aro-cabecera],[data-ilus-cabecera],[data-objeto-cabecera]{visibility:hidden!important}' });
     const cab = async (n) => { await espera(2600); await pv.p.screenshot({ path: path.join(CAPTURAS, `vista-${n}.png`), clip: { x: 0, y: 0, width: 390, height: 420 } });

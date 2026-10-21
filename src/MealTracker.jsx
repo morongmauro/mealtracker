@@ -5850,7 +5850,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             hacia abajo) y no cambia de alto ni de color al escribir o al
             bajar: antes se encogía al compactarse la tarjeta y parecía que la
             cabecera cambiaba de color al tocar la barra de texto. */}
-        <div ref={chatBandRef} data-portada-chat className="fixed left-0 right-0 top-0 pointer-events-none" style={v2 ? (() => { const t = TEMAS_CABECERA.comida; return {
+        <div ref={chatBandRef} data-portada-chat className="fixed left-0 right-0 top-0 pointer-events-none" style={v2 && enPrueba() ? {
+          // Vista en prueba: como en Entrenamiento, lo que sube por detrás de
+          // la barra de macros se desvanece hacia blanco antes de llegar a
+          // ella (sin manchas de color).
+          zIndex: 25,
+          height: `calc(${headerH}px + ${cardCompact ? 112 : 214}px)`,
+          background: 'linear-gradient(180deg, rgba(252,252,253,0.97) 0%, rgba(252,252,253,0.92) 72%, rgba(252,252,253,0) 100%)',
+          transition: 'height 0.25s cubic-bezier(0.2, 0, 0, 1)',
+        } : v2 ? (() => { const t = TEMAS_CABECERA.comida; return {
           zIndex: 25,
           height: `calc(${headerH}px + 210px)`,
           background: `radial-gradient(closest-side, ${t.m1} 0%, ${t.m1}00 100%) calc(100% + 30vw) -10vw / 95vw 95vw no-repeat,
@@ -5880,7 +5888,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <div ref={goalsCardRef} className="fixed left-0 right-0" style={{
           // 16px como la barra de texto: la tarjeta queda del MISMO ancho
           // que la barra de escribir (antes 20px la dejaba más angosta).
-          paddingLeft: '16px', paddingRight: '16px',
+          paddingLeft: v2 && enPrueba() ? '18px' : '16px', paddingRight: v2 && enPrueba() ? '18px' : '16px',
           paddingTop: cardCompact ? '4px' : '8px',
           paddingBottom: cardCompact ? '6px' : '12px',
           // SIN fondo: el diluido lo pone la franja de color de abajo, que
@@ -5897,7 +5905,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             anillos/círculos explican su macro y "Ver desempeño" (su propia
             etiqueta) es lo ÚNICO que abre el panel — cada tap hace lo que
             dice. */}
-        <div className="rounded-3xl relative" style={{
+        <div className="rounded-3xl relative" data-tarjeta-macros style={{
           padding: cardCompact ? '11px 14px' : '16px',
           ...(v2 ? { borderRadius: 24 } : {}),
           // Se perdía contra el fondo: blanco al 95% sobre un fondo crema
@@ -5911,6 +5919,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           // Visual nueva: la misma sombra suave de las tarjetas del Dash.
           boxShadow: v2 ? '0 1px 2px rgba(40,40,30,0.04), 0 10px 28px rgba(60,60,40,0.07)'
             : '0 1px 0 rgba(255,255,255,0.9) inset, 0 10px 30px rgba(45,48,32,0.13), 0 2px 6px rgba(45,48,32,0.07)',
+          // Vista en prueba: el mismo vidrio de la barra de navegación (y,
+          // compacta, su misma forma de píldora).
+          ...(v2 && enPrueba() ? {
+            borderRadius: cardCompact ? 999 : 28,
+            padding: cardCompact ? '9px 16px' : '16px',
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.60))',
+            WebkitBackdropFilter: 'blur(26px) saturate(160%)', backdropFilter: 'blur(26px) saturate(160%)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.85), inset 0 0 0 1px rgba(255,255,255,0.45), 0 10px 30px rgba(40,44,30,0.14), 0 1px 3px rgba(40,44,30,0.08)',
+          } : {}),
           overflow: 'hidden',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)'
         }}>
@@ -7565,8 +7582,10 @@ const InputBar = memo(function InputBar({
   };
 
   return (
-    <div ref={barRef} className="fixed bottom-0 left-0 right-0 px-4 pt-6 z-40" style={{
-      background: `linear-gradient(180deg, transparent, ${BG}E6 30%, ${BG} 100%)`,
+    <div ref={barRef} data-barra-escribir className="fixed bottom-0 left-0 right-0 px-4 pt-6 z-40" style={{
+      // Vista en prueba: el mismo desvanecido a blanco que en Entrenamiento.
+      background: enPrueba() ? 'linear-gradient(180deg, rgba(252,252,253,0) 0%, rgba(252,252,253,0.9) 32%, rgba(252,252,253,0.97) 100%)'
+        : `linear-gradient(180deg, transparent, ${BG}E6 30%, ${BG} 100%)`,
       // liftPx: deja sitio a la barra de navegación inferior; con el teclado
       // abierto la barra se oculta y el input vuelve a pegarse abajo.
       paddingBottom: `calc(${20 + liftPx}px + env(safe-area-inset-bottom, 0px))`,
@@ -7731,8 +7750,10 @@ function CompactMacro({ val, goal, color, label, unit = '' }) {
   // avisa el exceso en rojo pastel.
   const pct = goal > 0 ? Math.min(1, val / goal) : 0;
   const over = goal > 0 && val > goal * 1.05;
-  const size = 30;
-  const stroke = 3.5;
+  // Vista en prueba: el grosor y el riel de los aros del Dash.
+  const P = enPrueba();
+  const size = P ? 32 : 30;
+  const stroke = P ? 4.5 : 3.5;
   const radius = (size - stroke) / 2;
   const circ = 2 * Math.PI * radius;
   const dash = circ * pct;
@@ -7744,7 +7765,7 @@ function CompactMacro({ val, goal, color, label, unit = '' }) {
           {v2Activa() ? (
             // Estilo Apple: riel de su color, degradado a lo largo y punta con sombrita.
             <>
-              <circle cx={center} cy={center} r={radius} fill="none" stroke={rielDe(color, 0.07, PISTA_V2)} strokeWidth={stroke} />
+              <circle cx={center} cy={center} r={radius} fill="none" stroke={rielDe(color, P ? 0.13 : 0.07, PISTA_V2)} strokeWidth={stroke} />
               <ArcoApple m={center} r={radius} grosor={stroke} frac={pct} color={color} transicion="stroke-dashoffset 0.6s ease" />
               <g transform={`rotate(-90 ${center} ${center})`}>
                 <PuntaApple m={center} r={radius} grosor={stroke} frac={pct} color={color} transicion="0.6s ease" radioPunto={Math.max(1.1, stroke / 2 - 1.6)} />
@@ -7772,7 +7793,9 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
   // SVG con viewBox + texto DENTRO del SVG: el anillo escala con el ancho de su
   // celda (grid-cols-4), así nunca se apiña ni se corta en teléfonos angostos.
   const size = 88;
-  const stroke = 5.5;
+  // Vista en prueba: el grosor y el riel de los aros del Dash.
+  const P = enPrueba();
+  const stroke = P ? 8 : 5.5;
   const center = size / 2;
   const radius = (size - stroke) / 2;
   const circ = 2 * Math.PI * radius;
@@ -7788,7 +7811,7 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
         {v2 ? (
           // Estilo Apple: riel de su color, degradado a lo largo y punta con sombrita.
           <>
-            <circle cx={center} cy={center} r={radius} fill="none" stroke={rielDe(color, 0.07, PISTA_V2)} strokeWidth={stroke} />
+            <circle cx={center} cy={center} r={radius} fill="none" stroke={rielDe(color, P ? 0.13 : 0.07, PISTA_V2)} strokeWidth={stroke} />
             <ArcoApple m={center} r={radius} grosor={stroke} frac={pct} objetivo={pctReal} color={color} transicion={`stroke-dashoffset ${CURVA_ARO}`} />
             <g transform={`rotate(-90 ${center} ${center})`}>
               <PuntaApple m={center} r={radius} grosor={stroke} frac={pct} color={color} transicion={CURVA_ARO} radioPunto={Math.max(1.1, stroke / 2 - 1.6)} />
