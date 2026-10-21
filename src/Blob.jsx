@@ -7,7 +7,7 @@
 // propio color debajo.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useId } from 'react';
-import { enPrueba } from './vistaApp.js';
+import { enPrueba, lote25 } from './vistaApp.js';
 
 function superelipse(n = 3.8, S = 200, N = 72) {
   const c = S / 2, r = S / 2, pts = [];
@@ -53,6 +53,34 @@ export function BlobVidrio({ color, segundo = null, tam = 120, intensidad = 0.2,
   // la luz del color de la sección saliendo suave de la esquina de abajo a
   // la derecha, un toque del segundo color abajo a la izquierda y la sombra
   // corta de su color. Sin más capas: así se ve igual de sutil en todas.
+  // Lote 25 (opción D, «vidrio líquido suave»): el más transparente. Lo de
+  // atrás (la franja y el degradado) se ve borroso a través; borde grueso y
+  // luminoso como una lente, un brillo arriba y sin manchas de color.
+  if (lote25()) return (
+    <>
+      <div aria-hidden="true" data-blob-vidrio-d style={{
+        position: 'absolute', left: 0, top: 0, width: 200, height: 200, transformOrigin: '0 0', pointerEvents: 'none',
+        transform: `translate(${tam / 2}px, ${tam / 2}px) scale(${k}) rotate(${BLOB_GIRO}deg) translate(-100px, -100px)`,
+        clipPath: `path('${BLOB_PATH}')`, WebkitBackdropFilter: 'blur(8px) saturate(1.15)', backdropFilter: 'blur(8px) saturate(1.15)',
+      }} />
+      <svg data-blob data-vidrio data-vidrio-d width={tam} height={tam} viewBox="0 0 200 200" aria-hidden="true" style={{
+        display: 'block', overflow: 'visible', position: 'relative', transform: `rotate(${BLOB_GIRO}deg)`,
+        filter: `drop-shadow(0 12px 20px ${rgba(color, 0.12)}) drop-shadow(0 1px 3px rgba(30,30,40,.05))`, ...style,
+      }}>
+        <defs>
+          <clipPath id={`${id}c`}><path d={BLOB_PATH} /></clipPath>
+          <filter id={`${id}g`} x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="6" /></filter>
+          <filter id={`${id}d`} x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.8" /></filter>
+        </defs>
+        <path d={BLOB_PATH} fill="rgba(255,255,255,.38)" />
+        <g clipPath={`url(#${id}c)`}>
+          <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,.75)" strokeWidth="24" filter={`url(#${id}g)`} />
+          <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,.95)" strokeWidth="4.5" filter={`url(#${id}d)`} />
+          <ellipse cx="70" cy="33" rx="52" ry="11" fill="rgba(255,255,255,.8)" filter={`url(#${id}g)`} transform="rotate(-18 70 33)" />
+        </g>
+      </svg>
+    </>
+  );
   if (enPrueba()) return (
     <svg data-blob data-vidrio width={tam} height={tam} viewBox="0 0 200 200" aria-hidden="true" style={{
       display: 'block', overflow: 'visible', position: 'relative', transform: `rotate(${BLOB_GIRO}deg)`,
