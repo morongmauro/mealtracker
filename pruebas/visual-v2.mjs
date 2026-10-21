@@ -2405,11 +2405,12 @@ try {
       const a = cab.querySelector('[data-aro-cabecera]'), blob = a.querySelector('svg[data-blob][data-vidrio-d]'), atras = a.querySelector('[data-blob-vidrio-d]');
       if (!blob || !atras) return false;
       const m = new DOMMatrix(getComputedStyle(blob).transform); const giro = Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI);
-      const transparente = [...blob.querySelectorAll('path')].some(x => x.getAttribute('fill') === 'rgba(255,255,255,.38)');
-      const borde = [...blob.querySelectorAll('path')].some(x => x.getAttribute('stroke') === 'rgba(255,255,255,.95)');
-      const desenfoque = /blur\(8px\)/.test(getComputedStyle(atras).backdropFilter || getComputedStyle(atras).webkitBackdropFilter || '');
+      const transparente = [...blob.querySelectorAll('path')].some(x => x.getAttribute('fill') === 'rgba(255,255,255,.19)');
+      const borde = [...blob.querySelectorAll('path')].some(x => x.getAttribute('stroke') === 'rgba(255,255,255,.88)');
+      const desenfoque = /blur\(7px\)/.test(getComputedStyle(atras).backdropFilter || getComputedStyle(atras).webkitBackdropFilter || '');
       const banda = cab.querySelector(':scope > [data-banda]').getBoundingClientRect(), caja = cab.querySelector('[data-blob-cabecera]').getBoundingClientRect();
-      return giro === -12 && transparente && borde && desenfoque && caja.top <= banda.bottom - 18 && caja.top > 0;
+      const sinBrillo = !blob.querySelector('ellipse');
+      return giro === -12 && transparente && borde && desenfoque && sinBrillo && caja.top <= banda.bottom - 18 && caja.top > 0;
     }));
     ok('vista en prueba: barra de navegación flotando con margen a los lados, más alta, con lo de atrás desvanecido; Alimentación con cubiertos', await p.evaluate(() => {
       const nav = document.querySelector('nav[aria-label="Secciones"]'), r = nav.getBoundingClientRect(), velo = document.querySelector('[data-velo-barra]');
