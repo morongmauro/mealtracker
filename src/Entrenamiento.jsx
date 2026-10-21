@@ -27,7 +27,7 @@ import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind, Snowflake, Fi
 import Respira from './Respira.jsx';
 import Reconocimiento from './Reconocimiento.jsx';
 import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
-import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado, TipIconos } from './EntrenoEjercicioV2.jsx';
+import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado, TipIconos, AvisoComentarios } from './EntrenoEjercicioV2.jsx';
 import { rutinaLigera, enPrueba } from './vistaApp.js';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
@@ -688,7 +688,17 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
   const [fin, setFin] = useState(null);           // visual nueva: la celebración al terminar
   const conteoRef = useRef({ hechos: 0, total: 0, series: 0, kilos: 0 });
   const [pendientes, setPendientes] = useState(0);
-  const [nota, setNota] = useState(null);          // { titulo, rutina_id, rutina_ejercicio_id? }
+  const [nota, setNota] = useState(null);          // { titulo, rutina_id, rutina_ejercicio_id?, coach? }
+  // Comentario del coach: al abrir la conversación, sus «Para la próxima vez»
+  // quedan leídos (en el CRM y aquí: se apaga el circulito).
+  const leerComentarios = (ejercicioId, ids) => {
+    if (!ids || !ids.length) return;
+    Promise.resolve(entrenoApi.comentariosLeidos(name, ids)).catch(() => {});
+    const ahora = new Date().toISOString();
+    const marcar = (x) => (x.coach && x.ejercicio && x.ejercicio.id === ejercicioId)
+      ? { ...x, coach: { ...x.coach, puntuales: (x.coach.puntuales || []).map(p => (ids.includes(p.id) ? { ...p, leido_en: ahora } : p)) } } : x;
+    setDatos(d => (d && d.ejercicios ? { ...d, ejercicios: d.ejercicios.map(marcar) } : d));
+  };
   // kg o lb, POR EJERCICIO: las mancuernas de un gimnasio van en libras y las
   // máquinas del otro en kilos. Se recuerda en el teléfono; si no hay nada,
   // la unidad de la última vez; si no, kg.
@@ -1455,6 +1465,8 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
           marcar la segunda vuelta ni la tercera. */}
       <CuentaEjercicio.Provider value={ctxCuenta}>
       {(ligera || compactaRutina) && tramos.length > 0 && <TipIconos />}
+      <AvisoComentarios ejercicios={datos.ejercicios || []}
+        alVer={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, ejercicio_id: re.ejercicio && re.ejercicio.id })} />
       {tramos.map((tramo, ti) => (
         <React.Fragment key={tramo.clave}>
           {fases[ti] && fases[ti] !== fases[ti - 1] && (
@@ -1467,7 +1479,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
             <CircuitoV2 tramo={tramo} marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar}
               unidadDe={unidadDe} onUnidad={cambiarUnidad}
               compacta={compactaRutina} cerrado={compactaRutina && abiertaClave !== tramo.clave} alAbrir={() => setAbiertoCompacta(tramo.clave)} ligera={ligera} ahora={ahoraCircuito}
-              onNota={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })} />
+              onNota={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, ejercicio_id: re.ejercicio && re.ejercicio.id })} />
           ) : (<>
           {tramo.bloque && <CabeceraBloque b={tramo.bloque} v2={v2} />}
           {tramo.vueltas.map((vuelta, vi) => (
@@ -1490,7 +1502,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
                     : undefined}
                   compacto={vi > 0}
                   unidad={unidadDe(re)} onUnidad={() => cambiarUnidad(re)}
-                  onNota={() => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id })}
+                  onNota={() => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, ejercicio_id: re.ejercicio && re.ejercicio.id })}
                   ahora={re.id === ahoraId}
                   {...(compactaRutina ? { compacta: true, cerrado: abiertaClave !== re.id, alAbrir: () => setAbiertoCompacta(re.id) } : ligera ? { ligera: true } : {})}
                   marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />
@@ -1557,7 +1569,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
         />
       )}
 
-      <HojaNota abierta={!!nota} nombre={name} contexto={nota} alCerrar={() => setNota(null)} />
+      <HojaNota abierta={!!nota} nombre={name} contexto={nota} alCerrar={() => setNota(null)} alLeer={leerComentarios} />
 
       {records && <HojaRecords records={records} alCerrar={() => { setRecords(null); alTerminar(() => { if (v2) onVolver(); else setRemate(true); }); }} />}
       {fin && <HojaFin fin={fin} plan={plan} rutinaId={rutinaId} alCerrar={() => { setFin(null); alTerminar(onVolver); }} />}

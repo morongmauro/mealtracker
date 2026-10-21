@@ -132,6 +132,7 @@ export default async function handler(req, res) {
     if (accion === 'medidas') return res.status(200).json(await verMedidas(cliente));
     if (!esGet && accion === 'medida') return res.status(200).json(await guardarMedida(cliente, cuerpo, hoy));
     if (!esGet && accion === 'nota') return res.status(200).json(await guardarNota(cliente, cuerpo, hoy));
+    if (!esGet && accion === 'comentarios_leidos') return res.status(200).json(await marcarComentariosLeidos(cliente, cuerpo));
     if (accion === 'comunidad') return res.status(200).json(await verComunidad(cliente));
     if (!esGet && accion === 'reaccionar') return res.status(200).json(await reaccionarComunidad(cliente, cuerpo));
     if (!esGet && accion === 'comunidad_visto') return res.status(200).json(await vistoComunidad(cliente, cuerpo));
@@ -359,6 +360,8 @@ async function verRutina(cliente, rutinaId, hoy) {
   // Lo que no tiene nada en la app: lo último que hizo en Trainerize.
   const sinNada = [...new Set(lista.map(x => x.ejercicio_id))].filter(id => !ultimas[id] && porId[id]).map(id => porId[id]);
   Object.assign(ultimas, await ultimosDeTrainerize(cliente.id, sinNada).catch(() => ({})));
+  // El comentario del coach de cada ejercicio y lo que él le contestó.
+  const comentarios = await comentariosDe(cliente, [...new Set(lista.map(x => x.ejercicio_id))]).catch(() => ({}));
 
   return {
     ok: true, hoy, cardio,
@@ -376,9 +379,52 @@ async function verRutina(cliente, rutinaId, hoy) {
         rir: x.rir, tempo: x.tempo, descanso_seg: x.descanso_seg, notas: x.notas,
         ejercicio: porId[x.ejercicio_id] || { id: x.ejercicio_id, nombre: 'Ejercicio' },
         ultima_vez: ultimas[x.ejercicio_id] || null,
+        ...(comentarios[x.ejercicio_id] ? { coach: comentarios[x.ejercicio_id] } : {}),
       })),
     },
   };
+}
+
+// ── COMENTARIO DEL COACH ─────────────────────────────────────────────────
+// Lo que el coach le escribe sobre un ejercicio desde el CRM (tabla
+// `comentarios_coach`, migraciones/comentarios-coach.sql del CRM), pegado al
+// cliente y al ejercicio: sigue en el ciclo nuevo sin copiar nada.
+//   · siempre   → el «Siempre presente» vigente (uno por ejercicio).
+//   · puntuales → los «Para la próxima vez»; los sin leer llevan el circulito.
+//   · notas     → lo que el cliente le escribió de ese ejercicio (la conversación).
+// Sin la tabla, no llega nada y la app sigue como siempre.
+async function comentariosDe(cliente, ejIds) {
+  if (!ejIds.length) return {};
+  const ids = ejIds.map(encodeURIComponent).join(',');
+  const [cs, ns] = await Promise.all([
+    sb(`comentarios_coach?select=id,ejercicio_id,tipo,texto,creado_en,leido_en&cliente_id=eq.${cliente.id}`
+      + `&ejercicio_id=in.(${ids})&quitado_en=is.null&order=creado_en.asc`).catch(() => []),
+    sb(`notas_entreno?select=id,ejercicio_id,texto,created_at&cliente_id=eq.${cliente.id}`
+      + `&ejercicio_id=in.(${ids})&order=created_at.asc&limit=300`).catch(() => []),
+  ]);
+  const out = {};
+  const de = (id) => out[id] || (out[id] = { siempre: null, puntuales: [], notas: [] });
+  (Array.isArray(cs) ? cs : []).forEach(c => {
+    const x = de(c.ejercicio_id);
+    const f = { id: c.id, texto: c.texto, creado_en: c.creado_en, leido_en: c.leido_en || null };
+    if (c.tipo === 'siempre') x.siempre = f; else if (c.tipo === 'puntual') x.puntuales.push(f);
+  });
+  // Las notas solo hacen falta donde hay algo del coach (es la conversación).
+  (Array.isArray(ns) ? ns : []).forEach(n => { if (out[n.ejercicio_id]) out[n.ejercicio_id].notas.push({ id: n.id, texto: n.texto, creado_en: n.created_at }); });
+  Object.values(out).forEach(x => { x.puntuales = x.puntuales.slice(-20); x.notas = x.notas.slice(-20); });
+  return out;
+}
+
+// El cliente abrió la conversación: sus «Para la próxima vez» quedan leídos.
+async function marcarComentariosLeidos(cliente, cuerpo) {
+  const ids = (Array.isArray(cuerpo.ids) ? cuerpo.ids : []).map(String).filter(x => /^[0-9a-f-]{8,40}$/i.test(x)).slice(0, 50);
+  if (!ids.length) return { ok: true, leidos: 0 };
+  try {
+    const r = await sb(`comentarios_coach?id=in.(${ids.join(',')})&cliente_id=eq.${cliente.id}&leido_en=is.null`, {
+      method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ leido_en: new Date().toISOString() }),
+    });
+    return { ok: true, leidos: Array.isArray(r) ? r.length : 0 };
+  } catch (e) { return { ok: false, motivo: 'sin_tabla' }; }
 }
 // notas_coach no está en el select, pero se recorta igual por si alguien
 // añade un '*' más adelante.

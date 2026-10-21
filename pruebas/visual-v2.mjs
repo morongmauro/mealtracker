@@ -2616,6 +2616,55 @@ try {
     await vc2.ctx.close();
   }
 
+  // ── Comentario del coach (lote 25, solo Mauro) ──
+  {
+    const VP = JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' });
+    const cc = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:vistaApp': VP }, ajustar: (db) => {
+      db.db.comentarios_coach = [
+        { id: '11111111-aaaa-4aaa-8aaa-000000000001', cliente_id: 'c1', ejercicio_id: 'e1', tipo: 'siempre', texto: 'Baja la barra controlada (2 s) y codos a 45°.', creado_en: hace(2) + 'T12:00:00Z', leido_en: null, quitado_en: null },
+        { id: '11111111-aaaa-4aaa-8aaa-000000000002', cliente_id: 'c1', ejercicio_id: 'e1', tipo: 'puntual', texto: 'Hoy baja a 55 kg y acorta un poco el recorrido.', creado_en: hace(0) + 'T11:00:00Z', leido_en: null, quitado_en: null },
+        { id: '11111111-aaaa-4aaa-8aaa-000000000003', cliente_id: 'c1', ejercicio_id: 'e4', tipo: 'puntual', texto: 'Este ya lo leíste.', creado_en: hace(1) + 'T11:00:00Z', leido_en: hace(1) + 'T12:00:00Z', quitado_en: null },
+        { id: '11111111-aaaa-4aaa-8aaa-000000000004', cliente_id: 'c1', ejercicio_id: 'e11', tipo: 'puntual', texto: 'Quitado: no sale.', creado_en: hace(0) + 'T10:00:00Z', leido_en: null, quitado_en: hace(0) + 'T10:30:00Z' },
+      ];
+      db.db.notas_entreno = [{ id: 'n-1', cliente_id: 'c1', ejercicio_id: 'e1', texto: 'Me molesta un poco el hombro derecho al bajar.', created_at: hace(0) + 'T10:00:00Z' }];
+    } });
+    const p = cc.p;
+    await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }); await espera(1500);
+    await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
+    await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(900);
+    const tarjeta = p.locator('[data-re-id="re-e1"]').first();
+    ok('comentario del coach: la nubecita del ejercicio lleva el circulito azul con 1 (solo lo puntual sin leer)', await tarjeta.locator('[data-punto-coach="1"]').count() === 1
+      && await p.locator('[data-re-id="re-e4"] [data-punto-coach]').count() === 0 && await p.locator('[data-re-id="re-e11"] [data-punto-coach]').count() === 0);
+    ok('comentario del coach: el «Siempre presente» va fijo en la tarjeta, tranquilo (sin circulito propio)', /Tu coach: Baja la barra controlada/.test(await tarjeta.locator('[data-siempre-coach]').innerText().catch(() => '')));
+    ok('comentario del coach: arriba de la rutina, una sola línea «Tu coach te dejó un comentario»', await p.locator('[data-aviso-coach="1"]').count() === 1 && /Tu coach te dejó un comentario/.test(await p.locator('[data-aviso-coach]').innerText()));
+    await foto(p, '45a-comentario-coach-rutina');
+    await p.locator('[data-aviso-coach]').click(); await espera(900);
+    const hoja = p.locator('[data-conversacion-coach]');
+    const txt = await hoja.innerText().catch(() => '');
+    ok('comentario del coach: «Ver» abre la conversación del ejercicio (fijo arriba, su nota y lo puntual)', /Siempre presente/.test(txt) && /Baja la barra controlada/.test(txt) && /Me molesta un poco el hombro/.test(txt) && /PARA LA PRÓXIMA VEZ/.test(txt) && /Hoy baja a 55 kg/.test(txt) && !/Quitado: no sale/.test(txt), txt.slice(0, 300));
+    ok('comentario del coach: el orden es el de la conversación (su nota de las 10, luego lo del coach de las 11)', txt.indexOf('Me molesta') < txt.indexOf('Hoy baja a 55'));
+    ok('comentario del coach: se le puede responder ahí mismo', await p.locator('textarea[placeholder="Responder a tu coach…"]').count() === 1);
+    await foto(p, '45b-comentario-coach-conversacion');
+    await espera(400);
+    ok('comentario del coach: al abrirla queda leído en el CRM', await p.evaluate(() => true) && !!cc.db.db.comentarios_coach.find(c => c.id === '11111111-aaaa-4aaa-8aaa-000000000002').leido_en
+      && !cc.db.db.comentarios_coach.find(c => c.id === '11111111-aaaa-4aaa-8aaa-000000000004').leido_en);
+    await p.keyboard.press('Escape'); await p.locator('[data-hoja-cerrar], button[aria-label="Cerrar"]').first().click().catch(() => {}); await espera(600);
+    ok('comentario del coach: y se apaga el circulito', await p.locator('[data-re-id="re-e1"] [data-punto-coach]').count() === 0);
+    ok('sin errores de JavaScript (comentario del coach)', cc.errores.length === 0, cc.errores.join(' | '));
+    await cc.ctx.close();
+  }
+  // ── Otra persona (Ana): no ve nada del comentario del coach (todavía es solo de Mauro) ──
+  {
+    const VP = JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' });
+    const an = await abrir('Ana Pérez', { caliente: true, extra: { 'mt:vistaApp': VP }, ajustar: (db) => {
+      db.db.rutinas.forEach(r => { r.cliente_id = 'c2'; }); db.db.fases.forEach(f => { f.cliente_id = 'c2'; });
+      db.db.comentarios_coach = [{ id: '11111111-aaaa-4aaa-8aaa-000000000009', cliente_id: 'c2', ejercicio_id: 'e1', tipo: 'puntual', texto: 'Para Ana', creado_en: hace(0) + 'T11:00:00Z', leido_en: null, quitado_en: null }];
+    } });
+    await espera(5000);
+    ok('comentario del coach: otra persona no ve circulito ni aviso (solo Mauro por ahora)', await an.p.locator('[data-punto-coach], [data-aviso-coach], [data-siempre-coach]').count() === 0);
+    await an.ctx.close();
+  }
   // ── Otra persona: todo como siempre ──
   const o = await abrir('Ana Pérez');
   await o.p.getByRole('button', { name: 'Herram.' }).waitFor({ timeout: 25000 });

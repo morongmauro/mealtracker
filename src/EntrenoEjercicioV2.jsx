@@ -18,14 +18,14 @@
 // de peso corporal solo se piden reps.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, Info, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets } from '@phosphor-icons/react';
+import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, Info, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets, PushPin } from '@phosphor-icons/react';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { Hoja, FONDO_TARJETA_HOJA } from './entrenoUI.jsx';
 import { miniatura, urlVideoLimpio, numero, descansoEnCircuito, sinPeso, convertir, leerTecleado, guardarTecleado } from './entrenoDatos.js';
 import { nombresEj } from './v2.js';
 import { SURFACE, TEXT, TEXT_MUTED, TEXT_LIGHT, BORDER, SECCION } from './theme.js';
 import { asegurarCSS, vibrar } from './Celebraciones.jsx';
-import { enPrueba } from './vistaApp.js';
+import { enPrueba, lote25 } from './vistaApp.js';
 import { VideoMini } from './VideoLimpio.jsx';
 
 const AZUL = SECCION.entreno.base;
@@ -216,27 +216,29 @@ function Botones({ items, chico = false, soloIconos = false, chicos = false }) {
   // Vista compacta: solo el ícono, en círculos chicos al lado del nombre.
   if (soloIconos) return (
     <div data-botones data-botones-iconos style={{ display: 'flex', gap: chicos ? 2 : 6, flex: 'none' }}>
-      {items.map(({ Icono, texto, onClick }) => (
-        <button key={texto} onClick={onClick} aria-label={texto} title={texto} data-pildora-ejercicio style={{
+      {items.map(({ Icono, texto, onClick, punto }) => (
+        <button key={texto} onClick={onClick} aria-label={punto ? `${texto} (${punto} sin leer de tu coach)` : texto} title={texto} data-pildora-ejercicio style={{
+          position: 'relative',
           width: chicos ? 32 : 34, height: chicos ? 32 : 34, borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer', padding: 0,
           boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)', display: 'grid', placeItems: 'center', flex: 'none',
-        }}><Icono size={16} color={GRAFITO} /></button>
+        }}><Icono size={16} color={GRAFITO} />{punto ? <PuntoCoach n={punto} /> : null}</button>
       ))}
     </div>
   );
   return (
     <div data-botones style={{ display: 'flex', gap: chico ? 6 : 7, marginTop: chico ? 8 : 9, minWidth: 0 }}>
-      {items.map(({ Icono, texto, corto, onClick }) => {
+      {items.map(({ Icono, texto, corto, onClick, punto }) => {
         const visible = chico && corto ? corto : texto;
         return (
           <button key={texto} onClick={onClick} aria-label={visible !== texto ? texto : undefined} data-pildora-ejercicio style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: chico ? '0 10px' : '0 11px',
+            position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: chico ? '0 10px' : '0 11px',
             borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
             boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)',
             fontSize: 13, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0, flex: '0 1 auto',
           }}>
             <Icono size={15} color={GRAFITO} style={{ flex: 'none' }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{visible}</span>
+            {punto ? <PuntoCoach n={punto} /> : null}
           </button>
         );
       })}
@@ -244,13 +246,86 @@ function Botones({ items, chico = false, soloIconos = false, chicos = false }) {
   );
 }
 
-function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota }) {
+function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota, re = null }) {
   return [
     { Icono: Info, texto: 'Ficha', onClick: abrirFicha },
     // El récord va dentro del historial: un botón menos por ejercicio.
     ...(sinCarga ? [] : [{ Icono: ClockCounterClockwise, texto: 'Historial', onClick: abrirUltima }]),
-    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', corto: 'Nota', onClick: onNota }] : []),
+    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', corto: 'Nota', onClick: onNota, punto: sinLeerCoach(re) }] : []),
   ];
+}
+
+// ── COMENTARIO DEL COACH (lote 25) ────────────────────────────────────────
+// Dos jerarquías distintas, a propósito:
+//   · «Para la próxima vez» (puntual) es un aviso: el circulito azul con el
+//     número en la nubecita del ejercicio, hasta que lo lee.
+//   · «Siempre presente» NO avisa: es una línea tranquila, fija en la tarjeta,
+//     que se lee al hacer la serie. Sin circulito ni número.
+// La nota de siempre de la rutina («De tu coach») pasa a ser ese «Siempre
+// presente» cuando el coach no escribió uno.
+export const sinLeerCoach = (re) => (lote25() && re && re.coach ? (re.coach.puntuales || []).filter(p => !p.leido_en).length : 0);
+export const siempreCoach = (re) => (lote25() && re ? ((re.coach && re.coach.siempre && re.coach.siempre.texto) || re.notas || null) : null);
+const AZUL_COACH = '#3C7BD6';
+function PuntoCoach({ n }) {
+  return (
+    <span data-punto-coach={n} style={{
+      position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box', borderRadius: 99,
+      background: AZUL_COACH, color: '#fff', fontSize: 10, fontWeight: 800, lineHeight: '16px', textAlign: 'center', boxShadow: '0 0 0 2px #fff',
+    }}>{n}</span>
+  );
+}
+// Si hay «Para la próxima vez» sin leer, arriba de la rutina sale UNA vez la
+// línea «Tu coach te dejó N comentarios» que lleva al primero. Lo «Siempre
+// presente» no cuenta: no es un aviso.
+const CLAVE_AVISO_COACH = 'mt:avisoCoachVisto';
+export function AvisoComentarios({ ejercicios, alVer }) {
+  const conNuevos = [], vistos = new Set();
+  ejercicios.forEach(re => {
+    const id = re.ejercicio && re.ejercicio.id;
+    if (!id || vistos.has(id)) return; vistos.add(id);
+    if (sinLeerCoach(re) > 0) conNuevos.push(re);
+  });
+  const ids = conNuevos.flatMap(re => re.coach.puntuales.filter(p => !p.leido_en).map(p => p.id));
+  const clave = ids.join(',');
+  const [visible, setVisible] = useState(false);
+  const [cerrado, setCerrado] = useState(false);
+  useEffect(() => {
+    if (!ids.length) return;
+    let ya = [];
+    try { ya = JSON.parse(localStorage.getItem(CLAVE_AVISO_COACH) || '[]'); } catch (e) {}
+    if (!ids.some(i => !ya.includes(i))) return;
+    setVisible(true);
+    try { localStorage.setItem(CLAVE_AVISO_COACH, JSON.stringify([...new Set([...ya, ...ids])].slice(-200))); } catch (e) {}
+  }, [clave]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!visible || cerrado || !conNuevos.length) return null;
+  const n = ids.length;
+  return (
+    <button data-aviso-coach={n} onClick={() => {
+      setCerrado(true);
+      const re = conNuevos[0];
+      const el = document.querySelector(`[data-re-id="${re.id}"]`);
+      if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      alVer(re);
+    }} style={{
+      width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 14px', margin: '4px 0 12px', borderRadius: 18,
+      border: 'none', background: '#1D1D1F', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+    }}>
+      <span style={{ width: 30, height: 30, borderRadius: 99, background: AZUL_COACH, display: 'grid', placeItems: 'center', flex: 'none' }}>
+        <ChatCircleText size={16} weight="fill" color="#fff" />
+      </span>
+      <span style={{ flex: 1, fontSize: 14, fontWeight: 650, lineHeight: 1.3 }}>Tu coach te dejó {n === 1 ? 'un comentario' : `${n} comentarios`} en esta rutina</span>
+      <span style={{ fontSize: 14, fontWeight: 800, color: AMARILLO, flex: 'none' }}>Ver</span>
+    </button>
+  );
+}
+
+export function SiempreCoach({ texto, estilo }) {
+  return (
+    <div data-siempre-coach style={{ marginTop: 9, padding: '8px 11px', borderRadius: 12, background: 'rgba(60,123,214,0.08)', display: 'flex', gap: 7, alignItems: 'flex-start', ...estilo }}>
+      <PushPin size={14} weight="fill" color={AZUL_COACH} style={{ flex: 'none', marginTop: 2 }} />
+      <span style={{ fontSize: 13, color: '#2F5FA8', lineHeight: 1.4 }}><b style={{ fontWeight: 700 }}>Tu coach:</b> {texto}</span>
+    </div>
+  );
 }
 
 const NADA_AUN = 'Todavía no has registrado este ejercicio. Lo que marques hoy será tu primera marca.';
@@ -532,8 +607,9 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
   }
 
   const botones = botonesDe({
-    sinCarga, onNota, abrirFicha: () => setFicha(true), abrirRecord: () => setRecord(true), abrirUltima: () => setVerUltima(true),
+    sinCarga, onNota, re, abrirFicha: () => setFicha(true), abrirRecord: () => setRecord(true), abrirUltima: () => setVerUltima(true),
   });
+  const siempre = siempreCoach(re);
   const recetado = `${re.series > 1 ? `${re.series} × ` : ''}${textoReps(re)}`;
 
   // Vista compacta: si no es el que toca, cerrado en una línea.
@@ -616,7 +692,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
       {/* Compacta: la misma línea suave entre el ejercicio y las series. */}
       {compacta && prueba && <div data-separador-series style={{ height: 1, background: 'rgba(60,60,67,0.09)', margin: '10px 0 2px' }} />}
 
-      {re.notas && (
+      {lote25() ? (siempre && <SiempreCoach texto={siempre} />) : re.notas && (
         <div style={{ marginTop: 9, padding: '8px 11px', borderRadius: 11, background: '#FFF6E0', fontSize: 12.5, color: '#6B4E05', lineHeight: 1.45 }}>
           <b>De tu coach:</b> {re.notas}
         </div>
@@ -758,16 +834,17 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                       {prueba && ahora === `${re.id}:${vi + 1}` && <span data-ahora-circuito style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
                       {/* Vista en prueba: los íconos arriba a la derecha, como en Fuerza. */}
                       {vi === 0 && ligera && prueba && <div data-botones-arriba style={{ float: 'right', margin: '-2px -2px 4px 8px' }}><Botones soloIconos chicos items={botonesDe({
-                        sinCarga, onNota: onNota ? () => onNota(re) : null,
+                        sinCarga, onNota: onNota ? () => onNota(re) : null, re,
                         abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re),
                       })} /></div>}
                       <Nombres e={e} tam={15} />
                       <div style={{ fontSize: 13, color: '#3A3A3C', fontWeight: 600, marginTop: 3 }}>{textoReps(re)}</div>
                     </div>
                   </div>
+                  {vi === 0 && siempreCoach(re) && <SiempreCoach texto={siempreCoach(re)} estilo={{ marginTop: 8 }} />}
                   {vi === 0 && !(ligera && prueba) && (
                     <Botones chico soloIconos={compacta || ligera} items={botonesDe({
-                      sinCarga, onNota: onNota ? () => onNota(re) : null,
+                      sinCarga, onNota: onNota ? () => onNota(re) : null, re,
                       abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re),
                     })} />
                   )}

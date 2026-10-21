@@ -58,6 +58,7 @@ export const api = {
   medida:  (name, datos) => pedir({ accion: 'medida', name, ...datos }),
   // Nota para el coach, sobre la rutina o sobre un ejercicio.
   nota:    (name, datos) => pedir({ accion: 'nota', name, ...datos }),
+  comentariosLeidos: (name, ids) => pedir({ accion: 'comentarios_leidos', name, ids }),
   // Comunidad: lo que publica el coach, reaccionar, comentar y marcar visto.
   comunidad: (name)        => pedir({ accion: 'comunidad', name }),
   reaccionar: (name, datos) => pedir({ accion: 'reaccionar', name, ...datos }),
