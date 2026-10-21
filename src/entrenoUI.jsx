@@ -18,6 +18,9 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { lote25 } from './vistaApp.js';
+import { vibrar } from './vibrar.js';
+import { WarningCircle } from '@phosphor-icons/react';
 import { ACCENT as OLIVA, ACCENT_DARK as OLIVA_DARK, ACCENT_PASTEL as OLIVA_PASTEL, ACCENT_LIGHT as OLIVA_LIGHT,
          SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT, SUCCESS as SUCCESS_OLIVA, WARN, DANGER,
          SHADOW_CARD, SHADOW_OVERLAY, FONT_DISPLAY } from './theme.js';
@@ -131,7 +134,45 @@ export function Seccion({ children, accion, style }) {
 }
 
 // ── Estados que no son contenido ──────────────────────────────────────────
-export function Vacio({ icono = '·', titulo, texto, accion }) {
+// Lote 25 · vacío con el blob blanco de la marca y el ícono de línea en el
+// color del módulo; carga con la forma de la tarjeta en el color tenue del
+// módulo que late suave. `tono`: entreno | comida | dash | aprende.
+const COLOR_TONO = { entreno: '95,102,112', comida: '70,150,90', dash: '60,123,214', aprende: '238,132,52' };
+const CSS_LATE = '@keyframes mt-late{0%,100%{opacity:1}50%{opacity:.55}}[data-cargando-modulo] [data-sk]{animation:mt-late 1.4s ease-in-out infinite}';
+export function BlobIcono({ Icono, tono = 'entreno', tam = 64 }) {
+  const c = COLOR_TONO[tono] || COLOR_TONO.entreno;
+  return (
+    <span aria-hidden="true" style={{
+      width: tam, height: tam, borderRadius: tam * 0.33, transform: 'rotate(-12deg)', background: '#fff', display: 'grid', placeItems: 'center',
+      boxShadow: `0 10px 24px rgba(${c},.18), inset 0 0 0 1px rgba(${c},.06)`, margin: '0 auto 12px',
+    }}>
+      <span style={{ transform: 'rotate(12deg)', display: 'grid', color: `rgb(${c})` }}>{Icono ? <Icono size={tam * 0.4} weight="regular" /> : null}</span>
+    </span>
+  );
+}
+export function CargandoModulo({ tono = 'entreno', barras = true, alto = null }) {
+  const c = COLOR_TONO[tono] || COLOR_TONO.entreno;
+  return (
+    <div data-cargando-modulo aria-busy="true" aria-label="Cargando" style={{ padding: '6px 0', minHeight: alto || undefined }}>
+      <style>{CSS_LATE}</style>
+      <div data-sk style={{ height: 14, width: '55%', borderRadius: 8, background: `rgba(${c},.12)` }} />
+      <div data-sk style={{ height: 10, width: '35%', borderRadius: 8, background: `rgba(${c},.08)`, marginTop: 9 }} />
+      {barras && <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 16, height: 72 }}>
+        {[40, 62, 48, 75, 58, 80, 66].map((h, i) => <div key={i} data-sk style={{ flex: 1, height: `${h}%`, borderRadius: 8, background: `rgba(${c},.10)` }} />)}
+      </div>}
+    </div>
+  );
+}
+
+export function Vacio({ icono = '·', titulo, texto, accion, Icono = null, tono = 'entreno' }) {
+  if (lote25() && Icono) return (
+    <Card style={{ textAlign: 'center', padding: '26px 20px' }}>
+      <div data-vacio-blob style={{ display: 'grid' }}><BlobIcono Icono={Icono} tono={tono} /></div>
+      <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 4 }}>{titulo}</div>
+      {texto && <div style={{ fontSize: 15, color: TEXT_MUTED, lineHeight: 1.45 }}>{texto}</div>}
+      {accion && <div style={{ marginTop: 14 }}>{accion}</div>}
+    </Card>
+  );
   return (
     <Card style={{ textAlign: 'center', padding: '32px 20px' }}>
       <div style={{ fontSize: 30, marginBottom: 8, opacity: .5 }}>{icono}</div>
@@ -142,7 +183,8 @@ export function Vacio({ icono = '·', titulo, texto, accion }) {
   );
 }
 
-export function Cargando({ texto = 'Cargando…' }) {
+export function Cargando({ texto = 'Cargando…', tono = 'entreno' }) {
+  if (lote25()) return <Card><CargandoModulo tono={tono} barras={false} /></Card>;
   return (
     <div style={{ padding: '28px 0', textAlign: 'center', color: TEXT_LIGHT, fontSize: 13.5 }}>
       {texto}
@@ -168,6 +210,7 @@ export function Fallo({ motivo, alReintentar }) {
   return (
     <Vacio
       icono="⚠"
+      Icono={WarningCircle}
       titulo="No pude cargar"
       texto={frases[motivo] || 'Algo falló. Intenta de nuevo en un momento.'}
       accion={alReintentar && <Boton variante="suave" chico onClick={alReintentar}>Reintentar</Boton>}
@@ -183,7 +226,8 @@ export function Fallo({ motivo, alReintentar }) {
 // Entrenamiento, como las cabeceras, con la foto del ejercicio (o un ícono),
 // qué ventana es y el nombre en grande. Así se siente de la app y no una
 // ventana genérica. { etiqueta, nombre, chico?, foto?, Icono? }
-export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca = null }) {
+export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca = null, tono = 'entreno' }) {
+  const L25 = lote25();
   // Con la hoja abierta, el fondo no debe moverse: en el móvil el scroll se
   // "contagia" a la página de atrás y al cerrar apareces en otro sitio.
   // Ojo: la página de atrás no es el <body> sino la capa de la sección
@@ -195,6 +239,7 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
     const capas = [document.body, ...document.querySelectorAll('[data-view="entrena"], [data-view="dash"]')];
     const previos = capas.map(el => el.style.overflow);
     capas.forEach(el => { el.style.overflow = 'hidden'; });
+    if (L25) vibrar('tic');
     const esc = (e) => { if (e.key === 'Escape') alCerrar?.(); };
     window.addEventListener('keydown', esc);
     return () => {
@@ -219,13 +264,14 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
         role="dialog" aria-modal="true" aria-label={titulo || 'Detalle'}
         style={{
           background: SURFACE, width: '100%', maxWidth: 560,
-          borderRadius: '22px 22px 0 0', boxShadow: SHADOW_OVERLAY,
+          borderRadius: L25 ? '28px 28px 0 0' : '22px 22px 0 0', boxShadow: SHADOW_OVERLAY,
           maxHeight: `min(${alto}, calc(100dvh - 24px))`, display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
         {/* La barrita de arrastre va en su propia fila, no superpuesta: al
             posicionarla absoluta sobre la cabecera se cruzaba encima del
             título de los ejercicios con nombre largo. */}
-        {marca ? <CabezaMarca marca={marca} alCerrar={alCerrar} /> : (<>
+        {L25 ? <CabezaMarcaCompacta tono={tono} alCerrar={() => { vibrar('tic'); alCerrar?.(); }}
+            {...(marca || partirTitulo(titulo))} /> : marca ? <CabezaMarca marca={marca} alCerrar={alCerrar} /> : (<>
         <div style={{ padding: '8px 0 0', flexShrink: 0 }}>
           <div style={{ width: 36, height: 4, borderRadius: 999, background: BORDER, margin: '0 auto' }} />
         </div>
@@ -258,6 +304,52 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
 
 // La cabecera de marca de la hoja (ver `marca` arriba).
 export const FONDO_TARJETA_HOJA = '#F6F6F8';
+
+// Lote 25 · la marca arriba en TODAS las hojas, compacta: una franja baja del
+// color del módulo con la barrita, qué ventana es (chico) y el nombre (16 px).
+// Más baja que la de antes para que se sienta sutil.
+export const TONOS_HOJA = {
+  entreno: { fondo: 'linear-gradient(180deg, #D5D8DD 0%, #E7E9EC 100%)', tinta: '#4A5059' },
+  comida:  { fondo: 'linear-gradient(180deg, #CFE4D5 0%, #E5F0E8 100%)', tinta: '#2F6B3E' },
+  dash:    { fondo: 'linear-gradient(180deg, #D3E2F6 0%, #E7EFFA 100%)', tinta: '#2D62B0' },
+  aprende: { fondo: 'linear-gradient(180deg, #F6DBC4 0%, #FBEADC 100%)', tinta: '#B5561A' },
+};
+// «Historial · Bench Press» → etiqueta «Historial» y nombre «Bench Press».
+export function partirTitulo(titulo) {
+  const t = String(titulo || '');
+  const i = t.indexOf(' · ');
+  return i > 0 ? { etiqueta: t.slice(0, i), nombre: t.slice(i + 3) } : { etiqueta: null, nombre: t };
+}
+export function CabezaMarcaCompacta({ etiqueta, nombre, chico, foto, Icono, alCerrar, tono = 'entreno' }) {
+  const T = TONOS_HOJA[tono] || TONOS_HOJA.entreno;
+  return (
+    <div data-hoja-marca data-hoja-compacta style={{ background: T.fondo, padding: '6px 16px 10px', flexShrink: 0 }}>
+      <div style={{ width: 32, height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.75)', margin: '0 auto 6px' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {(foto || Icono) && (
+          <span aria-hidden="true" style={{
+            width: foto ? 40 : 30, height: 30, borderRadius: 9, overflow: 'hidden', flex: 'none',
+            background: foto ? '#9AA08F' : 'rgba(255,255,255,0.75)', display: 'grid', placeItems: 'center',
+          }}>
+            {foto ? <img src={foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              : <Icono size={17} color="#1D1D1F" />}
+          </span>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {etiqueta && <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.tinta, lineHeight: 1.2 }}>{etiqueta}</div>}
+          <div data-hoja-nombre style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, color: '#1D1D1F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</div>
+          {chico && <div style={{ fontSize: 13, color: '#5F6670', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chico}</div>}
+        </div>
+        <button onClick={alCerrar} aria-label="Cerrar" style={{
+          border: 'none', background: 'rgba(255,255,255,0.75)', width: 28, height: 28, borderRadius: 999,
+          cursor: 'pointer', flexShrink: 0, display: 'grid', placeItems: 'center', padding: 0,
+        }}>
+          <svg viewBox="0 0 256 256" width="12" height="12" fill="#3A3A3C" aria-hidden="true"><path d="M208.49,191.51a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.52a12,12,0,0,1,17,17L145,128Z" /></svg>
+        </button>
+      </div>
+    </div>
+  );
+}
 function CabezaMarca({ marca, alCerrar }) {
   const { etiqueta, nombre, chico, foto, Icono } = marca;
   return (

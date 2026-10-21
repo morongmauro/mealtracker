@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo, startTransition, lazy, Suspense } from 'react';
+import { vibrar } from './vibrar.js';
 import {
   ArrowUp, RotateCcw, Calendar, Sparkles, Loader2, Check, BarChart3, Settings, X, Mic, CreditCard,
   Star, Trash2, FileText, ChevronLeft, ChevronRight, Trophy, Info, ChevronDown, ChevronUp,
@@ -23,7 +24,9 @@ const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { BarraCompacta, HojaMas, gruposMas } from './VistaCompacta.jsx';
-import { useVistaCompacta, useModoVista, puedeCompacta, guardarVista, adoptarVistaNube, leerVista, fondoBlanco, enPrueba } from './vistaApp.js';
+import { useVistaCompacta, useModoVista, puedeCompacta, guardarVista, adoptarVistaNube, leerVista, fondoBlanco, enPrueba, lote25 } from './vistaApp.js';
+import { BlobIcono, CabezaMarcaCompacta } from './entrenoUI.jsx';
+import { ForkKnife as ForkKnifeVacio } from '@phosphor-icons/react';
 import DiaComidas from './DiaComidas.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { CapaActiva } from './capaActiva.js';
@@ -32,7 +35,7 @@ import { recibirMudanza, enDireccionVieja, urlDeLlegada, enDireccionNueva } from
 import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.jsx';
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero, ArcoApple, PuntaApple, rielDe } from './GraficasV2.jsx';
 import CabeceraHoy, { TEMAS as TEMAS_CABECERA } from './CabeceraHoy.jsx';
-import EstiloFondoBlanco from './FondoBlanco.jsx';
+import EstiloFondoBlanco, { entrarContenido } from './FondoBlanco.jsx';
 import AvisoRegistro from './AvisoRegistro.jsx';
 import { AvisoSuma } from './Celebraciones.jsx';
 const MetaComida = lazy(() => import('./MetaComida.jsx'));
@@ -790,6 +793,20 @@ export default function MealTracker() {
   // La compacta también va con todo lo de la prueba (ver enPrueba en vistaApp.js).
   const prueba = (modoVista === 'prueba' || modoVista === 'compacta') && v2;
   const [masAbierto, setMasAbierto] = useState(false);
+  // Lote 25 · un tic en los selectores (Mes/Semana, Hoy/Calendario, kg/lb,
+  // vistas…): una sola escucha para toda la app, sin tocar cada botón.
+  useEffect(() => {
+    const SEL = '[role="tab"],[role="radio"],[data-compacta-opcion],[data-pestanas-comida] button,[data-vista-opcion],[data-segmento-opcion]';
+    const alTocar = (e) => { const b = e.target && e.target.closest && e.target.closest(SEL); if (b) vibrar('tic'); };
+    document.addEventListener('click', alTocar, true);
+    return () => document.removeEventListener('click', alTocar, true);
+  }, []);
+  const seccionL25 = showDash ? 'dash' : showTraining ? 'entreno' : showLearning ? 'aprende' : 'comida';
+  const seccionAntesRef = useRef(seccionL25);
+  useEffect(() => {
+    const antes = seccionAntesRef.current; seccionAntesRef.current = seccionL25;
+    if (antes !== seccionL25 && seccionL25 === 'comida' && lote25()) entrarContenido(chatScrollRef.current);
+  }, [seccionL25]);   // eslint-disable-line react-hooks/exhaustive-deps
   // Lo que se pide al Dash desde «Más» (Configuración, Comunidad).
   const [dashPedido, setDashPedido] = useState(null);
   const irSubV2Ref = useRef(null);
@@ -5486,6 +5503,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
 
   // ── Visual nueva: en qué sección y opción de la barra se está ──────────
   const seccionV2 = showDash ? 'dash' : showTraining ? 'entreno' : showLearning ? 'aprende' : 'comida';
+  // Lote 25 · al volver a Alimentación, su contenido entra subiendo, como las
+  // demás secciones (ver FondoBlanco › CSS_L25).
   // La meta de comida (la cambia el coach): su firma.
   const firmaComida = firmaMetaComida;
   const remSinVer = coachReminders.some(r => !r.done_at && !r.seen_at);
@@ -5627,7 +5646,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         ].join(', ')
       }} />
       <FontStyles />
-      {v2 && <EstiloFondoBlanco activo={fondoBlanco()} prueba={prueba} />}
+      {v2 && <EstiloFondoBlanco activo={fondoBlanco()} prueba={prueba} l25={lote25()} />}
 
       <style>{`
         .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
@@ -6427,6 +6446,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </div>
             {entries.length === 0 ? (
               <div className="rounded-[28px] p-5 text-center" style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 8px 22px rgba(96,102,72,0.10)' }}>
+                {lote25() && <div style={{ display: 'grid' }}><BlobIcono Icono={ForkKnifeVacio} tono="comida" /></div>}
                 <div className="text-[14px] font-semibold" style={{ color: TEXT }}>Aún no registras nada hoy</div>
                 <div className="text-[12px] mt-1 mb-3" style={{ color: TEXT_MUTED }}>Dicta o escribe tu primera comida en el chat y la calculo al instante.</div>
                 <button onClick={() => { haptic(8); setTab('chat'); }}
@@ -6586,7 +6606,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 sonda.style.cssText = 'position:fixed;visibility:hidden;height:calc(env(safe-area-inset-top, 0px) + 34px)';
                 document.body.appendChild(sonda);
                 const banda = sonda.offsetHeight; sonda.remove();
-                try { w.postMessage({ tipo: 'em-vista', prueba: true, banda }, '*'); } catch (e) { /* sin centro */ }
+                try { w.postMessage({ tipo: 'em-vista', prueba: true, banda, lote25: lote25() }, '*'); } catch (e) { /* sin centro */ }
               }
               // Con sus partes: el centro explica el aro al tocarlo, como los demás.
               leerAprendizajeConCache(name).then(a => { if (a && w) { try { w.postMessage({ tipo: 'em-aprende', pct: a.pct, vistas: a.vistas, total: a.total, bloques: (a.bloques || []).map(b => ({ titulo: b.titulo, vistas: b.vistas, total: b.total })) }, '*'); } catch (e) { /* sin centro */ } } }).catch(() => {});
@@ -6819,7 +6839,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             className={`w-full max-w-md rounded-t-3xl px-4 pt-2 ${visible ? 'sheet-up' : ''}`}
             style={v2 ? {
               // Visual nueva: fondo cálido liso de la marca, sin manchas.
-              background: '#F6F4EE', borderRadius: '28px 28px 0 0',
+              background: lote25() ? '#FFFFFF' : '#F6F4EE', borderRadius: '28px 28px 0 0',
               boxShadow: '0 -8px 40px rgba(0,0,0,0.16)',
               paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
               maxHeight: '82vh', overflowY: 'auto',
@@ -6842,6 +6862,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}>
+            {lote25() ? <div style={{ margin: '-8px -16px 12px' }}><CabezaMarcaCompacta tono="comida" etiqueta="Opciones de alimentación" nombre="¿Qué quieres hacer?" alCerrar={() => { swallowGhostClick(); closeActionsSheet(); }} /></div> : (<>
             {/* Grabber */}
             <div className="flex justify-center mb-2">
               <div className="h-1 w-10 rounded-full" style={{ background: BORDER }} />
@@ -6874,6 +6895,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <X size={16} style={{ color: TEXT_MUTED }} />
               </button>
             </div>
+            </>)}
             {/* Las acciones, una sola lista para las dos visuales. */}
             {(() => {
               const pend = coachReminders.filter(r => !r.done_at).length;

@@ -10,6 +10,7 @@
 // que lo que pasa por detrás se adivine. El borde claro de arriba es el que
 // separa la barra del contenido; no hace falta sombra pesada.
 // ─────────────────────────────────────────────────────────────────────────
+import { vibrar } from './vibrar.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour, Compass, Brain } from '@phosphor-icons/react';
 import { SECCION, DASH_AZUL } from './theme.js';
@@ -136,7 +137,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
           const abierta = s.id === seccion;
           if (!abierta) {
             return (
-              <button key={s.id} className="bv2-btn" data-seccion-boton={s.id} onClick={() => alSeccion(s.id)}
+              <button key={s.id} className="bv2-btn" data-seccion-boton={s.id} onClick={() => { vibrar('tic'); alSeccion(s.id); }}
                 aria-label={NOMBRE_SECCION[s.id]} title={NOMBRE_SECCION[s.id]}
                 style={{
                   // Se encogen antes que el grupo abierto: en un teléfono
@@ -188,7 +189,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                 const SubIcono = o.icono;
                 return (
                   <button key={o.id} className="bv2-btn" data-activo={activo ? '1' : '0'}
-                    onClick={() => alSub(s.id, o.id)}
+                    onClick={() => { vibrar('tic'); alSub(s.id, o.id); }}
                     aria-current={activo ? 'page' : undefined}
                     aria-label={o.aria || o.label}
                     style={{

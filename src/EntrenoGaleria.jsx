@@ -10,6 +10,7 @@
 // hay una puerta nueva al catálogo del coach.
 // ─────────────────────────────────────────────────────────────────────────
 import { v2Activa } from './v2.js';
+import { Barbell as BarbellVacio } from '@phosphor-icons/react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { api, miniatura } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
@@ -190,7 +191,7 @@ export default function Galeria({ nombre }) {
       <div>
         {!v2Activa() && <Titulo>Galería</Titulo>}
         <div style={{ marginTop: 14 }}>
-          <Vacio icono="🎬" titulo="Aún no hay ejercicios"
+          <Vacio icono="🎬" Icono={BarbellVacio} titulo="Aún no hay ejercicios"
             texto="Cuando tu coach te envíe el plan, aquí tienes cada ejercicio con su video." />
         </div>
       </div>

@@ -14,6 +14,9 @@ import CabeceraHoy from './CabeceraHoy.jsx';
 import { api } from './entrenoDatos.js';
 import { vibrar, asegurarCSS } from './Celebraciones.jsx';
 import { TEXT } from './theme.js';
+import { BlobIcono, CargandoModulo } from './entrenoUI.jsx';
+import { lote25 } from './vistaApp.js';
+import { UsersThree } from '@phosphor-icons/react';
 
 export const REACCIONES = [
   { tipo: 'fuego', Icono: Fire, color: '#E8642C', nombre: 'Fuego' },
@@ -211,9 +214,10 @@ export default function Comunidad({ name, arriba = 0 }) {
         sub: 'Tips y novedades del programa. Reacciona y comenta.',
       }} />
       {!datos ? (
-        <div style={{ ...tarjeta, height: 140, opacity: 0.6 }} />
+        lote25() ? <div style={tarjeta}><CargandoModulo tono="dash" barras={false} /></div> : <div style={{ ...tarjeta, height: 140, opacity: 0.6 }} />
       ) : !datos.ok || !datos.posts.length ? (
         <div data-comunidad-vacia style={{ ...tarjeta, textAlign: 'center', padding: '26px 18px' }}>
+          {lote25() && <div style={{ display: 'grid' }}><BlobIcono Icono={UsersThree} tono="dash" /></div>}
           <div style={{ fontSize: 17, fontWeight: 600, color: TEXT }}>Todavía no hay publicaciones</div>
           <div style={{ fontSize: 15, color: GRIS, marginTop: 4, lineHeight: 1.45 }}>Cuando comparta algo con el equipo, aparece aquí.</div>
         </div>

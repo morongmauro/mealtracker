@@ -25,6 +25,7 @@
 // en las casillas, íconos de línea y, debajo, «Lo que viene»: los próximos
 // días con el nombre completo de cada cosa, que en una casilla no se lee.
 // ─────────────────────────────────────────────────────────────────────────
+import { vibrar as vibrarL25 } from './vibrar.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, CurrencyDollar, PersonSimpleRun, Moon, Info, Wind, Stack } from '@phosphor-icons/react';
@@ -864,7 +865,7 @@ function useArrastre(puedeMover, alSoltar) {
       if (!a) return;
       set(null);
       recien.current = Date.now();
-      if (a.sobre && a.sobre !== a.desde) soltarRef.current(a.desde, a.sobre);
+      if (a.sobre && a.sobre !== a.desde) { vibrarL25('medio'); soltarRef.current(a.desde, a.sobre); }
     };
     const tm = (e) => { const t = e.touches && e.touches[0]; if (t) mover(t.clientX, t.clientY, e); };
     const pm = (e) => { if (e.pointerType === 'mouse') mover(e.clientX, e.clientY, e); };

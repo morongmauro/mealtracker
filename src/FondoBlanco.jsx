@@ -8,6 +8,7 @@
 // Se hace con una hoja de estilos encima de lo de siempre: quitarla deja la
 // app exactamente como estaba.
 // ─────────────────────────────────────────────────────────────────────────
+import { CSS_ESCALA } from './escalaLetra.js';
 import React from 'react';
 import { COLORES_MODULO } from './vistaApp.js';
 
@@ -89,12 +90,27 @@ html[data-vista-prueba] [data-capa-v2],
 html[data-vista-prueba] [data-capa-v2]:not([data-activa]) iframe,
 html[data-vista-prueba] [data-capa-v2]:not([data-activa]) video { transition: none !important; }`;
 
-export default function EstiloFondoBlanco({ activo, prueba = false }) {
+// Lote 25 (a prueba, solo Mauro) · al cambiar de sección, el CONTENIDO de la
+// que entra aparece subiendo 8 px en 180 ms. Solo el contenido: el fondo de la
+// capa ya está pintado desde el primer cuadro, así que nunca se ve la página
+// de atrás mezclada (eso era el pestañeo). La barra de abajo no se mueve.
+const CSS_L25 = `
+@keyframes l25entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+html[data-lote25] [data-capa-v2][data-activa] > *:not([data-velo-arriba]) { animation: l25entra .18s cubic-bezier(.2,.8,.2,1) backwards; }
+@media (prefers-reduced-motion: reduce) { html[data-lote25] [data-capa-v2][data-activa] > * { animation: none; } }`;
+
+export function entrarContenido(el) {
+  if (!el || typeof el.animate !== 'function' || !document.documentElement.hasAttribute('data-lote25')) return;
+  try { el.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' }); } catch (e) { /* sin animación */ }
+}
+
+export default function EstiloFondoBlanco({ activo, prueba = false, l25 = false }) {
   React.useEffect(() => {
     const h = document.documentElement;
     if (activo) h.setAttribute('data-fondo-blanco', ''); else h.removeAttribute('data-fondo-blanco');
     if (prueba) h.setAttribute('data-vista-prueba', ''); else h.removeAttribute('data-vista-prueba');
-    return () => { h.removeAttribute('data-fondo-blanco'); h.removeAttribute('data-vista-prueba'); };
-  }, [activo, prueba]);
-  return activo ? <style data-estilo-fondo-blanco>{CSS}{prueba ? '\n' + CSS_PRUEBA + CSS_CAMBIO : ''}</style> : null;
+    if (prueba && l25) h.setAttribute('data-lote25', ''); else h.removeAttribute('data-lote25');
+    return () => { h.removeAttribute('data-fondo-blanco'); h.removeAttribute('data-vista-prueba'); h.removeAttribute('data-lote25'); };
+  }, [activo, prueba, l25]);
+  return activo ? <style data-estilo-fondo-blanco>{CSS}{prueba ? '\n' + CSS_PRUEBA + CSS_CAMBIO + (l25 ? CSS_L25 + '\n' + CSS_ESCALA : '') : ''}</style> : null;
 }

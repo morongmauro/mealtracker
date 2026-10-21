@@ -13,6 +13,8 @@ import {
 
 import { v2Activa } from './v2.js';
 import { SlidersHorizontal, CalendarBlank, MagnifyingGlass } from '@phosphor-icons/react';
+import { lote25 } from './vistaApp.js';
+import { CabezaMarcaCompacta } from './entrenoUI.jsx';
 
 // El acento del Recetario sale de variables CSS: con la visual nueva
 // (html[data-v2], ver v2-fuentes.js) es el verde de Alimentación; con la de
@@ -3143,9 +3145,10 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       {avanzada && createPortal(
         <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ background: 'rgba(31,31,31,0.38)' }} onClick={() => setAvanzada(false)}>
           <div data-busqueda-avanzada onClick={(e) => e.stopPropagation()} className="w-full max-w-xl" style={{
-            background: '#F6F4EE', borderRadius: '28px 28px 0 0', padding: '10px 18px calc(24px + env(safe-area-inset-bottom, 0px))',
+            background: lote25() ? '#FFFFFF' : '#F6F4EE', borderRadius: '28px 28px 0 0', padding: '10px 18px calc(24px + env(safe-area-inset-bottom, 0px))', overflowX: 'hidden',
             boxShadow: '0 -8px 40px rgba(0,0,0,0.16)', maxHeight: '82vh', overflowY: 'auto',
           }}>
+            {lote25() ? <div style={{ margin: '-10px -18px 4px' }}><CabezaMarcaCompacta tono="comida" etiqueta="Recetario" nombre="Búsqueda avanzada" alCerrar={() => setAvanzada(false)} /></div> : (<>
             <div style={{ width: 40, height: 4, borderRadius: 99, background: '#DDD8CC', margin: '0 auto 12px' }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
@@ -3154,6 +3157,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               </div>
               <button onClick={() => setAvanzada(false)} aria-label="Cerrar" style={{ width: 38, height: 38, borderRadius: 99, border: 'none', background: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><X size={16} style={{ color: TEXT_MUTED }} /></button>
             </div>
+            </>)}
             <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, margin: '16px 2px 8px' }}>Tipo de comida</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {SLOT_FILTERS.map(f => (

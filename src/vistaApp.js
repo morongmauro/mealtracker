@@ -63,6 +63,15 @@ export function blobVidrio() {
   return BLOB_VIDRIO_TODOS || ((PRUEBA_TODOS || BLOB_VIDRIO_PRUEBA.includes(normal(nombreGuardado()))) && enPrueba());
 }
 
+// Lote 25 (a prueba, solo Mauro): hojas con la marca arriba compacta,
+// carga/vacíos con el color del módulo, transición fundido y sube, vibración
+// con jerarquía y escala de letra Apple. Para todos: LOTE25_TODOS en true.
+export const LOTE25_PRUEBA = ['mauro moron', 'mauro moron2'];
+export const LOTE25_TODOS = false;
+export function lote25() {
+  return enPrueba() && (LOTE25_TODOS || LOTE25_PRUEBA.includes(normal(nombreGuardado())));
+}
+
 // Tres vistas: «completa» (la de siempre, la que ven los clientes),
 // «compacta» y «prueba» (la vista en prueba: lo nuevo junto, para compararla
 // con las otras dos antes de dársela a nadie).

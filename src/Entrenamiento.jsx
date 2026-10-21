@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { vibrar as vibrarL25 } from './vibrar.js';
 import { createPortal } from 'react-dom';
 import EntrenoMes, { HoySemana, precargarMeses, AvisoFlotante, ACTUALIZANDO } from './EntrenoMes.jsx';
 import EntrenoRutinas from './EntrenoRutinas.jsx';
@@ -943,6 +944,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
   // por tiempo ya sonó el pitido del final).
   const marcar = useCallback((re, serie, reps, peso, descansoSeg, unidad = 'kg', { silencio = false } = {}) => {
     const clave = `${re.id}:${serie}`;
+    if (!silencio) vibrarL25('medio');
     arrancarReloj();
     setMarcadas(m => ({ ...m, [clave]: { reps, peso, unidad } }));   // optimista: el check no espera a la red
     tocadas.current[clave] = { reps, peso, unidad };
@@ -1143,6 +1145,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     if (v2Activa()) {
       const seg = r.sesion && r.sesion.duracion_seg != null ? r.sesion.duracion_seg : (inicio ? Math.round((Date.now() - inicio) / 1000) : null);
       try { localStorage.removeItem(claveInicio); localStorage.removeItem(claveReloj); } catch (e) { /* nada */ }
+      vibrarL25('logro');
       setFin({ ...conteoRef.current, minutos: seg != null ? Math.max(1, Math.round(seg / 60)) : null, records: r.records || [] });
       return;
     }

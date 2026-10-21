@@ -2492,7 +2492,7 @@ try {
       return !!bar && bar.dataset.discreta === '1' && r.top >= 2 && r.top <= 14 && r.left >= 12 && r.right <= innerWidth - 12 && parseFloat(getComputedStyle(bar).borderTopLeftRadius) >= 20
         && !!velo && velo.getBoundingClientRect().bottom > r.bottom && !document.querySelector('[data-velo-avance]')
         && /^Volver$/.test(bar.querySelector('[data-volver-semana]').textContent.trim());
-    }), await p.evaluate(() => JSON.stringify(document.querySelector('[data-avance-rutina]')?.getBoundingClientRect())));
+    }), await p.evaluate(() => { const bar = document.querySelector('[data-avance-rutina]'), velo = document.querySelector('[data-velo-arriba]'); return JSON.stringify({ bar: bar?.getBoundingClientRect(), disc: bar?.dataset.discreta, rad: bar && getComputedStyle(bar).borderTopLeftRadius, velo: velo?.getBoundingClientRect(), va: !!document.querySelector('[data-velo-avance]'), volver: bar?.querySelector('[data-volver-semana]')?.textContent }); }));
     ok('rutina (prueba): AHORA va en orden: sin nada marcado, está en el primer ejercicio de la rutina (calentamiento incluido) y se mueve en su cuadrito', await p.evaluate(() => {
       const items = [...document.querySelectorAll('[data-ejercicio], [data-ejercicio-circuito]')];
       const conAhora = items.filter(x => x.matches('[data-ahora="1"]') || x.querySelector(':scope [data-ahora-circuito]'));

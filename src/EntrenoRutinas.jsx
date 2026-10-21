@@ -13,6 +13,7 @@
 // descriptivos.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
+import { ListBullets as ListaVacio } from '@phosphor-icons/react';
 import { api, DIAS_LARGO, fechaLarga } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import { Card, Chip, Titulo, Cargando, Fallo, Vacio, Boton,
@@ -40,6 +41,7 @@ export default function Rutinas({ nombre, alEntrenar }) {
         <div style={{ marginTop: 14 }}>
           <Vacio
             icono="📋"
+            Icono={ListaVacio}
             titulo="Aún no hay rutinas"
             texto="Cuando tu coach te envíe el plan, lo verás completo aquí."
           />

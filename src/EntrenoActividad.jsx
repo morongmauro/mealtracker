@@ -23,6 +23,8 @@ import { SECCION } from './theme.js';
 import { IconoActividad } from './iconosEntreno.jsx';
 import { leerUnidades } from './Unidades.jsx';
 import { api, CATALOGO_MINIMO, hoyLocal, sumarDias, fechaLarga, DIAS_LARGO, numero } from './entrenoDatos.js';
+import { CargandoModulo } from './entrenoUI.jsx';
+import { lote25 } from './vistaApp.js';
 import { Hoja, Boton, Chip, ACCENT, ACCENT_LIGHT, ACCENT_DARK, SURFACE, SURFACE_2,
          BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT } from './entrenoUI.jsx';
 
@@ -152,7 +154,7 @@ export default function Actividad({
           {nota}
         </div>
       )}
-      {!catalogo && <div style={{ color: TEXT_LIGHT, fontSize: 13.5, padding: '10px 0' }}>Cargando…</div>}
+      {!catalogo && (lote25() ? <CargandoModulo barras={false} /> : <div style={{ color: TEXT_LIGHT, fontSize: 13.5, padding: '10px 0' }}>Cargando…</div>)}
 
       {catalogo && (
         <>

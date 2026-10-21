@@ -27,7 +27,7 @@ import { aroSemana, partesSemana, progresoEntreno } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
 import AvisoInstalar from './InstalarApp.jsx';
 import { precargar as planDe } from './Entrenamiento.jsx';
-import { Hoja } from './entrenoUI.jsx';
+import { Hoja, CargandoModulo } from './entrenoUI.jsx';
 import { IconoEvento } from './iconosEntreno.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
@@ -39,7 +39,7 @@ const bienvenidaVista = () => { try { return !!localStorage.getItem(CLAVE_BIENVE
 const marcarBienvenida = () => { try { localStorage.setItem(CLAVE_BIENVENIDA, new Date().toISOString()); } catch (e) {} };
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
-import { enPrueba } from './vistaApp.js';
+import { enPrueba, lote25 } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
 import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe, curvaSuave } from './GraficasV2.jsx';
 import {
@@ -639,7 +639,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
 function TarjetaAprende({ aprende, alProfundizar }) {
   return (
     <Tarjeta titulo="Centro de aprendizaje" detalle="Lo que has leído, visto y escuchado del material de tu programa.">
-      {aprende === undefined ? (
+      {aprende === undefined ? (lote25() ? <div style={{ marginTop: 12 }}><CargandoModulo tono="aprende" barras={false} /></div> :
         <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Cargando…</div>
       ) : !aprende ? (
         <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>No pude traer tu avance ahora. Vuelve a intentarlo en un rato.</div>
@@ -675,6 +675,7 @@ function TarjetaAprende({ aprende, alProfundizar }) {
 const SUB_APRENDE = { hub: 'onboarding', capsula: 'capsulas', guia: 'guia', podcast: 'podcast' };
 function DetalleAprende({ aprende, alIr }) {
   const [abierto, setAbierto] = useState(null);
+  if (aprende === undefined && lote25()) return <><Titular>Tu aprendizaje</Titular><div style={{ marginTop: 16 }}><CargandoModulo tono="aprende" /></div></>;
   if (!aprende) return <><Titular>Tu aprendizaje</Titular><div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 16 }}>{aprende === undefined ? 'Cargando…' : 'No pude traer tu avance ahora.'}</div></>;
   return (
     <>
@@ -837,7 +838,7 @@ function DetalleEntreno({ ent, falloEnt, cargar }) {
         <button onClick={cargar} style={{ marginTop: 10, border: 'none', background: CREMA, borderRadius: 999, padding: '9px 16px', fontFamily: 'inherit', fontWeight: 700, fontSize: 14, color: TEXT, cursor: 'pointer' }}>Reintentar</button>
       </Tarjeta></>);
   }
-  if (!ent) return <><Titular>Tus gráficas de entrenamiento</Titular><div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 16 }}>Cargando…</div></>;
+  if (!ent) return <><Titular>Tus gráficas de entrenamiento</Titular>{lote25() ? <div style={{ marginTop: 16 }}><CargandoModulo tono="entreno" /></div> : <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 16 }}>Cargando…</div>}</>;
   return (
     <>
       <Titular bajada="Las últimas 12 semanas de tu entrenamiento.">Tus gráficas de entrenamiento</Titular>
@@ -1138,7 +1139,7 @@ function Cuerpo({ medidas, cargando, alMedir }) {
   return (
     <Tarjeta titulo="Peso y % de grasa"
       accion={<button onClick={alMedir} style={{ border: 'none', background: 'transparent', padding: '11px 8px', margin: '-11px -8px', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: AMBAR, cursor: 'pointer' }}>+ Registrar</button>}>
-      {cargando ? (
+      {cargando ? (lote25() ? <div style={{ marginTop: 12 }}><CargandoModulo tono="dash" /></div> :
         <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Cargando…</div>
       ) : !medidas.length ? (
         <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 6, lineHeight: 1.5 }}>Registra tu peso y tu % de grasa cuando te midas, y aquí ves cómo cambian.</div>
