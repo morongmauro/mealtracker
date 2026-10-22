@@ -2202,9 +2202,11 @@ export default function MealTracker() {
         // botón de teclado flotando pegados al borde visible, y sin este
         // hueco tapan el texto. Con el teclado cerrado el colchón es el de
         // la barra de navegación.
+        // Escribiendo: el campo va justo encima del teclado (12 px de aire).
         inputBarRef.current.style.paddingBottom = (kbOpen || escribiendoRef.current)
-          ? '52px'
+          ? '12px'
           : (enPrueba() ? 'calc(106px + env(safe-area-inset-bottom, 0px))' : 'calc(90px + env(safe-area-inset-bottom, 0px))');
+        inputBarRef.current.style.paddingTop = (kbOpen || escribiendoRef.current) ? '10px' : '';
       }
       if (navBarRef.current) {
         navBarRef.current.style.transform = '';
@@ -7648,6 +7650,14 @@ const InputBar = memo(function InputBar({
     return () => { apiRef.current = null; };
   }, [apiRef, writeDom]);
 
+  // Colchón inicial bajo el campo (sitio para la barra de navegación). Después
+  // lo gobierna `colocar`, que mide el teclado; por eso NO va en el estilo de
+  // React: así un re-render no vuelve a poner los 90 px con el teclado abierto.
+  useEffect(() => {
+    const el = barRef && barRef.current;
+    if (el && !el.style.paddingBottom) el.style.paddingBottom = `calc(${20 + liftPx}px + env(safe-area-inset-bottom, 0px))`;
+  }, [barRef, liftPx]);
+
   const send = () => {
     const value = (divRef.current?.textContent || '').trim();
     if (!value) return;
@@ -7662,9 +7672,9 @@ const InputBar = memo(function InputBar({
       // Vista en prueba: el mismo desvanecido a blanco que en Entrenamiento.
       background: enPrueba() ? 'linear-gradient(180deg, rgba(252,252,253,0) 0%, rgba(252,252,253,0.25) 50%, rgba(252,252,253,0.55) 100%)'
         : `linear-gradient(180deg, transparent, ${BG}E6 30%, ${BG} 100%)`,
-      // liftPx: deja sitio a la barra de navegación inferior; con el teclado
-      // abierto la barra se oculta y el input vuelve a pegarse abajo.
-      paddingBottom: `calc(${20 + liftPx}px + env(safe-area-inset-bottom, 0px))`,
+      // El colchón de abajo (sitio para la barra de navegación, o casi nada
+      // con el teclado abierto) lo pone `colocar` en MealTracker, que mide el
+      // teclado; aquí solo el valor inicial, para no pisarlo al re-renderizar.
       display: hidden ? 'none' : 'block'
     }}>
       <div className="max-w-2xl mx-auto">
@@ -7707,13 +7717,10 @@ const InputBar = memo(function InputBar({
         {/* Barra OVALADA (rounded-full) con micrófono circular — el px-2
             extra del contenido compensa la curva del óvalo. */}
         <div className="flex items-center gap-2 p-2 rounded-full" data-caja-escribir style={enPrueba() ? {
-          // Vista en prueba: vidrio «lente», como la barra de navegación. Un
-          // pelo más de blanco que la barra para que el texto se lea siempre.
-          position: 'relative',
-          background: 'linear-gradient(160deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.20) 50%, rgba(255,255,255,0.30) 100%)',
-          WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)', backdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
-          border: 'none',
-          boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 0.8px rgba(255,255,255,0.28), inset 0 0 14px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 10px 22px rgba(40,44,30,0.14)` : 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 0.8px rgba(255,255,255,0.28), inset 0 0 14px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 10px 22px rgba(40,44,30,0.14)',
+          // Vista en prueba: blanca y sin borde (Apple pone sus campos de
+          // texto en blanco, no en vidrio), con una sombra suave.
+          background: '#FFFFFF', border: 'none',
+          boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, 0 8px 28px rgba(40,44,30,0.10), 0 1px 2px rgba(40,44,30,0.06)` : '0 8px 28px rgba(40,44,30,0.10), 0 1px 2px rgba(40,44,30,0.06)',
           transition: 'box-shadow 0.2s'
         } : {
           background: SURFACE,
