@@ -326,6 +326,26 @@
       html.intro-prueba #splash2 .dentro .d2 { right: -46px; top: -46px; background: radial-gradient(closest-side, rgba(242,201,76,.32), rgba(242,201,76,0)); }
       html.intro-prueba #splash2 .dentro .d3 { left: -46px; bottom: -46px; background: radial-gradient(closest-side, rgba(70,150,90,.28), rgba(70,150,90,0)); }
       html.intro-prueba #splash2 .dentro .d4 { right: -46px; bottom: -46px; background: radial-gradient(closest-side, rgba(238,132,52,.30), rgba(238,132,52,0)); }
+      /* ── Intro (opción C, «cristal»): sobre el blob blanco va una capa de
+         vidrio con la misma forma recortada (nunca un cuadrado): luz arriba a
+         la izquierda, reflejo elíptico, franja de luz diagonal, sombra interna
+         abajo y borde fino. Va DEBAJO del ícono (.escena3d) y encima del disco,
+         y aparece con los colores de adentro. Solo donde hay recorte por
+         trazado; si no, no existe y la entrada sigue igual. */
+      #splash2 .vidrio { display: none; }
+      @supports (clip-path: path('M0 0L1 1Z')) {
+        html.intro-prueba #splash2 .vidrio { display: block; position: absolute; left: 50%; top: var(--centro, 46%); width: 184px; height: 184px; margin: -92px 0 0 -92px;
+          transform: rotate(-12deg); clip-path: path('M184.0 92.0L183.8 117.5L183.3 128.6L182.3 137.2L181.1 144.3L179.4 150.5L177.3 155.8L174.8 160.6L171.9 164.9L168.6 168.6L164.9 171.9L160.6 174.8L155.8 177.3L150.5 179.4L144.3 181.1L137.2 182.3L128.6 183.3L117.5 183.8L92.0 184.0L66.5 183.8L55.4 183.3L46.8 182.3L39.7 181.1L33.5 179.4L28.2 177.3L23.4 174.8L19.1 171.9L15.4 168.6L12.1 164.9L9.2 160.6L6.7 155.8L4.6 150.5L2.9 144.3L1.7 137.2L0.7 128.6L0.2 117.5L0.0 92.0L0.2 66.5L0.7 55.4L1.7 46.8L2.9 39.7L4.6 33.5L6.7 28.2L9.2 23.4L12.1 19.1L15.4 15.4L19.1 12.1L23.4 9.2L28.2 6.7L33.5 4.6L39.7 2.9L46.8 1.7L55.4 0.7L66.5 0.2L92.0 0.0L117.5 0.2L128.6 0.7L137.2 1.7L144.3 2.9L150.5 4.6L155.8 6.7L160.6 9.2L164.9 12.1L168.6 15.4L171.9 19.1L174.8 23.4L177.3 28.2L179.4 33.5L181.1 39.7L182.3 46.8L183.3 55.4L183.8 66.5Z'); opacity: 0; z-index: 3; pointer-events: none; }
+      }
+      #splash2 .vidrio i { position: absolute; inset: 0; display: block; }
+      #splash2 .vidrio .g-luz { background: radial-gradient(70% 55% at 30% 22%, rgba(255,255,255,1), rgba(255,255,255,0) 70%); }
+      #splash2 .vidrio .g-ref { background: radial-gradient(42% 26% at 38% 18%, rgba(255,255,255,.95), rgba(255,255,255,0) 100%); filter: blur(1px); }
+      #splash2 .vidrio .g-fra { background: linear-gradient(118deg, rgba(255,255,255,0) 40%, rgba(255,255,255,.55) 50%, rgba(255,255,255,0) 60%); }
+      #splash2 .vidrio .g-som { background: radial-gradient(80% 50% at 50% 100%, rgba(31,31,31,.14), rgba(31,31,31,0) 70%); }
+      #splash2 .vidrio .g-borde { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.95), inset 0 3px 10px rgba(255,255,255,1), inset 0 -16px 28px rgba(31,31,31,.09), inset 0 0 34px rgba(238,132,52,.06); }
+      html.intro-prueba #splash2 .disco path { fill: rgba(255,255,255,.94); }
+      html.intro-prueba #splash2 .escena3d { z-index: 5; }
+      html.intro-prueba.intro-anda #splash2 .vidrio { animation: s2aparece .7s ease-out 1.2s forwards; }
       #splash2 .velo { display: none; position: absolute; inset: 0; opacity: 0; background: radial-gradient(70% 38% at 50% var(--centro, 46%), rgba(255,255,255,.92), rgba(255,255,255,0) 70%); }
       /* Detrás del ícono: el blob de la marca, un cuadrado de lados y
          esquinas curvos (superelipse) girado 12°, blanco y con sombra suave. */
@@ -333,6 +353,8 @@
         filter: drop-shadow(0 22px 34px rgba(30,30,40,.14)) drop-shadow(0 3px 8px rgba(30,30,40,.05));
         opacity: 0; transform: rotate(-12deg) scale(.55); will-change: transform, opacity; }
       html.intro-prueba #splash2 .disco { filter: drop-shadow(0 18px 30px rgba(60,123,214,.13)) drop-shadow(0 10px 22px rgba(238,132,52,.10)) drop-shadow(0 2px 4px rgba(30,30,40,.06)); }
+      html.intro-prueba #splash2 .escena { transform: scale(.95); }
+      html.intro-prueba body.app-ready #splash2 .escena { transform: scale(1.12); }
       #splash2 .escena3d { position: absolute; left: 50%; top: var(--centro, 46%); width: 120px; height: 120px; margin: -60px 0 0 -60px; perspective: 500px; }
       #splash2 .marca { width: 120px; height: 120px; overflow: visible; opacity: 0; }
       #splash2 .traza { stroke-dasharray: 100 100; stroke-dashoffset: 100; }
@@ -386,8 +408,8 @@
          reflejo (se probó y se quitó). Entran con la secuencia y se van con
          todo lo demás (body.app-ready). */
       #splash2 .op-sb, #splash2 .op-st { display: none; }
-      html.intro-prueba #splash2 .op-sb { display: block; position: absolute; left: 50%; top: calc(60px + var(--centro, 46%) + 84px); width: 160px; height: 20px; margin-left: -80px; border-radius: 50%; background: radial-gradient(closest-side, rgba(31,31,31,.30), rgba(31,31,31,0)); filter: blur(3px); opacity: 0; }
-      html.intro-prueba #splash2 .op-st { display: block; position: absolute; z-index: 2; left: 50%; top: calc(60px + var(--centro, 46%) + 138px); width: 230px; height: 14px; margin-left: -115px; border-radius: 50%; background: radial-gradient(closest-side, rgba(31,31,31,.20), rgba(31,31,31,0)); filter: blur(4px); opacity: 0; }
+      html.intro-prueba #splash2 .op-sb { display: block; position: absolute; left: 50%; top: calc(60px + var(--centro, 46%) + 84px); width: 196px; height: 26px; margin-left: -98px; border-radius: 50%; background: radial-gradient(closest-side, rgba(31,31,31,.32), rgba(31,31,31,0)); filter: blur(4px); opacity: 0; }
+      html.intro-prueba #splash2 .op-st { display: block; position: absolute; z-index: 2; left: 50%; top: calc(60px + var(--centro, 46%) + 138px); width: 280px; height: 18px; margin-left: -140px; border-radius: 50%; background: radial-gradient(closest-side, rgba(31,31,31,.22), rgba(31,31,31,0)); filter: blur(5px); opacity: 0; }
       html.intro-prueba.intro-anda #splash2 .op-sb { animation: s2aparece .7s ease .7s forwards; }
       html.intro-prueba.intro-anda #splash2 .op-st { animation: s2aparece .9s ease 1.3s forwards; }
       html.intro-prueba.intro-anda #splash2 .nombre { animation: s2sombraNombre .9s ease 1.3s forwards; }
@@ -395,7 +417,7 @@
       /* El nombre, un punto más grande y con el trazo más liviano (el borde
          del color del fondo le quita medio pelo al contorno). */
       html.intro-prueba #splash2 .nombre { transform: translateY(4px) scale(.66); }
-      html.intro-prueba #splash2 .nombre .linea path { stroke: #F3F1EB; stroke-width: 1.5; paint-order: stroke; }
+      html.intro-prueba #splash2 .nombre .linea path { stroke: #F3F1EB; stroke-width: 2.6; paint-order: stroke; }
       @keyframes s2aparece { to { opacity: 1; } }
       @keyframes s2apaga { to { opacity: 0; } }
       @keyframes s2entra { 0% { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--s)); } 70% { opacity: .85; } 100% { opacity: 0; transform: translate(calc(var(--x) * .1), calc(var(--y) * .1)) scale(.26); } }
@@ -451,6 +473,7 @@
         <div class="velo"></div>
         <svg class="disco" viewBox="0 0 200 200" aria-hidden="true"><path fill="#FFFFFF" d="M200.0 100.0L199.8 127.7L199.2 139.8L198.2 149.1L196.8 156.9L195.0 163.6L192.7 169.4L190.0 174.6L186.9 179.2L183.3 183.3L179.2 186.9L174.6 190.0L169.4 192.7L163.6 195.0L156.9 196.8L149.1 198.2L139.8 199.2L127.7 199.8L100.0 200.0L72.3 199.8L60.2 199.2L50.9 198.2L43.1 196.8L36.4 195.0L30.6 192.7L25.4 190.0L20.8 186.9L16.7 183.3L13.1 179.2L10.0 174.6L7.3 169.4L5.0 163.6L3.2 156.9L1.8 149.1L0.8 139.8L0.2 127.7L0.0 100.0L0.2 72.3L0.8 60.2L1.8 50.9L3.2 43.1L5.0 36.4L7.3 30.6L10.0 25.4L13.1 20.8L16.7 16.7L20.8 13.1L25.4 10.0L30.6 7.3L36.4 5.0L43.1 3.2L50.9 1.8L60.2 0.8L72.3 0.2L100.0 0.0L127.7 0.2L139.8 0.8L149.1 1.8L156.9 3.2L163.6 5.0L169.4 7.3L174.6 10.0L179.2 13.1L183.3 16.7L186.9 20.8L190.0 25.4L192.7 30.6L195.0 36.4L196.8 43.1L198.2 50.9L199.2 60.2L199.8 72.3Z"/></svg>
         <div class="dentro" aria-hidden="true"><i class="d1"></i><i class="d2"></i><i class="d3"></i><i class="d4"></i></div>
+        <div class="vidrio" aria-hidden="true"><i class="g-luz"></i><i class="g-ref"></i><i class="g-fra"></i><i class="g-som"></i><i class="g-borde"></i></div>
         <!-- El ícono de la app: la línea de la gráfica es el cuerpo de la
              kettlebell, con el asa encima y el punto amarillo en la punta. -->
         <div class="escena3d"><svg class="marca" viewBox="0 0 512 512" fill="none" aria-hidden="true"><defs>
