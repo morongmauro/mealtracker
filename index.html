@@ -155,18 +155,6 @@
           // dibujado (main.jsx), para no trabar la animación.
           raiz.classList.add('intro-completa', 'intro-anda');
           window.__introDesde = performance.now();
-          // Intro en prueba: el reflejo del nombre (una copia invertida y
-          // desvanecida, ver .op-ref). Se crea cuando el nombre ya está en el
-          // documento.
-          if (raiz.classList.contains('intro-prueba')) {
-            document.addEventListener('DOMContentLoaded', function () {
-              try {
-                var nm = document.querySelector('#splash2 .nombre');
-                if (!nm || document.querySelector('#splash2 .op-ref')) return;
-                var c = nm.cloneNode(true); c.classList.add('op-ref'); c.removeAttribute('aria-label'); c.setAttribute('aria-hidden', 'true'); nm.after(c);
-              } catch (e) {}
-            });
-          }
           var tc = document.querySelector('meta[name="theme-color"]');
           if (tc) tc.setAttribute('content', '#F3F1EB');
         }
@@ -393,19 +381,21 @@
       @keyframes s2sale { 0% { opacity: 0; transform: translate(0, 0) scale(.12); } 18% { opacity: 1; } 55% { transform: translate(calc(var(--x) * .7), calc(var(--y) * .7)) scale(calc(var(--s) * 1.08)); } 100% { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--s)); } }
       @keyframes s2respira { from { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--s)); } to { opacity: 1; transform: translate(var(--x), var(--y)) scale(calc(var(--s) * 1.08)); } }
       /* ── Intro en prueba (solo Mauro): sombra al piso y reflejo suave ──
-         A: una sombra elíptica bajo el ícono (op-sb) y otra, más tenue, al
-         piso bajo el nombre (op-st). B: el nombre se refleja hacia abajo,
-         invertido, con un desvanecido (op-ref). Entran con la secuencia y se
-         van con todo lo demás (body.app-ready). */
+         Una sombra elíptica bajo el ícono (op-sb) y otra, más tenue, al piso
+         bajo el nombre (op-st); el nombre lleva su propia sombra corta. Sin
+         reflejo (se probó y se quitó). Entran con la secuencia y se van con
+         todo lo demás (body.app-ready). */
       #splash2 .op-sb, #splash2 .op-st { display: none; }
       html.intro-prueba #splash2 .op-sb { display: block; position: absolute; left: 50%; top: calc(60px + var(--centro, 46%) + 84px); width: 160px; height: 20px; margin-left: -80px; border-radius: 50%; background: radial-gradient(closest-side, rgba(31,31,31,.30), rgba(31,31,31,0)); filter: blur(3px); opacity: 0; }
       html.intro-prueba #splash2 .op-st { display: block; position: absolute; z-index: 2; left: 50%; top: calc(60px + var(--centro, 46%) + 138px); width: 230px; height: 14px; margin-left: -115px; border-radius: 50%; background: radial-gradient(closest-side, rgba(31,31,31,.20), rgba(31,31,31,0)); filter: blur(4px); opacity: 0; }
       html.intro-prueba.intro-anda #splash2 .op-sb { animation: s2aparece .7s ease .7s forwards; }
       html.intro-prueba.intro-anda #splash2 .op-st { animation: s2aparece .9s ease 1.3s forwards; }
-      html.intro-prueba.intro-anda #splash2 .nombre:not(.op-ref) { animation: s2sombraNombre .9s ease 1.3s forwards; }
+      html.intro-prueba.intro-anda #splash2 .nombre { animation: s2sombraNombre .9s ease 1.3s forwards; }
       @keyframes s2sombraNombre { from { filter: drop-shadow(0 3px 3px rgba(31,31,31,0)); } to { filter: drop-shadow(0 3px 3px rgba(31,31,31,.14)); } }
-      html.intro-prueba #splash2 .op-ref { transform: translateY(66px) scale(.6, -.6) !important; -webkit-mask-image: linear-gradient(to bottom, transparent 18%, rgba(0,0,0,.16) 34%); mask-image: linear-gradient(to bottom, transparent 18%, rgba(0,0,0,.16) 34%); }
-      html.intro-prueba.intro-anda #splash2 .op-ref .linea, html.intro-prueba.intro-anda #splash2 .op-ref .pto { animation: s2aparece 1s ease 1.3s forwards !important; }
+      /* El nombre, un punto más grande y con el trazo más liviano (el borde
+         del color del fondo le quita medio pelo al contorno). */
+      html.intro-prueba #splash2 .nombre { transform: translateY(4px) scale(.66); }
+      html.intro-prueba #splash2 .nombre .linea path { stroke: #F3F1EB; stroke-width: 1.5; paint-order: stroke; }
       @keyframes s2aparece { to { opacity: 1; } }
       @keyframes s2apaga { to { opacity: 0; } }
       @keyframes s2entra { 0% { opacity: 1; transform: translate(var(--x), var(--y)) scale(var(--s)); } 70% { opacity: .85; } 100% { opacity: 0; transform: translate(calc(var(--x) * .1), calc(var(--y) * .1)) scale(.26); } }
