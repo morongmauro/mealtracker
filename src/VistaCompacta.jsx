@@ -34,13 +34,13 @@ export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, ocul
       padding: P ? '0 18px calc(14px + env(safe-area-inset-bottom, 0px))' : '0 10px calc(10px + env(safe-area-inset-bottom, 0px))',
     }}>
       {P && <div aria-hidden="true" data-velo-barra style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 34px)', pointerEvents: 'none',
-        background: 'linear-gradient(0deg, rgba(252,252,253,0.62) 0%, rgba(252,252,253,0.38) 45%, rgba(252,252,253,0) 100%)',
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 6px)', pointerEvents: 'none',
+        background: 'linear-gradient(0deg, rgba(252,252,253,0.97) 0%, rgba(252,252,253,0.9) 42%, rgba(252,252,253,0.55) 76%, rgba(252,252,253,0) 100%)',
       }} />}
       <nav aria-label="Secciones" style={{
         pointerEvents: 'auto', maxWidth: 460, margin: '0 auto', borderRadius: 999, padding: P ? 6 : 5, position: 'relative',
         display: 'flex', gap: 4, alignItems: 'center',
-        background: 'linear-gradient(160deg, rgba(255,255,255,0.46) 0%, rgba(255,255,255,0.26) 55%, rgba(255,255,255,0.36) 100%)',
+        background: 'linear-gradient(160deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 55%, rgba(255,255,255,0.26) 100%)',
         WebkitBackdropFilter: 'blur(40px) saturate(200%)', backdropFilter: 'blur(40px) saturate(200%)',
         boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.6), 0 14px 36px rgba(40,44,30,0.14), 0 1px 2px rgba(40,44,30,0.06)',
       }}>

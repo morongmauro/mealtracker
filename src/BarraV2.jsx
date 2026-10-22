@@ -102,15 +102,18 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
       display: oculta ? 'none' : 'block',
     }}>
       {P && <div aria-hidden="true" data-velo-barra style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 34px)', pointerEvents: 'none',
-        background: 'linear-gradient(0deg, rgba(252,252,253,0.62) 0%, rgba(252,252,253,0.38) 45%, rgba(252,252,253,0) 100%)',
+        // El desvanecido pasa DETRÁS de la barra, no antes: el velo mide lo
+        // que mide la barra y se funde a blanco justo donde el contenido
+        // entra debajo de ella.
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 6px)', pointerEvents: 'none',
+        background: 'linear-gradient(0deg, rgba(252,252,253,0.97) 0%, rgba(252,252,253,0.9) 42%, rgba(252,252,253,0.55) 76%, rgba(252,252,253,0) 100%)',
       }} />}
       <style>{`
         .bv2-cristal {
           /* Cristal (opción C): lo de atrás se ve de verdad, pero la letra
              de la barra sigue nítida: blanco al 46→26→36 %, desenfoque de
              40 px, filo de luz arriba y abajo. */
-          background: linear-gradient(160deg, rgba(255,255,255,0.46) 0%, rgba(255,255,255,0.26) 55%, rgba(255,255,255,0.36) 100%);
+          background: linear-gradient(160deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 55%, rgba(255,255,255,0.26) 100%);
           -webkit-backdrop-filter: blur(40px) saturate(200%);
           backdrop-filter: blur(40px) saturate(200%);
           box-shadow: inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.6),

@@ -700,7 +700,9 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{q.nombre}</div>
             <div style={{ fontSize: 12, color: TEXT_LIGHT, lineHeight: 1.25 }}>
-              {hecho ? `${ev.tipo === 'peso' && peso ? `${peso} kg · ` : ''}Hecho. Tu coach ya lo sabe.` : (ev.detalle || (ev.titulo && ev.titulo !== q.nombre ? ev.titulo : null) || '')}
+              {hecho ? `${ev.tipo === 'peso' && peso ? `${peso} kg · ` : ''}Hecho. Tu coach ya lo sabe.`
+                // El peso no lleva instrucción («en ayunas» no es obligatorio): solo si está atrasado, desde cuándo.
+                : (ev.tipo === 'peso' ? (ev.atrasado ? ev.detalle : '') : (ev.detalle || (ev.titulo && ev.titulo !== q.nombre ? ev.titulo : null) || ''))}
             </div>
           </div>
           {hecho ? <CheckCircle size={20} weight="fill" color={MORADO} aria-label="Hecho" /> : !pasada && !futuro && (
@@ -742,7 +744,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: v2 ? 15.5 : 14, fontWeight: 750, color: TEXT }}>{q.nombre}</div>
-          {(ev.detalle || (ev.titulo && ev.titulo !== q.nombre)) && (
+          {ev.tipo !== 'peso' && (ev.detalle || (ev.titulo && ev.titulo !== q.nombre)) && (
             <div style={{ fontSize: v2 ? 13 : 12, color: TEXT_LIGHT }}>{ev.detalle || ev.titulo}</div>
           )}
         </div>
