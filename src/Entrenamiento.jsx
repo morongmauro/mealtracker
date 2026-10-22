@@ -2351,13 +2351,8 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
         position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 65,
         borderRadius: 20, color: '#fff',
         display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px 10px 14px',
-        ...(enPrueba() ? {
-          // Vista en prueba: vidrio oscuro «lente»: grafito translúcido con
-          // desenfoque, filos de luz y contorno finísimo; se ve la rutina detrás.
-          background: 'linear-gradient(160deg, rgba(29,29,31,0.78) 0%, rgba(29,29,31,0.66) 50%, rgba(29,29,31,0.74) 100%)',
-          WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)', backdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 0 0.8px rgba(255,255,255,0.08), 0 0 0 0.5px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.12), 0 18px 44px rgba(0,0,0,0.28)',
-        } : { background: '#1D1D1F', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }),
+        // Sólido (el vidrio oscuro se probó y no convenció): grafito pleno.
+        background: '#1D1D1F', boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
       }}>
         <svg width="28" height="28" viewBox="0 0 28 28" style={{ flex: 'none' }} aria-hidden="true">
           <circle cx="14" cy="14" r={r} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="3" />

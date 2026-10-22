@@ -93,8 +93,20 @@ function TarjetaV2({ item, alto, alTocar }) {
       {img && <img src={img} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
       <span aria-hidden="true" data-familia-velo style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: `linear-gradient(180deg, rgba(${VELO[f]},0) 40%, rgba(${VELO[f]},0.42) 68%, rgba(${VELO[f]},0.82) 100%)`,
+        // Lote 28 (solo Mauro): el velo del color mucho más suave; el nombre
+        // se sigue leyendo por su sombra de texto.
+        background: lote25()
+          ? `linear-gradient(180deg, rgba(${VELO[f]},0) 50%, rgba(${VELO[f]},0.16) 74%, rgba(${VELO[f]},0.42) 100%)`
+          : `linear-gradient(180deg, rgba(${VELO[f]},0) 40%, rgba(${VELO[f]},0.42) 68%, rgba(${VELO[f]},0.82) 100%)`,
       }} />
+      {lote25() ? (
+        // Lote 28 (solo Mauro): etiqueta sólida del color del tipo, sin el punto.
+        <span data-familia-etiqueta data-solida style={{
+          position: 'absolute', left: 10, top: 10, display: 'inline-flex', alignItems: 'center',
+          padding: '5px 10px', borderRadius: 99, background: fam.color, boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
+          fontSize: 10.5, fontWeight: 750, color: '#FFFFFF', letterSpacing: '0.08em', textTransform: 'uppercase',
+        }}>{fam.texto}</span>
+      ) : (
       <span data-familia-etiqueta style={{
         position: 'absolute', left: 10, top: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
         padding: '5px 10px 5px 8px', borderRadius: 99,
@@ -105,7 +117,8 @@ function TarjetaV2({ item, alto, alTocar }) {
       }}>
         <i style={{ width: 7, height: 7, borderRadius: 9, background: PUNTO[f], boxShadow: '0 0 0 2px rgba(255,255,255,0.35)' }} />{fam.texto}
       </span>
-      <span style={{ position: 'absolute', left: 12, right: 12, bottom: 12, color: '#FFFFFF', display: 'block' }}>
+      )}
+      <span style={{ position: 'absolute', left: 12, right: 12, bottom: 12, color: '#FFFFFF', display: 'block', textShadow: lote25() ? '0 1px 3px rgba(0,0,0,0.35)' : undefined }}>
         {sub && <span style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', opacity: 0.78, marginBottom: 3 }}>{sub}</span>}
         <span style={{ display: 'block', fontSize: 15.5, fontWeight: 750, lineHeight: 1.18, letterSpacing: '-0.01em' }}>{n.grande}</span>
         {n.chico && <span style={{ display: 'block', fontSize: 12, opacity: 0.82, marginTop: 2, lineHeight: 1.25 }}>{n.chico}</span>}

@@ -22,6 +22,7 @@ const Dash = lazy(() => import('./Dash.jsx'));
 const AprendeHoy = lazy(() => import('./AprendeHoy.jsx'));
 const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
+const RepasoRecorrido = lazy(() => import('./RepasoRecorrido.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { BarraCompacta, HojaMas, gruposMas } from './VistaCompacta.jsx';
 import { useVistaCompacta, useModoVista, puedeCompacta, guardarVista, adoptarVistaNube, leerVista, fondoBlanco, enPrueba, lote25 } from './vistaApp.js';
@@ -41,6 +42,7 @@ const MetaComida = lazy(() => import('./MetaComida.jsx'));
 const Reconocimiento = lazy(() => import('./Reconocimiento.jsx'));
 const AvisoCicloFin = lazy(() => import('./AvisoCicloFin.jsx'));
 import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
+import { repasoOfrecido } from './RepasoRecorrido.jsx';
 import { hayNovedad, marcarVisto } from './novedades.js';
 import { vozComida } from './vozCoach.js';
 import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2, ChatCircle as ChatV2 } from '@phosphor-icons/react';
@@ -1858,6 +1860,10 @@ export default function MealTracker() {
     return null;
   });
   const primeraVez = view === 'main' && v2 && !!name && !!sesionV2 && !cuentaAbierta && !primeraVezVista && !mudanza && !recorrido;
+  // Lote 28 (solo Mauro): quien ya está activo y nunca vio el recorrido
+  // guiado: una vez, «¿Quieres repasar cómo usar la app?» (no en la compacta).
+  const [repasoVisto, setRepasoVisto] = useState(repasoOfrecido);
+  const repaso = lote25() && view === 'main' && v2 && !!name && !!sesionV2 && !cuentaAbierta && primeraVezVista && !mudanza && !recorrido && !compacta && !recorridoHecho() && !repasoVisto;
   // Lo que encontró en la cuenta al llegar a la dirección nueva.
   const [llegadaCuenta, setLlegadaCuenta] = useState(null);
   useEffect(() => {
@@ -6635,7 +6641,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 vista: puedeCompacta(name) ? { compacta, modo: modoVista, cambiar: (m) => guardarVista(m) } : null,
                 // Sin la cuenta, el recorrido ni la mudanza encima: entonces
                 // puede salir la bienvenida a la Comunidad.
-                ventanaLibre: !(name && !cuentaSaltada && (!sesionV2 || cuentaAbierta)) && !recorrido && !mudanza && !primeraVez,
+                ventanaLibre: !(name && !cuentaSaltada && (!sesionV2 || cuentaAbierta)) && !recorrido && !mudanza && !primeraVez && !repaso,
               }} />
           </Suspense>
           </CapaActiva.Provider>
@@ -6675,7 +6681,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               if (prueba && w) {
                 // La franja curva del centro, del mismo alto que la de las otras secciones.
                 const sonda = document.createElement('div');
-                sonda.style.cssText = 'position:fixed;visibility:hidden;height:calc(env(safe-area-inset-top, 0px) + 34px)';
+                sonda.style.cssText = `position:fixed;visibility:hidden;height:calc(env(safe-area-inset-top, 0px) + ${fondoBlanco() ? 36 : 34}px)`;
                 document.body.appendChild(sonda);
                 const banda = sonda.offsetHeight; sonda.remove();
                 try { w.postMessage({ tipo: 'em-vista', prueba: true, banda, lote25: lote25() }, '*'); } catch (e) { /* sin centro */ }
@@ -7276,6 +7282,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <Suspense fallback={null}><CuentaV2 nombre={name} pendientes datosAceptados={cloudConsent !== null}
           alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush} alRecorrido={() => setRecorrido(true)}
           alListo={terminarPrimeraVez} /></Suspense>
+      )}
+      {repaso && (
+        <Suspense fallback={null}><RepasoRecorrido alVer={() => { setRepasoVisto(true); setRecorrido(true); }} alSaltar={() => setRepasoVisto(true)} /></Suspense>
       )}
       {view === 'main' && cloudConsent === null && cuentaRevisada && !mudanza && !primeraVez && (
         <CloudConsentModal onAccept={acceptCloudConsent} onDecline={declineCloudConsent} />

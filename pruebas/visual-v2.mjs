@@ -183,6 +183,7 @@ function almacen(nombre) {
     'mt:lastActiveAt': '0',
     // Las ventanas de primera vez ya vistas (se prueban aparte).
     'mt:primeraVezVista': '1',
+    'mt:repasoOfrecido': '1',   // la ventana «¿Quieres repasar…?» se prueba aparte
     cloudConsent: 'declined',
     'mt:novedadesVistas': JSON.stringify(['2026-08-26-aprendizaje-y-recetas']),
     trainingOn: '1',

@@ -19,6 +19,7 @@ import { Info } from '@phosphor-icons/react';
 import { Hoja, Chip, Card, TEXT, TEXT_MUTED, TEXT_LIGHT, SURFACE_2, BORDER_SOFT, ACCENT_DARK } from './entrenoUI.jsx';
 import FiguraMusculos from './FiguraMusculos.jsx';
 import { v2Activa, nombresEj } from './v2.js';
+import { lote25 } from './vistaApp.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import { LABEL } from './taxonomia.js';
 import { miniatura, urlVideo, urlVideoLimpio, fechaLarga } from './entrenoDatos.js';
@@ -162,12 +163,14 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
             <span style={{ transform: verCaracs ? 'rotate(90deg)' : 'none', transition: 'transform .16s' }}>›</span>
           </button>
           {verCaracs && v2Activa() && tieneMusculos && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ padding: '4px 2px 2px' }}>
+            // Lote 28 (solo Mauro): la figura más baja y sin aire arriba ni
+            // abajo: el espacio vertical se aprovecha.
+            <div style={{ marginTop: lote25() ? 6 : 10 }}>
+              <div style={{ padding: lote25() ? 0 : '4px 2px 2px' }}>
                 <FiguraMusculos
                   primarios={e.musculos_primarios || []}
                   secundarios={e.musculos_secundarios || []}
-                  alto={262}
+                  alto={lote25() ? 200 : 262}
                 />
               </div>
               {/* «Principal» y «También trabaja» ya van en la leyenda de la figura. */}
