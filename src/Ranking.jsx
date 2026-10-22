@@ -352,7 +352,7 @@ export default function Ranking() {
           )}
           {error && !data && (
             <div className="absolute inset-0 flex items-center justify-center text-[13px] px-8 text-center" style={{ color: TEXT_MUTED }}>
-              No se pudo cargar el reto. Revisa tu conexión — se reintenta solo.
+              No pude traer el reto. Revisa tu señal: se reintenta solo.
             </div>
           )}
           {data && info?.notStarted && (

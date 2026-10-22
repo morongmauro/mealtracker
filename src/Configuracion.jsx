@@ -130,7 +130,7 @@ export function HojaAvisos({ abierta, alCerrar, permiso, alActivar }) {
     <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Configuración · Notificaciones" alto="72vh" tono="dash">
       <div data-hoja-avisos>
         {permiso !== 'granted' && (
-          <div style={{ background: '#FFF7E0', borderRadius: 16, padding: '12px 14px', marginBottom: 14, fontSize: 14, color: TEXT, lineHeight: 1.45 }}>
+          <div style={{ background: 'rgba(118,118,128,0.12)', borderRadius: 16, padding: '12px 14px', marginBottom: 14, fontSize: 14, color: TEXT, lineHeight: 1.45 }}>
             {permiso === 'denied' ? 'Las notificaciones están bloqueadas para esta app: actívalas en los ajustes del teléfono.' : 'Todavía no has activado los avisos en este teléfono.'}
             {permiso === 'default' && alActivar && (
               <button data-activar-avisos onClick={alActivar} style={{ display: 'block', marginTop: 10, border: 0, borderRadius: 999, padding: '10px 16px', background: TEXT, color: '#fff', fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Activar avisos</button>

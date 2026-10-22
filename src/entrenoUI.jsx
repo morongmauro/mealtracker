@@ -201,9 +201,9 @@ export function Cargando({ texto = 'Cargando…', tono = 'entreno' }) {
 // un mensaje incomprensible.
 export function Fallo({ motivo, alReintentar }) {
   const frases = {
-    sin_red: 'No pude conectarme. Revisa tu señal.',
+    sin_red: 'Sin señal. Revisa tu conexión e inténtalo en un momento.',
     sin_cliente: 'No encontré tu ficha. Escríbele a tu coach.',
-    sin_crm: 'El servicio no está disponible ahora mismo.',
+    sin_crm: 'No pude conectar ahora. Inténtalo en un momento.',
     no_enviada: 'Tu coach todavía no te envió esta rutina.',
     no_es_suya: 'Esa rutina no es tuya.',
   };

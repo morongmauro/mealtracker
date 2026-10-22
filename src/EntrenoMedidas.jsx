@@ -17,7 +17,7 @@ const MOTIVOS = {
   peso_fuera_de_rango: 'Ese peso no parece correcto. Revísalo (en kg).',
   grasa_fuera_de_rango: 'Ese % de grasa no parece correcto. Revísalo.',
   fecha_futura: 'La fecha no puede ser en el futuro.',
-  sin_red: 'Sin conexión. Inténtalo cuando tengas señal.',
+  sin_red: 'Sin señal. Inténtalo cuando vuelva.',
 };
 
 export function MisMedidas({ nombre }) {
@@ -85,7 +85,7 @@ function Dato({ valor, pie }) {
 // `evento`: si se abre desde lo que pidió el coach en el calendario (pesarse
 // o medirse ese día), al guardar también queda marcado como hecho. El aviso
 // al coach es uno solo: el de la medida.
-export function HojaMedida({ abierta, nombre, alCerrar, alGuardar, evento = null, titulo = 'Registrar mi medida' }) {
+export function HojaMedida({ abierta, nombre, alCerrar, alGuardar, evento = null, titulo = 'Registro · Peso y % de grasa' }) {
   const [peso, setPeso] = useState('');
   const [grasa, setGrasa] = useState('');
   const [fecha, setFecha] = useState(hoyLocal());
@@ -102,7 +102,7 @@ export function HojaMedida({ abierta, nombre, alCerrar, alGuardar, evento = null
     setGuardando(true);
     const r = await api.medida(nombre, { peso: p, grasa_pct: g, fecha });
     setGuardando(false);
-    if (!r || !r.ok) { setError(MOTIVOS[r && r.motivo] || 'No se pudo guardar. Inténtalo otra vez.'); return; }
+    if (!r || !r.ok) { setError(MOTIVOS[r && r.motivo] || 'No se guardó. Inténtalo en un momento.'); return; }
     if (evento) await api.registrar(nombre, { evento_id: evento.id, fecha: evento.fecha, valor: p, hecho: true, sin_alerta: true }).catch(() => null);
     setHecho(true);
     setTimeout(() => alGuardar && alGuardar(), 900);

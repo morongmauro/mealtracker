@@ -838,7 +838,7 @@ function ProgresoPesos({ pesos }) {
 function DetalleEntreno({ ent, falloEnt, cargar }) {
   if (falloEnt) {
     return (<><Titular>Tus gráficas de entrenamiento</Titular>
-      <Tarjeta titulo="Sin conexión" detalle="No pude traer tus datos de entrenamiento.">
+      <Tarjeta titulo="Sin señal" detalle="No pude traer tus datos de entrenamiento. Inténtalo en un momento.">
         <button onClick={cargar} style={{ marginTop: 10, border: 'none', background: CREMA, borderRadius: 999, padding: '9px 16px', fontFamily: 'inherit', fontWeight: 700, fontSize: 14, color: TEXT, cursor: 'pointer' }}>Reintentar</button>
       </Tarjeta></>);
   }

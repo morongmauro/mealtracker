@@ -12,7 +12,7 @@ const CREMA = '#F4F1EB';
 // partes: [{ nombre, valor, detalle, atras }] · nota: letra chica al final.
 export default function ExplicacionAro({ titulo, grande, que, partes = [], nota, alCerrar }) {
   return (
-    <Hoja abierta alCerrar={alCerrar} titulo={titulo} alto="70vh">
+    <Hoja abierta alCerrar={alCerrar} titulo={/ · /.test(String(titulo || '')) ? titulo : `Qué mide · ${titulo}`} tono="dash" alto="70vh">
       <div data-explicacion-aro style={{ fontSize: 14.5, color: TEXT, lineHeight: 1.5 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.03em' }}>{grande}</span>

@@ -759,7 +759,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     const r = await entrenoApi.mover(name, { desde: planeada, hasta: fecha, rutina_id: rutinaId }).catch(() => null);
     setMovida(r && r.ok
       ? { ok: true, texto: r.intercambio ? `Listo: quedó hoy, y ${r.intercambio.nombre} pasó al ${diaDe(planeada)}.` : 'Listo: quedó hoy en tu calendario.' }
-      : { ok: false, texto: r && r.motivo === 'semana_pasada' ? 'Ese día ya es de otra semana: queda como entreno de hoy.' : 'No se pudo mover ahora. Lo que marques queda guardado igual.' });
+      : { ok: false, texto: r && r.motivo === 'semana_pasada' ? 'Ese día ya es de otra semana: queda como entreno de hoy.' : 'No se movió ahora. Lo que marques queda guardado igual.' });
     setTimeout(() => setMovida(null), 4200);
   };
   // Visual nueva: cuándo arrancó el entreno (la primera serie marcada), para
@@ -1136,7 +1136,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
       // es justo lo que hacía perder entrenos. Lo marcado sigue guardado.
       setErrorCierre(quedan
         ? 'Sin señal. Tus series están guardadas en el teléfono y suben solas; vuelve a intentarlo en un momento.'
-        : 'No se pudo enviar. Revisa la conexión e inténtalo otra vez.');
+        : 'No se envió. Revisa tu señal e inténtalo en un momento.');
       return;
     }
     setCerrandoHoja(false);

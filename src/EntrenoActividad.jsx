@@ -41,7 +41,7 @@ export default function Actividad({
   eventoId = null,
   tipoInicial = null,
   soloRemate = false,       // al cerrar la fuerza: solo lo que se hace ahí mismo
-  titulo = 'Registrar actividad',
+  titulo = 'Registro · Cardio o deporte',
   duracionInicial = null,   // lo que el coach le puso (minutos)
   otroInicial = '',         // si lo del coach no está en el catálogo
   nota = null,              // «De tu coach: …», arriba de todo
@@ -132,7 +132,7 @@ export default function Actividad({
         ? 'Todavía no puedo guardar actividades. Avísale a tu coach.'
         : r.motivo === 'fecha_futura'
           ? 'No puedes registrar algo que aún no ha pasado.'
-          : 'No se pudo guardar. Intenta otra vez.');
+          : 'No se guardó. Inténtalo en un momento.');
       return;
     }
     alGuardar?.(r.actividad);

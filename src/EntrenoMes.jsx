@@ -174,7 +174,7 @@ function MesClasico({ nombre, alEntrenar }) {
         fuera_de_fase: 'Ese día está fuera de tu fase.',
         ya_entrenada: 'Ese día ya tiene un entreno hecho.',
         sin_tabla: 'Mover días aún no está disponible. Avísale a tu coach.',
-      }[r.motivo] || 'No se pudo mover. Inténtalo otra vez.');
+      }[r.motivo] || 'No se movió. Inténtalo en un momento.');
       return;
     }
     setAviso(r.intercambio
@@ -666,7 +666,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
     setEnviando(true); setError(null);
     const r = await api.registrar(nombre, { evento_id: ev.id, fecha, valor, hecho: true });
     setEnviando(false);
-    if (!r.ok) { setError(r.motivo === 'valor_raro' ? 'Revisa el número.' : 'No se pudo guardar. Inténtalo otra vez.'); return; }
+    if (!r.ok) { setError(r.motivo === 'valor_raro' ? 'Revisa el número.' : 'No se guardó. Inténtalo en un momento.'); return; }
     setHecho(true);
     alCambio && alCambio();
   };
@@ -677,7 +677,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
     setEnviando(true); setError(null);
     const r = await api.registrar(nombre, { evento_id: ev.id, fecha, hecho: false, motivo: 'no_puedo' });
     setEnviando(false);
-    if (!r.ok) { setError('No se pudo guardar. Inténtalo otra vez.'); return; }
+    if (!r.ok) { setError('No se guardó. Inténtalo en un momento.'); return; }
     setQuitado(true);
     alCambio && alCambio();
   };
@@ -1113,7 +1113,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
         ya_entrenada: 'Ese día ya tiene un entreno hecho.',
         es_extra: 'Una rutina que añadiste no se mueve: quítala y añádela en el otro día.',
         sin_tabla: 'Mover días aún no está disponible. Avísale a tu coach.',
-      }[r.motivo] || 'No se pudo mover. Inténtalo otra vez.');
+      }[r.motivo] || 'No se movió. Inténtalo en un momento.');
       return;
     }
     setAviso(r.intercambio ? `${corto(r.movida)} ↔ ${corto(r.intercambio)}` : `${corto(r.movida)} → ${fechaLarga(hasta)}`);
@@ -1142,7 +1142,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
       setAviso({
         ocupado: 'Ese día ya tiene rutina.', semana_pasada: 'Las semanas que ya pasaron no se cambian.', fuera_de_fase: 'Ese día está fuera de tu ciclo.',
         sin_tabla: 'Añadir rutinas aún no está disponible. Avísale a tu coach.',
-      }[r.motivo] || 'No se pudo añadir. Inténtalo otra vez.');
+      }[r.motivo] || 'No se añadió. Inténtalo en un momento.');
       return;
     }
     setAviso(`${corto(r.agregada)} añadida el ${diaDe(fecha)}`);
@@ -1159,7 +1159,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     setAbierto(null);
     setAviso(ACTUALIZANDO);
     const r = await api.quitarRutina(nombre, { fecha });
-    if (!r.ok) { deshacer(); setAviso(r.motivo === 'ya_entrenada' ? 'Ya la entrenaste: queda en tu registro.' : 'No se pudo quitar. Inténtalo otra vez.'); return; }
+    if (!r.ok) { deshacer(); setAviso(r.motivo === 'ya_entrenada' ? 'Ya la entrenaste: queda en tu registro.' : 'No se quitó. Inténtalo en un momento.'); return; }
     setAviso('Rutina quitada. Ese día vuelve a estar libre.');
     setAbierto(null);
     recargar([fecha]);

@@ -91,7 +91,7 @@ export default function HojaNota({ abierta, nombre, contexto, alCerrar, alLeer }
     if (r && r.ok) { setEstado('ok'); setTimeout(alCerrar, 900); return; }
     setEstado(r && r.motivo === 'sin_red'
       ? 'Sin conexión. Tu nota sigue aquí: envíala cuando tengas señal.'
-      : 'No se pudo enviar. Inténtalo otra vez.');
+      : 'No se envió. Inténtalo en un momento.');
   };
 
   return (
@@ -109,8 +109,8 @@ export default function HojaNota({ abierta, nombre, contexto, alCerrar, alLeer }
       <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={hayHilo ? 2 : 4} autoFocus={!hayHilo}
         placeholder={hayHilo ? 'Responder a tu coach…' : tipo === 'ejercicio' ? '¿Qué le quieres contar de este ejercicio?' : '¿Qué le quieres contar de esta rutina?'}
         style={{
-          width: '100%', boxSizing: 'border-box', padding: '12px', borderRadius: 12,
-          border: `1px solid ${BORDER}`, background: SURFACE_2, fontSize: 16, color: TEXT,
+          width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: 16,
+          border: 'none', background: 'rgba(118,118,128,0.12)', fontSize: 16, color: TEXT,
           fontFamily: 'inherit', resize: 'none', outline: 'none', lineHeight: 1.45,
         }} />
       <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 8 }}>Le llega a tu coach al momento.</div>
