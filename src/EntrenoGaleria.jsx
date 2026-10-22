@@ -42,10 +42,10 @@ export function armarGaleria(rutinas) {
 // dice además si es empuje o jalón, de tren superior o inferior. Sale del
 // tipo, el patrón y el segmento que el coach le puso en la galería.
 const FAMILIAS = {
-  movilidad:   { texto: 'Movilidad',   color: '#178A8F', tinte: '#DFF2F2', fondo: ['#2CA5AA', '#137479'] },
-  resistencia: { texto: 'Resistencia', color: '#C23D78', tinte: '#F9E3EE', fondo: ['#D9599A', '#A92E66'] },
-  potencia:    { texto: 'Potencia',    color: '#C2413B', tinte: '#FAE5E3', fondo: ['#DA5E55', '#AA322C'] },
-  fuerza:      { texto: 'Fuerza',      color: '#454B54', tinte: '#E9EBEE', fondo: ['#6E757F', '#454B54'] },
+  movilidad:   { texto: 'Movilidad',   color: '#178A8F', tinte: '#DFF2F2', fondo: ['#6FC3C7', '#2C9196'] },
+  resistencia: { texto: 'Resistencia', color: '#C23D78', tinte: '#F9E3EE', fondo: ['#E68DB8', '#BF4A82'] },
+  potencia:    { texto: 'Potencia',    color: '#C2413B', tinte: '#FAE5E3', fondo: ['#E8908A', '#C2463F'] },
+  fuerza:      { texto: 'Fuerza',      color: '#454B54', tinte: '#E9EBEE', fondo: ['#A7ADB5', '#7B828B'] },
 };
 // El velo de abajo de cada tarjeta (visual nueva): el tono oscuro del tipo,
 // para que el texto blanco se lea sobre cualquier cuadro del video. El punto
@@ -93,15 +93,17 @@ function TarjetaV2({ item, alto, alTocar }) {
       {img && <img src={img} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
       <span aria-hidden="true" data-familia-velo style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: `linear-gradient(180deg, rgba(${VELO[f]},0) 34%, rgba(${VELO[f]},0.62) 62%, rgba(${VELO[f]},0.94) 100%)`,
+        background: `linear-gradient(180deg, rgba(${VELO[f]},0) 40%, rgba(${VELO[f]},0.42) 68%, rgba(${VELO[f]},0.82) 100%)`,
       }} />
       <span data-familia-etiqueta style={{
         position: 'absolute', left: 10, top: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
-        padding: '5px 10px 5px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.72)',
-        backdropFilter: 'blur(14px) saturate(1.6)', WebkitBackdropFilter: 'blur(14px) saturate(1.6)',
-        fontSize: 11.5, fontWeight: 700, color: TEXT, letterSpacing: '0.01em',
+        padding: '5px 10px 5px 8px', borderRadius: 99,
+        background: 'linear-gradient(160deg, rgba(255,255,255,0.46) 0%, rgba(255,255,255,0.26) 100%)',
+        backdropFilter: 'blur(18px) saturate(1.8)', WebkitBackdropFilter: 'blur(18px) saturate(1.8)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 0 0 0.8px rgba(255,255,255,0.35), 0 1px 2px rgba(0,0,0,0.10)',
+        fontSize: 10.5, fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.08em', textTransform: 'uppercase', textShadow: '0 1px 1px rgba(0,0,0,0.18)',
       }}>
-        <i style={{ width: 7, height: 7, borderRadius: 9, background: PUNTO[f] }} />{fam.texto}
+        <i style={{ width: 7, height: 7, borderRadius: 9, background: PUNTO[f], boxShadow: '0 0 0 2px rgba(255,255,255,0.35)' }} />{fam.texto}
       </span>
       <span style={{ position: 'absolute', left: 12, right: 12, bottom: 12, color: '#FFFFFF', display: 'block' }}>
         {sub && <span style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', opacity: 0.78, marginBottom: 3 }}>{sub}</span>}
@@ -232,7 +234,8 @@ export default function Galeria({ nombre }) {
               <button key={r.id} onClick={() => setFiltro(r.id)} style={{
                 flex: 'none', border: v2 ? 'none' : `1px solid ${activo ? TEXT : BORDER}`, borderRadius: 999,
                 background: activo ? TEXT : (v2 ? 'rgba(118,118,128,0.12)' : 'rgba(255,255,255,0.7)'), color: activo ? '#fff' : (v2 ? TEXT : TEXT_MUTED),
-                padding: v2 ? '8px 15px' : '7px 13px', fontSize: v2 ? 14 : 13, fontWeight: v2 ? 650 : 700, fontFamily: 'inherit', cursor: 'pointer',
+                padding: v2 ? '9px 16px' : '7px 13px', fontSize: v2 ? 14 : 13, fontWeight: v2 ? 650 : 700, fontFamily: 'inherit', cursor: 'pointer',
+                boxShadow: activo && v2 ? '0 6px 16px rgba(31,31,31,0.22), 0 1px 2px rgba(31,31,31,0.10)' : 'none', transition: 'background .18s, color .18s, box-shadow .18s',
               }}>{r.nombre}</button>
             );
           })}
