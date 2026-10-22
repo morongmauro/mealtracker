@@ -25,6 +25,7 @@
 // en las casillas, íconos de línea y, debajo, «Lo que viene»: los próximos
 // días con el nombre completo de cada cosa, que en una casilla no se lee.
 // ─────────────────────────────────────────────────────────────────────────
+import { lote25 } from './vistaApp.js';
 import { vibrar as vibrarL25 } from './vibrar.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -700,6 +701,15 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio 
               {enviando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
+        ) : ev.tipo === 'fotos' && lote25() ? (
+          // Lote 26: las fotos se toman en la app (fotos de progreso). El
+          // recordatorio se queda hasta que suba la foto de hoy: al guardarla,
+          // la API marca este registro sola.
+          <>
+            <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 10, lineHeight: 1.4 }}>Tómala aquí mismo: queda guardada con tu peso y tu coach la ve al momento.</div>
+            <button data-tomar-foto-evento onClick={() => { try { window.dispatchEvent(new CustomEvent('mt:irFotos')); } catch (e) {} }}
+              style={{ ...botonPrimario, width: '100%', marginTop: 10 }}>Tomar foto de hoy</button>
+          </>
         ) : ev.tipo === 'fotos' && WHATSAPP_COACH ? (
           // Las fotos se mandan por WhatsApp: el botón abre el chat con el
           // mensaje listo y deja el registro marcado (el coach se entera).
@@ -723,7 +733,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio 
       {hecho && (
         <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 8 }}>
           {ev.tipo === 'peso' && peso ? `${peso} kg · ` : ''}Hecho. Tu coach ya lo sabe.
-          {ev.tipo === 'fotos' ? ' Si aún no se las mandaste, envíaselas por WhatsApp.' : ''}
+          {ev.tipo === 'fotos' && !lote25() ? ' Si aún no se las mandaste, envíaselas por WhatsApp.' : ''}
         </div>
       )}
       {error && <div style={{ fontSize: 12.5, color: '#B4533F', marginTop: 6 }}>{error}</div>}

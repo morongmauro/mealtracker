@@ -2716,7 +2716,9 @@ try {
     await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1000);
     await p.getByRole('button', { name: 'Hoy', exact: true }).click().catch(() => {}); await espera(800);
     ok('lote 26: Hoy de Entreno tiene la entrada «Fotos de progreso»', (await p.locator('[data-atajo-fotos]').count()) === 1);
-    await p.getByRole('button', { name: 'Fotos', exact: true }).first().click();
+    ok('lote 26: la barra de Entreno NO tiene «Fotos» (se entra desde el recordatorio o desde Hoy)', (await p.getByRole('button', { name: 'Fotos', exact: true }).count()) === 0);
+    ok('lote 26: el recordatorio de fotos de hoy trae «Tomar foto de hoy» en vez de WhatsApp', (await p.locator('[data-tomar-foto-evento]').count()) >= 1 && (await p.locator('[data-fotos-whatsapp]').count()) === 0);
+    await p.locator('[data-tomar-foto-evento]').first().click();
     await p.locator('[data-fotos]').waitFor({ timeout: 8000 }); await espera(600);
     ok('lote 26: fotos abre en Comparar, la más vieja contra la más nueva', (await p.locator('[data-comparar] img').count()) === 2 && /ahora/.test(await p.locator('[data-comparar-lado]').last().getAttribute('data-comparar-lado')));
     const datos = await p.locator('[data-comparar-datos]').innerText();
@@ -2775,7 +2777,7 @@ try {
   await o.p.keyboard.press('Enter');
   await o.p.getByText(/150 g cocido/).last().waitFor({ timeout: 8000 }).catch(() => {});
   ok('otra persona: lo de pesado en crudo aún no le llega (solo Mauro)', /pollo crudo/.test(ultimoChat.texto) && !/PESADO EN CRUDO/.test(ultimoChat.texto));
-  ok('otra persona: no ve «Fotos» en la barra de Entreno (lote 26 es solo de Mauro)', (await o.p.getByRole('button', { name: 'Fotos', exact: true }).count()) === 0);
+  ok('otra persona: su recordatorio de fotos sigue por WhatsApp (lote 26 es solo de Mauro)', (await o.p.locator('[data-tomar-foto-evento]').count()) === 0);
   ok('sin errores de JavaScript (otra persona)', o.errores.length === 0, o.errores.join(' | '));
   await o.ctx.close();
 

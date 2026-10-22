@@ -44,7 +44,7 @@ const AvisoCicloFin = lazy(() => import('./AvisoCicloFin.jsx'));
 import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
 import { hayNovedad, marcarVisto } from './novedades.js';
 import { vozComida } from './vozCoach.js';
-import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2, ChatCircle as ChatV2, Camera as CameraV2 } from '@phosphor-icons/react';
+import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2, ChatCircle as ChatV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
 
 // Paleta y tipografía: única fuente de verdad en src/theme.js.
@@ -3104,6 +3104,13 @@ export default function MealTracker() {
     const ir = irPedido.current;
     if (ir === 'entreno') { irPedido.current = null; openTraining(); }
   });
+  // «Tomar foto de hoy» en el recordatorio de fotos (Hoy, calendario o el
+  // aviso al abrir): lleva a Fotos de progreso dentro de Entrenamiento.
+  useEffect(() => {
+    const f = () => { if (trainingOn && irSubV2Ref.current) irSubV2Ref.current('entreno', 'fotos'); };
+    window.addEventListener('mt:irFotos', f);
+    return () => window.removeEventListener('mt:irFotos', f);
+  });
 
   const openLearning = useCallback((destino) => {
     if (!learningUrl) return;
@@ -5541,9 +5548,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
     { id: 'dash', subs: [] },
     ...(trainingOn ? [{ id: 'entreno', subs: [
       { id: 'hoy', label: 'Hoy' }, { id: 'mes', label: 'Calendario' }, { id: 'galeria', label: 'Galería' },
-      // Fotos de progreso (lote 26, solo Mauro): solo el ícono, como el
-      // calendario de comidas, para que quepa en un teléfono.
-      ...(lote25() ? [{ id: 'fotos', label: '', icono: CameraV2, aria: 'Fotos' }] : []),
     ] }] : []),
     { id: 'comida', subs: [
       { id: 'hoy', label: 'Hoy' }, { id: 'chat', label: 'Chat' }, { id: 'recetas', label: 'Recetas' },

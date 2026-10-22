@@ -30,6 +30,11 @@ export function pendientesDeHoy(respMes, hoy) {
 
 export default function AvisoRegistro({ nombre, listo, v2 }) {
   const [aviso, setAviso] = useState(null);   // { fecha, eventos }
+  useEffect(() => {
+    const f = () => setAviso(null);
+    window.addEventListener('mt:irFotos', f);
+    return () => window.removeEventListener('mt:irFotos', f);
+  }, []);
 
   const revisar = useCallback(async () => {
     if (!nombre || !listo) return;

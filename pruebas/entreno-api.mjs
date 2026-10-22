@@ -317,6 +317,14 @@ await caso('las fotos de progreso están encendidas (lote 26)', async () => {
   igual([r.ok, Array.isArray(r.fotos)], [true, true], 'ver: responde la lista (vacía)');
   igual((await llamar(handler, { accion: 'foto_borrar', name: yo, id: 'x' })).motivo !== 'desactivado', true, 'borrar: ya no dice desactivado');
   igual((await llamar(handler, { accion: 'foto_guardar', name: yo, ruta: 'otro/foto.jpg', pose: 'frente' })).motivo, 'ruta_ajena', 'guardar una ruta de otro: no');
+  // Con «fotos» en el calendario de hoy: subir la foto lo deja hecho solo.
+  sb.db.eventos = sb.db.eventos || [];
+  sb.db.eventos.push({ id: 'evfoto', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Fotos de progreso', fecha: hoy, visible_cliente: true });
+  const g = await llamar(handler, { accion: 'foto_guardar', name: yo, ruta: 'c1/hoy.jpg', pose: 'frente', fecha: hoy });
+  igual(g.ok, true, 'guardar una foto propia');
+  const mes = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
+  const dia = (mes.dias || []).find(d => d.fecha === hoy);
+  igual(!!(dia && (dia.eventos || []).some(e => e.id === 'evfoto' && e.hecho)), true, 'el registro «fotos» de hoy queda hecho');
 });
 
 // Semana en curso (hoy martes): L Push (ya pasó) · M Lower (hoy) · X libre ·

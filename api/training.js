@@ -718,12 +718,25 @@ async function guardarFoto(cliente, cuerpo, hoy) {
   if (!f) return { ok: false, motivo: 'no_se_guardo' };
   // Al coach le suena el teléfono como con las medidas: una foto nueva es
   // justo lo que quiere mirar. Si el push falla, la foto ya quedó guardada.
+  // Si el coach le puso «fotos» en el calendario ese día, queda hecho solo
+  // (como el peso): el recordatorio se va y no hay que marcarlo a mano.
+  await marcarEventoFotos(cliente, fecha, hoy);
   await alertarCoach({
     title: `${cliente.nombre} subió una foto de progreso`,
     body: [FOTO_POSE_NOMBRE[f.pose] || f.pose, f.peso_kg != null ? `${String(f.peso_kg).replace('.', ',')} kg` : null, f.nota].filter(Boolean).join(' · '),
     tag: 'ecm-foto',
   });
   return { ok: true, foto: { id: f.id, fecha: f.fecha, pose: f.pose, peso_kg: f.peso_kg, nota: f.nota, url: await firmarVer(f.ruta).catch(() => null) } };
+}
+
+async function marcarEventoFotos(cliente, fecha, hoy) {
+  try {
+    const evs = (await eventosDelCliente(cliente.id)).filter(e => e.tipo === 'fotos' && e.visible_cliente !== false);
+    for (const ev of evs) {
+      const r = await registrarEvento(cliente, { evento_id: ev.id, fecha, hecho: true, sin_alerta: true }, hoy);
+      if (r && r.ok) return;
+    }
+  } catch (e) { /* la foto ya quedó guardada; el registro se puede marcar a mano */ }
 }
 
 // Borrar de verdad: la fila Y el archivo. Dejar el archivo sería decirle al
