@@ -747,6 +747,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio 
 export function HojaAvisoRegistro({ nombre, fecha, eventos, v2, alCerrar }) {
   const [hechos, setHechos] = useState(() => new Set());
   const todo = eventos.every(ev => hechos.has(ev.id));
+  const soloAtrasados = eventos.length > 0 && eventos.every(ev => ev.atrasado);
   return (
     <div role="dialog" aria-modal="true" aria-label="Para registrar hoy" data-aviso-registro onClick={alCerrar} style={{
       position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(31,31,28,0.42)',
@@ -762,16 +763,16 @@ export function HojaAvisoRegistro({ nombre, fecha, eventos, v2, alCerrar }) {
           </span>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-              {todo ? 'Listo, gracias' : 'Hoy te toca registrar'}
+              {todo ? 'Listo, gracias' : soloAtrasados ? 'Sigue pendiente' : 'Hoy te toca registrar'}
             </div>
             <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 2 }}>
-              {todo ? 'Tu coach ya lo sabe.' : 'Tu coach lo pidió para hoy. Es un minuto.'}
+              {todo ? 'Tu coach ya lo sabe.' : soloAtrasados ? 'Tu coach lo pidió hace unos días. Es un minuto.' : 'Tu coach lo pidió para hoy. Es un minuto.'}
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
           {eventos.map(ev => (
-            <FilaRegistro key={ev.id} ev={ev} fecha={fecha} nombre={nombre} futuro={false} v2={v2}
+            <FilaRegistro key={ev.id} ev={ev.atrasado ? { ...ev, detalle: `Pendiente desde el ${diaCorto(ev.fecha)}` } : ev} fecha={ev.atrasado ? ev.fecha : fecha} nombre={nombre} futuro={false} v2={v2}
               alCambio={() => setHechos(h => new Set([...h, ev.id]))} />
           ))}
         </div>
@@ -1191,7 +1192,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
 
       {/* ── HOY TE TOCA ── */}
       {listo && modo === 'hoy' && (
-        <HoyTeToca dia={dHoy} P={P} nombre={nombre} ejerciciosDe={ejerciciosDe}
+        <HoyTeToca dia={dHoy} P={P} nombre={nombre} ejerciciosDe={ejerciciosDe} pendientes={(cache[hoy.slice(0, 7)] || {}).pendientes || []}
           alEntrenar={alEntrenar} alRegistrarActividad={() => setRegistrando(hoy)}
           alReabrir={async (id) => { const r = await api.reabrir(nombre, id, hoy); if (r && r.ok) { await cargar(hoy.slice(0, 7)); alEntrenar(id); } }}
           alAgregar={puedeAgregar(dHoy) ? () => setEligiendo(hoy) : null}
@@ -1206,7 +1207,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
           <div data-vista="semana" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {semana.map((f, i) => {
               const d = porFecha[f];
-              return <FilaDiaV2 key={f} fecha={f} etiqueta={DIAS_V2[i]} dia={d} P={P} hoy={hoy} fase={fase}
+              return <FilaDiaV2 key={f} fecha={f} etiqueta={DIAS_V2[i]} dia={d} P={P} hoy={hoy} fase={fase} sinRegistrosHoy
                 sobre={arrastre && arrastre.sobre === f && arrastre.desde !== f} origen={arrastre && arrastre.desde === f}
                 arrastrable={arrastrable(d)}
                 alEntrenar={(id, plan) => tocar(() => alEntrenar(id, plan))} alEvento={(ev) => abrirEvento(ev, f)} />;
@@ -1373,7 +1374,7 @@ function AccionDirecta({ ev, fecha, nombre, alCerrar, alCambio }) {
 }
 
 // ── Lo que toca hoy, todo junto ──────────────────────────────────────────
-function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegistrarActividad, alAgregar, alQuitar, alCambio }) {
+function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegistrarActividad, alAgregar, alQuitar, alCambio, pendientes = [] }) {
   const [reabriendo, setReabriendo] = useState(false);
   const hoy = hoyLocal();
   const r = dia?.rutina;
@@ -1443,7 +1444,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegi
             de la fuerza (que sigue siendo lo primero que se ve): los bloques
             aparte (un recovery), el cardio y la caminata, y pesarse o las
             fotos. */}
-        {(bloques.length > 0 || registros.length > 0 || otros.length > 0) && (
+        {(bloques.length > 0 || registros.length > 0 || otros.length > 0 || pendientes.length > 0) && (
           <div data-tambien-hoy style={{ fontSize: 13.5, fontWeight: 750, color: TEXT_MUTED, margin: '4px 2px -2px' }}>También hoy</div>
         )}
         {bloques.map(b => <TarjetaBloque key={b.id} b={b} P={P} n={ejerciciosDe[b.id]} alEntrenar={alEntrenar} />)}
@@ -1454,6 +1455,13 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegi
 
         {registros.map(ev => (
           <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 alCambio={alCambio} />
+        ))}
+        {/* Lo que quedó de días pasados (pesarse, fotos, medición): se queda
+            aquí, con su fecha, hasta que lo haga. */}
+        {pendientes.map(p => (
+          <div key={`p-${p.id}`} data-registro-pendiente={p.id}>
+            <FilaRegistro ev={{ ...p, detalle: `Pendiente desde el ${diaCorto(p.fecha)}` }} fecha={p.fecha} nombre={nombre} futuro={false} v2 alCambio={alCambio} />
+          </div>
         ))}
         {otros.filter(ev => ev.tipo !== 'actividad').map(ev => (
           <div key={ev.id} style={{ ...cajaDia, fontSize: 14.5 }}>
@@ -1556,7 +1564,7 @@ function TenEnCuenta() {
 }
 
 // ── Semana: un renglón por día, todo escrito ────────────────────────────
-function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastrable, alTocar, alEntrenar, alEvento }) {
+function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastrable, alTocar, alEntrenar, alEvento, sinRegistrosHoy = false }) {
   // Tocar una cosa del día abre esa cosa. El resto de la fila no abre nada:
   // lo del día ya se ve completo aquí mismo (abrir la hoja del día era repetir).
   const directo = (fn) => (fn ? (e) => { e.stopPropagation(); fn(); } : undefined);
@@ -1584,7 +1592,9 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
         {dia?.hecho && <ChipRutina grande nombre={`${corto(dia.hecho)}${dia.rutina ? ' (en su lugar)' : ''}`} hecha P={P}
           alTocar={directo(alEntrenar && dia.hecho.id && (() => alEntrenar(dia.hecho.id)))} />}
         {bloquesDe(dia).map(b => <ChipBloque key={b.id} b={b} alTocar={directo(alEntrenar && (() => alEntrenar(b.id)))} />)}
-        {dia?.eventos.filter(e => e.registra).map(e => (
+        {/* En «Tu semana» lo de registrar de HOY no se repite: ya está arriba
+            en «Hoy te toca» (los demás días sí lo anuncian). */}
+        {dia?.eventos.filter(e => e.registra && !(sinRegistrosHoy && esHoy)).map(e => (
           <Etiqueta key={e.id} Icono={null} tipo={e.tipo} color={MORADO} fondo={e.hecho ? '#EEE9FB' : '#FFFFFF'} borde={e.hecho ? 'transparent' : '#CFC3EF'} hecho={e.hecho}
             alTocar={directo(alEvento && (() => alEvento(e)))} data-evento={e.tipo}>
             {REGISTRO[e.tipo]?.nombre || e.titulo}

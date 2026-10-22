@@ -25,7 +25,10 @@ const marcarMostrado = (fecha) => { try { sessionStorage.setItem(CLAVE, fecha); 
 // Lo que hay por registrar hoy, según el calendario.
 export function pendientesDeHoy(respMes, hoy) {
   const dia = respMes && respMes.ok && (respMes.dias || []).find(d => d.fecha === hoy);
-  return dia ? (dia.eventos || []).filter(e => e.registra && !e.hecho) : [];
+  const deHoy = dia ? (dia.eventos || []).filter(e => e.registra && !e.hecho) : [];
+  // Y lo de días pasados que sigue sin hacerse: se pide cada día hasta que lo haga.
+  const atrasados = respMes && respMes.ok && Array.isArray(respMes.pendientes) ? respMes.pendientes : [];
+  return [...deHoy, ...atrasados];
 }
 
 export default function AvisoRegistro({ nombre, listo, v2 }) {

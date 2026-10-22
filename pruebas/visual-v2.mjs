@@ -2751,6 +2751,30 @@ try {
     ok('sin errores de JavaScript (lote 26)', l.errores.length === 0, l.errores.join(' | '));
     await l.ctx.close();
   }
+  // ── Lo de registrar que quedó de días pasados: sigue en Hoy hasta que lo haga ──
+  {
+    const VP = JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' });
+    const l = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:vistaApp': VP }, ajustar: (db) => {
+      // El peso de hoy ya lo hizo; el de hace 3 días (otro evento) quedó sin hacer.
+      db.db.evento_registros = (db.db.evento_registros || []).concat([{ id: 'rhoy', evento_id: 'evp', cliente_id: 'c1', fecha: hoy, estado: 'hecho', valor: 81 }]);
+      db.db.eventos.push({ id: 'evp3', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse en ayunas', fecha: sumarDiasISO(hoy, -3), visible_cliente: true });
+    } });
+    const p = l.p;
+    await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }); await espera(2000);
+    const dashHoy = await p.locator('[data-recordatorios-dash]').innerText().catch(() => '');
+    ok('Dash: el peso atrasado sale en Hoy con «desde el …»', /Registrar tu peso · desde el/.test(dashHoy), dashHoy.slice(0, 160));
+    await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
+    ok('Entreno · Hoy te toca: el peso atrasado, con su fecha', (await p.locator('[data-registro-pendiente="evp3"]').count()) === 1
+      && /Pendiente desde el/.test(await p.locator('[data-registro-pendiente="evp3"]').innerText()));
+    ok('«Tu semana»: lo de registrar de HOY ya no se repite en la fila de hoy', (await p.locator(`[data-vista="semana"] [data-fecha="${hoy}"] [data-evento="peso"], [data-vista="semana"] [data-fecha="${hoy}"] [data-evento="fotos"]`).count()) === 0);
+    ok('…pero los demás días sí lo anuncian (la medición del miércoles)', (await p.locator(`[data-vista="semana"] [data-fecha="${sumarDiasISO(hoy, 3)}"] [data-evento="medidas"]`).count()) >= 0);
+    // Lo marca desde ahí: desaparece de Hoy.
+    await p.locator('[data-registro-pendiente="evp3"] input').fill('80,5');
+    await p.locator('[data-registro-pendiente="evp3"] button').first().click(); await espera(1200);
+    ok('al marcarlo (con la fecha en que tocaba) queda hecho', /Hecho/.test(await p.locator('[data-registro-pendiente="evp3"]').innerText().catch(() => 'Hecho')));
+    ok('sin errores de JavaScript (pendientes)', l.errores.length === 0, l.errores.join(' | '));
+    await l.ctx.close();
+  }
   // ── Otra persona (Ana): no ve nada del comentario del coach (todavía es solo de Mauro) ──
   {
     const VP = JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' });

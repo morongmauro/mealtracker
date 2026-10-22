@@ -1167,8 +1167,11 @@ async function verMes(cliente, ym, hoy) {
     });
   }
 
+  // Lo atrasado (pesarse, fotos, medición de días pasados sin marcar) solo
+  // viaja con el mes de hoy: es lo que Hoy pone arriba hasta que se haga.
+  const pendientes = mes === hoy.slice(0, 7) ? await pendientesRegistro(cliente, hoy, evs, fase, catalogo).catch(() => []) : [];
   return {
-    ok: true, mes, hoy,
+    ok: true, mes, hoy, pendientes,
     fase: fase ? { nombre: nombreFase(fase.nombre), semanas: fase.semanas, desde: fase.fecha_inicio, hasta: finDeFase(fase) } : null,
     // La semana en la que se puede mover y añadir.
     semana: { desde: lunesDe(hoy), hasta: sumarDiasISO(lunesDe(hoy), 6) },
@@ -1193,8 +1196,9 @@ const QUE_HIZO = {
 async function registrarEvento(cliente, cuerpo, hoy) {
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || '')) ? String(cuerpo.fecha) : hoy;
   if (fecha > sumarDiasISO(hoy, 1)) return { ok: false, motivo: 'fecha_futura' };
-  // Las semanas que ya pasaron no se llenan.
-  if (!desdeEstaSemana(hoy)(fecha)) return { ok: false, motivo: 'semana_pasada' };
+  // Lo de hace más de tres semanas ya no se llena; hasta ahí sí: es lo que
+  // Hoy sigue pidiendo (pendientesRegistro) hasta que lo haga.
+  if (fecha < sumarDiasISO(hoy, -ATRASO_DIAS)) return { ok: false, motivo: 'semana_pasada' };
   if (!cuerpo.evento_id) return { ok: false, motivo: 'sin_evento' };
 
   // Que el evento sea SUYO, lo vea, y caiga ese día.
@@ -1422,6 +1426,40 @@ function eventoParaApp(ev, fecha, catalogo, hechoReg, hechoAct) {
     opciones: opcionesDeEvento(ev, catalogo),
     hecho: !!act, actividad_id: act ? act.id : null,
   };
+}
+
+// ── PENDIENTES DE REGISTRO ────────────────────────────────────────────────
+// Pesarse, las fotos o la medición que el coach puso en días que ya pasaron
+// y el cliente no marcó: se quedan en Hoy (Entreno y Dash) hasta que lo
+// haga. Se mira hasta 21 días atrás; de cada evento solo la ÚLTIMA vez que
+// tocó (si tocaba cada lunes y ya hizo el último, no debe nada), y si
+// también cae hoy, hoy ya lo pide por su cuenta. Lo saltado a propósito
+// («más tarde» no es saltar; saltar es decir que no) tampoco se queda.
+const ATRASO_DIAS = 21;
+async function pendientesRegistro(cliente, hoy, evs, fase, catalogo) {
+  const desde = sumarDiasISO(hoy, -ATRASO_DIAS), ayer = sumarDiasISO(hoy, -1);
+  const porFecha = expandirEventos(evs, fase);
+  const ultima = {};
+  Object.keys(porFecha).forEach(f => {
+    if (f < desde || f > ayer) return;
+    porFecha[f].forEach(ev => {
+      if (!TIPOS_REGISTRO.includes(ev.tipo)) return;
+      if (!ultima[ev.id] || f > ultima[ev.id].fecha) ultima[ev.id] = { ev, fecha: f };
+    });
+  });
+  const hoyIds = new Set((porFecha[hoy] || []).map(ev => ev.id));
+  const ids = Object.keys(ultima).filter(id => !hoyIds.has(id));
+  if (!ids.length) return [];
+  const regs = await sb(`evento_registros?select=evento_id,fecha,estado&cliente_id=eq.${cliente.id}`
+    + `&fecha=gte.${desde}&fecha=lte.${ayer}&evento_id=in.(${ids.join(',')})`).catch(() => []);
+  const marcado = new Set((Array.isArray(regs) ? regs : []).map(r => `${r.evento_id}:${r.fecha}`));
+  return ids.filter(id => !marcado.has(`${id}:${ultima[id].fecha}`))
+    .map(id => ({
+      ...eventoParaApp(ultima[id].ev, ultima[id].fecha, catalogo, {}, {}),
+      fecha: ultima[id].fecha, atrasado: true,
+      dias: Math.round((Date.parse(ultima[id].fecha + 'T00:00:00Z') - Date.parse(hoy + 'T00:00:00Z')) / -86400000),
+    }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
 
 // El cardio que el coach le dejó para DESPUÉS de la fuerza ese día: se le
@@ -1804,7 +1842,7 @@ const CARDIO_BASE = ['cinta', 'eliptica', 'remo_maquina', 'escaladora', 'bici_es
 const EVENTOS_QUE_SE_HACEN = ['actividad', 'medidas', 'peso', 'fotos', 'medicion'];
 
 export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres = {}, alias = {}, actividades = [], medidas = [],
-  eventosSemana = {}, registros = [], categorias = {}, programa = null }) {
+  eventosSemana = {}, registros = [], categorias = {}, programa = null, pendientes = [] }) {
   const lunesHoy = lunesDe(hoy);
   const semanas = [];
   for (let i = DASH_SEMANAS - 1; i >= 0; i--) {
@@ -1931,6 +1969,11 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   semana.hoy = (eventosSemana[hoy] || []).filter(ev => EVENTOS_QUE_SE_HACEN.includes(ev.tipo))
     .map(ev => ({ id: ev.id, tipo: ev.tipo, titulo: ev.titulo, duracion_min: ev.duracion_min || null,
       hecho: hechoRegistro.has(`${ev.id}:${hoy}`) || hechoActividad.has(`${ev.id}:${hoy}`) }));
+  // Y lo que quedó pendiente de días pasados (pesarse, fotos, medición):
+  // sigue en Hoy, con su fecha, hasta que lo haga.
+  (Array.isArray(pendientes) ? pendientes : []).forEach(p => {
+    semana.hoy.push({ id: p.id, tipo: p.tipo, titulo: p.titulo, duracion_min: null, hecho: false, atrasado: true, fecha: p.fecha, dias: p.dias });
+  });
   // Lo que el coach programó (cardio, caminata, deporte) en días que ya
   // pasaron y no marcó: resta poquito (_actividad.js, penalSinMarcar).
   semana.cardio_coach = cardioDelCoach(eventosSemana, hechoActividad, actual.desde, hoy);
@@ -2045,6 +2088,7 @@ async function verDash(cliente, hoy) {
     actividades: Array.isArray(actividades) ? actividades : [],
     medidas: Array.isArray(medidas) ? medidas : [],
     eventosSemana: expandirEventos(Array.isArray(eventos) ? eventos : [], faseHoy),
+    pendientes: await pendientesRegistro(cliente, hoy, Array.isArray(eventos) ? eventos : [], faseHoy, catalogo).catch(() => []),
     registros: Array.isArray(registros) ? registros : [],
     categorias: Object.fromEntries((Array.isArray(catalogo) ? catalogo : []).map(c => [c.slug, c.categoria])),
   }) };

@@ -1198,7 +1198,9 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   coachHoy.forEach(ev => {
     const texto = ev.tipo === 'actividad' ? `${ev.titulo}${ev.duracion_min ? ` · ${ev.duracion_min} min` : ''}`
       : ev.tipo === 'peso' ? 'Registrar tu peso' : ev.tipo === 'fotos' ? 'Enviar tus fotos' : 'Tu medición corporal';
-    hoyItems.push({ id: `hoy-e-${ev.id}`, texto, hecho: !!ev.hecho, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: (p) => <IconoEvento tipo={ev.tipo} {...p} />, color: ev.tipo === 'actividad' ? AZUL : '#8E5BD8' });
+    // Lo atrasado (de días pasados, sin hacer) dice desde cuándo.
+    const desde = ev.atrasado && ev.fecha ? ` · desde el ${new Date(ev.fecha + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' }).replace('.', '')}` : '';
+    hoyItems.push({ id: `hoy-e-${ev.id}`, texto: texto + desde, hecho: !!ev.hecho, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: (p) => <IconoEvento tipo={ev.tipo} {...p} />, color: ev.tipo === 'actividad' ? AZUL : '#8E5BD8' });
   });
   const comida = Number(kcalHoy) > 0;
   hoyItems.push({ id: 'hoy-comida', texto: comida ? `Comida registrada · ${Math.round(kcalHoy).toLocaleString('es-CO')} kcal` : 'Registrar lo que comiste', hecho: comida, ir: alIr ? () => alIr('comida', 'chat') : null, Icono: ForkKnife, color: '#46965A' });
