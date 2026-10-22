@@ -2402,16 +2402,16 @@ try {
       return ps.length >= 2 && ps.every(c => { const t = c.previousElementSibling; const g = t ? parseFloat(t.getAttribute('r')) * 2 : 0; return !g || parseFloat(c.getAttribute('r')) >= g / 2 - 1.01; });
     }));
     // Mauro tiene el lote 25: el blob es el de vidrio líquido suave (opción D).
-    ok('vista en prueba (Liquid Glass B): el blob es de vidrio casi sin blanco que deja ver borroso lo de atrás, girado 12°, con borde que refracta, reflejo y sombra interior, y cruza un poco la franja', await p.locator('[data-cabecera-hoy="dash"]').evaluate(cab => {
+    ok('vista en prueba (Liquid Glass D): el blob es de vidrio con velo blanco leve que deja ver borroso lo de atrás, girado 12°, con borde que refracta y reflejo, sin sombra interior, y cruza un poco la franja', await p.locator('[data-cabecera-hoy="dash"]').evaluate(cab => {
       const a = cab.querySelector('[data-aro-cabecera]'), blob = a.querySelector('svg[data-blob][data-vidrio-d]'), atras = a.querySelector('[data-blob-vidrio-d]');
       if (!blob || !atras) return false;
       const m = new DOMMatrix(getComputedStyle(blob).transform); const giro = Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI);
-      const transparente = [...blob.querySelectorAll('path')].some(x => x.getAttribute('fill') === 'rgba(255,255,255,.06)');
+      const transparente = [...blob.querySelectorAll('path')].some(x => x.getAttribute('fill') === 'rgba(255,255,255,.16)');
       const borde = [...blob.querySelectorAll('path')].some(x => /^url\(#.*r\)$/.test(x.getAttribute('stroke') || '') && x.getAttribute('stroke-width') === '3');
-      const desenfoque = /blur\(20px\) saturate\(1\.5\)/.test(getComputedStyle(atras).backdropFilter || getComputedStyle(atras).webkitBackdropFilter || '');
+      const desenfoque = /blur\(20px\) saturate\(1\.25\)/.test(getComputedStyle(atras).backdropFilter || getComputedStyle(atras).webkitBackdropFilter || '');
       const banda = cab.querySelector(':scope > [data-banda]').getBoundingClientRect(), caja = cab.querySelector('[data-blob-cabecera]').getBoundingClientRect();
-      const reflejo = !!blob.querySelector('ellipse'), sombra = [...blob.querySelectorAll('path')].some(x => /^url\(#.*s\)$/.test(x.getAttribute('fill') || ''));
-      return giro === -12 && transparente && borde && desenfoque && reflejo && sombra && caja.top <= banda.bottom - 18 && caja.top > 0;
+      const reflejo = !!blob.querySelector('ellipse'), sinSombra = ![...blob.querySelectorAll('path')].some(x => /^url\(#.*s\)$/.test(x.getAttribute('fill') || ''));
+      return giro === -12 && transparente && borde && desenfoque && reflejo && sinSombra && caja.top <= banda.bottom - 18 && caja.top > 0;
     }));
     ok('vista en prueba: barra de navegación flotando con margen a los lados, más alta, con lo de atrás desvanecido; Alimentación con cubiertos', await p.evaluate(() => {
       const nav = document.querySelector('nav[aria-label="Secciones"]'), r = nav.getBoundingClientRect(), velo = document.querySelector('[data-velo-barra]');

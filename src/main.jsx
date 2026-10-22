@@ -182,7 +182,15 @@ if (typeof window !== 'undefined') {
       if (sessionStorage.getItem('mt:reloadedForBuild') === BUILD_VERSION) return;
       sessionStorage.setItem('mt:reloadedForBuild', BUILD_VERSION);
     } catch (e) {}
-    window.location.reload();
+    // Se recarga con un parámetro nuevo en la dirección (?b=…): la app
+    // instalada en iOS guarda el index.html de «/» en su caché y un reload
+    // a la misma dirección volvía a servir el bundle viejo (el cliente veía
+    // la versión anterior durante días). Con otra dirección va a la red.
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('b', String(Date.now()));
+      window.location.replace(u.toString());
+    } catch (e) { window.location.reload(); }
   };
 
   // Al abrir la app: si este bundle ya es viejo, recarga de inmediato — el

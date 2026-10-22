@@ -19,6 +19,15 @@ import { PRUEBA_TODOS, lote25 } from './vistaApp.js';
 import { TIPOS_AVISO, useAvisos, guardarAviso } from './avisos.js';
 
 const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)';
+// Sello del build (vite.config.js); en el servidor de desarrollo no hay.
+function textoVersion() {
+  const v = typeof __BUILD_VERSION__ !== 'undefined' ? Number(__BUILD_VERSION__) : 0;
+  if (!v) return 'Versión de desarrollo';
+  const d = new Date(v);
+  const f = d.toLocaleDateString('es', { day: 'numeric', month: 'short' }).replace('.', '');
+  const h = d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  return `Versión del ${f} · ${h}`;
+}
 
 // Los relojes, en el orden en que más se usan aquí. `listo`: ya hay
 // integración; los demás dicen «Pronto» (Garmin pide aprobación de su
@@ -92,6 +101,9 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
           fontFamily: 'inherit', fontSize: 15.5, fontWeight: 700, color: '#B23B30', cursor: 'pointer',
         }}>Cerrar sesión</button>
       )}
+      {/* Qué versión de la app corre en este teléfono (sello del build), para
+          comprobar si ya entró una actualización. */}
+      <p data-version-app style={{ margin: '18px 4px 0', fontSize: 12.5, color: TEXT_LIGHT, textAlign: 'center' }}>{textoVersion()}</p>
       <HojaUnidades abierta={unidadesAbierta} alCerrar={() => setUnidadesAbierta(false)} />
       <HojaAvisos abierta={avisosAbiertos} alCerrar={() => setAvisosAbiertos(false)} permiso={permiso}
         alActivar={alActivarPush ? async () => { await alActivarPush(); try { setPermiso(Notification.permission); } catch (e) { /* nada */ } } : null} />
