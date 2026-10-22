@@ -70,12 +70,12 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
           <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>{PREGUNTA[primeroVacio.k]}</div>
           <div style={{ fontSize: 14.5, color: TEXT_MUTED, fontWeight: 500, margin: '4px 0 16px' }}>Dímelo o escríbelo, en una frase.</div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" data-prota-dictar onClick={alDictar} style={{ flex: 1, height: 52, border: 'none', borderRadius: 999, background: '#46965A', color: '#fff', fontFamily: 'inherit', fontSize: 16, fontWeight: 700,
+            <button type="button" data-prota-dictar onClick={alDictar} style={{ flex: 1, height: 52, border: 'none', borderRadius: 999, background: '#F1F2F4', color: TEXT, fontFamily: 'inherit', fontSize: 16, fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}><Microphone size={19} weight="fill" />Dictar</button>
-            {/* Dictar abre el chat con el micrófono ya prendido; Escribir abre
-                el chat con el teclado listo y el momento puesto. */}
+            {/* Escribir (verde, el principal) abre el chat con el teclado listo y el
+                momento puesto; Dictar abre el chat con el micrófono ya prendido. */}
             <button type="button" data-prota-escribir onClick={() => alAgregar && alAgregar(primeroVacio)} aria-label={`Escribir ${primeroVacio.nombre.toLowerCase()}`} style={{ flex: 1, height: 52, border: 'none', borderRadius: 999,
-              background: '#F1F2F4', color: TEXT, fontFamily: 'inherit', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}><PencilSimple size={18} weight="bold" />Escribir</button>
+              background: '#46965A', color: '#fff', fontFamily: 'inherit', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}><PencilSimple size={18} weight="bold" />Escribir</button>
           </div>
         </div>
       )}

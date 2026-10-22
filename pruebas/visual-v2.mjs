@@ -913,14 +913,11 @@ try {
   await p.locator('[data-abrir-config]').click();
   const conf = p.locator('[data-configuracion]');
   await conf.waitFor({ timeout: 5000 });
-  ok('configuración: unidades, notificaciones, relojes, respira, recorrido, programa y coach', JSON.stringify(await conf.locator('[data-config]').evaluateAll(els => els.map(e => e.dataset.config)))
-    === JSON.stringify(['unidades', 'notificaciones', 'relojes', 'respira', 'recorrido', 'programa', 'coach']), JSON.stringify(await conf.locator('[data-config]').evaluateAll(els => els.map(e => e.dataset.config))));
+  // Relojes salió de Configuración (22 oct): queda guardado para cuando se conecten de verdad.
+  ok('configuración: unidades, notificaciones, respira, recorrido, programa y coach (sin relojes)', JSON.stringify(await conf.locator('[data-config]').evaluateAll(els => els.map(e => e.dataset.config)))
+    === JSON.stringify(['unidades', 'notificaciones', 'respira', 'recorrido', 'programa', 'coach']), JSON.stringify(await conf.locator('[data-config]').evaluateAll(els => els.map(e => e.dataset.config))));
   await foto(p, '19b-configuracion');
-  await conf.locator('[data-config="relojes"]').click();
-  await p.locator('[data-relojes]').waitFor({ timeout: 5000 });
-  ok('relojes: Fitbit, Oura, Whoop y Polar para conectar; Garmin y Apple Watch, pronto', (await p.locator('[data-reloj]').count()) === 6
-    && (await p.locator('[data-reloj="oura"]').getByText('Conectar').count()) === 1 && (await p.locator('[data-reloj="apple"]').getByText('Pronto').count()) >= 1);
-  await foto(p, '19c-relojes');
+  ok('configuración: ya no hay fila de Relojes', (await conf.locator('[data-config="relojes"]').count()) === 0);
   await p.getByRole('button', { name: /Dash/ }).first().click();
 
   await p.getByRole('button', { name: 'Entrenamiento', exact: true }).click();
