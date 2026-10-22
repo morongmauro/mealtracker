@@ -106,25 +106,24 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
         // que mide la barra y se funde a blanco justo donde el contenido
         // entra debajo de ella.
         position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 6px)', pointerEvents: 'none',
-        background: 'linear-gradient(0deg, rgba(252,252,253,0.97) 0%, rgba(252,252,253,0.9) 42%, rgba(252,252,253,0.55) 76%, rgba(252,252,253,0) 100%)',
+        background: 'linear-gradient(0deg, rgba(252,252,253,0.55) 0%, rgba(252,252,253,0.25) 50%, rgba(252,252,253,0) 100%)',
       }} />}
       <style>{`
         .bv2-cristal {
-          /* Liquid Glass (opción B): muy transparente (blanco 22→8→16 %),
-             desenfoque de 24 px con más color, filo de luz arriba y abajo,
-             banda interior de luz, sombra interior abajo y reflejo
-             arriba‑izquierda (::before), como una lente gruesa. */
+          /* Liquid Glass «lente» (opción B, afinada como Apple): casi sin
+             blanco (16→5→12 %), desenfoque de 36 px con más color, filos de
+             luz en los cuatro lados, banda interior, sombra interior abajo,
+             contorno gris finísimo y dos reflejos (::before). El velo de
+             atrás es leve para que de verdad se vea lo que pasa por debajo. */
           position: relative;
-          background: linear-gradient(160deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 55%, rgba(255,255,255,0.16) 100%);
-          -webkit-backdrop-filter: blur(24px) saturate(1.6) brightness(1.03);
-          backdrop-filter: blur(24px) saturate(1.6) brightness(1.03);
-          box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 -1.5px 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.45),
-            inset 0 0 22px rgba(255,255,255,0.45), inset 0 -12px 18px rgba(30,30,40,0.07), inset 0 10px 16px rgba(30,30,40,0.04),
-            0 16px 40px rgba(40,44,30,0.14), 0 1px 2px rgba(40,44,30,0.06);
+          background: linear-gradient(160deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.12) 100%);
+          -webkit-backdrop-filter: blur(36px) saturate(2) contrast(1.05);
+          backdrop-filter: blur(36px) saturate(2) contrast(1.05);
+          box-shadow: inset 0 2px 0 rgba(255,255,255,1), inset 0 -2px 0 rgba(255,255,255,0.75), inset 2.5px 0 0 rgba(255,255,255,0.55), inset -2.5px 0 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 0 30px rgba(255,255,255,0.35), inset 0 -16px 24px rgba(30,30,40,0.10), 0 0 0 0.6px rgba(30,30,40,0.12), 0 18px 44px rgba(40,44,30,0.18);
         }
         .bv2-cristal::before {
           content: ''; position: absolute; inset: 0; border-radius: 999px; pointer-events: none;
-          background: radial-gradient(60% 70% at 18% 12%, rgba(255,255,255,0.55), rgba(255,255,255,0) 70%);
+          background: radial-gradient(55% 55% at 16% 10%, rgba(255,255,255,0.8), rgba(255,255,255,0) 68%), radial-gradient(40% 40% at 86% 92%, rgba(255,255,255,0.4), rgba(255,255,255,0) 70%);
         }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
           .bv2-cristal { background: rgba(250,250,246,0.94); }

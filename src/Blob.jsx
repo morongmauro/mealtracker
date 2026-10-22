@@ -61,31 +61,31 @@ export function BlobVidrio({ color, segundo = null, tam = 120, intensidad = 0.2,
       <div aria-hidden="true" data-blob-vidrio-d style={{
         position: 'absolute', left: 0, top: 0, width: 200, height: 200, transformOrigin: '0 0', pointerEvents: 'none',
         transform: `translate(${tam / 2}px, ${tam / 2}px) scale(${k}) rotate(${BLOB_GIRO}deg) translate(-100px, -100px)`,
-        clipPath: `path('${BLOB_PATH}')`, WebkitBackdropFilter: 'blur(20px) saturate(1.25)', backdropFilter: 'blur(20px) saturate(1.25)',
+        clipPath: `path('${BLOB_PATH}')`, WebkitBackdropFilter: 'blur(28px) saturate(1.4)', backdropFilter: 'blur(28px) saturate(1.4)',
       }} />
       <svg data-blob data-vidrio data-vidrio-d width={tam} height={tam} viewBox="0 0 200 200" aria-hidden="true" style={{
         display: 'block', overflow: 'visible', position: 'relative', transform: `rotate(${BLOB_GIRO}deg)`,
-        filter: `drop-shadow(0 8px 14px ${rgba(color, 0.08)}) drop-shadow(0 1px 2px rgba(30,30,40,.04))`, ...style,
+        filter: `drop-shadow(0 14px 24px ${rgba(color, 0.14)}) drop-shadow(0 2px 4px rgba(30,30,40,.06))`, ...style,
       }}>
         <defs>
           <clipPath id={`${id}c`}><path d={BLOB_PATH} /></clipPath>
           <filter id={`${id}g`} x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="6" /></filter>
           <filter id={`${id}d`} x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.8" /></filter>
-          {/* Liquid Glass (opción D, «integrado»): borde que refracta suave,
-              banda interior de luz tenue, reflejo leve y un velo blanco del
-              16 %; sin sombra interior, para que se acople y no llame. */}
+          {/* Liquid Glass (opción D, afinada como Apple): velo blanco del 22 %,
+              un solo filo blanco nítido, banda interior tenue, reflejo definido
+              arriba‑izquierda y sin trazo oscuro: la forma la da la luz, no la
+              sombra. Sin sombra interior, para que se acople y no llame. */}
           <linearGradient id={`${id}r`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="rgba(255,255,255,.7)" /><stop offset=".45" stopColor="rgba(255,255,255,.15)" /><stop offset="1" stopColor="rgba(255,255,255,.6)" /></linearGradient>
-          <linearGradient id={`${id}b`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="rgba(255,255,255,.3)" /><stop offset=".5" stopColor="rgba(255,255,255,0)" /><stop offset="1" stopColor="rgba(255,255,255,.22)" /></linearGradient>
+          <linearGradient id={`${id}b`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="rgba(255,255,255,.15)" /><stop offset=".5" stopColor="rgba(255,255,255,0)" /><stop offset="1" stopColor="rgba(255,255,255,.22)" /></linearGradient>
           <radialGradient id={`${id}h`} cx="30%" cy="22%" r="45%"><stop offset="0" stopColor="rgba(255,255,255,.5)" /><stop offset="1" stopColor="rgba(255,255,255,0)" /></radialGradient>
           <filter id={`${id}i`} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5" /></filter>
         </defs>
-        <path d={BLOB_PATH} fill="rgba(255,255,255,.16)" />
+        <path d={BLOB_PATH} fill="rgba(255,255,255,.22)" />
         <g clipPath={`url(#${id}c)`}>
-          <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,.52)" strokeWidth="24" filter={`url(#${id}g)`} />
-          <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,.88)" strokeWidth="4.5" filter={`url(#${id}d)`} />
+          <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,.24)" strokeWidth="24" filter={`url(#${id}g)`} />
+          <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,1)" strokeWidth="3.5" filter={`url(#${id}d)`} />
           <path d={BLOB_PATH} fill="none" stroke={`url(#${id}b)`} strokeWidth="22" filter={`url(#${id}i)`} />
-          <ellipse cx="58" cy="44" rx="46" ry="26" fill={`url(#${id}h)`} transform="rotate(-20 60 46)" opacity=".9" />
-          <path d={BLOB_PATH} fill="none" stroke="rgba(30,30,40,.14)" strokeWidth="10" filter={`url(#${id}i)`} transform="translate(0,-6)" />
+          <ellipse cx="54" cy="38" rx="46" ry="26" fill={`url(#${id}h)`} transform="rotate(-20 56 40)" />
           <path d={BLOB_PATH} fill="none" stroke={`url(#${id}r)`} strokeWidth="3" />
         </g>
       </svg>

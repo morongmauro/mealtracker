@@ -59,13 +59,13 @@ export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, ba
         // casi sin blanco, desenfoque con más color, filo de luz, banda
         // interior, sombra interior abajo y reflejo arriba‑izquierda.
         position: 'relative', width: 42, height: 42, borderRadius: '50%', display: 'grid', placeItems: 'center',
-        background: 'linear-gradient(160deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 55%, rgba(255,255,255,0.16) 100%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(1.6) brightness(1.03)', backdropFilter: 'blur(24px) saturate(1.6) brightness(1.03)',
-        boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 -1.5px 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.45), inset 0 0 12px rgba(255,255,255,0.45), inset 0 -7px 10px rgba(30,30,40,0.07), inset 0 6px 9px rgba(30,30,40,0.04), 0 8px 20px rgba(40,44,30,0.12), 0 1px 2px rgba(40,44,30,0.06)',
+        background: 'linear-gradient(160deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.12) 100%)',
+        WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)', backdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
+        boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1.5px 0 rgba(255,255,255,0.75), inset 2px 0 0 rgba(255,255,255,0.55), inset -2px 0 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 0 14px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(30,30,40,0.10), 0 0 0 0.6px rgba(30,30,40,0.12), 0 10px 22px rgba(40,44,30,0.14)',
       }}>
         <span aria-hidden="true" data-brillo style={{
           position: 'absolute', inset: 0, borderRadius: '50%', pointerEvents: 'none',
-          background: 'radial-gradient(60% 70% at 18% 12%, rgba(255,255,255,0.55), rgba(255,255,255,0) 70%)',
+          background: 'radial-gradient(55% 55% at 16% 10%, rgba(255,255,255,0.8), rgba(255,255,255,0) 68%), radial-gradient(40% 40% at 86% 92%, rgba(255,255,255,0.4), rgba(255,255,255,0) 70%)',
         }} />
         {/* Ícono de línea en el color de la sección (todos los de una
             sección iguales), sobre el cristal. */}
