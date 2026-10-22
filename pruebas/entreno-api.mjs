@@ -772,5 +772,23 @@ await caso('historial: lo de Trainerize cuenta como marca a batir al cerrar', as
   igual((c.records || []).filter(x => x.ejercicio_id === 'e2').length, 0, 'no es récord: allá hizo 70 kg');
 });
 
+
+await caso('el ciclo vigente lo decide la fecha: el nuevo no aparece antes de empezar, y al empezar manda aunque el viejo siga «activa»', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  // El coach ya envió el ciclo siguiente (activa + visible, orden mayor), pero arranca el lunes que viene.
+  sb.db.fases.push({ id: 'f2', cliente_id: 'c1', nombre: 'Fase 2', estado: 'activa', visible_cliente: true, orden: 2,
+    fecha_inicio: mas(lunes, 7), semanas: 4, dias_semana: ['L', 'J'] });
+  sb.db.rutinas.push({ id: 'r5', cliente_id: 'c1', fase_id: 'f2', nombre: 'Full', dia_orden: 1, dias_semana: ['L', 'J'], archivada: false, visible_cliente: null });
+  igual((await llamar(handler, { accion: 'plan', name: yo })).fase.id, 'f1', 'antes de la fecha sigue el ciclo de hoy');
+  igual((await llamar(handler, { accion: 'rutinas', name: yo })).rutinas.map(r => r.nombre), ['Push', 'Lower'], 'y sus rutinas');
+  // Llega la fecha: el nuevo manda, sin que nadie toque el estado del viejo.
+  sb.db.fases[1].fecha_inicio = mas(hoy, -1);
+  igual((await llamar(handler, { accion: 'plan', name: yo })).fase.id, 'f2', 'desde su fecha, el nuevo');
+  igual((await llamar(handler, { accion: 'rutinas', name: yo })).rutinas.map(r => r.nombre), ['Full'], 'con sus rutinas');
+  // La fecha gana al orden: un ciclo con orden menor pero inicio más reciente es el vigente.
+  sb.db.fases[1].orden = 0;
+  igual((await llamar(handler, { accion: 'plan', name: yo })).fase.id, 'f2', 'la fecha pesa más que el orden');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

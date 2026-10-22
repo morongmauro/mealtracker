@@ -43,7 +43,7 @@ import { actividadExtra, bonoExtra, slugDeEvento, esDespuesDeEntrenar, opcionesD
 import { guard, cors } from './_guard.js';
 import {
   normalizeName, DIAS, aNumero, hoyBogota, letraDeHoy, semanaISO, semanaDeFase,
-  diasDeRutina, repartirPorDia, esComplementaria, leerRutinas, complementariasDe, FASE_VISIBLE, rutinaVisible, finDeFase,
+  diasDeRutina, repartirPorDia, esComplementaria, leerRutinas, complementariasDe, FASE_VISIBLE, faseVigente, rutinaVisible, finDeFase,
   expandirEventos, sumarDiasISO, lunesDe, aKg, rutinaPorFecha, movimientosDe, extrasDe, quitadosDe, buscarClientePorNombre, nombreCorto, TIPOS_REGISTRO, nombreFase, objetivoCliente,
 } from './_entreno.js';
 import { alertarCoach } from './_alerta.js';
@@ -158,9 +158,7 @@ export default async function handler(req, res) {
 // ── EL PLAN ───────────────────────────────────────────────────────────────
 async function verPlan(cliente, hoy) {
   // La fase ACTIVA Y ENVIADA. Si hay varias (no debería), la de mayor orden.
-  const fases = await sb(`fases?select=id,nombre,objetivo,semanas,fecha_inicio,dias_semana,orden,estado,visible_cliente`
-    + `&cliente_id=eq.${cliente.id}&${FASE_VISIBLE}&order=orden.desc&limit=1`);
-  const fase = Array.isArray(fases) ? fases[0] : null;
+  const fase = await faseVigente(sb, cliente.id, 'id,nombre,objetivo,semanas,fecha_inicio,dias_semana,orden,estado,visible_cliente', hoy);
   if (!fase) return { ok: true, cliente: cliente.nombre, fase: null, dias: [], hoy };
 
   const rutinas = await leerRutinas(sb, 'id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente',
@@ -1050,9 +1048,7 @@ async function verMes(cliente, ym, hoy) {
   const primero = `${mes}-01`;
   const ultimo = `${mes}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
 
-  const fases = await sb(`fases?select=id,nombre,semanas,fecha_inicio,dias_semana,orden,visible_cliente`
-    + `&cliente_id=eq.${cliente.id}&${FASE_VISIBLE}&order=orden.desc&limit=1`);
-  const fase = Array.isArray(fases) ? fases[0] : null;
+  const fase = await faseVigente(sb, cliente.id, 'id,nombre,semanas,fecha_inicio,dias_semana,orden,visible_cliente', hoy);
 
   let porDia = {}, rutinas = [], rutinaDe = () => null;
   if (fase) {
@@ -1277,9 +1273,7 @@ const desdeEstaSemana = (hoy) => (f) => f >= lunesDe(hoy);
 // La fase visible, sus rutinas y qué rutina cae cada día (con lo movido y lo
 // añadido por el cliente). Lo comparten mover, añadir y quitar.
 async function contextoCalendario(cliente) {
-  const fases = await sb(`fases?select=id,nombre,semanas,fecha_inicio,dias_semana,orden,visible_cliente`
-    + `&cliente_id=eq.${cliente.id}&${FASE_VISIBLE}&order=orden.desc&limit=1`);
-  const fase = Array.isArray(fases) ? fases[0] : null;
+  const fase = await faseVigente(sb, cliente.id, 'id,nombre,semanas,fecha_inicio,dias_semana,orden,visible_cliente');
   if (!fase) return null;
   const rr = await leerRutinas(sb, 'id,nombre,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente',
     `fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
@@ -1412,9 +1406,7 @@ function eventoParaApp(ev, fecha, catalogo, hechoReg, hechoAct) {
 // El cardio que el coach le dejó para DESPUÉS de la fuerza ese día: se le
 // pide dentro de la rutina, antes del estiramiento.
 async function cardioDespues(cliente, fecha) {
-  const fases = await sb(`fases?select=id,nombre,semanas,fecha_inicio,visible_cliente`
-    + `&cliente_id=eq.${cliente.id}&${FASE_VISIBLE}&order=orden.desc&limit=1`).catch(() => []);
-  const fase = Array.isArray(fases) ? fases[0] : null;
+  const fase = await faseVigente(sb, cliente.id, 'id,nombre,semanas,fecha_inicio,visible_cliente,orden').catch(() => null);
   const [evs, catalogo, hechoAct] = await Promise.all([
     eventosDelCliente(cliente.id), catalogoActividades(), actividadesDeEventos(cliente.id, fecha, fecha),
   ]);
@@ -1427,9 +1419,7 @@ async function cardioDespues(cliente, fecha) {
 // TODAS SUS RUTINAS  ·  vista informativa, sin ejecutar nada
 // ══════════════════════════════════════════════════════════════════════════
 async function verRutinas(cliente) {
-  const fases = await sb(`fases?select=id,nombre,objetivo,semanas,fecha_inicio,dias_semana,visible_cliente`
-    + `&cliente_id=eq.${cliente.id}&${FASE_VISIBLE}&order=orden.desc&limit=1`);
-  const fase = Array.isArray(fases) ? fases[0] : null;
+  const fase = await faseVigente(sb, cliente.id, 'id,nombre,objetivo,semanas,fecha_inicio,dias_semana,visible_cliente,orden');
   if (!fase) return { ok: true, fase: null, rutinas: [] };
 
   const rr = await leerRutinas(sb, 'id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente',
@@ -1566,9 +1556,7 @@ async function verResumen(cliente, hoy) {
     return t.toISOString().slice(0, 10);
   })();
 
-  const fases = await sb(`fases?select=id,nombre,semanas,fecha_inicio,dias_semana,visible_cliente`
-    + `&cliente_id=eq.${cliente.id}&${FASE_VISIBLE}&order=orden.desc&limit=1`);
-  const fase = Array.isArray(fases) ? fases[0] : null;
+  const fase = await faseVigente(sb, cliente.id, 'id,nombre,semanas,fecha_inicio,dias_semana,visible_cliente,orden', hoy);
 
   const [ses, act] = await Promise.all([
     sb(`sesiones?select=id,fecha,estado,rpe,duracion_seg`

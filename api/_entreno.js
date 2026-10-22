@@ -234,6 +234,24 @@ export const objetivoCliente = (t) => {
 // arma— para que al cliente le apareciera media rutina a medio hacer.
 export const FASE_VISIBLE = 'estado=eq.activa&visible_cliente=is.true';
 
+// De las fases enviadas, la VIGENTE la decide la FECHA, no un clic en el
+// CRM: entre las que ya empezaron, la de inicio más reciente (empate: mayor
+// orden). Si ninguna empezó todavía (un cliente nuevo cuyo ciclo arranca el
+// lunes), la de mayor orden, como antes. Así el ciclo anterior deja de ser
+// el actual el día en que arranca el nuevo, aunque en el CRM siga marcado
+// «activa», y el nuevo no aparece antes de su fecha.
+export function elegirVigente(fases, hoy) {
+  const lista = (Array.isArray(fases) ? fases : []).slice().sort((a, b) => (b.orden || 0) - (a.orden || 0));
+  const dia = (f) => String(f.fecha_inicio || '').slice(0, 10);
+  const empezadas = lista.filter(f => dia(f) && dia(f) <= hoy)
+    .sort((a, b) => dia(b).localeCompare(dia(a)) || (b.orden || 0) - (a.orden || 0));
+  return empezadas[0] || lista[0] || null;
+}
+export async function faseVigente(sb, clienteId, campos, hoy) {
+  const fases = await sb(`fases?select=${campos}&cliente_id=eq.${clienteId}&${FASE_VISIBLE}&order=orden.desc`);
+  return elegirVigente(fases, hoy || hoyBogota());
+}
+
 // El cliente por el nombre con que entra a la app: el del CRM o uno de sus
 // nombres alternos (si en la app se llama distinto que en el CRM, igual se
 // le encuentra). `campos` sin nombres_alternos: se pide aparte y, si la
@@ -386,7 +404,9 @@ export async function agendaDeHoy(sb, hoy) {
   const clientes = await sb('clientes?select=id,nombre,nombres_alternos,estado');
   const fases = await sb(`fases?select=id,cliente_id,semanas,fecha_inicio,dias_semana,orden,visible_cliente&${FASE_VISIBLE}&order=orden.desc`);
   const faseDe = {};
-  (Array.isArray(fases) ? fases : []).forEach(f => { if (!faseDe[f.cliente_id]) faseDe[f.cliente_id] = f; });
+  const porCliente = {};
+  (Array.isArray(fases) ? fases : []).forEach(f => { (porCliente[f.cliente_id] = porCliente[f.cliente_id] || []).push(f); });
+  Object.keys(porCliente).forEach(id => { faseDe[id] = elegirVigente(porCliente[id], hoy); });
   const ids = Object.values(faseDe).map(f => f.id);
   const rutinas = ids.length
     ? await leerRutinas(sb, 'id,fase_id,nombre,dia_orden,dia_semana,dias_semana,visible_cliente', `fase_id=in.(${ids.join(',')})&archivada=is.false`)
