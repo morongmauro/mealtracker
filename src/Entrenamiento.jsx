@@ -1329,8 +1329,9 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
           position: 'sticky', top: 'calc(env(safe-area-inset-top, 0px) + 6px)', zIndex: 20,
           margin: `calc(-1 * (${FADE_TOP}px + 6px)) 0 14px`,
           padding: '8px 16px 9px', borderRadius: 999,
-          background: 'rgba(255,255,255,0.78)', backdropFilter: 'blur(22px) saturate(1.6)', WebkitBackdropFilter: 'blur(22px) saturate(1.6)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 1px 2px rgba(20,20,40,0.05), 0 8px 24px rgba(20,30,60,0.10)',
+          background: 'linear-gradient(160deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.26) 100%)',
+          backdropFilter: 'blur(36px) saturate(2) contrast(1.05)', WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
+          boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1.5px 0 rgba(255,255,255,0.75), inset 2px 0 0 rgba(255,255,255,0.55), inset -2px 0 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 0 14px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 10px 22px rgba(40,44,30,0.14)',
         } : {
           position: 'sticky', top: 'calc(58px + env(safe-area-inset-top, 0px))', zIndex: 20,
           margin: '0 -4px 6px', padding: '10px 14px 11px', borderRadius: 18,
@@ -1366,7 +1367,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
   const veloArriba = (
     <div aria-hidden="true" data-velo-arriba style={{
       position: 'fixed', top: 0, left: 0, right: 0, height: 'calc(env(safe-area-inset-top, 0px) + 74px)', zIndex: 19, pointerEvents: 'none',
-      background: 'linear-gradient(180deg, rgba(252,252,253,0.97) 0%, rgba(252,252,253,0.88) 45%, rgba(252,252,253,0) 100%)',
+      background: 'linear-gradient(180deg, rgba(252,252,253,0.55) 0%, rgba(252,252,253,0.25) 50%, rgba(252,252,253,0) 100%)',
     }} />
   );
   return (
@@ -2348,8 +2349,15 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
       <EncimaDeTodo>
       <div data-descanso={listo ? 'listo' : 'contando'} style={{
         position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 65,
-        borderRadius: 20, background: '#1D1D1F', color: '#fff', boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+        borderRadius: 20, color: '#fff',
         display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px 10px 14px',
+        ...(enPrueba() ? {
+          // Vista en prueba: vidrio oscuro «lente»: grafito translúcido con
+          // desenfoque, filos de luz y contorno finísimo; se ve la rutina detrás.
+          background: 'linear-gradient(160deg, rgba(29,29,31,0.78) 0%, rgba(29,29,31,0.66) 50%, rgba(29,29,31,0.74) 100%)',
+          WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)', backdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
+          boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.35), inset 0 -1.5px 0 rgba(255,255,255,0.12), inset 1.5px 0 0 rgba(255,255,255,0.14), inset -1.5px 0 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 0.5px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.12), 0 18px 44px rgba(0,0,0,0.28)',
+        } : { background: '#1D1D1F', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }),
       }}>
         <svg width="28" height="28" viewBox="0 0 28 28" style={{ flex: 'none' }} aria-hidden="true">
           <circle cx="14" cy="14" r={r} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="3" />

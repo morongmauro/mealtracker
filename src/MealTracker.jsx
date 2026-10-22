@@ -5987,9 +5987,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           ...(v2 && enPrueba() ? {
             borderRadius: cardCompact ? 999 : 28,
             padding: cardCompact ? '9px 16px' : '16px',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.60))',
-            WebkitBackdropFilter: 'blur(26px) saturate(160%)', backdropFilter: 'blur(26px) saturate(160%)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.85), inset 0 0 0 1px rgba(255,255,255,0.45), 0 10px 30px rgba(40,44,30,0.14), 0 1px 3px rgba(40,44,30,0.08)',
+            background: 'linear-gradient(160deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.26) 100%)',
+            WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)', backdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
+            boxShadow: 'inset 0 2px 0 rgba(255,255,255,1), inset 0 -2px 0 rgba(255,255,255,0.75), inset 2.5px 0 0 rgba(255,255,255,0.55), inset -2.5px 0 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 0 30px rgba(255,255,255,0.35), inset 0 -16px 24px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 18px 44px rgba(40,44,30,0.18)',
           } : {}),
           overflow: 'hidden',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)'
@@ -7660,7 +7660,7 @@ const InputBar = memo(function InputBar({
   return (
     <div ref={barRef} data-barra-escribir className="fixed bottom-0 left-0 right-0 px-4 pt-6 z-40" style={{
       // Vista en prueba: el mismo desvanecido a blanco que en Entrenamiento.
-      background: enPrueba() ? 'linear-gradient(180deg, rgba(252,252,253,0) 0%, rgba(252,252,253,0.9) 32%, rgba(252,252,253,0.97) 100%)'
+      background: enPrueba() ? 'linear-gradient(180deg, rgba(252,252,253,0) 0%, rgba(252,252,253,0.25) 50%, rgba(252,252,253,0.55) 100%)'
         : `linear-gradient(180deg, transparent, ${BG}E6 30%, ${BG} 100%)`,
       // liftPx: deja sitio a la barra de navegación inferior; con el teclado
       // abierto la barra se oculta y el input vuelve a pegarse abajo.
@@ -7706,7 +7706,16 @@ const InputBar = memo(function InputBar({
         )}
         {/* Barra OVALADA (rounded-full) con micrófono circular — el px-2
             extra del contenido compensa la curva del óvalo. */}
-        <div className="flex items-center gap-2 p-2 rounded-full" style={{
+        <div className="flex items-center gap-2 p-2 rounded-full" data-caja-escribir style={enPrueba() ? {
+          // Vista en prueba: vidrio «lente», como la barra de navegación. Un
+          // pelo más de blanco que la barra para que el texto se lea siempre.
+          position: 'relative',
+          background: 'linear-gradient(160deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.20) 50%, rgba(255,255,255,0.30) 100%)',
+          WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)', backdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
+          border: 'none',
+          boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1.5px 0 rgba(255,255,255,0.75), inset 2px 0 0 rgba(255,255,255,0.55), inset -2px 0 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 0 14px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 10px 22px rgba(40,44,30,0.14)` : 'inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1.5px 0 rgba(255,255,255,0.75), inset 2px 0 0 rgba(255,255,255,0.55), inset -2px 0 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 0 14px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 10px 22px rgba(40,44,30,0.14)',
+          transition: 'box-shadow 0.2s'
+        } : {
           background: SURFACE,
           border: `1px solid ${recording ? C_PROTEIN : BORDER}`,
           boxShadow: recording ? `0 0 0 3px ${C_PROTEIN}25, 0 8px 32px rgba(0,0,0,0.08)` : '0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)',
