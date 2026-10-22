@@ -55,13 +55,21 @@ export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, ba
         padding: 0, border: 'none', background: 'none', cursor: 'pointer', textDecoration: 'none', fontFamily: 'inherit',
       }}>
       <span data-circulo style={{
+        // Liquid Glass (opción B), la misma receta que la barra y los blobs:
+        // casi sin blanco, desenfoque con más color, filo de luz, banda
+        // interior, sombra interior abajo y reflejo arriba‑izquierda.
         position: 'relative', width: 42, height: 42, borderRadius: '50%', display: 'grid', placeItems: 'center',
-        background: 'rgba(255,255,255,0.78)', WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)',
-        boxShadow: '0 5px 14px rgba(30,40,60,0.09), inset 0 0 0 0.5px rgba(255,255,255,0.9)',
+        background: 'linear-gradient(160deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 55%, rgba(255,255,255,0.16) 100%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(1.6) brightness(1.03)', backdropFilter: 'blur(24px) saturate(1.6) brightness(1.03)',
+        boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 -1.5px 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.45), inset 0 0 12px rgba(255,255,255,0.45), inset 0 -7px 10px rgba(30,30,40,0.07), inset 0 6px 9px rgba(30,30,40,0.04), 0 8px 20px rgba(40,44,30,0.12), 0 1px 2px rgba(40,44,30,0.06)',
       }}>
+        <span aria-hidden="true" data-brillo style={{
+          position: 'absolute', inset: 0, borderRadius: '50%', pointerEvents: 'none',
+          background: 'radial-gradient(60% 70% at 18% 12%, rgba(255,255,255,0.55), rgba(255,255,255,0) 70%)',
+        }} />
         {/* Ícono de línea en el color de la sección (todos los de una
-            sección iguales), sobre el círculo blanco. */}
-        <Icono size={20} weight="regular" color={tono} data-tono-icono={tono} />
+            sección iguales), sobre el cristal. */}
+        <Icono size={20} weight="regular" color={tono} data-tono-icono={tono} style={{ position: 'relative', zIndex: 1 }} />
         {badge > 0 && (
           <span data-badge style={{
             position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99,

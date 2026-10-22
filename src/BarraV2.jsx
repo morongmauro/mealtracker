@@ -110,14 +110,21 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
       }} />}
       <style>{`
         .bv2-cristal {
-          /* Cristal (opción C): lo de atrás se ve de verdad, pero la letra
-             de la barra sigue nítida: blanco al 46→26→36 %, desenfoque de
-             40 px, filo de luz arriba y abajo. */
-          background: linear-gradient(160deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 55%, rgba(255,255,255,0.26) 100%);
-          -webkit-backdrop-filter: blur(40px) saturate(200%);
-          backdrop-filter: blur(40px) saturate(200%);
-          box-shadow: inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.6),
-            0 14px 36px rgba(40,44,30,0.14), 0 1px 2px rgba(40,44,30,0.06);
+          /* Liquid Glass (opción B): muy transparente (blanco 22→8→16 %),
+             desenfoque de 24 px con más color, filo de luz arriba y abajo,
+             banda interior de luz, sombra interior abajo y reflejo
+             arriba‑izquierda (::before), como una lente gruesa. */
+          position: relative;
+          background: linear-gradient(160deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 55%, rgba(255,255,255,0.16) 100%);
+          -webkit-backdrop-filter: blur(24px) saturate(1.6) brightness(1.03);
+          backdrop-filter: blur(24px) saturate(1.6) brightness(1.03);
+          box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 -1.5px 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.45),
+            inset 0 0 22px rgba(255,255,255,0.45), inset 0 -12px 18px rgba(30,30,40,0.07), inset 0 10px 16px rgba(30,30,40,0.04),
+            0 16px 40px rgba(40,44,30,0.14), 0 1px 2px rgba(40,44,30,0.06);
+        }
+        .bv2-cristal::before {
+          content: ''; position: absolute; inset: 0; border-radius: 999px; pointer-events: none;
+          background: radial-gradient(60% 70% at 18% 12%, rgba(255,255,255,0.55), rgba(255,255,255,0) 70%);
         }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
           .bv2-cristal { background: rgba(250,250,246,0.94); }

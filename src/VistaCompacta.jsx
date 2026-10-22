@@ -37,12 +37,27 @@ export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, ocul
         position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 6px)', pointerEvents: 'none',
         background: 'linear-gradient(0deg, rgba(252,252,253,0.97) 0%, rgba(252,252,253,0.9) 42%, rgba(252,252,253,0.55) 76%, rgba(252,252,253,0) 100%)',
       }} />}
-      <nav aria-label="Secciones" style={{
+      <style>{`
+        .vc-cristal {
+          position: relative;
+          background: linear-gradient(160deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.08) 55%, rgba(255,255,255,0.16) 100%);
+          -webkit-backdrop-filter: blur(24px) saturate(1.6) brightness(1.03);
+          backdrop-filter: blur(24px) saturate(1.6) brightness(1.03);
+          box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 -1.5px 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.45),
+            inset 0 0 22px rgba(255,255,255,0.45), inset 0 -12px 18px rgba(30,30,40,0.07), inset 0 10px 16px rgba(30,30,40,0.04),
+            0 16px 40px rgba(40,44,30,0.14), 0 1px 2px rgba(40,44,30,0.06);
+        }
+        .vc-cristal::before {
+          content: ''; position: absolute; inset: 0; border-radius: 999px; pointer-events: none;
+          background: radial-gradient(60% 70% at 18% 12%, rgba(255,255,255,0.55), rgba(255,255,255,0) 70%);
+        }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+          .vc-cristal { background: rgba(250,250,246,0.94); }
+        }
+      `}</style>
+      <nav aria-label="Secciones" className="vc-cristal" style={{
         pointerEvents: 'auto', maxWidth: 460, margin: '0 auto', borderRadius: 999, padding: P ? 6 : 5, position: 'relative',
         display: 'flex', gap: 4, alignItems: 'center',
-        background: 'linear-gradient(160deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 55%, rgba(255,255,255,0.26) 100%)',
-        WebkitBackdropFilter: 'blur(40px) saturate(200%)', backdropFilter: 'blur(40px) saturate(200%)',
-        boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.6), 0 14px 36px rgba(40,44,30,0.14), 0 1px 2px rgba(40,44,30,0.06)',
       }}>
         {items.map(({ id, label, Icono, tinta, color, alTocar }) => {
           const on = activa === id;

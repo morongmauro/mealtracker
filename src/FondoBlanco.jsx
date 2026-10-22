@@ -48,7 +48,12 @@ const CSS_PRUEBA = [
   // Campos de la rutina: se quedan en su gris suave (se pidió volver a él).
   // Atajos (A3): los botones en una sola barrita de vidrio, debajo de la
   // frase, a la izquierda (sin palabras).
-  `[data-cabecera-hoy]~[data-fila-cristal],[data-cabecera-hoy] [data-fila-cristal]{display:inline-flex!important;width:fit-content;margin:10px 0 16px!important;gap:2px!important;padding:3px;border-radius:999px;background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 4px 14px rgba(20,30,60,.08)}`,
+  `[data-cabecera-hoy]~[data-fila-cristal],[data-cabecera-hoy] [data-fila-cristal]{display:inline-flex!important;width:fit-content;margin:10px 0 16px!important;gap:2px!important;padding:3px;border-radius:999px;position:relative;background:linear-gradient(160deg,rgba(255,255,255,.22) 0%,rgba(255,255,255,.08) 55%,rgba(255,255,255,.16) 100%);-webkit-backdrop-filter:blur(24px) saturate(1.6) brightness(1.03);backdrop-filter:blur(24px) saturate(1.6) brightness(1.03);box-shadow:inset 0 1.5px 0 rgba(255,255,255,.95),inset 0 -1.5px 0 rgba(255,255,255,.55),inset 0 0 0 1px rgba(255,255,255,.45),inset 0 0 18px rgba(255,255,255,.45),inset 0 -10px 14px rgba(30,30,40,.07),inset 0 8px 12px rgba(30,30,40,.04),0 12px 30px rgba(40,44,30,.12),0 1px 2px rgba(40,44,30,.06)}`,
+  // Liquid Glass (opción B) en la barrita: la misma receta que la barra de
+  // navegación y los blobs; el reflejo arriba‑izquierda va en ::before y los
+  // círculos de adentro quedan lisos (sin su propio brillo).
+  `[data-cabecera-hoy]~[data-fila-cristal]::before,[data-cabecera-hoy] [data-fila-cristal]::before{content:'';position:absolute;inset:0;border-radius:999px;pointer-events:none;background:radial-gradient(60% 70% at 18% 12%,rgba(255,255,255,.55),rgba(255,255,255,0) 70%)}`,
+  `[data-fila-cristal] [data-brillo]{display:none}`,
   `[data-fila-cristal] [data-boton-cristal]{width:auto!important;gap:0!important}`,
   `[data-fila-cristal] [data-boton-cristal]>span:last-child{display:none}`,
   `[data-fila-cristal] [data-circulo]{width:36px!important;height:36px!important;background:transparent!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}`,
