@@ -37,6 +37,43 @@ const POSES = [
 const nombrePose = (p) => (POSES.find(x => x[0] === p) || [null, p])[1];
 
 // El navegador manda 'image/jpg' a veces, y algunos Android mandan vacío.
+// Comprime en el teléfono antes de subir: lado mayor 1600 px, JPEG al 82 %.
+// Una foto de 8 MB queda en ~300 KB y el storage no se llena. Si el teléfono
+// no puede decodificarla (HEIC en Android, por ejemplo), sube la original.
+const LADO_MAX = 1600;
+async function comprimirFoto(file) {
+  try {
+    let fuente, ancho, alto;
+    if (typeof createImageBitmap === 'function') {
+      fuente = await createImageBitmap(file);
+      ancho = fuente.width; alto = fuente.height;
+    } else {
+      fuente = await new Promise((ok, no) => {
+        const img = new Image();
+        img.onload = () => ok(img);
+        img.onerror = () => no(new Error('no_decodifica'));
+        img.src = URL.createObjectURL(file);
+      });
+      ancho = fuente.naturalWidth; alto = fuente.naturalHeight;
+    }
+    if (!ancho || !alto) throw new Error('vacia');
+    const escala = Math.min(1, LADO_MAX / Math.max(ancho, alto));
+    const w = Math.round(ancho * escala), h = Math.round(alto * escala);
+    const lienzo = document.createElement('canvas');
+    lienzo.width = w; lienzo.height = h;
+    const ctx = lienzo.getContext('2d');
+    ctx.drawImage(fuente, 0, 0, w, h);
+    if (fuente.close) fuente.close();
+    const blob = await new Promise(ok => lienzo.toBlob(ok, 'image/jpeg', 0.82));
+    if (!blob || !blob.size) throw new Error('sin_blob');
+    // Si la comprimida pesa más que la original (PNG chiquito), va la original.
+    if (blob.size >= file.size && file.type !== 'image/heic') return null;
+    return blob;
+  } catch (e) {
+    return null;
+  }
+}
+
 const TIPOS_OK = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
 const tipoDe = (file) => {
   const t = (file.type || '').toLowerCase();
@@ -100,19 +137,22 @@ export default function EntrenoFotos({ name }) {
 
   const subir = async (file) => {
     if (!file || subiendo) return;
-    const tipo = tipoDe(file);
+    let tipo = tipoDe(file);
     if (!tipo) { setAviso('Esa no parece una foto. Usa JPG, PNG o HEIC.'); return; }
-    if (file.size > 10 * 1024 * 1024) { setAviso('La foto pesa más de 10 MB. Hazla más pequeña o usa otra.'); return; }
 
     setSubiendo(true); setAviso(null);
     try {
+      const chica = await comprimirFoto(file);
+      let cuerpo = file;
+      if (chica) { cuerpo = chica; tipo = 'image/jpeg'; }
+      if (cuerpo.size > 10 * 1024 * 1024) { setAviso('La foto pesa más de 10 MB. Hazla más pequeña o usa otra.'); return; }
       const hoy = hoyLocal();
       const permiso = await api.fotoSubir(name, { tipo, pose, fecha: hoy });
       if (!permiso?.ok) throw new Error(permiso?.motivo || 'sin_permiso');
 
       // El archivo va DIRECTO al storage, no a través de la API: una foto de
       // 8 MB pasando por la función serverless se come el límite de cuerpo.
-      const r = await fetch(permiso.url, { method: 'PUT', headers: { 'Content-Type': tipo }, body: file });
+      const r = await fetch(permiso.url, { method: 'PUT', headers: { 'Content-Type': tipo }, body: cuerpo });
       if (!r.ok) throw new Error('no_subio');
 
       // El peso de hoy (si lo registró) queda pegado a la foto.
