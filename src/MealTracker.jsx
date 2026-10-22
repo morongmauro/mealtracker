@@ -5861,6 +5861,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         paddingTop: `${zoneH != null
           ? headerH + 6 + zoneH + 6
           : headerH + (cardCompact ? 56 : 158) + (pushPrompt ? 58 : 0)}px`,
+
         WebkitOverflowScrolling: 'touch',
         // Con el teclado abierto el scroller se bloquea desde el ESTADO, no
         // por JS: los re-renders que dispara el teclado pisaban el valor
@@ -5923,9 +5924,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           // tarjeta y de ahí se deshace en ~70 px. Lo que sube se transparenta
           // suave antes de llegar a la tarjeta, sin el bloque blanco (halo) de
           // antes. La tarjeta pone su propio vidrio encima.
+          // Vista en prueba: lo que pasa por detrás de la tarjeta de macros
+          // se desenfoca y se aclara apenas, de forma progresiva (desenfoque
+          // y velo se apagan juntos hacia abajo, por la máscara). Sin bloque
+          // blanco: el velo nunca pasa del 45 %.
           zIndex: 25,
-          height: `calc(${headerH}px + ${cardCompact ? 116 : 180}px)`,
-          background: 'linear-gradient(180deg, rgba(252,252,253,0.94) 0%, rgba(252,252,253,0.94) 38%, rgba(252,252,253,0.72) 58%, rgba(252,252,253,0.34) 80%, rgba(252,252,253,0) 100%)',
+          height: `calc(${headerH}px + ${cardCompact ? 108 : 164}px)`,
+          background: 'linear-gradient(180deg, rgba(252,252,253,0.45) 0%, rgba(252,252,253,0.30) 55%, rgba(252,252,253,0) 100%)',
+          WebkitBackdropFilter: 'blur(12px)', backdropFilter: 'blur(12px)',
+          WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 50%, rgba(0,0,0,0.5) 75%, transparent 100%)',
+          maskImage: 'linear-gradient(180deg, #000 0%, #000 50%, rgba(0,0,0,0.5) 75%, transparent 100%)',
           transition: 'height 0.25s cubic-bezier(0.2, 0, 0, 1)',
         } : v2 ? (() => { const t = TEMAS_CABECERA.comida; return {
           zIndex: 25,
