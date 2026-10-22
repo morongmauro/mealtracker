@@ -17,6 +17,7 @@ import { api, miniatura, useAlVolverRed } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { nombresEj } from './v2.js';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { Titulo, Cargando, Fallo, Vacio,
          SURFACE, SURFACE_2, BORDER, TEXT, TEXT_MUTED, TEXT_LIGHT, SHADOW_CARD } from './entrenoUI.jsx';
 
@@ -165,6 +166,7 @@ export default function Galeria({ nombre }) {
   const setRutinas = (v) => { cacheGaleria.set(nombre, v); setRutinasEstado(v); };
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState('todas');
+  const [busca, setBusca] = useState('');
   const [abierto, setAbierto] = useState(null);
 
   const cargar = async () => {
@@ -184,7 +186,11 @@ export default function Galeria({ nombre }) {
 
   const v2 = v2Activa();
   const todos = useMemo(() => (rutinas ? armarGaleria(rutinas) : []), [rutinas]);
-  const visibles = filtro === 'todas' ? todos : todos.filter(x => x.rutinas.includes(filtro));
+  const porRutina = filtro === 'todas' ? todos : todos.filter(x => x.rutinas.includes(filtro));
+  // Buscador: por el nombre en inglés o en español, sin tildes ni mayúsculas.
+  const llano = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const q = llano(busca).trim();
+  const visibles = q ? porRutina.filter(x => { const n = nombresEj(x.item.ejercicio); return llano(n.grande).includes(q) || llano(n.chico).includes(q); }) : porRutina;
 
   if (error) return <Fallo motivo={error} alReintentar={cargar} />;
   if (!rutinas) return <Cargando />;
@@ -207,6 +213,17 @@ export default function Galeria({ nombre }) {
         {todos.length} ejercicio{todos.length === 1 ? '' : 's'} de tu plan{v2 ? '' : ' · toca uno para ver su video y lo que trabaja'}
       </div>
 
+      {v2 && (
+        <label data-buscador-galeria style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, padding: '0 14px', height: 42, borderRadius: 999, background: 'rgba(118,118,128,0.12)' }}>
+          <MagnifyingGlass size={17} color={TEXT_MUTED} aria-hidden="true" />
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} type="text" inputMode="search" placeholder="Buscar ejercicio" aria-label="Buscar ejercicio" enterKeyHint="search"
+            style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 16, color: TEXT, outline: 'none' }} />
+          {busca && <button onClick={() => setBusca('')} aria-label="Borrar búsqueda" style={{ border: 'none', background: 'rgba(118,118,128,0.24)', color: TEXT, width: 22, height: 22, borderRadius: 99, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>✕</button>}
+        </label>
+      )}
+      {v2 && q && !visibles.length && (
+        <div data-busqueda-vacia style={{ marginTop: 18, fontSize: 15, color: TEXT_MUTED }}>Nada con «{busca.trim()}» en tu plan.</div>
+      )}
       {rutinas.length > 1 && (
         <div data-filtros-galeria style={{ display: 'flex', gap: 6, overflowX: 'auto', margin: '14px -20px 2px', padding: '0 20px 4px', scrollbarWidth: 'none', ...(lote25() ? DESVANECIDO_BORDE : {}) }}>
           {[{ id: 'todas', nombre: 'Todas' }, ...rutinas].map(r => {

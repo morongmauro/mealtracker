@@ -755,6 +755,9 @@ function TarjetaReloj({ reloj }) {
 }
 
 function Volver({ alVolver }) {
+  // Vista nueva: no hay pastilla de volver; tocar «Dash» en la barra ya
+  // devuelve al inicio (reinicio) y la pastilla se pisaba con el título.
+  if (enPrueba()) return null;
   return (
     <button onClick={alVolver} style={{
       display: 'inline-flex', alignItems: 'center', gap: 4, height: 38, padding: '0 14px 0 10px',

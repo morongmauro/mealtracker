@@ -483,7 +483,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
   const t = v2 ? { cuerpo: 15, chico: 13.5 } : { cuerpo: 13.5, chico: 12 };
 
   return (
-    <Hoja abierta={!!dia} alCerrar={alCerrar} titulo={fechaLarga(dia.fecha)} alto="78vh">
+    <Hoja abierta={!!dia} alCerrar={alCerrar} titulo={`Calendario · ${fechaLarga(dia.fecha)}`} alto="78vh">
       {dia.semana && (
         <div style={{ fontSize: t.chico, color: TEXT_LIGHT, marginBottom: 12 }}>
           Semana {dia.semana} de tu plan
@@ -1295,7 +1295,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
           <CaretRight size={15} weight="bold" color="#C7C7CC" />
         </button>
       )}
-      <Hoja abierta={ayuda} alCerrar={() => setAyuda(false)} titulo="Cómo mover o añadir rutinas" alto="72vh">
+      <Hoja abierta={ayuda} alCerrar={() => setAyuda(false)} titulo="Calendario · Cómo mover o añadir rutinas" alto="72vh">
         <TenEnCuenta />
       </Hoja>
 
@@ -1383,7 +1383,7 @@ function AccionDirecta({ ev, fecha, nombre, alCerrar, alCambio }) {
       alCerrar={alCerrar} alGuardar={() => { alCerrar(); alCambio(); }} />;
   }
   return (
-    <Hoja abierta alCerrar={alCerrar} titulo={REGISTRO[ev.tipo]?.nombre || ev.titulo} alto="52vh">
+    <Hoja abierta alCerrar={alCerrar} titulo={`Registro · ${REGISTRO[ev.tipo]?.nombre || ev.titulo}`} alto="52vh">
       <div data-accion-directa={ev.tipo}>
         <FilaRegistro ev={ev} fecha={fecha} nombre={nombre} futuro={futuro} pasada={pasada} v2 alCambio={alCambio} />
       </div>

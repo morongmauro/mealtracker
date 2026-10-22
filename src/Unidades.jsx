@@ -41,11 +41,12 @@ export function useUnidades() {
 
 function Opciones({ valor, opciones, alElegir, etiqueta }) {
   return (
-    <div role="radiogroup" aria-label={etiqueta} style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, background: '#F2EFE8' }}>
+    <div role="radiogroup" aria-label={etiqueta} style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 999, background: 'rgba(118,118,128,0.12)' }}>
       {opciones.map(([v, l]) => (
         <button key={v} role="radio" aria-checked={valor === v} onClick={() => alElegir(v)} style={{
-          flex: 1, height: 40, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-          fontSize: 15, fontWeight: 700, background: valor === v ? TEXT : 'transparent', color: valor === v ? '#fff' : TEXT_MUTED,
+          flex: 1, height: 38, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+          fontSize: 15, fontWeight: valor === v ? 700 : 600, background: valor === v ? '#FFFFFF' : 'transparent', color: valor === v ? TEXT : TEXT_MUTED,
+          boxShadow: valor === v ? '0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04)' : 'none',
         }}>{l}</button>
       ))}
     </div>
@@ -55,7 +56,7 @@ function Opciones({ valor, opciones, alElegir, etiqueta }) {
 export function HojaUnidades({ abierta, alCerrar }) {
   const u = useUnidades();
   return (
-    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Unidades" alto="60vh">
+    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Configuración · Unidades" alto="60vh" tono="dash">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 750, color: TEXT, marginBottom: 8 }}>Peso</div>

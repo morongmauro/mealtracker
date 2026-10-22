@@ -197,6 +197,7 @@ export default async function handler(req, res) {
         if (existing) {
           if (existing.pwa_installed_at && !dataToWrite.pwa_installed_at) dataToWrite.pwa_installed_at = existing.pwa_installed_at;
           if (existing.push_enabled_at && !dataToWrite.push_enabled_at) dataToWrite.push_enabled_at = existing.push_enabled_at;
+          if (existing.recorrido_at && !dataToWrite.recorrido_at) dataToWrite.recorrido_at = existing.recorrido_at;
           // Menús del Recetario: los guarda UN dispositivo en su localStorage.
           // Si otro sincroniza sin ellos, se conservan los del server (mismo
           // criterio que las señales de arriba) — si no, el segundo teléfono

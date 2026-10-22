@@ -1799,6 +1799,8 @@ export default function MealTracker() {
       // segundo dispositivo sin la marca no la borra).
       pwa_installed_at: (() => { try { return localStorage.getItem('mt:pwaInstalledAt') || undefined; } catch (e) { return undefined; } })(),
       push_enabled_at: (() => { try { return localStorage.getItem('mt:pushEnabledAt') || undefined; } catch (e) { return undefined; } })(),
+      // Recorrido de la app visto (fecha; '1' si fue antes de guardar fecha).
+      recorrido_at: (() => { try { return localStorage.getItem('mt:recorridoHecho') || undefined; } catch (e) { return undefined; } })(),
       // Menús armados en el Recetario. Viven en localStorage (no
       // necesitan cuenta), pero el coach no podía verlos desde el CRM.
       // Se mandan tal cual (son IDs de receta, pesan nada) y el

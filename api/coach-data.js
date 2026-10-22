@@ -180,6 +180,8 @@ function summarize(row) {
     // el CRM las usa para el listado global "App en pantalla de inicio".
     pwa_installed_at: data.pwa_installed_at || null,
     push_enabled_at: data.push_enabled_at || null,
+    // Vio el recorrido de la app (fecha, o '1' si fue antes de guardar fecha).
+    recorrido_at: data.recorrido_at || null,
     // Ya abrió la app en la dirección nueva (mudanza).
     app_nueva_at: data.app_nueva_at || null,
     // …y la tiene instalada en la pantalla de inicio desde la dirección nueva.
@@ -385,7 +387,7 @@ export default async function handler(req, res) {
     if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
     try {
       const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=reminders:data->coach_reminders,reminders_updated:data->reminders_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,pwa_nueva_at:data->pwa_nueva_at,abre_en:data->abre_en,abre_en_at:data->abre_en_at,vista_app:data->vista_app,updated_at`,
+        `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=reminders:data->coach_reminders,reminders_updated:data->reminders_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,recorrido_at:data->recorrido_at,pwa_nueva_at:data->pwa_nueva_at,abre_en:data->abre_en,abre_en_at:data->abre_en_at,vista_app:data->vista_app,updated_at`,
         { headers: supaHeaders() }
       );
       const rows = await r.json();
@@ -400,6 +402,7 @@ export default async function handler(req, res) {
         abre_en: rows[0].abre_en || null,
         abre_en_at: rows[0].abre_en_at || null,
         push_enabled_at: rows[0].push_enabled_at || null,
+        recorrido_at: rows[0].recorrido_at || null,
         // Última sincronización de la app = proxy de "está usando el tracker"
         mt_updated_at: rows[0].updated_at || null,
       });

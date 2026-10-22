@@ -61,7 +61,6 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
       // tipo de aviso; si aún no dio permiso, desde ahí mismo lo activa.
       alTocar: lote25() && permiso !== 'unsupported' ? () => setAvisosAbiertos(true)
         : permiso === 'default' && alActivarPush ? async () => { await alActivarPush(); try { setPermiso(Notification.permission); } catch (e) { /* nada */ } } : null },
-    { id: 'relojes', Icono: Watch, titulo: 'Relojes y anillos', detalle: 'Fitbit, Oura, Whoop, Polar…', alTocar: () => setVista('relojes') },
     { id: 'respira', Icono: Wind, titulo: 'Respira', detalle: 'Uno, tres o cinco minutos para bajar pulsaciones', alTocar: () => setRespira(true) },
     { id: 'recorrido', Icono: Compass, titulo: 'Recorrido de la app', detalle: 'Qué hay en cada sección', alTocar: alRecorrido },
     { id: 'programa', Icono: BookOpenText, titulo: 'Sobre el programa', detalle: 'El método, tu trayecto y las dudas', alTocar: alPrograma },
@@ -71,7 +70,7 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
   return (
     <div data-configuracion style={{ paddingTop: arriba }}>
       {respira && <Respira alCerrar={() => setRespira(false)} />}
-      {instalar && <Hoja abierta alCerrar={() => setInstalar(false)} titulo="Instalar la app" alto="70vh"><AvisoInstalar enHoja /></Hoja>}
+      {instalar && <Hoja abierta alCerrar={() => setInstalar(false)} titulo="Configuración · Instalar la app" alto="70vh" tono="dash"><AvisoInstalar enHoja /></Hoja>}
       <CabeceraHoy tema="dash" fondo={false} voz={{ etiqueta: 'CONFIGURACIÓN', a: 'Tu app,', b: 'a tu manera.' }} />
       {vistaApp && <ElegirVista modo={vistaApp.modo || (vistaApp.compacta ? 'compacta' : 'completa')} alCambiar={vistaApp.cambiar} />}
       <div style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA, padding: '4px 0' }}>
@@ -128,7 +127,7 @@ function Interruptor({ encendido, alCambiar, etiqueta, id }) {
 export function HojaAvisos({ abierta, alCerrar, permiso, alActivar }) {
   const avisos = useAvisos();
   return (
-    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Notificaciones" alto="72vh" tono="dash">
+    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Configuración · Notificaciones" alto="72vh" tono="dash">
       <div data-hoja-avisos>
         {permiso !== 'granted' && (
           <div style={{ background: '#FFF7E0', borderRadius: 16, padding: '12px 14px', marginBottom: 14, fontSize: 14, color: TEXT, lineHeight: 1.45 }}>

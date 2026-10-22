@@ -314,7 +314,7 @@ function Galeria({ fotos, pesoDe, alElegir, alQuitar }) {
 function GuiaPose({ abierta, pose, alCerrar, alAbrirCamara }) {
   const consejo = { frente: 'Brazos sueltos, pies al ancho de los hombros.', lado: 'Perfil completo, mirada al frente.', espalda: 'De espaldas, brazos sueltos.', otra: 'La misma pose que la vez anterior.' }[pose] || '';
   return (
-    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Guía de pose" alto="78vh">
+    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Fotos · Guía de pose" alto="78vh">
       <div data-guia-pose>
         <div style={{ position: 'relative', background: '#1F1F1F', borderRadius: 22, aspectRatio: '3 / 4', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 14, left: 0, right: 0, textAlign: 'center', color: '#fff', fontSize: 14, fontWeight: 700 }}>{nombrePose(pose)} · misma luz, misma distancia</div>
