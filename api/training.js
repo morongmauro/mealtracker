@@ -1238,6 +1238,15 @@ async function registrarEvento(cliente, cuerpo, hoy) {
         tag: 'ecm-registro',
       });
     }
+    // «No tengo cómo pesarme»: se quita el compromiso (deja de salir en Hoy)
+    // y al coach le llega, para que lo sepa y decida.
+    if (deshacer && cuerpo.motivo === 'no_puedo' && !(previo && previo.estado === 'saltado')) {
+      await alertarCoach({
+        title: `${cliente.nombre} no tiene cómo ${ev.tipo === 'peso' ? 'pesarse' : ev.tipo === 'fotos' ? 'tomarse las fotos' : 'medirse'}`,
+        body: `${ev.titulo} · lo quitó de sus pendientes`,
+        tag: 'ecm-registro',
+      }).catch(() => null);
+    }
   } catch (e) {
     return { ok: false, motivo: 'error' };
   }
@@ -1416,7 +1425,7 @@ async function actividadesDeEventos(clienteId, desde, hasta) {
 function eventoParaApp(ev, fecha, catalogo, hechoReg, hechoAct) {
   const r = hechoReg[`${ev.id}:${fecha}`];
   if (ev.tipo !== 'actividad') {
-    return { ...ev, registra: TIPOS_REGISTRO.includes(ev.tipo), hecho: !!(r && r.estado === 'hecho'), valor: r ? r.valor : null };
+    return { ...ev, registra: TIPOS_REGISTRO.includes(ev.tipo), hecho: !!(r && r.estado === 'hecho'), saltado: !!(r && r.estado === 'saltado'), valor: r ? r.valor : null };
   }
   const act = hechoAct[`${ev.id}:${fecha}`];
   return {
@@ -1966,7 +1975,9 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   }
   semana.fuerza.planeados_hoy = Math.max(planeadosHoy, Math.min(actual.hechos, actual.planeados));
   // Lo que el coach le puso HOY (cardio, pesarse, fotos, medición) y si ya está.
-  semana.hoy = (eventosSemana[hoy] || []).filter(ev => EVENTOS_QUE_SE_HACEN.includes(ev.tipo))
+  // Lo que dijo que no puede hacer («no tengo cómo pesarme») no se pide.
+  const saltadoRegistro = new Set(registros.filter(r => r.estado === 'saltado').map(r => `${r.evento_id}:${r.fecha}`));
+  semana.hoy = (eventosSemana[hoy] || []).filter(ev => EVENTOS_QUE_SE_HACEN.includes(ev.tipo) && !saltadoRegistro.has(`${ev.id}:${hoy}`))
     .map(ev => ({ id: ev.id, tipo: ev.tipo, titulo: ev.titulo, duracion_min: ev.duracion_min || null,
       hecho: hechoRegistro.has(`${ev.id}:${hoy}`) || hechoActividad.has(`${ev.id}:${hoy}`) }));
   // Y lo que quedó pendiente de días pasados (pesarse, fotos, medición):

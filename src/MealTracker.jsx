@@ -36,7 +36,6 @@ import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.j
 import { Columnas, Leyenda as LeyendaV2, Tarjeta as TarjetaV2, useDesdeCero, ArcoApple, PuntaApple, rielDe } from './GraficasV2.jsx';
 import CabeceraHoy, { TEMAS as TEMAS_CABECERA } from './CabeceraHoy.jsx';
 import EstiloFondoBlanco, { entrarContenido } from './FondoBlanco.jsx';
-import AvisoRegistro from './AvisoRegistro.jsx';
 import { AvisoSuma } from './Celebraciones.jsx';
 const MetaComida = lazy(() => import('./MetaComida.jsx'));
 const Reconocimiento = lazy(() => import('./Reconocimiento.jsx'));
@@ -6140,11 +6139,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         {/* DIFUMINADO inferior: el chat también se apaga contra el borde del
             teléfono y por detrás de la barra de entrada y la de navegación,
             igual que ya lo hacía hacia arriba. */}
-        <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
+        {!enPrueba() && <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
           zIndex: 25,
           height: `calc(${keyboardOpen ? 158 : 176}px + env(safe-area-inset-bottom, 0px))`,
           background: 'linear-gradient(0deg, #EDECE5 0%, #EDECE5 48%, rgba(237,236,229,0.72) 68%, rgba(237,236,229,0.32) 85%, rgba(237,236,229,0) 100%)',
-        }} />
+        }} />}
         {/* Chat — sin wrapper, flota sobre el fondo general crema con blobs */}
         <div ref={scrollRef} className="space-y-3 mb-6 relative" style={{ paddingBottom: keyboardOpen ? '120px' : '84px', contain: 'layout paint', willChange: 'transform' }}>
           {/* Editorial hand-drawn food silhouettes — thin organic lines */}
@@ -6252,11 +6251,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           {/* DIFUMINADO inferior: el contenido se diluye ANTES de pasar por
               detrás de la barra de opciones — la barra queda flotando encima
               del fade, no del contenido crudo. */}
-          <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
+          {!enPrueba() && <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
             zIndex: 5,
             height: 'calc(128px + env(safe-area-inset-bottom, 0px))',
             background: 'linear-gradient(0deg, #EDECE5 0%, #EDECE5 48%, rgba(237,236,229,0.72) 68%, rgba(237,236,229,0.32) 85%, rgba(237,236,229,0) 100%)',
-          }} />
+          }} />}
           <div className="relative max-w-2xl mx-auto px-5">
             {/* PORTADA DE HOY — el color llega al BORDE de la pantalla.
                 Antes la franja arrancaba debajo de la píldora de marca y por
@@ -6359,6 +6358,20 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div className="text-[14px] font-bold" style={{ color: TEXT }}>{v2 ? '' : '🎯 '}Tu coach está preparando tu meta</div>
                   <div className="text-[12px] mt-1" style={{ color: TEXT_MUTED }}>Mientras tanto, cuéntame en el chat qué comes y llevo tus totales.</div>
                 </div>
+              ) : v2 && !entries.length ? (
+                // Sin nada registrado: una sola fila (el aro vacío grande y
+                // tres macros en cero ocupaban media pantalla para decir «0»).
+                <div data-kcal-vacio className="relative flex items-center justify-between gap-3 px-1" style={{ minHeight: 44 }}>
+                  <div className="min-w-0">
+                    <div className="num" style={{ color: TEXT, fontSize: '19px', fontWeight: 800, lineHeight: 1.1 }}>
+                      <span>0</span><span style={{ color: TEXT_LIGHT, fontWeight: 700, fontSize: '14px' }}> / {Math.round(goals.kcal).toLocaleString('es')} kcal</span>
+                    </div>
+                    <div className="text-[12px]" style={{ color: TEXT_MUTED, marginTop: '2px', lineHeight: 1.25 }}>Arranca cuando comas.<br /><span style={{ color: TEXT_LIGHT }}>Los macros aparecen con tu primera comida.</span></div>
+                  </div>
+                  <RingGauge size={44} stroke={5} pct={0} color="#46965A" track="rgba(138,149,88,0.14)" shadow={null}>
+                    <div className="num" style={{ color: TEXT, fontWeight: 500, fontSize: '11px' }}>0%</div>
+                  </RingGauge>
+                </div>
               ) : (
                 <>
                   <div className="relative flex items-baseline justify-between gap-2 px-1">
@@ -6406,12 +6419,12 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   {/* Visual nueva: antes de la primera comida, solo el aro de
                       calorías; los macros aparecen cuando hay algo registrado
                       (tres aros vacíos no dicen nada). */}
-                  <div className="relative flex items-start mt-3.5" data-aros-hoy={v2 && !entries.length ? 'solo-kcal' : 'todos'}>
+                  <div className="relative flex items-start" style={{ marginTop: v2 ? 8 : 14 }} data-aros-hoy={v2 && !entries.length ? 'solo-kcal' : 'todos'}>
                     {[
-                      { k: 'kcal', v: totals.kcal, g: goals.kcal, c: v2 ? '#46965A' : ACCENT, size: 62, u: '', grad: true },
-                      { k: 'Proteína', v: totals.p, g: goals.p, c: C_PROTEIN, size: 54, u: 'g' },
-                      { k: 'Carbos', v: totals.c, g: goals.c, c: C_CARBS, size: 54, u: 'g' },
-                      { k: 'Grasas', v: totals.g, g: goals.g, c: C_FAT, size: 54, u: 'g' },
+                      { k: 'kcal', v: totals.kcal, g: goals.kcal, c: v2 ? '#46965A' : ACCENT, size: v2 ? 54 : 62, u: '', grad: true },
+                      { k: 'Proteína', v: totals.p, g: goals.p, c: C_PROTEIN, size: v2 ? 46 : 54, u: 'g' },
+                      { k: 'Carbos', v: totals.c, g: goals.c, c: C_CARBS, size: v2 ? 46 : 54, u: 'g' },
+                      { k: 'Grasas', v: totals.g, g: goals.g, c: C_FAT, size: v2 ? 46 : 54, u: 'g' },
                     ].filter(mch => mch.grad || !v2 || entries.length > 0).map(mch => (
                       <div key={mch.k} className="flex-1 flex flex-col items-center gap-1.5">
                         <RingGauge size={mch.size} stroke={mch.grad ? 6 : 5}
@@ -6625,11 +6638,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           }
           {/* Y el mismo difuminado abajo: el final del centro se apaga por
               detrás de la barra en vez de cortarse contra ella. */}
-          <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
+          {!enPrueba() && <div className="fixed left-0 right-0 bottom-0 pointer-events-none" style={{
             zIndex: 2,
             height: 'calc(96px + env(safe-area-inset-bottom, 0px))',
             background: 'linear-gradient(0deg, rgba(237,236,229,0.96) 0%, rgba(237,236,229,0.72) 42%, rgba(237,236,229,0.3) 72%, rgba(237,236,229,0) 100%)',
-          }} />
+          }} />}
           {learningSrc && (
           <iframe
             ref={learningFrameRef}
@@ -7101,10 +7114,6 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           alCerrar={cerrarAvisoCiclo} alCalendario={() => { cerrarAvisoCiclo(); irSubV2('entrena', 'calendario'); }} />
       </Suspense>}
 
-      {/* Peso, fotos o medidas que el coach pidió para HOY: apenas abre la app
-          (a todos). Espera a que no haya otra cosa encima. */}
-      <AvisoRegistro nombre={name} v2={v2}
-        listo={view === 'main' && !!name && !(paymentDue && paymentDue.bloqueo) && cloudConsent !== null && !mudanza && !activeModal} />
 
       {activeModal === 'weekly' && (
         <WeeklyModal history={history} goals={goals} onClose={() => setActiveModal(null)} />

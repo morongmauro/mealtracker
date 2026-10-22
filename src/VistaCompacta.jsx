@@ -35,14 +35,14 @@ export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, ocul
     }}>
       {P && <div aria-hidden="true" data-velo-barra style={{
         position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 34px)', pointerEvents: 'none',
-        background: 'linear-gradient(0deg, rgba(252,252,253,0.78) 0%, rgba(252,252,253,0.55) 45%, rgba(252,252,253,0) 100%)',
+        background: 'linear-gradient(0deg, rgba(252,252,253,0.62) 0%, rgba(252,252,253,0.38) 45%, rgba(252,252,253,0) 100%)',
       }} />}
       <nav aria-label="Secciones" style={{
         pointerEvents: 'auto', maxWidth: 460, margin: '0 auto', borderRadius: 999, padding: P ? 6 : 5, position: 'relative',
         display: 'flex', gap: 4, alignItems: 'center',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0.30))',
-        WebkitBackdropFilter: 'blur(34px) saturate(185%)', backdropFilter: 'blur(34px) saturate(185%)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.95), inset 0 0 0 1px rgba(255,255,255,0.55), 0 12px 32px rgba(40,44,30,0.13), 0 1px 3px rgba(40,44,30,0.07)',
+        background: 'linear-gradient(160deg, rgba(255,255,255,0.46) 0%, rgba(255,255,255,0.26) 55%, rgba(255,255,255,0.36) 100%)',
+        WebkitBackdropFilter: 'blur(40px) saturate(200%)', backdropFilter: 'blur(40px) saturate(200%)',
+        boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.6), 0 14px 36px rgba(40,44,30,0.14), 0 1px 2px rgba(40,44,30,0.06)',
       }}>
         {items.map(({ id, label, Icono, tinta, color, alTocar }) => {
           const on = activa === id;

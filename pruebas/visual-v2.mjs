@@ -628,23 +628,15 @@ try {
   const { p, ctx, errores, db } = await abrir('Mauro Morón', { aviso: true });
   await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
   ok('apertura fría: cae en el Dash', true);
-  // Peso y fotos para hoy: el aviso sale apenas abre, con las dos cosas
-  const av = p.locator('[data-aviso-registro]');
-  await av.waitFor({ timeout: 10000 });
-  ok('al abrir: «Hoy te toca registrar» con el peso y las fotos', (await av.getByText('Hoy te toca registrar').count()) === 1
-    && (await av.getByText('Peso', { exact: true }).count()) === 1 && (await av.getByText('Registro fotográfico').count()) === 1
-    && (await av.getByLabel('Tu peso en kg').count()) === 1);
+  // Peso y fotos para hoy: ya NO sale una ventana al abrir (se quitó: lo
+  // piden Hoy del Dash y «Hoy te toca» hasta que lo haga).
+  await espera(1500);
+  ok('al abrir: sin ventana de «Hoy te toca registrar»', (await p.locator('[data-aviso-registro]').count()) === 0);
   ok('…y los recordatorios del coach no salen solos (ni en el chat)', (await p.getByText(/tu coach te dejó/).count()) === 0
     && (await p.getByRole('dialog', { name: /Recordatorios/ }).count()) === 0);
-  await espera(300);
-  await foto(p, '00-aviso-registro');
-  await av.getByRole('button', { name: 'Más tarde' }).click();
-  await espera(300);
-  ok('«Más tarde» lo cierra', (await av.count()) === 0);
   await p.reload();
   await p.getByText('Días de cardio').waitFor({ timeout: 20000 });
   await espera(1500);
-  ok('…y no vuelve a salir en la misma apertura', (await av.count()) === 0);
   await p.getByText('Días de cardio').waitFor({ timeout: 10000 });
   await espera(800);
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
@@ -981,22 +973,21 @@ try {
     && (await hoyV.getByText(/Training/).count()) === 0);
   ok('hoy: el corte de pago se ve en la semana', (await hoyV.getByText('Corte de tu mensualidad').count()) >= 1);
   ok('hoy: el corte de pago es un aviso (sin la píldora rellena de lo que se toca)', await hoyV.locator('[data-corte-pago]').first().evaluate(el => /rgba\(0, 0, 0, 0\)|transparent/.test(getComputedStyle(el).backgroundColor)).catch(() => false));
-  // «Tu semana»: cada cosa del día abre directo lo suyo, no la hoja del día.
+  // Lo de registrar de HOY vive en «Hoy te toca» (filas compactas, con el
+  // botón a la derecha); en «Tu semana» la fila de hoy ya no lo repite.
   const filaHoy = hoyV.locator(`[data-vista="semana"] [data-fecha="${hoy}"]`);
-  await filaHoy.locator('[data-evento="fotos"]').click();
-  await p.locator('[data-accion-directa="fotos"]').waitFor({ timeout: 5000 });
-  ok('tu semana: tocar las fotos abre directo para mandarlas por WhatsApp (sin la hoja del día)',
-    (await p.locator('[data-accion-directa="fotos"] [data-fotos-whatsapp]').count()) === 1
-    && /^https:\/\/wa\.me\/\d+\?text=/.test(await p.locator('[data-accion-directa="fotos"] [data-fotos-whatsapp]').getAttribute('href'))
+  ok('tu semana: la fila de hoy no repite el peso ni las fotos', (await filaHoy.locator('[data-evento="fotos"], [data-evento="peso"]').count()) === 0);
+  const hoyFotos = hoyV.locator('[data-hoy-te-toca] [data-registro-compacto="fotos"]');
+  ok('hoy te toca: las fotos se mandan por WhatsApp desde su fila (sin la hoja del día)',
+    (await hoyFotos.locator('[data-fotos-whatsapp]').count()) === 1
+    && /^https:\/\/wa\.me\/\d+\?text=/.test(await hoyFotos.locator('[data-fotos-whatsapp]').getAttribute('href'))
     && (await p.getByText('Para registrar', { exact: true }).count()) === 0);
-  await foto(p, '04f1-semana-fotos');
-  await p.keyboard.press('Escape'); await espera(500);
-  await filaHoy.locator('[data-evento="peso"]').click();
-  await p.getByText('Actualiza tu peso').waitFor({ timeout: 5000 });
-  ok('tu semana: tocar el peso abre directo la ventana para actualizarlo (y avisar al coach)',
-    (await p.getByRole('button', { name: 'Guardar y enviar a mi coach' }).count()) === 1 && (await p.getByText('Para registrar', { exact: true }).count()) === 0);
-  await foto(p, '04f2-semana-peso');
-  await p.keyboard.press('Escape'); await espera(500);
+  await foto(p, '04f1-hoy-fotos');
+  const hoyPeso = hoyV.locator('[data-hoy-te-toca] [data-registro-compacto="peso"]');
+  ok('hoy te toca: el peso se escribe ahí mismo, con «No tengo cómo pesarme» debajo',
+    (await hoyPeso.getByLabel('Tu peso en kg').count()) === 1 && (await hoyPeso.locator('[data-no-puedo]').count()) === 1
+    && (await hoyPeso.evaluate(el => el.getBoundingClientRect().height)) < 90);
+  await foto(p, '04f2-hoy-peso');
   await filaHoy.locator('[data-evento="actividad"]').click();
   await p.getByText('Minutos', { exact: true }).waitFor({ timeout: 5000 });
   ok('tu semana: tocar el cardio abre directo su formulario (tiempo y lo demás opcional)',
@@ -1358,8 +1349,8 @@ try {
   await espera(300);
   await foto(p, '05b-dia-registrar');
   await p.locator('[data-hoja-scroll] [data-fotos-whatsapp]').click();
-  await p.getByLabel('Tu peso en kg').fill('78,4');
-  await p.getByRole('button', { name: 'Guardar' }).click();
+  await p.locator('[data-hoja-scroll]').getByLabel('Tu peso en kg').fill('78,4');
+  await p.locator('[data-hoja-scroll]').getByRole('button', { name: 'Guardar' }).click();
   await espera(700);
   ok('fotos y peso quedan registrados', db.db.evento_registros && db.db.evento_registros.length === 2
     && Number(db.db.evento_registros.find(r => r.evento_id === 'evp').valor) === 78.4);
@@ -1527,9 +1518,11 @@ try {
     await p.locator('[data-explicacion-aro]').waitFor({ timeout: 5000 });
     ok('Comida: tocar el aro explica los días registrados', /de 7/.test(await p.locator('[data-explicacion-aro]').innerText()) && /Al día/.test(await p.locator('[data-explicacion-aro]').innerText()), await p.locator('[data-explicacion-aro]').innerText());
     await p.keyboard.press('Escape'); await espera(300);
-    const modo = await p.locator('[data-aros-hoy]').getAttribute('data-aros-hoy');
-    const nAros = await p.locator('[data-aros-hoy] > *').count();
-    ok('Comida Hoy: sin comidas hoy, solo el aro de calorías (los macros llegan con la primera comida)', modo === 'solo-kcal' ? nAros === 1 && (await p.locator('[data-macros-luego]').count()) === 1 : nAros === 4 && (await p.locator('[data-macros-luego]').count()) === 0, `${modo} ${nAros}`);
+    // Sin comidas hoy la tarjeta es UNA fila (0 / meta, aro chico); con
+    // comida, los cuatro aros.
+    const vacia = (await p.locator('[data-kcal-vacio]').count()) === 1;
+    const nAros = vacia ? 0 : await p.locator('[data-aros-hoy] > *').count();
+    ok('Comida Hoy: sin comidas hoy, una sola fila; con comida, los cuatro aros', vacia ? (await p.locator('[data-kcal-vacio]').evaluate(el => el.getBoundingClientRect().height)) < 80 : nAros === 4, `${vacia} ${nAros}`);
   }
   const pRec = await p.getByRole('button', { name: /^Recordatorios/ }).last().boundingBox();
   const pOpc = await p.getByRole('button', { name: 'Opciones', exact: true }).boundingBox();
@@ -2715,7 +2708,7 @@ try {
     // abre sola con la más vieja contra la más nueva, con kg y semanas.
     await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1000);
     await p.getByRole('button', { name: 'Hoy', exact: true }).click().catch(() => {}); await espera(800);
-    ok('lote 26: Hoy de Entreno tiene la entrada «Fotos de progreso»', (await p.locator('[data-atajo-fotos]').count()) === 1);
+    ok('lote 26: ya no hay entrada «Fotos de progreso» al final de la semana (se entra desde el recordatorio)', (await p.locator('[data-atajo-fotos]').count()) === 0);
     ok('lote 26: la barra de Entreno NO tiene «Fotos» (se entra desde el recordatorio o desde Hoy)', (await p.getByRole('button', { name: 'Fotos', exact: true }).count()) === 0);
     ok('lote 26: el recordatorio de fotos de hoy trae «Tomar foto de hoy» en vez de WhatsApp', (await p.locator('[data-tomar-foto-evento]').count()) >= 1 && (await p.locator('[data-fotos-whatsapp]').count()) === 0);
     await p.locator('[data-tomar-foto-evento]').first().click();
@@ -2772,6 +2765,27 @@ try {
     await p.locator('[data-registro-pendiente="evp3"] input').fill('80,5');
     await p.locator('[data-registro-pendiente="evp3"] button').first().click(); await espera(1200);
     ok('al marcarlo (con la fecha en que tocaba) queda hecho', /Hecho/.test(await p.locator('[data-registro-pendiente="evp3"]').innerText().catch(() => 'Hecho')));
+    ok('las filas de registrar en Hoy son compactas (una línea, botón a la derecha)', (await p.locator('[data-hoy-te-toca] [data-registro-compacto]').count()) >= 1
+      && (await p.locator('[data-hoy-te-toca] [data-registro-compacto="fotos"]').evaluate(el => el.getBoundingClientRect().height)) < 70);
+    // «No tengo cómo pesarme»: con otro peso pendiente de hoy sin hacer
+    await p.evaluate(() => { try { localStorage.removeItem('mt:cache:entreno'); } catch (e) {} });
+    const q = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:vistaApp': VP }, ajustar: (db) => {
+      db.db.eventos.push({ id: 'evp5', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse en ayunas', fecha: sumarDiasISO(hoy, -5), visible_cliente: true });
+    } });
+    await q.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }); await espera(1500);
+    await q.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
+    await q.p.locator('[data-registro-pendiente="evp5"] [data-no-puedo]').waitFor({ timeout: 8000 });
+    await q.p.locator('[data-registro-pendiente="evp5"] [data-no-puedo]').click(); await espera(1500);
+    // Al quitarlo, la fila dice «no se te vuelve a pedir» y, al refrescar, desaparece.
+    ok('«No tengo cómo pesarme» lo quita y avisa', ((await q.p.locator('[data-registro-pendiente="evp5"] [data-registro-quitado]').count()) === 1
+      || (await q.p.locator('[data-registro-pendiente="evp5"]').count()) === 0)
+      && !!(q.db.db.evento_registros || []).find(r => r.evento_id === 'evp5' && r.estado === 'saltado'), JSON.stringify((q.db.db.evento_registros || []).map(r => [r.evento_id, r.estado])));
+    await q.p.getByRole('button', { name: 'Alimentación', exact: true }).click();
+    await q.p.locator('[data-kcal-vacio]').waitFor({ timeout: 8000 }).catch(() => {});
+    ok('Alimentación · Hoy sin comida: la tarjeta de calorías es una sola fila', (await q.p.locator('[data-kcal-vacio]').count()) === 1
+      && (await q.p.locator('[data-kcal-vacio]').evaluate(el => el.getBoundingClientRect().height)) < 80, String(await q.p.locator('[data-kcal-vacio]').count()));
+    ok('sin errores de JavaScript (no puedo)', q.errores.length === 0, q.errores.join(' | '));
+    await q.ctx.close();
     ok('sin errores de JavaScript (pendientes)', l.errores.length === 0, l.errores.join(' | '));
     await l.ctx.close();
   }
@@ -2810,18 +2824,9 @@ try {
     coach_reminders: [{ id: 'rc1', text: 'Haz 10 minutos de movilidad de cadera', created_at: '2026-09-29T09:00:00Z' }],
     reminders_updated: { at: '2026-09-29T09:00:00Z', by: 'coach' },
   } });
-  const avA = oa.p.locator('[data-aviso-registro]');
-  await avA.waitFor({ timeout: 25000 });
-  ok('otra persona: le sale el aviso de sus fotos al abrir', (await avA.getByText('Registro fotográfico').count()) === 1
-    && (await avA.getByText('Peso', { exact: true }).count()) === 0);
-  await foto(oa.p, '13b-otra-persona-aviso');
-  await avA.locator('[data-fotos-whatsapp]').click();
-  await avA.getByText('Listo, gracias').waitFor({ timeout: 5000 });
-  ok('otra persona: marcarlo ahí mismo avisa al coach', !!oa.db.db.evento_registros?.some(r => r.evento_id === 'evf2'));
-  await avA.getByRole('button', { name: 'Seguir' }).click();
-  await espera(300);
-  ok('otra persona: «Seguir» lo cierra', (await avA.count()) === 0);
+  await oa.p.getByText('Días de cardio').waitFor({ timeout: 25000 }).catch(() => {});
   await espera(1500);
+  ok('otra persona: tampoco le sale ventana al abrir', (await oa.p.locator('[data-aviso-registro]').count()) === 0);
   ok('el recordatorio de texto del coach NO se anuncia en el chat', (await oa.p.getByText(/tu coach te dejó/).count()) === 0
     && (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 0);
   await oa.p.getByRole('button', { name: /Recordat/ }).first().click();

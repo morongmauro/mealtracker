@@ -103,18 +103,18 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
     }}>
       {P && <div aria-hidden="true" data-velo-barra style={{
         position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 34px)', pointerEvents: 'none',
-        background: 'linear-gradient(0deg, rgba(252,252,253,0.78) 0%, rgba(252,252,253,0.55) 45%, rgba(252,252,253,0) 100%)',
+        background: 'linear-gradient(0deg, rgba(252,252,253,0.62) 0%, rgba(252,252,253,0.38) 45%, rgba(252,252,253,0) 100%)',
       }} />}
       <style>{`
         .bv2-cristal {
-          /* Más vidrio (opción B): lo de atrás se adivina de verdad, pero la
-             letra de la barra sigue nítida: blanco al 42 % y desenfoque de
-             34 px, con el filo de luz arriba. */
-          background: linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0.30));
-          -webkit-backdrop-filter: blur(34px) saturate(185%);
-          backdrop-filter: blur(34px) saturate(185%);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), inset 0 0 0 1px rgba(255,255,255,0.55),
-            0 12px 32px rgba(40,44,30,0.13), 0 1px 3px rgba(40,44,30,0.07);
+          /* Cristal (opción C): lo de atrás se ve de verdad, pero la letra
+             de la barra sigue nítida: blanco al 46→26→36 %, desenfoque de
+             40 px, filo de luz arriba y abajo. */
+          background: linear-gradient(160deg, rgba(255,255,255,0.46) 0%, rgba(255,255,255,0.26) 55%, rgba(255,255,255,0.36) 100%);
+          -webkit-backdrop-filter: blur(40px) saturate(200%);
+          backdrop-filter: blur(40px) saturate(200%);
+          box-shadow: inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.6),
+            0 14px 36px rgba(40,44,30,0.14), 0 1px 2px rgba(40,44,30,0.06);
         }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
           .bv2-cristal { background: rgba(250,250,246,0.94); }

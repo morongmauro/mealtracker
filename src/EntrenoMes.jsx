@@ -654,7 +654,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
 }
 
 // ── Medición corporal, peso o fotos: «ya lo hice» ────────────────────────
-function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio }) {
+function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio, compacta = false }) {
   const q = REGISTRO[ev.tipo] || REGISTRO.medicion;
   const [hecho, setHecho] = useState(!!ev.hecho);
   const [peso, setPeso] = useState(ev.valor != null ? String(ev.valor).replace('.', ',') : '');
@@ -670,6 +670,66 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio 
     setHecho(true);
     alCambio && alCambio();
   };
+  // «No tengo cómo pesarme»: se quita el compromiso (deja de salir) y el
+  // coach se entera.
+  const [quitado, setQuitado] = useState(false);
+  const noPuedo = async () => {
+    setEnviando(true); setError(null);
+    const r = await api.registrar(nombre, { evento_id: ev.id, fecha, hecho: false, motivo: 'no_puedo' });
+    setEnviando(false);
+    if (!r.ok) { setError('No se pudo guardar. Inténtalo otra vez.'); return; }
+    setQuitado(true);
+    alCambio && alCambio();
+  };
+  if (quitado) return (
+    <div data-registro-quitado style={{ borderRadius: 14, padding: '10px 13px', background: SURFACE, fontSize: 13, color: TEXT_MUTED }}>
+      Listo: no se te vuelve a pedir. Tu coach ya lo sabe.
+    </div>
+  );
+
+  // Compacta (en «Hoy te toca»): una fila, el botón a la derecha; el peso con
+  // su cajita al lado. Lo que ya está hecho se queda en una línea.
+  if (compacta) {
+    const btn = { ...botonPrimario, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none', opacity: enviando ? 0.6 : 1 };
+    return (
+      <div data-registro-compacto={ev.tipo} style={{ borderRadius: 14, padding: '9px 12px', background: hecho ? '#F1EEFA' : SURFACE, border: `1px solid ${hecho ? 'transparent' : '#DCD4F2'}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 30, height: 30, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center', flex: 'none' }}>
+            <IconoEvento tipo={ev.tipo} size={16} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{q.nombre}</div>
+            <div style={{ fontSize: 12, color: TEXT_LIGHT, lineHeight: 1.25 }}>
+              {hecho ? `${ev.tipo === 'peso' && peso ? `${peso} kg · ` : ''}Hecho. Tu coach ya lo sabe.` : (ev.detalle || (ev.titulo && ev.titulo !== q.nombre ? ev.titulo : null) || '')}
+            </div>
+          </div>
+          {hecho ? <CheckCircle size={20} weight="fill" color={MORADO} aria-label="Hecho" /> : !pasada && !futuro && (
+            ev.tipo === 'peso' ? (
+              <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
+                <input inputMode="decimal" value={peso} onChange={e => setPeso(e.target.value)} placeholder="kg" aria-label="Tu peso en kg"
+                  style={{ width: 62, height: 36, borderRadius: 11, border: '1px solid #DCD4F2', padding: '0 10px', fontSize: 15, fontFamily: 'inherit', outline: 'none', textAlign: 'center' }} />
+                <button disabled={enviando || !peso.trim()} onClick={() => marcar(peso)} style={{ ...btn, opacity: enviando || !peso.trim() ? 0.5 : 1 }}>Guardar</button>
+              </div>
+            ) : ev.tipo === 'fotos' && lote25() ? (
+              <button data-tomar-foto-evento disabled={enviando} onClick={() => { try { window.dispatchEvent(new CustomEvent('mt:irFotos')); } catch (e) {} }} style={btn}>Tomar foto</button>
+            ) : ev.tipo === 'fotos' && WHATSAPP_COACH ? (
+              <a data-fotos-whatsapp href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau! Te envío mis fotos de seguimiento 📸')}`}
+                target="_blank" rel="noopener noreferrer" onClick={() => { if (!enviando) marcar(null); }}
+                style={{ ...btn, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', boxSizing: 'border-box' }}>Enviar</a>
+            ) : (
+              <button disabled={enviando} onClick={() => marcar(null)} style={btn}>{q.boton}</button>
+            )
+          )}
+        </div>
+        {!hecho && !pasada && !futuro && ev.tipo === 'peso' && (
+          <button data-no-puedo disabled={enviando} onClick={noPuedo} style={{ border: 'none', background: 'none', padding: '6px 0 0 40px', fontFamily: 'inherit', fontSize: 12.5, color: TEXT_MUTED, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, cursor: 'pointer' }}>
+            No tengo cómo pesarme
+          </button>
+        )}
+        {error && <div style={{ fontSize: 12.5, color: '#B4533F', marginTop: 6 }}>{error}</div>}
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -737,50 +797,6 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio 
         </div>
       )}
       {error && <div style={{ fontSize: 12.5, color: '#B4533F', marginTop: 6 }}>{error}</div>}
-    </div>
-  );
-}
-
-// ── Al abrir la app: lo que toca registrar hoy (ver AvisoRegistro.jsx) ──
-// Las mismas filas del calendario: el peso se escribe aquí y las fotos o la
-// medición se marcan con un toque. El coach se entera igual que desde el día.
-export function HojaAvisoRegistro({ nombre, fecha, eventos, v2, alCerrar }) {
-  const [hechos, setHechos] = useState(() => new Set());
-  const todo = eventos.every(ev => hechos.has(ev.id));
-  const soloAtrasados = eventos.length > 0 && eventos.every(ev => ev.atrasado);
-  return (
-    <div role="dialog" aria-modal="true" aria-label="Para registrar hoy" data-aviso-registro onClick={alCerrar} style={{
-      position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(31,31,28,0.42)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18,
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: '#FFFFFF', borderRadius: 24, width: '100%', maxWidth: 400, maxHeight: '88vh', overflowY: 'auto',
-        padding: '22px 18px 18px', boxShadow: '0 20px 60px rgba(0,0,0,.22)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ width: 44, height: 44, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center', flex: 'none' }}>
-            <IconoEvento tipo={eventos[0]?.tipo} size={22} />
-          </span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-              {todo ? 'Listo, gracias' : soloAtrasados ? 'Sigue pendiente' : 'Hoy te toca registrar'}
-            </div>
-            <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 2 }}>
-              {todo ? 'Tu coach ya lo sabe.' : soloAtrasados ? 'Tu coach lo pidió hace unos días. Es un minuto.' : 'Tu coach lo pidió para hoy. Es un minuto.'}
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
-          {eventos.map(ev => (
-            <FilaRegistro key={ev.id} ev={ev.atrasado ? { ...ev, detalle: `Pendiente desde el ${diaCorto(ev.fecha)}` } : ev} fecha={ev.atrasado ? ev.fecha : fecha} nombre={nombre} futuro={false} v2={v2}
-              alCambio={() => setHechos(h => new Set([...h, ev.id]))} />
-          ))}
-        </div>
-        <button onClick={alCerrar} style={{
-          width: '100%', marginTop: 14, height: 46, borderRadius: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-          fontSize: 15, fontWeight: 700, background: todo ? TEXT : '#F2EFE8', color: todo ? '#FFFFFF' : TEXT,
-        }}>{todo ? 'Seguir' : 'Más tarde'}</button>
-      </div>
     </div>
   );
 }
@@ -1379,7 +1395,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegi
   const hoy = hoyLocal();
   const r = dia?.rutina;
   const hecha = dia?.estado === 'completada';
-  const registros = (dia?.eventos || []).filter(e => e.registra);
+  const registros = (dia?.eventos || []).filter(e => e.registra && !e.saltado);
   const otros = (dia?.eventos || []).filter(e => !e.registra);
   const n = r ? ejerciciosDe[r.id] : null;
   const bloques = bloquesDe(dia);
@@ -1454,13 +1470,13 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegi
         ))}
 
         {registros.map(ev => (
-          <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 alCambio={alCambio} />
+          <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 compacta alCambio={alCambio} />
         ))}
         {/* Lo que quedó de días pasados (pesarse, fotos, medición): se queda
             aquí, con su fecha, hasta que lo haga. */}
         {pendientes.map(p => (
           <div key={`p-${p.id}`} data-registro-pendiente={p.id}>
-            <FilaRegistro ev={{ ...p, detalle: `Pendiente desde el ${diaCorto(p.fecha)}` }} fecha={p.fecha} nombre={nombre} futuro={false} v2 alCambio={alCambio} />
+            <FilaRegistro ev={{ ...p, detalle: `Pendiente desde el ${diaCorto(p.fecha)}` }} fecha={p.fecha} nombre={nombre} futuro={false} v2 compacta alCambio={alCambio} />
           </div>
         ))}
         {otros.filter(ev => ev.tipo !== 'actividad').map(ev => (
@@ -1594,7 +1610,7 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
         {bloquesDe(dia).map(b => <ChipBloque key={b.id} b={b} alTocar={directo(alEntrenar && (() => alEntrenar(b.id)))} />)}
         {/* En «Tu semana» lo de registrar de HOY no se repite: ya está arriba
             en «Hoy te toca» (los demás días sí lo anuncian). */}
-        {dia?.eventos.filter(e => e.registra && !(sinRegistrosHoy && esHoy)).map(e => (
+        {dia?.eventos.filter(e => e.registra && !e.saltado && !(sinRegistrosHoy && esHoy)).map(e => (
           <Etiqueta key={e.id} Icono={null} tipo={e.tipo} color={MORADO} fondo={e.hecho ? '#EEE9FB' : '#FFFFFF'} borde={e.hecho ? 'transparent' : '#CFC3EF'} hecho={e.hecho}
             alTocar={directo(alEvento && (() => alEvento(e)))} data-evento={e.tipo}>
             {REGISTRO[e.tipo]?.nombre || e.titulo}

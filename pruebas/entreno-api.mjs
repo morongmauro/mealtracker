@@ -833,5 +833,24 @@ await caso('lo de registrar que quedó de días pasados sigue en Hoy (mes y dash
   igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evf30', fecha: mas(hoy, -30), hecho: true })).motivo, 'semana_pasada', 'muy viejo');
 });
 
+
+await caso('«No tengo cómo pesarme»: lo quita de Hoy (mes y dash), no de la historia, y el coach se entera', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.eventos = [
+    { id: 'evph', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse', fecha: hoy, visible_cliente: true },
+    { id: 'evp4', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse', fecha: mas(hoy, -4), visible_cliente: true },
+  ];
+  const r = await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evph', fecha: hoy, hecho: false, motivo: 'no_puedo' });
+  igual([r.ok, r.hecho], [true, false], 'queda como saltado');
+  const m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
+  const d = m.dias.find(x => x.fecha === hoy);
+  igual(d.eventos.find(e => e.id === 'evph').saltado, true, 'el día lo sabe');
+  igual(m.pendientes.map(p => p.id), ['evp4'], 'el de hace 4 días sigue pendiente; el de hoy no');
+  await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evp4', fecha: mas(hoy, -4), hecho: false, motivo: 'no_puedo' });
+  igual((await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) })).pendientes, [], 'también se puede quitar el atrasado');
+  const dash = await llamar(handler, { accion: 'dash', name: yo });
+  igual(dash.semana.hoy.filter(x => x.tipo === 'peso').length, 0, 'en el dash tampoco sale');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

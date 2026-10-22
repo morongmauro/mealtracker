@@ -322,7 +322,6 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
         </Tarjeta>
         <BloqueActividad name={name} />
-        {lote25() && seccionV2 && <AtajoFotos onClick={() => setSeccion('fotos')} />}
         {seccionV2 && <Firma style={{ marginTop: 28 }} />}
       </Envoltorio>
     );
@@ -349,7 +348,6 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
           <HoySemana nombre={name} alEntrenar={abrirRutina}
             ejerciciosDe={Object.fromEntries((plan.dias || []).flatMap(d => [...(d.rutina ? [[d.rutina.id, d.rutina.ejercicios]] : []), ...(d.complementarias || []).map(c => [c.id, c.ejercicios])]))} />
           <Sueltas plan={plan} onAbrir={abrirRutina} />
-          {lote25() && seccionV2 && <AtajoFotos onClick={() => setSeccion('fotos')} />}
         </>
       ) : (
         <>
