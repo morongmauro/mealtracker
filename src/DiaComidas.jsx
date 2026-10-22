@@ -62,6 +62,12 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
   // Vista en prueba: lo que toca registrar ahora es la protagonista, arriba,
   // con el dictado a mano; el atajo de abajo ya no hace falta.
   const prota = enPrueba() && primeroVacio;
+  // Vista en prueba (maqueta A): una sola caja. La pregunta de lo que toca
+  // va arriba; abajo solo sale lo que YA registró (sin filas vacías que
+  // repitan la invitación). Sin nada registrado, no hay lista.
+  const soloRegistrado = enPrueba();
+  const momentosLista = soloRegistrado ? MOMENTOS.filter(m => por[m.k].length) : MOMENTOS;
+  const hayLista = momentosLista.length > 0 || otras.length > 0;
   const PREGUNTA = { desayuno: '¿Qué desayunaste?', almuerzo: '¿Qué almorzaste?', cena: '¿Qué cenaste?', snack: '¿Comiste algo entre comidas?' };
   return (
     <div data-dia-comidas>
@@ -79,9 +85,9 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
           </div>
         </div>
       )}
-      <h2 data-titulo-comidas style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '18px 2px 10px' }}>Lo que comiste hoy</h2>
-      <div style={{ ...TARJETA, padding: '6px 14px 6px' }}>
-        {MOMENTOS.map((m, i) => {
+      {hayLista && <h2 data-titulo-comidas style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '18px 2px 10px' }}>{soloRegistrado ? 'Lo que llevas hoy' : 'Lo que comiste hoy'}</h2>}
+      {hayLista && <div style={{ ...TARJETA, padding: '6px 14px 6px' }}>
+        {momentosLista.map((m, i) => {
           const lista = por[m.k];
           const kcal = lista.reduce((a, e) => a + (Number(e.kcal) || 0), 0);
           return (
@@ -115,7 +121,7 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
             {otras.map(e => <div key={e.id} style={{ marginLeft: -46 }}><Registro e={e} /></div>)}
           </div>
         )}
-      </div>
+      </div>}
       {!prota && <button type="button" data-dictar-dia onClick={alDictar} style={{ ...TARJETA, width: '100%', marginTop: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: 12, padding: '12px 12px 12px 16px' }}>
         <span style={{ flex: 1 }}>

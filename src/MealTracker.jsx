@@ -5856,7 +5856,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           centrado; el padding-top empuja el contenido bajo el header/tarjeta
           fijos. Los hijos con position:fixed (tarjeta de anillos) siguen
           anclados al viewport porque este contenedor no tiene transform. */}
-      <div ref={chatScrollRef} className="fixed inset-0 max-w-2xl mx-auto px-5 pb-32 overflow-y-auto" style={{
+      <div ref={chatScrollRef} data-chat-scroller className="fixed inset-0 max-w-2xl mx-auto px-5 pb-32 overflow-y-auto" style={{
         zIndex: 1,
         paddingTop: `${zoneH != null
           ? headerH + 6 + zoneH + 6
@@ -5919,9 +5919,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           // Vista en prueba: como en Entrenamiento, lo que sube por detrás de
           // la barra de macros se desvanece hacia blanco antes de llegar a
           // ella (sin manchas de color).
+          // Un velo corto y degradado: blanco pleno solo hasta la mitad de la
+          // tarjeta y de ahí se deshace en ~70 px. Lo que sube se transparenta
+          // suave antes de llegar a la tarjeta, sin el bloque blanco (halo) de
+          // antes. La tarjeta pone su propio vidrio encima.
           zIndex: 25,
-          height: `calc(${headerH}px + ${cardCompact ? 112 : 214}px)`,
-          background: 'linear-gradient(180deg, rgba(252,252,253,0.97) 0%, rgba(252,252,253,0.92) 72%, rgba(252,252,253,0) 100%)',
+          height: `calc(${headerH}px + ${cardCompact ? 116 : 180}px)`,
+          background: 'linear-gradient(180deg, rgba(252,252,253,0.94) 0%, rgba(252,252,253,0.94) 38%, rgba(252,252,253,0.72) 58%, rgba(252,252,253,0.34) 80%, rgba(252,252,253,0) 100%)',
           transition: 'height 0.25s cubic-bezier(0.2, 0, 0, 1)',
         } : v2 ? (() => { const t = TEMAS_CABECERA.comida; return {
           zIndex: 25,

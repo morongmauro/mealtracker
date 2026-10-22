@@ -28,6 +28,10 @@ const CSS = [
   capa('[data-view="entrena"]', COLORES_MODULO.entreno, 1.15),
   capa('[data-view="aprende"]', COLORES_MODULO.aprende),
   capa('.fixed.inset-0.overflow-y-auto[style*="rgb(237, 236, 229)"]', COLORES_MODULO.comida),
+  // El chat de Alimentación, con el mismo fondo que su Hoy (blanco con las
+  // manchas verdes), en vez del gris cálido de siempre.
+  capa('[data-chat-scroller]', COLORES_MODULO.comida),
+  `.min-h-screen.relative:has(>[data-chat-scroller]){background:${BLANCO}!important}`,
   // Los desvanecidos de arriba y abajo eran del gris cálido: en blanco.
   `.fixed.pointer-events-none[style*="rgba(237, 236, 229"]{display:none!important}`,
   // Sin la píldora negra; la franja curva más corta y todo sube.
