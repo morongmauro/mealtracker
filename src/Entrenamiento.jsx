@@ -1331,7 +1331,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
           padding: '8px 16px 9px', borderRadius: 999,
           background: 'linear-gradient(160deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.26) 100%)',
           backdropFilter: 'blur(36px) saturate(2) contrast(1.05)', WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
-          boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1.5px 0 rgba(255,255,255,0.75), inset 2px 0 0 rgba(255,255,255,0.55), inset -2px 0 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 0 14px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 10px 22px rgba(40,44,30,0.14)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 0.8px rgba(255,255,255,0.28), inset 0 0 14px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 10px 22px rgba(40,44,30,0.14)',
         } : {
           position: 'sticky', top: 'calc(58px + env(safe-area-inset-top, 0px))', zIndex: 20,
           margin: '0 -4px 6px', padding: '10px 14px 11px', borderRadius: 18,
@@ -2356,7 +2356,7 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
           // desenfoque, filos de luz y contorno finísimo; se ve la rutina detrás.
           background: 'linear-gradient(160deg, rgba(29,29,31,0.78) 0%, rgba(29,29,31,0.66) 50%, rgba(29,29,31,0.74) 100%)',
           WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)', backdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
-          boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.35), inset 0 -1.5px 0 rgba(255,255,255,0.12), inset 1.5px 0 0 rgba(255,255,255,0.14), inset -1.5px 0 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 0.5px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.12), 0 18px 44px rgba(0,0,0,0.28)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 0 0.8px rgba(255,255,255,0.08), 0 0 0 0.5px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.12), 0 18px 44px rgba(0,0,0,0.28)',
         } : { background: '#1D1D1F', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }),
       }}>
         <svg width="28" height="28" viewBox="0 0 28 28" style={{ flex: 'none' }} aria-hidden="true">

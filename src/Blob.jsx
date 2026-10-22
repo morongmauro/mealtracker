@@ -83,10 +83,10 @@ export function BlobVidrio({ color, segundo = null, tam = 120, intensidad = 0.2,
         <path d={BLOB_PATH} fill="rgba(255,255,255,.22)" />
         <g clipPath={`url(#${id}c)`}>
           <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,.24)" strokeWidth="24" filter={`url(#${id}g)`} />
-          <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,1)" strokeWidth="3.5" filter={`url(#${id}d)`} />
+          <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,.85)" strokeWidth="2" filter={`url(#${id}d)`} />
           <path d={BLOB_PATH} fill="none" stroke={`url(#${id}b)`} strokeWidth="22" filter={`url(#${id}i)`} />
           <ellipse cx="54" cy="38" rx="46" ry="26" fill={`url(#${id}h)`} transform="rotate(-20 56 40)" />
-          <path d={BLOB_PATH} fill="none" stroke={`url(#${id}r)`} strokeWidth="3" />
+          <path d={BLOB_PATH} fill="none" stroke={`url(#${id}r)`} strokeWidth="2" />
         </g>
       </svg>
     </>

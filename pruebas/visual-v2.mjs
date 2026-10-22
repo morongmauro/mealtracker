@@ -2404,7 +2404,7 @@ try {
       if (!blob || !atras) return false;
       const m = new DOMMatrix(getComputedStyle(blob).transform); const giro = Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI);
       const transparente = [...blob.querySelectorAll('path')].some(x => x.getAttribute('fill') === 'rgba(255,255,255,.22)');
-      const borde = [...blob.querySelectorAll('path')].some(x => /^url\(#.*r\)$/.test(x.getAttribute('stroke') || '') && x.getAttribute('stroke-width') === '3');
+      const borde = [...blob.querySelectorAll('path')].some(x => /^url\(#.*r\)$/.test(x.getAttribute('stroke') || '') && x.getAttribute('stroke-width') === '2');
       const desenfoque = /blur\(28px\) saturate\(1\.4\)/.test(getComputedStyle(atras).backdropFilter || getComputedStyle(atras).webkitBackdropFilter || '');
       const banda = cab.querySelector(':scope > [data-banda]').getBoundingClientRect(), caja = cab.querySelector('[data-blob-cabecera]').getBoundingClientRect();
       const reflejo = !!blob.querySelector('ellipse'), sinSombra = ![...blob.querySelectorAll('path')].some(x => /^url\(#.*s\)$/.test(x.getAttribute('fill') || '') || x.getAttribute('stroke') === 'rgba(30,30,40,.14)');

@@ -43,7 +43,7 @@ export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, ocul
           background: linear-gradient(160deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.12) 100%);
           -webkit-backdrop-filter: blur(36px) saturate(2) contrast(1.05);
           backdrop-filter: blur(36px) saturate(2) contrast(1.05);
-          box-shadow: inset 0 2px 0 rgba(255,255,255,1), inset 0 -2px 0 rgba(255,255,255,0.75), inset 2.5px 0 0 rgba(255,255,255,0.55), inset -2.5px 0 0 rgba(255,255,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 0 30px rgba(255,255,255,0.35), inset 0 -16px 24px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 18px 44px rgba(40,44,30,0.18);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 0.8px rgba(255,255,255,0.28), inset 0 0 30px rgba(255,255,255,0.35), inset 0 -16px 24px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 18px 44px rgba(40,44,30,0.18);
         }
         .vc-cristal::before {
           content: ''; position: absolute; inset: 0; border-radius: 999px; pointer-events: none;
