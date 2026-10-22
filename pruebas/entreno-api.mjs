@@ -790,5 +790,24 @@ await caso('el ciclo vigente lo decide la fecha: el nuevo no aparece antes de em
   igual((await llamar(handler, { accion: 'plan', name: yo })).fase.id, 'f2', 'la fecha pesa más que el orden');
 });
 
+
+await caso('el pase: quien ya tiene contraseña lo tiene que traer; sin contraseña, como siempre; el del CRM solo lee', async () => {
+  const { crearSesion } = await import(pathToFileURL(path.join(process.cwd(), 'api', 'authorize.js')).href);
+  const sb = base(); globalThis.fetch = sb.fetch;
+  // Sin contraseña todavía: entra por el nombre, igual que hoy.
+  igual((await llamar(handler, { accion: 'plan', name: yo })).ok, true, 'sin contraseña');
+  // Con contraseña: sin pase, no; con un pase inventado, no; con el suyo, sí.
+  sb.db.clientes[0].app_clave_hash = 'scrypt$sal$abc';
+  igual((await llamar(handler, { accion: 'plan', name: yo })).motivo, 'sesion', 'sin pase');
+  igual((await llamar(handler, { accion: 'plan', name: yo, sesion: 'v1.x.y.z' })).motivo, 'sesion', 'pase inventado');
+  igual((await llamar(handler, { accion: 'fotos', name: yo, sesion: 'v1.x.y.z' })).motivo, 'sesion', 'las fotos también');
+  const pase = crearSesion('Mauro Morón', 'scrypt$sal$abc');
+  igual((await llamar(handler, { accion: 'plan', name: yo, sesion: pase })).ok, true, 'con su pase');
+  igual((await llamar(handler, { accion: 'fotos', name: yo, sesion: pase })).ok, true, 'fotos con su pase');
+  // Si cambia la contraseña, el pase viejo deja de valer.
+  sb.db.clientes[0].app_clave_hash = 'scrypt$sal$otra';
+  igual((await llamar(handler, { accion: 'plan', name: yo, sesion: pase })).motivo, 'sesion', 'contraseña cambiada');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

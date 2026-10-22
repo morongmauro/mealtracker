@@ -623,6 +623,15 @@ export default function MealTracker() {
   // Cuenta con contraseña (visual nueva): la sesión guardada en el teléfono
   // y si la pantalla de cuenta sigue abierta (sus pasos de datos y avisos).
   const [sesionV2, setSesionV2] = useState(leerSesion);
+  // El servidor rechazó el pase (contraseña cambiada en otro teléfono, o un
+  // teléfono que entró solo con el nombre y la cuenta ya tiene contraseña):
+  // se suelta y vuelve la pantalla de entrar. A quien ya entró con su
+  // contraseña no le pasa nunca.
+  useEffect(() => {
+    const f = () => { guardarSesion(''); setSesionV2(''); };
+    window.addEventListener('mt:sesionInvalida', f);
+    return () => window.removeEventListener('mt:sesionInvalida', f);
+  }, []);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   // Ventanas de primera vez para quien ya tenía cuenta (ver más abajo).
   const [primeraVezVista, setPrimeraVezVista] = useState(() => { try { return !!localStorage.getItem('mt:primeraVezVista'); } catch (e) { return true; } });

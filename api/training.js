@@ -53,6 +53,8 @@ import { minutosDeRutinas, segundosRutina, minutosAterrizados } from './_tiempo.
 import { fechaCorte } from './_pagos.js';
 import manejarRelojes from './_relojes.js';
 import manejarVerComo from './_ver-como.js';
+import { leerPase } from './_verComo.js';
+import { sesionValida } from './authorize.js';
 import manejarBitacora from './_bitacora.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
@@ -71,8 +73,26 @@ const sb = async (path, opts = {}) => {
 // CRM, igual se le encuentra.
 async function buscarCliente(nombre) {
   return buscarClientePorNombre(sb, nombre,
-    'id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno,dia_pago',
+    'id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno,dia_pago,app_clave_hash',
     'id,user_id,nombre,estado,dias_entreno,dias_entreno_cantidad,lugar_entreno');
+}
+
+// ── EL PASE ──────────────────────────────────────────────────────────────
+// Quien ya tiene contraseña (app_clave_hash) tiene que traer el pase de su
+// cuenta en cada petición: el mismo que el teléfono guardó al entrar, así
+// que a quien ya entró no se le pide nada. Sin contraseña todavía, pasa por
+// el nombre como siempre (el CRM dice quiénes faltan). El coach, en «ver
+// como cliente», trae el pase del CRM: vale solo para LEER a ese cliente.
+const LECTURAS_PASE_CRM = new Set(['plan', 'rutina', 'mes', 'rutinas', 'catalogo', 'resumen', 'dash', 'conteo', 'medidas', 'comunidad', 'fotos']);
+function paseValido(cliente, cuerpo, accion, nombrePedido) {
+  if (cuerpo.pase) {
+    const p = leerPase(String(cuerpo.pase));
+    return !!p && normalizeName(p.name) === normalizeName(cliente.nombre)
+      && (LECTURAS_PASE_CRM.has(accion) || (accion === 'abrir' && cuerpo.crear === false));
+  }
+  if (!cliente.app_clave_hash) return true;
+  const s = cuerpo.sesion;
+  return !!s && (sesionValida(s, cliente.nombre, cliente.app_clave_hash) || sesionValida(s, nombrePedido, cliente.app_clave_hash));
 }
 
 // Lo que se le manda al cliente de un ejercicio. Lista blanca a propósito:
@@ -106,6 +126,7 @@ export default async function handler(req, res) {
   try {
     const cliente = await buscarCliente(cuerpo.name);
     if (!cliente) return res.status(200).json({ ok: false, motivo: 'sin_cliente' });
+    if (!paseValido(cliente, cuerpo, accion, cuerpo.name)) return res.status(200).json({ ok: false, motivo: 'sesion' });
 
     if (accion === 'plan') return res.status(200).json(await verPlan(cliente, hoy));
     if (accion === 'rutina') return res.status(200).json(await verRutina(cliente, cuerpo.id, hoy));

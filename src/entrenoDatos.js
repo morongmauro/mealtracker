@@ -40,6 +40,26 @@ function guardarCache(b, d) {
 }
 export const hayCache = (accion, name, extra = '') => !!leerCache({ accion, name, id: extra });
 
+// El pase de la cuenta (correo + contraseña) viaja con cada petición: el
+// servidor lo exige a quien ya tiene contraseña. En «ver como cliente» (el
+// coach desde el CRM) viaja el pase del CRM en su lugar. Si no hay nada
+// guardado, va solo el nombre, como siempre.
+export function conPase(body) {
+  try {
+    const s = localStorage.getItem('mt:sesion') || '';
+    if (s === 'ver-como') { const t = sessionStorage.getItem('mt:verComo'); return t ? { ...body, pase: t } : body; }
+    return s ? { ...body, sesion: s } : body;
+  } catch (e) { return body; }
+}
+// El servidor dijo que el pase no vale: la app lo suelta y vuelve a pedir
+// la contraseña (la misma pantalla de entrar de siempre).
+export function siPaseInvalido(r) {
+  if (r && r.ok === false && r.motivo === 'sesion') {
+    try { window.dispatchEvent(new CustomEvent('mt:sesionInvalida')); } catch (e) { /* nada */ }
+  }
+  return r;
+}
+
 async function pedir(body) {
   const cachear = LECTURAS_CACHE.has(body.accion);
   let r;
@@ -47,12 +67,14 @@ async function pedir(body) {
     const res = await fetch('/api/training', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(conPase(body)),
     });
-    r = res.ok ? await res.json() : { ok: false, motivo: `http_${res.status}` };
+    r = res.ok ? siPaseInvalido(await res.json()) : { ok: false, motivo: `http_${res.status}` };
   } catch (e) {
     r = { ok: false, motivo: 'sin_red' };
   }
+  // Sin pase válido no se muestra la copia guardada: hay que entrar.
+  if (r && r.ok === false && r.motivo === 'sesion') return r;
   if (!cachear) return r;
   if (r && r.ok) { guardarCache(body, r); return r; }
   const guardado = leerCache(body);
