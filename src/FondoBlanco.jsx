@@ -13,10 +13,14 @@ import React from 'react';
 import { COLORES_MODULO } from './vistaApp.js';
 
 const BLANCO = '#FCFCFD';
-const fondo = ({ p, q }, fuerte = 1) => `radial-gradient(48% 12% at 0% 16%, rgba(${p},${(0.26 * fuerte).toFixed(2)}), rgba(${p},0) 100%), `
-  + `radial-gradient(30% 8% at 100% 36%, rgba(${q},0.14), rgba(${q},0) 100%), `
-  + `radial-gradient(46% 12% at 100% 66%, rgba(${p},${(0.2 * fuerte).toFixed(2)}), rgba(${p},0) 100%), ${BLANCO}`;
-const capa = (sel, c, fuerte) => `${sel}{background:${fondo(c, fuerte)}!important;background-size:100% 1500px,100% 1500px,100% 1500px,auto!important;background-repeat:repeat-y!important;background-attachment:local!important}`;
+// Un solo degradado continuo: el color del módulo arriba, apagándose hacia
+// abajo, y un toque del segundo color a la derecha. Antes eran tres manchas
+// repartidas en un mosaico de 1500 px que se repetía: en páginas largas
+// (galería, calendario) se veían como franjas de color interrumpidas.
+const fondo = ({ p, q }, fuerte = 1) => `radial-gradient(95% 460px at 0% 0%, rgba(${p},${(0.24 * fuerte).toFixed(2)}), rgba(${p},0) 100%), `
+  + `radial-gradient(70% 380px at 100% 200px, rgba(${q},0.13), rgba(${q},0) 100%), `
+  + `linear-gradient(180deg, rgba(${p},${(0.10 * fuerte).toFixed(2)}) 0%, rgba(${p},0) 900px), ${BLANCO}`;
+const capa = (sel, c, fuerte) => `${sel}{background:${fondo(c, fuerte)}!important;background-size:auto!important;background-repeat:no-repeat!important;background-attachment:local!important}`;
 
 const CSS = [
   `body{background:${BLANCO}!important}`,
