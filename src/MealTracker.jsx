@@ -2191,6 +2191,12 @@ export default function MealTracker() {
       for (const r of [headerRef, chatBandRef]) {
         if (r.current) { r.current.style.transform = ''; r.current.style.top = `${arribaPx}px`; }
       }
+      // Lote 28 (solo Mauro): la portada del chat termina 56 px por debajo de
+      // la tarjeta de macros, medida en vivo (no con un alto fijo).
+      if (chatBandRef.current) {
+        const t = document.querySelector('[data-tarjeta-macros]');
+        if (t) chatBandRef.current.style.setProperty('--tarjeta-fondo', `${Math.round(t.getBoundingClientRect().bottom - arribaPx)}px`);
+      }
       if (goalsCardRef.current) {
         // La altura del header se lee EN VIVO (no la guardada): si la zona
         // de la muesca cambió y aún no se volvió a medir, la tarjeta igual
@@ -2268,6 +2274,8 @@ export default function MealTracker() {
   // La altura del header cambia (safe-area, píldora): al cambiar hay que
   // recolocar, porque la tarjeta de metas cuelga de ella.
   useEffect(() => { headerHRef.current = headerH; colocarRef.current?.(); }, [headerH]);
+  // La tarjeta de macros cambia de alto al compactarse: se vuelve a medir (tras su transición).
+  useEffect(() => { colocarRef.current?.(); const t = setTimeout(() => colocarRef.current?.(), 320); return () => clearTimeout(t); }, [cardCompact, view]);
 
   // TECLADO ABIERTO = PANTALLA CONGELADA.
   // En iOS, con el teclado arriba, arrastrar mueve el "visual viewport"
@@ -5945,11 +5953,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           // funde a blanco (55 %) y se desenfoca al pasar por detrás de la
           // tarjeta, y el velo sigue 56 px por debajo de ella apagándose.
           ...(lote25() ? {
-            height: `calc(${headerH}px + ${cardCompact ? 108 : 164}px + 56px)`,
-            background: 'linear-gradient(180deg, rgba(252,252,253,0.55) 0%, rgba(252,252,253,0.55) calc(100% - 64px), rgba(252,252,253,0) 100%)',
+            // Igual que la barra del Dash: detrás de la tarjeta, blanco al 55 %
+            // con desenfoque; de la tarjeta hacia abajo, 56 px en los que el
+            // velo (15 % → 0) y el desenfoque se apagan. Antes de ese tramo,
+            // nada: el contenido se desvanece justo al pasar por detrás.
+            height: 'calc(var(--tarjeta-fondo, 180px) + 56px)',
+            background: 'linear-gradient(180deg, rgba(252,252,253,0.55) 0%, rgba(252,252,253,0.55) calc(100% - 56px), rgba(252,252,253,0.15) calc(100% - 50px), rgba(252,252,253,0) 100%)',
             WebkitBackdropFilter: 'blur(14px)', backdropFilter: 'blur(14px)',
-            WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 calc(100% - 64px), transparent 100%)',
-            maskImage: 'linear-gradient(180deg, #000 0%, #000 calc(100% - 64px), transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 calc(100% - 56px), rgba(0,0,0,0.6) calc(100% - 50px), transparent 100%)',
+            maskImage: 'linear-gradient(180deg, #000 0%, #000 calc(100% - 56px), rgba(0,0,0,0.6) calc(100% - 50px), transparent 100%)',
+            transition: 'none',
           } : {}),
         } : v2 ? (() => { const t = TEMAS_CABECERA.comida; return {
           zIndex: 25,
@@ -6659,7 +6672,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       )}
 
       {(showLearning || (v2 && capasVistas.aprende)) && (
-        <div data-capa-v2 data-aprende {...capaProps(showLearning)} className="fixed inset-0" style={{ zIndex: showLearning ? 37 : 36, background: BG }}>
+        <div data-capa-v2 data-aprende {...capaProps(showLearning)} className="fixed inset-0" style={{ zIndex: showLearning ? 37 : 36, background: fondoBlanco() ? '#FCFCFD' : BG }}>
           <CapaActiva.Provider value={showLearning}>
           <div className="fixed inset-0 pointer-events-none" style={{ background: BG_STAINS }} />
           {/* El difuminado SUPERIOR ya no se dibuja aquí: se pintaba encima
@@ -6701,7 +6714,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             } : undefined}
             style={{
               position: 'absolute', top: 0, left: 0, width: '100%',
-              height: 'calc(100% - 64px - env(safe-area-inset-bottom, 0px))',
+              // Lote 28 (fondo blanco, solo Mauro): a toda la altura, para que
+              // lo de abajo pase por detrás de la barra y se desvanezca ahí
+              // (antes el iframe terminaba 64 px arriba y se veía la capa crema).
+              height: fondoBlanco() ? '100%' : 'calc(100% - 64px - env(safe-area-inset-bottom, 0px))',
               border: 0, background: 'transparent',
               // Con «Hoy» abierto el centro sigue cargado por detrás.
               visibility: v2 && (aprendeSub === 'hoy' || aprendeSub === 'programa') ? 'hidden' : 'visible',
