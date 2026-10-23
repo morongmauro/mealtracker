@@ -1331,7 +1331,8 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
           padding: '8px 16px 9px', borderRadius: 999,
           // Lote 28 (solo Mauro): de extremo a extremo, delgada y en una sola
           // línea: Volver · 1/7 · barrita · tiempo.
-          ...(lote25() ? { top: 'env(safe-area-inset-top, 0px)', margin: `calc(-1 * (${FADE_TOP}px + 6px)) calc(50% - 50vw) 14px`, padding: '5px 14px 6px', borderRadius: 0 } : {}),
+          // Píldora ovalada con margen a los bordes del teléfono (12 px).
+          ...(lote25() ? { top: 'calc(env(safe-area-inset-top, 0px) + 6px)', margin: `calc(-1 * (${FADE_TOP}px + 6px)) calc(50% - 50vw + 12px) 14px`, padding: '5px 14px 6px', borderRadius: 999 } : {}),
           background: 'linear-gradient(160deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.26) 100%)',
           backdropFilter: 'blur(36px) saturate(2) contrast(1.05)', WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 0.8px rgba(255,255,255,0.28), inset 0 0 14px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 10px 22px rgba(40,44,30,0.14)',
