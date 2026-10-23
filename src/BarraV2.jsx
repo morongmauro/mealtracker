@@ -14,7 +14,7 @@ import { vibrar } from './vibrar.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour, Compass, Brain } from '@phosphor-icons/react';
 import { SECCION, DASH_AZUL } from './theme.js';
-import { enPrueba } from './vistaApp.js';
+import { enPrueba, lote25 } from './vistaApp.js';
 
 export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: ForkKnife, aprende: GraduationCap };
 // Vista en prueba: los mismos íconos que van dentro del blob de cada cabecera
@@ -107,6 +107,15 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
         // entra debajo de ella.
         position: 'absolute', left: 0, right: 0, bottom: 0, height: 'calc(100% + 6px)', pointerEvents: 'none',
         background: 'linear-gradient(0deg, rgba(252,252,253,0.55) 0%, rgba(252,252,253,0.25) 50%, rgba(252,252,253,0) 100%)',
+        // Lote 28 (solo Mauro): además de aclararse, lo que pasa por detrás
+        // se desenfoca de forma progresiva (la máscara apaga el desenfoque
+        // hacia arriba, junto con el velo).
+        ...(lote25() ? {
+          height: 'calc(100% + 56px)',
+          background: 'linear-gradient(0deg, rgba(252,252,253,0.42) 0%, rgba(252,252,253,0.22) 40%, rgba(252,252,253,0) 100%)',
+          WebkitBackdropFilter: 'blur(14px)', backdropFilter: 'blur(14px)',
+          WebkitMaskImage: 'linear-gradient(0deg, #000 0%, #000 30%, transparent 100%)', maskImage: 'linear-gradient(0deg, #000 0%, #000 30%, transparent 100%)',
+        } : {}),
       }} />}
       <style>{`
         .bv2-cristal {

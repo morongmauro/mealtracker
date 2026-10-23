@@ -2415,7 +2415,8 @@ try {
       const nav = document.querySelector('nav[aria-label="Secciones"]'), r = nav.getBoundingClientRect(), velo = document.querySelector('[data-velo-barra]');
       const cub = document.querySelector('nav [data-seccion-boton="comida"] svg');
       // El velo arranca justo donde empieza la barra: el contenido se desvanece al pasar por detrás, no antes.
-      return r.left >= 16 && innerWidth - r.right >= 16 && r.height >= 64 && !!velo && velo.getBoundingClientRect().top <= r.top && velo.getBoundingClientRect().top > r.top - 20 && !!cub;
+      // Lote 28: el velo arranca hasta 60 px por encima de la barra (ahí empieza el desenfoque progresivo, apagado por la máscara).
+      return r.left >= 16 && innerWidth - r.right >= 16 && r.height >= 64 && !!velo && velo.getBoundingClientRect().top <= r.top && velo.getBoundingClientRect().top > r.top - 64 && /blur/.test(getComputedStyle(velo).backdropFilter || getComputedStyle(velo).webkitBackdropFilter || '') && !!cub;
     }));
     ok('vista en prueba: el botón del coach lleva el logo de WhatsApp y no rebota la página arriba', await p.evaluate(() => {
       const b = [...document.querySelectorAll('[data-view="dash"] [data-atajos] a[href*="wa.me"]')][0];

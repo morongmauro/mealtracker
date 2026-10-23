@@ -1368,6 +1368,13 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     <div aria-hidden="true" data-velo-arriba style={{
       position: 'fixed', top: 0, left: 0, right: 0, height: 'calc(env(safe-area-inset-top, 0px) + 74px)', zIndex: 19, pointerEvents: 'none',
       background: 'linear-gradient(180deg, rgba(252,252,253,0.55) 0%, rgba(252,252,253,0.25) 50%, rgba(252,252,253,0) 100%)',
+      // Lote 28 (solo Mauro): desenfoque progresivo, como la barra de navegación.
+      ...(lote25() ? {
+        height: 'calc(env(safe-area-inset-top, 0px) + 84px)',
+        background: 'linear-gradient(180deg, rgba(252,252,253,0.42) 0%, rgba(252,252,253,0.22) 45%, rgba(252,252,253,0) 100%)',
+        WebkitBackdropFilter: 'blur(14px)', backdropFilter: 'blur(14px)',
+        WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 40%, transparent 100%)', maskImage: 'linear-gradient(180deg, #000 0%, #000 40%, transparent 100%)',
+      } : {}),
     }} />
   );
   return (

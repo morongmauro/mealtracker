@@ -85,7 +85,8 @@ export function BlobVidrio({ color, segundo = null, tam = 120, intensidad = 0.2,
           <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,.24)" strokeWidth="24" filter={`url(#${id}g)`} />
           <path d={BLOB_PATH} fill="none" stroke="rgba(255,255,255,.85)" strokeWidth="2" filter={`url(#${id}d)`} />
           <path d={BLOB_PATH} fill="none" stroke={`url(#${id}b)`} strokeWidth="22" filter={`url(#${id}i)`} />
-          <ellipse cx="54" cy="38" rx="46" ry="26" fill={`url(#${id}h)`} transform="rotate(-20 56 40)" />
+          {/* El reflejo al 45 %: queda la luz sin que se marque la curvita arriba a la izquierda. */}
+          <ellipse cx="54" cy="38" rx="46" ry="26" fill={`url(#${id}h)`} opacity="0.45" transform="rotate(-20 56 40)" />
           <path d={BLOB_PATH} fill="none" stroke={`url(#${id}r)`} strokeWidth="2" />
         </g>
       </svg>

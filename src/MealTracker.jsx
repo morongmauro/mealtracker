@@ -5941,6 +5941,16 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 50%, rgba(0,0,0,0.5) 75%, transparent 100%)',
           maskImage: 'linear-gradient(180deg, #000 0%, #000 50%, rgba(0,0,0,0.5) 75%, transparent 100%)',
           transition: 'height 0.25s cubic-bezier(0.2, 0, 0, 1)',
+          // Lote 28 (solo Mauro): igual que la barra del Dash: lo que sube se
+          // funde a blanco (55 %) y se desenfoca al pasar por detrás de la
+          // tarjeta, y el velo sigue 56 px por debajo de ella apagándose.
+          ...(lote25() ? {
+            height: `calc(${headerH}px + ${cardCompact ? 108 : 164}px + 56px)`,
+            background: 'linear-gradient(180deg, rgba(252,252,253,0.55) 0%, rgba(252,252,253,0.55) calc(100% - 64px), rgba(252,252,253,0) 100%)',
+            WebkitBackdropFilter: 'blur(14px)', backdropFilter: 'blur(14px)',
+            WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 calc(100% - 64px), transparent 100%)',
+            maskImage: 'linear-gradient(180deg, #000 0%, #000 calc(100% - 64px), transparent 100%)',
+          } : {}),
         } : v2 ? (() => { const t = TEMAS_CABECERA.comida; return {
           zIndex: 25,
           height: `calc(${headerH}px + 210px)`,

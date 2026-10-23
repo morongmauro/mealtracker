@@ -1651,6 +1651,7 @@ function menuADia(menu, g) {
 }
 
 const COST_LABELS = { 1: 'Económica', 2: 'Moderada', 3: 'Premium' };
+const CHIP_MACRO = { fontStyle: 'normal', fontSize: 11, fontWeight: 750, padding: '2px 7px', borderRadius: 99, lineHeight: 1.3 };
 const SORT_NOTES = {
   reco: 'Las más equilibradas en tiempo, costo y eficiencia nutricional. Nuestra selección para empezar.',
   rapidos: 'Ordenadas de menor a mayor tiempo de preparación.',
@@ -3070,7 +3071,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
         {/* Cards */}
         <div className="space-y-2.5">
-          {list.map(({ recipe, sc }) => (
+          {(() => {
+            const fila = ({ recipe, sc }) => (
             <button
               key={recipe.id}
               onPointerDown={onCardPointerDown}
@@ -3083,16 +3085,26 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               onClick={(e) => e.preventDefault()}
               className="w-full text-left rounded-[20px] p-3 active:scale-[0.99] transition flex items-center gap-3"
               style={v2 ? { background: '#FFFFFF', borderRadius: 20, boxShadow: SOMBRA_V2, touchAction: 'manipulation' } : { ...cardStyle, touchAction: 'manipulation' }}>
-              <div className="flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: v2 ? 999 : 12, background: v2 ? ACCENT_PASTEL : SURFACE_2, fontSize: 24, flexShrink: 0 }}>{recipe.icon}</div>
+              <div className="flex items-center justify-center" style={{ width: v2 && lote25() ? 44 : 48, height: v2 && lote25() ? 44 : 48, borderRadius: v2 ? 999 : 12, background: v2 ? ACCENT_PASTEL : SURFACE_2, fontSize: v2 && lote25() ? 22 : 24, flexShrink: 0 }}>{recipe.icon}</div>
               {v2 ? (
                 <div className="flex-1 min-w-0" data-receta-tarjeta-v2>
                   <div className="truncate" style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em' }}>{recipe.name}</div>
                   <div className="truncate" style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2 }}>
-                    {displaySlot(recipe.slot)} · {recipe.time} · {COST_LABELS[META[recipe.id].cost]}{isHighProtein(recipe) && <> · <span style={{ color: '#2F7F45', fontWeight: 650 }}>Alta proteína</span></>}
+                    {lote25() ? null : <>{displaySlot(recipe.slot)} · </>}{recipe.time} · {COST_LABELS[META[recipe.id].cost]}{isHighProtein(recipe) && <> · <span style={{ color: '#2F7F45', fontWeight: 650 }}>Alta proteína</span></>}
                   </div>
+                  {lote25() ? (
+                    // Lote 28 (opción C, solo Mauro): kcal y macros en chips de los colores de la marca.
+                    <div className="num" data-receta-chips style={{ display: 'flex', gap: 5, marginTop: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <i style={{ ...CHIP_MACRO, background: '#1F1F1F', color: '#FFFFFF' }}>{r0(sc.totals.kcal)} kcal</i>
+                      <i style={{ ...CHIP_MACRO, background: 'rgba(60,123,214,0.14)', color: '#2F6CC4' }}>P {r0(sc.totals.p)}</i>
+                      <i style={{ ...CHIP_MACRO, background: 'rgba(242,201,76,0.26)', color: '#8A6A0C' }}>C {r0(sc.totals.c)}</i>
+                      <i style={{ ...CHIP_MACRO, background: 'rgba(238,132,52,0.16)', color: '#C95F17' }}>G {r0(sc.totals.g)}</i>
+                    </div>
+                  ) : (
                   <div className="num" style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 4 }}>
                     <b style={{ color: TEXT, fontWeight: 750 }}>{r0(sc.totals.kcal)} kcal</b> · P {r0(sc.totals.p)} · C {r0(sc.totals.c)} · G {r0(sc.totals.g)}
                   </div>
+                  )}
                 </div>
               ) : (
               <div className="flex-1 min-w-0">
@@ -3111,9 +3123,22 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                 </div>
               </div>
               )}
-              {v2 && <ChevronLeft size={18} style={{ color: TEXT_LIGHT, transform: 'rotate(180deg)', flex: 'none' }} />}
+              {v2 && !lote25() && <ChevronLeft size={18} style={{ color: TEXT_LIGHT, transform: 'rotate(180deg)', flex: 'none' }} />}
             </button>
-          ))}
+            );
+            if (!(v2 && lote25())) return list.map(fila);
+            // Lote 28 (opción C, solo Mauro): agrupadas por momento del día.
+            const grupoDe = (slot) => slot === 'desayuno' ? 'Desayuno' : slot === 'snack' ? 'Snack' : 'Almuerzo / Cena';
+            const porGrupo = new Map();
+            for (const it of list) { const g = grupoDe(it.recipe.slot); if (!porGrupo.has(g)) porGrupo.set(g, []); porGrupo.get(g).push(it); }
+            const grupos = ['Desayuno', 'Almuerzo / Cena', 'Snack'].filter(g => porGrupo.has(g));
+            return grupos.map(g => (
+              <React.Fragment key={g}>
+                {grupos.length > 1 && <div data-receta-grupo style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#2F7F45', margin: '12px 2px 2px' }}>{g}</div>}
+                {porGrupo.get(g).map(fila)}
+              </React.Fragment>
+            ));
+          })()}
           {list.length === 0 && (
             <div className="text-center py-10 text-[13px]" style={{ color: TEXT_LIGHT }}>
               {searching ? `Sin resultados para “${query}”.` : `Aún no hay recetas sugeridas para ${(SLOT_FILTERS.find(f => f.key === filterSlot)?.label || 'esta comida').toLowerCase()}. Pronto agregamos más.`}
