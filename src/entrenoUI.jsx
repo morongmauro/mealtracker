@@ -296,6 +296,7 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
   // cambia aunque el sistema desplace: no hay nada contra lo que pelear. Se
   // escribe directo en el estilo, sin esperar a React, en un solo paso.
   const fondoRef = useRef(null);
+  const antes = useRef(null);
   useEffect(() => {
     if (!abierta || typeof window === 'undefined') return undefined;
     const vv = window.visualViewport;
@@ -311,6 +312,12 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
       // Lo que tapa el teclado: desde el borde de abajo de lo que se ve.
       const tapado = Math.max(0, Math.round(window.innerHeight - (vv.offsetTop + vv.height)));
       if (dentro && tapado > 80) {
+        // Lo de antes del teclado, para devolverlo TAL CUAL al cerrarlo.
+        // (Borrarlo dejaba el fondo sin borde de abajo: se encogía al alto de
+        // la hoja y todo quedaba pegado arriba.)
+        if (!f.hasAttribute('data-con-teclado')) {
+          antes.current = { bottom: f.style.bottom, paddingBottom: f.style.paddingBottom, maxHeight: pnl.style.maxHeight };
+        }
         f.style.bottom = `${tapado}px`;
         f.style.paddingBottom = '0px';
         f.setAttribute('data-con-teclado', '1');
@@ -322,9 +329,11 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
           if (r.bottom > rs.bottom - 8) sc.scrollTop += r.bottom - rs.bottom + 12;
         }
       } else if (f.hasAttribute('data-con-teclado')) {
-        f.style.bottom = ''; f.style.paddingBottom = '';
+        const a = antes.current || {};
+        f.style.bottom = a.bottom || '0px';
+        f.style.paddingBottom = a.paddingBottom || 'var(--mt-reloj-alto, 0px)';
+        pnl.style.maxHeight = a.maxHeight || '';
         f.removeAttribute('data-con-teclado');
-        pnl.style.maxHeight = '';
       }
     };
     // iOS: enfocar sin que Safari desplace la pantalla. El campo se corre un

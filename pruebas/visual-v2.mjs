@@ -3166,7 +3166,9 @@ try {
       Object.defineProperty(vv, 'height', { configurable: true, get: () => alto });
       Object.defineProperty(vv, 'offsetTop', { configurable: true, get: () => arriba });
       const f = document.querySelector('[data-hoja-fondo]');
-      const leer = () => ({ abajo: f.style.bottom, marca: f.dataset.conTeclado || null, max: document.querySelector('[data-hoja-panel]').style.maxHeight });
+      const leer = () => ({ abajo: f.style.bottom, marca: f.dataset.conTeclado || null, max: document.querySelector('[data-hoja-panel]').style.maxHeight,
+        fondoAlto: Math.round(f.getBoundingClientRect().height), fondoArriba: Math.round(f.getBoundingClientRect().top), panelAbajo: Math.round(document.querySelector('[data-hoja-panel]').getBoundingClientRect().bottom) });
+      const original = leer();
       vv.dispatchEvent(new Event('resize')); await espera(80);
       const sinMover = leer();
       // El sistema desplaza la pantalla 200 px (lo que hace el iPhone): la hoja
@@ -3178,11 +3180,15 @@ try {
       delete vv.height; delete vv.offsetTop; document.activeElement.blur(); vv.dispatchEvent(new Event('resize')); await espera(80);
       const cerrado = leer();
       window.scrollTo = so;
-      return { sinMover, desplazada, otraVez, cerrado, saltos, alto: innerHeight };
+      return { original, sinMover, desplazada, otraVez, cerrado, saltos, alto: innerHeight };
     });
     ok('lote 30: con teclado la hoja se pega encima del teclado (abajo de lo que se ve)', tec.sinMover.marca === '1' && tec.sinMover.abajo === `${tec.alto - 480}px` && tec.sinMover.max === '468px', JSON.stringify(tec));
     ok('lote 30: si el sistema desplaza la pantalla, la hoja se recoloca una vez y queda quieta (sin bucle)', tec.desplazada.abajo === `${tec.alto - 680}px` && JSON.stringify(tec.otraVez) === JSON.stringify(tec.desplazada) && tec.saltos === 0, JSON.stringify(tec));
-    ok('lote 30: al cerrar el teclado la hoja vuelve abajo', tec.cerrado.marca === null && tec.cerrado.abajo === '', JSON.stringify(tec.cerrado));
+    // Medido de verdad: el fondo vuelve a cubrir TODA la pantalla y la hoja
+    // queda en el mismo sitio que antes del teclado (no pegada arriba).
+    ok('lote 30: al cerrar el teclado la hoja vuelve exactamente a donde estaba (abajo, con el fondo en toda la pantalla)', tec.cerrado.marca === null
+      && tec.cerrado.fondoArriba === 0 && tec.cerrado.fondoAlto === tec.alto && tec.cerrado.panelAbajo === tec.original.panelAbajo
+      && tec.cerrado.abajo === tec.original.abajo && tec.cerrado.max === tec.original.max, JSON.stringify({ original: tec.original, cerrado: tec.cerrado }));
     await p.keyboard.press('Escape'); await espera(400);
     await p.locator('[data-re-id="re-e4"] button[aria-label^="Nota al coach"]').first().click(); await espera(700);
     ok('lote 30: al volver a abrirla, lo enviado sigue ahí', (await p.locator('[data-hoja-panel] [data-mia-hilo]').count()) === 2);
