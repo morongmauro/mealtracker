@@ -39,7 +39,10 @@ const CSS = [
   // Curva «C + luz»: la ola asimétrica (más baja a la izquierda), con un filo
   // de luz blanca que sigue la curva y un reflejo suave arriba. Se lee como
   // un vidrio de color sin cambiar el color de la sección.
-  `[data-banda]{height:calc(env(safe-area-inset-top, 0px) + 36px)!important;-webkit-mask-image:radial-gradient(ellipse 75% 26px at 36% 100%, transparent 98%, #000 100%)!important;mask-image:radial-gradient(ellipse 75% 26px at 36% 100%, transparent 98%, #000 100%)!important;background:radial-gradient(ellipse 75% 29.5px at 36% 100%, rgba(255,255,255,.85) 96%, rgba(255,255,255,0) 100%), linear-gradient(180deg, rgba(255,255,255,.30) 0%, rgba(255,255,255,.08) 55%, rgba(255,255,255,0) 100%), linear-gradient(180deg, var(--banda-tope) 0%, var(--banda-tope) 100%)!important}`,
+  // Curva A (lote 28): ola con el centro al 24 % (subida izquierda corta,
+  // bajada derecha larga), filo de luz blanco suave y reflejo arriba. Sin sombra
+  // ni contorno gris: la curva la dibuja la luz.
+  `[data-banda]{height:calc(env(safe-area-inset-top, 0px) + 36px)!important;-webkit-mask-image:radial-gradient(ellipse 72% 28px at 24% 100%, transparent 98%, #000 100%)!important;mask-image:radial-gradient(ellipse 72% 28px at 24% 100%, transparent 98%, #000 100%)!important;background:radial-gradient(ellipse 72% 32px at 24% 100%, rgba(255,255,255,0) 82%, rgba(255,255,255,.9) 88%, rgba(255,255,255,0) 100%), linear-gradient(180deg, rgba(255,255,255,.40) 0%, rgba(255,255,255,.12) 50%, rgba(255,255,255,0) 100%), linear-gradient(180deg, var(--banda-tope) 0%, var(--banda-tope) 100%)!important}`,
   `[data-cabecera-hoy]:has(>[data-banda]){padding-top:calc(env(safe-area-inset-top, 0px) + 46px)!important}`,
 ].map(r => r.replace(/(^|\})\s*([^{}]+)\{/g, (m, a, sel) => `${a}${sel.split(',').map(x => `html[data-fondo-blanco] ${x.trim()}`).join(',')}{`)).join('\n');
 

@@ -5957,12 +5957,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             // con desenfoque; de la tarjeta hacia abajo, 56 px en los que el
             // velo (15 % → 0) y el desenfoque se apagan. Antes de ese tramo,
             // nada: el contenido se desvanece justo al pasar por detrás.
-            height: 'calc(var(--tarjeta-fondo, 180px) + 56px)',
-            background: 'linear-gradient(180deg, rgba(252,252,253,0.55) 0%, rgba(252,252,253,0.55) calc(100% - 56px), rgba(252,252,253,0.15) calc(100% - 50px), rgba(252,252,253,0) 100%)',
-            WebkitBackdropFilter: 'blur(14px)', backdropFilter: 'blur(14px)',
-            WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 calc(100% - 56px), rgba(0,0,0,0.6) calc(100% - 50px), transparent 100%)',
-            maskImage: 'linear-gradient(180deg, #000 0%, #000 calc(100% - 56px), rgba(0,0,0,0.6) calc(100% - 50px), transparent 100%)',
-            transition: 'none',
+            // Sin portada: el degradado de la marca llega hasta el borde de
+            // arriba y el contenido solo se desvanece al entrar por detrás de
+            // la tarjeta de macros (su propio vidrio lo desenfoca y aclara).
+            display: 'none',
           } : {}),
         } : v2 ? (() => { const t = TEMAS_CABECERA.comida; return {
           zIndex: 25,
@@ -6034,6 +6032,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)', backdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 0.8px rgba(255,255,255,0.28), inset 0 0 30px rgba(255,255,255,0.35), inset 0 -16px 24px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 18px 44px rgba(40,44,30,0.18)',
           } : {}),
+          // Lote 28 (sin portada en el chat): la tarjeta lleva más blanco para
+          // que lo que pasa por detrás se desvanezca de verdad al entrar.
+          ...(v2 && lote25() ? { background: 'linear-gradient(160deg, rgba(255,255,255,0.74) 0%, rgba(255,255,255,0.60) 50%, rgba(255,255,255,0.68) 100%)' } : {}),
           overflow: 'hidden',
           transition: 'padding 0.25s cubic-bezier(0.2, 0, 0, 1)'
         }}>

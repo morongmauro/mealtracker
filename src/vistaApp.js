@@ -34,14 +34,14 @@ export const puedeCompacta = (nombre) => PRUEBA_TODOS || VISTA_COMPACTA_PRUEBA.i
 // Nota como íconos junto a lo recetado, en una sola fila, y al terminar un
 // ejercicio la pantalla baja sola al siguiente. Para todos: TODOS en true.
 export const RUTINA_LIGERA_PRUEBA = ['mauro moron'];
-export const RUTINA_LIGERA_TODOS = false;
+export const RUTINA_LIGERA_TODOS = PRUEBA_TODOS;
 export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || ((PRUEBA_TODOS || RUTINA_LIGERA_PRUEBA.includes(normal(nombre))) && enPrueba());
 
 // Fondo blanco con el color del módulo (y un segundo color muy suave), sin
 // la píldora negra de arriba y con la franja curva más corta (a prueba).
 // Para todos: FONDO_BLANCO_TODOS en true.
 export const FONDO_BLANCO_PRUEBA = ['mauro moron'];
-export const FONDO_BLANCO_TODOS = false;
+export const FONDO_BLANCO_TODOS = PRUEBA_TODOS;
 export function fondoBlanco() {
   return FONDO_BLANCO_TODOS || ((PRUEBA_TODOS || FONDO_BLANCO_PRUEBA.includes(normal(nombreGuardado()))) && enPrueba());
 }
@@ -58,16 +58,20 @@ export const aclarar = (rgb, cuanto) => '#' + rgb.split(',').map(Number)
 
 // El blob de vidrio en las cabeceras (a prueba). Para todos: TODOS en true.
 export const BLOB_VIDRIO_PRUEBA = ['mauro moron'];
-export const BLOB_VIDRIO_TODOS = false;
+export const BLOB_VIDRIO_TODOS = PRUEBA_TODOS;
 export function blobVidrio() {
   return BLOB_VIDRIO_TODOS || ((PRUEBA_TODOS || BLOB_VIDRIO_PRUEBA.includes(normal(nombreGuardado()))) && enPrueba());
 }
 
+// Go para todos (23 oct): todo lo que estaba a prueba en la vista de Mauro
+// (fondo blanco, blob de vidrio, lote 25-28, rutina ligera) es de todos. Los
+// «TODOS» siguen a PRUEBA_TODOS para que las pruebas automáticas, que lo
+// apagan con mt:pruebaTodos = '0', sigan revisando la vista de antes.
 // Lote 25 (a prueba, solo Mauro): hojas con la marca arriba compacta,
 // carga/vacíos con el color del módulo, transición fundido y sube, vibración
 // con jerarquía y escala de letra Apple. Para todos: LOTE25_TODOS en true.
 export const LOTE25_PRUEBA = ['mauro moron', 'mauro moron2'];
-export const LOTE25_TODOS = false;
+export const LOTE25_TODOS = PRUEBA_TODOS;
 export function lote25() {
   return enPrueba() && (LOTE25_TODOS || LOTE25_PRUEBA.includes(normal(nombreGuardado())));
 }

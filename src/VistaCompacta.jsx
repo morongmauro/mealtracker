@@ -12,7 +12,6 @@ import { Barbell, ForkKnife, SquaresFour, ChartLineUp, GraduationCap, UsersThree
 import { Hoja } from './entrenoUI.jsx';
 import { AnilloMarca } from './GraficasV2.jsx';
 import { SECCION, DASH_AZUL, TEXT, TEXT_MUTED } from './theme.js';
-import { BlobVidrio } from './Blob.jsx';
 import { enPrueba } from './vistaApp.js';
 
 const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.07)';
@@ -144,16 +143,15 @@ export function gruposMas({ entrenoOn, aprendeOn, whatsapp, ir }) {
 
 // ── La cabecera corta (Entrenamiento compacto) ─────────────────────────────
 // Título, el aro chico de la semana y el cambio entre las opciones.
-// Vista en prueba: el aro va dentro del blob blanco de la marca (como en las
-// cabeceras), con su ícono y la cifra en grafito, y arriba un degradado
-// suave del color de la sección en una esquina.
+// Vista compacta: el aro con su ícono y la cifra en grafito (sin blob), y
+// arriba un degradado suave del color de la sección en una esquina.
 const ICONO_TEMA = { entreno: Barbell, comida: ForkKnife, dash: Compass, aprende: Brain };
 const COLOR_TEMA = { entreno: '#5F6670', comida: '#46965A', dash: '#3C7BD6', aprende: '#EE8434' };
 function AroBlob({ aro, tema, alTocar }) {
   const Ic = ICONO_TEMA[tema] || Barbell, c = COLOR_TEMA[tema] || TEXT;
   return (
     <button onClick={alTocar} aria-label="Tu semana" data-aro-blob-compacta style={{ position: 'relative', width: 78, height: 78, border: 'none', background: 'transparent', padding: 0, cursor: alTocar ? 'pointer' : 'default', flex: 'none' }}>
-      <BlobVidrio tam={78} color={c} segundo="#F2C94C" />
+      {/* Vista compacta: el aro solo, sin el blob (el estilo nuevo, más liviano). */}
       <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
         <AnilloMarca frac={aro.frac} color={c} tam={60} grosor={5} plano riel={`${c}22`}>
           <span style={{ display: 'grid', placeItems: 'center', gap: 1 }}>
