@@ -1329,6 +1329,9 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
           position: 'sticky', top: 'calc(env(safe-area-inset-top, 0px) + 6px)', zIndex: 20,
           margin: `calc(-1 * (${FADE_TOP}px + 6px)) 0 14px`,
           padding: '8px 16px 9px', borderRadius: 999,
+          // Lote 28 (solo Mauro): de extremo a extremo, delgada y en una sola
+          // línea: Volver · 1/7 · barrita · tiempo.
+          ...(lote25() ? { top: 'env(safe-area-inset-top, 0px)', margin: `calc(-1 * (${FADE_TOP}px + 6px)) calc(50% - 50vw) 14px`, padding: '5px 14px 6px', borderRadius: 0 } : {}),
           background: 'linear-gradient(160deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.26) 100%)',
           backdropFilter: 'blur(36px) saturate(2) contrast(1.05)', WebkitBackdropFilter: 'blur(36px) saturate(2) contrast(1.05)',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(255,255,255,0.35), inset 0 0 0 0.8px rgba(255,255,255,0.28), inset 0 0 14px rgba(255,255,255,0.35), inset 0 -8px 12px rgba(30,30,40,0.10), 0 0 0 0.5px rgba(30,30,40,0.045), 0 1px 2px rgba(30,30,40,0.06), 0 10px 22px rgba(40,44,30,0.14)',
@@ -1346,10 +1349,19 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
               borderRadius: 999, border: 0, background: prueba ? 'transparent' : 'rgba(118,118,128,0.14)', color: prueba ? '#6E6E73' : TEXT, cursor: 'pointer',
               fontFamily: 'inherit', fontSize: prueba ? 12 : 13, fontWeight: 700,
             }}><ChevronLeft size={prueba ? 14 : 16} /> {prueba ? 'Volver' : 'Mi semana'}</button>
-            <span style={{ fontWeight: prueba ? 600 : 700, color: prueba ? '#6E6E73' : TEXT, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ejHechos}/{ejTotal} ejercicios</span>
+            <span style={{ fontWeight: prueba ? 600 : 700, color: prueba ? '#6E6E73' : TEXT, flex: prueba && lote25() ? 'none' : 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>{ejHechos}/{ejTotal}{prueba && lote25() ? '' : ' ejercicios'}</span>
+            {prueba && lote25() && (
+              // La barrita en la misma línea: un segmento por ejercicio, blanco
+              // que se va llenando de grafito.
+              <span data-barrita-ejercicios style={{ flex: 1, minWidth: 40, display: 'grid', gridTemplateColumns: `repeat(${Math.min(ejTotal, 24)}, 1fr)`, gap: 3, alignItems: 'center', margin: '0 4px' }}>
+                {Array.from({ length: Math.min(ejTotal, 24) }, (_, i) => (
+                  <span key={i} data-segmento={i < Math.round((ejHechos / Math.max(1, ejTotal)) * Math.min(ejTotal, 24)) ? 'hecho' : 'falta'} style={{ height: 4, borderRadius: 9, background: i < Math.round((ejHechos / Math.max(1, ejTotal)) * Math.min(ejTotal, 24)) ? '#1D1D1F' : 'rgba(255,255,255,0.92)', boxShadow: '0 0 0 0.5px rgba(30,30,40,0.10)', transition: 'background .25s ease' }} />
+                ))}
+              </span>
+            )}
             {inicio && hechas > 0 && <RelojSesion desde={inicio} v2 />}
           </div>
-          {ejTotal <= 16 ? (
+          {prueba && lote25() ? null : ejTotal <= 16 ? (
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${ejTotal}, 1fr)`, gap: prueba ? 3 : 4, marginTop: prueba ? 5 : 8 }}>
               {Array.from({ length: ejTotal }, (_, i) => (
                 <span key={i} data-segmento={i < ejHechos ? 'hecho' : 'falta'} style={{ height: prueba ? 3 : 4, borderRadius: 9, background: i < ejHechos ? '#1D1D1F' : 'rgba(118,118,128,0.18)', transition: 'background .25s ease' }} />
@@ -2325,13 +2337,15 @@ function BarraCuenta({ cuenta, queda, onPausa, onListo }) {
       position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 65,
       borderRadius: 20, background: '#1D1D1F', color: '#fff', boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
       display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px 10px 14px',
+      // Lote 28 (solo Mauro): del ancho justo, pegada a la derecha (el nombre se acorta si hace falta).
+      ...(lote25() ? { left: 'auto', width: 'max-content', maxWidth: 'calc(100vw - 24px)', gap: 9, padding: '8px 10px 8px 12px' } : {}),
     }}>
       <svg width="28" height="28" viewBox="0 0 28 28" style={{ flex: 'none' }} aria-hidden="true">
         <circle cx="14" cy="14" r={r} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="3" />
         <circle cx="14" cy="14" r={r} fill="none" stroke="#F2C94C" strokeWidth="3" strokeLinecap="round"
           strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 14 14)" style={{ transition: 'stroke-dashoffset .25s linear' }} />
       </svg>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: lote25() ? 'none' : 1, minWidth: 0, maxWidth: lote25() ? 150 : undefined }}>
         <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {nombresEj(cuenta.re.ejercicio).grande}{lado ? ` · Lado ${lado}` : ''}
         </div>
@@ -2354,10 +2368,12 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
     const r = 11, c = 2 * Math.PI * r;
     return (
       <EncimaDeTodo>
-      <div data-descanso={listo ? 'listo' : 'contando'} style={{
+      <div data-descanso={listo ? 'listo' : 'contando'} data-compacto={lote25() ? '1' : undefined} style={{
         position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 65,
         borderRadius: 20, color: '#fff',
         display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px 10px 14px',
+        // Lote 28 (solo Mauro): del ancho justo, pegado a la derecha.
+        ...(lote25() ? { left: 'auto', width: 'max-content', maxWidth: 'calc(100vw - 24px)', gap: 9, padding: '8px 10px 8px 12px' } : {}),
         // Sólido (el vidrio oscuro se probó y no convenció): grafito pleno.
         background: '#1D1D1F', boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
       }}>
@@ -2366,8 +2382,8 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
           <circle cx="14" cy="14" r={r} fill="none" stroke="#F2C94C" strokeWidth="3" strokeLinecap="round"
             strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} transform="rotate(-90 14 14)" style={{ transition: 'stroke-dashoffset 1s linear' }} />
         </svg>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.6 }}>{listo ? 'Listo' : 'Descanso'}</div>
+        <div style={{ flex: lote25() ? 'none' : 1, minWidth: 0 }}>
+          {!lote25() && <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.6 }}>{listo ? 'Listo' : 'Descanso'}</div>}
           <div style={{ fontSize: 18, fontWeight: 750, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15, color: listo ? '#F2C94C' : '#fff' }}>
             {listo ? 'A la siguiente' : `${mm}:${ss}`}
           </div>

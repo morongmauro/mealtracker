@@ -2489,9 +2489,11 @@ try {
         && document.querySelectorAll('[data-ligera] [data-separador-series]').length >= 3
         && campo && getComputedStyle(campo).backgroundColor === 'rgb(242, 242, 244)';
     }));
-    ok('rutina (prueba): la barra de avance es una píldora arriba (sin llegar a los bordes), con el desvanecido detrás y «Volver»', await p.evaluate(() => {
+    ok('rutina (prueba, lote 28): la barra de avance va de extremo a extremo, delgada y en una sola línea (Volver · 1/7 · barrita · tiempo), con el desvanecido detrás', await p.evaluate(() => {
       const bar = document.querySelector('[data-avance-rutina]'), r = bar && bar.getBoundingClientRect(), velo = document.querySelector('[data-velo-arriba]');
-      return !!bar && bar.dataset.discreta === '1' && r.top >= 2 && r.top <= 14 && r.left >= 12 && r.right <= innerWidth - 12 && parseFloat(getComputedStyle(bar).borderTopLeftRadius) >= 20
+      const barrita = bar && bar.querySelector('[data-barrita-ejercicios]');
+      return !!bar && bar.dataset.discreta === '1' && r.top >= 0 && r.top <= 8 && r.left <= 0.5 && r.right >= innerWidth - 0.5 && r.height <= 44
+        && !!barrita && barrita.querySelectorAll('[data-segmento]').length >= 3 && Math.abs(barrita.getBoundingClientRect().top + barrita.getBoundingClientRect().height / 2 - (bar.querySelector('[data-volver-semana]').getBoundingClientRect().top + bar.querySelector('[data-volver-semana]').getBoundingClientRect().height / 2)) < 8
         && !!velo && velo.getBoundingClientRect().bottom > r.bottom && !document.querySelector('[data-velo-avance]')
         && /^Volver$/.test(bar.querySelector('[data-volver-semana]').textContent.trim());
     }), await p.evaluate(() => { const bar = document.querySelector('[data-avance-rutina]'), velo = document.querySelector('[data-velo-arriba]'); return JSON.stringify({ bar: bar?.getBoundingClientRect(), disc: bar?.dataset.discreta, rad: bar && getComputedStyle(bar).borderTopLeftRadius, velo: velo?.getBoundingClientRect(), va: !!document.querySelector('[data-velo-avance]'), volver: bar?.querySelector('[data-volver-semana]')?.textContent }); }));
