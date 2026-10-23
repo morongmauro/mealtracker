@@ -702,6 +702,13 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
       ? { ...x, coach: { ...x.coach, puntuales: (x.coach.puntuales || []).map(p => (ids.includes(p.id) ? { ...p, leido_en: ahora } : p)) } } : x;
     setDatos(d => (d && d.ejercicios ? { ...d, ejercicios: d.ejercicios.map(marcar) } : d));
   };
+  // Lo que el cliente acaba de escribir queda en la conversación del
+  // ejercicio (al volver a abrirla ya está, sin recargar).
+  const agregarNotaMia = (ejercicioId, n) => {
+    const poner = (x) => (x.ejercicio && x.ejercicio.id === ejercicioId)
+      ? { ...x, coach: { siempre: null, puntuales: [], ...(x.coach || {}), notas: [...((x.coach && x.coach.notas) || []), { id: n.id, texto: n.texto, creado_en: n.creado_en }] } } : x;
+    setDatos(d => (d && d.ejercicios ? { ...d, ejercicios: d.ejercicios.map(poner) } : d));
+  };
   // kg o lb, POR EJERCICIO: las mancuernas de un gimnasio van en libras y las
   // máquinas del otro en kilos. Se recuerda en el teléfono; si no hay nada,
   // la unidad de la última vez; si no, kg.
@@ -810,7 +817,23 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     clearTimeout(bajarRef.current);
     bajarRef.current = setTimeout(() => {
       const el = document.querySelector(`[data-re-id="${id}"]`);
-      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      if (!el) return;
+      // Lote 30: bajada suave. Antes el siguiente subía hasta el borde de
+      // arriba y el que acababas de terminar quedaba escondido detrás de la
+      // barra: no se entendía cuál era el siguiente. Ahora el terminado
+      // (plegado, en amarillo) se queda a la vista justo debajo de la barra y
+      // el siguiente aparece debajo de él, con su AHORA.
+      const hecho = document.querySelector(`[data-re-plegado="${nuevos[0]}"]`) || document.querySelector(`[data-re-id="${nuevos[0]}"]`);
+      const barra = document.querySelector('[data-avance-rutina]');
+      const tope = (barra ? barra.getBoundingClientRect().bottom : 60) + 14;
+      const altoHecho = hecho ? Math.min(hecho.getBoundingClientRect().height, 90) : 0;
+      const meta = Math.min(tope + altoHecho + 12, window.innerHeight * 0.4);
+      const d = el.getBoundingClientRect().top - meta;
+      if (d <= 8) return;   // ya se ve bien: no se mueve nada
+      let sc = el.parentElement;
+      while (sc && sc !== document.body && !(/(auto|scroll)/.test(getComputedStyle(sc).overflowY) && sc.scrollHeight > sc.clientHeight + 1)) sc = sc.parentElement;
+      if (sc && sc !== document.body) sc.scrollBy({ top: d, behavior: 'smooth' });
+      else window.scrollBy({ top: d, behavior: 'smooth' });
     }, 450);
     return undefined;
   });
@@ -1275,14 +1298,21 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     // Vista en prueba: en orden desde el primer ejercicio (también el
     // calentamiento en circuito): el primero que falta; al marcarlo pasa
     // al siguiente. En un circuito va por vuelta y estación.
-    afuera: for (const tr of tramos) {
+    // Lote 30: si se saltó algo (p. ej. el calentamiento) y ya terminó un
+    // ejercicio más abajo, AHORA va en el SIGUIENTE a ese (el que la pantalla
+    // le muestra), no se queda arriba en lo saltado.
+    const puestos = [];
+    tramos.forEach(tr => {
       if (tr.vueltas.length > 1) {
-        for (let vi = 0; vi < tr.vueltas.length; vi++) for (const re of tr.vueltas[vi]) if (!marcadas[`${re.id}:${vi + 1}`]) { ahoraCircuito = `${re.id}:${vi + 1}`; break afuera; }
-        continue;
+        tr.vueltas.forEach((v, vi) => v.forEach(re => puestos.push({ circ: `${re.id}:${vi + 1}`, hecho: !!marcadas[`${re.id}:${vi + 1}`] })));
+      } else {
+        tr.vueltas[0].forEach(x => puestos.push({ id: x.id, hecho: Array.from({ length: Math.max(1, x.series || 1) }, (_, k) => k + 1).every(n => marcadas[`${x.id}:${n}`]) }));
       }
-      const re = tr.vueltas[0].find(x => !Array.from({ length: Math.max(1, x.series || 1) }, (_, k) => k + 1).every(n => marcadas[`${x.id}:${n}`]));
-      if (re) { ahoraId = re.id; break; }
-    }
+    });
+    let ultimo = -1;
+    puestos.forEach((x, i) => { if (x.hecho) ultimo = i; });
+    const toca = puestos.slice(ultimo + 1).find(x => !x.hecho) || puestos.find(x => !x.hecho);
+    if (toca) { if (toca.circ) ahoraCircuito = toca.circ; else ahoraId = toca.id; }
   } else if (v2) {
     for (const tr of tramos) {
       if (tr.vueltas.length > 1) continue;
@@ -1596,7 +1626,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
         />
       )}
 
-      <HojaNota abierta={!!nota} nombre={name} contexto={nota} alCerrar={() => setNota(null)} alLeer={leerComentarios} />
+      <HojaNota abierta={!!nota} nombre={name} contexto={nota} alCerrar={() => setNota(null)} alLeer={leerComentarios} alEnviar={agregarNotaMia} />
 
       {records && <HojaRecords records={records} alCerrar={() => { setRecords(null); alTerminar(() => { if (v2) onVolver(); else setRemate(true); }); }} />}
       {fin && <HojaFin fin={fin} plan={plan} rutinaId={rutinaId} alCerrar={() => { setFin(null); alTerminar(onVolver); }} />}
@@ -2315,11 +2345,16 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
 // Historial o la Nota (que también van a <body>), el reloj se seguía
 // contando pero quedaba tapado. Mientras se ve, las hojas dejan sitio abajo
 // (--mt-reloj-alto) para que no tape lo último de la hoja.
+// Con una hoja abierta, los relojes (descanso y ejercicio por tiempo) bajan
+// al borde de la pantalla: la hoja se levanta sobre ellos.
+const RELOJ_CON_HOJA = 'html[data-hoja-abierta] [data-descanso],html[data-hoja-abierta] [data-cuenta-ejercicio]{bottom:calc(14px + env(safe-area-inset-bottom, 0px))!important}';
 function EncimaDeTodo({ children }) {
   useEffect(() => {
     const raiz = document.documentElement;
     raiz.style.setProperty('--mt-reloj-alto', '84px');
-    return () => raiz.style.removeProperty('--mt-reloj-alto');
+    // La hoja abierta se levanta sobre el reloj: abajo también va redondeada.
+    raiz.style.setProperty('--mt-hoja-radio-abajo', '28px');
+    return () => { raiz.style.removeProperty('--mt-reloj-alto'); raiz.style.removeProperty('--mt-hoja-radio-abajo'); };
   }, []);
   return typeof document !== 'undefined' ? createPortal(children, document.body) : children;
 }
@@ -2334,6 +2369,7 @@ function BarraCuenta({ cuenta, queda, onPausa, onListo }) {
   const r = 11, c = 2 * Math.PI * r;
   return (
     <EncimaDeTodo>
+    <style>{RELOJ_CON_HOJA}</style>
     <div data-cuenta-ejercicio={cuenta.pausa != null ? 'pausa' : 'contando'} style={{
       position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 65,
       borderRadius: 20, background: '#1D1D1F', color: '#fff', boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
@@ -2369,6 +2405,7 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
     const r = 11, c = 2 * Math.PI * r;
     return (
       <EncimaDeTodo>
+      <style>{RELOJ_CON_HOJA}</style>
       <div data-descanso={listo ? 'listo' : 'contando'} data-compacto={lote25() ? '1' : undefined} style={{
         position: 'fixed', left: 12, right: 12, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 65,
         borderRadius: 20, color: '#fff',

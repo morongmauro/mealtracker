@@ -586,7 +586,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
     return (
       // Hecho = otro color: la tarjeta plegada se tiñe del amarillo suave de
       // la marca, para ver de un vistazo qué ya está.
-      <button data-plegado onClick={() => setPlegado(false)} style={{
+      <button data-plegado data-re-plegado={re.id} onClick={() => setPlegado(false)} style={{
         ...TARJETA, background: HECHO_FONDO, boxShadow: 'none',
         width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 10,

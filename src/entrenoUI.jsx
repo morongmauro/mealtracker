@@ -272,23 +272,72 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
     const capas = [document.body, ...document.querySelectorAll('[data-view="entrena"], [data-view="dash"]')];
     const previos = capas.map(el => el.style.overflow);
     capas.forEach(el => { el.style.overflow = 'hidden'; });
+    // Con una hoja abierta, el reloj de descanso baja al borde (la barra de
+    // abajo queda tapada por el fondo oscuro) y la hoja se levanta sobre él:
+    // nunca tapa el botón de la hoja.
+    document.documentElement.setAttribute('data-hoja-abierta', '');
     if (L25) vibrar('tic');
     const esc = (e) => { if (e.key === 'Escape') alCerrar?.(); };
     window.addEventListener('keydown', esc);
     return () => {
       capas.forEach((el, i) => { el.style.overflow = previos[i]; });
+      document.documentElement.removeAttribute('data-hoja-abierta');
       window.removeEventListener('keydown', esc);
     };
   }, [abierta, alCerrar]);
+
+  // Lote 30 · el teclado. En el iPhone, al tocar un campo dentro de la hoja,
+  // el sistema desplazaba la pantalla para mostrarlo y la hoja (pegada al
+  // fondo) saltaba arriba y abajo: «tiembla». Ahora la hoja se coloca sobre
+  // la parte VISIBLE de la pantalla (encima del teclado) y se mueve en un
+  // solo paso cuando el teclado sale o se va.
+  const [vista, setVista] = useState(null);   // { arriba, alto } con teclado; null sin él
+  useEffect(() => {
+    if (!abierta || typeof window === 'undefined' || !window.visualViewport) return undefined;
+    const vv = window.visualViewport;
+    let raf = 0;
+    const colocar = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const foco = document.activeElement;
+        const escribe = !!foco && (foco.tagName === 'INPUT' || foco.tagName === 'TEXTAREA' || foco.isContentEditable);
+        const teclado = escribe && window.innerHeight - vv.height > 100;
+        setVista(v => {
+          if (!teclado) return null;
+          const n = { arriba: Math.round(vv.offsetTop), alto: Math.round(vv.height) };
+          return v && v.arriba === n.arriba && v.alto === n.alto ? v : n;
+        });
+        // El sistema intenta desplazar la página para mostrar el campo: se
+        // devuelve a su sitio (la hoja ya lo muestra encima del teclado).
+        if (teclado && (window.scrollY || document.documentElement.scrollTop)) window.scrollTo(0, 0);
+      });
+    };
+    vv.addEventListener('resize', colocar);
+    vv.addEventListener('scroll', colocar);
+    document.addEventListener('focusin', colocar);
+    document.addEventListener('focusout', colocar);
+    colocar();
+    return () => {
+      cancelAnimationFrame(raf);
+      vv.removeEventListener('resize', colocar);
+      vv.removeEventListener('scroll', colocar);
+      document.removeEventListener('focusin', colocar);
+      document.removeEventListener('focusout', colocar);
+      setVista(null);
+    };
+  }, [abierta]);
 
   if (!abierta) return null;
   // Va a <body> por portal: dentro de la capa de la sección (fixed, con
   // scroll propio) el navegador del teléfono le robaba el gesto a la hoja.
   const hoja = (
     <div
-      onClick={alCerrar}
+      onClick={alCerrar} data-hoja-fondo data-con-teclado={vista ? '1' : undefined}
       style={{
-        position: 'fixed', inset: 0, zIndex: 60, overscrollBehavior: 'contain', touchAction: 'pan-y',
+        position: 'fixed', left: 0, right: 0, zIndex: 60, overscrollBehavior: 'contain', touchAction: 'pan-y',
+        // Con teclado: solo lo visible (encima del teclado). Sin teclado: toda
+        // la pantalla, dejando abajo el sitio del reloj de descanso si está.
+        ...(vista ? { top: vista.arriba, height: vista.alto } : { top: 0, bottom: 0, paddingBottom: 'var(--mt-reloj-alto, 0px)' }),
         background: 'rgba(31,31,31,0.38)',
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       }}>
@@ -298,8 +347,8 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
         role="dialog" aria-modal="true" aria-label={titulo || 'Detalle'}
         style={{
           background: SURFACE, width: '100%', maxWidth: 560,
-          borderRadius: L25 ? '28px 28px 0 0' : '22px 22px 0 0', boxShadow: SHADOW_OVERLAY,
-          maxHeight: `min(${alto}, calc(100dvh - 24px))`, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          borderRadius: L25 ? '28px 28px var(--mt-hoja-radio-abajo, 0px) var(--mt-hoja-radio-abajo, 0px)' : '22px 22px 0 0', boxShadow: SHADOW_OVERLAY,
+          maxHeight: vista ? `${vista.alto - 16}px` : `min(${alto}, calc(100dvh - 24px - var(--mt-reloj-alto, 0px)))`, display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
         {/* La barrita de arrastre va en su propia fila, no superpuesta: al
             posicionarla absoluta sobre la cabecera se cruzaba encima del
@@ -327,7 +376,8 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
           flex: '1 1 auto', minHeight: 0,
           // Con el reloj del descanso encima (--mt-reloj-alto), lo último de
           // la hoja queda por arriba de la barra negra.
-          padding: '16px 18px calc(26px + var(--mt-reloj-alto, 0px) + env(safe-area-inset-bottom, 0px))',
+          // (La hoja ya se levanta sobre el reloj; con teclado no hace falta el margen de abajo.)
+          padding: vista ? '16px 18px 14px' : '16px 18px calc(26px + env(safe-area-inset-bottom, 0px))',
           overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y',
         }}>{children}</div>
       </div>

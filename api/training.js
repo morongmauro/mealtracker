@@ -418,8 +418,9 @@ async function comentariosDe(cliente, ejIds) {
   const [cs, ns] = await Promise.all([
     sb(`comentarios_coach?select=id,ejercicio_id,tipo,texto,creado_en,leido_en&cliente_id=eq.${cliente.id}`
       + `&ejercicio_id=in.(${ids})&quitado_en=is.null&order=creado_en.asc`).catch(() => []),
+    // Las más recientes (desc + límite) y luego en orden de conversación.
     sb(`notas_entreno?select=id,ejercicio_id,texto,created_at&cliente_id=eq.${cliente.id}`
-      + `&ejercicio_id=in.(${ids})&order=created_at.asc&limit=300`).catch(() => []),
+      + `&ejercicio_id=in.(${ids})&order=created_at.desc&limit=300`).then(x => (Array.isArray(x) ? x.reverse() : [])).catch(() => []),
   ]);
   const out = {};
   const de = (id) => out[id] || (out[id] = { siempre: null, puntuales: [], notas: [] });
@@ -428,8 +429,9 @@ async function comentariosDe(cliente, ejIds) {
     const f = { id: c.id, texto: c.texto, creado_en: c.creado_en, leido_en: c.leido_en || null };
     if (c.tipo === 'siempre') x.siempre = f; else if (c.tipo === 'puntual') x.puntuales.push(f);
   });
-  // Las notas solo hacen falta donde hay algo del coach (es la conversación).
-  (Array.isArray(ns) ? ns : []).forEach(n => { if (out[n.ejercicio_id]) out[n.ejercicio_id].notas.push({ id: n.id, texto: n.texto, creado_en: n.created_at }); });
+  // Lote 30: lo que el cliente escribió se ve SIEMPRE en la conversación del
+  // ejercicio, aunque el coach todavía no haya contestado.
+  (Array.isArray(ns) ? ns : []).forEach(n => { if (n.ejercicio_id) de(n.ejercicio_id).notas.push({ id: n.id, texto: n.texto, creado_en: n.created_at }); });
   Object.values(out).forEach(x => { x.puntuales = x.puntuales.slice(-20); x.notas = x.notas.slice(-20); });
   return out;
 }
@@ -1838,7 +1840,7 @@ async function guardarNota(cliente, cuerpo, hoy) {
     cliente: cliente.nombre, ejercicio: ejercicioLargo, rutina: rutina ? rutina.nombre : null, texto,
   }));
   const n = Array.isArray(ins) ? ins[0] : ins;
-  return { ok: true, nota: { id: n && n.id, texto } };
+  return { ok: true, nota: { id: n && n.id, texto, creado_en: (n && n.created_at) || new Date().toISOString(), ejercicio_id: ejId } };
 }
 
 

@@ -56,7 +56,10 @@ function Conversacion({ coach, siempre, mias }) {
                 <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 4 }}>Tu coach</div>
               </div>
             ) : (
-              <div data-mia-hilo style={{ alignSelf: 'flex-end', maxWidth: '86%', padding: '10px 12px', borderRadius: 16, background: SURFACE_2, fontSize: 14.5, color: TEXT, lineHeight: 1.4 }}>{it.n.texto}</div>
+              <div data-mia-hilo style={{ alignSelf: 'flex-end', maxWidth: '86%', padding: '10px 12px', borderRadius: 16, background: SURFACE_2 }}>
+                <div style={{ fontSize: 14.5, color: TEXT, lineHeight: 1.4 }}>{it.n.texto}</div>
+                <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 4, textAlign: 'right' }}>Tú{it.n.recien ? ' · enviada' : ''}</div>
+              </div>
             )}
           </React.Fragment>
         );
@@ -65,10 +68,12 @@ function Conversacion({ coach, siempre, mias }) {
   );
 }
 
-export default function HojaNota({ abierta, nombre, contexto, alCerrar, alLeer }) {
+export default function HojaNota({ abierta, nombre, contexto, alCerrar, alLeer, alEnviar }) {
   const [texto, setTexto] = useState('');
   const [estado, setEstado] = useState(null);   // null | 'enviando' | 'ok' | mensaje de error
-  useEffect(() => { if (abierta) { setTexto(''); setEstado(null); } }, [abierta]);
+  // Lo que escribió en esta apertura: aparece en la conversación al instante.
+  const [enviadas, setEnviadas] = useState([]);
+  useEffect(() => { if (abierta) { setTexto(''); setEstado(null); setEnviadas([]); } }, [abierta]);
   const coach = lote25() && contexto && contexto.coach ? contexto.coach : null;
   // Abrirla es leer lo puntual del coach.
   useEffect(() => {
@@ -79,7 +84,11 @@ export default function HojaNota({ abierta, nombre, contexto, alCerrar, alLeer }
   if (!contexto) return null;
   const tipo = contexto.rutina_ejercicio_id ? 'ejercicio' : 'rutina';
   const siempre = coach ? ((coach.siempre && coach.siempre.texto) || null) : null;
-  const hayHilo = !!coach && (siempre || (coach.puntuales || []).length > 0);
+  const delCoach = !!coach && (!!siempre || (coach.puntuales || []).length > 0);
+  // Lote 30: la conversación se ve si hay CUALQUIER cosa: lo del coach o lo
+  // que tú le escribiste (aunque aún no te haya contestado).
+  const mias = [...((coach && coach.notas) || []), ...enviadas];
+  const hayHilo = lote25() && (delCoach || mias.length > 0);
 
   const enviar = async () => {
     if (!texto.trim()) return;
@@ -88,7 +97,17 @@ export default function HojaNota({ abierta, nombre, contexto, alCerrar, alLeer }
       texto: texto.trim(), rutina_id: contexto.rutina_id,
       rutina_ejercicio_id: contexto.rutina_ejercicio_id || null, sesion_id: contexto.sesion_id || null,
     });
-    if (r && r.ok) { setEstado('ok'); setTimeout(alCerrar, 900); return; }
+    if (r && r.ok) {
+      // Se queda abierta: tu mensaje aparece en la conversación y el campo
+      // queda listo por si quieres añadir algo.
+      const n = { id: (r.nota && r.nota.id) || `local-${Date.now()}`, texto: texto.trim(), creado_en: (r.nota && r.nota.creado_en) || new Date().toISOString(), recien: true };
+      setEnviadas(v => [...v, n]);
+      setTexto('');
+      setEstado('ok');
+      setTimeout(() => setEstado(e => (e === 'ok' ? null : e)), 1600);
+      if (alEnviar && contexto.ejercicio_id) alEnviar(contexto.ejercicio_id, n);
+      return;
+    }
     setEstado(r && r.motivo === 'sin_red'
       ? 'Sin conexión. Tu nota sigue aquí: envíala cuando tengas señal.'
       : 'No se envió. Inténtalo en un momento.');
@@ -96,8 +115,9 @@ export default function HojaNota({ abierta, nombre, contexto, alCerrar, alLeer }
 
   return (
     <Hoja abierta={abierta} alCerrar={alCerrar} titulo={`Nota para tu coach · ${contexto.titulo}`} alto="78vh"
-      marca={v2Activa() ? { etiqueta: hayHilo ? 'Comentario del coach' : 'Nota al coach', nombre: contexto.ejercicio ? nombresEj(contexto.ejercicio).grande : contexto.titulo, foto: contexto.ejercicio ? miniatura(contexto.ejercicio) : null, Icono: ChatCircleText } : null}>
-      {hayHilo && <Conversacion coach={coach} siempre={siempre} mias={coach.notas || []} />}
+      marca={v2Activa() ? { etiqueta: delCoach ? 'Comentario del coach' : hayHilo ? 'Conversación con tu coach' : 'Nota al coach', nombre: contexto.ejercicio ? nombresEj(contexto.ejercicio).grande : contexto.titulo, foto: contexto.ejercicio ? miniatura(contexto.ejercicio) : null, Icono: ChatCircleText } : null}>
+      {hayHilo && <Conversacion coach={coach || { puntuales: [] }} siempre={siempre} mias={mias} />}
+      {hayHilo && !delCoach && <div data-espera-coach style={{ fontSize: 12.5, color: TEXT_LIGHT, margin: '-6px 0 12px', textAlign: 'center' }}>Tu coach te responde aquí mismo; te avisamos con un circulito.</div>}
       {!hayHilo && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
         {SUGERENCIAS[tipo].map(s => (
           <button key={s} onClick={() => setTexto(t => (t ? `${t} ${s}` : s))} style={{
@@ -117,8 +137,8 @@ export default function HojaNota({ abierta, nombre, contexto, alCerrar, alLeer }
       {estado && estado !== 'enviando' && estado !== 'ok' && (
         <div role="alert" style={{ marginTop: 10, fontSize: 13, color: '#8A3A2C' }}>{estado}</div>
       )}
-      <Boton ancho style={{ marginTop: 14 }} disabled={!texto.trim() || estado === 'enviando' || estado === 'ok'} onClick={enviar}>
-        {estado === 'ok' ? 'Enviada ✓' : estado === 'enviando' ? 'Enviando…' : 'Enviar a mi coach'}
+      <Boton ancho style={{ marginTop: 14 }} disabled={!texto.trim() || estado === 'enviando'} onClick={enviar}>
+        {estado === 'ok' ? 'Enviada' : estado === 'enviando' ? 'Enviando…' : 'Enviar a mi coach'}
       </Boton>
     </Hoja>
   );

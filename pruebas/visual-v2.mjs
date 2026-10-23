@@ -2514,15 +2514,17 @@ try {
       await banca.getByLabel(`Repeticiones serie ${n}`).fill('8');
       await banca.getByRole('button', { name: `Marcar serie ${n}` }).click(); await espera(300);
     }
-    await p.evaluate(() => {
-      window.__bajo = [];
-      const o = Element.prototype.scrollIntoView;
-      Element.prototype.scrollIntoView = function (a) { if (this.dataset && this.dataset.reId) window.__bajo.push(this.dataset.reId); return o.call(this, a); };
-    });
     await banca.getByLabel('Repeticiones serie 3').fill('8');
-    await banca.getByRole('button', { name: 'Marcar serie 3' }).click(); await espera(1000);
-    ok('rutina ligera: al terminar un ejercicio, la pantalla baja sola al siguiente', await p.evaluate(() => window.__bajo.length === 1 && window.__bajo[0] === 're-e4'),
-      JSON.stringify(await p.evaluate(() => window.__bajo)));
+    await banca.getByRole('button', { name: 'Marcar serie 3' }).click(); await espera(1500);
+    // Lote 30: bajada suave. El terminado (plegado, en amarillo) se ve justo
+    // bajo la barra de arriba y el siguiente, debajo, con su AHORA.
+    const bajada = await p.evaluate(() => {
+      const barra = document.querySelector('[data-avance-rutina]').getBoundingClientRect();
+      const hecho = document.querySelector('[data-re-plegado="re-e1"]'), sig = document.querySelector('[data-re-id="re-e4"]');
+      return { hecho: hecho && Math.round(hecho.getBoundingClientRect().top), sig: sig && Math.round(sig.getBoundingClientRect().top), barra: Math.round(barra.bottom), ahora: document.querySelector('[data-ahora="1"]')?.dataset.reId || null, alto: innerHeight };
+    });
+    ok('rutina (lote 30): al terminar un ejercicio baja suave: el terminado se ve en amarillo bajo la barra y el siguiente debajo, con AHORA',
+      bajada.hecho != null && bajada.hecho >= bajada.barra - 2 && bajada.sig > bajada.hecho && bajada.sig <= bajada.alto * 0.42 && bajada.ahora === 're-e4', JSON.stringify(bajada));
     await p.locator('[data-volver-semana]').click(); await espera(1200);
     ok('Hoy (prueba): la rutina empezada y sin terminar sale arriba con «Continuar»', /RUTINA A MEDIAS/.test(await p.locator('[data-continuar-rutina]').innerText().catch(() => '')));
     await foto(p, '40f-prueba-continuar');
@@ -3123,6 +3125,53 @@ try {
     await p.screenshot({ path: `${DIR}/semana.png` });
     ok('lote 29: en la semana, cada actividad sale con su nombre', /Fútbol con amigos/.test(await cal.innerText()) && /Caminata al parque/.test(await cal.innerText()));
     ok('sin errores de JavaScript (lote 29)', l.errores.length === 0, l.errores.join(' | '));
+    await l.ctx.close();
+  }
+
+  // ── Lote 30 · Nota al coach: conversación completa, lo enviado se ve, la hoja sobre el reloj y el teclado ──
+  {
+    const VP = JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' });
+    const l = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:vistaApp': VP, 'mt:tipIconosRutina': '1' }, ajustar: (db) => {
+      db.db.notas_entreno = [{ id: 'n-2', cliente_id: 'c1', ejercicio_id: 'e4', texto: 'Con 8 kg no llego a 15 reps, ¿bajo a 6?', created_at: hace(0) + 'T09:00:00Z' }];
+    } });
+    const p = l.p;
+    await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }); await espera(1200);
+    await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1300);
+    await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(900);
+    const banca = p.locator('[data-ejercicio="Barbell Bench Press"]');
+    await banca.scrollIntoViewIfNeeded();
+    await banca.getByLabel('Repeticiones serie 1').fill('8'); await banca.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(500);
+    ok('lote 30: con el reloj de descanso en marcha', (await p.locator('[data-descanso]').count()) === 1);
+    await p.locator('[data-re-id="re-e4"] button[aria-label^="Nota al coach"]').first().click(); await espera(900);
+    const hoja = p.locator('[data-hoja-panel]');
+    ok('lote 30: lo que el cliente escribió se ve en la conversación aunque el coach no haya contestado', (await hoja.locator('[data-mia-hilo]').count()) === 1
+      && /Con 8 kg no llego a 15 reps/.test(await hoja.innerText()) && /Conversación con tu coach/i.test(await hoja.innerText()));
+    ok('lote 30: con una hoja abierta el reloj baja al borde y no tapa el botón de la hoja', await p.evaluate(() => {
+      const b = [...document.querySelectorAll('[data-hoja-panel] button')].find(x => /Enviar a mi coach/.test(x.textContent)).getBoundingClientRect();
+      const r = document.querySelector('[data-descanso]').getBoundingClientRect();
+      return b.bottom <= r.top || b.top >= r.bottom;
+    }));
+    await hoja.locator('textarea').fill('Probé con 6 kg y salió bien.');
+    await hoja.getByRole('button', { name: 'Enviar a mi coach' }).click(); await espera(700);
+    ok('lote 30: al enviar, el mensaje aparece en la conversación y la hoja sigue abierta', (await hoja.count()) === 1 && (await hoja.locator('[data-mia-hilo]').count()) === 2
+      && /Probé con 6 kg/.test(await hoja.innerText()) && (await hoja.locator('textarea').inputValue()) === '');
+    ok('lote 30: la nota quedó guardada para el coach', !!(l.db.db.notas_entreno || []).find(n => /Probé con 6 kg/.test(n.texto)));
+    const tec = await p.evaluate(async () => {
+      document.querySelector('[data-hoja-panel] textarea').focus();
+      const vv = window.visualViewport;
+      Object.defineProperty(vv, 'height', { configurable: true, get: () => 480 });
+      vv.dispatchEvent(new Event('resize')); await new Promise(r => setTimeout(r, 150));
+      const f = document.querySelector('[data-hoja-fondo]'), pnl = document.querySelector('[data-hoja-panel]').getBoundingClientRect();
+      const out = { alto: Math.round(f.getBoundingClientRect().height), abajo: Math.round(pnl.bottom), marca: f.dataset.conTeclado || null };
+      delete vv.height; vv.dispatchEvent(new Event('resize')); await new Promise(r => setTimeout(r, 150));
+      return out;
+    });
+    ok('lote 30: con el teclado abierto la hoja se coloca sobre la parte visible (no salta)', tec.marca === '1' && tec.alto === 480 && tec.abajo <= 480, JSON.stringify(tec));
+    await p.keyboard.press('Escape'); await espera(400);
+    await p.locator('[data-re-id="re-e4"] button[aria-label^="Nota al coach"]').first().click(); await espera(700);
+    ok('lote 30: al volver a abrirla, lo enviado sigue ahí', (await p.locator('[data-hoja-panel] [data-mia-hilo]').count()) === 2);
+    ok('sin errores de JavaScript (lote 30)', l.errores.length === 0, l.errores.join(' | '));
     await l.ctx.close();
   }
 
