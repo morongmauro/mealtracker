@@ -2729,8 +2729,30 @@ try {
     await p.locator('[data-galeria-fotos] img').nth(1).click(); await espera(500);
     ok('lote 26: tocar una de la galería la pone a la izquierda del comparador', (await p.locator('[data-comparar]').count()) === 1 && /83,9 kg/.test(await p.locator('[data-comparar-lado="antes"]').innerText()));
     await p.locator('[data-tomar-foto]').click(); await p.locator('[data-guia-pose]').waitFor({ timeout: 4000 });
-    ok('lote 26: «Tomar foto de hoy» abre la guía de pose antes de la cámara', await p.locator('[data-abrir-camara]').isVisible() && /misma luz/.test(await p.locator('[data-guia-pose]').innerText()));
+    ok('lote 26: «Tomar foto» abre la guía de pose antes de la cámara', await p.locator('[data-abrir-camara]').isVisible() && /misma luz/.test(await p.locator('[data-guia-pose]').innerText()));
     await p.keyboard.press('Escape'); await espera(500);
+    // Lote 31 · fotos: «Tomar foto» y «Desde galería»; hoy contra la primera o
+    // la anterior; «Todas»; al subir, aviso verde de enviada.
+    ok('lote 31: los botones dicen «Tomar foto» y «Desde galería»', /^Tomar foto$/.test((await p.locator('[data-tomar-foto]').innerText()).trim()) && /Desde galería/.test(await p.locator('[data-subir-foto]').innerText()));
+    await p.locator('[data-vista-fotos="comparar"]').click(); await espera(300);
+    await p.locator('[data-contra="anterior"]').click(); await espera(300);
+    ok('lote 31: «Hoy contra la anterior» pone la foto anterior a la izquierda (83,9 kg)', /83,9 kg/.test(await p.locator('[data-comparar-lado="antes"]').innerText()) && (await p.locator('[data-contra="anterior"]').getAttribute('aria-pressed')) === 'true');
+    await p.locator('[data-fotos]').screenshot({ path: path.join(CAPTURAS, 'fotos-comparar-anterior.png') }).catch(() => {});
+    await p.locator('[data-contra="primera"]').click(); await espera(300);
+    ok('lote 31: «…contra la primera» vuelve a la más vieja', !/83,9 kg/.test(await p.locator('[data-comparar-lado="antes"]').innerText()) && (await p.locator('[data-contra="primera"]').getAttribute('aria-pressed')) === 'true');
+    await p.locator('[data-vista-fotos="todas"]').click(); await espera(400);
+    ok('lote 31: «Todas» muestra las 4 fotos (todas las poses) con su pose', (await p.locator('[data-galeria-fotos] img').count()) === 4 && /lado/.test(await p.locator('[data-galeria-fotos]').innerText()));
+    await p.locator('[data-fotos]').screenshot({ path: path.join(CAPTURAS, 'fotos-todas.png') }).catch(() => {});
+    await p.route('https://crm.test/storage/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"ok"}' }));
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    await p.locator('[data-pose="espalda"]').click(); await espera(300);
+    await p.locator('[data-fotos] input[type="file"]:not([capture])').setInputFiles({ name: 'espalda.png', mimeType: 'image/png', buffer: png });
+    await p.locator('[data-foto-enviada]').waitFor({ timeout: 8000 }).catch(() => {});
+    ok('lote 31: al subir desde galería sale «Foto enviada a tu coach.» y la foto aparece', (await p.locator('[data-foto-enviada]').count()) === 1 && /Foto enviada a tu coach/.test(await p.locator('[data-foto-enviada]').innerText())
+      && (await p.locator('[data-galeria-fotos] img').count()) === 1 && l.db.db.fotos_progreso.some(f => f.pose === 'espalda'));
+    await p.locator('[data-fotos]').screenshot({ path: path.join(CAPTURAS, 'fotos-enviada.png') }).catch(() => {});
+    await espera(4300);
+    ok('lote 31: el aviso de enviada se quita solo', (await p.locator('[data-foto-enviada]').count()) === 0);
     // Notificaciones: un interruptor por tipo; lo apagado queda en mt:avisos
     // (viaja a la nube y el servidor no lo envía).
     await p.getByRole('button', { name: 'Dash', exact: true }).click().catch(() => {}); await espera(1200);

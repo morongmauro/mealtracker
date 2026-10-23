@@ -18,7 +18,7 @@
 //      volver a pedirlas, y por eso se recargan al volver a la pestaña.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Camera, UploadSimple, X } from '@phosphor-icons/react';
+import { Camera, ImageSquare, CheckCircle, X } from '@phosphor-icons/react';
 import { api, hoyLocal, fechaLarga } from './entrenoDatos.js';
 import { reportar } from './bitacora.js';
 import { DESVANECIDO_BORDE } from './vistaApp.js';
@@ -101,6 +101,7 @@ export default function EntrenoFotos({ name }) {
   const [izq, setIzq] = useState(null);           // id de la foto de la izquierda del comparador
   const [subiendo, setSubiendo] = useState(false);
   const [aviso, setAviso] = useState(null);
+  const [enviada, setEnviada] = useState(false);   // «Foto enviada a tu coach», unos segundos
   const [guia, setGuia] = useState(false);
   const camara = useRef(null);
   const archivo = useRef(null);
@@ -141,7 +142,7 @@ export default function EntrenoFotos({ name }) {
     let tipo = tipoDe(file);
     if (!tipo) { setAviso('Esa no parece una foto. Usa JPG, PNG o HEIC.'); return; }
 
-    setSubiendo(true); setAviso(null);
+    setSubiendo(true); setAviso(null); setEnviada(false);
     let paso = 'comprimir';
     try {
       const chica = await comprimirFoto(file);
@@ -166,6 +167,9 @@ export default function EntrenoFotos({ name }) {
       if (!guardada?.ok) throw new Error(guardada?.motivo || 'no_se_guardo');
       await cargar();
       setVista(null);
+      // Que se sepa que llegó: el aviso verde se va solo.
+      setEnviada(true);
+      setTimeout(() => setEnviada(false), 4000);
     } catch (e) {
       const motivo = String((e && e.message) || e || '');
       // Queda en la bitácora del CRM (ficha del cliente) para saber qué paso falló.
@@ -191,9 +195,13 @@ export default function EntrenoFotos({ name }) {
   if (estado === 'cargando') return <Cargando texto="Buscando tus fotos…" />;
   if (estado === 'error') return <Fallo motivo="No pude cargar tus fotos." alReintentar={cargar} />;
 
-  const deLaPose = fotos.filter(f => f.pose === pose).slice().sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  const porFecha = (a, b) => String(a.fecha).localeCompare(String(b.fecha)) || String(a.creado_en || a.id).localeCompare(String(b.creado_en || b.id));
+  const deLaPose = fotos.filter(f => f.pose === pose).slice().sort(porFecha);
+  const todas = fotos.slice().sort(porFecha);
   const puedeComparar = deLaPose.length >= 2;
-  const vistaReal = vista || (puedeComparar ? 'comparar' : 'galeria');
+  const vistaReal = (vista === 'comparar' && !puedeComparar) ? 'galeria' : (vista || (puedeComparar ? 'comparar' : 'galeria'));
+  // Comparar (si hay 2 de la pose) · Galería (las de la pose) · Todas (todas las poses).
+  const vistas = [puedeComparar && ['comparar', 'Comparar'], ['galeria', 'Galería'], ['todas', 'Todas']].filter(Boolean);
 
   const pill = (activo) => ({
     border: 0, borderRadius: 999, padding: '8px 14px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
@@ -210,9 +218,9 @@ export default function EntrenoFotos({ name }) {
         })}
       </div>
 
-      {puedeComparar && (
+      {fotos.length > 0 && (
         <div role="radiogroup" aria-label="Vista" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 999, background: '#F2EFE8', marginBottom: 12 }}>
-          {[['comparar', 'Comparar'], ['galeria', 'Galería']].map(([id, lab]) => (
+          {vistas.map(([id, lab]) => (
             <button key={id} role="radio" aria-checked={vistaReal === id} data-vista-fotos={id} onClick={() => setVista(id)} style={{
               flex: 1, height: 38, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700,
               background: vistaReal === id ? '#fff' : 'transparent', color: vistaReal === id ? TEXT : TEXT_MUTED, boxShadow: vistaReal === id ? SHADOW_CARD : 'none',
@@ -221,34 +229,42 @@ export default function EntrenoFotos({ name }) {
         </div>
       )}
 
+      {enviada && (
+        <div data-foto-enviada role="status" className="fade-up" style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#E6F2E9', color: '#1F5E33', borderRadius: 14, padding: '10px 13px', fontSize: 14, fontWeight: 650, marginBottom: 12 }}>
+          <CheckCircle size={19} weight="fill" />Foto enviada a tu coach.
+        </div>
+      )}
+
       {aviso && (
         <div style={{ background: '#FDECEA', color: '#8A2E22', borderRadius: 14, padding: '10px 13px', fontSize: 13.5, marginBottom: 12, lineHeight: 1.5 }}>{aviso}</div>
       )}
 
-      {deLaPose.length === 0 && (
+      {vistaReal !== 'todas' && deLaPose.length === 0 && (
         <Vacio Icono={Camera} titulo={`Sin fotos ${nombrePose(pose).toLowerCase()}`}
                texto="La primera es la que vale: es contra la que vas a comparar todas las demás." />
       )}
 
-      {deLaPose.length > 0 && (vistaReal === 'comparar' && puedeComparar
-        ? <Comparar fotos={deLaPose} izq={izq} setIzq={setIzq} pesoDe={pesoDe} />
-        : <Galeria fotos={deLaPose} pesoDe={pesoDe} alElegir={puedeComparar ? (f) => { setIzq(f.id); setVista('comparar'); } : null} alQuitar={quitar} />)}
+      {vistaReal === 'todas'
+        ? <Galeria fotos={todas} pesoDe={pesoDe} conPose alElegir={(f) => { setPose(f.pose); setIzq(null); setVista('galeria'); }} alQuitar={quitar} />
+        : deLaPose.length > 0 && (vistaReal === 'comparar' && puedeComparar
+          ? <Comparar fotos={deLaPose} izq={izq} setIzq={setIzq} pesoDe={pesoDe} />
+          : <Galeria fotos={deLaPose} pesoDe={pesoDe} alElegir={puedeComparar ? (f) => { setIzq(f.id); setVista('comparar'); } : null} alQuitar={quitar} />)}
 
-      {/* Añadir: la cámara pasa por la guía de pose; subir una que ya tienes, directo. */}
+      {/* Añadir: la cámara pasa por la guía de pose; una que ya tienes, directo de la galería del teléfono. */}
       <input ref={camara} type="file" accept="image/*" capture="environment" onChange={e => subir(e.target.files?.[0])} style={{ display: 'none' }} />
       <input ref={archivo} type="file" accept="image/*" onChange={e => subir(e.target.files?.[0])} style={{ display: 'none' }} />
       <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
         <button data-tomar-foto disabled={subiendo} onClick={() => setGuia(true)} style={{
-          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 0, borderRadius: 999, padding: '14px 18px',
+          flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 0, borderRadius: 999, padding: '14px 18px',
           background: TEXT, color: '#fff', fontSize: 15, fontWeight: 750, fontFamily: 'inherit', cursor: 'pointer', opacity: subiendo ? .5 : 1,
-        }}><Camera size={18} weight="bold" />{subiendo ? 'Subiendo…' : 'Tomar foto de hoy'}</button>
+        }}><Camera size={18} weight="bold" />{subiendo ? 'Enviando…' : 'Tomar foto'}</button>
         <button data-subir-foto disabled={subiendo} onClick={() => archivo.current?.click()} style={{
-          display: 'flex', alignItems: 'center', gap: 6, border: 0, borderRadius: 999, padding: '14px 18px', background: '#F1EFE9', color: TEXT,
-          fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', opacity: subiendo ? .5 : 1,
-        }}><UploadSimple size={18} weight="bold" />Subir</button>
+          flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, border: 0, borderRadius: 999, padding: '14px 16px', background: '#F1EFE9', color: TEXT,
+          fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', opacity: subiendo ? .5 : 1, whiteSpace: 'nowrap',
+        }}><ImageSquare size={18} weight="bold" />Desde galería</button>
       </div>
       <div style={{ fontSize: 13, color: TEXT_LIGHT, marginTop: 10, lineHeight: 1.45 }}>
-        Solo las ves tú y tu coach. Puedes quitar cualquiera.
+        Se envían solas a tu coach al elegirlas. Solo las ven tú y tu coach; puedes quitar cualquiera.
       </div>
 
       <GuiaPose abierta={guia} pose={pose} alCerrar={() => setGuia(false)} alAbrirCamara={() => { setGuia(false); camara.current?.click(); }} />
@@ -257,12 +273,16 @@ export default function EntrenoFotos({ name }) {
 }
 
 // ── Etiqueta de fecha · kg sobre la foto ────────────────────────────────
-function Etiqueta({ f, peso, nueva }) {
+function Etiqueta({ f, peso, nueva, conPose, chica = false }) {
   return (
     <span style={{
-      position: 'absolute', left: 8, top: 8, borderRadius: 999, padding: '4px 9px', fontSize: 12, fontWeight: 750, color: '#fff',
+      position: 'absolute', left: chica ? 6 : 8, top: chica ? 6 : 8, borderRadius: 999, padding: chica ? '3px 7px' : '4px 9px', fontSize: chica ? 11 : 12, fontWeight: 750, color: '#fff', letterSpacing: chica ? '-0.01em' : undefined,
       background: nueva ? AZUL : 'rgba(31,31,31,.78)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-    }}>{nueva && f.fecha === hoyLocal() ? 'Hoy' : fechaCorta(f.fecha)}{peso != null ? ` · ${kg(peso)}` : ''}</span>
+      whiteSpace: 'nowrap', maxWidth: chica ? 'calc(100% - 12px)' : 'calc(100% - 16px)', overflow: 'hidden', textOverflow: 'ellipsis',
+    }}>{nueva && f.fecha === hoyLocal() ? 'Hoy' : fechaCorta(f.fecha)}{conPose
+      // En «Todas» (3 por fila) va la pose en vez de los kg: si no, no cabe.
+      ? ` · ${nombrePose(f.pose).replace(/^De /, '').toLowerCase()}`
+      : peso != null ? ` · ${kg(peso)}` : ''}</span>
   );
 }
 
@@ -273,6 +293,8 @@ function Comparar({ fotos, izq, setIzq, pesoDe }) {
   const b = fotos[fotos.length - 1];
   const candidatas = fotos.slice(0, -1);
   const a = candidatas.find(f => f.id === izq) || candidatas[0];
+  const anterior = candidatas[candidatas.length - 1];
+  const contra = a.id === anterior.id && candidatas.length > 1 ? 'anterior' : a.id === candidatas[0].id ? 'primera' : null;
   const pa = pesoDe(a), pb = pesoDe(b);
   const d = dias(a.fecha, b.fecha);
   const siguiente = () => { const i = candidatas.findIndex(f => f.id === a.id); setIzq(candidatas[(i + 1) % candidatas.length].id); };
@@ -284,6 +306,18 @@ function Comparar({ fotos, izq, setIzq, pesoDe }) {
   );
   return (
     <div data-comparar>
+      {/* Contra la primera (cuánto cambió desde que empezó) o contra la anterior (lo último). */}
+      {candidatas.length > 1 && (
+        <div data-comparar-contra style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center' }}>
+          <span style={{ fontSize: 13, color: TEXT_MUTED, marginRight: 2 }}>Hoy contra</span>
+          {[['primera', 'la primera', candidatas[0]], ['anterior', 'la anterior', anterior]].map(([id, lab, f]) => (
+            <button key={id} data-contra={id} aria-pressed={contra === id} onClick={() => setIzq(f.id)} style={{
+              border: 0, borderRadius: 999, padding: '6px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              background: contra === id ? TEXT : '#F1EFE9', color: contra === id ? '#fff' : TEXT_MUTED,
+            }}>{lab}</button>
+          ))}
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {img(a, pa, false, candidatas.length > 1 ? siguiente : null)}
         {img(b, pb, true, null)}
@@ -299,7 +333,7 @@ function Comparar({ fotos, izq, setIzq, pesoDe }) {
 }
 
 // ── Todas, en cuadrícula ────────────────────────────────────────────────
-function Galeria({ fotos, pesoDe, alElegir, alQuitar }) {
+function Galeria({ fotos, pesoDe, alElegir, alQuitar, conPose = false }) {
   const orden = fotos.slice().reverse();   // la más nueva primero
   return (
     <div data-galeria-fotos style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
@@ -307,7 +341,7 @@ function Galeria({ fotos, pesoDe, alElegir, alQuitar }) {
         <div key={f.id} style={{ position: 'relative' }}>
           <div onClick={alElegir ? () => alElegir(f) : undefined} style={{ position: 'relative', cursor: alElegir ? 'pointer' : 'default' }}>
             <img src={f.url} alt={fechaLarga(f.fecha)} loading="lazy" style={{ width: '100%', aspectRatio: '3 / 4', objectFit: 'cover', display: 'block', borderRadius: 16, background: SURFACE_2 }} />
-            <Etiqueta f={f} peso={pesoDe(f)} nueva={i === 0} />
+            <Etiqueta f={f} peso={pesoDe(f)} nueva={i === 0} conPose={conPose} chica />
           </div>
           <button onClick={() => alQuitar(f)} aria-label={`Quitar foto del ${fechaLarga(f.fecha)}`} data-quitar-foto style={{
             position: 'absolute', right: 6, bottom: 6, width: 28, height: 28, borderRadius: 99, border: 0, cursor: 'pointer',
