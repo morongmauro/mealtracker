@@ -20,6 +20,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Camera, UploadSimple, X } from '@phosphor-icons/react';
 import { api, hoyLocal, fechaLarga } from './entrenoDatos.js';
+import { reportar } from './bitacora.js';
 import { DESVANECIDO_BORDE } from './vistaApp.js';
 import {
   Card, Vacio, Cargando, Fallo, Hoja,
@@ -141,19 +142,23 @@ export default function EntrenoFotos({ name }) {
     if (!tipo) { setAviso('Esa no parece una foto. Usa JPG, PNG o HEIC.'); return; }
 
     setSubiendo(true); setAviso(null);
+    let paso = 'comprimir';
     try {
       const chica = await comprimirFoto(file);
       let cuerpo = file;
       if (chica) { cuerpo = chica; tipo = 'image/jpeg'; }
       if (cuerpo.size > 10 * 1024 * 1024) { setAviso('La foto pesa más de 10 MB. Hazla más pequeña o usa otra.'); return; }
       const hoy = hoyLocal();
+      paso = 'permiso';
       const permiso = await api.fotoSubir(name, { tipo, pose, fecha: hoy });
       if (!permiso?.ok) throw new Error(permiso?.motivo || 'sin_permiso');
 
       // El archivo va DIRECTO al storage, no a través de la API: una foto de
       // 8 MB pasando por la función serverless se come el límite de cuerpo.
+      paso = 'archivo';
       const r = await fetch(permiso.url, { method: 'PUT', headers: { 'Content-Type': tipo }, body: cuerpo });
-      if (!r.ok) throw new Error('no_subio');
+      if (!r.ok) throw new Error(`no_subio ${r.status}`);
+      paso = 'guardar';
 
       // El peso de hoy (si lo registró) queda pegado a la foto.
       const pesoHoy = medidas.find(m => m.fecha === hoy && m.peso != null);
@@ -162,7 +167,13 @@ export default function EntrenoFotos({ name }) {
       await cargar();
       setVista(null);
     } catch (e) {
-      setAviso('No pude subir la foto. Revisa la señal y prueba otra vez.');
+      const motivo = String((e && e.message) || e || '');
+      // Queda en la bitácora del CRM (ficha del cliente) para saber qué paso falló.
+      reportar('foto', `No subió la foto (${paso}): ${motivo}`.slice(0, 400), `pose=${pose}`);
+      const sinRed = typeof navigator !== 'undefined' && navigator.onLine === false || /sin_red|Failed to fetch|Load failed|NetworkError/i.test(motivo);
+      setAviso(sinRed
+        ? 'No pude subir la foto. Revisa la señal y prueba otra vez.'
+        : 'No pude subir la foto. Prueba otra vez en un momento; si sigue, avísale a tu coach.');
     } finally {
       setSubiendo(false);
       if (camara.current) camara.current.value = '';

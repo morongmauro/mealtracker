@@ -657,12 +657,16 @@ const FOTO_POSE_NOMBRE = { frente: 'De frente', lado: 'De lado', espalda: 'De es
 const FOTO_TIPOS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic' };
 
 // El storage de Supabase no está bajo /rest/v1, así que no sirve `sb()`.
+// «Content-Type: application/json» solo cuando hay cuerpo: el storage
+// rechaza (400) un pedido marcado JSON que llega vacío. Eso era lo que
+// hacía fallar la subida de fotos: pedir el permiso de subida no lleva
+// cuerpo, y el storage lo devolvía como error.
 async function storage(ruta, opts = {}) {
   const r = await fetch(`${CRM_URL}/storage/v1/${ruta}`, {
     ...opts,
-    headers: { apikey: CRM_KEY, Authorization: `Bearer ${CRM_KEY}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    headers: { apikey: CRM_KEY, Authorization: `Bearer ${CRM_KEY}`, ...(opts.body != null ? { 'Content-Type': 'application/json' } : {}), ...(opts.headers || {}) },
   });
-  if (!r.ok) throw new Error(`storage ${r.status}`);
+  if (!r.ok) throw new Error(`storage ${r.status} ${(await r.text().catch(() => '')).slice(0, 160)}`);
   const t = await r.text();
   return t ? JSON.parse(t) : null;
 }
@@ -708,7 +712,13 @@ async function pedirSubidaFoto(cliente, cuerpo, hoy) {
   // mismo día pise la anterior.
   const azar = Math.random().toString(36).slice(2, 10);
   const ruta = `${cliente.id}/${fecha}-${pose}-${azar}.${ext}`;
-  const firma = await storage(`object/upload/sign/${FOTOS_BUCKET}/${ruta}`, { method: 'POST' });
+  let firma;
+  try {
+    firma = await storage(`object/upload/sign/${FOTOS_BUCKET}/${ruta}`, { method: 'POST' });
+  } catch (e) {
+    // «Bucket not found» = falta correr sql/fotos-progreso.sql.
+    return { ok: false, motivo: /bucket/i.test(e.message) ? 'sin_carpeta' : 'sin_firma', detalle: e.message };
+  }
   if (!firma?.url) return { ok: false, motivo: 'sin_firma' };
   return { ok: true, ruta, url: `${CRM_URL}/storage/v1${firma.url}`, fecha, pose };
 }
@@ -734,7 +744,9 @@ async function guardarFoto(cliente, cuerpo, hoy) {
       peso_kg: peso != null && peso > 0 ? peso : null,
       nota: cuerpo.nota ? String(cuerpo.nota).slice(0, 300) : null,
     }),
-  });
+  }).catch((e) => ({ error: e.message }));
+  // 400 con la pose «otra»: la tabla aún no la acepta (sql/fotos-pose-otra.sql).
+  if (fila && fila.error) return { ok: false, motivo: cuerpo.pose === 'otra' ? 'falta_pose_otra' : 'no_se_guardo', detalle: fila.error };
   const f = Array.isArray(fila) ? fila[0] : fila;
   if (!f) return { ok: false, motivo: 'no_se_guardo' };
   // Al coach le suena el teléfono como con las medidas: una foto nueva es
