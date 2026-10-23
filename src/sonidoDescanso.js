@@ -9,8 +9,8 @@
 // Va por dos caminos a la vez, porque el iPhone pone trabas:
 //  · Web Audio: el pitido del final se deja PROGRAMADO en el reloj del audio
 //    en el mismo toque de marcar, así suena a su hora aunque la página vaya
-//    lenta. Con `navigator.audioSession.type = 'playback'` (iPhone con iOS
-//    17 o más) suena también con el interruptor de silencio puesto.
+//    lenta. Con `navigator.audioSession.type = 'transient'` (iPhone con iOS
+//    17 o más) se mezcla con la música de otras apps en vez de pausarla.
 //  · Un <audio> con un WAV generado aquí: el respaldo cuando Web Audio no
 //    está disponible o el teléfono lo dejó dormido.
 // El iPhone solo deja sonar lo que arrancó con un toque: por eso todo se
@@ -111,7 +111,12 @@ function nota(c, f, t, dur, vol = 0.32, tipo = 'sine') {
 // Se llama dentro de un toque (marcar una serie): deja el audio listo para
 // sonar solo más tarde.
 export function prepararSonido() {
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  // «transient»: el pitido se MEZCLA con lo que suene en otras apps (Spotify,
+  // YouTube) y solo les baja el volumen un instante. Con «playback» el iPhone
+  // pausaba la música de los demás al tocar la rutina. A cambio, con el
+  // interruptor de silencio puesto el pitido no suena (queda la vibración y,
+  // minimizada, la notificación).
+  try { if (navigator.audioSession) navigator.audioSession.type = 'transient'; } catch (e) {}
   const c = contexto();
   if (c) {
     try {
