@@ -3056,6 +3056,76 @@ try {
   await foto(ob.p, '16-pago-bloqueo-otra');
   ok('otra persona con 6 días de mora también queda bloqueada', true);
   await ob.ctx.close();
+  // ── Lote 29 · Calendario: íconos por actividad, todo lo hecho se ve, mover siempre ──
+  {
+    const DIR = process.env.PDIR || 'pruebas/capturas-v2';
+    const VP = JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' });
+    const d = (n) => sumarDiasISO(lunes, n);
+    const l = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:vistaApp': VP }, ajustar: (db) => {
+      // Actividades de todo tipo en la semana: deporte, caminata, caminadora
+      // (tras entrenar), bici, running; y una caminata que puso el coach.
+      db.db.actividades.push(
+        { id: 'a29a', cliente_id: 'c1', user_id: 'coach', fecha: d(0), tipo: 'otro', titulo: 'Fútbol con amigos', duracion_min: 60 },
+        { id: 'a29b', cliente_id: 'c1', user_id: 'coach', fecha: d(0), tipo: 'caminata', titulo: 'Caminata al parque', duracion_min: 40 },
+        { id: 'a29c', cliente_id: 'c1', user_id: 'coach', fecha: d(2), tipo: 'cinta', titulo: 'Caminadora después de entrenar', duracion_min: 15 },
+        { id: 'a29d', cliente_id: 'c1', user_id: 'coach', fecha: d(3), tipo: 'bici_estatica', titulo: 'Bicicleta estática', duracion_min: 30 },
+        { id: 'a29e', cliente_id: 'c1', user_id: 'coach', fecha: d(5), tipo: 'running', titulo: 'Running en calle', duracion_min: 30 },
+        { id: 'a29f', cliente_id: 'c1', user_id: 'coach', fecha: d(6), tipo: 'natacion', titulo: 'Natación', duracion_min: 45 },
+      );
+      db.db.eventos.push({ id: 'ev29', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Caminata larga', fecha: d(3), visible_cliente: true });
+      // Un entreno hecho SIN rutina (lo marcó el coach en el CRM) el martes:
+      // antes el calendario no lo mostraba y bloqueaba mover ahí.
+      db.db.sesiones.push({ id: 's29', cliente_id: 'c1', rutina_id: null, fase_id: 'f1', fecha: d(1), estado: 'completada', origen: 'coach' });
+    } });
+    const p = l.p;
+    await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }); await espera(1200);
+    await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1000);
+    await p.getByRole('button', { name: 'Calendario' }).click(); await espera(1500);
+    const cal = p.locator('[data-view="entrena"]');
+    await cal.locator('[data-vista="mes"]').waitFor({ timeout: 10000 });
+    await p.screenshot({ path: `${DIR}/mes.png` });
+    const marcas = async (f) => cal.locator(`[data-vista="mes"] [data-fecha="${f}"] [data-marca-cal]`).evaluateAll(xs => xs.map(x => x.getAttribute('aria-label')));
+    ok('lote 29: el lunes tiene tres íconos distintos (caminadora, fútbol y caminata), no uno genérico', JSON.stringify(await marcas(d(0))) === JSON.stringify(['cinta', 'Fútbol con amigos', 'Caminata al parque']), JSON.stringify(await marcas(d(0))));
+    ok('lote 29: la ventana de intercambio tiene su propio título', true);
+    const svgDe = async (f, i) => cal.locator(`[data-vista="mes"] [data-fecha="${f}"] [data-marca-cal]`).nth(i).evaluate(x => x.querySelector('svg').innerHTML.length);
+    ok('lote 29: fútbol y caminata se dibujan con íconos distintos', (await svgDe(d(0), 0)) !== (await svgDe(d(0), 1)));
+    ok('lote 29: la caminadora tras entrenar tiene su propio ícono (no la persona trotando)', (await svgDe(d(2), 0)) !== (await svgDe(d(5), 0)) && (await svgDe(d(2), 0)) !== (await svgDe(d(0), 1)));
+    ok('lote 29: el jueves muestra bici y la caminata del coach', (await marcas(d(3))).length === 2);
+    ok('lote 29: la leyenda explica caminadora, caminata, running y deporte', ['Cardio tras entrenar', 'Caminata', 'Running', 'Deporte'].every(async t => (await cal.locator('[data-leyenda]').innerText()).includes(t))
+      && /Cardio tras entrenar[\s\S]*Caminata[\s\S]*Running[\s\S]*Deporte/.test(await cal.locator('[data-leyenda]').innerText()));
+    ok('lote 29: las casillas siguen compactas (crecen solo si hace falta)', await cal.locator('[data-vista="mes"] [data-fecha]').first().evaluate(el => { const h = el.getBoundingClientRect().height; return h >= 66 && h <= 100; }));
+    ok('lote 29: el entreno hecho sin rutina (del CRM) se ve el martes como «Entreno» hecho', (await cal.locator(`[data-vista="mes"] [data-fecha="${d(1)}"]`).innerText()).includes('Entreno')
+      && (await cal.locator(`[data-vista="mes"] [data-fecha="${d(1)}"] [data-chip="hecha"]`).count()) === 1);
+    // Mover el Lower del miércoles al martes (que tiene ese entreno hecho): ahora SÍ se mueve.
+    const arrastrar = async (desde, hasta) => {
+      const de = await cal.locator(`[data-fecha="${desde}"] [data-chip]`).first().boundingBox();
+      const a = await cal.locator(`[data-vista="mes"] [data-fecha="${hasta}"]`).boundingBox();
+      await p.mouse.move(de.x + de.width / 2, de.y + de.height / 2); await p.mouse.down(); await espera(500);
+      await p.mouse.move(a.x + a.width / 2, a.y + a.height / 2, { steps: 8 }); await espera(150); await p.mouse.up(); await espera(900);
+    };
+    const movsAntes = (l.db.db.rutina_movimientos || []).length;
+    await arrastrar(d(2), d(1));
+    await espera(1200);
+    ok('lote 29: mover a un día con otro entreno hecho ya no se bloquea (se guardó el movimiento)', (l.db.db.rutina_movimientos || []).length === movsAntes + 1
+      && (await cal.locator(`[data-vista="mes"] [data-fecha="${d(1)}"]`).innerText()).includes('Lower'), (await p.locator('[data-aviso]').innerText().catch(() => '')));
+    await p.screenshot({ path: `${DIR}/movida.png` });
+    // Mover el Pull del viernes al martes, que ahora tiene el Lower: pregunta si intercambiar.
+    await arrastrar(d(4), d(1));
+    await espera(400);
+    const dialogo = p.getByRole('dialog');
+    ok('lote 29: al soltar sobre un día con fuerza pregunta antes de intercambiar', (await dialogo.count()) === 1 && /¿Las intercambias\?/.test(await dialogo.innerText()) && /Lower/.test(await dialogo.innerText()) && !/Deja descansar/.test(await dialogo.innerText()));
+    await p.screenshot({ path: `${DIR}/intercambio.png` });
+    await dialogo.getByRole('button', { name: 'Intercambiar' }).click(); await espera(1500);
+    ok('lote 29: al aceptar se intercambian (Pull al martes, Lower al viernes)', (await cal.locator(`[data-vista="mes"] [data-fecha="${d(1)}"]`).innerText()).includes('Pull')
+      && (await cal.locator(`[data-vista="mes"] [data-fecha="${d(4)}"]`).innerText()).includes('Lower'));
+    // Semana: cada actividad con su ícono y su nombre.
+    await cal.locator('[data-segmentado] button', { hasText: 'Semana' }).click(); await espera(900);
+    await p.screenshot({ path: `${DIR}/semana.png` });
+    ok('lote 29: en la semana, cada actividad sale con su nombre', /Fútbol con amigos/.test(await cal.innerText()) && /Caminata al parque/.test(await cal.innerText()));
+    ok('sin errores de JavaScript (lote 29)', l.errores.length === 0, l.errores.join(' | '));
+    await l.ctx.close();
+  }
+
 } catch (e) {
   fallos++;
   console.log('  MAL  se cortó: ' + e.message.split('\n').slice(0, 12).join(' | '));

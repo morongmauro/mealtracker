@@ -1133,14 +1133,22 @@ async function verMes(cliente, ym, hoy) {
     // día de descanso). Antes no salía en ningún lado: el cliente entrenaba y
     // su calendario decía que no.
     // (Un bloque complementario hecho no es «entrenó otra rutina»: va aparte.)
+    // Una sesión hecha sin rutina (marcada desde el CRM o importada) también
+    // cuenta como «entrenó otra cosa»: nada hecho se queda sin verse.
     const otra = (!s || s.estado !== 'completada')
-      ? sesiones.find(x => x.fecha === fecha && x.estado === 'completada' && x.rutina_id && x.rutina_id !== r?.id && !bloqueIds.has(x.rutina_id))
+      ? (sesiones.find(x => x.fecha === fecha && x.estado === 'completada' && x.rutina_id && x.rutina_id !== r?.id && !bloqueIds.has(x.rutina_id))
+        || (!(s && s.estado) && sesiones.find(x => x.fecha === fecha && x.estado === 'completada' && !x.rutina_id)) || null)
       : null;
-    const bloques = dentro ? complementariasDe(fase, rutinas, fecha).map(c => {
+    const programados = dentro ? complementariasDe(fase, rutinas, fecha) : [];
+    // …y un bloque complementario hecho en un día donde no estaba programado
+    // sale también, como hecho.
+    const sueltos = sesiones.filter(x => x.fecha === fecha && x.estado === 'completada' && x.rutina_id && bloqueIds.has(x.rutina_id) && !programados.some(c => c.id === x.rutina_id))
+      .map(x => rutinas.find(c => c.id === x.rutina_id)).filter(Boolean);
+    const bloques = [...programados, ...sueltos].map(c => {
       const sc = sesiones.filter(x => x.fecha === fecha && x.rutina_id === c.id);
       const hecha = sc.find(x => x.estado === 'completada') || sc.find(x => x.estado === 'en_curso') || null;
       return { id: c.id, nombre: c.nombre, corto: nombreCorto(c.nombre), minutos: minDe[c.id] || c.duracion_estimada_min || null, estado: hecha ? hecha.estado : null };
-    }) : [];
+    });
     dias.push({
       fecha, dia: letra, es_hoy: fecha === hoy,
       semana: dentro ? Math.floor((Date.parse(fecha) - Date.parse(fase.fecha_inicio)) / 86400000 / 7) + 1 : null,
@@ -1156,11 +1164,14 @@ async function verMes(cliente, ym, hoy) {
       // La cerró hace poco (hoy, menos de 3 h): puede reabrirla si se equivocó.
       reabrible: !!(s && s.estado === 'completada' && esReabrible(s)),
       rpe: s ? s.rpe : (otra ? otra.rpe : null),
-      hecho: otra ? { id: otra.rutina_id, nombre: nombreRutina[otra.rutina_id] || 'Entreno', corto: nombreCorto(nombreRutina[otra.rutina_id] || 'Entreno') } : null,
+      hecho: otra ? { id: otra.rutina_id || null, nombre: nombreRutina[otra.rutina_id] || 'Entreno', corto: nombreCorto(nombreRutina[otra.rutina_id] || 'Entreno') } : null,
       inicio_ciclo: !!fase?.fecha_inicio && fecha === fase.fecha_inicio,
       fin_ciclo: !!fase?.fecha_inicio && !!fase?.semanas && fecha === finDeFase(fase),
       corte_pago: fecha === corte,
-      actividades: actividades.filter(a => a.fecha === fecha),
+      actividades: actividades.filter(a => a.fecha === fecha).map(a => {
+        const c = (catalogo || []).find(x => x.slug === a.tipo);
+        return { ...a, categoria: c ? c.categoria : null, despues: !!(c && c.remate) };
+      }),
       // Medición, peso y fotos llevan si ya lo marcó (y el peso que puso);
       // el cardio y los deportes, si ya los marcó con «Ya lo hice».
       eventos: (eventosPorFecha[fecha] || []).map(ev => eventoParaApp(ev, fecha, catalogo, hechoDe, hechoAct)),
@@ -1282,9 +1293,16 @@ async function moverRutina(cliente, cuerpo, hoy) {
   // no se intercambia con una: sería mover algo que no es del plan.
   if (rutinaDe.extra(desde) || rutinaDe.extra(hasta)) return { ok: false, motivo: 'es_extra' };
 
+  // Solo se frena si lo que se va a mover ya está hecho: la rutina de origen
+  // ese día, o la del destino (que se intercambiaría). Otra sesión hecha ese
+  // día, un bloque complementario, el cardio o un deporte no frenan nada:
+  // mover el plan no toca esos registros.
+  const otraDestino = rutinaDe(hasta);
   const hechas = await sb(`sesiones?select=id,fecha,rutina_id,estado&cliente_id=eq.${cliente.id}`
     + `&fecha=in.(${desde},${hasta})&estado=eq.completada`);
-  if ((Array.isArray(hechas) ? hechas : []).length) return { ok: false, motivo: 'ya_entrenada' };
+  const hecha = (Array.isArray(hechas) ? hechas : []).find(x => (x.fecha === desde && x.rutina_id === r.id)
+    || (otraDestino && x.fecha === hasta && x.rutina_id === otraDestino.id));
+  if (hecha) return { ok: false, motivo: 'ya_entrenada', rutina: hecha.fecha === desde ? r.nombre : otraDestino.nombre, fecha: hecha.fecha };
 
   try {
     const ins = await sb('rutina_movimientos', {
@@ -1366,10 +1384,12 @@ async function quitarRutina(cliente, cuerpo, hoy) {
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || '')) ? String(cuerpo.fecha) : null;
   if (!fecha) return { ok: false, motivo: 'fechas' };
   if (!desdeEstaSemana(hoy)(fecha)) return { ok: false, motivo: 'semana_pasada' };
-  const hechas = await sb(`sesiones?select=id&cliente_id=eq.${cliente.id}&fecha=eq.${fecha}&estado=eq.completada`).catch(() => []);
-  if ((Array.isArray(hechas) ? hechas : []).length) return { ok: false, motivo: 'ya_entrenada' };
-  // La que puso el coach ese día es su plan: el cliente no la quita.
+  // Solo frena si ESA rutina (la añadida) ya se hizo ese día.
   const ctx = await contextoCalendario(cliente);
+  const laDelDia = ctx ? ctx.rutinaDe(fecha) : null;
+  const hechas = await sb(`sesiones?select=id,rutina_id&cliente_id=eq.${cliente.id}&fecha=eq.${fecha}&estado=eq.completada`).catch(() => []);
+  if ((Array.isArray(hechas) ? hechas : []).some(x => laDelDia && x.rutina_id === laDelDia.id)) return { ok: false, motivo: 'ya_entrenada' };
+  // La que puso el coach ese día es su plan: el cliente no la quita.
   if (ctx && ctx.rutinaDe.extra(fecha) && !ctx.rutinaDe.extraDelCliente(fecha)) return { ok: false, motivo: 'no_hay' };
   try {
     const del = await sb(`rutina_extras?cliente_id=eq.${cliente.id}&fecha=eq.${fecha}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } });

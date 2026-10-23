@@ -354,7 +354,7 @@ export function ChipActividad({ actividad, catalogo, onClick }) {
       fontFamily: 'inherit', textAlign: 'left',
     }}>
       {v2Activa()
-        ? <span style={{ color: TEXT_MUTED, display: 'inline-flex' }}><IconoActividad slug={actividad.tipo} categoria={c?.categoria} size={17} /></span>
+        ? <span style={{ color: TEXT_MUTED, display: 'inline-flex' }}><IconoActividad slug={actividad.tipo} categoria={c?.categoria} titulo={actividad.titulo} size={17} /></span>
         : <span aria-hidden style={{ fontSize: 15 }}>{c?.icono || '✨'}</span>}
       <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED, flex: 1, minWidth: 0 }}>{etiqueta}</span>
       {detalle && <span style={{ fontSize: 11.5, color: TEXT_LIGHT }}>{detalle}</span>}
