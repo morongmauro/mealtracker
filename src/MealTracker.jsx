@@ -2810,7 +2810,7 @@ export default function MealTracker() {
         }
         setPaymentDue(d && d.due ? {
           dia_corte: d.dia_corte, dias_vencido: d.dias_vencido || 0, monto: d.monto, moneda: d.moneda,
-          // Más de 5 días de mora: la app se bloquea hasta que el coach marque
+          // Más de 8 días de mora (o pasada la prórroga): la app se bloquea hasta que el coach marque
           // el pago (la regla vive en api/_pagos.js, no aquí). El día de
           // gracia no bloquea: sale el recordatorio de siempre.
           bloqueo: !!d.bloqueo && !gracia,
@@ -6126,7 +6126,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             5 días saltaba a rojo alarma con ⚠️, que se sentía un grito. */}
         {/* El chat NO lleva el aviso de pago (pedido del coach): el aviso
             vive en Hoy (visual de siempre) o en el Dash (visual nueva). El
-            push del teléfono y el bloqueo a los 5 días siguen igual. */}
+            push del teléfono y el bloqueo a los 8 días siguen igual. */}
 
         {/* Invitación a activar recordatorios push — misma zona fija del
             banner de pago; si ambos aplican se apilan (el cliente en deuda

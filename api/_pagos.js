@@ -85,6 +85,17 @@ export function mesesHasta(anio, mesNum, cuantos) {
 
 // Lee de una vez lo que sirve para todos: la tabla de clientes y la fecha.
 export async function leerContexto(headers) {
+  // `prorroga_hasta` («Dar más días» en el CRM) llega con su SQL. Mientras no
+  // exista, PostgREST responde 400 y se lee como antes, sin prórrogas.
+  const conProrroga = await fetch(
+    `${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago,monto,moneda,fecha_inicio,aviso_pago_visto_at,prorroga_hasta`,
+    { headers }
+  );
+  if (conProrroga.ok) {
+    const cs = await conProrroga.json();
+    const t = todayInBogota();
+    return { clientes: Array.isArray(cs) ? cs : [], ...t, hoyYmd: t.ymd };
+  }
   const rc = await fetch(
     `${CRM_URL}/rest/v1/clientes?select=id,nombre,estado,dia_pago,monto,moneda,fecha_inicio,aviso_pago_visto_at`,
     { headers }
@@ -107,12 +118,18 @@ export async function leerContexto(headers) {
   return { clientes: Array.isArray(cs) ? cs : [], ...t, hoyYmd: t.ymd };
 }
 
-// DÍAS DE GRACIA. Los primeros 5 días después del corte, el cliente ve un
-// aviso (Dash, Hoy y alimentación). Del día 6 en adelante la app se BLOQUEA:
+// DÍAS DE GRACIA. Los primeros 8 días después del corte, el cliente ve un
+// aviso (Dash, Hoy y alimentación). Del día 9 en adelante la app se BLOQUEA:
 // sale el aviso encima de todo, con la app desenfocada detrás, y no se puede
 // cerrar hasta que el coach marque el pago en el CRM. Si algún día se quiere
 // apagar el bloqueo sin tocar el aviso: DIAS_GRACIA = Infinity.
-export const DIAS_GRACIA = 5;
+//
+// PRÓRROGA («Dar más días» en el CRM): `prorroga_hasta` es una fecha. Hasta
+// ese día (incluido) la app no se bloquea aunque pasen los 8 días; el aviso
+// sigue saliendo. Se vence sola: al día siguiente vuelve la regla de siempre.
+// Nada se guarda como «bloqueado»: se calcula en cada consulta, así que dar
+// días a alguien ya bloqueado lo desbloquea la próxima vez que abra la app.
+export const DIAS_GRACIA = 8;
 
 // El veredicto de UN cliente, con su traza mes a mes.
 export async function evaluarCliente(nombre, ctx, headers) {
@@ -188,11 +205,17 @@ export async function evaluarCliente(nombre, ctx, headers) {
     return { ...base, due: false, motivo: 'no tiene ningún cobro vencido sin pagar' };
   }
   const montoTotal = deuda.reduce((s, d) => s + (Number(d.monto) || 0), 0);
+  const diasVencido = diasEntre(deuda[0].corte, ctx.hoyYmd);
+  const prorroga = cliente.prorroga_hasta && String(cliente.prorroga_hasta).slice(0, 10) >= ctx.hoyYmd
+    ? String(cliente.prorroga_hasta).slice(0, 10) : null;
   return {
     ...base,
     due: true,
-    dias_vencido: diasEntre(deuda[0].corte, ctx.hoyYmd),
-    bloqueo: diasEntre(deuda[0].corte, ctx.hoyYmd) > DIAS_GRACIA,
+    dias_vencido: diasVencido,
+    dias_gracia: DIAS_GRACIA,
+    bloqueo: diasVencido > DIAS_GRACIA && !prorroga,
+    // La prórroga vigente, para que el coach la vea en su CRM.
+    ...(prorroga ? { prorroga_hasta: prorroga } : {}),
     meses_deuda: deuda.length,
     meses: deuda.map(d => d.mes),
     // La "mensualidad" que muestra el aviso: la del cobro más viejo sin pagar.

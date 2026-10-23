@@ -10,7 +10,7 @@
 //                 (el peso se toma en ayunas: tiene que llegar temprano).
 //   (El recordatorio AUTOMÁTICO de pago de las 7:30pm se quitó por pedido
 //   del coach: el aviso de la mensualidad vive en el Dash de la app y, a
-//   los 5 días de mora, el bloqueo. El envío MANUAL desde el CRM sigue.)
+//   los 8 días de mora, el bloqueo. El envío MANUAL desde el CRM sigue.)
 //   20:00 local → CIERRE DEL DÍA, un solo mensaje que junta lo que falte:
 //                 · entreno: tenía rutina hoy en su calendario, no la ha
 //                   hecho esta semana y hoy no entrenó nada;
