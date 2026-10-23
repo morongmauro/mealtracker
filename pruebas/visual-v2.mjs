@@ -3158,21 +3158,50 @@ try {
       && /Probé con 6 kg/.test(await hoja.innerText()) && (await hoja.locator('textarea').inputValue()) === '');
     ok('lote 30: la nota quedó guardada para el coach', !!(l.db.db.notas_entreno || []).find(n => /Probé con 6 kg/.test(n.texto)));
     const tec = await p.evaluate(async () => {
+      const espera = (ms) => new Promise(r => setTimeout(r, ms));
+      let saltos = 0; const so = window.scrollTo; window.scrollTo = function () { saltos++; return so.apply(this, arguments); };
       document.querySelector('[data-hoja-panel] textarea').focus();
       const vv = window.visualViewport;
-      Object.defineProperty(vv, 'height', { configurable: true, get: () => 480 });
-      vv.dispatchEvent(new Event('resize')); await new Promise(r => setTimeout(r, 150));
-      const f = document.querySelector('[data-hoja-fondo]'), pnl = document.querySelector('[data-hoja-panel]').getBoundingClientRect();
-      const out = { alto: Math.round(f.getBoundingClientRect().height), abajo: Math.round(pnl.bottom), marca: f.dataset.conTeclado || null };
-      delete vv.height; vv.dispatchEvent(new Event('resize')); await new Promise(r => setTimeout(r, 150));
-      return out;
+      let alto = 480, arriba = 0;
+      Object.defineProperty(vv, 'height', { configurable: true, get: () => alto });
+      Object.defineProperty(vv, 'offsetTop', { configurable: true, get: () => arriba });
+      const f = document.querySelector('[data-hoja-fondo]');
+      const leer = () => ({ abajo: f.style.bottom, marca: f.dataset.conTeclado || null, max: document.querySelector('[data-hoja-panel]').style.maxHeight });
+      vv.dispatchEvent(new Event('resize')); await espera(80);
+      const sinMover = leer();
+      // El sistema desplaza la pantalla 200 px (lo que hace el iPhone): la hoja
+      // se recoloca contra el teclado y no vuelve a moverse sola.
+      arriba = 200; vv.dispatchEvent(new Event('scroll')); await espera(80);
+      const desplazada = leer();
+      vv.dispatchEvent(new Event('scroll')); await espera(80);
+      const otraVez = leer();
+      delete vv.height; delete vv.offsetTop; document.activeElement.blur(); vv.dispatchEvent(new Event('resize')); await espera(80);
+      const cerrado = leer();
+      window.scrollTo = so;
+      return { sinMover, desplazada, otraVez, cerrado, saltos, alto: innerHeight };
     });
-    ok('lote 30: con el teclado abierto la hoja se coloca sobre la parte visible (no salta)', tec.marca === '1' && tec.alto === 480 && tec.abajo <= 480, JSON.stringify(tec));
+    ok('lote 30: con teclado la hoja se pega encima del teclado (abajo de lo que se ve)', tec.sinMover.marca === '1' && tec.sinMover.abajo === `${tec.alto - 480}px` && tec.sinMover.max === '468px', JSON.stringify(tec));
+    ok('lote 30: si el sistema desplaza la pantalla, la hoja se recoloca una vez y queda quieta (sin bucle)', tec.desplazada.abajo === `${tec.alto - 680}px` && JSON.stringify(tec.otraVez) === JSON.stringify(tec.desplazada) && tec.saltos === 0, JSON.stringify(tec));
+    ok('lote 30: al cerrar el teclado la hoja vuelve abajo', tec.cerrado.marca === null && tec.cerrado.abajo === '', JSON.stringify(tec.cerrado));
     await p.keyboard.press('Escape'); await espera(400);
     await p.locator('[data-re-id="re-e4"] button[aria-label^="Nota al coach"]').first().click(); await espera(700);
     ok('lote 30: al volver a abrirla, lo enviado sigue ahí', (await p.locator('[data-hoja-panel] [data-mia-hilo]').count()) === 2);
     ok('sin errores de JavaScript (lote 30)', l.errores.length === 0, l.errores.join(' | '));
     await l.ctx.close();
+    // iPhone: al tocar el campo se enfoca sin que la página se desplace.
+    const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+    const io = await abrir('Mauro Morón', { caliente: true, ua: IPHONE, extra: { 'mt:vistaApp': VP, 'mt:tipIconosRutina': '1' } });
+    await io.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }); await espera(1000);
+    await io.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1200);
+    await io.p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await io.p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(800);
+    await io.p.locator('[data-re-id="re-e4"] button[aria-label^="Nota al coach"]').first().click(); await espera(800);
+    await io.p.evaluate(() => { window.__desplazo = 0; window.addEventListener('scroll', () => { window.__desplazo++; }, true); });
+    await io.p.locator('[data-hoja-panel] textarea').tap(); await espera(300);
+    const r = await io.p.evaluate(() => { const t = document.querySelector('[data-hoja-panel] textarea'); return { foco: document.activeElement === t, y: window.scrollY, transform: t.style.transform }; });
+    ok('lote 30 (iPhone): tocar el campo lo enfoca sin desplazar la página', r.foco && r.y === 0 && r.transform === '', JSON.stringify(r));
+    ok('sin errores de JavaScript (lote 30, iPhone)', io.errores.length === 0, io.errores.join(' | '));
+    await io.ctx.close();
   }
 
 } catch (e) {

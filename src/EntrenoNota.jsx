@@ -126,7 +126,7 @@ export default function HojaNota({ abierta, nombre, contexto, alCerrar, alLeer, 
           }}>{s}</button>
         ))}
       </div>}
-      <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={hayHilo ? 2 : 4} autoFocus={!hayHilo}
+      <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={hayHilo ? 2 : 4}
         placeholder={hayHilo ? 'Responder a tu coach…' : tipo === 'ejercicio' ? '¿Qué le quieres contar de este ejercicio?' : '¿Qué le quieres contar de esta rutina?'}
         style={{
           width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: 16,

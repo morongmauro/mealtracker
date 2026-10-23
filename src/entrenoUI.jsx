@@ -286,44 +286,68 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
     };
   }, [abierta, alCerrar]);
 
-  // Lote 30 · el teclado. En el iPhone, al tocar un campo dentro de la hoja,
-  // el sistema desplazaba la pantalla para mostrarlo y la hoja (pegada al
-  // fondo) saltaba arriba y abajo: «tiembla». Ahora la hoja se coloca sobre
-  // la parte VISIBLE de la pantalla (encima del teclado) y se mueve en un
-  // solo paso cuando el teclado sale o se va.
-  const [vista, setVista] = useState(null);   // { arriba, alto } con teclado; null sin él
+  // Lote 30 · el teclado (versión 2). En el iPhone, al tocar un campo de la
+  // hoja, el sistema desplaza la pantalla para mostrarlo. La versión 1 seguía
+  // ese desplazamiento moviendo la hoja Y devolvía la pantalla a su sitio: el
+  // sistema volvía a desplazarla y la hoja subía y bajaba en bucle.
+  // Ahora: (1) al tocar el campo se enfoca sin que el sistema desplace nada
+  // (la técnica de react-aria para Safari en iOS), y (2) la hoja se pega al
+  // borde de arriba del teclado —el borde de abajo de lo que se ve—, que no
+  // cambia aunque el sistema desplace: no hay nada contra lo que pelear. Se
+  // escribe directo en el estilo, sin esperar a React, en un solo paso.
+  const fondoRef = useRef(null);
   useEffect(() => {
-    if (!abierta || typeof window === 'undefined' || !window.visualViewport) return undefined;
+    if (!abierta || typeof window === 'undefined') return undefined;
     const vv = window.visualViewport;
-    let raf = 0;
+    const ua = navigator.userAgent || '';
+    const esIOS = /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    const campo = (el) => !!el && (el.tagName === 'TEXTAREA' || el.isContentEditable
+      || (el.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|range|file)$/i.test(el.type || '')));
     const colocar = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const foco = document.activeElement;
-        const escribe = !!foco && (foco.tagName === 'INPUT' || foco.tagName === 'TEXTAREA' || foco.isContentEditable);
-        const teclado = escribe && window.innerHeight - vv.height > 100;
-        setVista(v => {
-          if (!teclado) return null;
-          const n = { arriba: Math.round(vv.offsetTop), alto: Math.round(vv.height) };
-          return v && v.arriba === n.arriba && v.alto === n.alto ? v : n;
-        });
-        // El sistema intenta desplazar la página para mostrar el campo: se
-        // devuelve a su sitio (la hoja ya lo muestra encima del teclado).
-        if (teclado && (window.scrollY || document.documentElement.scrollTop)) window.scrollTo(0, 0);
-      });
+      const f = fondoRef.current, pnl = panel.current;
+      if (!f || !pnl || !vv) return;
+      const foco = document.activeElement;
+      const dentro = campo(foco) && pnl.contains(foco);
+      // Lo que tapa el teclado: desde el borde de abajo de lo que se ve.
+      const tapado = Math.max(0, Math.round(window.innerHeight - (vv.offsetTop + vv.height)));
+      if (dentro && tapado > 80) {
+        f.style.bottom = `${tapado}px`;
+        f.style.paddingBottom = '0px';
+        f.setAttribute('data-con-teclado', '1');
+        pnl.style.maxHeight = `${Math.round(vv.height - 12)}px`;
+        // Que el campo quede a la vista DENTRO de la hoja (sin mover la página).
+        const sc = pnl.querySelector('[data-hoja-scroll]');
+        if (sc) {
+          const r = foco.getBoundingClientRect(), rs = sc.getBoundingClientRect();
+          if (r.bottom > rs.bottom - 8) sc.scrollTop += r.bottom - rs.bottom + 12;
+        }
+      } else if (f.hasAttribute('data-con-teclado')) {
+        f.style.bottom = ''; f.style.paddingBottom = '';
+        f.removeAttribute('data-con-teclado');
+        pnl.style.maxHeight = '';
+      }
     };
-    vv.addEventListener('resize', colocar);
-    vv.addEventListener('scroll', colocar);
+    // iOS: enfocar sin que Safari desplace la pantalla. El campo se corre un
+    // instante fuera de la pantalla, se enfoca y vuelve a su sitio.
+    const alSoltar = (e) => {
+      const t = e.target;
+      if (!esIOS || !campo(t) || t === document.activeElement || !panel.current || !panel.current.contains(t)) return;
+      e.preventDefault();
+      t.style.transform = 'translateY(-2000px)';
+      t.focus({ preventScroll: true });
+      requestAnimationFrame(() => { t.style.transform = ''; });
+    };
+    const tarde = () => setTimeout(colocar, 0);
+    if (vv) { vv.addEventListener('resize', colocar); vv.addEventListener('scroll', colocar); }
     document.addEventListener('focusin', colocar);
-    document.addEventListener('focusout', colocar);
+    document.addEventListener('focusout', tarde);
+    document.addEventListener('touchend', alSoltar, { capture: true, passive: false });
     colocar();
     return () => {
-      cancelAnimationFrame(raf);
-      vv.removeEventListener('resize', colocar);
-      vv.removeEventListener('scroll', colocar);
+      if (vv) { vv.removeEventListener('resize', colocar); vv.removeEventListener('scroll', colocar); }
       document.removeEventListener('focusin', colocar);
-      document.removeEventListener('focusout', colocar);
-      setVista(null);
+      document.removeEventListener('focusout', tarde);
+      document.removeEventListener('touchend', alSoltar, { capture: true });
     };
   }, [abierta]);
 
@@ -332,12 +356,12 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
   // scroll propio) el navegador del teléfono le robaba el gesto a la hoja.
   const hoja = (
     <div
-      onClick={alCerrar} data-hoja-fondo data-con-teclado={vista ? '1' : undefined}
+      onClick={alCerrar} data-hoja-fondo ref={fondoRef}
       style={{
         position: 'fixed', left: 0, right: 0, zIndex: 60, overscrollBehavior: 'contain', touchAction: 'pan-y',
-        // Con teclado: solo lo visible (encima del teclado). Sin teclado: toda
-        // la pantalla, dejando abajo el sitio del reloj de descanso si está.
-        ...(vista ? { top: vista.arriba, height: vista.alto } : { top: 0, bottom: 0, paddingBottom: 'var(--mt-reloj-alto, 0px)' }),
+        // Toda la pantalla, dejando abajo el sitio del reloj de descanso si
+        // está. Con teclado, el borde de abajo sube hasta el teclado (arriba).
+        top: 0, bottom: 0, paddingBottom: 'var(--mt-reloj-alto, 0px)',
         background: 'rgba(31,31,31,0.38)',
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       }}>
@@ -348,7 +372,7 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
         style={{
           background: SURFACE, width: '100%', maxWidth: 560,
           borderRadius: L25 ? '28px 28px var(--mt-hoja-radio-abajo, 0px) var(--mt-hoja-radio-abajo, 0px)' : '22px 22px 0 0', boxShadow: SHADOW_OVERLAY,
-          maxHeight: vista ? `${vista.alto - 16}px` : `min(${alto}, calc(100dvh - 24px - var(--mt-reloj-alto, 0px)))`, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          maxHeight: `min(${alto}, calc(100dvh - 24px - var(--mt-reloj-alto, 0px)))`, display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
         {/* La barrita de arrastre va en su propia fila, no superpuesta: al
             posicionarla absoluta sobre la cabecera se cruzaba encima del
@@ -377,7 +401,7 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
           // Con el reloj del descanso encima (--mt-reloj-alto), lo último de
           // la hoja queda por arriba de la barra negra.
           // (La hoja ya se levanta sobre el reloj; con teclado no hace falta el margen de abajo.)
-          padding: vista ? '16px 18px 14px' : '16px 18px calc(26px + env(safe-area-inset-bottom, 0px))',
+          padding: '16px 18px calc(26px + env(safe-area-inset-bottom, 0px))',
           overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y',
         }}>{children}</div>
       </div>
