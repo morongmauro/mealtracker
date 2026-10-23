@@ -34,8 +34,12 @@ const CSS = [
   capa('.fixed.inset-0.overflow-y-auto[style*="rgb(237, 236, 229)"]', COLORES_MODULO.comida),
   // El chat de Alimentación, con el mismo fondo que su Hoy (blanco con las
   // manchas verdes), en vez del gris cálido de siempre.
-  capa('[data-chat-scroller]', COLORES_MODULO.comida),
-  `.min-h-screen.relative:has(>[data-chat-scroller]){background:${BLANCO}!important}`,
+  // El chat no tiene cabecera: sus manchas van en el fondo FIJO de atrás (no
+  // en lo que se desplaza), con la fuerza de las de Hoy: verde arriba a la
+  // derecha, amarillo a la izquierda, apagándose hacia abajo. Los mensajes
+  // pasan por encima y las manchas se quedan.
+  `[data-chat-scroller]{background:transparent!important}`,
+  `.min-h-screen.relative:has(>[data-chat-scroller]){background:radial-gradient(95% 340px at 100% 0%, rgba(${COLORES_MODULO.comida.p},0.46), rgba(${COLORES_MODULO.comida.p},0) 100%), radial-gradient(80% 300px at 0% 110px, rgba(${COLORES_MODULO.comida.q},0.40), rgba(${COLORES_MODULO.comida.q},0) 100%), linear-gradient(180deg, rgba(${COLORES_MODULO.comida.p},0.12) 0%, rgba(${COLORES_MODULO.comida.p},0) 55vh), ${BLANCO}!important}`,
   // Los desvanecidos de arriba y abajo eran del gris cálido: en blanco.
   `.fixed.pointer-events-none[style*="rgba(237, 236, 229"]{display:none!important}`,
   // Sin la píldora negra; la franja curva más corta y todo sube.
@@ -46,7 +50,7 @@ const CSS = [
   // Curva C (lote 28): ola con el centro al 18 % y elipse muy ancha (izquierda
   // mínima, bajada que ocupa casi todo el ancho), filo de luz blanco suave y reflejo arriba. Sin sombra
   // ni contorno gris: la curva la dibuja la luz.
-  `[data-banda]{height:calc(env(safe-area-inset-top, 0px) + 36px)!important;-webkit-mask-image:radial-gradient(ellipse 85% 26px at 18% 100%, transparent 98%, #000 100%)!important;mask-image:radial-gradient(ellipse 85% 26px at 18% 100%, transparent 98%, #000 100%)!important;background:radial-gradient(ellipse 85% 30px at 18% 100%, rgba(255,255,255,0) 81%, rgba(255,255,255,.9) 87%, rgba(255,255,255,0) 100%), linear-gradient(180deg, rgba(255,255,255,.40) 0%, rgba(255,255,255,.12) 50%, rgba(255,255,255,0) 100%), linear-gradient(180deg, var(--banda-tope) 0%, var(--banda-tope) 100%)!important;opacity:.78;-webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6)}`,
+  `[data-banda]{height:calc(env(safe-area-inset-top, 0px) + 36px)!important;-webkit-mask-image:radial-gradient(ellipse 85% 26px at 18% 100%, transparent 99.4%, #000 100%)!important;mask-image:radial-gradient(ellipse 85% 26px at 18% 100%, transparent 99.4%, #000 100%)!important;background:linear-gradient(180deg, rgba(255,255,255,.40) 0%, rgba(255,255,255,.12) 50%, rgba(255,255,255,0) 100%), linear-gradient(180deg, var(--banda-tope) 0%, var(--banda-tope) 100%)!important;opacity:.78;-webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6)}`,
   `[data-cabecera-hoy]:has(>[data-banda]){padding-top:calc(env(safe-area-inset-top, 0px) + 46px)!important}`,
 ].map(r => r.replace(/(^|\})\s*([^{}]+)\{/g, (m, a, sel) => `${a}${sel.split(',').map(x => `html[data-fondo-blanco] ${x.trim()}`).join(',')}{`)).join('\n');
 
