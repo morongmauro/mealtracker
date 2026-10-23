@@ -3206,6 +3206,29 @@ try {
     await io.p.locator('[data-hoja-panel] textarea').tap(); await espera(300);
     const r = await io.p.evaluate(() => { const t = document.querySelector('[data-hoja-panel] textarea'); return { foco: document.activeElement === t, y: window.scrollY, transform: t.style.transform }; });
     ok('lote 30 (iPhone): tocar el campo lo enfoca sin desplazar la página', r.foco && r.y === 0 && r.transform === '', JSON.stringify(r));
+    // El iPhone no tiene navigator.vibrate: su «tic» toca un interruptor
+    // invisible, y eso le quita el foco al campo (se cierra el teclado). Con
+    // el reloj del descanso en marcha la rutina se repinta cada medio segundo:
+    // la hoja no puede volver a vibrar por eso, y escribiendo nunca vibra.
+    await io.p.keyboard.press('Escape'); await espera(400);
+    await io.p.evaluate(() => {
+      try { delete Navigator.prototype.vibrate; } catch (e) { /* */ }
+      window.__tics = 0; const c = HTMLElement.prototype.click;
+      HTMLElement.prototype.click = function () { if (this.tagName === 'LABEL' && this.querySelector('input[switch]')) { window.__tics++; if (window.__robaFoco !== false) this.querySelector('input').focus(); } return c.apply(this, arguments); };
+    });
+    const bancaIo = io.p.locator('[data-ejercicio="Barbell Bench Press"]');
+    await bancaIo.scrollIntoViewIfNeeded();
+    await bancaIo.getByLabel('Repeticiones serie 1').fill('8'); await bancaIo.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(500);
+    await io.p.locator('[data-re-id="re-e4"] button[aria-label^="Nota al coach"]').first().click(); await espera(400);
+    const t0 = await io.p.evaluate(() => window.__tics); await espera(2000);
+    const t1 = await io.p.evaluate(() => window.__tics);
+    ok('lote 30 (iPhone): la hoja abierta no vuelve a vibrar cada vez que corre el descanso', t1 === t0, JSON.stringify({ t0, t1 }));
+    await io.p.locator('[data-hoja-panel] textarea').tap(); await espera(2000);
+    const fi = await io.p.evaluate(() => ({ descanso: !!document.querySelector('[data-descanso]'), foco: document.activeElement === document.querySelector('[data-hoja-panel] textarea'), tics: window.__tics }));
+    ok('lote 30 (iPhone): con el descanso corriendo, el campo NO pierde el foco (el teclado no se cierra solo)', fi.descanso && fi.foco && fi.tics === t1, JSON.stringify({ ...fi, t1 }));
+    // Y aunque algo vibre mientras escribe, el iPhone no toca el interruptor.
+    const conFoco = await io.p.evaluate(async () => { const m = await import('/src/vibrar.js'); const a = window.__tics; m.vibrar('medio'); return { antes: a, despues: window.__tics, foco: document.activeElement.tagName }; });
+    ok('lote 30 (iPhone): escribiendo, una vibración no le quita el foco al campo', conFoco.despues === conFoco.antes && conFoco.foco === 'TEXTAREA', JSON.stringify(conFoco));
     ok('sin errores de JavaScript (lote 30, iPhone)', io.errores.length === 0, io.errores.join(' | '));
     await io.ctx.close();
   }

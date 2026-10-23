@@ -267,6 +267,12 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
   // (Entrenamiento y Dash scrollean dentro de su propio contenedor). Se
   // congelan también esas capas; si no, deslizar dentro de la hoja movía la
   // rutina de atrás en vez de la hoja.
+  // alCerrar llega como función nueva en cada pintada (la rutina se repinta
+  // cada medio segundo con el descanso en marcha). Si el efecto de abrir
+  // dependiera de ella, se repetía —con su vibración— una y otra vez, y en el
+  // iPhone esa vibración le quita el foco al campo: el teclado se cerraba solo.
+  const cerrarRef = useRef(alCerrar);
+  cerrarRef.current = alCerrar;
   useEffect(() => {
     if (!abierta) return;
     const capas = [document.body, ...document.querySelectorAll('[data-view="entrena"], [data-view="dash"]')];
@@ -277,14 +283,14 @@ export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca
     // nunca tapa el botón de la hoja.
     document.documentElement.setAttribute('data-hoja-abierta', '');
     if (L25) vibrar('tic');
-    const esc = (e) => { if (e.key === 'Escape') alCerrar?.(); };
+    const esc = (e) => { if (e.key === 'Escape') cerrarRef.current?.(); };
     window.addEventListener('keydown', esc);
     return () => {
       capas.forEach((el, i) => { el.style.overflow = previos[i]; });
       document.documentElement.removeAttribute('data-hoja-abierta');
       window.removeEventListener('keydown', esc);
     };
-  }, [abierta, alCerrar]);
+  }, [abierta]);
 
   // Lote 30 · el teclado (versión 2). En el iPhone, al tocar un campo de la
   // hoja, el sistema desplaza la pantalla para mostrarlo. La versión 1 seguía

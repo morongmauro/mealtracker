@@ -18,6 +18,10 @@ const PATRONES = { tic: 8, medio: 16, doble: [12, 60, 12], logro: [14, 50, 14, 5
 let interruptor = null;
 function ticIOS() {
   try {
+    // Tocar el interruptor le quita el foco a lo que se está escribiendo y el
+    // teclado se cierra: escribiendo, el iPhone no vibra.
+    const foco = document.activeElement;
+    if (foco && (foco.tagName === 'TEXTAREA' || foco.tagName === 'INPUT' || foco.isContentEditable) && foco.type !== 'checkbox') return;
     if (!interruptor) {
       const label = document.createElement('label');
       label.setAttribute('aria-hidden', 'true');
