@@ -136,6 +136,9 @@ export const api = {
   // enlace firmado y el navegador manda el archivo directo al storage, sin
   // pasar por la función serverless. Una foto de 8 MB por ahí se comería el
   // límite de cuerpo de la petición.
+  // La encuesta de la app (una vez, desde la segunda semana).
+  encuesta:          (name)        => pedir({ accion: 'encuesta', name }),
+  encuestaResponder: (name, datos) => pedir({ accion: 'encuesta_responder', name, ...datos }),
   fotos:       (name)        => pedir({ accion: 'fotos', name }),
   fotoSubir:   (name, datos) => pedir({ accion: 'foto_subir', name, ...datos }),
   fotoGuardar: (name, datos) => pedir({ accion: 'foto_guardar', name, ...datos }),

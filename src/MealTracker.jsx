@@ -23,6 +23,7 @@ const AprendeHoy = lazy(() => import('./AprendeHoy.jsx'));
 const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
 const RepasoRecorrido = lazy(() => import('./RepasoRecorrido.jsx'));
+const EncuestaApp = lazy(() => import('./EncuestaApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
 import { BarraCompacta, HojaMas, gruposMas } from './VistaCompacta.jsx';
 import { useVistaCompacta, useModoVista, puedeCompacta, guardarVista, adoptarVistaNube, leerVista, fondoBlanco, enPrueba, lote25 } from './vistaApp.js';
@@ -63,7 +64,9 @@ import { leerSesion, guardarSesion } from './sesionV2.js';
 const CuentaV2 = lazy(() => import('./CuentaV2.jsx'));
 import { aroComida, progresoComida } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
-import { sumarDias } from './entrenoDatos.js';
+import { sumarDias, api as apiEntreno } from './entrenoDatos.js';
+import { encuestaPospuesta } from './encuestaLuego.js';
+import { enVerComo as enVerComoEncuesta } from './verComo.js';
 import { pasosInstalar } from './InstalarApp.jsx';
 import { leerAprendizajeConCache } from './aprendizaje.js';
 
@@ -1863,6 +1866,24 @@ export default function MealTracker() {
   // guiado: una vez, «¿Quieres repasar cómo usar la app?» (no en la compacta).
   const [repasoVisto, setRepasoVisto] = useState(repasoOfrecido);
   const repaso = lote25() && view === 'main' && v2 && !!name && !!sesionV2 && !cuentaAbierta && primeraVezVista && !mudanza && !recorrido && !compacta && !recorridoHecho() && !repasoVisto;
+  // La encuesta de la app: una vez, desde su segunda semana (lo decide el
+  // servidor). Después de la entrada y de cualquier otra ventana.
+  const [encuesta, setEncuesta] = useState(false);
+  useEffect(() => {
+    if (view !== 'main' || !v2 || !name || encuestaPospuesta() || enVerComoEncuesta()) return;
+    let vivo = true, t = null;
+    apiEntreno.encuesta(name).then(r => {
+      if (!vivo || !r || !r.toca) return;
+      const mostrar = () => {
+        if (!vivo) return;
+        if (document.body.classList.contains('app-ready')) { t = setTimeout(() => vivo && setEncuesta(true), 900); return; }
+        t = setTimeout(mostrar, 400);
+      };
+      mostrar();
+    }).catch(() => {});
+    return () => { vivo = false; clearTimeout(t); };
+  }, [view, v2, name]);
+  const verEncuesta = encuesta && view === 'main' && !cuentaAbierta && !primeraVez && !repaso && !mudanza && !recorrido;
   // Lo que encontró en la cuenta al llegar a la dirección nueva.
   const [llegadaCuenta, setLlegadaCuenta] = useState(null);
   useEffect(() => {
@@ -7309,6 +7330,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         <Suspense fallback={null}><CuentaV2 nombre={name} pendientes datosAceptados={cloudConsent !== null}
           alAceptarDatos={acceptCloudConsent} alActivarAvisos={activarPush} alRecorrido={() => setRecorrido(true)}
           alListo={terminarPrimeraVez} /></Suspense>
+      )}
+      {verEncuesta && (
+        <Suspense fallback={null}><EncuestaApp nombre={name} alCerrar={() => setEncuesta(false)} /></Suspense>
       )}
       {repaso && (
         <Suspense fallback={null}><RepasoRecorrido alVer={() => { setRepasoVisto(true); setRecorrido(true); }} alSaltar={() => setRepasoVisto(true)} /></Suspense>

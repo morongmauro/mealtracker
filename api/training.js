@@ -152,6 +152,8 @@ export default async function handler(req, res) {
     if (!esGet && accion === 'quitar_rutina') return res.status(200).json(await quitarRutina(cliente, cuerpo, hoy));
     if (!esGet && accion === 'actividad') return res.status(200).json(await guardarActividad(cliente, cuerpo, hoy));
     if (!esGet && accion === 'borrar_actividad') return res.status(200).json(await borrarActividad(cliente, cuerpo));
+    if (accion === 'encuesta') return res.status(200).json(await verEncuesta(cliente, hoy));
+    if (!esGet && accion === 'encuesta_responder') return res.status(200).json(await responderEncuesta(cliente, cuerpo, hoy));
     if (accion === 'medidas') return res.status(200).json(await verMedidas(cliente));
     if (!esGet && accion === 'medida') return res.status(200).json(await guardarMedida(cliente, cuerpo, hoy));
     if (!esGet && accion === 'nota') return res.status(200).json(await guardarNota(cliente, cuerpo, hoy));
@@ -1803,6 +1805,49 @@ async function guardarMedida(cliente, cuerpo, hoy) {
 // «El press me molesta en el hombro», «la rutina del jueves me queda larga».
 // Llegan a la Bandeja del CRM y al teléfono del coach. La tabla
 // `notas_entreno` llega con carga/migracion-bandeja.sql.
+// ── ENCUESTA DE LA APP ─────────────────────────────────────────────────
+// Una sola vez por cliente, desde su segunda semana (la cuenta desde su
+// fecha de inicio en el CRM). Si ya la respondió, nunca más. «Ahora no» lo
+// guarda el teléfono (vuelve a salir la semana siguiente). Tabla:
+// CRM_entrenaconmetodo/migraciones/encuesta-app.sql.
+export const ENCUESTA_ID = 'app-1';
+export function semanaCliente(inicio, hoy) {
+  const d = String(inicio || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d > hoy) return null;
+  return Math.floor((Date.parse(hoy) - Date.parse(d)) / 86400000 / 7) + 1;
+}
+async function inicioCliente(cliente) {
+  const r = await sb(`clientes?select=fecha_inicio,created_at&id=eq.${cliente.id}&limit=1`).catch(() => null);
+  const c = Array.isArray(r) ? r[0] : null;
+  return c ? (c.fecha_inicio || String(c.created_at || '').slice(0, 10) || null) : null;
+}
+async function verEncuesta(cliente, hoy) {
+  if (String(cliente.estado || 'activo').toLowerCase() !== 'activo') return { ok: true, toca: false, motivo: 'no_activo' };
+  const semana = semanaCliente(await inicioCliente(cliente), hoy);
+  if (!semana || semana < 2) return { ok: true, toca: false, semana, motivo: 'antes_de_semana_2' };
+  let ya;
+  try { ya = await sb(`encuesta_app?select=id&cliente_id=eq.${cliente.id}&encuesta=eq.${ENCUESTA_ID}&limit=1`); }
+  catch (e) { return { ok: false, toca: false, motivo: 'sin_tabla' }; }
+  if (Array.isArray(ya) && ya.length) return { ok: true, toca: false, semana, motivo: 'respondida' };
+  return { ok: true, toca: true, semana };
+}
+async function responderEncuesta(cliente, cuerpo, hoy) {
+  const n = (v, min, max) => { const x = Number(v); return Number.isInteger(x) && x >= min && x <= max ? x : null; };
+  const fila = {
+    user_id: cliente.user_id, cliente_id: cliente.id, encuesta: ENCUESTA_ID, fecha: hoy,
+    semana: semanaCliente(await inicioCliente(cliente), hoy),
+    util: n(cuerpo.util, 1, 5), facil: n(cuerpo.facil, 1, 5), agradable: n(cuerpo.agradable, 1, 5), recomienda: n(cuerpo.recomienda, 0, 10),
+  };
+  if ([fila.util, fila.facil, fila.agradable, fila.recomienda].some(v => v === null)) return { ok: false, motivo: 'incompleta' };
+  try {
+    // Una sola por cliente: si ya estaba (dos toques), no se duplica ni se pisa.
+    await sb('encuesta_app?on_conflict=cliente_id,encuesta', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(fila) });
+  } catch (e) {
+    return { ok: false, motivo: 'sin_tabla' };
+  }
+  return { ok: true };
+}
+
 async function guardarNota(cliente, cuerpo, hoy) {
   const texto = String(cuerpo.texto || '').trim().slice(0, 600);
   if (!texto) return { ok: false, motivo: 'vacia' };
