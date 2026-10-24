@@ -2642,7 +2642,7 @@ try {
     const tarjeta = p.locator('[data-re-id="re-e1"]').first();
     ok('comentario del coach: la nubecita del ejercicio lleva el circulito azul con 1 (solo lo puntual sin leer)', await tarjeta.locator('[data-punto-coach="1"]').count() === 1
       && await p.locator('[data-re-id="re-e4"] [data-punto-coach]').count() === 0 && await p.locator('[data-re-id="re-e11"] [data-punto-coach]').count() === 0);
-    ok('comentario del coach: el «Siempre presente» va fijo en la tarjeta, tranquilo (sin circulito propio)', /Tu coach: Baja la barra controlada/.test(await tarjeta.locator('[data-siempre-coach]').innerText().catch(() => '')));
+    ok('comentario del coach: el «Siempre presente» NO va a la vista en la tarjeta (solo el pin en la nota)', (await tarjeta.locator('[data-siempre-coach]').count()) === 0 && !/Baja la barra controlada/.test(await tarjeta.innerText()));
     ok('comentario del coach: arriba de la rutina, una sola línea «Tu coach te dejó un comentario»', await p.locator('[data-aviso-coach="1"]').count() === 1 && /Tu coach te dejó un comentario/.test(await p.locator('[data-aviso-coach]').innerText()));
     await foto(p, '45a-comentario-coach-rutina');
     await p.locator('[data-aviso-coach]').click(); await espera(900);
@@ -2657,6 +2657,9 @@ try {
       && !cc.db.db.comentarios_coach.find(c => c.id === '11111111-aaaa-4aaa-8aaa-000000000004').leido_en);
     await p.keyboard.press('Escape'); await p.locator('[data-hoja-cerrar], button[aria-label="Cerrar"]').first().click().catch(() => {}); await espera(600);
     ok('comentario del coach: y se apaga el circulito', await p.locator('[data-re-id="re-e1"] [data-punto-coach]').count() === 0);
+    ok('comentario del coach: leído lo puntual, el «Siempre presente» deja un pin azul fijo en la nota (lote 31)', await p.locator('[data-re-id="re-e1"] [data-pin-coach]').count() >= 1
+      && await p.locator('[data-re-id="re-e4"] [data-pin-coach]').count() === 0);
+    await p.locator('[data-re-id="re-e1"]').first().screenshot({ path: path.join(CAPTURAS, 'pin-siempre-coach.png') }).catch(() => {});
     ok('sin errores de JavaScript (comentario del coach)', cc.errores.length === 0, cc.errores.join(' | '));
     await cc.ctx.close();
   }

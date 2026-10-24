@@ -1523,7 +1523,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
       <CuentaEjercicio.Provider value={ctxCuenta}>
       {(ligera || compactaRutina) && tramos.length > 0 && <TipIconos />}
       <AvisoComentarios ejercicios={datos.ejercicios || []}
-        alVer={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, ejercicio_id: re.ejercicio && re.ejercicio.id })} />
+        alVer={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, notas_rutina: re.notas || null, ejercicio_id: re.ejercicio && re.ejercicio.id })} />
       {tramos.map((tramo, ti) => (
         <React.Fragment key={tramo.clave}>
           {fases[ti] && fases[ti] !== fases[ti - 1] && (
@@ -1536,7 +1536,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
             <CircuitoV2 tramo={tramo} marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar}
               unidadDe={unidadDe} onUnidad={cambiarUnidad}
               compacta={compactaRutina} cerrado={compactaRutina && abiertaClave !== tramo.clave} alAbrir={() => setAbiertoCompacta(tramo.clave)} ligera={ligera} ahora={ahoraCircuito}
-              onNota={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, ejercicio_id: re.ejercicio && re.ejercicio.id })} />
+              onNota={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, notas_rutina: re.notas || null, ejercicio_id: re.ejercicio && re.ejercicio.id })} />
           ) : (<>
           {tramo.bloque && <CabeceraBloque b={tramo.bloque} v2={v2} />}
           {tramo.vueltas.map((vuelta, vi) => (
@@ -1559,7 +1559,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
                     : undefined}
                   compacto={vi > 0}
                   unidad={unidadDe(re)} onUnidad={() => cambiarUnidad(re)}
-                  onNota={() => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, ejercicio_id: re.ejercicio && re.ejercicio.id })}
+                  onNota={() => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, notas_rutina: re.notas || null, ejercicio_id: re.ejercicio && re.ejercicio.id })}
                   ahora={re.id === ahoraId}
                   {...(compactaRutina ? { compacta: true, cerrado: abiertaClave !== re.id, alAbrir: () => setAbiertoCompacta(re.id) } : ligera ? { ligera: true } : {})}
                   marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />

@@ -216,18 +216,18 @@ function Botones({ items, chico = false, soloIconos = false, chicos = false }) {
   // Vista compacta: solo el ícono, en círculos chicos al lado del nombre.
   if (soloIconos) return (
     <div data-botones data-botones-iconos style={{ display: 'flex', gap: chicos ? 2 : 6, flex: 'none' }}>
-      {items.map(({ Icono, texto, onClick, punto }) => (
-        <button key={texto} onClick={onClick} aria-label={punto ? `${texto} (${punto} sin leer de tu coach)` : texto} title={texto} data-pildora-ejercicio style={{
+      {items.map(({ Icono, texto, onClick, punto, fijo }) => (
+        <button key={texto} onClick={onClick} aria-label={punto ? `${texto} (${punto} sin leer de tu coach)` : fijo ? `${texto} (recordatorio fijo de tu coach)` : texto} title={texto} data-pildora-ejercicio style={{
           position: 'relative',
           width: chicos ? 32 : 34, height: chicos ? 32 : 34, borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer', padding: 0,
           boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)', display: 'grid', placeItems: 'center', flex: 'none',
-        }}><Icono size={16} color={GRAFITO} />{punto ? <PuntoCoach n={punto} /> : null}</button>
+        }}><Icono size={16} color={GRAFITO} />{punto ? <PuntoCoach n={punto} /> : fijo ? <PinCoach /> : null}</button>
       ))}
     </div>
   );
   return (
     <div data-botones style={{ display: 'flex', gap: chico ? 6 : 7, marginTop: chico ? 8 : 9, minWidth: 0 }}>
-      {items.map(({ Icono, texto, corto, onClick, punto }) => {
+      {items.map(({ Icono, texto, corto, onClick, punto, fijo }) => {
         const visible = chico && corto ? corto : texto;
         return (
           <button key={texto} onClick={onClick} aria-label={visible !== texto ? texto : undefined} data-pildora-ejercicio style={{
@@ -238,7 +238,7 @@ function Botones({ items, chico = false, soloIconos = false, chicos = false }) {
           }}>
             <Icono size={15} color={GRAFITO} style={{ flex: 'none' }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{visible}</span>
-            {punto ? <PuntoCoach n={punto} /> : null}
+            {punto ? <PuntoCoach n={punto} /> : fijo ? <PinCoach /> : null}
           </button>
         );
       })}
@@ -251,7 +251,7 @@ function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota, re 
     { Icono: Info, texto: 'Ficha', onClick: abrirFicha },
     // El récord va dentro del historial: un botón menos por ejercicio.
     ...(sinCarga ? [] : [{ Icono: ClockCounterClockwise, texto: 'Historial', onClick: abrirUltima }]),
-    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', corto: 'Nota', onClick: onNota, punto: sinLeerCoach(re) }] : []),
+    ...(onNota ? [{ Icono: ChatCircleText, texto: 'Nota al coach', corto: 'Nota', onClick: onNota, punto: sinLeerCoach(re), fijo: !!siempreCoach(re) }] : []),
   ];
 }
 
@@ -272,6 +272,17 @@ function PuntoCoach({ n }) {
       position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box', borderRadius: 99,
       background: AZUL_COACH, color: '#fff', fontSize: 10, fontWeight: 800, lineHeight: '16px', textAlign: 'center', boxShadow: '0 0 0 2px #fff',
     }}>{n}</span>
+  );
+}
+// «Siempre presente»: un pin azul fijo en el botón de la nota, para que se
+// sepa que ahí hay un recordatorio de técnica aunque no haya nada nuevo. No
+// es un aviso (sin número): el circulito de «Para la próxima vez» va encima.
+function PinCoach() {
+  return (
+    <span data-pin-coach style={{
+      position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 99, background: AZUL_COACH,
+      display: 'grid', placeItems: 'center', boxShadow: '0 0 0 2px #fff',
+    }}><PushPin size={9} weight="fill" color="#fff" /></span>
   );
 }
 // Si hay «Para la próxima vez» sin leer, arriba de la rutina sale UNA vez la
@@ -692,7 +703,9 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
       {/* Compacta: la misma línea suave entre el ejercicio y las series. */}
       {compacta && prueba && <div data-separador-series style={{ height: 1, background: 'rgba(60,60,67,0.09)', margin: '10px 0 2px' }} />}
 
-      {lote25() ? (siempre && <SiempreCoach texto={siempre} />) : re.notas && (
+      {/* Visual nueva: el recordatorio fijo NO va en la tarjeta (distrae al
+          entrenar): queda el pin en «Nota» y se lee al abrirla. */}
+      {lote25() ? null : re.notas && (
         <div style={{ marginTop: 9, padding: '8px 11px', borderRadius: 11, background: '#FFF6E0', fontSize: 12.5, color: '#6B4E05', lineHeight: 1.45 }}>
           <b>De tu coach:</b> {re.notas}
         </div>
@@ -841,7 +854,6 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                       <div style={{ fontSize: 13, color: '#3A3A3C', fontWeight: 600, marginTop: 3 }}>{textoReps(re)}</div>
                     </div>
                   </div>
-                  {vi === 0 && siempreCoach(re) && <SiempreCoach texto={siempreCoach(re)} estilo={{ marginTop: 8 }} />}
                   {vi === 0 && !(ligera && prueba) && (
                     <Botones chico soloIconos={compacta || ligera} items={botonesDe({
                       sinCarga, onNota: onNota ? () => onNota(re) : null, re,

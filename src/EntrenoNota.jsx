@@ -83,8 +83,10 @@ export default function HojaNota({ abierta, nombre, contexto, alCerrar, alLeer, 
   }, [abierta]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!contexto) return null;
   const tipo = contexto.rutina_ejercicio_id ? 'ejercicio' : 'rutina';
-  const siempre = coach ? ((coach.siempre && coach.siempre.texto) || null) : null;
-  const delCoach = !!coach && (!!siempre || (coach.puntuales || []).length > 0);
+  // Lo fijo del coach: su «Siempre presente» o, si no escribió uno, la nota
+  // del ejercicio en la rutina. Se lee aquí, no en la tarjeta.
+  const siempre = lote25() ? ((coach && coach.siempre && coach.siempre.texto) || contexto.notas_rutina || null) : null;
+  const delCoach = !!siempre || (!!coach && (coach.puntuales || []).length > 0);
   // Lote 30: la conversación se ve si hay CUALQUIER cosa: lo del coach o lo
   // que tú le escribiste (aunque aún no te haya contestado).
   const mias = [...((coach && coach.notas) || []), ...enviadas];
