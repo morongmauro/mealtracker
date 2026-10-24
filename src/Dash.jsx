@@ -41,7 +41,7 @@ import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { enPrueba, lote25, DESVANECIDO_BORDE } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
-import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe, curvaSuave } from './GraficasV2.jsx';
+import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe } from './GraficasV2.jsx';
 import {
   TEXT, TEXT_MUTED, TEXT_LIGHT,
   FONT_DISPLAY, C_PROTEIN, C_CARBS, C_FAT, SECCION, DASH_AZUL,
@@ -273,23 +273,45 @@ function Conteo({ n, texto, color, fondo }) {
   );
 }
 
-// Una línea de 2px con su punto final. Sin ejes: es una tendencia, y el número
-// que importa va escrito al lado.
+// La línea de una tendencia: con sus picos (tramos rectos, no suavizada), un
+// punto por medición con su valor encima y el degradado debajo. Sin ejes:
+// los números van sobre los puntos. Si no caben todos, se escriben cada
+// tantos, siempre el último y el más alto y el más bajo.
 // `extremos(p)`: el texto del primer y el último punto, que van debajo de la
 // línea en sus puntas (de dónde partiste y dónde vas), sin tener que tocarla.
-function Linea({ puntos, color, alto = 46, textoValor, extremos }) {
+// `valor(p)`: el número corto que va sobre cada punto.
+const ALTO_ETIQUETA = 16, ALTO_ABAJO = 14;
+function Linea({ puntos, color, alto = 46, textoValor, extremos, valor }) {
   const [ref, ancho] = useAncho();
   const [sel, setSel] = useState(null);
   const vals = puntos.map(p => p.v);
   const min = Math.min(...vals), max = Math.max(...vals);
   const rango = max - min || 1;
-  const pad = 6;
-  const x = (i) => pad + (puntos.length === 1 ? 0 : (i / (puntos.length - 1)) * (ancho - pad * 2));
-  const y = (v) => pad + (1 - (v - min) / rango) * (alto - pad * 2);
-  // Curva suave, sin picos (estilo Apple).
-  const d = curvaSuave(puntos.map((p, i) => [x(i), y(p.v)]));
+  const pad = 6, padX = 14;
+  const arriba = ALTO_ETIQUETA;
+  const x = (i) => padX + (puntos.length === 1 ? (ancho - padX * 2) / 2 : (i / (puntos.length - 1)) * (ancho - padX * 2));
+  const y = (v) => arriba + pad + (1 - (v - min) / rango) * (alto - pad * 2);
+  // Con picos: tramos rectos entre medición y medición.
+  const d = puntos.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const ult = puntos.length - 1;
-  const area = `${d} L${x(ult)},${alto} L${x(0)},${alto} Z`;
+  const base = arriba + alto;
+  const area = `${d} L${x(ult)},${base} L${x(0)},${base} Z`;
+  const texto = valor || ((p) => fmt(p.v, Number.isInteger(p.v) ? 0 : 1));
+  // Qué puntos llevan número: todos si caben (≈34 px por número); si no,
+  // cada tantos, más el último, el más alto y el más bajo.
+  const paso = puntos.length > 1 ? (ancho - padX * 2) / (puntos.length - 1) : ancho;
+  const cada = Math.max(1, Math.ceil(34 / Math.max(paso, 1)));
+  const iMax = vals.indexOf(max), iMin = vals.indexOf(min);
+  const conNumero = (i) => i === ult || i % cada === 0 && (ult - i) >= cada || i === iMax || i === iMin;
+  // El número va del lado donde no pasa la línea: debajo si los vecinos
+  // quedan más arriba (un valle, o el final de una bajada); si no, arriba.
+  const abajo = (i) => {
+    const v = vals[i], a = i > 0 ? vals[i - 1] : null, b = i < ult ? vals[i + 1] : null;
+    const masAlto = (w) => w != null && w > v;
+    if (a == null) return masAlto(b);
+    if (b == null) return masAlto(a);
+    return masAlto(a) && masAlto(b);
+  };
   const tocar = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
     const px = (e.clientX - r.left);
@@ -299,7 +321,7 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos }) {
   };
   return (
     <div ref={ref} style={{ position: 'relative', paddingTop: textoValor ? 24 : 0, width: '100%', minWidth: 0, minHeight: alto }}>
-      {ancho > 0 && <svg width={ancho} height={alto} style={{ display: 'block', overflow: 'visible', cursor: textoValor ? 'pointer' : 'default' }}
+      {ancho > 0 && <svg width={ancho} height={alto + arriba + ALTO_ABAJO} style={{ display: 'block', overflow: 'visible', cursor: textoValor ? 'pointer' : 'default' }}
         onClick={textoValor ? tocar : undefined}>
         <defs>
           <linearGradient id={`g-${color.slice(1)}`} x1="0" y1="0" x2="0" y2="1">
@@ -309,8 +331,15 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos }) {
         </defs>
         <path d={area} fill={`url(#g-${color.slice(1)})`} />
         <path d={d} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        {sel != null && <line x1={x(sel)} x2={x(sel)} y1={0} y2={alto} stroke={REJILLA} strokeWidth="1" />}
-        <circle cx={x(sel ?? ult)} cy={y(puntos[sel ?? ult].v)} r="4.5" fill={color} />
+        {sel != null && <line x1={x(sel)} x2={x(sel)} y1={arriba} y2={base} stroke={REJILLA} strokeWidth="1" />}
+        {puntos.map((p, i) => (i === ult || i === sel)
+          ? <circle key={i} cx={x(i)} cy={y(p.v)} r="4.5" fill={color} stroke="#fff" strokeWidth="2" data-punto-linea />
+          : <circle key={i} cx={x(i)} cy={y(p.v)} r="2.8" fill="#fff" stroke={color} strokeWidth="1.8" data-punto-linea />)}
+        {puntos.map((p, i) => conNumero(i) && (
+          <text key={`t${i}`} x={x(i)} y={abajo(i) ? y(p.v) + 16 : y(p.v) - 8} textAnchor={i === 0 && puntos.length > 1 ? 'start' : i === ult && puntos.length > 1 ? 'end' : 'middle'}
+            fontSize={i === ult ? 11.5 : 10.5} fontWeight={i === ult ? 800 : 650} fill={i === ult ? TEXT : TEXT_MUTED}
+            style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3, fontVariantNumeric: 'tabular-nums' }} data-valor-linea>{texto(p)}</text>
+        ))}
       </svg>}
       {textoValor && sel != null && <Globo x={x(sel)} ancho={ancho} texto={textoValor(puntos[sel])} />}
       {/* La línea se toca para ver cada punto: que se note (antes se veía
@@ -570,7 +599,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
           {!falloEnt && ochoSemanas.length >= 2 && (
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Fuerza, semana a semana{promedio8 != null ? ` · ${promedio8} % de lo planeado` : ''}</div>
-              <Linea puntos={ochoSemanas} color={AZUL} alto={54}
+              <Linea puntos={ochoSemanas} color={AZUL} alto={54} valor={(p) => `${p.v}%`}
                 textoValor={(p) => `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} extremos={(p) => `${p.v} % · ${fechaCorta(p.fecha)}`} />
             </div>
           )}
@@ -614,7 +643,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
             {kcal14.length >= 2 && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Tus calorías, últimos 14 días</div>
-                <Linea puntos={kcal14} color={VERDE} alto={54}
+                <Linea puntos={kcal14} color={VERDE} alto={54} valor={(p) => `${(p.v / 1000).toFixed(1)}k`}
                   textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v)} kcal`} extremos={(p) => `${fmt(p.v)} kcal · ${fechaCorta(p.fecha)}`} />
               </div>
             )}
@@ -1167,7 +1196,7 @@ function Cuerpo({ medidas, cargando, alMedir }) {
           {conGrasa.length >= 2 && (
             <div data-linea-grasa style={{ marginTop: 10 }}>
               <div style={{ fontSize: 13, color: TEXT_MUTED }}>% de grasa desde el {fechaCorta(conGrasa[0].fecha)}</div>
-              <Linea puntos={conGrasa.map(m => ({ v: m.grasa_pct, fecha: m.fecha }))} color={GRASA} alto={52}
+              <Linea puntos={conGrasa.map(m => ({ v: m.grasa_pct, fecha: m.fecha }))} color={GRASA} alto={52} valor={(p) => `${fmt(p.v, 1)}%`}
                 textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} %`} extremos={(p) => `${fmt(p.v, 1)} % · ${fechaCorta(p.fecha)}`} />
             </div>
           )}
