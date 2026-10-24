@@ -33,6 +33,8 @@ const ultimoChat = { texto: '' };
 const postsNube = [];
 // Lo que la app manda para la alarma del descanso minimizada (/api/push-cron?descanso=…).
 const avisosDescanso = [];
+// Lo que la app le cuenta al coach de sus recordatorios (/api/recordatorios).
+const recordatoriosEnviados = [];
 globalThis.Date = class extends DateReal {
   constructor(...a) { super(...(a.length ? a : [FIJO])); }
   static now() { return FIJO; }
@@ -254,6 +256,10 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
       if (lento.accion && cuerpo.accion === lento.accion) await new Promise(r => setTimeout(r, lento.ms));
       const r = await llamar(handler, cuerpo);
       return ruta.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(r) });
+    }
+    if (u.pathname === '/api/recordatorios') {
+      try { recordatoriosEnviados.push(JSON.parse(ruta.request().postData() || '{}')); } catch (e) {}
+      return ruta.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
     }
     if (u.pathname === '/api/push-cron' && u.searchParams.get('descanso')) {
       try { avisosDescanso.push({ que: u.searchParams.get('descanso'), body: JSON.parse(ruta.request().postData() || '{}') }); } catch (e) {}
@@ -745,6 +751,14 @@ try {
   ok('Dash: «Profundiza» un tono más oscuro que los bloques crema', await dash.getByRole('button', { name: /Profundiza/ }).first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(235, 230, 220)'));
   ok('Dash: «Ver todo» despliega el resto (programa, cápsulas, videos)', (await dash.locator('[data-recordatorio]').count()) > nRec
     && /Sobre el programa|cápsula|video/i.test(await dash.locator('[data-recordatorios-dash]').innerText()));
+  // El coach se entera de qué le sale: lo de hoy a la vista, y al abrir
+  // «Ver todo» lo demás también cuenta como visto.
+  await espera(2600);
+  const repRec = recordatoriosEnviados.filter(x => Array.isArray(x.items));
+  const ultRec = repRec.at(-1) || { items: [] };
+  ok('Dash: le cuenta al coach qué le sale (lo de hoy y lo de «Ver todo», a la vista tras abrirlo)', repRec.length >= 1
+    && ultRec.items.some(i => i.tipo === 'hoy' && /comiste/.test(i.texto) && i.visible)
+    && ultRec.items.some(i => i.tipo !== 'hoy' && i.visible), JSON.stringify(ultRec).slice(0, 400));
   await verTodos.click(); await espera(150);
   // El aro de la cabecera se toca y explica qué lo compone, sin deuda.
   // El aro es el PROGRESO de la semana (no «sin deuda» siempre en 100 %): se

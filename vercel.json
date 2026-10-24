@@ -27,6 +27,10 @@
       "destination": "/api/training?modulo=bitacora"
     },
     {
+      "source": "/api/recordatorios",
+      "destination": "/api/training?modulo=recordatorios"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     },

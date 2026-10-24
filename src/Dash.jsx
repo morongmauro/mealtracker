@@ -41,6 +41,7 @@ import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { enPrueba, lote25, DESVANECIDO_BORDE } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
+import { reportarRecordatorios, reportarToque } from './recordatoriosReporte.js';
 import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe } from './GraficasV2.jsx';
 import {
   TEXT, TEXT_MUTED, TEXT_LIGHT,
@@ -1254,8 +1255,16 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const cap = bloque('capsula'), pod = bloque('podcast');
   const sigCap = cap && cap.piezas.find(p => !p.vista);
   const sigPod = pod && pod.piezas.find(p => !p.vista);
-  if (sigCap) items.push({ id: 'cap', texto: `Lee una cápsula: «${sigCap.title}»`, ir: alAbrir ? () => alAbrir(`cap:${sigCap.id}`) : null, Icono: BookOpenText, color: '#C95F17' });
-  if (sigPod) items.push({ id: 'pod', texto: `Mira un video: «${sigPod.title}»`, ir: alAbrir ? () => alAbrir(`pod:${sigPod.id}`) : null, Icono: Sparkle, color: '#C95F17' });
+  if (sigCap) items.push({ id: 'cap', rid: `cap:${sigCap.id}`, texto: `Lee una cápsula: «${sigCap.title}»`, ir: alAbrir ? () => alAbrir(`cap:${sigCap.id}`) : null, Icono: BookOpenText, color: '#C95F17' });
+  if (sigPod) items.push({ id: 'pod', rid: `pod:${sigPod.id}`, texto: `Mira un video: «${sigPod.title}»`, ir: alAbrir ? () => alAbrir(`pod:${sigPod.id}`) : null, Icono: Sparkle, color: '#C95F17' });
+  // Para el coach: cada toque se le cuenta (ver recordatoriosReporte.js).
+  const conToque = (it, tipo) => {
+    const rid = it.rid || it.id;
+    const avisar = (f) => (f ? () => { reportarToque(hoy, rid, tipo); f(); } : null);
+    return { ...it, rid, tipoRep: tipo, ir: avisar(it.ir), marcar: avisar(it.marcar) };
+  };
+  for (let k = 0; k < hoyItems.length; k++) hoyItems[k] = conToque(hoyItems[k], 'hoy');
+  for (let k = 0; k < items.length; k++) items[k] = conToque(items[k], items[k].coach ? 'coach' : 'app');
   // Pendientes primero; lo hecho, al final y en gris con su chulo.
   const deHoy = [...hoyItems.filter(i => !i.hecho), ...hoyItems.filter(i => i.hecho)];
   const visibles = todos ? [...deHoy, ...items] : deHoy;
@@ -1281,6 +1290,18 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   // Vista en prueba: lo primero que falta hoy es la protagonista (grande y
   // con su botón); lo demás de hoy, en chips chicos debajo.
   const pendHoy = hoyItems.filter(i => !i.hecho);
+  // Qué le sale y qué de eso está en pantalla (lo demás queda en «Ver todo»):
+  // se le cuenta al coach cuando cambia, con un respiro mientras carga.
+  const enPantalla = new Set((enPrueba() && pendHoy.length && !todos ? pendHoy : visibles).map(i => i.id));
+  const reporte = [
+    ...hoyItems.map(i => ({ id: i.rid, texto: i.texto, hecho: !!i.hecho, visible: enPantalla.has(i.id), tipo: 'hoy' })),
+    ...items.map(i => ({ id: i.rid, texto: i.texto, hecho: false, visible: enPantalla.has(i.id), tipo: i.tipoRep })),
+  ];
+  const firmaReporte = JSON.stringify(reporte);
+  useEffect(() => {
+    const t = setTimeout(() => reportarRecordatorios(hoy, JSON.parse(firmaReporte)), 2000);
+    return () => clearTimeout(t);
+  }, [firmaReporte, hoy]);
   if (enPrueba() && pendHoy.length && !todos) {
     const [p0, ...resto] = pendHoy;
     return (

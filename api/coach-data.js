@@ -259,6 +259,31 @@ export default async function handler(req, res) {
     }
   }
 
+  // RECORDATORIOS — lo que le sale en su app como recordatorio (api/recordatorios),
+  // de las últimas 3 semanas: desde cuándo, si le apareció en pantalla, si lo
+  // tocó y si lo hizo. Sin la tabla (falta sql/recordatorios-app.sql), lo dice.
+  if (req.method === 'GET' && action === 'recordatorios') {
+    const userId = req.query.user_id;
+    if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
+    try {
+      const desde = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString();
+      let nombre = null;
+      try {
+        const rn = await fetch(`${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=name`, { headers: supaHeaders() });
+        const rows = await rn.json();
+        nombre = Array.isArray(rows) && rows[0] ? rows[0].name : null;
+      } catch (e) { nombre = null; }
+      // Por cuenta, y también por nombre (lo que vio antes de tener cuenta en la nube).
+      const claves = [userId, ...(nombre ? [`n:${nombre}`] : [])].map(c => `"${String(c).replace(/"/g, '')}"`).join(',');
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/app_recordatorios?select=rec_id,tipo,texto,primera_vez,ultima_vez,ultimo_dia,dias_lista,dias_pantalla,ultimo_pantalla,toques,ultimo_toque,hecho_en&clave=in.(${encodeURIComponent(claves)})&ultima_vez=gte.${desde}&order=ultima_vez.desc&limit=200`, { headers: supaHeaders() });
+      if (!r.ok) return res.status(200).json({ ok: false, sinTabla: r.status === 404, recordatorios: [] });
+      const rows = await r.json();
+      return res.status(200).json({ ok: true, recordatorios: Array.isArray(rows) ? rows : [] });
+    } catch (e) {
+      return res.status(200).json({ ok: false, recordatorios: [] });
+    }
+  }
+
   // LIST — resumen de TODOS los clientes
   if (req.method === 'GET' && action === 'list') {
     try {

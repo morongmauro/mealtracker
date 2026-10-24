@@ -56,6 +56,7 @@ import manejarVerComo from './_ver-como.js';
 import { leerPase } from './_verComo.js';
 import { sesionValida } from './authorize.js';
 import manejarBitacora from './_bitacora.js';
+import manejarRecordatorios from './_recordatorios.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
@@ -109,6 +110,7 @@ export default async function handler(req, res) {
   // funciones y ya se usan todas.
   if (req.query && req.query.modulo === 'ver-como') return manejarVerComo(req, res);
   if (req.query && req.query.modulo === 'bitacora') return manejarBitacora(req, res);
+  if (req.query && req.query.modulo === 'recordatorios') return manejarRecordatorios(req, res);
   // El módulo de entrenamiento llama desde su propio dominio: hay que
   // contestarle el preflight y marcarle la respuesta como suya.
   if (cors(req, res)) return;
