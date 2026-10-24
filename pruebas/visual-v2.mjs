@@ -697,8 +697,7 @@ try {
     const ics = [...document.querySelectorAll('[data-atajos] [data-boton-cristal] [data-tono-icono]')];
     return ics.length === 4 && ics.every(i => i.getAttribute('data-tono-icono') === '#3C7BD6');
   }));
-  ok('Dash: las líneas que se tocan lo dicen («Toca la línea»)', (await dash.locator('[data-pista-linea]').count()) >= 1
-    && /Toca la línea/.test(await dash.locator('[data-pista-linea]').first().innerText()));
+  ok('Dash: sin el letrero «Toca la línea» (los valores ya están en cada punto)', (await dash.locator('[data-pista-linea]').count()) === 0);
   ok('cabecera: la sombra del blob es corta y tenue (no la grande de antes)', await p.locator('[data-cabecera-hoy="dash"] svg[data-blob]').evaluate(b => { const f = getComputedStyle(b).filter; return /drop-shadow/.test(f) && !/28px/.test(f) && (/12px/.test(f) || (b.hasAttribute('data-vidrio') && /24px/.test(f))); }));
   ok('Dash: «Ver todo» se toca en 44 px de alto (se ve igual de chico)', await dash.evaluate(() => { const b = document.querySelector('[data-ver-recordatorios]'); return !b || b.getBoundingClientRect().height >= 40; }));
   // La píldora de arriba: sin subtítulo, y se encoge al bajar / vuelve al subir.

@@ -18,7 +18,7 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, HandTap } from '@phosphor-icons/react';
+import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
@@ -342,13 +342,6 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos, valor }) {
         ))}
       </svg>}
       {textoValor && sel != null && <Globo x={x(sel)} ancho={ancho} texto={textoValor(puntos[sel])} />}
-      {/* La línea se toca para ver cada punto: que se note (antes se veía
-          como un dibujo y nadie sabía que respondía). */}
-      {textoValor && sel == null && puntos.length > 1 && (
-        <div data-pista-linea style={{ position: 'absolute', top: 2, right: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: TEXT_LIGHT, pointerEvents: 'none' }}>
-          <HandTap size={14} weight="regular" />Toca la línea
-        </div>
-      )}
       {extremos && puntos.length >= 2 && (
         <div data-extremos style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12.5, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>
           <span>{extremos(puntos[0])}</span>
