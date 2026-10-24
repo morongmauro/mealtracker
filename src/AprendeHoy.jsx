@@ -13,7 +13,6 @@ import CabeceraHoy from './CabeceraHoy.jsx';
 import { IlustracionCerebro } from './IlustracionesHoy.jsx';
 import { AnilloMarca, rielDe } from './GraficasV2.jsx';
 import { vozAprende } from './vozCoach.js';
-import Firma from './Firma.jsx';
 import ExplicacionAro from './ExplicacionAro.jsx';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT, SECCION } from './theme.js';
 import { recomendarAprendizaje, leerAprendizajeConCache, avanceGuardado } from './aprendizaje.js';
@@ -148,7 +147,6 @@ export default function AprendeHoy({ nombre, alAbrir, arriba }) {
         })}
       </div>
 
-      <Firma style={{ marginTop: 28 }} />
     </div>
   );
 }

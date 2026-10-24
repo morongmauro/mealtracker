@@ -1466,7 +1466,7 @@ try {
     return Math.abs(t.left - tit.left) < 1.5;
   }));
   ok('galería: los filtros sin borde', await p.evaluate(() => [...document.querySelectorAll('[data-view="entrena"] button')].filter(b => b.textContent === 'Todas').every(b => getComputedStyle(b).borderTopStyle === 'none')));
-  ok('entreno: la firma al final de la galería', (await p.locator('[data-view="entrena"] [data-firma]').count()) === 1);
+  ok('entreno: sin firma (va solo en el Dash y en «Acerca del programa»)', (await p.locator('[data-view="entrena"] [data-firma]').count()) === 0);
   await p.getByText('Sentadilla con barra').first().click();
   await espera(700);
   await foto(p, '07-galeria-ficha');

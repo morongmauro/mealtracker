@@ -20,7 +20,6 @@ import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.j
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { CabezaCompacta } from './VistaCompacta.jsx';
 import { vozEntreno, vozFinEntreno } from './vozCoach.js';
-import Firma from './Firma.jsx';
 import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
 import { aroEntrenoDe, progresoEntrenoDelPlan } from './aros.js';
@@ -303,7 +302,6 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         {seccion === 'resumen' && <EntrenoResumen nombre={name} />}
         {seccion === 'fotos' && <EntrenoFotos name={name} />}
         {seccion === 'galeria' && <EntrenoGaleria nombre={name} />}
-        {seccionV2 && <Firma style={{ marginTop: 28 }} />}
       </Envoltorio>
     );
   }
@@ -322,7 +320,6 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
           <Vacio texto="Cuando tu coach cargue tu primera fase de entrenamiento, aquí aparece tu semana." />
         </Tarjeta>
         <BloqueActividad name={name} />
-        {seccionV2 && <Firma style={{ marginTop: 28 }} />}
       </Envoltorio>
     );
   }
@@ -355,7 +352,6 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
           <BloqueActividad name={name} />
         </>
       )}
-      {seccionV2 && <Firma style={{ marginTop: 28 }} />}
     </Envoltorio>
   );
 }
