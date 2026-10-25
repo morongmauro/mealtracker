@@ -636,27 +636,25 @@ await caso('intensidad: promedio y acumulado de la semana, el mes y cada día (D
 
 // ── Cuánto dura una rutina (api/_tiempo.js) ──
 // Push (r1): 3×8 con 120 s, 3×10 (90 s por defecto) y 2×15, con sus cambios
-// de ejercicio: 1115 s ≈ 18,6 min → «20 min». Lower (r2): un circuito de
+// de ejercicio: 1115 s ≈ 18,6 min → «19 min» (el mismo número del CRM). Lower (r2): un circuito de
 // 3 vueltas de 12 reps con 90 s entre vueltas: 336 s → «6 min».
 await caso('tiempo: sin historial, la suma de series, descansos y cambios', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   const p = await llamar(handler, { accion: 'plan', name: yo });
   const de = (id) => p.dias.find(d => d.rutina && d.rutina.id === id).rutina.minutos;
-  igual([de('r1'), de('r2')], [20, 6], 'minutos de Push y Lower');
+  igual([de('r1'), de('r2')], [19, 6], 'minutos de Push y Lower');
   const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
-  igual(r.rutina.minutos, 20, 'la rutina abierta dice lo mismo');
+  igual(r.rutina.minutos, 19, 'la rutina abierta dice lo mismo');
 });
 
-await caso('tiempo: aterrizado con lo que tarda de verdad (y su ritmo en las demás)', async () => {
+await caso('tiempo: el sugerido no cambia con lo que tardó (lo real lo marca su reloj)', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
-  // Tres Push de ~30 min: tarda más que el estimado (×1,6, se topa en ×1,4).
+  const antes = await llamar(handler, { accion: 'plan', name: yo });
+  const de = (p, id) => p.dias.find(d => d.rutina && d.rutina.id === id).rutina.minutos;
+  // Tres Push de ~30 min: tarda más que el sugerido, y el sugerido sigue igual.
   sb.db.sesiones.push(...[1795, 1800, 1830].map((seg, i) => ({ id: 'sd' + i, cliente_id: 'c1', rutina_id: 'r1', fase_id: 'f1', fecha: mas(lunes, -20 + i), estado: 'completada', duracion_seg: seg })));
-  // Una sesión olvidada abierta toda la tarde no cuenta.
-  sb.db.sesiones.push({ id: 'sdx', cliente_id: 'c1', rutina_id: 'r1', fase_id: 'f1', fecha: mas(lunes, -30), estado: 'completada', duracion_seg: 6 * 3600 });
   const p = await llamar(handler, { accion: 'plan', name: yo });
-  const de = (id) => p.dias.find(d => d.rutina && d.rutina.id === id).rutina.minutos;
-  igual(de('r1'), 30, 'Push: pesa lo que tardó de verdad');
-  igual(de('r2'), 8, 'Lower (nunca hecha): el estimado con su ritmo');
+  igual([de(p, 'r1'), de(p, 'r2')], [de(antes, 'r1'), de(antes, 'r2')], 'el mismo sugerido de siempre');
 });
 
 const ok = (v, qué) => { if (!v) throw new Error(qué); };

@@ -1089,7 +1089,7 @@ try {
   Object.assign(lento, { accion: null, ms: 0 });
   await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
   // Cuánto dura: calculado con series, descansos y cambios (api/_tiempo.js).
-  ok('rutina: debajo del nombre, en chico, cuánto dura y cuántos ejercicios', /^~\d+ min · \d+ ejercicios$/.test((await p.locator('[data-rutina-minutos]').innerText().catch(() => '')).trim()),
+  ok('rutina: debajo del nombre, en chico, el tiempo sugerido y cuántos ejercicios', /^~\d+ min sugeridos · \d+ ejercicios$/.test((await p.locator('[data-rutina-minutos]').innerText().catch(() => '')).trim()),
     await p.locator('[data-rutina-minutos]').innerText().catch(() => 'no está'));
   ok('la rutina se parte en calentamiento, fuerza y enfriamiento',
     (await p.locator('[data-view="entrena"]').getByText('Fuerza', { exact: true }).count()) === 1 && (await p.locator('[data-view="entrena"]').getByText('Enfriamiento', { exact: true }).count()) === 1,

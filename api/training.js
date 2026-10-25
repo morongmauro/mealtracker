@@ -49,7 +49,7 @@ import {
 import { alertarCoach } from './_alerta.js';
 import { whatsappCoach, textoNotaWhatsapp } from './_whatsapp.js';
 import { completarMusculos } from './_musculos.js';
-import { minutosDeRutinas, segundosRutina, minutosAterrizados } from './_tiempo.js';
+import { minutosDeRutinas, segundosRutina, minutosSugeridos } from './_tiempo.js';
 import { fechaCorte } from './_pagos.js';
 import manejarRelojes from './_relojes.js';
 import manejarVerComo from './_ver-como.js';
@@ -355,14 +355,13 @@ async function verRutina(cliente, rutinaId, hoy) {
   const porId = {};
   (Array.isArray(ejs) ? ejs : []).forEach(e => { porId[e.id] = completarMusculos(e); });
 
-  // Cuánto dura: el cálculo con estos ejercicios, aterrizado con lo que tarda
-  // el cliente (sus veces en esta rutina y su ritmo en las demás).
+  // Cuánto dura: el tiempo sugerido, el mismo cálculo que ve el coach.
   let minutos = null;
   try {
     const est = segundosRutina(lista.map(x => ({ ...x, nombre_ej: porId[x.ejercicio_id] ? (porId[x.ejercicio_id].alias || porId[x.ejercicio_id].nombre) : null })),
       Array.isArray(bloques) ? bloques : []);
     const m = await minutosDeRutinas(sb, cliente.id, [rutina.id]).catch(() => ({}));
-    minutos = m[rutina.id] || minutosAterrizados(est) || null;
+    minutos = m[rutina.id] || minutosSugeridos(est) || null;
   } catch (e) { minutos = null; }
 
   // Lo último que levantó en cada ejercicio: es lo que de verdad se mira

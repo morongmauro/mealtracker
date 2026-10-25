@@ -1463,11 +1463,12 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
           fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em',
           textTransform: 'uppercase', lineHeight: 1, color: TEXT,
         }}>{datos.nombre}</div>
-        {/* Cuánto dura, calculado con sus series, descansos y cambios, y
-            aterrizado con lo que tarda este cliente (api/_tiempo.js). */}
+        {/* Tiempo sugerido: series, reps, descansos y cambios de peso o de
+            máquina (api/_tiempo.js), el mismo que ve el coach. Lo real lo
+            marca su reloj y sale al terminar. */}
         {datos.minutos > 0 && (
           <div data-rutina-minutos style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT, marginTop: 5 }}>
-            ~{datos.minutos} min{(datos.ejercicios || []).length ? ` · ${(datos.ejercicios || []).length} ejercicio${(datos.ejercicios || []).length === 1 ? '' : 's'}` : ''}
+            ~{datos.minutos} min sugeridos{(datos.ejercicios || []).length ? ` · ${(datos.ejercicios || []).length} ejercicio${(datos.ejercicios || []).length === 1 ? '' : 's'}` : ''}
           </div>
         )}
         {datos.descripcion && (

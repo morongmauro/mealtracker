@@ -1,6 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 // CUÁNTO DURA UNA RUTINA · el mismo cálculo del constructor del CRM
-// (entrenamiento.js, «CUÁNTO DURA»), aterrizado con lo que tarda el cliente.
+// (entrenamiento.js, «CUÁNTO DURA»). Es el TIEMPO SUGERIDO: el mismo número
+// que ve el coach es el que ve el cliente. Lo que tardó de verdad es otra
+// cosa: lo marca su reloj al entrenar y sale al terminar.
 //
 // 1. El estimado, como pasa en el gimnasio y no como en el papel:
 //    · cada serie: las reps × el tempo (sin tempo, ~3,5 s por rep) + ~20 s de
@@ -11,10 +13,8 @@
 //    · un circuito: cada vuelta recorre sus ejercicios (con su descanso entre
 //      estaciones, o ~15 s) y descansa entre vueltas;
 //    · una fila «Rest» de Trainerize es solo su descanso.
-// 2. Aterrizado: si ya hizo ESA rutina, pesa sobre todo lo que tardó de
-//    verdad (la mediana de sus últimas veces). Si no, se ajusta con su ritmo:
-//    cuánto suele tardar él frente al estimado en sus otras rutinas (un
-//    cliente que descansa de más tarda un 20 % más en todas).
+// 2. Las ~20 s por serie y los ~75 s de cambio son el factor de la vida
+//    real: acomodar el peso, cambiar discos, esperar o ir a otra máquina.
 // ─────────────────────────────────────────────────────────────────────────
 export const T = { seg_rep: 3.5, prep_serie: 20, descanso: 90, cambio: 75, cambio_circuito: 15, amrap: 40 };
 
@@ -101,7 +101,10 @@ export function minutosAterrizados(estSeg, reales = [], ritmo = null) {
   return redondear((peso * mediana(r) + (1 - peso) * est) / 60);
 }
 
-// { rutinaId: minutos } para un cliente. `sb` es el cliente REST de la API.
+// El tiempo sugerido en minutos, igual al del CRM (sin redondear a 5).
+export const minutosSugeridos = (estSeg) => (estSeg > 0 ? Math.max(1, Math.round(estSeg / 60)) : null);
+
+// { rutinaId: minutos sugeridos } para un cliente. `sb` es el cliente REST de la API.
 export async function minutosDeRutinas(sb, clienteId, rutinaIds) {
   const ids = [...new Set((rutinaIds || []).filter(Boolean))];
   if (!ids.length) return {};
@@ -126,10 +129,9 @@ export async function minutosDeRutinas(sb, clienteId, rutinaIds) {
   const ratios = sesiones.filter(s => est[s.rutina_id]).map(s => Number(s.duracion_seg) / est[s.rutina_id]);
   const ritmo = ratios.length >= 2 ? Math.max(0.75, Math.min(1.4, mediana(ratios))) : null;
   const out = {};
-  ids.forEach(id => {
-    const reales = sesiones.filter(s => s.rutina_id === id).map(s => Number(s.duracion_seg));
-    const m = minutosAterrizados(est[id], reales, ritmo);
-    if (m) out[id] = m;
-  });
+  // El sugerido, el mismo que ve el coach. (ritmo y reales quedan para
+  // minutosAterrizados, que ya no se le muestra al cliente.)
+  void ritmo;
+  ids.forEach(id => { const m = minutosSugeridos(est[id]); if (m) out[id] = m; });
   return out;
 }
