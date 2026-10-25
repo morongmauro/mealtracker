@@ -37,14 +37,20 @@ r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });
 ok('cliente de hace meses que no la ha hecho: le toca una vez', r.toca === true, JSON.stringify(r));
 r = await llamar(handler, { accion: 'encuesta_responder', name: 'Ana Pérez', util: 5, facil: 4, agradable: 5 });
 ok('incompleta no se guarda', r.ok === false && r.motivo === 'incompleta' && sb.db.encuesta_app.length === 0, JSON.stringify(r));
-r = await llamar(handler, { accion: 'encuesta_responder', name: 'Ana Pérez', util: 5, facil: 4, agradable: 3, recomienda: 9 });
+r = await llamar(handler, { accion: 'encuesta_responder', name: 'Ana Pérez', util: 5, facil: 4, agradable: 3, recomienda: 9, mejoraria: '  Que el chat responda más rápido  ' });
 const fila = sb.db.encuesta_app[0] || {};
+ok('la quinta (opcional) se guarda limpia', fila.mejoraria === 'Que el chat responda más rápido', JSON.stringify(fila));
 ok('responde: queda guardada con su puntaje, su coach y su semana', r.ok && sb.db.encuesta_app.length === 1 && fila.cliente_id === 'c1' && fila.user_id === 'coach-1'
   && fila.util === 5 && fila.facil === 4 && fila.agradable === 3 && fila.recomienda === 9 && fila.semana >= 2 && fila.encuesta === 'app-1', JSON.stringify(fila));
 r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });
 ok('ya la hizo: no vuelve a salir', r.toca === false && r.motivo === 'respondida', JSON.stringify(r));
 r = await llamar(handler, { accion: 'encuesta_responder', name: 'Ana Pérez', util: 9, facil: 4, agradable: 3, recomienda: 11 });
 ok('valores fuera de rango no se guardan', r.ok === false, JSON.stringify(r));
+
+// Sin la quinta: se guarda igual (es opcional).
+sb = preparar(haceDias(30));
+r = await llamar(handler, { accion: 'encuesta_responder', name: 'Ana Pérez', util: 4, facil: 4, agradable: 4, recomienda: 8 });
+ok('sin la pregunta abierta también se guarda', r.ok && sb.db.encuesta_app.length === 1 && !sb.db.encuesta_app[0].mejoraria, JSON.stringify(r));
 
 sb.db.clientes[0].estado = 'pausado';
 r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });

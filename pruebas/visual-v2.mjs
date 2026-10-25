@@ -767,16 +767,18 @@ try {
     const en = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => { db.db.clientes[0].fecha_inicio = hace(20); db.db.encuesta_app = []; } });
     const v = en.p.locator('[data-encuesta-app]');
     await v.waitFor({ timeout: 12000 }).catch(() => {});
-    ok('encuesta: desde su segunda semana le sale al abrir, con las 4 preguntas (útil, fácil, agradable, recomendaría)', (await v.count()) === 1
-      && (await v.locator('[data-encuesta-pregunta]').count()) === 4 && /útil/.test(await v.innerText()) && /recomendarías/.test(await v.innerText()));
+    ok('encuesta: desde su segunda semana le sale al abrir, con las 4 preguntas (útil, fácil, agradable, recomendaría) y la abierta', (await v.count()) === 1
+      && (await v.locator('[data-encuesta-pregunta]').count()) === 5 && /útil/.test(await v.innerText()) && /recomendarías/.test(await v.innerText()));
     await foto(en.p, '12z-encuesta');
     await v.locator('[data-encuesta-enviar]').click({ force: true }); await espera(400);
     ok('encuesta: sin las 4 respuestas el botón está apagado y no se envía', await v.locator('[data-encuesta-enviar]').getAttribute('aria-disabled') === 'true'
       && en.db.db.encuesta_app.length === 0 && (await v.count()) === 1);
     for (const [k, val] of [['util', 5], ['facil', 4], ['agradable', 5], ['recomienda', 9]]) await v.locator(`[data-encuesta-pregunta="${k}"] [data-valor="${val}"]`).click();
+    ok('encuesta: con las 4 respondidas ya se puede enviar (la quinta es opcional)', await v.locator('[data-encuesta-enviar]').getAttribute('aria-disabled') === 'false' && /¿Qué mejorarías\?/.test(await v.innerText()) && /opcional/.test(await v.innerText()));
+    await v.locator('[data-encuesta-mejoraria]').fill('Que el chat responda más rápido');
     await v.locator('[data-encuesta-enviar]').click(); await espera(900);
     const f = en.db.db.encuesta_app[0] || {};
-    ok('encuesta: al enviar queda guardada con su puntaje y da las gracias', en.db.db.encuesta_app.length === 1 && f.util === 5 && f.facil === 4 && f.agradable === 5 && f.recomienda === 9
+    ok('encuesta: al enviar queda guardada con su puntaje y da las gracias', en.db.db.encuesta_app.length === 1 && f.util === 5 && f.facil === 4 && f.agradable === 5 && f.recomienda === 9 && f.mejoraria === 'Que el chat responda más rápido'
       && /Gracias/.test(await en.p.locator('[data-encuesta-app="gracias"]').innerText().catch(() => '')), JSON.stringify(f));
     await en.p.locator('[data-encuesta-cerrar]').click(); await espera(300);
     ok('encuesta: «Listo» la cierra', (await en.p.locator('[data-encuesta-app]').count()) === 0);

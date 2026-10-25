@@ -1839,11 +1839,15 @@ async function responderEncuesta(cliente, cuerpo, hoy) {
     util: n(cuerpo.util, 1, 5), facil: n(cuerpo.facil, 1, 5), agradable: n(cuerpo.agradable, 1, 5), recomienda: n(cuerpo.recomienda, 0, 10),
   };
   if ([fila.util, fila.facil, fila.agradable, fila.recomienda].some(v => v === null)) return { ok: false, motivo: 'incompleta' };
+  // La quinta, abierta y opcional: «¿Qué mejorarías?».
+  const mejoraria = String(cuerpo.mejoraria || '').trim().slice(0, 600);
+  const guardar = (f) => sb('encuesta_app?on_conflict=cliente_id,encuesta', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(f) });
   try {
     // Una sola por cliente: si ya estaba (dos toques), no se duplica ni se pisa.
-    await sb('encuesta_app?on_conflict=cliente_id,encuesta', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(fila) });
+    await guardar(mejoraria ? { ...fila, mejoraria } : fila);
   } catch (e) {
-    return { ok: false, motivo: 'sin_tabla' };
+    // Tabla creada antes de la pregunta abierta: se guardan las 4 de todos modos.
+    try { if (!mejoraria) throw e; await guardar(fila); } catch (e2) { return { ok: false, motivo: 'sin_tabla' }; }
   }
   return { ok: true };
 }

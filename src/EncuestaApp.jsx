@@ -3,7 +3,8 @@
 //
 // Desde su segunda semana (el servidor decide si le toca: api/training,
 // accion 'encuesta'), al abrir la app: qué tan útil, qué tan fácil, qué tan
-// agradable se ve (1 a 5) y si la recomendaría (0 a 10, el NPS). Si ya la
+// agradable se ve (1 a 5), si la recomendaría (0 a 10, el NPS) y, si
+// quiere, qué mejoraría (la quinta, abierta y opcional). Si ya la
 // respondió, no vuelve a salir. «Ahora no» la guarda para la semana
 // siguiente (la clave es el lunes de esta semana).
 // ─────────────────────────────────────────────────────────────────────────
@@ -41,6 +42,7 @@ function Escala({ p, valor, alElegir }) {
 
 export default function EncuestaApp({ nombre, alCerrar }) {
   const [r, setR] = useState({});
+  const [mejoraria, setMejoraria] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [gracias, setGracias] = useState(false);
   const [error, setError] = useState('');
@@ -49,7 +51,7 @@ export default function EncuestaApp({ nombre, alCerrar }) {
   const enviar = async () => {
     if (!completa || enviando) return;
     setEnviando(true); setError('');
-    const res = await api.encuestaResponder(nombre, r).catch(() => null);
+    const res = await api.encuestaResponder(nombre, { ...r, mejoraria: mejoraria.trim() }).catch(() => null);
     setEnviando(false);
     if (res && res.ok) setGracias(true);
     else setError('No pude enviarla. Revisa tu conexión e inténtalo de nuevo.');
@@ -66,8 +68,13 @@ export default function EncuestaApp({ nombre, alCerrar }) {
   return (
     <VentanaMarca data-encuesta-app sinIcono simbolo={<ChatCircleText size={28} weight="fill" color="#2F6CC4" />}
       titulo={<>¿Cómo te va<br /><Color c="azul">con la app{primer ? `, ${primer}` : ''}?</Color></>}
-      texto="Son 4 preguntas rápidas y solo te las hago una vez.">
+      texto="Son preguntas rápidas y solo te las hago una vez.">
       {PREGUNTAS.map(p => <Escala key={p.k} p={p} valor={r[p.k]} alElegir={(v) => setR(x => ({ ...x, [p.k]: v }))} />)}
+      <div data-encuesta-pregunta="mejoraria" style={{ marginTop: 16, textAlign: 'left' }}>
+        <div style={{ fontSize: 15.5, fontWeight: 650, lineHeight: 1.3, marginBottom: 8 }}>¿Qué mejorarías? <span style={{ fontWeight: 450, color: '#7A7A80' }}>(opcional)</span></div>
+        <textarea value={mejoraria} onChange={(e) => setMejoraria(e.target.value.slice(0, 600))} rows={3} placeholder="Escribe aquí…" data-encuesta-mejoraria
+          style={{ width: '100%', boxSizing: 'border-box', border: 0, borderRadius: 14, padding: '11px 12px', background: 'rgba(255,255,255,0.85)', fontFamily: 'inherit', fontSize: 15, color: GRAFITO, resize: 'none' }} />
+      </div>
       {error && <div style={{ marginTop: 12, fontSize: 13.5, color: '#A3301B', textAlign: 'center' }}>{error}</div>}
       {/* Hasta responder las 4 se ve apagado (y no envía). */}
       <div style={{ opacity: completa ? 1 : 0.4, transition: 'opacity .2s' }}><BotonVentana onClick={enviar} cargando={enviando} data-encuesta-enviar aria-disabled={!completa}>Enviar</BotonVentana></div>
