@@ -30,10 +30,10 @@ const normal = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 export const puedeCompacta = (nombre) => PRUEBA_TODOS || VISTA_COMPACTA_PRUEBA.includes(normal(nombre));
 
-// «Profundiza en tu composición» (la tabla de referencia de ISSA), a prueba:
-// solo la ven estos nombres hasta que el coach dé el go. Para todos: true.
+// «Profundiza en tu composición» (la tabla de referencia de ISSA): ya para
+// todos. Para volver a probar algo solo con estos nombres: false.
 export const COMPOSICION_PRUEBA = ['mauro moron'];
-export const COMPOSICION_TODOS = false;
+export const COMPOSICION_TODOS = true;
 export const verComposicion = (nombre) => COMPOSICION_TODOS || COMPOSICION_PRUEBA.includes(normal(nombre));
 
 // La rutina más liviana EN LA VISTA NORMAL (a prueba): Ficha · Historial ·

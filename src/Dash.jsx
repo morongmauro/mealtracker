@@ -1208,22 +1208,23 @@ function Cuerpo({ medidas, cargando, alMedir, alProfundizar = null }) {
 // La tabla de referencia del % de grasa de la International Sports Sciences
 // Association (ISSA), por sexo (el de su ficha en el CRM), con dónde está él
 // según su última medición; debajo, sus gráficas de peso y % de grasa.
+// Las categorías van en inglés, tal cual en la tabla de ISSA (decisión del coach).
 // Los rangos son los de ISSA tal cual (con sus saltos entre categorías): un
 // valor en el salto cuenta en la categoría que empieza antes.
 const GRASA_ISSA = {
   F: [
-    { k: 'esencial', nombre: 'Grasa esencial', rango: '10–12 %', desde: 10, color: '#9AA3AE' },
-    { k: 'atletas', nombre: 'Atletas', rango: '14–20 %', desde: 14, color: '#3C7BD6' },
+    { k: 'esencial', nombre: 'Essential fat', rango: '10–12 %', desde: 10, color: '#9AA3AE' },
+    { k: 'atletas', nombre: 'Athletes', rango: '14–20 %', desde: 14, color: '#3C7BD6' },
     { k: 'fitness', nombre: 'Fitness', rango: '21–24 %', desde: 21, color: '#46965A' },
-    { k: 'aceptable', nombre: 'Aceptable', rango: '25–31 %', desde: 25, color: '#F2C94C' },
-    { k: 'obesidad', nombre: 'Obesidad', rango: '32 % o más', desde: 32, color: '#EE8434' },
+    { k: 'aceptable', nombre: 'Acceptable', rango: '25–31 %', desde: 25, color: '#F2C94C' },
+    { k: 'obesidad', nombre: 'Obese', rango: '32 % o más', desde: 32, color: '#EE8434' },
   ],
   M: [
-    { k: 'esencial', nombre: 'Grasa esencial', rango: '2–4 %', desde: 2, color: '#9AA3AE' },
-    { k: 'atletas', nombre: 'Atletas', rango: '6–13 %', desde: 6, color: '#3C7BD6' },
+    { k: 'esencial', nombre: 'Essential fat', rango: '2–4 %', desde: 2, color: '#9AA3AE' },
+    { k: 'atletas', nombre: 'Athletes', rango: '6–13 %', desde: 6, color: '#3C7BD6' },
     { k: 'fitness', nombre: 'Fitness', rango: '14–17 %', desde: 14, color: '#46965A' },
-    { k: 'aceptable', nombre: 'Aceptable', rango: '18–25 %', desde: 18, color: '#F2C94C' },
-    { k: 'obesidad', nombre: 'Obesidad', rango: '26 % o más', desde: 26, color: '#EE8434' },
+    { k: 'aceptable', nombre: 'Acceptable', rango: '18–25 %', desde: 18, color: '#F2C94C' },
+    { k: 'obesidad', nombre: 'Obese', rango: '26 % o más', desde: 26, color: '#EE8434' },
   ],
 };
 const TOPE_ISSA = { F: 40, M: 34 };   // dónde termina la barra (la última franja no tiene techo)
