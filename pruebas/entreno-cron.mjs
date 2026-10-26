@@ -108,9 +108,9 @@ await caso('cierra la olvidada con series, borra la vacía y no toca ni la de ay
 await caso('qué toca hoy: la rutina si no la hizo, y la medición', async () => {
   const db = base();
   const a = await agendaDeHoy(sbDe(db), hoy);
-  igual(a.get('mauro moron'), { rutina: 'Push', medicion: false, registros: [], entrenoHoy: false, conPlan: true }, 'Mauro');
-  igual(a.get('otra persona'), { rutina: 'Push', medicion: true, registros: ['medicion'], entrenoHoy: false, conPlan: true }, 'Otra');
-  igual(a.get('ya entreno'), { rutina: null, medicion: false, registros: [], entrenoHoy: true, conPlan: true }, 'la hizo hoy: no se insiste');
+  igual(a.get('mauro moron'), { rutina: 'Push', medicion: false, registros: [], manana: [], entrenoHoy: false, conPlan: true }, 'Mauro');
+  igual(a.get('otra persona'), { rutina: 'Push', medicion: true, registros: ['medicion'], manana: [], entrenoHoy: false, conPlan: true }, 'Otra');
+  igual(a.get('ya entreno'), { rutina: null, medicion: false, registros: [], manana: [], entrenoHoy: true, conPlan: true }, 'la hizo hoy: no se insiste');
 });
 
 await caso('qué toca hoy: sin ciclo enviado no tiene plan (no usa el módulo de entreno)', async () => {
@@ -261,6 +261,53 @@ await caso('cierre del día: entrenó y cumplió la meta → no se le molesta', 
   enviados.length = 0;
   await correr();
   igual(enviados.filter(e => e.a === 'Mauro').length, 0, 'nada para Mauro');
+});
+
+const masDias = (f, n) => { const d = new Date(Date.parse(f + 'T12:00:00Z')); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+await caso('cierre del día: a las 8pm la comida se recuerda solo bajo el 60% (la cena suele ser después)', async () => {
+  const db = baseNoche();
+  db.db.sesiones.push({ id: 'hoy-push', cliente_id: 'c1', rutina_id: 'r-c1', fecha: hoy, estado: 'completada', origen: 'cliente' });
+  db.db.user_data = [{ user_id: 'u1', today: fechaEn(tzVeinte), today_entries: [1, 2], goals: { kcal: 2000 }, totals: { kcal: 1300 } }];
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  await correr();
+  igual(enviados.filter(e => e.a === 'Mauro').length, 0, 'al 65% no se le molesta');
+});
+
+await caso('cierre del día: si mañana le toca pesarse, se lo anticipa (sin hablar de ayunas)', async () => {
+  const db = baseNoche();
+  db.db.sesiones.push({ id: 'hoy-push', cliente_id: 'c1', rutina_id: 'r-c1', fecha: hoy, estado: 'completada', origen: 'cliente' });
+  db.db.user_data = [{ user_id: 'u1', today: fechaEn(tzVeinte), today_entries: [1, 2, 3], goals: { kcal: 2000 }, totals: { kcal: 1900 } }];
+  db.db.eventos.push({ id: 'ev-m', cliente_id: 'c1', tipo: 'peso', titulo: 'Pesarse', fecha: masDias(hoy, 1), visible_cliente: true });
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  await correr();
+  const m = enviados.filter(e => e.a === 'Mauro');
+  igual(m.length, 1, 'un mensaje, solo por lo de mañana');
+  if (!/Mañana te toca pesarte/.test(m[0].body) || /ayunas/i.test(m[0].body)) throw new Error('mensaje: ' + m[0].body);
+});
+
+await caso('cierre del día: lo de mañana se suma al mensaje de hoy (sigue siendo uno solo)', async () => {
+  const db = baseNoche();
+  db.db.eventos.push({ id: 'ev-f', cliente_id: 'c1', tipo: 'fotos', titulo: 'Fotos', fecha: masDias(hoy, 1), visible_cliente: true });
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  await correr();
+  const m = enviados.filter(e => e.a === 'Mauro');
+  igual(m.length, 1, 'un solo mensaje');
+  if (!/Push/.test(m[0].body) || !/Y mañana te toca tu registro fotográfico/.test(m[0].body)) throw new Error('mensaje: ' + m[0].body);
+});
+
+await caso('cierre del día: 3 días o más sin abrir la app, solo cada 3 días', async () => {
+  for (const [dias, esperado] of [[2, 1], [4, 0], [5, 0], [6, 1]]) {
+    const db = baseNoche();
+    db.db.user_data = [{ user_id: 'u1', today: masDias(fechaEn(tzVeinte), -dias), today_entries: [], goals: { kcal: 2000 }, totals: { kcal: 0 } }];
+    globalThis.fetch = db.fetch;
+    enviados.length = 0;
+    await correr();
+    igual(enviados.filter(e => e.a === 'Mauro').length, esperado, `${dias} días sin abrir`);
+  }
 });
 
 console.log(`\n${casos - fallos}/${casos} bien`);

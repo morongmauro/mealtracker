@@ -447,8 +447,10 @@ export async function agendaDeHoy(sb, hoy) {
     const medicion = !!deHoy.length;
     // Qué toca registrar hoy, para que el aviso diga «pesarte» o «tus fotos».
     const registros = [...new Set(deHoy.map(e => e.tipo))];
+    // Lo que toca registrar MAÑANA: el cierre de esta noche se lo anticipa.
+    const manana = [...new Set((expandirEventos(evs, fase)[sumarDiasISO(hoy, 1)] || []).map(e => e.tipo))];
     // conPlan: tiene ciclo enviado → usa el módulo de entreno de la app.
-    const dato = { rutina, medicion, registros, entrenoHoy, conPlan: !!fase };
+    const dato = { rutina, medicion, registros, manana, entrenoHoy, conPlan: !!fase };
     [c.nombre, ...(Array.isArray(c.nombres_alternos) ? c.nombres_alternos : [])]
       .forEach(n => { const k = normalizeName(n); if (k) out.set(k, dato); });
   }

@@ -14,9 +14,15 @@
 //   20:00 local → CIERRE DEL DÍA, un solo mensaje que junta lo que falte:
 //                 · entreno: tenía rutina hoy en su calendario, no la ha
 //                   hecho esta semana y hoy no entrenó nada;
-//                 · comida: con meta de kcal, va por DEBAJO del 80% (con su
-//                   % real en el mensaje); sin meta, menos de 3 registros.
+//                 · comida: con meta de kcal, va por DEBAJO del 60% (con su
+//                   % real en el mensaje; a las 8pm mucha gente aún no ha
+//                   cenado, por eso no el 80%); sin meta, menos de 3 registros;
+//                 · y si MAÑANA el coach le puso peso, medición o fotos, se
+//                   lo anticipa (sin hablar de ayunas: mejor que se pese).
 //                 Si no falta nada, no se le molesta.
+//                 Quien lleva 3 días o más sin abrir la app lo recibe cada
+//                 3 días y no a diario: insistir cada noche termina en que
+//                 apague todo.
 //   (Los avisos de las 9am y las 2pm de «registra tu comida» y el de «hoy
 //   te toca» de la mañana se quitaron: saturaban.)
 //
@@ -106,9 +112,26 @@ MSGS.cierreAmbosSinMeta = [
   'Antes de descansar: marca tu {rutina} si ya entrenaste y registra lo que comiste hoy 🌙',
 ];
 
+// Lo de mañana (peso, medición, fotos), en palabras.
+export function queRegistra(tipos = []) {
+  const partes = [...new Set((tipos || []).map(t => QUE_REGISTRA[t] || (t === 'medicion' ? 'tu medición' : null)).filter(Boolean))];
+  if (!partes.length) return null;
+  return partes.length > 1 ? `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}` : partes[0];
+}
+
 // El texto del cierre según lo que falte. `comida`: null (va bien),
 // { pct } con meta, o { sinMeta: true }. `rutina`: nombre o null.
-export function textoCierre({ rutina = null, comida = null }) {
+// `manana`: lo que toca registrar mañana (se suma al final, o va solo).
+export function textoCierre({ rutina = null, comida = null, manana = null, conApp = true }) {
+  const base = textoCierreHoy({ rutina, comida });
+  const que = manana && manana.length ? queRegistra(manana) : null;
+  if (!que) return base;
+  if (base) return `${base} Y mañana te toca ${que} 📏`;
+  return conApp
+    ? `Mañana te toca ${que} 📏 Márcalo en tu calendario de la app cuando lo hagas.`
+    : `Mañana te toca ${que} 📏 Mándamelo por WhatsApp cuando lo tengas.`;
+}
+function textoCierreHoy({ rutina = null, comida = null }) {
   if (rutina && comida) {
     return comida.sinMeta
       ? pick(MSGS.cierreAmbosSinMeta).replace('{rutina}', rutina)
@@ -500,9 +523,10 @@ export default async function handler(req, res) {
         const kcalHoy = act.date === date ? act.kcalHoy : 0;
         let comida = null;
         if (metaKcal > 0) {
-          // 80% o más de la meta = día bien llevado: no se le recuerda.
+          // 60% o más de la meta a las 8pm = va bien (la cena suele ser
+          // después): no se le recuerda.
           const pct = Math.min(999, Math.max(0, Math.round((kcalHoy / metaKcal) * 100)));
-          if (pct < 80) comida = { pct };
+          if (pct < 60) comida = { pct };
         } else if (registrosHoy < 3) {
           // Sin meta configurada: regla por conteo de registros
           comida = { sinMeta: true };
@@ -517,7 +541,16 @@ export default async function handler(req, res) {
           // decide /api/resources).
           if ((enBetaEntreno(s.name) || (hoyEs && hoyEs.conPlan)) && hoyEs && hoyEs.rutina && !hoyEs.entrenoHoy) rutina = hoyEs.rutina;
         }
-        const body = textoCierre({ rutina, comida });
+        let manana = null, conApp = false;
+        if (s.name) {
+          const hoyEs = agenda && agenda.get(normalizeName(s.name));
+          manana = hoyEs && hoyEs.manana && hoyEs.manana.length ? hoyEs.manana : null;
+          conApp = enBetaEntreno(s.name) || !!(hoyEs && hoyEs.conPlan);
+        }
+        // 3 días o más sin abrir la app: el cierre solo cada 3 días.
+        const sinAbrir = act.date && /^\d{4}-\d{2}-\d{2}$/.test(act.date) ? Math.round((Date.parse(date) - Date.parse(act.date)) / 86400000) : 0;
+        const descansa = sinAbrir >= 3 && sinAbrir % 3 !== 0;
+        const body = descansa ? null : textoCierre({ rutina, comida, manana, conApp });
         if (body) payloads.push({ title: 'Tu coach', body, tag: 'ecm-n' });
       }
 
