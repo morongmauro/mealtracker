@@ -6,6 +6,8 @@ import { crearSupabaseFalso, llamar } from './_supabase-falso.mjs';
 
 process.env.CRM_SUPABASE_URL = 'https://crm.test';
 process.env.CRM_SUPABASE_SERVICE_KEY = 'k';
+// La fecha desde la que sale se prueba al final; antes, apagada.
+process.env.ENCUESTA_DESDE = '';
 const { default: handler, semanaCliente } = await import('../api/training.js');
 
 let mal = 0;
@@ -55,6 +57,18 @@ ok('sin la pregunta abierta también se guarda', r.ok && sb.db.encuesta_app.leng
 sb.db.clientes[0].estado = 'pausado';
 r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });
 ok('cliente no activo: no le sale', r.toca === false, JSON.stringify(r));
+
+// Desde qué fecha sale: antes no, aunque le toque; ese día, sí.
+sb = preparar(haceDias(40));
+process.env.ENCUESTA_DESDE = new Date(Date.parse(hoy) + 7 * 86400000).toISOString().slice(0, 10);
+r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });
+ok('antes de la fecha de arranque no sale (aunque le toque)', r.ok && r.toca === false && r.motivo === 'antes_de_fecha', JSON.stringify(r));
+process.env.ENCUESTA_DESDE = hoy;
+r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });
+ok('desde ese día, sí', r.toca === true, JSON.stringify(r));
+delete process.env.ENCUESTA_DESDE;
+const { ENCUESTA_DESDE } = await import('../api/training.js');
+ok('la fecha de arranque es el lunes 2 de noviembre', ENCUESTA_DESDE === '2026-11-02');
 
 console.log(mal ? `\n${mal} falla(s)` : '\ntodo bien');
 process.exit(mal ? 1 : 0);

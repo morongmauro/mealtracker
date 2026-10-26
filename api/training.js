@@ -1859,6 +1859,10 @@ async function guardarMedida(cliente, cuerpo, hoy) {
 // guarda el teléfono (vuelve a salir la semana siguiente). Tabla:
 // CRM_entrenaconmetodo/migraciones/encuesta-app.sql.
 export const ENCUESTA_ID = 'app-1';
+// No sale antes de esta fecha (decisión del coach: desde el lunes 2 de
+// noviembre). Las pruebas la apagan con ENCUESTA_DESDE vacío.
+export const ENCUESTA_DESDE = '2026-11-02';
+const encuestaDesde = () => (process.env.ENCUESTA_DESDE ?? ENCUESTA_DESDE);
 export function semanaCliente(inicio, hoy) {
   const d = String(inicio || '').slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d > hoy) return null;
@@ -1871,6 +1875,7 @@ async function inicioCliente(cliente) {
 }
 async function verEncuesta(cliente, hoy) {
   if (String(cliente.estado || 'activo').toLowerCase() !== 'activo') return { ok: true, toca: false, motivo: 'no_activo' };
+  if (encuestaDesde() && hoy < encuestaDesde()) return { ok: true, toca: false, motivo: 'antes_de_fecha', desde: encuestaDesde() };
   const semana = semanaCliente(await inicioCliente(cliente), hoy);
   if (!semana || semana < 2) return { ok: true, toca: false, semana, motivo: 'antes_de_semana_2' };
   let ya;

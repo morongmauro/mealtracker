@@ -42,6 +42,7 @@ globalThis.Date = class extends DateReal {
 
 process.env.CRM_SUPABASE_URL = 'https://crm.test';
 process.env.CRM_SUPABASE_SERVICE_KEY = 'k';
+process.env.ENCUESTA_DESDE = '';   // la fecha de arranque de la encuesta se prueba en encuesta-app-api.mjs
 const { default: handler } = await import('../api/training.js');
 const { hoyBogota, lunesDe, sumarDiasISO } = await import('../api/_entreno.js');
 
