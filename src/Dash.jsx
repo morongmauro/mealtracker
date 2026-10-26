@@ -1206,25 +1206,24 @@ function Cuerpo({ medidas, cargando, alMedir, alProfundizar = null }) {
 
 // ── Profundiza en tu composición ──────────────────────────────────────────
 // La tabla de referencia del % de grasa de la International Sports Sciences
-// Association (ISSA), por sexo (el de su ficha en el CRM), con dónde está él
+// Association (ISSA) —Table 7.1 Bodyfat Percentage Norms—, por sexo (el de su ficha en el CRM), con dónde está él
 // según su última medición; debajo, sus gráficas de peso y % de grasa.
-// Las categorías van en inglés, tal cual en la tabla de ISSA (decisión del coach).
-// Los rangos son los de ISSA tal cual (con sus saltos entre categorías): un
-// valor en el salto cuenta en la categoría que empieza antes.
+// Las categorías y los rangos van tal cual en la tabla de ISSA, en inglés
+// (decisión del coach). Un valor entre dos rangos (16,5 %) cuenta en el de abajo.
 const GRASA_ISSA = {
   F: [
-    { k: 'esencial', nombre: 'Essential fat', rango: '10–12 %', desde: 10, color: '#9AA3AE' },
-    { k: 'atletas', nombre: 'Athletes', rango: '14–20 %', desde: 14, color: '#3C7BD6' },
-    { k: 'fitness', nombre: 'Fitness', rango: '21–24 %', desde: 21, color: '#46965A' },
-    { k: 'aceptable', nombre: 'Acceptable', rango: '25–31 %', desde: 25, color: '#F2C94C' },
-    { k: 'obesidad', nombre: 'Obese', rango: '32 % o más', desde: 32, color: '#EE8434' },
+    { k: 'essential', nombre: 'Low / Essential', rango: '10–12 %', desde: 10, color: '#9AA3AE' },
+    { k: 'athletic', nombre: 'Athletic', rango: '13–20 %', desde: 13, color: '#3C7BD6' },
+    { k: 'fit', nombre: 'Fit', rango: '21–24 %', desde: 21, color: '#46965A' },
+    { k: 'average', nombre: 'Average', rango: '25–31 %', desde: 25, color: '#F2C94C' },
+    { k: 'high', nombre: 'High / Overweight', rango: '32 % o más', desde: 32, color: '#EE8434' },
   ],
   M: [
-    { k: 'esencial', nombre: 'Essential fat', rango: '2–4 %', desde: 2, color: '#9AA3AE' },
-    { k: 'atletas', nombre: 'Athletes', rango: '6–13 %', desde: 6, color: '#3C7BD6' },
-    { k: 'fitness', nombre: 'Fitness', rango: '14–17 %', desde: 14, color: '#46965A' },
-    { k: 'aceptable', nombre: 'Acceptable', rango: '18–25 %', desde: 18, color: '#F2C94C' },
-    { k: 'obesidad', nombre: 'Obese', rango: '26 % o más', desde: 26, color: '#EE8434' },
+    { k: 'essential', nombre: 'Low / Essential', rango: '4–6 %', desde: 4, color: '#9AA3AE' },
+    { k: 'athletic', nombre: 'Athletic', rango: '7–10 %', desde: 7, color: '#3C7BD6' },
+    { k: 'fit', nombre: 'Fit', rango: '11–16 %', desde: 11, color: '#46965A' },
+    { k: 'average', nombre: 'Average', rango: '17–25 %', desde: 17, color: '#F2C94C' },
+    { k: 'high', nombre: 'High / Overweight', rango: '26 % o más', desde: 26, color: '#EE8434' },
   ],
 };
 const TOPE_ISSA = { F: 40, M: 34 };   // dónde termina la barra (la última franja no tiene techo)

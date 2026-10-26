@@ -661,7 +661,7 @@ try {
     await ref.waitFor({ timeout: 8000 });
     await espera(600);
     ok('composición: la tabla de ISSA de su sexo (hombre), con su categoría marcada', (await ref.locator('[data-tabla-issa]').count()) === 1
-      && (await ref.locator('[data-tabla-issa="M"]').count()) === 1 && (await ref.locator('[data-tu-fila]').getAttribute('data-fila-issa')) === 'aceptable'
+      && (await ref.locator('[data-tabla-issa="M"]').count()) === 1 && (await ref.locator('[data-tu-fila]').getAttribute('data-fila-issa')) === 'average'
       && /18,4/.test(await ref.innerText()) && (await ref.locator('[data-marca-issa]').count()) === 1, await ref.innerText());
     ok('composición: la fuente completa, sin abreviar', /Fuente: International Sports Sciences Association \(ISSA\)\./.test(await ref.locator('[data-fuente-issa]').innerText()));
     ok('composición: debajo siguen sus gráficas de peso y % de grasa', (await q.locator('[data-linea-peso]').count()) >= 1 && (await q.locator('[data-linea-grasa]').count()) >= 1);
