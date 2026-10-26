@@ -112,7 +112,7 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
 
 // ── Notificaciones: un interruptor por tipo de aviso (lote 26) ────────────
 // Lo apagado no llega: el servidor lo mira antes de enviar (api/_avisos.js).
-function Interruptor({ encendido, alCambiar, etiqueta, id }) {
+export function Interruptor({ encendido, alCambiar, etiqueta, id }) {
   return (
     <button role="switch" aria-checked={encendido} aria-label={etiqueta} data-aviso={id} onClick={() => alCambiar(!encendido)} style={{
       width: 50, height: 30, borderRadius: 999, border: 0, padding: 2, cursor: 'pointer', flex: 'none',

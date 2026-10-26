@@ -24,7 +24,8 @@ import { Conteo, Confeti, asegurarCSS, vibrar } from './Celebraciones.jsx';
 import { useUnidades, HojaUnidades } from './Unidades.jsx';
 import { aroEntrenoDe, progresoEntrenoDelPlan } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
-import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind, Snowflake, Fire, Camera, CaretRight } from '@phosphor-icons/react';
+import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind, Snowflake, Fire, Camera, CaretRight, GearSix } from '@phosphor-icons/react';
+import HojaAjustesEntreno from './EntrenoAjustes.jsx';
 import Respira from './Respira.jsx';
 import Reconocimiento from './Reconocimiento.jsx';
 import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
@@ -811,7 +812,14 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     // Sin limpiarlo en el siguiente pintado (el reloj repinta cada segundo):
     // solo se cancela si sale de la rutina.
     clearTimeout(bajarRef.current);
+    // Si en ese medio segundo toca o desliza (por ejemplo, para volver a
+    // otro ejercicio), no se baja sola: manda la persona.
+    const cancelar = () => { clearTimeout(bajarRef.current); quitar(); };
+    const ev = ['touchstart', 'wheel', 'pointerdown'];
+    const quitar = () => ev.forEach(t => window.removeEventListener(t, cancelar, true));
+    setTimeout(() => ev.forEach(t => window.addEventListener(t, cancelar, { capture: true, passive: true })), 0);
     bajarRef.current = setTimeout(() => {
+      quitar();
       const el = document.querySelector(`[data-re-id="${id}"]`);
       if (!el) return;
       // Lote 30: bajada suave. Antes el siguiente subía hasta el borde de
@@ -1082,8 +1090,8 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     return () => window.removeEventListener('pointerdown', alTocar, { capture: true });
   }, [habiaReloj]);
 
-  // Minimizada con un descanso (o un ejercicio por tiempo) corriendo: el
-  // iPhone congela la app y el pitido no sonaría hasta volver. Se deja un
+  // Minimizada con un descanso de 90 s o más (o un ejercicio por tiempo)
+  // corriendo: el iPhone congela la app y el pitido no sonaría hasta volver. Se deja un
   // aviso en el servidor y el teléfono recibe la notificación al terminar
   // (api/_descanso.js). Al volver, o al saltarlo, el aviso se cancela.
   const avisoMin = useRef(null);
@@ -1102,6 +1110,9 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
         const c = cuenta && cuenta.pausa == null ? cuenta : null;
         const fin = c ? c.fin : descanso ? descanso.fin : null;
         if (!fin || fin - Date.now() < 4000 || avisoMin.current) return;
+        // Descansos cortos (menos de 90 s), sin aviso: cuando saca el
+        // teléfono ya terminó, y en el gimnasio llegaba uno en cada serie.
+        if (!c && descanso && (descanso.segundos || 0) < 90) return;
         const id = `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
         avisoMin.current = id;
         mandarAviso('programar', {
@@ -1326,7 +1337,11 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     : tr.vueltas[0].map(re => ({ clave: re.id, completo: Array.from({ length: Math.max(1, re.series || 1) }, (_, k) => k + 1).every(n => marcadas[`${re.id}:${n}`]) }))));
   // Más liviana en la vista normal (a prueba, vistaApp.js).
   const ligera = v2 && !compactaRutina && rutinaLigera(name);
-  const elegidoVivo = abiertoCompacta && itemsRutina.some(x => x.clave === abiertoCompacta && !x.completo) ? abiertoCompacta : null;
+  // El que abrió a mano sigue abierto mientras le falte algo; si lo abrió
+  // ya terminado (para revisar o corregir), también: antes un terminado no se
+  // podía volver a abrir.
+  const elegidoVivo = abiertoCompacta && itemsRutina.some(x => x.clave === abiertoCompacta.clave && (!x.completo || abiertoCompacta.yaHecho)) ? abiertoCompacta.clave : null;
+  const abrirCompacta = (clave) => setAbiertoCompacta({ clave, yaHecho: itemsRutina.some(x => x.clave === clave && x.completo) });
   const abiertaClave = elegidoVivo || (itemsRutina.find(x => !x.completo) || {}).clave || null;
 
   siguienteRef.current = { items: itemsRutina, activo: compactaRutina || ligera, abierta: compactaRutina ? abiertaClave : null };
@@ -1532,7 +1547,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
           {v2 && tramo.vueltas.length > 1 ? (
             <CircuitoV2 tramo={tramo} marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar}
               unidadDe={unidadDe} onUnidad={cambiarUnidad}
-              compacta={compactaRutina} cerrado={compactaRutina && abiertaClave !== tramo.clave} alAbrir={() => setAbiertoCompacta(tramo.clave)} ligera={ligera} ahora={ahoraCircuito}
+              compacta={compactaRutina} cerrado={compactaRutina && abiertaClave !== tramo.clave} alAbrir={() => abrirCompacta(tramo.clave)} ligera={ligera} ahora={ahoraCircuito}
               onNota={(re) => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, notas_rutina: re.notas || null, ejercicio_id: re.ejercicio && re.ejercicio.id })} />
           ) : (<>
           {tramo.bloque && <CabeceraBloque b={tramo.bloque} v2={v2} />}
@@ -1558,7 +1573,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
                   unidad={unidadDe(re)} onUnidad={() => cambiarUnidad(re)}
                   onNota={() => setNota({ titulo: re.ejercicio.nombre, ejercicio: re.ejercicio, rutina_id: rutinaId, rutina_ejercicio_id: re.id, sesion_id: sesion?.id, coach: re.coach || null, notas_rutina: re.notas || null, ejercicio_id: re.ejercicio && re.ejercicio.id })}
                   ahora={re.id === ahoraId}
-                  {...(compactaRutina ? { compacta: true, cerrado: abiertaClave !== re.id, alAbrir: () => setAbiertoCompacta(re.id) } : ligera ? { ligera: true } : {})}
+                  {...(compactaRutina ? { compacta: true, cerrado: abiertaClave !== re.id, alAbrir: () => abrirCompacta(re.id) } : ligera ? { ligera: true } : {})}
                   marcadas={marcadas} onMarcar={marcar} onDesmarcar={desmarcar} />
               ))}
             </React.Fragment>
@@ -1659,13 +1674,19 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
 
 function PildoraRecordatorios({ pendientes = 0, abrir }) {
   const [unidadesAbiertas, setUnidadesAbiertas] = useState(false);
+  const [ajustes, setAjustes] = useState(false);
   const u = useUnidades();
-  // Visual nueva: los botones de cristal (círculo y palabra debajo).
+  // Visual nueva: los botones de cristal (círculo y palabra debajo). La
+  // tuerca abre los ajustes del entreno: sonido, aviso del descanso, unidades.
   if (v2Activa()) return (
-    <FilaCristal style={{ margin: '0 0 14px' }}>
-      <BotonCristal tono={TONO_ATAJOS.entreno} icono={Bell} color="#C95F17" badge={pendientes} rotulo="Avisos" onClick={abrir}>Recordatorios</BotonCristal>
-      {WHATSAPP_COACH && <BotonCristal tono={TONO_ATAJOS.entreno} icono={enPrueba() ? WhatsappLogo : ChatCircle} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
-    </FilaCristal>
+    <>
+      <FilaCristal style={{ margin: '0 0 14px' }}>
+        <BotonCristal tono={TONO_ATAJOS.entreno} icono={Bell} color="#C95F17" badge={pendientes} rotulo="Avisos" onClick={abrir}>Recordatorios</BotonCristal>
+        {WHATSAPP_COACH && <BotonCristal tono={TONO_ATAJOS.entreno} icono={enPrueba() ? WhatsappLogo : ChatCircle} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
+        <BotonCristal tono={TONO_ATAJOS.entreno} icono={GearSix} color="#636366" rotulo="Ajustes" data-ajustes-entreno onClick={() => setAjustes(true)}>Ajustes del entrenamiento</BotonCristal>
+      </FilaCristal>
+      <HojaAjustesEntreno abierta={ajustes} alCerrar={() => setAjustes(false)} />
+    </>
   );
   return (
     <div style={{ margin: '0 0 14px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>

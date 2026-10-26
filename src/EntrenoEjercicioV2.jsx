@@ -601,7 +601,8 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
     return (
       // Hecho = otro color: la tarjeta plegada se tiñe del amarillo suave de
       // la marca, para ver de un vistazo qué ya está.
-      <button data-plegado data-re-plegado={re.id} onClick={() => setPlegado(false)} style={{
+      // Tocarlo lo vuelve a abrir (en la compacta, además, queda como el abierto).
+      <button data-plegado data-re-plegado={re.id} onClick={() => { setPlegado(false); if (compacta && alAbrir) alAbrir(); }} style={{
         ...TARJETA, background: HECHO_FONDO, boxShadow: 'none',
         width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 10,
@@ -612,7 +613,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.grande}</span>
           <span style={{ display: 'block', fontSize: 13, color: HECHO_TINTA, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {`${series.length} serie${series.length === 1 ? '' : 's'} · hecho`}
+            {`${series.length} serie${series.length === 1 ? ' hecha' : 's hechas'} · toca para abrir`}
           </span>
         </span>
         <span style={{ fontSize: 12.5, color: GRIS, flex: 'none' }}>{`${series.length}/${series.length}`}</span>
@@ -766,7 +767,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
   if (plegado) {
     const nombres = (vueltas[0] || []).map(re => nombresEj(re.ejercicio).grande).join(' · ');
     return (
-      <button data-plegado data-circuito-plegado onClick={() => setPlegado(false)} style={{
+      <button data-plegado data-circuito-plegado onClick={() => { setPlegado(false); if (compacta && alAbrir) alAbrir(); }} style={{
         ...TARJETA, background: HECHO_FONDO, boxShadow: 'none',
         width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 10,
@@ -776,7 +777,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
         </span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {`${tipo} · ${vueltas.length} ${vueltas.length === 1 ? 'vuelta' : 'vueltas'} · hecho`}
+            {`${tipo} · ${vueltas.length} ${vueltas.length === 1 ? 'vuelta hecha' : 'vueltas hechas'} · toca para abrir`}
           </span>
           <span style={{ display: 'block', fontSize: 13, color: HECHO_TINTA, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombres}</span>
         </span>

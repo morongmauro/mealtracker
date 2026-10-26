@@ -6,13 +6,16 @@
 // deportivo) y vibra, para quien no está mirando la pantalla. Dos notas
 // suaves no se oían en el gimnasio.
 //
-// Va por dos caminos a la vez, porque el iPhone pone trabas:
-//  · Web Audio: el pitido del final se deja PROGRAMADO en el reloj del audio
-//    en el mismo toque de marcar, así suena a su hora aunque la página vaya
-//    lenta. Con `navigator.audioSession.type = 'transient'` (iPhone con iOS
-//    17 o más) se mezcla con la música de otras apps en vez de pausarla.
-//  · Un <audio> con un WAV generado aquí: el respaldo cuando Web Audio no
-//    está disponible o el teléfono lo dejó dormido.
+// NUNCA debe cortar la música del cliente (Spotify, YouTube Music…), en
+// iPhone ni en Android. Por eso suena SOLO por Web Audio, que no le quita
+// el audio a las otras apps, y en el iPhone con
+// `navigator.audioSession.type = 'ambient'`: se mezcla con la música sin
+// pausarla ni bajarle el volumen. El <audio> con un WAV (que sí pausa la
+// música de los demás) queda solo para el teléfono raro sin Web Audio.
+// El pitido del final se deja PROGRAMADO en el reloj del audio en el mismo
+// toque de marcar, así suena a su hora aunque la página vaya lenta.
+// El cliente lo puede apagar (Entrenamiento → Ajustes): sin sonido, solo
+// vibra (en Android; el iPhone no deja vibrar desde una página).
 // El iPhone solo deja sonar lo que arrancó con un toque: por eso todo se
 // «desbloquea» en `prepararSonido()`, que se llama al marcar la serie.
 // Antes el desbloqueo bajaba el volumen a 0, pero en el iPhone el volumen
@@ -21,6 +24,14 @@
 
 let audio = null;
 let listo = false;
+
+// ¿Suena? Lo elige el cliente en Entrenamiento → Ajustes. Sin nada guardado, sí.
+export const CLAVE_SONIDO = 'mt:sonidoDescanso';
+export const sonidoActivo = () => { try { return localStorage.getItem(CLAVE_SONIDO) !== '0'; } catch (e) { return true; } };
+export function guardarSonido(si) {
+  try { localStorage.setItem(CLAVE_SONIDO, si ? '1' : '0'); } catch (e) { /* sin almacenamiento: vale esta vez */ }
+  try { window.dispatchEvent(new CustomEvent('mt:sonido')); } catch (e) {}
+}
 
 // La alarma del final: dos tandas de cuatro bips cortos y agudos (~1,2 s).
 // Agudo (2 kHz) y con onda cuadrada: es lo que mejor se oye por el altavoz
@@ -111,12 +122,12 @@ function nota(c, f, t, dur, vol = 0.32, tipo = 'sine') {
 // Se llama dentro de un toque (marcar una serie): deja el audio listo para
 // sonar solo más tarde.
 export function prepararSonido() {
-  // «transient»: el pitido se MEZCLA con lo que suene en otras apps (Spotify,
-  // YouTube) y solo les baja el volumen un instante. Con «playback» el iPhone
-  // pausaba la música de los demás al tocar la rutina. A cambio, con el
-  // interruptor de silencio puesto el pitido no suena (queda la vibración y,
-  // minimizada, la notificación).
-  try { if (navigator.audioSession) navigator.audioSession.type = 'transient'; } catch (e) {}
+  // «ambient»: el pitido se MEZCLA con lo que suene en otras apps (Spotify,
+  // YouTube) sin pausarla ni bajarle el volumen. Con «playback» (y con el
+  // «transient» de antes) el iPhone cortaba la música. A cambio, con el
+  // interruptor de silencio puesto el pitido no suena.
+  if (!sonidoActivo()) return;
+  try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) {}
   const c = contexto();
   if (c) {
     try {
@@ -126,6 +137,9 @@ export function prepararSonido() {
       s.buffer = b; s.connect(c.destination); s.start(0);
     } catch (e) {}
   }
+  // Con Web Audio no se toca el <audio>: reproducirlo, aunque sea en
+  // silencio, le quita el audio a la música en algunos teléfonos.
+  if (c) return;
   const a = elemento();
   if (!a || listo) return;
   try {
@@ -141,6 +155,7 @@ export function prepararSonido() {
 
 // Al empezar el descanso: una nota corta y suave (va dentro del toque).
 export function sonarInicioDescanso() {
+  if (!sonidoActivo()) return false;
   const c = contexto();
   if (!c) return false;
   try { nota(c, 659.3, c.currentTime + 0.02, 0.16, 0.22); return true; } catch (e) { return false; }
@@ -150,6 +165,7 @@ export function sonarInicioDescanso() {
 // página vaya lenta. Devuelve con qué cancelarlo (saltar, +15 s) o null si
 // no se pudo programar (entonces suena el respaldo al llegar a cero).
 export function programarFinDescanso(seg) {
+  if (!sonidoActivo()) return null;
   const c = contexto();
   if (!c || !(seg > 0)) return null;
   try {
@@ -161,6 +177,7 @@ export function programarFinDescanso(seg) {
 
 // Una nota sola programada (por lado: «cambia de lado» a la mitad).
 export function programarAviso(seg) {
+  if (!sonidoActivo()) return null;
   const c = contexto();
   if (!c || !(seg > 0)) return null;
   try {
@@ -173,7 +190,16 @@ export function programarAviso(seg) {
 // el respaldo.
 export function sonarFinDescanso({ yaProgramado = false } = {}) {
   try { navigator.vibrate && navigator.vibrate([120, 80, 120, 80, 220]); } catch (e) {}
-  if (yaProgramado) return true;
+  if (yaProgramado || !sonidoActivo()) return true;
+  // Por Web Audio (no corta la música); el <audio> solo sin Web Audio.
+  const c = contexto();
+  if (c) {
+    try {
+      if (c.state !== 'running') c.resume();
+      BIPS_ALARMA.forEach(d => nota(c, F_ALARMA, c.currentTime + 0.02 + d, BIP, 0.2, 'square'));
+      return true;
+    } catch (e) { return false; }
+  }
   const a = elemento();
   if (!a) return false;
   try {

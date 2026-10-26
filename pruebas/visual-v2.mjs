@@ -637,6 +637,72 @@ try {
     await vp.ctx.close(); await b.close(); await vite.close();
     console.log(fallos ? `\n${fallos} fallo(s)` : '\ntodo bien'); process.exit(fallos ? 1 : 0);
   }
+  // AJUSTES=1: la tuerca de Entrenamiento (sonido del descanso, aviso del
+  // descanso, unidades); el sonido nunca va por <audio> (corta la música);
+  // el aviso al minimizar solo en descansos de 90 s o más; y el ejercicio
+  // terminado dice «toca para abrir».
+  if (process.env.AJUSTES) {
+    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null } });
+    const q = vp.p;
+    await q.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
+    await q.evaluate(() => document.body.classList.add('app-ready'));
+    await q.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1200);
+    const tuerca = q.locator('[data-ajustes-entreno]');
+    ok('ajustes: Entrenamiento trae la tuerca junto a Avisos y Coach', (await tuerca.count()) === 1);
+    await foto(q, 'ajustes-entreno');
+    await tuerca.click();
+    const hoja = q.locator('[data-hoja-ajustes-entreno]');
+    await hoja.waitFor({ timeout: 5000 }); await espera(500);
+    ok('ajustes: la hoja trae sonido del descanso, aviso del descanso y unidades', (await hoja.locator('[data-ajuste-entreno]').count()) === 3
+      && /Sonido del descanso/.test(await hoja.innerText()) && /90 segundos/.test(await hoja.innerText()) && /Kilos|Libras/.test(await hoja.innerText()));
+    await foto(q, 'ajustes-hoja');
+    await hoja.locator('[data-aviso="sonido-descanso"]').click(); await espera(200);
+    ok('ajustes: apagar el sonido queda guardado', await q.evaluate(() => localStorage.getItem('mt:sonidoDescanso')) === '0');
+    await q.keyboard.press('Escape'); await espera(400);
+    // La rutina, con los contadores de sonido.
+    await q.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await q.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
+    await q.locator('[data-tip-entendido]').click().catch(() => {});
+    await q.evaluate(() => {
+      window.__notas = 0; window.__audio = 0;
+      const play = HTMLMediaElement.prototype.play;
+      HTMLMediaElement.prototype.play = function () { window.__audio++; return play.apply(this, arguments).catch(() => {}); };
+      const start = OscillatorNode.prototype.start;
+      OscillatorNode.prototype.start = function () { window.__notas++; return start.apply(this, arguments); };
+    });
+    const banca = q.locator('[data-ejercicio="Barbell Bench Press"]');
+    await banca.getByLabel('Repeticiones serie 1').fill('8');
+    await banca.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(400);
+    ok('sonido apagado: al marcar no suena nada', await q.evaluate(() => window.__notas === 0 && window.__audio === 0), await q.evaluate(() => JSON.stringify([window.__notas, window.__audio])));
+    await q.evaluate(() => localStorage.setItem('mt:sonidoDescanso', '1'));
+    await banca.getByLabel('Repeticiones serie 2').fill('8');
+    await banca.getByRole('button', { name: 'Marcar serie 2' }).click(); await espera(400);
+    ok('sonido encendido: suena por Web Audio y nunca por <audio> (que corta la música)', await q.evaluate(() => window.__notas > 0 && window.__audio === 0), await q.evaluate(() => JSON.stringify([window.__notas, window.__audio])));
+    // Aviso al minimizar: la banca descansa 2 min → sí; uno de 60 s → no.
+    const visibilidad = (v) => q.evaluate((v) => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => v }); document.dispatchEvent(new Event('visibilitychange')); }, v);
+    avisosDescanso.length = 0;
+    await visibilidad('hidden'); await espera(400); await visibilidad('visible'); await espera(300);
+    ok('aviso del descanso: con 2 min de descanso, al minimizar sí se programa', avisosDescanso.some(a => a.que === 'programar'), JSON.stringify(avisosDescanso));
+    await banca.getByLabel('Repeticiones serie 3').fill('8');
+    await banca.getByRole('button', { name: 'Marcar serie 3' }).click(); await espera(900);
+    const pleg = q.locator('[data-re-plegado="re-e1"]');
+    ok('ejercicio terminado: plegado dice «toca para abrir»', /3 series hechas · toca para abrir/.test(await pleg.innerText().catch(() => '')), await pleg.innerText().catch(() => 'sin plegado'));
+    await pleg.evaluate(el => el.scrollIntoView({ block: 'center' })); await espera(400);
+    await foto(q, 'ajustes-plegado');
+    await pleg.click(); await espera(400);
+    ok('ejercicio terminado: al tocarlo se vuelve a abrir', (await q.locator('[data-re-plegado="re-e1"]').count()) === 0 && (await banca.getByRole('button', { name: /Deshacer serie 1/ }).count()) === 1);
+    const corto = q.locator('[data-re-id="re-e11"]');
+    await corto.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    await corto.getByLabel('Repeticiones serie 1').fill('12');
+    await corto.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(400);
+    ok('…con su descanso de 60 s corriendo', (await q.locator('[data-descanso="contando"]').count()) === 1 && /1:0\d|0:5\d|60|59|58/.test(await q.locator('[data-descanso]').innerText()), await q.locator('[data-descanso]').innerText().catch(() => 'sin barra'));
+    avisosDescanso.length = 0;
+    await visibilidad('hidden'); await espera(400); await visibilidad('visible'); await espera(300);
+    ok('aviso del descanso: con 60 s de descanso, al minimizar NO se programa', !avisosDescanso.some(a => a.que === 'programar'), JSON.stringify(avisosDescanso));
+    ok('sin errores de JavaScript (ajustes)', vp.errores.length === 0, vp.errores.join(' | '));
+    await vp.ctx.close(); await b.close(); await vite.close();
+    console.log(fallos ? `\n${fallos} fallo(s)` : '\ntodo bien'); process.exit(fallos ? 1 : 0);
+  }
   // COMPOSICION=1: «Profundiza en tu composición»: la tabla de referencia del
   // % de grasa de ISSA por sexo, con dónde está, y sus gráficas.
   if (process.env.COMPOSICION) {
@@ -2251,8 +2317,8 @@ try {
   await n.p.locator('[data-reabrir]').click();
   await espera(800);
   {
-    // Lo marcado: una serie con «Deshacer», o el ejercicio ya plegado («1 serie · hecho»).
-    const franja = await n.p.locator('[data-ya-terminada]').count(), deshacer = (await n.p.getByRole('button', { name: /^Deshacer serie/ }).count()) + (await n.p.getByText(/series? · hecho/).count());
+    // Lo marcado: una serie con «Deshacer», o el ejercicio ya plegado («1 serie hecha · toca para abrir»).
+    const franja = await n.p.locator('[data-ya-terminada]').count(), deshacer = (await n.p.getByRole('button', { name: /^Deshacer serie/ }).count()) + (await n.p.getByText(/series? hechas? · toca para abrir/).count());
     const enCurso = n.db.db.sesiones.some(s => s.estado === 'en_curso' && !s.finalizada_en), series = n.db.db.series_log.filter(x => x.completada !== false).length;
     ok('reabrir: la franja se va, las series siguen marcadas y la sesión queda en curso (nada se borra)', franja === 0 && deshacer >= 1 && enCurso && series >= 1, `franja ${franja} · deshacer ${deshacer} · enCurso ${enCurso} · series ${series}`);
   }
@@ -3130,7 +3196,7 @@ try {
     const pleg = pq.p.locator('[data-circuito-plegado]');
     await pleg.waitFor({ timeout: 4000 }).catch(() => {});
     ok('circuito: al terminar todas las vueltas se pliega, con el color de hecho', (await pleg.count()) === 1
-      && /Circuito · 2 vueltas · hecho/.test(await pleg.innerText()) && (await pq.p.locator('[data-circuito]').count()) === 0);
+      && /Circuito · 2 vueltas hechas · toca para abrir/.test(await pleg.innerText()) && (await pq.p.locator('[data-circuito]').count()) === 0);
     await foto(pq.p, '04j-circuito-plegado');
     await pleg.click(); await espera(300);
     ok('circuito: un toque lo vuelve a abrir y la flechita lo pliega otra vez', (await pq.p.locator('[data-circuito]').count()) === 1
