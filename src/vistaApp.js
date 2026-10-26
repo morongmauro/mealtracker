@@ -30,6 +30,12 @@ const normal = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 export const puedeCompacta = (nombre) => PRUEBA_TODOS || VISTA_COMPACTA_PRUEBA.includes(normal(nombre));
 
+// «Profundiza en tu composición» (la tabla de referencia de ISSA), a prueba:
+// solo la ven estos nombres hasta que el coach dé el go. Para todos: true.
+export const COMPOSICION_PRUEBA = ['mauro moron'];
+export const COMPOSICION_TODOS = false;
+export const verComposicion = (nombre) => COMPOSICION_TODOS || COMPOSICION_PRUEBA.includes(normal(nombre));
+
 // La rutina más liviana EN LA VISTA NORMAL (a prueba): Ficha · Historial ·
 // Nota como íconos junto a lo recetado, en una sola fila, y al terminar un
 // ejercicio la pantalla baja sola al siguiente. Para todos: TODOS en true.

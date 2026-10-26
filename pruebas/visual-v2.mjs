@@ -636,6 +636,43 @@ try {
     await vp.ctx.close(); await b.close(); await vite.close();
     console.log(fallos ? `\n${fallos} fallo(s)` : '\ntodo bien'); process.exit(fallos ? 1 : 0);
   }
+  // COMPOSICION=1: «Profundiza en tu composición»: la tabla de referencia del
+  // % de grasa de ISSA por sexo, con dónde está, y sus gráficas.
+  if (process.env.COMPOSICION) {
+    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null }, ajustar: (db) => {
+      const cid = db.db.clientes[0].id;
+      db.db.clientes[0].sexo = 'M';
+      db.db.mediciones_corporales = [
+        { id: 'mc1', cliente_id: cid, fecha: hace(8), peso: 84.2, grasa_pct: 21.6 },
+        { id: 'mc2', cliente_id: cid, fecha: hace(4), peso: 82.5, grasa_pct: 19.9 },
+        { id: 'mc3', cliente_id: cid, fecha: hace(0), peso: 81.3, grasa_pct: 18.4 },
+      ];
+    } });
+    const q = vp.p;
+    await q.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
+    await q.evaluate(() => document.body.classList.add('app-ready'));
+    const btn = q.getByRole('button', { name: 'Profundiza en tu composición' });
+    await btn.waitFor({ timeout: 15000 });
+    await btn.evaluate(el => el.scrollIntoView({ block: 'center' })); await espera(500);
+    ok('composición: el Dash trae «Profundiza en tu composición», como los otros', (await btn.count()) === 1);
+    await foto(q, 'composicion-dash');
+    await btn.click();
+    const ref = q.locator('[data-referencia-grasa]');
+    await ref.waitFor({ timeout: 8000 });
+    await espera(600);
+    ok('composición: la tabla de ISSA de su sexo (hombre), con su categoría marcada', (await ref.locator('[data-tabla-issa]').count()) === 1
+      && (await ref.locator('[data-tabla-issa="M"]').count()) === 1 && (await ref.locator('[data-tu-fila]').getAttribute('data-fila-issa')) === 'aceptable'
+      && /18,4/.test(await ref.innerText()) && (await ref.locator('[data-marca-issa]').count()) === 1, await ref.innerText());
+    ok('composición: la fuente completa, sin abreviar', /Fuente: International Sports Sciences Association \(ISSA\)\./.test(await ref.locator('[data-fuente-issa]').innerText()));
+    ok('composición: debajo siguen sus gráficas de peso y % de grasa', (await q.locator('[data-linea-peso]').count()) >= 1 && (await q.locator('[data-linea-grasa]').count()) >= 1);
+    await q.evaluate(() => window.scrollTo(0, 0)); await espera(300);
+    await foto(q, 'composicion-detalle');
+    await q.screenshot({ path: path.join(CAPTURAS, 'composicion-detalle-completa.png'), fullPage: true });
+    ok('sin errores de JavaScript (composición)', vp.errores.length === 0, vp.errores.join(' | '));
+    await vp.ctx.close();
+    await b.close(); await vite.close();
+    console.log(fallos ? `\n${fallos} fallo(s)` : '\ntodo bien'); process.exit(fallos ? 1 : 0);
+  }
   // BARRA=1: el cristal que viaja al cambiar de sección, cuadro a cuadro.
   if (process.env.BARRA) {
     const pv = await abrir('Mauro Morón', { caliente: true });

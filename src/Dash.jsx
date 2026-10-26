@@ -39,7 +39,7 @@ const bienvenidaVista = () => { try { return !!localStorage.getItem(CLAVE_BIENVE
 const marcarBienvenida = () => { try { localStorage.setItem(CLAVE_BIENVENIDA, new Date().toISOString()); } catch (e) {} };
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
-import { enPrueba, lote25, DESVANECIDO_BORDE } from './vistaApp.js';
+import { enPrueba, lote25, DESVANECIDO_BORDE, verComposicion } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
 import { reportarRecordatorios, reportarToque } from './recordatoriosReporte.js';
 import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe } from './GraficasV2.jsx';
@@ -478,6 +478,9 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
     <DetalleEntreno ent={ent} falloEnt={falloEnt} cargar={cargar} /></Marco>;
   if (vista === 'comida') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <DetalleComida comida={comida} destacados={destacados} alCalendario={acciones.calendarioComida} /></Marco>;
+  if (vista === 'composicion') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
+    <DetalleComposicion ent={ent} cargando={entrenoOn && !ent && !falloEnt} alMedir={() => setMidiendo(true)} />
+    <HojaMedida abierta={midiendo} nombre={name} alCerrar={() => setMidiendo(false)} alGuardar={() => { setMidiendo(false); cargar(); }} /></Marco>;
   if (vista === 'aprende') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <DetalleAprende aprende={aprende} alIr={alIr} /></Marco>;
   if (vista === 'comunidad') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
@@ -648,7 +651,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
 
       {/* Cuerpo */}
       <Seccion>Composición corporal</Seccion>
-      <Cuerpo medidas={ent?.medidas || []} cargando={entrenoOn && !ent && !falloEnt} alMedir={() => setMidiendo(true)} />
+      <Cuerpo medidas={ent?.medidas || []} cargando={entrenoOn && !ent && !falloEnt} alMedir={() => setMidiendo(true)} alProfundizar={verComposicion(name) ? () => setVista('composicion') : null} />
       <HojaMedida abierta={midiendo} nombre={name} alCerrar={() => setMidiendo(false)}
         alGuardar={() => { setMidiendo(false); cargar(); }} />
 
@@ -1158,7 +1161,7 @@ function Alineacion({ dias, meta }) {
 }
 
 
-function Cuerpo({ medidas, cargando, alMedir }) {
+function Cuerpo({ medidas, cargando, alMedir, alProfundizar = null }) {
   const conPeso = medidas.filter(m => m.peso != null);
   const conGrasa = medidas.filter(m => m.grasa_pct != null);
   const ultPeso = conPeso[conPeso.length - 1];
@@ -1196,7 +1199,104 @@ function Cuerpo({ medidas, cargando, alMedir }) {
           )}
         </>
       )}
+      {alProfundizar && <Profundiza color={AMBAR} onClick={alProfundizar}>Profundiza en tu composición</Profundiza>}
     </Tarjeta>
+  );
+}
+
+// ── Profundiza en tu composición ──────────────────────────────────────────
+// La tabla de referencia del % de grasa de la International Sports Sciences
+// Association (ISSA), por sexo (el de su ficha en el CRM), con dónde está él
+// según su última medición; debajo, sus gráficas de peso y % de grasa.
+// Los rangos son los de ISSA tal cual (con sus saltos entre categorías): un
+// valor en el salto cuenta en la categoría que empieza antes.
+const GRASA_ISSA = {
+  F: [
+    { k: 'esencial', nombre: 'Grasa esencial', rango: '10–12 %', desde: 10, color: '#9AA3AE' },
+    { k: 'atletas', nombre: 'Atletas', rango: '14–20 %', desde: 14, color: '#3C7BD6' },
+    { k: 'fitness', nombre: 'Fitness', rango: '21–24 %', desde: 21, color: '#46965A' },
+    { k: 'aceptable', nombre: 'Aceptable', rango: '25–31 %', desde: 25, color: '#F2C94C' },
+    { k: 'obesidad', nombre: 'Obesidad', rango: '32 % o más', desde: 32, color: '#EE8434' },
+  ],
+  M: [
+    { k: 'esencial', nombre: 'Grasa esencial', rango: '2–4 %', desde: 2, color: '#9AA3AE' },
+    { k: 'atletas', nombre: 'Atletas', rango: '6–13 %', desde: 6, color: '#3C7BD6' },
+    { k: 'fitness', nombre: 'Fitness', rango: '14–17 %', desde: 14, color: '#46965A' },
+    { k: 'aceptable', nombre: 'Aceptable', rango: '18–25 %', desde: 18, color: '#F2C94C' },
+    { k: 'obesidad', nombre: 'Obesidad', rango: '26 % o más', desde: 26, color: '#EE8434' },
+  ],
+};
+const TOPE_ISSA = { F: 40, M: 34 };   // dónde termina la barra (la última franja no tiene techo)
+const categoriaIssa = (filas, v) => {
+  let c = -1;
+  filas.forEach((f, i) => { if (v >= f.desde) c = i; });
+  return Math.max(0, c);
+};
+// Dónde va la marca: dentro de su franja, en proporción (las franjas se
+// dibujan del mismo ancho para que se lean todas).
+const posIssa = (filas, tope, v) => {
+  const i = categoriaIssa(filas, v);
+  const ini = filas[i].desde, fin = filas[i + 1] ? filas[i + 1].desde : tope;
+  const dentro = Math.min(1, Math.max(0, (v - ini) / Math.max(1, fin - ini)));
+  return ((i + (v < filas[0].desde ? 0 : dentro)) / filas.length) * 100;
+};
+
+function ReferenciaGrasa({ sexo, grasa, fecha }) {
+  const tablas = sexo === 'F' || sexo === 'M' ? [sexo] : ['F', 'M'];
+  return (
+    <Tarjeta titulo="Tu % de grasa, en referencia" detalle={grasa != null ? `Tu última medición: ${fmt(grasa, 1)} % · ${fechaCorta(fecha)}` : 'Registra tu % de grasa y aquí ves dónde estás.'}>
+      <div data-referencia-grasa>
+        {tablas.map(sx => {
+          const filas = GRASA_ISSA[sx];
+          const i = grasa != null ? categoriaIssa(filas, grasa) : -1;
+          return (
+            <div key={sx} data-tabla-issa={sx} style={{ marginTop: 14 }}>
+              {tablas.length > 1 && <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, marginBottom: 6 }}>{sx === 'F' ? 'Mujeres' : 'Hombres'}</div>}
+              {grasa != null && (
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 30, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{fmt(grasa, 1)}<span style={{ fontSize: 17, fontWeight: 700 }}> %</span></span>
+                  <span data-categoria-issa style={{ fontSize: 13.5, fontWeight: 750, color: TEXT, background: filas[i].color + '33', borderRadius: 999, padding: '4px 10px' }}>{filas[i].nombre}</span>
+                </div>
+              )}
+              {/* La barra: una franja por categoría y la marca de dónde está. */}
+              <div style={{ position: 'relative', paddingTop: grasa != null ? 22 : 0 }}>
+                {grasa != null && (
+                  <div data-marca-issa style={{ position: 'absolute', top: 0, left: `${posIssa(filas, TOPE_ISSA[sx], grasa)}%`, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: TEXT, lineHeight: 1 }}>Tú</span>
+                    <span style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: `6px solid ${TEXT}`, marginTop: 3 }} />
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 3, height: 12 }}>
+                  {filas.map((f, k) => <div key={f.k} style={{ flex: 1, background: f.color, borderRadius: k === 0 ? '99px 4px 4px 99px' : k === filas.length - 1 ? '4px 99px 99px 4px' : 4, opacity: i < 0 || k === i ? 1 : 0.45 }} />)}
+                </div>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                {filas.map((f, k) => (
+                  <div key={f.k} data-fila-issa={f.k} data-tu-fila={k === i ? '1' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: k === i ? CREMA : 'transparent' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 99, background: f.color, flex: 'none' }} />
+                    <span style={{ flex: 1, fontSize: 14.5, fontWeight: k === i ? 750 : 500, color: TEXT }}>{f.nombre}{k === i ? ' · tú' : ''}</span>
+                    <span style={{ fontSize: 14, color: k === i ? TEXT : TEXT_MUTED, fontWeight: k === i ? 700 : 500, fontVariantNumeric: 'tabular-nums' }}>{f.rango}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        <div data-fuente-issa style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 12, lineHeight: 1.4 }}>Fuente: International Sports Sciences Association (ISSA).</div>
+      </div>
+    </Tarjeta>
+  );
+}
+
+function DetalleComposicion({ ent, cargando, alMedir }) {
+  const medidas = ent?.medidas || [];
+  const ult = medidas.filter(m => m.grasa_pct != null).slice(-1)[0] || null;
+  return (
+    <>
+      <Titular bajada="Dónde está tu % de grasa según la tabla de referencia, y cómo cambian tu peso y tu grasa.">Tu composición</Titular>
+      <ReferenciaGrasa sexo={ent?.sexo || null} grasa={ult ? ult.grasa_pct : null} fecha={ult ? ult.fecha : null} />
+      <Cuerpo medidas={medidas} cargando={cargando} alMedir={alMedir} />
+    </>
   );
 }
 

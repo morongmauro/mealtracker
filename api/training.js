@@ -2227,7 +2227,10 @@ async function verDash(cliente, hoy) {
       }
     } catch (e) { programa = null; }
   }
-  return { cierre, ...armarDash({
+  // El sexo de su ficha: la tabla de referencia del % de grasa va por sexo.
+  const ficha = await sb(`clientes?select=sexo&id=eq.${cliente.id}&limit=1`).catch(() => null);
+  const sexo = Array.isArray(ficha) && ficha[0] && (ficha[0].sexo === 'F' || ficha[0].sexo === 'M') ? ficha[0].sexo : null;
+  return { cierre, sexo, ...armarDash({
     hoy, fases: listaFases, sesiones: sesiones.map(x => (bloques.has(x.rutina_id) ? { ...x, bloque: true } : x)), series, nombres, alias, programa,
     actividades: Array.isArray(actividades) ? actividades : [],
     medidas: Array.isArray(medidas) ? medidas : [],
