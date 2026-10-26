@@ -590,6 +590,52 @@ try {
     console.log('errores', rr.errores.slice(0, 3));
     await rr.ctx.close(); await b.close(); await vite.close(); process.exit(0);
   }
+  // VIDEO=1: el video que pidió el coach (CRM → videos de técnica). En el
+  // Dash, «Grabar video» en Hoy si ese ejercicio toca hoy (si no, en «Ver
+  // todo»); en la rutina, el botón naranja del ejercicio y la hoja que
+  // recuerda grabarlo y mandarlo por WhatsApp.
+  if (process.env.VIDEO) {
+    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null }, ajustar: (db) => {
+      const cid = db.db.clientes[0].id;
+      db.db.videos_tecnica = [
+        { id: 'vt1', cliente_id: cid, ejercicio_id: 'e1', ejercicio_nombre: 'Barbell Bench Press', estado: 'mal', pedido_en: hace(3), nota: 'Baja la barra más controlada, 2 segundos hasta el pecho.', created_at: hace(3) + 'T10:00:00Z' },
+        { id: 'vt2', cliente_id: cid, ejercicio_id: 'e1', ejercicio_nombre: 'Barbell Bench Press', estado: 'pedido', pedido_en: hace(1), pedido_de: 'vt1', created_at: hace(1) + 'T10:00:00Z' },
+      ];
+    } });
+    const q = vp.p;
+    await q.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
+    await espera(1500);
+    await q.evaluate(() => document.body.classList.add('app-ready'));
+    const rec = q.locator('[data-view="dash"] [data-recordatorios-dash]').first();
+    if (!/Grabar video|Video pedido/.test(await rec.innerText())) await rec.locator('[data-ver-recordatorios]').click().catch(() => {});
+    await espera(300);
+    const txtRec = await rec.innerText();
+    ok('video: el Dash lo recuerda («Grabar video» si toca hoy, si no «Video pedido» en Ver todo)', /(Grabar video|Video pedido): Barbell Bench Press/.test(txtRec), txtRec.slice(0, 300));
+    await foto(q, 'video-dash');
+    await q.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(800);
+    await q.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await q.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
+    await q.locator('[data-tip-entendido]').click().catch(() => {});
+    const banca = q.locator('[data-ejercicio="Barbell Bench Press"]').first();
+    await banca.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    const bVideo = banca.locator('[data-pildora-video]');
+    ok('video: el ejercicio pedido trae el botón naranja «Grabar video», antes de Ficha', (await bVideo.count()) === 1
+      && await banca.locator('[data-pildora-ejercicio]').first().getAttribute('data-pildora-video') === '1');
+    ok('video: los demás ejercicios no lo traen', (await q.locator('[data-pildora-video]').count()) === 1);
+    await espera(400); await foto(q, 'video-rutina');
+    await bVideo.click();
+    const hoja = q.locator('[data-hoja-video]');
+    await hoja.waitFor({ timeout: 5000 });
+    const txtHoja = await hoja.innerText();
+    ok('video: la hoja recuerda grabarlo (3 pasos), qué corregir y que va por WhatsApp', (await hoja.locator('[data-video-paso]').count()) === 3
+      && /Baja la barra más controlada/.test(txtHoja) && /otra vez/.test(txtHoja) && /2ª vez/.test(txtHoja) && /no se sube a la app, va por WhatsApp/.test(txtHoja)
+      && (await hoja.locator('[data-video-whatsapp]').count()) === 1, txtHoja);
+    ok('video: la hoja es la de la marca, con «Grabar video» arriba', /Grabar video/i.test(await q.locator('[data-hoja-marca]').last().innerText()));
+    await espera(500); await foto(q, 'video-hoja');
+    ok('sin errores de JavaScript (video)', vp.errores.length === 0, vp.errores.join(' | '));
+    await vp.ctx.close(); await b.close(); await vite.close();
+    console.log(fallos ? `\n${fallos} fallo(s)` : '\ntodo bien'); process.exit(fallos ? 1 : 0);
+  }
   // BARRA=1: el cristal que viaja al cambiar de sección, cuadro a cuadro.
   if (process.env.BARRA) {
     const pv = await abrir('Mauro Morón', { caliente: true });

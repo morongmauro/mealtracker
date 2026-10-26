@@ -190,12 +190,17 @@ async function verPlan(cliente, hoy) {
     `fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
   const lista = (Array.isArray(rutinas) ? rutinas : []).filter(r => rutinaVisible(r, fase));
 
-  // Cuántos ejercicios trae cada rutina, para no abrirla solo por saberlo.
+  // Cuántos ejercicios trae cada rutina, para no abrirla solo por saberlo
+  // (y cuáles: para saber si el video que pidió el coach toca hoy).
   const conteo = {};
+  const ejsDe = {};
   if (lista.length) {
     const ids = lista.map(r => r.id).join(',');
-    const re = await sb(`rutina_ejercicios?select=rutina_id&rutina_id=in.(${ids})`);
-    (Array.isArray(re) ? re : []).forEach(x => { conteo[x.rutina_id] = (conteo[x.rutina_id] || 0) + 1; });
+    const re = await sb(`rutina_ejercicios?select=rutina_id,ejercicio_id&rutina_id=in.(${ids})`);
+    (Array.isArray(re) ? re : []).forEach(x => {
+      conteo[x.rutina_id] = (conteo[x.rutina_id] || 0) + 1;
+      (ejsDe[x.rutina_id] || (ejsDe[x.rutina_id] = new Set())).add(String(x.ejercicio_id));
+    });
   }
 
   // Cuánto dura cada una: calculado (series, descansos, cambios) y aterrizado
@@ -288,7 +293,49 @@ async function verPlan(cliente, hoy) {
     // Los bloques complementarios con días van en su día, no aquí.
     sueltas: lista.filter(r => !Object.values(porDia).some(x => x && x.id === r.id) && !(esComplementaria(r) && diasDeRutina(r).length))
       .map(r => ({ id: r.id, nombre: r.nombre, tipo: r.tipo_sesion, ejercicios: conteo[r.id] || 0 })),
+    // Los videos que pidió el coach y todavía no llegan; `hoy`: ese ejercicio
+    // está en lo que toca hoy (ahí se recuerda grabarlo).
+    videos: await (async () => {
+      const d = dias.find(x => x.es_hoy);
+      const hoyEjs = new Set([...(d && d.rutina ? [d.rutina.id] : []), ...(d ? d.complementarias.map(c => c.id) : [])]
+        .flatMap(id => [...(ejsDe[id] || [])]));
+      return (await videosPedidos(cliente).catch(() => [])).map(v => ({ ...v, hoy: !!(v.ejercicio_id && hoyEjs.has(String(v.ejercicio_id))) }));
+    })(),
   };
+}
+
+// ── VIDEOS QUE PIDIÓ EL COACH ───────────────────────────────────────────
+// Tabla `videos_tecnica` del CRM (videos-tecnica.js). El video no se sube a
+// la app: se manda por WhatsApp. Aquí solo se recuerda grabarlo. Pendiente =
+// lo último de ese ejercicio sigue «pedido»; cuando el coach lo marca como
+// llegado o revisado, deja de salir. Si se lo pidió de nuevo tras revisarlo,
+// trae la nota de qué corregir y cuántas veces van.
+async function videosPedidos(cliente) {
+  const filas = await sb(`videos_tecnica?select=id,ejercicio_id,ejercicio_nombre,estado,pedido_en,pedido_de,nota,created_at`
+    + `&cliente_id=eq.${cliente.id}&order=pedido_en.asc`).catch(() => []);
+  if (!Array.isArray(filas) || !filas.length) return [];
+  const clave = (f) => f.ejercicio_id ? String(f.ejercicio_id) : `n:${String(f.ejercicio_nombre || '').toLowerCase()}`;
+  const ult = {};
+  filas.forEach(f => {
+    const k = clave(f), u = ult[k];
+    if (!u || String(f.pedido_en) > String(u.pedido_en) || (f.pedido_en === u.pedido_en && String(f.created_at) > String(u.created_at))) ult[k] = f;
+  });
+  const porId = Object.fromEntries(filas.map(f => [f.id, f]));
+  return Object.values(ult).filter(f => f.estado === 'pedido').map(f => {
+    let vez = 1, antes = f.pedido_de ? porId[f.pedido_de] : null;
+    const corregir = antes && (antes.estado === 'mejorar' || antes.estado === 'mal') && antes.nota ? antes.nota : null;
+    for (let a = antes; a && vez < 20; a = a.pedido_de ? porId[a.pedido_de] : null) vez++;
+    return { id: f.id, ejercicio_id: f.ejercicio_id || null, nombre: f.ejercicio_nombre || 'Ejercicio', pedido_en: f.pedido_en, corregir, vez };
+  });
+}
+
+// El video pendiente de cada ejercicio de la rutina (por id o por nombre).
+function videoDe(videos, ejercicio) {
+  if (!videos.length || !ejercicio) return null;
+  const nombres = [ejercicio.alias, ejercicio.nombre].filter(Boolean).map(x => String(x).toLowerCase());
+  const v = videos.find(x => x.ejercicio_id && String(x.ejercicio_id) === String(ejercicio.id))
+    || videos.find(x => !x.ejercicio_id && nombres.includes(String(x.nombre).toLowerCase()));
+  return v ? { pedido_en: v.pedido_en, corregir: v.corregir, vez: v.vez } : null;
 }
 
 // Qué sesión de la semana cuenta para cada día del plan.
@@ -384,6 +431,7 @@ async function verRutina(cliente, rutinaId, hoy) {
   Object.assign(ultimas, await ultimosDeTrainerize(cliente.id, sinNada).catch(() => ({})));
   // El comentario del coach de cada ejercicio y lo que él le contestó.
   const comentarios = await comentariosDe(cliente, [...new Set(lista.map(x => x.ejercicio_id))]).catch(() => ({}));
+  const videos = await videosPedidos(cliente).catch(() => []);
 
   return {
     ok: true, hoy, cardio,
@@ -402,6 +450,7 @@ async function verRutina(cliente, rutinaId, hoy) {
         ejercicio: porId[x.ejercicio_id] || { id: x.ejercicio_id, nombre: 'Ejercicio' },
         ultima_vez: ultimas[x.ejercicio_id] || null,
         ...(comentarios[x.ejercicio_id] ? { coach: comentarios[x.ejercicio_id] } : {}),
+        ...(videoDe(videos, porId[x.ejercicio_id]) ? { video_pedido: videoDe(videos, porId[x.ejercicio_id]) } : {}),
       })),
     },
   };

@@ -18,7 +18,7 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
-import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge } from '@phosphor-icons/react';
+import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, VideoCamera } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
@@ -1221,6 +1221,10 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const d = plan && Array.isArray(plan.dias) ? plan.dias.find(x => x.es_hoy || x.fecha === hoy) : null;
   if (d && d.rutina) hoyItems.push({ id: 'hoy-rutina', texto: d.hecha ? `Entrenaste ${nombreCorto(d.rutina.nombre)}` : `Entrenar: ${nombreCorto(d.rutina.nombre)}${d.rutina.minutos ? ` · ~${d.rutina.minutos} min` : ''}`, hecho: !!d.hecha, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: Barbell, color: AZUL });
   (d?.complementarias || []).forEach(c => hoyItems.push({ id: `hoy-b-${c.id}`, texto: c.hecha ? `Hiciste ${c.nombre}` : c.nombre, hecho: !!c.hecha, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: Stack, color: AZUL }));
+  // El video que pidió el coach: en Hoy si ese ejercicio toca hoy; si no, en
+  // «Ver todo». Se va solo cuando el coach lo marca como llegado.
+  const videos = plan && Array.isArray(plan.videos) ? plan.videos : [];
+  videos.filter(v => v.hoy).forEach(v => hoyItems.push({ id: `hoy-v-${v.id}`, texto: `Grabar video: ${v.nombre}`, hecho: false, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: VideoCamera, color: '#C9672B' }));
   coachHoy.forEach(ev => {
     const texto = ev.tipo === 'actividad' ? `${ev.titulo}${ev.duracion_min ? ` · ${ev.duracion_min} min` : ''}`
       : ev.tipo === 'peso' ? 'Registrar tu peso' : ev.tipo === 'fotos' ? 'Enviar tus fotos' : 'Tu medición corporal';
@@ -1251,6 +1255,7 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   }, Icono: Heartbeat, color: AMBAR });
   // Los del coach, pendientes.
   coach.filter(r => !r.done_at).forEach(r => items.push({ id: 'c-' + r.id, texto: r.text, marcar: alMarcarCoach ? () => alMarcarCoach(r.id) : null, Icono: Bell, color: '#E0A21A', coach: true }));
+  videos.filter(v => !v.hoy).forEach(v => items.push({ id: `v-${v.id}`, texto: `Video pedido: ${v.nombre}`, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: VideoCamera, color: '#C9672B', coach: true }));
   // Cápsulas y videos que faltan: el siguiente de cada uno.
   const cap = bloque('capsula'), pod = bloque('podcast');
   const sigCap = cap && cap.piezas.find(p => !p.vista);

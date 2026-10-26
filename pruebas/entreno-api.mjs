@@ -850,5 +850,28 @@ await caso('«No tengo cómo pesarme»: lo quita de Hoy (mes y dash), no de la h
   igual(dash.semana.hoy.filter(x => x.tipo === 'peso').length, 0, 'en el dash tampoco sale');
 });
 
+await caso('video pedido: se recuerda en la rutina y en el plan (hoy si toca), con qué corregir; se va al llegar', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.videos_tecnica = [
+    // Press banca: revisado «a mejorar» y pedido de nuevo.
+    { id: 'v1', cliente_id: 'c1', ejercicio_id: 'e1', ejercicio_nombre: 'Press banca', estado: 'mejorar', pedido_en: mas(hoy, -20), nota: 'Baja más controlado', created_at: '2026-09-01T10:00:00Z' },
+    { id: 'v2', cliente_id: 'c1', ejercicio_id: 'e1', ejercicio_nombre: 'Press banca', estado: 'pedido', pedido_en: mas(hoy, -3), pedido_de: 'v1', created_at: '2026-09-26T10:00:00Z' },
+    // Remo: pedido (hoy toca Lower, que lo trae).
+    { id: 'v3', cliente_id: 'c1', ejercicio_id: 'e2', ejercicio_nombre: 'Remo', estado: 'pedido', pedido_en: mas(hoy, -1), created_at: '2026-09-28T10:00:00Z' },
+    // De otro cliente: no sale.
+    { id: 'v9', cliente_id: 'c2', ejercicio_id: 'e1', ejercicio_nombre: 'Press banca', estado: 'pedido', pedido_en: mas(hoy, -1), created_at: '2026-09-28T10:00:00Z' },
+  ];
+  const p = await llamar(handler, { accion: 'plan', name: yo });
+  igual(p.videos.map(v => [v.nombre, v.hoy, v.vez, v.corregir]).sort(), [['Press banca', false, 2, 'Baja más controlado'], ['Remo', true, 1, null]], 'plan');
+  const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  igual(r.rutina.ejercicios.map(x => x.video_pedido ? x.video_pedido.vez : null), [2, 1, 2], 'en la rutina: el press (las dos veces que sale) y el remo');
+  // El coach lo marca como llegado: deja de salir.
+  sb.db.videos_tecnica[2].estado = 'recibido';
+  igual((await llamar(handler, { accion: 'plan', name: yo })).videos.map(v => v.nombre), ['Press banca'], 'llegó el del remo');
+  // Sin la tabla, todo sigue.
+  delete sb.db.videos_tecnica;
+  igual((await llamar(handler, { accion: 'plan', name: yo })).videos, [], 'sin tabla');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

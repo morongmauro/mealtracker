@@ -18,8 +18,9 @@
 // de peso corporal solo se piden reps.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, Info, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets, PushPin } from '@phosphor-icons/react';
+import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, Info, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets, PushPin, VideoCamera } from '@phosphor-icons/react';
 import EntrenoFicha from './EntrenoFicha.jsx';
+import HojaVideo, { NARANJA_VIDEO, NARANJA_FONDO } from './EntrenoVideo.jsx';
 import { Hoja, FONDO_TARJETA_HOJA } from './entrenoUI.jsx';
 import { miniatura, urlVideoLimpio, numero, descansoEnCircuito, sinPeso, convertir, leerTecleado, guardarTecleado } from './entrenoDatos.js';
 import { nombresEj } from './v2.js';
@@ -216,27 +217,27 @@ function Botones({ items, chico = false, soloIconos = false, chicos = false }) {
   // Vista compacta: solo el ícono, en círculos chicos al lado del nombre.
   if (soloIconos) return (
     <div data-botones data-botones-iconos style={{ display: 'flex', gap: chicos ? 2 : 6, flex: 'none' }}>
-      {items.map(({ Icono, texto, onClick, punto, fijo }) => (
-        <button key={texto} onClick={onClick} aria-label={punto ? `${texto} (${punto} sin leer de tu coach)` : fijo ? `${texto} (recordatorio fijo de tu coach)` : texto} title={texto} data-pildora-ejercicio style={{
+      {items.map(({ Icono, texto, onClick, punto, fijo, video }) => (
+        <button key={texto} onClick={onClick} aria-label={punto ? `${texto} (${punto} sin leer de tu coach)` : fijo ? `${texto} (recordatorio fijo de tu coach)` : texto} title={texto} data-pildora-ejercicio data-pildora-video={video ? '1' : undefined} style={{
           position: 'relative',
-          width: chicos ? 32 : 34, height: chicos ? 32 : 34, borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer', padding: 0,
+          width: chicos ? 32 : 34, height: chicos ? 32 : 34, borderRadius: 999, border: 'none', background: video ? NARANJA_FONDO : '#FFFFFF', color: TEXT, cursor: 'pointer', padding: 0,
           boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)', display: 'grid', placeItems: 'center', flex: 'none',
-        }}><Icono size={16} color={GRAFITO} />{punto ? <PuntoCoach n={punto} /> : fijo ? <PinCoach /> : null}</button>
+        }}><Icono size={16} color={video ? NARANJA_VIDEO : GRAFITO} />{punto ? <PuntoCoach n={punto} /> : fijo ? <PinCoach /> : null}</button>
       ))}
     </div>
   );
   return (
     <div data-botones style={{ display: 'flex', gap: chico ? 6 : 7, marginTop: chico ? 8 : 9, minWidth: 0 }}>
-      {items.map(({ Icono, texto, corto, onClick, punto, fijo }) => {
+      {items.map(({ Icono, texto, corto, onClick, punto, fijo, video }) => {
         const visible = chico && corto ? corto : texto;
         return (
-          <button key={texto} onClick={onClick} aria-label={visible !== texto ? texto : undefined} data-pildora-ejercicio style={{
+          <button key={texto} onClick={onClick} aria-label={visible !== texto ? texto : undefined} data-pildora-ejercicio data-pildora-video={video ? '1' : undefined} style={{
             position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: chico ? '0 10px' : '0 11px',
-            borderRadius: 999, border: 'none', background: '#FFFFFF', color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
+            borderRadius: 999, border: 'none', background: video ? NARANJA_FONDO : '#FFFFFF', color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
             boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)',
             fontSize: 13, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0, flex: '0 1 auto',
           }}>
-            <Icono size={15} color={GRAFITO} style={{ flex: 'none' }} />
+            <Icono size={15} color={video ? NARANJA_VIDEO : GRAFITO} style={{ flex: 'none' }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{visible}</span>
             {punto ? <PuntoCoach n={punto} /> : fijo ? <PinCoach /> : null}
           </button>
@@ -246,8 +247,10 @@ function Botones({ items, chico = false, soloIconos = false, chicos = false }) {
   );
 }
 
-function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota, re = null }) {
+// El video que pidió el coach va primero, en naranja, solo mientras está pendiente.
+function botonesDe({ sinCarga, abrirFicha, abrirRecord, abrirUltima, onNota, abrirVideo = null, re = null }) {
   return [
+    ...(abrirVideo && re && re.video_pedido ? [{ Icono: VideoCamera, texto: 'Grabar video', corto: 'Video', onClick: abrirVideo, video: true }] : []),
     { Icono: Info, texto: 'Ficha', onClick: abrirFicha },
     // El récord va dentro del historial: un botón menos por ejercicio.
     ...(sinCarga ? [] : [{ Icono: ClockCounterClockwise, texto: 'Historial', onClick: abrirUltima }]),
@@ -578,6 +581,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
   const [ficha, setFicha] = useState(false);
   const [record, setRecord] = useState(false);
   const [verUltima, setVerUltima] = useState(false);
+  const [video, setVideo] = useState(false);
   const series = Array.from({ length: Math.max(1, re.series || 1) }, (_, i) => i + 1);
   const sinCarga = SIN_CARGA.has(e?.tipo);
   const soloReps = !sinCarga && sinPeso(e);
@@ -618,7 +622,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
   }
 
   const botones = botonesDe({
-    sinCarga, onNota, re, abrirFicha: () => setFicha(true), abrirRecord: () => setRecord(true), abrirUltima: () => setVerUltima(true),
+    sinCarga, onNota, re, abrirFicha: () => setFicha(true), abrirRecord: () => setRecord(true), abrirUltima: () => setVerUltima(true), abrirVideo: () => setVideo(true),
   });
   const siempre = siempreCoach(re);
   const recetado = `${re.series > 1 ? `${re.series} × ` : ''}${textoReps(re)}`;
@@ -725,6 +729,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
       </div>
 
       <EntrenoFicha item={re} abierto={ficha} alCerrar={() => setFicha(false)} />
+      {video && <HojaVideo re={re} alCerrar={() => setVideo(false)} />}
       <HojaRecordV2 re={re} unidad={unidad} abierto={record} alCerrar={() => setRecord(false)} />
       <HojaUltimaV2 re={re} unidad={unidad} abierto={verUltima} alCerrar={() => setVerUltima(false)} />
     </div>
@@ -743,6 +748,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
   const [ficha, setFicha] = useState(null);
   const [record, setRecord] = useState(null);
   const [verUltima, setVerUltima] = useState(null);
+  const [video, setVideo] = useState(null);
   const hechas = vueltas.reduce((t, v, vi) => t + v.filter(re => marcadas[`${re.id}:${vi + 1}`]).length, 0);
   const total = vueltas.reduce((t, v) => t + v.length, 0);
   const completo = total > 0 && hechas === total;
@@ -848,7 +854,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                       {/* Vista en prueba: los íconos arriba a la derecha, como en Fuerza. */}
                       {vi === 0 && ligera && prueba && <div data-botones-arriba style={{ float: 'right', margin: '-2px -2px 4px 8px' }}><Botones soloIconos chicos items={botonesDe({
                         sinCarga, onNota: onNota ? () => onNota(re) : null, re,
-                        abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re),
+                        abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re), abrirVideo: () => setVideo(re),
                       })} /></div>}
                       <Nombres e={e} tam={15} />
                       <div style={{ fontSize: 13, color: '#3A3A3C', fontWeight: 600, marginTop: 3 }}>{textoReps(re)}</div>
@@ -857,7 +863,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                   {vi === 0 && !(ligera && prueba) && (
                     <Botones chico soloIconos={compacta || ligera} items={botonesDe({
                       sinCarga, onNota: onNota ? () => onNota(re) : null, re,
-                      abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re),
+                      abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re), abrirVideo: () => setVideo(re),
                     })} />
                   )}
                   {!sinCarga && <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={() => onUnidad(re)} soloReps={soloReps} ultima={re.ultima_vez} />}
@@ -877,6 +883,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
       ))}
 
       <EntrenoFicha item={ficha} abierto={!!ficha} alCerrar={() => setFicha(null)} />
+      {video && <HojaVideo re={video} alCerrar={() => setVideo(null)} />}
       <HojaRecordV2 re={record} unidad={record ? unidadDe(record) : 'kg'} abierto={!!record} alCerrar={() => setRecord(null)} />
       <HojaUltimaV2 re={verUltima} unidad={verUltima ? unidadDe(verUltima) : 'kg'} abierto={!!verUltima} alCerrar={() => setVerUltima(null)} />
     </div>

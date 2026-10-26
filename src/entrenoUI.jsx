@@ -225,7 +225,7 @@ export function Fallo({ motivo, alReintentar }) {
 // `marca` (Historial, Nota al coach, Ficha): arriba va la franja del color de
 // Entrenamiento, como las cabeceras, con la foto del ejercicio (o un ícono),
 // qué ventana es y el nombre en grande. Así se siente de la app y no una
-// ventana genérica. { etiqueta, nombre, chico?, foto?, Icono? }
+// ventana genérica. { etiqueta, nombre, chico?, foto?, Icono?, colorEtiqueta? }
 export function Hoja({ abierta, alCerrar, titulo, children, alto = '86vh', marca = null, tono = 'entreno' }) {
   const L25 = lote25();
   // Lote 25: la hoja se cierra arrastrándola hacia abajo desde su cabecera,
@@ -443,7 +443,7 @@ export function partirTitulo(titulo) {
   const i = t.indexOf(' · ');
   return i > 0 ? { etiqueta: t.slice(0, i), nombre: t.slice(i + 3) } : { etiqueta: null, nombre: t };
 }
-export function CabezaMarcaCompacta({ etiqueta, nombre, chico, foto, Icono, alCerrar, tono = 'entreno' }) {
+export function CabezaMarcaCompacta({ etiqueta, nombre, chico, foto, Icono, alCerrar, tono = 'entreno', colorEtiqueta = null }) {
   const T = TONOS_HOJA[tono] || TONOS_HOJA.entreno;
   return (
     <div data-hoja-marca data-hoja-compacta style={{ background: T.fondo, padding: '6px 16px 10px', flexShrink: 0 }}>
@@ -459,7 +459,7 @@ export function CabezaMarcaCompacta({ etiqueta, nombre, chico, foto, Icono, alCe
           </span>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {etiqueta && <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.tinta, lineHeight: 1.2 }}>{etiqueta}</div>}
+          {etiqueta && <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: colorEtiqueta || T.tinta, lineHeight: 1.2 }}>{etiqueta}</div>}
           <div data-hoja-nombre style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, color: '#1D1D1F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</div>
           {chico && <div style={{ fontSize: 13, color: '#5F6670', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chico}</div>}
         </div>
@@ -474,7 +474,7 @@ export function CabezaMarcaCompacta({ etiqueta, nombre, chico, foto, Icono, alCe
   );
 }
 function CabezaMarca({ marca, alCerrar }) {
-  const { etiqueta, nombre, chico, foto, Icono } = marca;
+  const { etiqueta, nombre, chico, foto, Icono, colorEtiqueta } = marca;
   return (
     <div data-hoja-marca style={{ background: 'linear-gradient(180deg, #C8CCD2 0%, #E2E4E8 100%)', padding: '8px 18px 16px', flexShrink: 0 }}>
       <div style={{ width: 36, height: 5, borderRadius: 999, background: 'rgba(255,255,255,0.7)', margin: '0 auto 4px' }} />
@@ -489,7 +489,7 @@ function CabezaMarca({ marca, alCerrar }) {
           </span>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#454B54' }}>{etiqueta}</div>
+          <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: colorEtiqueta || '#454B54' }}>{etiqueta}</div>
           <div data-hoja-nombre style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15, color: '#1D1D1F' }}>{nombre}</div>
           {chico && <div style={{ fontSize: 12.5, color: '#5F6670', marginTop: 2 }}>{chico}</div>}
         </div>
