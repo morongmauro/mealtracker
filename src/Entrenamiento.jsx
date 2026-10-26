@@ -980,6 +980,12 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     try { localStorage.setItem(claveInicio, String(t)); } catch (e) { /* sin almacenamiento: el reloj vive mientras esté abierta */ }
   }, [inicio, claveInicio, alEmpezar]);
 
+  // Para saber si está anotando o entrenando, y si es la última serie.
+  const ultimaMarca = useRef(0);
+  const marcadasRef = useRef({});
+  marcadasRef.current = marcadas;
+  const totalSeriesRef = useRef(0);
+
   // `silencio`: sin la nota de «empieza el descanso» (al acabar un ejercicio
   // por tiempo ya sonó el pitido del final).
   const marcar = useCallback((re, serie, reps, peso, descansoSeg, unidad = 'kg', { silencio = false } = {}) => {
@@ -988,6 +994,21 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     arrancarReloj();
     setMarcadas(m => ({ ...m, [clave]: { reps, peso, unidad } }));   // optimista: el check no espera a la red
     tocadas.current[clave] = { reps, peso, unidad };
+    // Sin descanso (ni tono, ni aviso al salir de la app) cuando:
+    //  · marca una serie a menos de 20 s de la anterior: está anotando lo que
+    //    ya hizo, no entrenando (nadie hace dos series en 20 s). El descanso
+    //    que arrancó la anterior también se quita. No cuenta el ejercicio por
+    //    tiempo, que se marca solo al acabar la cuenta (`silencio`);
+    //  · es la última serie de la rutina: ya no queda nada que esperar.
+    // (performance.now: el reloj de verdad aunque la fecha esté fijada; las
+    // pruebas automáticas, que marcan en milisegundos, apagan la regla con
+    // window.__mtSinAnotando salvo cuando la prueban.)
+    const ahora = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const anotando = !silencio && !window.__mtSinAnotando && ultimaMarca.current > 0 && ahora - ultimaMarca.current < 20000;
+    ultimaMarca.current = ahora;
+    const hechasLuego = Object.keys({ ...marcadasRef.current, [clave]: true }).length;
+    const ultimaDeLaRutina = totalSeriesRef.current > 0 && hechasLuego >= totalSeriesRef.current;
+    if (anotando || ultimaDeLaRutina) { setDescanso(null); descansoSeg = 0; }
     // El descanso lo decide quien pinta la fila: entre series de un ejercicio
     // el del ejercicio; en un circuito, el corto entre estaciones o el largo
     // al terminar la vuelta.
@@ -1247,6 +1268,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
   const totalSeries = tramos.reduce((t, tr) => t + tr.vueltas.length
     * tr.vueltas[0].reduce((a, re) => a + (tr.vueltas.length > 1 ? 1 : Math.max(1, re.series || 1)), 0), 0);
   const hechas = Object.keys(marcadas).length;
+  totalSeriesRef.current = totalSeries;
   // Series con números escritos pero sin marcar. Escribir no es hacer: nunca
   // se marcan solas; al terminar se pregunta qué hacer con ellas.
   const escritas = [];

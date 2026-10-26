@@ -218,13 +218,17 @@ const espera = (ms) => new Promise(r => setTimeout(r, ms));
 // `aviso`: dejar que salga el aviso de «hoy te toca registrar» al abrir. Por
 // defecto se da por visto (si no, tapa todo lo que se prueba después).
 // `nube`: lo que tiene su cuenta en la nube (y la app con la nube aceptada).
-async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null, instalada = false, verComo = null, bitacora = null, ua = null, instalable = false, ajustar = null } = {}) {
+async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = null, caliente = false, sinSesion = false, sinNombre = false, url = '/', cuenta = null, extra = null, instalada = false, verComo = null, bitacora = null, ua = null, instalable = false, ajustar = null, anotando = false } = {}) {
   const db = base();
   // `ajustar`: tocar la base falsa antes de abrir (otra fase, otro ciclo…).
   if (ajustar) ajustar(db);
   globalThis.fetch = db.fetch;
   const ctx = await b.newContext({ viewport: { width: ancho, height: 844 }, deviceScaleFactor: 2, hasTouch: true, timezoneId: 'America/Bogota', ...(ua ? { userAgent: ua } : {}) });
   // `instalable`: el navegador ya ofreció su instalador (beforeinstallprompt).
+  // La regla «marca a menos de 20 s de la anterior = está anotando, sin
+  // descanso» se apaga: las pruebas marcan series en milisegundos. Solo la
+  // prende la prueba que la revisa (`anotando`).
+  if (!anotando) await ctx.addInitScript(() => { window.__mtSinAnotando = true; });
   if (instalable) await ctx.addInitScript(() => { window.__pwaPrompt = { prompt() { window.__pwaPrompted = true; }, userChoice: new Promise(() => {}) }; });
   await ctx.clock.setFixedTime(new DateReal(FIJO));
   const p = await ctx.newPage();
@@ -642,7 +646,11 @@ try {
   // el aviso al minimizar solo en descansos de 90 s o más; y el ejercicio
   // terminado dice «toca para abrir».
   if (process.env.AJUSTES) {
-    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null } });
+    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null }, ajustar: (db) => {
+      // El Pull del viernes, con una sola serie: para ver que la última serie de la rutina no arranca descanso.
+      db.db.rutina_ejercicios = db.db.rutina_ejercicios.filter(x => x.id !== 're-e6');
+      Object.assign(db.db.rutina_ejercicios.find(x => x.id === 're-e3'), { series: 1, descanso_seg: 120 });
+    } });
     const q = vp.p;
     await q.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
     await q.evaluate(() => document.body.classList.add('app-ready'));
@@ -699,6 +707,26 @@ try {
     avisosDescanso.length = 0;
     await visibilidad('hidden'); await espera(400); await visibilidad('visible'); await espera(300);
     ok('aviso del descanso: con 60 s de descanso, al minimizar NO se programa', !avisosDescanso.some(a => a.que === 'programar'), JSON.stringify(avisosDescanso));
+    // Registrar todo al final: con la regla prendida, una serie marcada a
+    // menos de 20 s de la anterior no arranca descanso (y quita el que había).
+    await q.evaluate(() => { window.__mtSinAnotando = false; });
+    await corto.getByLabel('Repeticiones serie 2').fill('12');
+    await corto.getByRole('button', { name: 'Marcar serie 2' }).click(); await espera(300);
+    await corto.getByLabel('Repeticiones serie 3').fill('12');
+    await corto.getByRole('button', { name: 'Marcar serie 3' }).click(); await espera(400);
+    ok('anotando: series marcadas seguidas (menos de 20 s) no arrancan descanso', (await q.locator('[data-descanso]').count()) === 0);
+    avisosDescanso.length = 0;
+    await visibilidad('hidden'); await espera(400); await visibilidad('visible'); await espera(300);
+    ok('anotando: y al salir de la app no se programa ningún aviso', !avisosDescanso.some(a => a.que === 'programar'), JSON.stringify(avisosDescanso));
+    // La última serie de la rutina: sin descanso (el Pull del viernes tiene una sola).
+    await q.evaluate(() => { window.__mtSinAnotando = true; });
+    await q.locator('[data-volver-semana]').first().click(); await espera(800);
+    await q.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${sumarDiasISO(lunes, 4)}"] [data-chip]`).first().click();
+    const pull = q.locator('[data-re-id="re-e3"]');
+    await pull.waitFor({ timeout: 10000 });
+    await pull.getByLabel('Repeticiones serie 1').fill('10');
+    await pull.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(500);
+    ok('última serie de la rutina: no arranca descanso', (await q.locator('[data-descanso]').count()) === 0);
     ok('sin errores de JavaScript (ajustes)', vp.errores.length === 0, vp.errores.join(' | '));
     await vp.ctx.close(); await b.close(); await vite.close();
     console.log(fallos ? `\n${fallos} fallo(s)` : '\ntodo bien'); process.exit(fallos ? 1 : 0);
