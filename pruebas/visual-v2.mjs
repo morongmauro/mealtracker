@@ -392,7 +392,7 @@ try {
       const pv = await abrir('Mauro Morón', { caliente: true, extra: { ...(v.actual ? { 'mt:pruebaTodos': null } : {}), ...(v.prueba ? { 'mt:vistaApp': JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' }) } : {}) } });
       const p = pv.p;
       // `alto`: un teléfono muy alto, para ver de una vez cómo sigue el fondo al bajar.
-      if (v.alto) await p.setViewportSize({ width: 390, height: v.alto });
+      if (v.alto || v.ancho) await p.setViewportSize({ width: v.ancho || 390, height: v.alto || 844 });
       if (process.env.MAQUETA_FUENTES) await p.route('https://maqueta.fuentes/**', r => r.fulfill({ status: 200, contentType: 'font/ttf', body: fs.readFileSync(path.join(process.env.MAQUETA_FUENTES, new URL(r.request().url()).pathname.slice(1))) }));
       const pintar = async () => {
         if (v.css) await p.addStyleTag({ content: v.css });
@@ -401,7 +401,8 @@ try {
       await espera(4500); await pintar();
       const tomar = async (n, { completa = false, alto = v.alto || 844 } = {}) => {
         await espera(2600); await pintar(); await espera(400);
-        await p.screenshot({ path: path.join(CAPTURAS, `maq-${v.nombre}-${n}.png`), fullPage: completa, ...(completa ? {} : { clip: { x: 0, y: 0, width: 390, height: alto } }) });
+        await p.screenshot({ path: path.join(CAPTURAS, `maq-${v.nombre}-${n}.png`), fullPage: completa, ...(completa ? {} : { clip: { x: 0, y: 0, width: v.ancho || 390, height: alto } }) });
+        if (v.revisar) console.log('revisar', n, JSON.stringify(await p.evaluate(v.revisar)));
       };
       const quiere = (n) => !v.pantallas || v.pantallas.includes(n);
       if (quiere('dash')) await tomar('dash', { completa: !!v.completa });

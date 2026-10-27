@@ -1887,15 +1887,13 @@ const VERDE_V2 = '#46965A', VERDE_OSC_V2 = '#2F7F45';
 const tarjetaV2 = { background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA_V2, padding: '18px 18px 16px' };
 
 // La foto de cada receta: public/recetas/plato/<id>.jpg (720 px, solo el
-// plato). Si no carga, se esconde y queda lo de antes.
+// plato). Si no carga, se esconde y queda el fondo crema.
 const fotoReceta = (id) => `/recetas/plato/${id}.jpg`;
 const sinFoto = (e) => { e.currentTarget.style.display = 'none'; };
-// MAQUETA: las 3 propuestas (a: miniatura, b: tarjeta con foto, c: cuadrícula);
-// sin elegir ('x'), todo queda como antes.
-const varianteFoto = () => { try { return localStorage.getItem('mt:recetaFotoMaqueta') || 'x'; } catch (e) { return 'x'; } };
-function FotoReceta({ id, alto, radio = 0, zoom = 1, style = {} }) {
+// `zoom` acerca el plato: en la miniatura de la lista llena más el recuadro.
+function FotoReceta({ id, zoom = 1, style = {} }) {
   return (
-    <div data-receta-foto style={{ position: 'relative', overflow: 'hidden', borderRadius: radio, background: '#EFE9DF', flex: 'none', ...(alto ? { height: alto } : { aspectRatio: '1 / 1' }), ...style }}>
+    <div data-receta-foto style={{ position: 'relative', overflow: 'hidden', background: '#EFE9DF', flex: 'none', aspectRatio: '1 / 1', ...style }}>
       <img src={fotoReceta(id)} alt="" loading="lazy" decoding="async" onError={sinFoto}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', ...(zoom !== 1 ? { transform: `scale(${zoom})` } : {}) }} />
     </div>
@@ -1911,9 +1909,7 @@ function DetalleRecetaV2({ open, detail, g, manualK, kSuggested, fitRemaining, h
   const pct = (v, m) => (m ? Math.min(100, Math.round((v / m) * 100)) : 0);
   return (
     <div data-receta-v2 style={{ display: 'grid', gap: 14 }}>
-      {varianteFoto() === 'x' ? null : varianteFoto() === 'b'
-        ? <FotoReceta id={open.id} style={{ margin: '-6px -16px 0', aspectRatio: '4 / 3' }} />
-        : <FotoReceta id={open.id} radio={22} style={{ aspectRatio: '4 / 3', boxShadow: SOMBRA_V2 }} />}
+      <FotoReceta id={open.id} style={{ aspectRatio: '4 / 3', borderRadius: 22, boxShadow: SOMBRA_V2 }} />
       <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
         <div style={{ minWidth: 0 }}>
           <h1 style={{ margin: 0, fontSize: 25, fontWeight: 800, color: TEXT, letterSpacing: '-0.025em', lineHeight: 1.12 }}>{open.name}</h1>
@@ -3090,48 +3086,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {/* Cards */}
         <div className="space-y-2.5">
           {(() => {
-            const vf = v2 && lote25() ? varianteFoto() : null;
-            const abrirReceta = (recipe) => (e) => onCardPointerUp(e, () => {
-              haptic(8);
-              setOpenId(recipe.id);
-              setManualK(null);
-              setFitRemaining(false);
-            });
-            const chips = (sc, chico = false) => (
-              <div className="num" data-receta-chips style={{ display: 'flex', gap: 5, marginTop: chico ? 5 : 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                <i style={{ ...CHIP_MACRO, background: '#1F1F1F', color: '#FFFFFF' }}>{r0(sc.totals.kcal)} kcal</i>
-                <i style={{ ...CHIP_MACRO, background: 'rgba(60,123,214,0.14)', color: '#2F6CC4' }}>P {r0(sc.totals.p)}</i>
-                {!chico && <i style={{ ...CHIP_MACRO, background: 'rgba(242,201,76,0.26)', color: '#8A6A0C' }}>C {r0(sc.totals.c)}</i>}
-                {!chico && <i style={{ ...CHIP_MACRO, background: 'rgba(238,132,52,0.16)', color: '#C95F17' }}>G {r0(sc.totals.g)}</i>}
-              </div>
-            );
-            const datosDe = (recipe) => <>{recipe.time} · {COST_LABELS[META[recipe.id].cost]}{isHighProtein(recipe) && <> · <span style={{ color: '#2F7F45', fontWeight: 650 }}>Alta proteína</span></>}</>;
-            // b: tarjeta con la foto arriba, a lo ancho.
-            const filaB = ({ recipe, sc }) => (
-              <button key={recipe.id} onPointerDown={onCardPointerDown} onPointerUp={abrirReceta(recipe)} onClick={(e) => e.preventDefault()}
-                className="w-full text-left active:scale-[0.99] transition" data-receta-foto-b
-                style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA_V2, touchAction: 'manipulation', overflow: 'hidden', display: 'block', padding: 0 }}>
-                <FotoReceta id={recipe.id} style={{ aspectRatio: '16 / 10' }} />
-                <div style={{ padding: '12px 14px 14px' }} data-receta-tarjeta-v2>
-                  <div style={{ fontSize: 16.5, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em', lineHeight: 1.2 }}>{recipe.name}</div>
-                  <div className="truncate" style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 3 }}>{datosDe(recipe)}</div>
-                  {chips(sc)}
-                </div>
-              </button>
-            );
-            // c: cuadrícula de dos, foto cuadrada y el nombre debajo.
-            const filaC = ({ recipe, sc }) => (
-              <button key={recipe.id} onPointerDown={onCardPointerDown} onPointerUp={abrirReceta(recipe)} onClick={(e) => e.preventDefault()}
-                className="text-left active:scale-[0.98] transition" data-receta-foto-c
-                style={{ background: '#FFFFFF', borderRadius: 20, boxShadow: SOMBRA_V2, touchAction: 'manipulation', overflow: 'hidden', display: 'block', padding: 0, minWidth: 0 }}>
-                <FotoReceta id={recipe.id} />
-                <div style={{ padding: '9px 10px 11px' }} data-receta-tarjeta-v2>
-                  <div style={{ fontSize: 14, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em', lineHeight: 1.22, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 34 }}>{recipe.name}</div>
-                  {chips(sc, true)}
-                </div>
-              </button>
-            );
-            const fila = ({ recipe, sc }) => vf === 'b' ? filaB({ recipe, sc }) : vf === 'c' ? filaC({ recipe, sc }) : (
+            // La vista de hoy (lote 28) lleva la foto del plato.
+            const conFoto = v2 && lote25();
+            const fila = ({ recipe, sc }) => (
             <button
               key={recipe.id}
               onPointerDown={onCardPointerDown}
@@ -3142,14 +3099,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                 setFitRemaining(false);
               })}
               onClick={(e) => e.preventDefault()}
-              className={`w-full text-left rounded-[20px] ${vf === 'a2' ? '' : 'p-3'} active:scale-[0.99] transition flex ${vf === 'a2' ? 'items-stretch' : 'items-center'} gap-3`}
-              style={v2 ? { background: '#FFFFFF', borderRadius: 20, boxShadow: SOMBRA_V2, touchAction: 'manipulation', ...(vf === 'a2' ? { overflow: 'hidden', padding: 0 } : {}) } : { ...cardStyle, touchAction: 'manipulation' }}>
-              {vf === 'a' ? <FotoReceta id={recipe.id} alto={76} radio={16} style={{ width: 76 }} />
-                : vf === 'a2' ? <FotoReceta id={recipe.id} zoom={1.3} style={{ width: 118, aspectRatio: 'auto', minHeight: 112, alignSelf: 'stretch' }} />
-                : vf === 'a3' ? <FotoReceta id={recipe.id} alto={100} radio={16} zoom={1.3} style={{ width: 100 }} /> : (
+              className={`w-full text-left rounded-[20px] ${conFoto ? '' : 'p-3'} active:scale-[0.99] transition flex ${conFoto ? 'items-stretch' : 'items-center'} gap-3`}
+              style={v2 ? { background: '#FFFFFF', borderRadius: 20, boxShadow: SOMBRA_V2, touchAction: 'manipulation', ...(conFoto ? { overflow: 'hidden' } : {}) } : { ...cardStyle, touchAction: 'manipulation' }}>
+              {conFoto ? <FotoReceta id={recipe.id} zoom={1.3} style={{ width: 'clamp(92px, 26vw, 118px)', aspectRatio: 'auto', minHeight: 112, alignSelf: 'stretch' }} /> : (
               <div className="flex items-center justify-center" style={{ width: v2 && lote25() ? 44 : 48, height: v2 && lote25() ? 44 : 48, borderRadius: v2 ? 999 : 12, background: v2 ? ACCENT_PASTEL : SURFACE_2, fontSize: v2 && lote25() ? 22 : 24, flexShrink: 0 }}>{recipe.icon}</div>)}
               {v2 ? (
-                <div className="flex-1 min-w-0" data-receta-tarjeta-v2 style={vf === 'a2' ? { padding: '12px 14px 12px 0', alignSelf: 'center' } : undefined}>
+                <div className="flex-1 min-w-0" data-receta-tarjeta-v2 style={conFoto ? { padding: '12px 14px 12px 0', alignSelf: 'center' } : undefined}>
                   <div className="truncate" style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em' }}>{recipe.name}</div>
                   <div className="truncate" style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2 }}>
                     {lote25() ? null : <>{displaySlot(recipe.slot)} · </>}{recipe.time} · {COST_LABELS[META[recipe.id].cost]}{isHighProtein(recipe) && <> · <span style={{ color: '#2F7F45', fontWeight: 650 }}>Alta proteína</span></>}
@@ -3197,9 +3152,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             return grupos.map(g => (
               <React.Fragment key={g}>
                 {grupos.length > 1 && <div data-receta-grupo style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#2F7F45', margin: '12px 2px 2px' }}>{g}</div>}
-                {vf === 'c'
-                  ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>{porGrupo.get(g).map(fila)}</div>
-                  : porGrupo.get(g).map(fila)}
+                {porGrupo.get(g).map(fila)}
               </React.Fragment>
             ));
           })()}
