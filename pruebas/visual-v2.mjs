@@ -388,7 +388,8 @@ try {
     const variantes = JSON.parse(fs.readFileSync(process.env.MAQUETA, 'utf8'));
     for (const v of variantes) {
       // `prueba`: con la «Vista en prueba».
-      const pv = await abrir('Mauro Morón', { caliente: true, ...(v.prueba ? { extra: { 'mt:vistaApp': JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' }) } } : {}) });
+      // `actual`: la app como la ven hoy los clientes (sin el mt:pruebaTodos = '0' de las pruebas).
+      const pv = await abrir('Mauro Morón', { caliente: true, extra: { ...(v.actual ? { 'mt:pruebaTodos': null } : {}), ...(v.prueba ? { 'mt:vistaApp': JSON.stringify({ modo: 'prueba', desde: '2026-01-01T00:00:00.000Z', por: 'cliente' }) } : {}) } });
       const p = pv.p;
       // `alto`: un teléfono muy alto, para ver de una vez cómo sigue el fondo al bajar.
       if (v.alto) await p.setViewportSize({ width: 390, height: v.alto });
@@ -426,6 +427,17 @@ try {
         await p.getByRole('button', { name: 'Aprendizaje', exact: true }).click();
         await p.locator('[data-cabecera-hoy="aprende"]').waitFor({ timeout: 15000 }).catch(() => {});
         await tomar('aprende');
+      }
+      if (quiere('recetas') || quiere('receta')) {
+        await p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(600);
+        await p.getByRole('button', { name: 'Recetas', exact: true }).click();
+        await p.locator('[data-recetario-botones]').waitFor({ timeout: 10000 }).catch(() => {});
+        if (v.bajar) { await p.mouse.move(195, 600); await p.mouse.wheel(0, v.bajar); }
+        if (quiere('recetas')) await tomar('recetas', { completa: !!v.completa });
+        if (quiere('receta')) {
+          await p.getByText(v.receta || 'Panqueques balanceados con mantequilla de almendra').first().click();
+          await tomar('receta');
+        }
       }
       console.log('maqueta', v.nombre, 'errores', pv.errores.slice(0, 3));
       await pv.ctx.close();
