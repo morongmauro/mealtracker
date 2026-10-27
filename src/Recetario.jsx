@@ -1893,11 +1893,11 @@ const sinFoto = (e) => { e.currentTarget.style.display = 'none'; };
 // MAQUETA: las 3 propuestas (a: miniatura, b: tarjeta con foto, c: cuadrícula);
 // sin elegir ('x'), todo queda como antes.
 const varianteFoto = () => { try { return localStorage.getItem('mt:recetaFotoMaqueta') || 'x'; } catch (e) { return 'x'; } };
-function FotoReceta({ id, alto, radio = 0, style = {} }) {
+function FotoReceta({ id, alto, radio = 0, zoom = 1, style = {} }) {
   return (
     <div data-receta-foto style={{ position: 'relative', overflow: 'hidden', borderRadius: radio, background: '#EFE9DF', flex: 'none', ...(alto ? { height: alto } : { aspectRatio: '1 / 1' }), ...style }}>
       <img src={fotoReceta(id)} alt="" loading="lazy" decoding="async" onError={sinFoto}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', ...(zoom !== 1 ? { transform: `scale(${zoom})` } : {}) }} />
     </div>
   );
 }
@@ -3142,12 +3142,14 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                 setFitRemaining(false);
               })}
               onClick={(e) => e.preventDefault()}
-              className="w-full text-left rounded-[20px] p-3 active:scale-[0.99] transition flex items-center gap-3"
-              style={v2 ? { background: '#FFFFFF', borderRadius: 20, boxShadow: SOMBRA_V2, touchAction: 'manipulation' } : { ...cardStyle, touchAction: 'manipulation' }}>
-              {vf === 'a' ? <FotoReceta id={recipe.id} alto={76} radio={16} style={{ width: 76 }} /> : (
+              className={`w-full text-left rounded-[20px] ${vf === 'a2' ? '' : 'p-3'} active:scale-[0.99] transition flex ${vf === 'a2' ? 'items-stretch' : 'items-center'} gap-3`}
+              style={v2 ? { background: '#FFFFFF', borderRadius: 20, boxShadow: SOMBRA_V2, touchAction: 'manipulation', ...(vf === 'a2' ? { overflow: 'hidden', padding: 0 } : {}) } : { ...cardStyle, touchAction: 'manipulation' }}>
+              {vf === 'a' ? <FotoReceta id={recipe.id} alto={76} radio={16} style={{ width: 76 }} />
+                : vf === 'a2' ? <FotoReceta id={recipe.id} zoom={1.3} style={{ width: 118, aspectRatio: 'auto', minHeight: 112, alignSelf: 'stretch' }} />
+                : vf === 'a3' ? <FotoReceta id={recipe.id} alto={100} radio={16} zoom={1.3} style={{ width: 100 }} /> : (
               <div className="flex items-center justify-center" style={{ width: v2 && lote25() ? 44 : 48, height: v2 && lote25() ? 44 : 48, borderRadius: v2 ? 999 : 12, background: v2 ? ACCENT_PASTEL : SURFACE_2, fontSize: v2 && lote25() ? 22 : 24, flexShrink: 0 }}>{recipe.icon}</div>)}
               {v2 ? (
-                <div className="flex-1 min-w-0" data-receta-tarjeta-v2>
+                <div className="flex-1 min-w-0" data-receta-tarjeta-v2 style={vf === 'a2' ? { padding: '12px 14px 12px 0', alignSelf: 'center' } : undefined}>
                   <div className="truncate" style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em' }}>{recipe.name}</div>
                   <div className="truncate" style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2 }}>
                     {lote25() ? null : <>{displaySlot(recipe.slot)} · </>}{recipe.time} · {COST_LABELS[META[recipe.id].cost]}{isHighProtein(recipe) && <> · <span style={{ color: '#2F7F45', fontWeight: 650 }}>Alta proteína</span></>}
