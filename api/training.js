@@ -2246,6 +2246,24 @@ async function verDash(cliente, hoy) {
   }) };
 }
 
+// Lo del Dash que el CRM muestra al coach en Seguimiento (coach-data,
+// action=puntos): la semana en curso y las últimas 8, con la misma regla
+// con la que el cliente ve sus aros. Sin la sesión del cliente: la llamada
+// ya viene autenticada como coach.
+export async function dashParaCoach(nombre) {
+  if (!CRM_URL || !CRM_KEY) return null;
+  const cliente = await buscarCliente(nombre);
+  if (!cliente) return null;
+  const hoy = hoyBogota();
+  const d = await verDash(cliente, hoy);
+  const s = d.semana || {};
+  return {
+    hoy,
+    semana: { desde: s.desde, hasta: s.hasta, fuerza: s.fuerza || null, bono: s.bono || 0, penal: s.penal || 0 },
+    semanas: (d.semanas || []).slice(-8).map(w => ({ desde: w.desde, planeados: w.planeados, hechos: w.hechos })),
+  };
+}
+
 // ── Fin de ciclo: composición corporal y fotos ────────────────────────────
 // El primer día de la última semana de cada ciclo le toca actualizar su
 // composición y su registro fotográfico (los pone el sistema en su

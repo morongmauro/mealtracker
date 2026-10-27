@@ -8,11 +8,13 @@
 // PATCH /api/coach-data?action=reminders&user_id=... → reemplaza .coach_reminders (recordatorios
 //        que el coach deja visibles en la app del cliente; sella reminders_updated
 //        para el anti-pisado de /api/sync, igual que las metas)
+// GET  /api/coach-data?action=puntos&user_id=...  → lo de los aros de su Dash (semana, comida 14 días, metas)
 // PATCH /api/coach-data?action=mark_duplicate&user_id=...&duplicate_of=... → marca duplicado
 
 import { verifyCoachToken } from './coach-auth.js';
 import { firmarPase, DOMINIO_NUEVO } from './_verComo.js';
 import { checkOrigin } from './_guard.js';
+import { dashParaCoach } from './training.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -341,6 +343,36 @@ export default async function handler(req, res) {
       return res.status(200).json({ client: { ...row, data } });
     } catch (e) {
       return res.status(500).json({ error: 'detail failed', detail: String(e) });
+    }
+  }
+
+  // PUNTOS — lo que el cliente ve en los aros de su Dash, para el CRM
+  // (Seguimiento): su comida de los últimos 14 días y sus metas (de su
+  // cuenta, como en su teléfono) y su semana de entreno (api/training.js).
+  if (req.method === 'GET' && action === 'puntos') {
+    const userId = req.query.user_id;
+    if (!isUuid(userId)) return res.status(400).json({ error: 'invalid user_id' });
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${userId}&select=name,data`, { headers: supaHeaders() });
+      const rows = await r.json();
+      const row = Array.isArray(rows) && rows[0];
+      if (!row || !row.name) return res.status(404).json({ error: 'client not found' });
+      const data = row.data || {};
+      const history = { ...(data.history || {}) };
+      if (data.today && data.today_totals) history[data.today] = { ...(history[data.today] || {}), ...data.today_totals };
+      const dash = await dashParaCoach(row.name).catch(() => null);
+      // Hoy en Bogotá (UTC−5), como el resto de la app.
+      const corte = dash ? dash.hoy : new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
+      const desde = new Date(Date.parse(corte + 'T00:00:00Z') - 13 * 86400000).toISOString().slice(0, 10);
+      const comida = {};
+      Object.keys(history).filter(f => f >= desde && f <= corte).forEach(f => {
+        const t = history[f] || {};
+        comida[f] = { kcal: Number(t.kcal) || 0, p: Number(t.p) || 0, c: Number(t.c) || 0, g: Number(t.g) || 0 };
+      });
+      return res.status(200).json({ ok: true, name: row.name, hoy: corte, goals: data.goals || null, history: comida,
+        semana: dash ? dash.semana : null, semanas: dash ? dash.semanas : [] });
+    } catch (e) {
+      return res.status(500).json({ error: 'puntos failed' });
     }
   }
 
