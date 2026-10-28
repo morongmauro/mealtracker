@@ -995,23 +995,6 @@ const RECIPES = [
     ],
   },
   {
-    id: 'choco-whey-pudding', name: 'Pudín de whey con chocolate y fresas', slot: 'snack', time: '5 min', icon: '🍫',
-    allergens: ['Lácteos', 'Frutos secos'], tags: ['Sin cocción', 'Alta en proteína', 'Dulce'],
-    totals: { kcal: 223, p: 27, c: 21, g: 5 },
-    main: [
-      { n: 'Fresas', q: 152, u: 'g' },
-      { n: 'Proteína whey sabor chocolate', q: 1, u: 'scoop' },
-      { n: 'Cacao en polvo sin azúcar', q: 1, u: 'cda' },
-      { n: 'Mantequilla de almendras', q: 1, u: 'cdta' },
-    ],
-    season: ['Agua · la necesaria para dar consistencia'],
-    steps: [
-      'Mezcla la mantequilla de almendras, la proteína y el cacao con una cucharada de agua.',
-      'Revuelve hasta integrar y ve agregando agua poco a poco hasta lograr consistencia de pudín.',
-      'Sirve con las fresas en rodajas encima.',
-    ],
-  },
-  {
     id: 'omelette-quesadilla', name: 'Quesadilla de omelette', slot: 'desayuno', time: '15 min', icon: '🫓',
     allergens: ['Lácteos', 'Huevo', 'Gluten'], tags: ['Comida simple', 'Alta en proteína'],
     totals: { kcal: 456, p: 35, c: 42, g: 16 },
@@ -1134,7 +1117,6 @@ const META = {
   'banana-pancakes': { cost: 2, diff: 'Fácil', min: 15 },
   'balanced-protein-pancakes': { cost: 1, diff: 'Fácil', min: 15 },
   'banana-whey-shake': { cost: 2, diff: 'Fácil', min: 5 },
-  'choco-whey-pudding': { cost: 2, diff: 'Fácil', min: 5 },
   'omelette-quesadilla': { cost: 2, diff: 'Fácil', min: 15 },
   'pineapple-shrimp-bowl': { cost: 3, diff: 'Media', min: 15 },
   'beef-sweet-potato-wrap': { cost: 2, diff: 'Media', min: 20 },
@@ -1297,9 +1279,14 @@ function cambiarComida(dia, slot, g, opts = {}, seed = Date.now()) {
   return { ...dia, comidas, totals, desvio: desvioDe(totals, g) };
 }
 
+// Recetas que estaban repetidas: el id que se quitó apunta al que quedó,
+// para que los menús guardados con él no pierdan esa comida.
+const RECETA_QUE_QUEDO = { 'choco-whey-pudding': 'chocolate-whey-pudding' };
+const recetaPorId = (id) => RECIPES.find(x => x.id === (RECETA_QUE_QUEDO[id] || id));
+
 // Pone una receta concreta en un hueco (lo usa el armador manual).
 function ponerComida(dia, slot, recipeId, g) {
-  const r = RECIPES.find(x => x.id === recipeId);
+  const r = recetaPorId(recipeId);
   if (!r) return dia;
   const conSnack = slot === 'snack' || dia.comidas.some(c => c.slot === 'snack');
   const slots = conSnack ? [...MENU_SLOTS, 'snack'] : MENU_SLOTS;
@@ -2133,7 +2120,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     return sorted.map(r => ({ recipe: r, sc: scale(r, targetP(r.slot)) }));
   }, [filterSlot, query, sort, remaining, g]);
 
-  const open = openId ? RECIPES.find(r => r.id === openId) : null;
+  const open = openId ? recetaPorId(openId) : null;
   const detail = useMemo(() => {
     if (!open) return null;
     if (manualK != null) return scale(open, open.totals.p * manualK);
