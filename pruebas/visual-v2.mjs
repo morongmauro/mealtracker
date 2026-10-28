@@ -429,6 +429,24 @@ try {
         await p.locator('[data-cabecera-hoy="aprende"]').waitFor({ timeout: 15000 }).catch(() => {});
         await tomar('aprende');
       }
+      if (quiere('menus') || quiere('semana')) {
+        await p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(600);
+        await p.getByRole('button', { name: 'Recetas', exact: true }).click();
+        await p.locator('[data-recetario-botones]').waitFor({ timeout: 10000 }).catch(() => {});
+        await p.getByText('Organiza tu día o semana').first().click(); await espera(800);
+        if (quiere('menus')) {
+          await p.locator('[data-menu-dia]').evaluate(el => el.scrollIntoView({ block: 'start' })).catch(() => {});
+          await tomar('menus', { completa: !!v.completa });
+        }
+        if (quiere('semana')) {
+          await p.getByRole('button', { name: 'La semana', exact: true }).click().catch(() => {});
+          await espera(500);
+          // El lunes ya viene abierto; se baja hasta él.
+          await p.locator('[data-dia-semana="0"]').evaluate(el => el.scrollIntoView({ block: 'start' })).catch(() => {});
+          await espera(500);
+          await tomar('semana', { completa: !!v.completa });
+        }
+      }
       if (quiere('recetas') || quiere('receta')) {
         await p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(600);
         await p.getByRole('button', { name: 'Recetas', exact: true }).click();
