@@ -47,6 +47,7 @@
 // hacia esta función para que el CRM no cambie.
 //   POST { user_id?, name?, title?, body } → { ok, sent } | { ok:false, causa }
 
+import { revisarVideos } from './_videos.js';
 import webpush from 'web-push';
 import { verifyCoachToken } from './coach-auth.js';
 import { checkOrigin } from './_guard.js';
@@ -428,7 +429,7 @@ export default async function handler(req, res) {
   // 0b) La performance de cada cliente, al día: cada hora se actualiza en el
   //     CRM su semana en curso con lo que lleva registrado (y lunes y martes
   //     se cierra la anterior). Nunca pisa lo del coach. Ver _semana.js.
-  let semana = null;
+  let semana = null, videos = null;
   if (CRM_URL && CRM_KEY) {
     const crm = async (path, opts = {}) => {
       const r = await fetch(`${CRM_URL}/rest/v1/${path}`, { ...opts, headers: { ...sbHeaders(CRM_KEY), ...(opts.headers || {}) } });
@@ -442,13 +443,16 @@ export default async function handler(req, res) {
       return r.json();
     } : null;
     try { semana = await cerrarSemana({ crm, mt, hoy: hoyBogota() }); } catch (e) { semana = { error: String(e).slice(0, 80) }; }
+    // 0c) Videos de YouTube rotos: una tanda chica por pasada, así cada video
+    //     se revisa una vez por semana (ver _videos.js).
+    try { videos = await revisarVideos({ crm }); } catch (e) { videos = { error: String(e).slice(0, 80) }; }
   }
 
   try {
     // 1) Todas las suscripciones (last_slot = marca anti-duplicado por turno)
     const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,user_id,name,tz,sub,last_slot`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
     const subs = rs.ok ? await rs.json() : [];
-    if (!Array.isArray(subs) || subs.length === 0) return res.status(200).json({ ok: true, sent: 0, subs: 0, olvidadas, semana });
+    if (!Array.isArray(subs) || subs.length === 0) return res.status(200).json({ ok: true, sent: 0, subs: 0, olvidadas, semana, videos });
 
     // 2) Actividad de HOY por cliente (para no molestar a quien ya registró)
     //    + meta de kcal y total consumido (para el cierre del día por %).
@@ -579,7 +583,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true, subs: subs.length, sent, removed, olvidadas, semana });
+    return res.status(200).json({ ok: true, subs: subs.length, sent, removed, olvidadas, semana, videos });
   } catch (e) {
     return res.status(500).json({ error: 'cron failed', detail: String(e) });
   }
