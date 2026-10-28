@@ -30,6 +30,7 @@ import { useVistaCompacta, useModoVista, puedeCompacta, guardarVista, adoptarVis
 import { BlobIcono, CabezaMarcaCompacta, SinRed } from './entrenoUI.jsx';
 import { ForkKnife as ForkKnifeVacio } from '@phosphor-icons/react';
 import DiaComidas from './DiaComidas.jsx';
+import InvitaReceta from './InvitaReceta.jsx';
 import { esV2, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { CapaActiva } from './capaActiva.js';
 import { recibirMudanza, enDireccionVieja, urlDeLlegada, enDireccionNueva } from './mudanza.js';
@@ -6561,7 +6562,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   haptic(8); setTab('chat');
                   setTimeout(() => { const api = inputApiRef.current; if (api) { api.setText(`${m.nombre}: `); api.focus && api.focus(); } }, 80);
                 }}
-                alDictar={() => { haptic(8); setTab('chat'); startVoice(); }} />
+                alDictar={() => { haptic(8); setTab('chat'); startVoice(); }}
+                debajo={<InvitaReceta entries={entries} goals={goals} consumed={totals}
+                  alAbrir={(id, slot) => abrirRecetarioEn({ id, slot })} />} />
             ) : (<>
             <div className="text-[13.5px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em', margin: '22px 0 10px' }}>
               Hoy

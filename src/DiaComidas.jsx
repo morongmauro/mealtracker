@@ -20,7 +20,7 @@ export const MOMENTOS = [
 ];
 const VERDE = '#2F7F45';
 const fmt1 = (n) => { const v = Math.round((Number(n) || 0) * 10) / 10; return Number.isInteger(v) ? String(v) : String(v).replace('.', ','); };
-const momentoDe = (meal) => {
+export const momentoDe = (meal) => {
   const m = String(meal || '').toLowerCase();
   if (/desayun/.test(m)) return 'desayuno';
   if (/almuerz|comida|lunch/.test(m)) return 'almuerzo';
@@ -53,7 +53,7 @@ function Registro({ e }) {
   );
 }
 
-export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
+export default function DiaComidas({ entries = [], alAgregar, alDictar, debajo = null }) {
   const por = { desayuno: [], almuerzo: [], cena: [], snack: [] };
   const otras = [];
   entries.forEach(e => { const k = momentoDe(e.meal); if (k) por[k].push(e); else otras.push(e); });
@@ -85,6 +85,8 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar }) {
           </div>
         </div>
       )}
+      {/* Lo que va justo debajo de la pregunta (la invitación al recetario). */}
+      {debajo}
       {hayLista && <h2 data-titulo-comidas style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '18px 2px 10px' }}>{soloRegistrado ? 'Lo que llevas hoy' : 'Lo que comiste hoy'}</h2>}
       {hayLista && <div style={{ ...TARJETA, padding: '6px 14px 6px' }}>
         {momentosLista.map((m, i) => {

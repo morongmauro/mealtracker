@@ -1345,6 +1345,23 @@ export const ETIQUETA_SLOT = (slot) => displaySlot(slot) || '';
 // sin tener que importar RECIPES entero ni contar a mano.
 export const TOTAL_RECETAS = RECIPES.length;
 
+// Para la invitación de Hoy (InvitaReceta.jsx): hasta `n` recetas de esa
+// comida que caben en lo que le queda del día, con su porción ajustada como
+// sale en el recetario. Cambian cada día (`semilla`) para no ver siempre las
+// mismas. Vacío si ninguna cabe.
+export function recetasQueCaben(slot, goals, consumed, n = 3, semilla = '') {
+  const g = goals || {};
+  if (!(Number(g.kcal) > 0) || !(Number(g.p) > 0)) return [];
+  const queda = Number(g.kcal) - (Number(consumed && consumed.kcal) || 0);
+  const mezcla = (id) => { let h = 2166136261; for (const ch of semilla + id) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
+  return recetasPara(slot)
+    .map(r => ({ r, sc: scale(r, g.p * (SPLIT[r.slot] || 0.3)) }))
+    .filter(x => x.sc.totals.kcal <= queda)
+    .sort((a, b) => mezcla(a.r.id) - mezcla(b.r.id))
+    .slice(0, n)
+    .map(({ r, sc }) => ({ id: r.id, nombre: r.name, tiempo: r.time, kcal: Math.round(sc.totals.kcal) }));
+}
+
 // Todas las coincidencias, ordenadas. Se devuelven COMPLETAS (no recortadas)
 // porque el chat muestra unas pocas pero necesita saber cuántas hay para
 // ofrecer "y otras N en el recetario".
