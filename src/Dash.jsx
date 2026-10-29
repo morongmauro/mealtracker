@@ -815,9 +815,25 @@ function TarjetaReloj({ reloj }) {
 }
 
 function Volver({ alVolver }) {
-  // Vista nueva: no hay pastilla de volver; tocar «Dash» en la barra ya
-  // devuelve al inicio (reinicio) y la pastilla se pisaba con el título.
-  if (enPrueba()) return null;
+  // Vista nueva: la flecha redonda arriba a la derecha, la misma de la receta.
+  // Antes no había (se volvía tocando «Dash» en la barra) y la gente quedaba
+  // sin saber cómo salir de Comunidad, Configuración o las gráficas.
+  if (enPrueba()) {
+    return (
+      <button onClick={alVolver} aria-label="Volver al Dash" data-volver-dash
+        className="fixed rounded-full flex items-center justify-center active:scale-90 transition"
+        style={{
+          zIndex: 10,
+          top: 'calc(env(safe-area-inset-top, 0px) + 10px)', right: '16px',
+          width: '38px', height: '38px', border: 'none', cursor: 'pointer', padding: 0,
+          background: 'rgba(255,255,255,0.88)',
+          backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 6px 18px rgba(60,70,50,0.16)',
+        }}>
+        <CaretLeft size={18} weight="bold" color={TEXT} />
+      </button>
+    );
+  }
   return (
     <button onClick={alVolver} style={{
       display: 'inline-flex', alignItems: 'center', gap: 4, height: 38, padding: '0 14px 0 10px',
