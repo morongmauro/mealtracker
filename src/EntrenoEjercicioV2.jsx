@@ -47,6 +47,7 @@ const TARJETA = {
 };
 const CSS_RUTINA = `
 .rv2-campo:focus { background: #FFFFFF !important; box-shadow: inset 0 0 0 2px ${'#1D1D1F'} !important; }
+.rv2-campo::placeholder { color: #B4B4BA; opacity: 1; -webkit-text-fill-color: #B4B4BA; font-weight: 600; }
 `;
 
 // ── Los tres momentos ─────────────────────────────────────────────────────
@@ -550,6 +551,40 @@ export function textoSerieAnterior(re, n, unidad = 'kg', soloReps = false, conUn
   return `${reps} × ${coma(convertir(x.peso, x.unidad || 'kg', unidad))}${conUnidad ? ` ${unidad}` : ''}`;
 }
 
+// El peso que se guarda si marca sin escribirlo: el de ESA serie la última
+// vez (o, si la última vez hizo menos series, el de la última que tuvo peso),
+// en la unidad de hoy. Va en gris dentro de la cajita para que se vea antes
+// de marcar. La primera vez que hace el ejercicio no hay: se guarda sin peso.
+export function pesoAsumido(re, n, unidad = 'kg') {
+  const v = valoresSerieAnterior(re, n, unidad);
+  if (v && v.peso != null) return v.peso;
+  const conPeso = (re?.ultima_vez?.series || []).filter(s => Number(s.peso) > 0);
+  const x = conPeso[conPeso.length - 1];
+  return x ? convertir(x.peso, x.unidad || 'kg', unidad) : null;
+}
+
+// Una sola vez: qué pasa si no escribe el peso. Sale en el primer ejercicio
+// que tiene peso de la última vez y, con «Entendido», no vuelve.
+const CLAVE_AVISO_PESO = 'mt:avisoPesoIgual';
+let duenoAvisoPeso = null;
+function AvisoPesoIgual({ id }) {
+  const [ver, setVer] = useState(() => {
+    try { if (localStorage.getItem(CLAVE_AVISO_PESO)) return false; } catch (e) { return false; }
+    if (!duenoAvisoPeso) duenoAvisoPeso = id;
+    return duenoAvisoPeso === id;
+  });
+  useEffect(() => () => { if (duenoAvisoPeso === id) duenoAvisoPeso = null; }, [id]);
+  if (!ver) return null;
+  const cerrar = () => { try { localStorage.setItem(CLAVE_AVISO_PESO, '1'); } catch (e) { /* nada */ } setVer(false); };
+  return (
+    <div data-aviso-peso style={{ display: 'flex', gap: 10, alignItems: 'flex-start', margin: '2px 0 8px', padding: '10px 12px', borderRadius: 14, background: '#F4F3EF', fontSize: 13, lineHeight: 1.35, color: '#3A3A3C' }}>
+      <span aria-hidden="true" style={{ flex: 'none', width: 20, height: 20, borderRadius: 99, background: GRAFITO, color: AMARILLO, display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 800 }}>i</span>
+      <span style={{ flex: 1, minWidth: 0 }}>Si no escribes el peso, se guarda <b>el de la última vez</b> (en gris). Escribe otro solo si cambiaste.</span>
+      <button type="button" data-aviso-peso-entendido onClick={cerrar} style={{ flex: 'none', border: 'none', background: 'none', padding: '4px 0 4px 6px', margin: '-4px 0', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, color: '#3C7BD6', cursor: 'pointer' }}>Entendido</button>
+    </div>
+  );
+}
+
 function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = null }) {
   return (
     <div style={{
@@ -719,6 +754,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
       )}
 
       {sinCarga ? <div style={{ height: 10 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} soloReps={soloReps} ultima={re.ultima_vez} />}
+      {!sinCarga && !soloReps && pesoAsumido(re, 1, unidad) != null && <AvisoPesoIgual id={re.id} />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: sinCarga ? 6 : 2 }}>
         {series.map(s => (
           <SerieFilaV2 key={s} n={s} re={re} unidad={unidad} sinCarga={sinCarga} soloReps={soloReps}
@@ -908,6 +944,18 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   const hecha = !!marcada;
   const anterior = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps, false);
   const anteriorLeido = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps);
+  const asumido = sinCarga || soloReps ? null : pesoAsumido(re, n, unidad);
+  // Ya marcada: contra el peso de la última vez, «= igual», «▲ +1,25» o «▼ −2,5».
+  const cambio = (() => {
+    if (!hecha || asumido == null || marcada?.peso == null) return null;
+    if ((marcada.unidad || unidad) !== unidad) return null;
+    const d = Math.round((Number(marcada.peso) - Number(asumido)) * 100) / 100;
+    if (!Number.isFinite(d)) return null;
+    if (d === 0) return { texto: '= igual', color: '#6E6E73', fondo: '#F0F0F2', leido: 'igual que la última vez' };
+    return d > 0
+      ? { texto: `▲ +${coma(d)}`, color: '#2F7F45', fondo: 'rgba(70,150,90,0.14)', leido: `${coma(d)} ${unidad} más que la última vez` }
+      : { texto: `▼ −${coma(-d)}`, color: '#B5552B', fondo: 'rgba(238,132,52,0.14)', leido: `${coma(-d)} ${unidad} menos que la última vez` };
+  })();
   // Escribir no es hacer: con números y sin check la serie sigue «por
   // marcar» (el check gris lo dice; en ámbar parecía hecha) y al terminar la
   // rutina se pregunta por ellas.
@@ -944,9 +992,11 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
     // Sin reps no se marca: no se inventa un número. Se lleva el dedo a la cajita.
     if (r == null) { setFalta(true); repsRef.current && repsRef.current.focus(); return; }
     setFalta(false);
-    // El peso va en blanco: si no lo escribe, se guarda sin peso (no se
-    // copia el de la última vez, que confundía).
-    onMarcar(re, n, r, soloReps ? null : numero(peso), descansoSeg, unidad);
+    // Si no escribe el peso, se guarda el de la última vez: ya se ve en gris
+    // en la cajita antes de marcar (antes se copiaba sin verse y confundía).
+    // La primera vez que hace el ejercicio no hay peso que asumir.
+    const p = soloReps ? null : numero(peso);
+    onMarcar(re, n, r, p != null ? p : asumido, descansoSeg, unidad);
     celebrar();
   };
   const brillo = pop > 0 && hecha ? <span key={pop} className="mt-barrido" aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none' }} /> : null;
@@ -1024,6 +1074,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       {!soloReps && (
       <div style={CAJA}>
         <input inputMode="decimal" value={peso} onChange={ev => setPeso(ev.target.value)} className="rv2-campo"
+          placeholder={!hecha && asumido != null ? coma(asumido) : undefined}
           aria-label={`Peso serie ${n}`} style={campo(false)} disabled={hecha} />
       </div>
       )}
@@ -1039,8 +1090,10 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
           }}>{anterior}</button>
         ) : (
           <div data-serie-anterior style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#AEAEB2',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>
-            {anterior || ''}
+            whiteSpace: 'nowrap', overflow: cambio ? 'visible' : 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>
+            {cambio
+              ? <span data-cambio-peso aria-label={cambio.leido} style={{ display: 'inline-flex', alignItems: 'center', height: 22, padding: '0 8px', borderRadius: 99, background: cambio.fondo, color: cambio.color, fontSize: 12, fontWeight: 800 }}>{cambio.texto}</span>
+              : (anterior || '')}
           </div>
         )
       )}
