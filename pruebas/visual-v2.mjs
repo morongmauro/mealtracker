@@ -1467,8 +1467,8 @@ try {
   await p.keyboard.press('Escape');
   await espera(300);
   const banca = p.locator('[data-ejercicio="Barbell Bench Press"]');
-  ok('al ladito de cada serie, en gris, lo que hizo la última vez (reps × peso, en la unidad de hoy)',
-    (await banca.locator('[data-serie-anterior]').first().innerText()) === '8 × 157 lb'
+  ok('al ladito de cada serie, en gris, lo que hizo la última vez (reps × peso, en la unidad de hoy; la unidad la dice la cabecera)',
+    (await banca.locator('[data-serie-anterior]').first().innerText()) === '8 × 157'
     && /^ÚLTIMA\n\d+ [A-Z]+$/.test(await banca.locator('[data-cab-ultima]').innerText())
     && (await banca.locator('[data-serie-anterior]').first().evaluate(el => getComputedStyle(el).color)) === 'rgb(174, 174, 178)',
     await banca.locator('[data-serie-anterior]').first().innerText());

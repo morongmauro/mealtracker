@@ -56,7 +56,8 @@ function entradaSinTrabasPlugin() {
 (function () {
   var JS = ${JSON.stringify(js[1])}, CSS = ${JSON.stringify(css)};
   var r = document.documentElement, hecho = false;
-  var espera = r.classList.contains('intro-anda') ? Math.max(0, (window.__introDesde || 0) + 2000 - performance.now()) : 0;
+  // La entrada corta (no es la primera del día) no se mueve: nada que trabar.
+  var espera = r.classList.contains('intro-anda') && !r.classList.contains('intro-corta') ? Math.max(0, (window.__introDesde || 0) + 2000 - performance.now()) : 0;
   var pendientes = CSS.length;
   function codigo() {
     if (hecho) return; hecho = true;

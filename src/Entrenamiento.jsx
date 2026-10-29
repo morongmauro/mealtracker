@@ -2206,6 +2206,14 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
   // Lo escrito sin marcar: se resuelve aquí (marcar, revisar o dejar sin contar).
   const [resueltas, setResueltas] = useState(false);
   const conReps = escritas.filter(e => e.reps != null).length;
+  // La hoja vive dentro de la capa de Entrenamiento, que queda debajo de la
+  // barra nueva: deja libre lo que mide la barra (con el borde del teléfono
+  // ya sumado) para que el botón de enviar quede a la vista, encima de ella.
+  const [bajoBarra, setBajoBarra] = useState(0);
+  useEffect(() => {
+    const b = document.querySelector('[data-barra-v2]');
+    setBajoBarra(b ? Math.round(b.getBoundingClientRect().height) : 0);
+  }, []);
 
   return (
     <div style={{
@@ -2218,7 +2226,7 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
       <div onClick={e => e.stopPropagation()} style={{
         width: '100%', background: SURFACE,
         borderRadius: '22px 22px 0 0', padding: 20,
-        paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: bajoBarra ? `${20 + bajoBarra}px` : 'calc(20px + env(safe-area-inset-bottom, 0px))',
         maxHeight: '88vh', overflowY: 'auto',
       }}>
         <div style={{

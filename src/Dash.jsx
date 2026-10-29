@@ -282,9 +282,14 @@ function Conteo({ n, texto, color, fondo }) {
 // línea en sus puntas (de dónde partiste y dónde vas), sin tener que tocarla.
 // `valor(p)`: el número corto que va sobre cada punto.
 const ALTO_ETIQUETA = 16, ALTO_ABAJO = 14;
+// Si el último punto trae `curso` (la semana que va en curso), no se dibuja su
+// valor a medias, que se leía como una caída: va punteado y hueco, a la altura
+// del anterior, con «va 1 de 3». La escala no cambia.
 function Linea({ puntos, color, alto = 46, textoValor, extremos, valor }) {
   const [ref, ancho] = useAncho();
   const [sel, setSel] = useState(null);
+  const curso = puntos.length >= 2 && puntos[puntos.length - 1].curso ? puntos[puntos.length - 1].curso : null;
+  const cerrados = curso ? puntos.slice(0, -1) : puntos;
   const vals = puntos.map(p => p.v);
   const min = Math.min(...vals), max = Math.max(...vals);
   const rango = max - min || 1;
@@ -293,10 +298,12 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos, valor }) {
   const x = (i) => padX + (puntos.length === 1 ? (ancho - padX * 2) / 2 : (i / (puntos.length - 1)) * (ancho - padX * 2));
   const y = (v) => arriba + pad + (1 - (v - min) / rango) * (alto - pad * 2);
   // Con picos: tramos rectos entre medición y medición.
-  const d = puntos.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+  const d = cerrados.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const ult = puntos.length - 1;
+  const ultCerrado = cerrados.length - 1;
   const base = arriba + alto;
-  const area = `${d} L${x(ult)},${base} L${x(0)},${base} Z`;
+  const area = `${d} L${x(ultCerrado)},${base} L${x(0)},${base} Z`;
+  const yCurso = curso ? y(vals[ultCerrado]) : 0;
   const texto = valor || ((p) => fmt(p.v, Number.isInteger(p.v) ? 0 : 1));
   // Qué puntos llevan número: todos si caben (≈34 px por número); si no,
   // cada tantos, más el último, el más alto y el más bajo.
@@ -304,6 +311,7 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos, valor }) {
   const cada = Math.max(1, Math.ceil(34 / Math.max(paso, 1)));
   const iMax = vals.indexOf(max), iMin = vals.indexOf(min);
   const conNumero = (i) => i === ult || i % cada === 0 && (ult - i) >= cada || i === iMax || i === iMin;
+  const GRIS_CURSO = '#A9AFB8';
   // El número va del lado donde no pasa la línea: debajo si los vecinos
   // quedan más arriba (un valle, o el final de una bajada); si no, arriba.
   const abajo = (i) => {
@@ -332,12 +340,18 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos, valor }) {
         </defs>
         <path d={area} fill={`url(#g-${color.slice(1)})`} />
         <path d={d} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        {curso && <path data-tramo-curso d={`M${x(ultCerrado).toFixed(1)},${yCurso.toFixed(1)} L${x(ult).toFixed(1)},${yCurso.toFixed(1)}`}
+          fill="none" stroke={GRIS_CURSO} strokeWidth="2" strokeDasharray="3 4" strokeLinecap="round" />}
         {sel != null && <line x1={x(sel)} x2={x(sel)} y1={arriba} y2={base} stroke={REJILLA} strokeWidth="1" />}
-        {puntos.map((p, i) => (i === ult || i === sel)
+        {puntos.map((p, i) => curso && i === ult
+          ? <circle key={i} cx={x(i)} cy={yCurso} r="4.5" fill="#fff" stroke={GRIS_CURSO} strokeWidth="2" data-punto-linea data-punto-curso />
+          : (i === (curso ? ultCerrado : ult) || i === sel)
           ? <circle key={i} cx={x(i)} cy={y(p.v)} r="4.5" fill={color} stroke="#fff" strokeWidth="2" data-punto-linea />
           : <circle key={i} cx={x(i)} cy={y(p.v)} r="2.8" fill="#fff" stroke={color} strokeWidth="1.8" data-punto-linea />)}
-        {puntos.map((p, i) => conNumero(i) && (
-          <text key={`t${i}`} x={x(i)} y={abajo(i) ? y(p.v) + 16 : y(p.v) - 8} textAnchor={i === 0 && puntos.length > 1 ? 'start' : i === ult && puntos.length > 1 ? 'end' : 'middle'}
+        {puntos.map((p, i) => conNumero(i) && (curso && i === ult
+          ? <text key={`t${i}`} x={x(i)} y={yCurso + 18} textAnchor="end" fontSize="11.5" fontWeight="700" fill={TEXT_LIGHT}
+              style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3, fontVariantNumeric: 'tabular-nums' }} data-valor-linea>{curso.texto}</text>
+          : <text key={`t${i}`} x={x(i)} y={abajo(i) ? y(p.v) + 16 : y(p.v) - 8} textAnchor={i === 0 && puntos.length > 1 ? 'start' : i === ult && puntos.length > 1 ? 'end' : 'middle'}
             fontSize={i === ult ? 11.5 : 10.5} fontWeight={i === ult ? 800 : 650} fill={i === ult ? TEXT : TEXT_MUTED}
             style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3, fontVariantNumeric: 'tabular-nums' }} data-valor-linea>{texto(p)}</text>
         ))}
@@ -346,7 +360,9 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos, valor }) {
       {extremos && puntos.length >= 2 && (
         <div data-extremos style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12.5, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>
           <span>{extremos(puntos[0])}</span>
-          <span style={{ color: TEXT, fontWeight: 650 }}>{extremos(puntos[ult])}</span>
+          {curso
+            ? <span data-extremo-curso style={{ color: TEXT_LIGHT, fontWeight: 600 }}>En curso · {curso.texto}</span>
+            : <span style={{ color: TEXT, fontWeight: 650 }}>{extremos(puntos[ult])}</span>}
         </div>
       )}
     </div>
@@ -489,8 +505,11 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
     <Configuracion name={name} whatsapp={wa} alRecorrido={acciones.recorrido} alPrograma={acciones.programa} alActivarPush={acciones.activarPush} alCerrarSesion={acciones.cerrarSesion} vistaApp={acciones.vista} /></Marco>;
 
   // Constancia del entrenamiento en las últimas 8 semanas (% de lo planeado).
+  // La semana que va en curso no se pinta como un porcentaje a medias (un 33 %
+  // el martes se leía como una caída): va como «va 1 de 3» (Linea › curso).
   const ochoSemanas = (ent?.semanas || []).slice(-8).filter(w => w.planeados > 0)
-    .map(w => ({ v: Math.min(100, Math.round((w.hechos / w.planeados) * 100)), fecha: w.desde }));
+    .map(w => ({ v: Math.min(100, Math.round((w.hechos / w.planeados) * 100)), fecha: w.desde,
+      ...(ent?.semana?.desde && w.desde === ent.semana.desde && w.hechos < w.planeados ? { curso: { texto: `va ${w.hechos} de ${w.planeados}` } } : {}) }));
   const promedio8 = ochoSemanas.length ? Math.round(ochoSemanas.reduce((a, p) => a + p.v, 0) / ochoSemanas.length) : null;
   const kcal14 = comida.ultimos.filter(d => d.kcal != null).map(d => ({ v: d.kcal, fecha: d.fecha }));
 
@@ -597,7 +616,7 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Fuerza, semana a semana{promedio8 != null ? ` · ${promedio8} % de lo planeado` : ''}</div>
               <Linea puntos={ochoSemanas} color={AZUL} alto={54} valor={(p) => `${p.v}%`}
-                textoValor={(p) => `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} extremos={(p) => `${p.v} % · ${fechaCorta(p.fecha)}`} />
+                textoValor={(p) => p.curso ? `Esta semana: ${p.curso.texto}` : `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} extremos={(p) => `${p.v} % · ${fechaCorta(p.fecha)}`} />
             </div>
           )}
           <Profundiza color={AZUL} onClick={() => setVista('entreno')}>Profundiza en tus gráficas de entrenamiento</Profundiza>

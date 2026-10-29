@@ -21,6 +21,8 @@ export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: Fork
 // (brújula, mancuerna, cubiertos y mente): un solo idioma en toda la app.
 const ICONO_PRUEBA = { dash: Compass, entreno: Barbell, comida: ForkKnife, aprende: Brain };
 export const NOMBRE_SECCION = { dash: 'Dash', entreno: 'Entrenamiento', comida: 'Alimentación', aprende: 'Aprendizaje' };
+// El nombre corto, debajo del ícono (cuando cabe).
+const CORTO_SECCION = { dash: 'Dash', entreno: 'Entreno', comida: 'Comida', aprende: 'Aprende' };
 
 // ¿Sin movimiento? (ajuste del teléfono): el cambio es directo, sin viaje.
 const sinMovimiento = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
@@ -95,8 +97,9 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
   // y es un poco más alta; detrás, lo que pasa se desvanece hacia blanco
   // para que el texto de abajo nunca se mezcle con el de la barra.
   const P = enPrueba();
+  const conNombres = !subsAbiertas.length;
   return (
-    <div ref={barRef} className="fixed left-0 right-0 bottom-0" style={{
+    <div ref={barRef} data-barra-v2 className="fixed left-0 right-0 bottom-0" style={{
       zIndex: 45, pointerEvents: 'none',
       padding: P ? '0 18px calc(14px + env(safe-area-inset-bottom, 0px))' : '0 10px calc(10px + env(safe-area-inset-bottom, 0px))',
       display: oculta ? 'none' : 'block',
@@ -171,6 +174,10 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                     opciones con nombre; las cerradas, solo su ícono (con nombre
                     no cabían y «Galería» se cortaba). */}
                 <Icono size={22} weight="regular" />
+                {/* Con el Dash abierto sobra ancho: cada ícono lleva su nombre
+                    corto debajo. Con las opciones de otra sección abiertas los
+                    botones miden ~36 px y el nombre no cabe. */}
+                {conNombres && <span data-nombre-seccion style={{ fontSize: 11, fontWeight: 650, lineHeight: 1, letterSpacing: '-0.01em', marginTop: 2 }}>{CORTO_SECCION[s.id] || NOMBRE_SECCION[s.id]}</span>}
                 {punto[s.id] && (
                   // El puntito de novedad, en el color de la sección: se queda
                   // hasta que la persona entra a ver qué hay.

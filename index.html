@@ -150,6 +150,14 @@
           raiz.style.setProperty('--alto-pantalla', Math.max(screen.height || 0, innerHeight || 0, document.documentElement.clientHeight || 0) + 'px');
         } catch (e) {}
         if (raiz.classList.contains('splash-v2') && !raiz.classList.contains('warm-start')) {
+          // La entrada completa sale en la PRIMERA apertura del día; las
+          // demás de ese día son cortas: el ícono ya armado, quieto, 0,6 s
+          // (html.intro-corta; main.jsx hace lo mismo al volver tras 2 h).
+          try {
+            var dHoy = new Date(), diaHoy = dHoy.getFullYear() + '-' + (dHoy.getMonth() + 1) + '-' + dHoy.getDate();
+            if (localStorage.getItem('mt:introDia') === diaHoy) raiz.classList.add('intro-corta');
+            else localStorage.setItem('mt:introDia', diaHoy);
+          } catch (e) {}
           // La entrada arranca YA, sin esperar a la app: así nunca hay
           // pantalla vacía. La app se arma por debajo cuando el ícono ya está
           // dibujado (main.jsx), para no trabar la animación.
@@ -450,6 +458,9 @@
         #splash .shine, #splash .sub { animation: none; opacity: 0; }
         #splash .sub { opacity: 1; }
       }
+          /* Entrada corta (no es la primera apertura del día): todo arranca ya en
+         su estado final, el ícono armado y quieto, sin la secuencia. */
+      html.intro-corta.intro-anda #splash2, html.intro-corta.intro-anda #splash2 * { animation-delay: -10s !important; }
     </style>
   </head>
   <body>

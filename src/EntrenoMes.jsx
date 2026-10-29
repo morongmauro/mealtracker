@@ -1796,18 +1796,31 @@ function LeyendaCal() {
   const item = (muestra, texto) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{muestra}{texto}</span>;
   const caja = (st) => <span style={{ width: 14, height: 10, borderRadius: 3, ...st }} />;
   const icono = (I, c) => <I size={13} weight="bold" color={c} />;
+  // Agrupada en tres filas con su título (eran 10 símbolos seguidos).
+  const grupo = (titulo, items) => (
+    <div data-leyenda-grupo style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', alignItems: 'center' }}>
+      <span style={{ width: '100%', fontSize: 11.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: TEXT_LIGHT }}>{titulo}</span>
+      {items}
+    </div>
+  );
   return (
-    <div data-leyenda style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 12px', fontSize: 11.5, color: TEXT_MUTED, padding: '12px 4px 0', lineHeight: 1.3 }}>
-      {item(<span style={{ width: 13, height: 13, borderRadius: 99, background: AMARILLO_CAL, color: GRAFITO_CAL, display: 'grid', placeItems: 'center' }}><Check size={9} weight="bold" /></span>, 'Entrenaste ese día')}
-      {item(caja({ background: GRAFITO_CAL }), 'Rutina hecha')}
-      {item(caja({ background: GRIS_CAL, boxShadow: 'inset 0 0 0 1px #D1D1D6' }), 'Por hacer')}
-      {item(caja({ outline: `1.5px dashed ${GRAFITO_CAL}`, outlineOffset: -1.5 }), 'Movida o añadida por ti')}
-      {item(icono(Caminadora, PUNTO.cardio), 'Cardio tras entrenar')}
-      {item(icono(PersonSimpleWalk, PUNTO.cardio), 'Caminata')}
-      {item(icono(PersonSimpleRun, PUNTO.cardio), 'Running')}
-      {item(icono(SoccerBall, PUNTO.cardio), 'Deporte')}
-      {item(icono(Bascula, PUNTO.registro), 'Peso / fotos')}
-      {item(icono(CurrencyDollar, AMBAR_PAGO), 'Pago')}
+    <div data-leyenda style={{ display: 'grid', gap: 8, fontSize: 12, color: TEXT_MUTED, padding: '12px 4px 0', lineHeight: 1.3 }}>
+      {grupo('Rutinas', <>
+        {item(<span style={{ width: 13, height: 13, borderRadius: 99, background: AMARILLO_CAL, color: GRAFITO_CAL, display: 'grid', placeItems: 'center' }}><Check size={9} weight="bold" /></span>, 'Entrenaste ese día')}
+        {item(caja({ background: GRAFITO_CAL }), 'Rutina hecha')}
+        {item(caja({ background: GRIS_CAL, boxShadow: 'inset 0 0 0 1px #D1D1D6' }), 'Por hacer')}
+        {item(caja({ outline: `1.5px dashed ${GRAFITO_CAL}`, outlineOffset: -1.5 }), 'Movida o añadida por ti')}
+      </>)}
+      {grupo('Actividad extra', <>
+        {item(icono(Caminadora, PUNTO.cardio), 'Cardio tras entrenar')}
+        {item(icono(PersonSimpleWalk, PUNTO.cardio), 'Caminata')}
+        {item(icono(PersonSimpleRun, PUNTO.cardio), 'Running')}
+        {item(icono(SoccerBall, PUNTO.cardio), 'Deporte')}
+      </>)}
+      {grupo('Otros', <>
+        {item(icono(Bascula, PUNTO.registro), 'Peso / fotos')}
+        {item(icono(CurrencyDollar, AMBAR_PAGO), 'Pago')}
+      </>)}
     </div>
   );
 }

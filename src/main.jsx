@@ -35,7 +35,7 @@ const isRanking = path === '/ranking' || path.startsWith('/ranking/');
 const esperaEntrada = (() => {
   if (typeof window === 'undefined' || !import.meta.env.DEV) return 0;
   const r = document.documentElement;
-  if (!r.classList.contains('intro-anda') || r.classList.contains('warm-start')) return 0;
+  if (!r.classList.contains('intro-anda') || r.classList.contains('warm-start') || r.classList.contains('intro-corta')) return 0;
   return Math.max(0, (window.__introDesde || 0) + 2000 - performance.now());
 })();
 
@@ -73,7 +73,18 @@ if (typeof window !== 'undefined') {
   const raiz = document.documentElement;
   const splashV2 = raiz.classList.contains('splash-v2');
   const conEntrada = raiz.classList.contains('intro-completa');
+  // Completa en la primera apertura del día; corta (el ícono quieto) en las
+  // demás de ese día (index.html › intro-corta).
   const ENTRADA_MS = 2700;
+  const ENTRADA_CORTA_MS = 600;
+  const esPrimeraDelDia = () => {
+    try {
+      const d = new Date(), dia = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+      if (localStorage.getItem('mt:introDia') === dia) return false;
+      localStorage.setItem('mt:introDia', dia);
+    } catch (e) { /* sin almacenamiento: la completa, como siempre */ }
+    return true;
+  };
   const cerrarEntrada = () => {
     document.body.classList.add('app-ready');
     if (splashV2) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', '#F3F1EB'); }
@@ -86,7 +97,8 @@ if (typeof window !== 'undefined') {
   // congelaba las letras a mitad de camino y las soltaba de golpe.
   const correrEntrada = () => {
     const desde = (window.__empezarIntro && window.__empezarIntro()) || performance.now();
-    setTimeout(cerrarEntrada, Math.max(80, desde + ENTRADA_MS - performance.now()));
+    const dura = raiz.classList.contains('intro-corta') ? ENTRADA_CORTA_MS : ENTRADA_MS;
+    setTimeout(cerrarEntrada, Math.max(80, desde + dura - performance.now()));
   };
   // Por si algo se traba: la app nunca queda escondida debajo de la entrada.
   if (splashV2 && conEntrada) setTimeout(cerrarEntrada, 9000);
@@ -123,6 +135,7 @@ if (typeof window !== 'undefined') {
       const nuevo = viejo.cloneNode(true);
       raiz.classList.remove('intro-anda');
       raiz.classList.add('intro-completa', 'intro-repite');
+      raiz.classList.toggle('intro-corta', !esPrimeraDelDia());
       document.body.classList.remove('app-ready');
       viejo.replaceWith(nuevo);
       window.__introDesde = 0;

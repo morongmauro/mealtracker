@@ -532,7 +532,9 @@ export function HojaUltimaV2({ re, abierto, alCerrar, unidad = 'kg' }) {
 const CAJA = { flex: '1 1 0', minWidth: 0 };
 const ANCHO_ULTIMA = 84;
 const hayUltima = (re) => !!(re?.ultima_vez?.series || []).length;
-// Lo que hizo en ESTA serie la última vez, en gris: «10 × 20 kg».
+// Lo que hizo en ESTA serie la última vez, en gris: «10 × 20 kg». En la
+// columna va sin la unidad («10 × 20»): la cabecera ya dice KG o LB, y con la
+// unidad no cabía entero.
 // Los números de ESA serie la última vez, en la unidad de hoy (para rellenar
 // las cajitas con un toque). Rellenar no es marcar: el check sigue siendo suyo.
 export function valoresSerieAnterior(re, n, unidad = 'kg') {
@@ -540,12 +542,12 @@ export function valoresSerieAnterior(re, n, unidad = 'kg') {
   if (!x || (x.reps == null && !(Number(x.peso) > 0))) return null;
   return { reps: x.reps != null ? Number(x.reps) : null, peso: Number(x.peso) > 0 ? convertir(x.peso, x.unidad || 'kg', unidad) : null };
 }
-export function textoSerieAnterior(re, n, unidad = 'kg', soloReps = false) {
+export function textoSerieAnterior(re, n, unidad = 'kg', soloReps = false, conUnidad = true) {
   const x = (re?.ultima_vez?.series || []).find(s => Number(s.serie) === Number(n));
   if (!x || (x.reps == null && !x.peso)) return null;
   const reps = x.reps != null ? String(x.reps) : '–';
   if (soloReps || !(Number(x.peso) > 0)) return `${reps} reps`;
-  return `${reps} × ${coma(convertir(x.peso, x.unidad || 'kg', unidad))} ${unidad}`;
+  return `${reps} × ${coma(convertir(x.peso, x.unidad || 'kg', unidad))}${conUnidad ? ` ${unidad}` : ''}`;
 }
 
 function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = null }) {
@@ -904,7 +906,8 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   const [pop, setPop] = useState(0);
   const repsRef = useRef(null);
   const hecha = !!marcada;
-  const anterior = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps);
+  const anterior = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps, false);
+  const anteriorLeido = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps);
   // Escribir no es hacer: con números y sin check la serie sigue «por
   // marcar» (el check gris lo dice; en ámbar parecía hecha) y al terminar la
   // rutina se pregunta por ellas.
@@ -1028,7 +1031,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       {!sinCarga && hayUltima(re) && (
         anterior && !hecha ? (
           // Con aire a la derecha: el dedo no debe alcanzar el check al tocar el texto.
-          <button type="button" data-serie-anterior onClick={(e) => { e.stopPropagation(); rellenar(); }} aria-label={`Usar lo de la última vez en la serie ${n}: ${anterior}`} style={{
+          <button type="button" data-serie-anterior onClick={(e) => { e.stopPropagation(); rellenar(); }} aria-label={`Usar lo de la última vez en la serie ${n}: ${anteriorLeido}`} style={{
             width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#AEAEB2',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums',
             border: 0, background: 'none', padding: '6px 10px 6px 0', margin: 0, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box',
