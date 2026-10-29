@@ -29,6 +29,17 @@ export const momentoDe = (meal) => {
   return null;
 };
 
+// La comida que toca por la hora, si todavía no está registrada (o null):
+// almuerzo de 11:30 a 14:00 y cena de 18:00 a 21:00. La usan la tarjeta de
+// esa comida (aquí) y la invitación al recetario (InvitaReceta.jsx).
+export function comidaEnHora(ahora, entries = []) {
+  const min = ahora.getHours() * 60 + ahora.getMinutes();
+  const slot = min >= 690 && min < 840 ? 'almuerzo' : min >= 1080 && min < 1260 ? 'cena' : null;
+  if (!slot) return null;
+  if (entries.some(e => momentoDe(e.meal) === slot)) return null;
+  return slot;
+}
+
 const TARJETA = { background: '#FFFFFF', borderRadius: 20, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)' };
 
 // Lo registrado en un momento: sus alimentos en filas cortas y los macros.
@@ -53,6 +64,48 @@ function Registro({ e }) {
   );
 }
 
+// Lo registrado hoy, por momentos (o todos los momentos, en la vista de antes).
+function ListaDelDia({ momentosLista, por, otras, primeroVacio, alAgregar }) {
+  return (
+    <div style={{ ...TARJETA, padding: '6px 14px 6px' }}>
+      {momentosLista.map((m, i) => {
+        const lista = por[m.k];
+        const kcal = lista.reduce((a, e) => a + (Number(e.kcal) || 0), 0);
+        return (
+          <div key={m.k} data-momento={m.k} data-registrado={lista.length ? '1' : undefined} style={{ borderTop: i ? '1px solid #F0EEE8' : 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
+              <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 12, flex: 'none', display: 'grid', placeItems: 'center', background: lista.length ? 'rgba(70,150,90,0.14)' : '#F2F1EC', color: lista.length ? VERDE : '#8E8E93' }}>
+                <m.Icono size={18} weight={lista.length ? 'fill' : 'regular'} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em' }}>{m.nombre}</div>
+                <div style={{ fontSize: 12.5, color: lista.length ? TEXT_MUTED : TEXT_LIGHT, marginTop: 1 }}>
+                  {lista.length ? <span className="num"><b style={{ color: TEXT, fontWeight: 700 }}>{Math.round(kcal)} kcal</b></span>
+                    : primeroVacio && primeroVacio.k === m.k ? 'Toca + para registrarlo' : '—'}
+                </div>
+              </div>
+              {/* Se ve un círculo de 34 px; se toca en 44 (lo que pide Apple). */}
+              <button type="button" data-agregar-momento={m.k} onClick={() => alAgregar && alAgregar(m)} aria-label={`Registrar ${m.nombre.toLowerCase()}`}
+                style={{ width: 44, height: 44, margin: -5, borderRadius: 99, flex: 'none', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', background: 'none', padding: 0, color: TEXT }}>
+                <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 99, display: 'grid', placeItems: 'center', background: '#FFFFFF', boxShadow: 'inset 0 0 0 1.6px #D1D1D6' }}>
+                  <Plus size={16} weight="bold" />
+                </span>
+              </button>
+            </div>
+            {lista.map(e => <Registro key={e.id} e={e} />)}
+          </div>
+        );
+      })}
+      {otras.length > 0 && (
+        <div data-momento="otras" style={{ borderTop: '1px solid #F0EEE8', padding: '10px 0 2px' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, marginBottom: 6 }}>Otras comidas</div>
+          {otras.map(e => <div key={e.id} style={{ marginLeft: -46 }}><Registro e={e} /></div>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DiaComidas({ entries = [], alAgregar, alDictar, debajo = null }) {
   const por = { desayuno: [], almuerzo: [], cena: [], snack: [] };
   const otras = [];
@@ -69,6 +122,43 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar, debajo =
   const momentosLista = soloRegistrado ? MOMENTOS.filter(m => por[m.k].length) : MOMENTOS;
   const hayLista = momentosLista.length > 0 || otras.length > 0;
   const PREGUNTA = { desayuno: '¿Qué desayunaste?', almuerzo: '¿Qué almorzaste?', cena: '¿Qué cenaste?', snack: '¿Comiste algo entre comidas?' };
+  // A la hora del almuerzo o de la cena (y sin registrarla), una sola tarjeta
+  // de esa comida: «¿Ya almorzaste?» para anotarla y, debajo, las recetas que
+  // caben (la invitación va adentro). Lo de antes que falte (el desayuno) queda
+  // como pendiente en una línea, no como otra pregunta: antes, a mediodía,
+  // preguntaba el desayuno y justo debajo ofrecía el almuerzo.
+  const enHora = prota ? comidaEnHora(new Date(), entries) : null;
+  if (enHora) {
+    const m = MOMENTOS.find(x => x.k === enHora);
+    const antes = MOMENTOS.slice(0, MOMENTOS.indexOf(m)).filter(x => x.k !== 'snack' && !por[x.k].length);
+    const YA = { almuerzo: '¿Ya almorzaste?', cena: '¿Ya cenaste?' };
+    return (
+      <div data-dia-comidas>
+        {antes.length > 0 && (
+          <button type="button" data-comida-pendiente={antes[0].k} onClick={() => alAgregar && alAgregar(antes[0])}
+            style={{ ...TARJETA, width: '100%', marginTop: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+              display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', minHeight: 48 }}>
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 99, background: '#F2C94C', flex: 'none' }} />
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: TEXT_MUTED }}>{antes.map(x => x.nombre).join(' y ')} sin anotar</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: VERDE }}>Anotar</span>
+          </button>
+        )}
+        <div data-prota-comida data-comida-en-hora={enHora} style={{ ...TARJETA, borderRadius: 26, padding: 18, marginTop: antes.length ? 12 : 14, boxShadow: '0 2px 4px rgba(20,20,30,.04), 0 18px 40px rgba(20,30,60,.10)' }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em' }}>{m.nombre}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, marginTop: 10 }}>{YA[enHora]}</div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+            <button type="button" data-prota-dictar onClick={alDictar} style={{ flex: 1, height: 48, border: 'none', borderRadius: 999, background: '#F1F2F4', color: TEXT, fontFamily: 'inherit', fontSize: 15.5, fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}><Microphone size={18} weight="fill" />Dictar</button>
+            <button type="button" data-prota-escribir onClick={() => alAgregar && alAgregar(m)} aria-label={`Escribir ${m.nombre.toLowerCase()}`} style={{ flex: 1, height: 48, border: 'none', borderRadius: 999,
+              background: '#46965A', color: '#fff', fontFamily: 'inherit', fontSize: 15.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}><PencilSimple size={17} weight="bold" />Escribir</button>
+          </div>
+          {debajo && React.isValidElement(debajo) ? React.cloneElement(debajo, { dentro: true }) : debajo}
+        </div>
+        {hayLista && <h2 data-titulo-comidas style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '18px 2px 10px' }}>Lo que llevas hoy</h2>}
+        {hayLista && <ListaDelDia momentosLista={momentosLista} por={por} otras={otras} primeroVacio={primeroVacio} alAgregar={alAgregar} />}
+      </div>
+    );
+  }
   return (
     <div data-dia-comidas>
       {prota && (
@@ -88,42 +178,7 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar, debajo =
       {/* Lo que va justo debajo de la pregunta (la invitación al recetario). */}
       {debajo}
       {hayLista && <h2 data-titulo-comidas style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '18px 2px 10px' }}>{soloRegistrado ? 'Lo que llevas hoy' : 'Lo que comiste hoy'}</h2>}
-      {hayLista && <div style={{ ...TARJETA, padding: '6px 14px 6px' }}>
-        {momentosLista.map((m, i) => {
-          const lista = por[m.k];
-          const kcal = lista.reduce((a, e) => a + (Number(e.kcal) || 0), 0);
-          return (
-            <div key={m.k} data-momento={m.k} data-registrado={lista.length ? '1' : undefined} style={{ borderTop: i ? '1px solid #F0EEE8' : 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
-                <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 12, flex: 'none', display: 'grid', placeItems: 'center', background: lista.length ? 'rgba(70,150,90,0.14)' : '#F2F1EC', color: lista.length ? VERDE : '#8E8E93' }}>
-                  <m.Icono size={18} weight={lista.length ? 'fill' : 'regular'} />
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em' }}>{m.nombre}</div>
-                  <div style={{ fontSize: 12.5, color: lista.length ? TEXT_MUTED : TEXT_LIGHT, marginTop: 1 }}>
-                    {lista.length ? <span className="num"><b style={{ color: TEXT, fontWeight: 700 }}>{Math.round(kcal)} kcal</b></span>
-                      : primeroVacio && primeroVacio.k === m.k ? 'Toca + para registrarlo' : '—'}
-                  </div>
-                </div>
-                {/* Se ve un círculo de 34 px; se toca en 44 (lo que pide Apple). */}
-                <button type="button" data-agregar-momento={m.k} onClick={() => alAgregar && alAgregar(m)} aria-label={`Registrar ${m.nombre.toLowerCase()}`}
-                  style={{ width: 44, height: 44, margin: -5, borderRadius: 99, flex: 'none', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', background: 'none', padding: 0, color: TEXT }}>
-                  <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 99, display: 'grid', placeItems: 'center', background: '#FFFFFF', boxShadow: 'inset 0 0 0 1.6px #D1D1D6' }}>
-                    <Plus size={16} weight="bold" />
-                  </span>
-                </button>
-              </div>
-              {lista.map(e => <Registro key={e.id} e={e} />)}
-            </div>
-          );
-        })}
-        {otras.length > 0 && (
-          <div data-momento="otras" style={{ borderTop: '1px solid #F0EEE8', padding: '10px 0 2px' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, marginBottom: 6 }}>Otras comidas</div>
-            {otras.map(e => <div key={e.id} style={{ marginLeft: -46 }}><Registro e={e} /></div>)}
-          </div>
-        )}
-      </div>}
+      {hayLista && <ListaDelDia momentosLista={momentosLista} por={por} otras={otras} primeroVacio={primeroVacio} alAgregar={alAgregar} />}
       {!prota && <button type="button" data-dictar-dia onClick={alDictar} style={{ ...TARJETA, width: '100%', marginTop: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: 12, padding: '12px 12px 12px 16px' }}>
         <span style={{ flex: 1 }}>

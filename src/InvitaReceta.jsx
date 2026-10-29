@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
-import { momentoDe } from './DiaComidas.jsx';
+import { comidaEnHora } from './DiaComidas.jsx';
 
 const CLAVE = 'mt:invitaReceta';
 const VERDE = '#2F7F45';
@@ -21,13 +21,7 @@ const fechaLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStar
 const masDias = (f, n) => { const [y, m, d] = f.split('-').map(Number); return fechaLocal(new Date(y, m - 1, d + n)); };
 
 // Qué comida toca invitar ahora (o null): por la hora y lo ya registrado.
-export function comidaParaInvitar(ahora, entries = []) {
-  const min = ahora.getHours() * 60 + ahora.getMinutes();
-  const slot = min >= 690 && min < 840 ? 'almuerzo' : min >= 1080 && min < 1260 ? 'cena' : null;
-  if (!slot) return null;
-  if (entries.some(e => momentoDe(e.meal) === slot)) return null;
-  return slot;
-}
+export const comidaParaInvitar = comidaEnHora;
 
 // ¿La escondió? Hoy para esa comida, o la semana entera tras 3 «Ahora no».
 export function escondida(estado, hoy, slot) {
@@ -35,7 +29,9 @@ export function escondida(estado, hoy, slot) {
   return !!(estado.cerrada && estado.cerrada[`${hoy}:${slot}`]);
 }
 
-export default function InvitaReceta({ entries = [], goals, consumed, alAbrir }) {
+// `dentro`: va dentro de la tarjeta de esa comida (DiaComidas, «¿Ya
+// almorzaste?»): sin su propia caja ni título, con «¿Aún no?…».
+export default function InvitaReceta({ entries = [], goals, consumed, alAbrir, dentro = false }) {
   const ahora = new Date();
   const hoy = fechaLocal(ahora);
   const slot = comidaParaInvitar(ahora, entries);
@@ -62,15 +58,18 @@ export default function InvitaReceta({ entries = [], goals, consumed, alAbrir })
   // Abrir una receta (o el recetario) cuenta como que le sirvió.
   const abrir = (id) => { const nuevo = { ...estado, seguidas: 0 }; guardar(nuevo); setEstado(nuevo); alAbrir && alAbrir(id, slot); };
 
+  const cuantas = recetas.length === 1 ? 'Una' : recetas.length === 2 ? 'Dos' : 'Tres';
   return (
-    <div data-invita-receta={slot} style={{ marginTop: 12, background: '#FFFFFF', borderRadius: 22, padding: '16px 16px 14px', boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 8px 22px rgba(60,60,40,0.07)' }}>
+    <div data-invita-receta={slot} style={dentro ? { marginTop: 16 } : { marginTop: 12, background: '#FFFFFF', borderRadius: 22, padding: '16px 16px 14px', boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 8px 22px rgba(60,60,40,0.07)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em' }}>¿No sabes qué {slot === 'cena' ? 'cenar' : 'almorzar'}?</div>
-        <button type="button" data-invita-ahora-no onClick={ahoraNo} style={{ border: 'none', background: 'none', padding: '6px 0 6px 10px', margin: '-6px 0', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT, cursor: 'pointer' }}>Ahora no</button>
+        {dentro
+          ? <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.3 }}>¿Aún no? {cuantas} que {recetas.length === 1 ? 'cabe' : 'caben'} en lo que te queda</div>
+          : <div style={{ fontSize: 17, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em' }}>¿No sabes qué {slot === 'cena' ? 'cenar' : 'almorzar'}?</div>}
+        <button type="button" data-invita-ahora-no onClick={ahoraNo} style={{ border: 'none', background: 'none', padding: '6px 0 6px 10px', margin: '-6px 0', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT, cursor: 'pointer', flex: 'none' }}>Ahora no</button>
       </div>
-      <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 3, lineHeight: 1.35 }}>
-        {recetas.length === 1 ? 'Una receta que cabe' : `${recetas.length === 2 ? 'Dos' : 'Tres'} recetas que caben`} en lo que te queda hoy. La porción ya viene ajustada a tu meta.
-      </div>
+      {!dentro && <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 3, lineHeight: 1.35 }}>
+        {cuantas === 'Una' ? 'Una receta que cabe' : `${cuantas} recetas que caben`} en lo que te queda hoy. La porción ya viene ajustada a tu meta.
+      </div>}
       <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
         {recetas.map(r => (
           <button type="button" key={r.id} data-invita-abrir={r.id} onClick={() => abrir(r.id)}

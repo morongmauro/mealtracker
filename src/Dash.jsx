@@ -285,7 +285,9 @@ const ALTO_ETIQUETA = 16, ALTO_ABAJO = 14;
 // Si el último punto trae `curso` (la semana que va en curso), no se dibuja su
 // valor a medias, que se leía como una caída: va punteado y hueco, a la altura
 // del anterior, con «va 1 de 3». La escala no cambia.
-function Linea({ puntos, color, alto = 46, textoValor, extremos, valor }) {
+// `enDos`: en las tarjetas angostas (dos por fila) el pie va en dos líneas,
+// valor arriba y fecha abajo: en una sola línea se pisaban los dos extremos.
+function Linea({ puntos, color, alto = 46, textoValor, extremos, valor, enDos = false }) {
   const [ref, ancho] = useAncho();
   const [sel, setSel] = useState(null);
   const curso = puntos.length >= 2 && puntos[puntos.length - 1].curso ? puntos[puntos.length - 1].curso : null;
@@ -357,7 +359,20 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos, valor }) {
         ))}
       </svg>}
       {textoValor && sel != null && <Globo x={x(sel)} ancho={ancho} texto={textoValor(puntos[sel])} />}
-      {extremos && puntos.length >= 2 && (
+      {extremos && puntos.length >= 2 && enDos && (
+        <div data-extremos style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginTop: 6, fontSize: 12.5, lineHeight: 1.25, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>
+          {[0, ult].map((i, k) => {
+            const [v, f] = String(extremos(puntos[i])).split(' · ');
+            return (
+              <span key={i} style={{ textAlign: k ? 'right' : 'left', minWidth: 0 }}>
+                <span style={{ display: 'block', whiteSpace: 'nowrap', ...(k ? { color: TEXT, fontWeight: 650 } : {}) }}>{v}</span>
+                {f && <span style={{ display: 'block', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 500, color: TEXT_LIGHT }}>{f}</span>}
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {extremos && puntos.length >= 2 && !enDos && (
         <div data-extremos style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12.5, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>
           <span>{extremos(puntos[0])}</span>
           {curso
@@ -858,7 +873,7 @@ function ProgresoPesos({ pesos }) {
                   <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
                 </div>
                 <Linea puntos={e.puntos.map(p => ({ v: p.kg, fecha: p.fecha }))} color={AZUL}
-                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} extremos={(p) => `${fmt(p.v, 1)} kg · ${fechaCorta(p.fecha)}`} />
+                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} extremos={(p) => `${fmt(p.v, 1)} kg · ${fechaCorta(p.fecha)}`} enDos />
               </>) : (
                 <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 1, paddingBottom: 4 }}>Una sesión ({fechaCorta(ult.fecha)}). La línea sale con la segunda.</div>
               )}
@@ -967,7 +982,7 @@ function DetalleEntreno({ ent, falloEnt, cargar }) {
                   <span style={{ color: TEXT_LIGHT }}> desde {fechaCorta(e.puntos[0].fecha)}</span>
                 </div>
                 <Linea puntos={e.puntos.map(p => ({ v: p.e1rm, fecha: p.fecha }))} color={AZUL}
-                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} extremos={(p) => `${fmt(p.v, 1)} kg · ${fechaCorta(p.fecha)}`} />
+                  textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} extremos={(p) => `${fmt(p.v, 1)} kg · ${fechaCorta(p.fecha)}`} enDos />
               </div>
             ))}
           </div>

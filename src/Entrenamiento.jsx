@@ -31,7 +31,7 @@ import Reconocimiento from './Reconocimiento.jsx';
 import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado, TipIconos, AvisoComentarios } from './EntrenoEjercicioV2.jsx';
 import { rutinaLigera, enPrueba, COLORES_MODULO, aclarar } from './vistaApp.js';
-import { Trophy as TrophyV2 } from '@phosphor-icons/react';
+import { Trophy as TrophyV2, TrendUp as TrendUpV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
   SURFACE, SURFACE_2, BORDER, BORDER_SOFT, TEXT, TEXT_MUTED, TEXT_LIGHT,
@@ -1778,9 +1778,7 @@ const VOZ_SECCION = {
 // la semana. La semana sale del plan, con la rutina que se acaba de cerrar
 // ya contada como hecha (el plan de atrás se refresca al volver).
 function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
-  const A = SECCION.entreno;
   const hoy = hoyLocal();
-  const marca = (r) => r.peso ? `${r.peso} ${r.unidad || 'kg'} × ${r.reps}` : `${r.reps} reps`;
   const frase = vozFinEntreno({ hoy, hechos: fin.hechos, total: fin.total, records: fin.records.length });
   const [respira, setRespira] = useState(false);
   const dias = ((plan && plan.dias) || []).map(d => ({ ...d }));
@@ -1816,20 +1814,29 @@ function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
         {fin.kilos > 0 && fin.minutos != null && (
           <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 10 }}><b style={{ color: TEXT }}>{fin.kilos.toLocaleString('es-CO')} kg</b> movidos en total.</div>
         )}
+        {/* El récord: su marca grande y, debajo, la de la vez pasada con lo
+            que subió (en la misma unidad). */}
         {fin.records.length > 0 && (
           <div data-records style={{ marginTop: 12 }}>
-            {fin.records.map(r => (
-              <div key={r.ejercicio_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 16, background: '#F3F1EB', marginTop: 6 }}>
-                <span style={{ width: 28, height: 28, borderRadius: 99, background: '#F2C94C', color: TEXT, display: 'grid', placeItems: 'center', flex: 'none' }}><TrophyV2 size={15} weight="fill" /></span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: TEXT, lineHeight: 1.25 }}>Récord · {r.nombre}</div>
-                  <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginTop: 1 }}>
-                    <b style={{ color: A.ink }}>{marca(r)}</b>
-                    {r.antes ? ` · antes ${marca(r.antes)}` : r.primera_vez ? ' · primera vez' : ''}
+            {fin.records.map(r => {
+              const coma = (n) => String(n).replace('.', ',');
+              const igualUnidad = r.antes && r.antes.peso && r.peso && (r.antes.unidad || 'kg') === (r.unidad || 'kg');
+              const sube = igualUnidad ? Math.round((Number(r.peso) - Number(r.antes.peso)) * 100) / 100 : 0;
+              const marcaV = (x) => x.peso ? `${x.reps} × ${coma(x.peso)} ${x.unidad || 'kg'}` : `${x.reps} reps`;
+              return (
+                <div key={r.ejercicio_id} data-record style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 18, marginTop: 6,
+                  background: 'linear-gradient(135deg, rgba(60,123,214,0.10), rgba(242,201,76,0.16))' }}>
+                  <span style={{ width: 40, height: 40, borderRadius: 12, background: '#FFFFFF', color: '#3C7BD6', display: 'grid', placeItems: 'center', flex: 'none', boxShadow: '0 4px 12px rgba(60,123,214,0.18)' }}><TrendUpV2 size={20} weight="bold" /></span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.08em', color: '#3C7BD6', textTransform: 'uppercase', lineHeight: 1.25 }}>Nuevo mejor · {r.nombre}</div>
+                    <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{marcaV(r)}</div>
+                    <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 1, fontVariantNumeric: 'tabular-nums' }}>
+                      {r.antes ? <>La vez pasada: {marcaV(r.antes)}{sube > 0 && <> · <b style={{ color: '#2F7F45' }}>+{coma(sube)} {r.unidad || 'kg'}</b></>}</> : r.primera_vez ? 'Primera vez' : ''}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Reconocimiento>
