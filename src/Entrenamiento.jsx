@@ -30,7 +30,7 @@ import Respira from './Respira.jsx';
 import Reconocimiento from './Reconocimiento.jsx';
 import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado, TipIconos, AvisoComentarios } from './EntrenoEjercicioV2.jsx';
-import { rutinaLigera, enPrueba } from './vistaApp.js';
+import { rutinaLigera, enPrueba, COLORES_MODULO, aclarar } from './vistaApp.js';
 import { Trophy as TrophyV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
@@ -2207,12 +2207,11 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
   const [resueltas, setResueltas] = useState(false);
   const conReps = escritas.filter(e => e.reps != null).length;
   // La hoja vive dentro de la capa de Entrenamiento, que queda debajo de la
-  // barra nueva: deja libre lo que mide la barra (con el borde del teléfono
-  // ya sumado) para que el botón de enviar quede a la vista, encima de ella.
-  const [bajoBarra, setBajoBarra] = useState(0);
+  // barra de abajo: mientras está abierta la barra se esconde (tapaba el
+  // botón de enviar) y vuelve al cerrarla.
   useEffect(() => {
-    const b = document.querySelector('[data-barra-v2]');
-    setBajoBarra(b ? Math.round(b.getBoundingClientRect().height) : 0);
+    document.documentElement.classList.add('hoja-cierre');
+    return () => document.documentElement.classList.remove('hoja-cierre');
   }, []);
 
   return (
@@ -2223,10 +2222,13 @@ function HojaCierre({ hechas, total, onCerrar, onSaltar, onCancelar, guardando, 
       background: 'rgba(20,20,18,0.45)', backdropFilter: 'blur(3px)',
       display: 'flex', alignItems: 'flex-end',
     }} onClick={onCancelar}>
+      <style>{'html.hoja-cierre [data-barra-v2], html.hoja-cierre [data-barra-compacta] { display: none !important; }'}</style>
       <div onClick={e => e.stopPropagation()} style={{
-        width: '100%', background: SURFACE,
+        // Fondo suave con los dos colores de Entrenamiento (grafito arriba,
+        // amarillo abajo), como las pantallas de resumen.
+        width: '100%', background: `linear-gradient(170deg, ${aclarar(COLORES_MODULO.entreno.p, 0.12)} 0%, #FAF9F6 55%, ${aclarar(COLORES_MODULO.entreno.q, 0.16)} 100%)`,
         borderRadius: '22px 22px 0 0', padding: 20,
-        paddingBottom: bajoBarra ? `${20 + bajoBarra}px` : 'calc(20px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
         maxHeight: '88vh', overflowY: 'auto',
       }}>
         <div style={{
