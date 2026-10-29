@@ -1353,7 +1353,8 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const [todos, setTodos] = useState(false);
   const hoyItems = [];
   const d = plan && Array.isArray(plan.dias) ? plan.dias.find(x => x.es_hoy || x.fecha === hoy) : null;
-  if (d && d.rutina) hoyItems.push({ id: 'hoy-rutina', texto: d.hecha ? `Entrenaste ${nombreCorto(d.rutina.nombre)}` : `Entrenar: ${nombreCorto(d.rutina.nombre)}${d.rutina.minutos ? ` · ~${d.rutina.minutos} min` : ''}`, hecho: !!d.hecha, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: Barbell, color: AZUL });
+  // Sin la duración: ocupaba espacio. Se ve en Entreno › Hoy y al abrir la rutina.
+  if (d && d.rutina) hoyItems.push({ id: 'hoy-rutina', texto: d.hecha ? `Entrenaste ${nombreCorto(d.rutina.nombre)}` : `Entrenar: ${nombreCorto(d.rutina.nombre)}`, hecho: !!d.hecha, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: Barbell, color: AZUL });
   (d?.complementarias || []).forEach(c => hoyItems.push({ id: `hoy-b-${c.id}`, texto: c.hecha ? `Hiciste ${c.nombre}` : c.nombre, hecho: !!c.hecha, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: Stack, color: AZUL }));
   // El video que pidió el coach: en Hoy si ese ejercicio toca hoy; si no, en
   // «Ver todo». Se va solo cuando el coach lo marca como llegado.
