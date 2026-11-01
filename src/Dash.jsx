@@ -22,7 +22,7 @@ import { createPortal } from 'react-dom';
 import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, VideoCamera } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
-import { leerAprendizaje, marcadaLocal } from './aprendizaje.js';
+import { leerAprendizaje, marcadaLocal, recomendarAprendizaje } from './aprendizaje.js';
 import { api, hoyLocal, sumarDias, aFecha, nombreCorto, useAlVolverRed } from './entrenoDatos.js';
 import { aroSemana, partesSemana, progresoEntreno } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
@@ -188,10 +188,10 @@ function Dato({ etiqueta, valor, unidad, pie, color }) {
         </span>
         <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 2 }}>
           <span style={{ fontSize: 18, fontWeight: 750, color: TEXT, lineHeight: 1.1, letterSpacing: '-0.02em' }}>{valor}</span>
-          {unidad && <span style={{ fontSize: 11.5, fontWeight: 600, color: TEXT_MUTED }}>{unidad}</span>}
+          {unidad && <span style={{ fontSize: 12, fontWeight: 600, color: TEXT_MUTED }}>{unidad}</span>}
         </span>
       </div>
-      {pie && <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pie}</div>}
+      {pie && <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pie}</div>}
     </div>
   );
 }
@@ -353,7 +353,7 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos, valor, enDos = 
           ? <circle key={i} cx={x(i)} cy={y(p.v)} r="4.5" fill={color} stroke="#fff" strokeWidth="2" data-punto-linea />
           : <circle key={i} cx={x(i)} cy={y(p.v)} r="2.8" fill="#fff" stroke={color} strokeWidth="1.8" data-punto-linea />)}
         {puntos.map((p, i) => conNumero(i) && (curso && i === ult
-          ? <text key={`t${i}`} x={x(i)} y={yCurso + 18} textAnchor="end" fontSize="11.5" fontWeight="700" fill={TEXT_LIGHT}
+          ? <text key={`t${i}`} x={x(i)} y={yCurso + 18} textAnchor="end" fontSize="12" fontWeight="700" fill={TEXT_LIGHT}
               style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3, fontVariantNumeric: 'tabular-nums' }} data-valor-linea>{curso.texto}</text>
           : <text key={`t${i}`} x={x(i)} y={abajo(i) ? y(p.v) + 16 : y(p.v) - 8} textAnchor={i === 0 && puntos.length > 1 ? 'start' : i === ult && puntos.length > 1 ? 'end' : 'middle'}
             fontSize={i === ult ? 11.5 : 10.5} fontWeight={i === ult ? 800 : 650} fill={i === ult ? TEXT : TEXT_MUTED}
@@ -704,7 +704,7 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
 
       {/* Aprendizaje: cuánto ha visto del centro de recursos */}
       <Seccion>Aprendizaje</Seccion>
-      <TarjetaAprende aprende={aprende} alProfundizar={() => setVista('aprende')} />
+      <TarjetaAprende aprende={aprende} alProfundizar={() => setVista('aprende')} alAbrir={enPrueba() ? acciones.abrirAprendizaje : null} />
 
       {hayMes && <><Seccion>Tu mes</Seccion><TarjetaMes resumen={resumen} alAbrir={() => setVerMes(true)} /></>}
       {hayMes && verMes && <PantallaMes resumen={resumen} whatsapp={WHATSAPP_COACH} alCerrar={() => setVerMes(false)} />}
@@ -713,7 +713,28 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
 }
 
 // ── Aprendizaje ───────────────────────────────────────────────────────────
-function TarjetaAprende({ aprende, alProfundizar }) {
+// Lo próximo que le toca del centro (la misma lista de Aprende › Hoy).
+const TIPO_PIEZA = { hub: 'Sobre el programa', guia: 'Guía de alimentación', capsula: 'Cápsula', podcast: 'Video' };
+function LoProximo({ aprende, alAbrir }) {
+  const r = alAbrir && aprende ? recomendarAprendizaje(aprende, 1)[0] : null;
+  if (!r) return null;
+  return (
+    <button type="button" data-lo-proximo onClick={() => alAbrir(r.destino)} style={{ width: '100%', marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+      border: 'none', borderRadius: 18, background: 'rgba(238,132,52,0.10)', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+      <span style={{ flex: 'none', width: 40, height: 40, borderRadius: 12, background: '#fff', display: 'grid', placeItems: 'center' }}>
+        {r.bloque === 'podcast' ? <VideoCamera size={20} color={NARANJA} /> : <BookOpenText size={20} color={NARANJA} />}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 12, fontWeight: 800, letterSpacing: '.08em', color: '#B4541D', textTransform: 'uppercase' }}>Lo próximo para ti</span>
+        <span style={{ display: 'block', fontSize: 16, fontWeight: 700, color: TEXT, marginTop: 2 }}>{r.title}</span>
+        <span style={{ display: 'block', fontSize: 13.5, color: TEXT_MUTED }}>{TIPO_PIEZA[r.bloque] || r.bloqueTitulo} · {r.motivo}</span>
+      </span>
+      <CaretRight size={18} weight="bold" color={NARANJA} style={{ flex: 'none' }} />
+    </button>
+  );
+}
+
+function TarjetaAprende({ aprende, alProfundizar, alAbrir = null }) {
   return (
     <Tarjeta titulo="Centro de aprendizaje" detalle="Lo que has leído, visto y escuchado del material de tu programa.">
       {aprende === undefined ? (lote25() ? <div style={{ marginTop: 12 }}><CargandoModulo tono="aprende" barras={false} /></div> :
@@ -743,6 +764,7 @@ function TarjetaAprende({ aprende, alProfundizar }) {
           </div>
         </div>
       )}
+      <LoProximo aprende={aprende} alAbrir={alAbrir} />
       <Profundiza color={NARANJA} onClick={alProfundizar}>Profundiza en tu aprendizaje</Profundiza>
     </Tarjeta>
   );
@@ -791,14 +813,14 @@ function PantallaMes({ resumen, whatsapp, alCerrar }) {
           {resumen.filas.map(f => (
             <div key={f.clave} data-fila-mes={f.clave} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: '1px solid rgba(31,31,31,.08)' }}>
               <span style={{ fontSize: 16, fontWeight: 600, color: '#3A3A3C', minWidth: 0 }}>{f.etiqueta}
-                {f.sub && <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#8E8E93', marginTop: 2 }}>{f.sub}</span>}
+                {f.sub && <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#737373', marginTop: 2 }}>{f.sub}</span>}
               </span>
               <span style={{ flex: 'none', fontSize: f.gris ? 16 : 23, fontWeight: f.gris ? 600 : 800, color: f.color, letterSpacing: '-0.02em', textAlign: 'right' }}>{f.valor}</span>
             </div>
           ))}
         </div>
         <div style={{ marginTop: 'auto', paddingTop: 24, display: 'grid', gap: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#8E8E93', textAlign: 'center', marginBottom: 4 }}>Lo vuelves a ver al final de tu Dash</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#737373', textAlign: 'center', marginBottom: 4 }}>Lo vuelves a ver al final de tu Dash</div>
           {wa && <a href={wa} target="_blank" rel="noreferrer" data-compartir-mes style={{ height: 52, borderRadius: 15, background: '#1D1D1F', color: '#fff', fontWeight: 700, fontSize: 15.5, display: 'grid', placeItems: 'center', textDecoration: 'none' }}>Compartir con mi coach</a>}
           <button onClick={alCerrar} data-cerrar-mes style={{ height: 48, border: 'none', background: 'none', fontWeight: 700, fontSize: 15, fontFamily: 'inherit', color: '#3A3A3C', cursor: 'pointer' }}>Cerrar</button>
         </div>
@@ -953,7 +975,7 @@ function ProgresoPesos({ pesos }) {
             <div key={e.id} data-peso-ej={e.alias || e.nombre} style={{ background: CREMA, borderRadius: 18, padding: '12px 13px 8px', minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).grande}</div>
               {nombresEj(e).chico && (
-                <div style={{ fontSize: 11.5, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).chico}</div>
+                <div style={{ fontSize: 12, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).chico}</div>
               )}
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
                 <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{fmt(e.actual, 1)}</span>
@@ -1063,7 +1085,7 @@ function DetalleEntreno({ ent, falloEnt, cargar }) {
               <div key={e.id} style={{ background: CREMA, borderRadius: 18, padding: '12px 13px 8px', minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).grande}</div>
                 {nombresEj(e).chico && (
-                  <div style={{ fontSize: 11.5, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).chico}</div>
+                  <div style={{ fontSize: 12, color: TEXT_LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombresEj(e).chico}</div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
                   <span style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em' }}>{fmt(e.actual, 1)}</span>
@@ -1263,7 +1285,7 @@ function Alineacion({ dias, meta }) {
       {ancho > 0 && <svg width={ancho} height={alto} style={{ display: 'block', overflow: 'visible' }}>
         <rect x={izq} width={ancho - izq} y={y(meta * 1.1)} height={y(meta * 0.9) - y(meta * 1.1)} fill="rgba(70,150,90,0.12)" rx="6" />
         <line x1={izq} x2={ancho} y1={y(meta)} y2={y(meta)} stroke="rgba(70,150,90,0.35)" strokeWidth="1" />
-        <text x={izq - 6} y={y(meta) + 3.5} textAnchor="end" fontSize="10" fill={TEXT_LIGHT}>{fmt(meta)}</text>
+        <text x={izq - 6} y={y(meta) + 3.5} textAnchor="end" fontSize="12" fill={TEXT_LIGHT}>{fmt(meta)}</text>
         {dias.map((d, i) => (
           <g key={d.fecha} onClick={() => setSel(sel === i ? null : i)} style={{ cursor: 'pointer' }}>
             <rect x={cx(i) - paso / 2} y={0} width={paso} height={alto - abajo} fill="transparent" />
@@ -1273,7 +1295,7 @@ function Alineacion({ dias, meta }) {
                 <circle cx={cx(i)} cy={y(d.kcal)} r={sel === i ? 5.5 : 4.5} fill={VERDE} />
               </>
             )}
-            <text x={cx(i)} y={alto - 5} textAnchor="middle" fontSize="10" fill={TEXT_LIGHT}>{DIA_LETRA[aFecha(d.fecha).getDay()]}</text>
+            <text x={cx(i)} y={alto - 5} textAnchor="middle" fontSize="12" fill={TEXT_LIGHT}>{DIA_LETRA[aFecha(d.fecha).getDay()]}</text>
           </g>
         ))}
       </svg>}
@@ -1388,7 +1410,7 @@ function ReferenciaGrasa({ sexo, grasa, fecha }) {
               <div style={{ position: 'relative', paddingTop: grasa != null ? 22 : 0 }}>
                 {grasa != null && (
                   <div data-marca-issa style={{ position: 'absolute', top: 0, left: `${posIssa(filas, TOPE_ISSA[sx], grasa)}%`, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <span style={{ fontSize: 11.5, fontWeight: 800, color: TEXT, lineHeight: 1 }}>Tú</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: TEXT, lineHeight: 1 }}>Tú</span>
                     <span style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: `6px solid ${TEXT}`, marginTop: 3 }} />
                   </div>
                 )}
@@ -1542,7 +1564,7 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
       <section data-recordatorios-dash data-prota-dash data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 12, background: '#FFFFFF', borderRadius: 24, padding: '12px 14px 12px 16px',
         boxShadow: '0 2px 4px rgba(20,20,30,.04), 0 14px 32px rgba(20,30,60,.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.09em', color: '#3C7BD6' }}>AHORA <span style={{ color: TEXT_MUTED, fontWeight: 600, letterSpacing: 0 }}>· {hoyHechos} de {hoyItems.length} hoy</span></span>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.09em', color: '#3C7BD6' }}>AHORA <span style={{ color: TEXT_MUTED, fontWeight: 600, letterSpacing: 0 }}>· {hoyHechos} de {hoyItems.length} hoy</span></span>
           {/* Nada se pierde: «Ver todo» abre la lista completa de siempre. */}
           <button data-ver-recordatorios onClick={() => setTodos(true)} style={{ border: 0, background: 'none', padding: '10px 6px', margin: '-10px -6px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: TEXT_MUTED, cursor: 'pointer' }}>
             Ver todo{items.length + hoyItems.length - 1 > 0 ? ` (${items.length + hoyItems.length - 1})` : ''}
@@ -1568,7 +1590,7 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   return (
     <section data-recordatorios-dash data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 10, background: '#FFFFFF', borderRadius: 18, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)', padding: '7px 6px 3px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 0 0', minHeight: 20 }}>
-        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>
+        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>
           HOY{hoyItems.length ? <span style={{ color: todoHecho ? '#2F7F45' : TEXT }}> · {todoHecho ? 'todo listo ✓' : `${hoyHechos} de ${hoyItems.length}`}</span> : null}
         </span>
         {items.length > 0 && (

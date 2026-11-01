@@ -67,7 +67,7 @@ export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, ocul
                 WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
               }}>
               <Icono size={22} weight={on ? 'fill' : 'regular'} />
-              <span style={{ fontSize: 11.5, fontWeight: 750 }}>{label}</span>
+              <span style={{ fontSize: 12, fontWeight: 750 }}>{label}</span>
             </button>
           );
         })}

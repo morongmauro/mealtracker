@@ -85,9 +85,9 @@ export default function Reconocimiento({
                 position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', zIndex: 2,
                 display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px 6px 9px', borderRadius: 999,
                 background: 'rgba(255,255,255,.94)', boxShadow: '0 4px 14px rgba(0,0,0,.12)', whiteSpace: 'nowrap',
-                fontSize: 11, fontWeight: 800, letterSpacing: '.08em', color: TEXT,
+                fontSize: 12, fontWeight: 800, letterSpacing: '.08em', color: TEXT,
               }}>
-                <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#F2C94C', display: 'grid', placeItems: 'center', fontSize: 11 }}>★</span>
+                <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#F2C94C', display: 'grid', placeItems: 'center', fontSize: 12 }}>★</span>
                 SEMANA COMPLETA
               </div>
             )}
@@ -99,7 +99,7 @@ export default function Reconocimiento({
                     <b data-rc-numero style={{ display: 'block', fontSize: 54, fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                       {typeof numero.valor === 'number' ? <Conteo valor={numero.valor} ms={900} /> : numero.valor}{numero.sufijo || ''}
                     </b>
-                    {numero.pie && <span style={{ display: 'block', fontSize: 10.5, fontWeight: 800, letterSpacing: '.08em', marginTop: 4 }}>{numero.pie}</span>}
+                    {numero.pie && <span style={{ display: 'block', fontSize: 12, fontWeight: 800, letterSpacing: '.08em', marginTop: 4 }}>{numero.pie}</span>}
                   </div>
                 </div>
               )}
@@ -109,7 +109,7 @@ export default function Reconocimiento({
         {/* Sin puntos debajo del blob: parecían de un carrusel (algo que se
             desliza) y el número del blob ya dice cómo va la semana. */}
         <div style={{ padding: grande ? '18px 22px 20px' : '22px 22px 20px' }}>
-          {etiqueta && <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: TEXT_MUTED }}>{etiqueta}</div>}
+          {etiqueta && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: TEXT_MUTED }}>{etiqueta}</div>}
           <div data-rc-titulo style={{ fontSize: 27, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.06, marginTop: 6 }}>
             {lineas.map((l, i) => <div key={i}>{l}</div>)}
           </div>
@@ -131,7 +131,7 @@ export default function Reconocimiento({
               {chips.map(([b, s], i) => (
                 <div key={i} data-rc-chip style={{ flex: 1, minWidth: 0, background: '#F3F1EB', borderRadius: 16, padding: '10px 12px' }}>
                   <b style={{ display: 'block', fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', color: TEXT, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{b}</b>
-                  <span style={{ fontSize: 11.5, color: TEXT_MUTED, lineHeight: 1.25, display: 'block' }}>{s}</span>
+                  <span style={{ fontSize: 12, color: TEXT_MUTED, lineHeight: 1.25, display: 'block' }}>{s}</span>
                 </div>
               ))}
             </div>

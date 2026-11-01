@@ -26,7 +26,7 @@ export const REACCIONES = [
 ];
 const SOMBRA = '0 1px 2px rgba(0,0,0,0.04), 0 8px 24px -12px rgba(0,0,0,0.12)';
 // Grises de sistema (estilo Apple): secundario, relleno y separador.
-const GRIS = '#8E8E93';
+const GRIS = '#737373';
 const RELLENO = 'rgba(118,118,128,0.12)';
 const BURBUJA = '#F2F2F7';
 const SEPARADOR = 'rgba(60,60,67,0.12)';
@@ -85,13 +85,13 @@ function Equipo({ miembros }) {
         {lista.map((m, i) => (
           <div key={i} data-miembro style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 46, flex: 'none' }}>
             <Avatar iniciales={m.iniciales} nombre={m.nombre} tam={32} />
-            <span style={{ fontSize: 11, fontWeight: 500, color: m.tu ? TEXT : GRIS, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 46 }}>{m.tu ? 'Tú' : m.nombre}</span>
+            <span style={{ fontSize: 12, fontWeight: 500, color: m.tu ? TEXT : GRIS, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 46 }}>{m.tu ? 'Tú' : m.nombre}</span>
           </div>
         ))}
         {mas && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 46, flex: 'none' }}>
             <span aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 99, background: RELLENO, color: GRIS, display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 600 }}>+</span>
-            <span style={{ fontSize: 11, fontWeight: 500, color: GRIS }}>y más</span>
+            <span style={{ fontSize: 12, fontWeight: 500, color: GRIS }}>y más</span>
           </div>
         )}
       </div>

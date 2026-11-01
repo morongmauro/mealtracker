@@ -241,7 +241,7 @@ export default function Ranking() {
           )}
         </div>
         {info && !info.notStarted && !info.finished && (
-          <div className="inline-block mt-2 px-3 py-1 rounded-full text-[11px] font-semibold"
+          <div className="inline-block mt-2 px-3 py-1 rounded-full text-[12px] font-semibold"
             style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
             Día {info.dayNum} de {info.totalDays} del reto
           </div>
@@ -300,7 +300,7 @@ export default function Ranking() {
           <div className="absolute" style={{ left: '56%', top: '10%', transform: 'translate(-50%, -100%)' }}>
             <div className="flex items-end">
               <div style={{ width: 2, height: 26, background: TEXT, borderRadius: 2 }} />
-              <div className="px-1.5 py-0.5 text-[9px] font-bold text-white"
+              <div className="px-1.5 py-0.5 text-[12px] font-bold text-white"
                 style={{ background: '#C75A4A', borderRadius: '0 4px 4px 0', transformOrigin: 'left center', animation: 'rkFlag 2.4s ease-in-out infinite', marginBottom: 14 }}>
                 100%
               </div>
@@ -322,7 +322,7 @@ export default function Ranking() {
                   <div className="relative flex items-center">
                     {/* Avatar */}
                     <div className="rounded-full flex items-center justify-center font-bold text-white"
-                      style={{ width: c.rank === 1 ? 34 : 28, height: c.rank === 1 ? 34 : 28, fontSize: c.rank === 1 ? 13 : 11, background: color, border: '2px solid #FFFFFF', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
+                      style={{ width: c.rank === 1 ? 34 : 28, height: c.rank === 1 ? 34 : 28, fontSize: c.rank === 1 ? 13 : 12, background: color, border: '2px solid #FFFFFF', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
                       {initialsOf(c.name)}
                     </div>
                     {c.rank <= 3 && (
@@ -333,7 +333,7 @@ export default function Ranking() {
                     {/* Etiqueta nombre + adherencia */}
                     <div className={`absolute whitespace-nowrap ${labelRight ? 'left-full ml-1.5' : 'right-full mr-1.5'}`}
                       style={{ top: '50%', transform: 'translateY(-50%)' }}>
-                      <div className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                      <div className="px-2 py-0.5 rounded-full text-[12px] font-semibold"
                         style={{ background: 'rgba(255,255,255,0.92)', border: `1px solid ${BORDER}`, color: TEXT, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }}>
                         {c.name} · <span style={{ color: ACCENT_DARK, fontWeight: 700 }}>{c.pct}%</span>
                       </div>
@@ -425,7 +425,7 @@ export default function Ranking() {
       )}
 
       {/* Pie: cómo se calcula, en palabras simples */}
-      <div className="max-w-xl mx-auto px-6 py-6 text-center text-[11.5px]" style={{ color: TEXT_LIGHT, lineHeight: 1.65 }}>
+      <div className="max-w-xl mx-auto px-6 py-6 text-center text-[12px]" style={{ color: TEXT_LIGHT, lineHeight: 1.65 }}>
         <b style={{ color: TEXT_MUTED }}>¿Cómo se calcula?</b> No son puntos: es tu <b>% de adherencia</b>.
         La mitad viene de <b>registrar tus comidas cada día</b> y la otra mitad de <b>qué tan cerca cierras de TU meta diaria</b> (calorías
         y macros). Cada quien compite contra su propia meta, así que la cancha es pareja: registra hoy y mira cómo subes la montaña. 🏔

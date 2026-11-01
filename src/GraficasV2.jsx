@@ -53,7 +53,7 @@ function Tarjeta({ titulo, detalle, accion, children, style, colorTitulo = TEXT 
 
 export function Leyenda({ items }) {
   return (
-    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10, fontSize: 11.5, color: TEXT_MUTED }}>
+    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10, fontSize: 12, color: TEXT_MUTED }}>
       {items.map(it => (
         <span key={it.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           {it.tipo === 'linea'
@@ -76,7 +76,7 @@ export function Globo({ x, ancho, texto }) {
   return (
     <div role="status" style={{
       position: 'absolute', top: 0, left, width: w, textAlign: 'center',
-      background: TEXT, color: '#fff', fontSize: 11.5, fontWeight: 650, borderRadius: 8,
+      background: TEXT, color: '#fff', fontSize: 12, fontWeight: 650, borderRadius: 8,
       padding: '4px 6px', pointerEvents: 'none', whiteSpace: 'nowrap',
     }}>{texto}</div>
   );
@@ -113,7 +113,7 @@ export function Columnas({ datos, color, alto = 128, marca, etiquetaX, textoValo
         {marcas.map(m => (
           <g key={m}>
             <line x1={izq} x2={ancho} y1={y(m)} y2={y(m)} stroke={REJILLA} strokeWidth="1" strokeOpacity="0.6" />
-            <text x={izq - 6} y={y(m) + 3.5} textAnchor="end" fontSize="10" fill={TEXT_LIGHT} style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(m)}</text>
+            <text x={izq - 6} y={y(m) + 3.5} textAnchor="end" fontSize="12" fill={TEXT_LIGHT} style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(m)}</text>
           </g>
         ))}
         {datos.map((d, i) => {
@@ -135,7 +135,7 @@ export function Columnas({ datos, color, alto = 128, marca, etiquetaX, textoValo
                 <line x1={cx - barra / 2 - 3} x2={cx + barra / 2 + 3} y1={y(meta)} y2={y(meta)} stroke={TEXT} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
               )}
               {etiquetaX && etiquetaX(d, i) && (
-                <text x={cx} y={alto - 5} textAnchor="middle" fontSize="10" fill={TEXT_LIGHT}>{etiquetaX(d, i)}</text>
+                <text x={cx} y={alto - 5} textAnchor="middle" fontSize="12" fill={TEXT_LIGHT}>{etiquetaX(d, i)}</text>
               )}
             </g>
           );

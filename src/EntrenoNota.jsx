@@ -51,14 +51,14 @@ function Conversacion({ coach, siempre, mias }) {
             {sep && <div style={{ textAlign: 'center', fontSize: 12, color: TEXT_LIGHT, margin: '4px 0 0' }}>{f}</div>}
             {it.de === 'coach' ? (
               <div data-puntual-hilo style={{ alignSelf: 'flex-start', maxWidth: '86%', padding: '10px 12px', borderRadius: 16, background: 'rgba(60,123,214,0.08)' }}>
-                <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em', color: '#fff', background: '#3C7BD6', borderRadius: 99, padding: '2px 8px', marginBottom: 5 }}>PARA LA PRÓXIMA VEZ</span>
+                <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 800, letterSpacing: '.06em', color: '#fff', background: '#3C7BD6', borderRadius: 99, padding: '2px 8px', marginBottom: 5 }}>PARA LA PRÓXIMA VEZ</span>
                 <div style={{ fontSize: 14.5, color: TEXT, lineHeight: 1.4 }}>{it.c.texto}</div>
-                <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 4 }}>Tu coach</div>
+                <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 4 }}>Tu coach</div>
               </div>
             ) : (
               <div data-mia-hilo style={{ alignSelf: 'flex-end', maxWidth: '86%', padding: '10px 12px', borderRadius: 16, background: SURFACE_2 }}>
                 <div style={{ fontSize: 14.5, color: TEXT, lineHeight: 1.4 }}>{it.n.texto}</div>
-                <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 4, textAlign: 'right' }}>Tú{it.n.recien ? ' · enviada' : ''}</div>
+                <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 4, textAlign: 'right' }}>Tú{it.n.recien ? ' · enviada' : ''}</div>
               </div>
             )}
           </React.Fragment>

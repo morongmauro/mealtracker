@@ -35,7 +35,7 @@ export default function NumeroHeroe({ tema, centro, pie, alTocar, activo = true,
         cursor: alTocar ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent',
       }}>
         {!chico && <div style={{ fontSize: 'clamp(64px, 19vw, 84px)', fontWeight: 800, lineHeight: 0.9, letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-          {num}{resto && <span style={{ fontSize: '0.46em', letterSpacing: '-0.02em', fontWeight: 700, color: resto.startsWith('/') ? '#AEAEB2' : TEXT }}>{resto}</span>}
+          {num}{resto && <span style={{ fontSize: '0.46em', letterSpacing: '-0.02em', fontWeight: 700, color: resto.startsWith('/') ? '#737373' : TEXT }}>{resto}</span>}
         </div>}
         {pie && <div data-numero-pie style={chico ? { fontSize: 13.5, fontWeight: 600, color: TEXT_MUTED, marginTop: 8 } : { fontSize: 15, fontWeight: 600, color: TEXT_MUTED, marginTop: 10 }}>{pie}</div>}
       </Tag>

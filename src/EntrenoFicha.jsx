@@ -300,7 +300,7 @@ function TuHistorial({ item }) {
 function Rotulo({ children, style }) {
   return (
     <div style={{
-      fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
+      fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
       color: TEXT_LIGHT, marginBottom: 6, ...style,
     }}>{children}</div>
   );

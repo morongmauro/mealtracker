@@ -35,7 +35,7 @@ function Escala({ p, valor, alElegir }) {
           }}>{v}</button>
         ))}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#7A7A80', marginTop: 4 }}><span>{p.de}</span><span>{p.a}</span></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#7A7A80', marginTop: 4 }}><span>{p.de}</span><span>{p.a}</span></div>
     </div>
   );
 }

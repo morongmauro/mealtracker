@@ -37,7 +37,7 @@ const CREMA = '#F4F1EB';
 const GRAFITO = '#1D1D1F';
 const AMARILLO = '#F2C94C';
 const CAMPO = '#F2F2F4';
-const GRIS = '#8E8E93';
+const GRIS = '#737373';
 const HECHO_FONDO = '#FBF5E2';
 const HECHO_BORDE = 'rgba(242,201,76,0.45)';
 const HECHO_TINTA = '#8A6A12';
@@ -274,7 +274,7 @@ function PuntoCoach({ n }) {
   return (
     <span data-punto-coach={n} style={{
       position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box', borderRadius: 99,
-      background: AZUL_COACH, color: '#fff', fontSize: 10, fontWeight: 800, lineHeight: '16px', textAlign: 'center', boxShadow: '0 0 0 2px #fff',
+      background: AZUL_COACH, color: '#fff', fontSize: 12, fontWeight: 800, lineHeight: '16px', textAlign: 'center', boxShadow: '0 0 0 2px #fff',
     }}>{n}</span>
   );
 }
@@ -437,10 +437,10 @@ export function GraficaPesos({ puntos, unidad = 'kg', alto = 110 }) {
       <path d={area} fill="url(#gpArea)" />
       <path d={d} fill="none" stroke={AZUL} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
       {puntos.map((p, i) => <circle key={p.fecha} cx={x(i)} cy={y(p.peso)} r={i === puntos.length - 1 ? 4.5 : 2.6} fill={i === puntos.length - 1 ? AZUL : '#FFFFFF'} stroke={AZUL} strokeWidth="1.8" />)}
-      <text x={x(0)} y={y(pri.peso) - 7} fontSize="11" fill={GRIS} fontWeight="700" textAnchor="start">{coma(pri.peso)}</text>
+      <text x={x(0)} y={y(pri.peso) - 7} fontSize="12" fill={GRIS} fontWeight="700" textAnchor="start">{coma(pri.peso)}</text>
       <text x={x(puntos.length - 1)} y={y(ult.peso) - 8} fontSize="12" fill={TEXT} fontWeight="800" textAnchor="end">{coma(ult.peso)} {unidad}</text>
-      <text x={x(0)} y={H - 4} fontSize="10.5" fill={GRIS} textAnchor="start">{fechaCorta(pri.fecha)}</text>
-      <text x={x(puntos.length - 1)} y={H - 4} fontSize="10.5" fill={GRIS} textAnchor="end">{fechaCorta(ult.fecha)}</text>
+      <text x={x(0)} y={H - 4} fontSize="12" fill={GRIS} textAnchor="start">{fechaCorta(pri.fecha)}</text>
+      <text x={x(puntos.length - 1)} y={H - 4} fontSize="12" fill={GRIS} textAnchor="end">{fechaCorta(ult.fecha)}</text>
     </svg>
   );
 }
@@ -589,7 +589,7 @@ function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = nu
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, marginTop: 9, marginBottom: 1,
-      fontSize: 11.5, fontWeight: 700, color: GRIS, letterSpacing: '.04em',
+      fontSize: 12, fontWeight: 700, color: GRIS, letterSpacing: '.04em',
     }}>
       <div style={{ width: 22, flex: 'none' }} />
       <div style={{ ...CAJA, textAlign: 'center', whiteSpace: 'nowrap' }}>{lado ? 'REPS/LADO' : 'REPS'}</div>
@@ -597,12 +597,12 @@ function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = nu
       <div style={{ ...CAJA, textAlign: 'center' }}>
         <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
           border: 'none', background: 'transparent', borderRadius: 999, padding: '2px 6px',
-          fontSize: 11.5, fontWeight: 700, color: GRIS, letterSpacing: '.04em', cursor: 'pointer', fontFamily: 'inherit',
+          fontSize: 12, fontWeight: 700, color: GRIS, letterSpacing: '.04em', cursor: 'pointer', fontFamily: 'inherit',
         }}>{unidad.toUpperCase()} ⇄</button>
       </div>
       </>}
       {ultima && (ultima.series || []).length > 0 && (
-        <div data-cab-ultima style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', color: '#AEAEB2', lineHeight: 1.2 }}>
+        <div data-cab-ultima style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', color: '#737373', lineHeight: 1.2 }}>
           ÚLTIMA<br />{fechaCorta(ultima.fecha).toUpperCase()}
         </div>
       )}
@@ -704,7 +704,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
           }}><CaretUp size={16} weight="bold" /></button>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {ahora && <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
+          {ahora && <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
           {/* Vista en prueba: Ficha · Historial · Nota arriba a la derecha, a la
               altura del nombre; el texto les da la vuelta (si el nombre no
               cabe, sigue en la línea de abajo) y nada queda detrás. */}
@@ -889,7 +889,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Miniatura e={e} ancho={54} alto={42} alTocar={() => setFicha(re)} enVivo={prueba && ahora === `${re.id}:${vi + 1}` && !ficha} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      {prueba && ahora === `${re.id}:${vi + 1}` && <span data-ahora-circuito style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
+                      {prueba && ahora === `${re.id}:${vi + 1}` && <span data-ahora-circuito style={{ display: 'inline-block', fontSize: 12, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
                       {/* Vista en prueba: los íconos arriba a la derecha, como en Fuerza. */}
                       {vi === 0 && ligera && prueba && <div data-botones-arriba style={{ float: 'right', margin: '-2px -2px 4px 8px' }}><Botones soloIconos chicos items={botonesDe({
                         sinCarga, onNota: onNota ? () => onNota(re) : null, re,
@@ -1064,7 +1064,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       borderRadius: 14, position: 'relative', overflow: 'hidden',
     }}>
       {brillo}
-      <div style={{ width: 22, flex: 'none', textAlign: 'center', fontSize: 14, fontWeight: 700, color: hecha ? TEXT : '#AEAEB2' }}>{n}</div>
+      <div style={{ width: 22, flex: 'none', textAlign: 'center', fontSize: 14, fontWeight: 700, color: hecha ? TEXT : '#737373' }}>{n}</div>
       <div style={CAJA}>
         <input ref={repsRef} inputMode="numeric" value={reps} className="rv2-campo"
           onChange={ev => { setReps(ev.target.value); if (falta) setFalta(false); }}
@@ -1083,13 +1083,13 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
         anterior && !hecha ? (
           // Con aire a la derecha: el dedo no debe alcanzar el check al tocar el texto.
           <button type="button" data-serie-anterior onClick={(e) => { e.stopPropagation(); rellenar(); }} aria-label={`Usar lo de la última vez en la serie ${n}: ${anteriorLeido}`} style={{
-            width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#AEAEB2',
+            width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#737373',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums',
             border: 0, background: 'none', padding: '6px 10px 6px 0', margin: 0, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box',
             textDecoration: 'underline dotted', textDecorationColor: '#C7C7CC', textUnderlineOffset: 3,
           }}>{anterior}</button>
         ) : (
-          <div data-serie-anterior style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#AEAEB2',
+          <div data-serie-anterior style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#737373',
             whiteSpace: 'nowrap', overflow: cambio ? 'visible' : 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>
             {cambio
               ? <span data-cambio-peso aria-label={cambio.leido} style={{ display: 'inline-flex', alignItems: 'center', height: 22, padding: '0 8px', borderRadius: 99, background: cambio.fondo, color: cambio.color, fontSize: 12, fontWeight: 800 }}>{cambio.texto}</span>

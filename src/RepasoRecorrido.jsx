@@ -24,7 +24,7 @@ export default function RepasoRecorrido({ alVer, alSaltar }) {
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
         {[['Dash', DASH_AZUL.base], ['Entreno', SECCION.entreno.base], ['Comida', SECCION.comida.base], ['Aprende', SECCION.aprende.base]].map(([t, c]) => (
           <div key={t} style={{ width: 70, height: 58, borderRadius: 18, background: CAMPO, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <i style={{ width: 12, height: 12, borderRadius: 99, background: c }} /><span style={{ fontSize: 11.5, fontWeight: 700 }}>{t}</span>
+            <i style={{ width: 12, height: 12, borderRadius: 99, background: c }} /><span style={{ fontSize: 12, fontWeight: 700 }}>{t}</span>
           </div>
         ))}
       </div>

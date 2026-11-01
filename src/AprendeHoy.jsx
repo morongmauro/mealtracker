@@ -160,7 +160,7 @@ function Anillo({ pct, tam = 104, grosor = 10 }) {
   return (
     <AnilloMarca frac={(pct || 0) / 100} color={N.base} tam={tam} grosor={grosor} etiqueta={`${pct} % completado`}>
       <div style={{ fontSize: 24, fontWeight: 800, color: TEXT, lineHeight: 1, letterSpacing: '-0.02em' }}>{pct}%</div>
-      <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginTop: 3, fontWeight: 600 }}>completado</div>
+      <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 3, fontWeight: 600 }}>completado</div>
     </AnilloMarca>
   );
 }

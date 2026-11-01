@@ -104,7 +104,7 @@ function TarjetaV2({ item, alto, alTocar }) {
         <span data-familia-etiqueta data-solida style={{
           position: 'absolute', left: 10, top: 10, display: 'inline-flex', alignItems: 'center',
           padding: '5px 10px', borderRadius: 99, background: fam.color, boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
-          fontSize: 10.5, fontWeight: 750, color: '#FFFFFF', letterSpacing: '0.08em', textTransform: 'uppercase',
+          fontSize: 12, fontWeight: 750, color: '#FFFFFF', letterSpacing: '0.08em', textTransform: 'uppercase',
         }}>{fam.texto}</span>
       ) : (
       <span data-familia-etiqueta style={{
@@ -113,16 +113,16 @@ function TarjetaV2({ item, alto, alTocar }) {
         background: 'linear-gradient(160deg, rgba(255,255,255,0.46) 0%, rgba(255,255,255,0.26) 100%)',
         backdropFilter: 'blur(18px) saturate(1.8)', WebkitBackdropFilter: 'blur(18px) saturate(1.8)',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 0 0 0.8px rgba(255,255,255,0.35), 0 1px 2px rgba(0,0,0,0.10)',
-        fontSize: 10.5, fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.08em', textTransform: 'uppercase', textShadow: '0 1px 1px rgba(0,0,0,0.18)',
+        fontSize: 12, fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.08em', textTransform: 'uppercase', textShadow: '0 1px 1px rgba(0,0,0,0.18)',
       }}>
         <i style={{ width: 7, height: 7, borderRadius: 9, background: PUNTO[f], boxShadow: '0 0 0 2px rgba(255,255,255,0.35)' }} />{fam.texto}
       </span>
       )}
       <span style={{ position: 'absolute', left: 12, right: 12, bottom: 12, color: '#FFFFFF', display: 'block', textShadow: lote25() ? '0 1px 3px rgba(0,0,0,0.35)' : undefined }}>
-        {sub && <span style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', opacity: 0.78, marginBottom: 3 }}>{sub}</span>}
+        {sub && <span style={{ display: 'block', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', opacity: 0.78, marginBottom: 3 }}>{sub}</span>}
         <span style={{ display: 'block', fontSize: 15.5, fontWeight: 750, lineHeight: 1.18, letterSpacing: '-0.01em' }}>{n.grande}</span>
         {n.chico && <span style={{ display: 'block', fontSize: 12, opacity: 0.82, marginTop: 2, lineHeight: 1.25 }}>{n.chico}</span>}
-        {musculos.length > 0 && <span style={{ display: 'block', fontSize: 11.5, fontWeight: 600, opacity: 0.7, marginTop: 5 }}>{musculos.slice(0, 2).join(' · ')}</span>}
+        {musculos.length > 0 && <span style={{ display: 'block', fontSize: 12, fontWeight: 600, opacity: 0.7, marginTop: 5 }}>{musculos.slice(0, 2).join(' · ')}</span>}
       </span>
     </button>
   );
@@ -281,7 +281,7 @@ export default function Galeria({ nombre }) {
                   <span aria-hidden="true" style={{
                     position: 'absolute', right: 7, bottom: 7, width: 26, height: 26, borderRadius: 99,
                     background: 'rgba(255,255,255,0.92)', display: 'grid', placeItems: 'center',
-                    fontSize: 10, color: TEXT, paddingLeft: 2,
+                    fontSize: 12, color: TEXT, paddingLeft: 2,
                   }}>▶</span>
                 )}
               </div>
@@ -291,14 +291,14 @@ export default function Galeria({ nombre }) {
                 <div style={{ position: 'relative' }}>
                   {fam && (
                     <div style={{ marginBottom: 5 }}>
-                      <span data-familia-etiqueta style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.22)', color: '#FFFFFF', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em' }}>{fam.texto}</span>
-                      {sub && <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.86)', marginTop: 3, marginLeft: 2 }}>{sub}</div>}
+                      <span data-familia-etiqueta style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.22)', color: '#FFFFFF', fontSize: 12, fontWeight: 700, letterSpacing: '0.02em' }}>{fam.texto}</span>
+                      {sub && <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.86)', marginTop: 3, marginLeft: 2 }}>{sub}</div>}
                     </div>
                   )}
                   <div style={{ fontSize: 13.5, fontWeight: 750, color: fam ? '#FFFFFF' : TEXT, lineHeight: 1.25 }}>{nombresEj(e).grande}</div>
-                  {nombresEj(e).chico && <div style={{ fontSize: 11.5, color: fam ? 'rgba(255,255,255,0.8)' : TEXT_LIGHT, marginTop: 1, lineHeight: 1.25 }}>{nombresEj(e).chico}</div>}
+                  {nombresEj(e).chico && <div style={{ fontSize: 12, color: fam ? 'rgba(255,255,255,0.8)' : TEXT_LIGHT, marginTop: 1, lineHeight: 1.25 }}>{nombresEj(e).chico}</div>}
                   {musculos.length > 0 && (
-                    <div style={{ fontSize: 11.5, color: fam ? 'rgba(255,255,255,0.8)' : TEXT_LIGHT, marginTop: 3 }}>{musculos.slice(0, 2).join(' · ')}</div>
+                    <div style={{ fontSize: 12, color: fam ? 'rgba(255,255,255,0.8)' : TEXT_LIGHT, marginTop: 3 }}>{musculos.slice(0, 2).join(' · ')}</div>
                   )}
                 </div>
               </div>

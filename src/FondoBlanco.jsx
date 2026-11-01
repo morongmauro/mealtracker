@@ -79,7 +79,7 @@ const CSS_PRUEBA = [
   // área de más es invisible y no cambia nada de cómo se ven.
   `[data-fila-cristal] [data-boton-cristal]{position:relative}`,
   `[data-fila-cristal] [data-boton-cristal]::after{content:'';position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%)}`,
-  `[data-fila-cristal] [data-badge]{top:-1px!important;right:-1px!important;min-width:16px!important;height:16px!important;font-size:10px!important}`,
+  `[data-fila-cristal] [data-badge]{top:-1px!important;right:-1px!important;min-width:16px!important;height:16px!important;font-size: 12px!important}`,
   // La franja curva cubre siempre todo el ancho de la pantalla, sea cual sea
   // el teléfono (centrada en la pantalla, no en la columna del contenido).
   `[data-cabecera-hoy]>[data-banda]{left:calc(50% - 50vw)!important;right:auto!important;width:100vw!important}`,

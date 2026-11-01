@@ -239,7 +239,7 @@ export default function Actividad({
                         }}>
                           {hoy ? 'Hoy' : DIAS_LARGO[['L','M','X','J','V','S','D'][(new Date(f + 'T00:00:00').getDay() + 6) % 7]].slice(0, 3)}
                           <br />
-                          <span style={{ fontSize: 10.5, opacity: .75 }}>{f.slice(8)}</span>
+                          <span style={{ fontSize: 12, opacity: .75 }}>{f.slice(8)}</span>
                         </button>
                       );
                     })}
@@ -316,7 +316,7 @@ export default function Actividad({
             </Boton>
           </div>
 
-          <div style={{ fontSize: 11.5, color: TEXT_LIGHT, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12, color: TEXT_LIGHT, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
             Solo el tipo es obligatorio. Los minutos y la intensidad ayudan a tu coach,
             pero si no te acuerdas, déjalos en blanco.
           </div>
@@ -327,7 +327,7 @@ export default function Actividad({
 }
 
 const rotulo = {
-  fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
+  fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
   color: TEXT_LIGHT, marginBottom: 7,
 };
 
@@ -357,7 +357,7 @@ export function ChipActividad({ actividad, catalogo, onClick }) {
         ? <span style={{ color: TEXT_MUTED, display: 'inline-flex' }}><IconoActividad slug={actividad.tipo} categoria={c?.categoria} titulo={actividad.titulo} size={17} /></span>
         : <span aria-hidden style={{ fontSize: 15 }}>{c?.icono || '✨'}</span>}
       <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_MUTED, flex: 1, minWidth: 0 }}>{etiqueta}</span>
-      {detalle && <span style={{ fontSize: 11.5, color: TEXT_LIGHT }}>{detalle}</span>}
+      {detalle && <span style={{ fontSize: 12, color: TEXT_LIGHT }}>{detalle}</span>}
     </button>
   );
 }
@@ -401,7 +401,7 @@ export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambi
           <IconoActividad slug={ev.slug} size={19} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: TEXT_LIGHT }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: TEXT_LIGHT }}>
             {enRutina ? 'Ahora: tu cardio · antes de estirar' : ev.despues && conFuerza ? 'Después de entrenar · de tu coach' : 'De tu coach'}
           </div>
           <div style={{ fontSize: 15, fontWeight: 750, color: TEXT, lineHeight: 1.25, marginTop: 2 }}>
@@ -480,7 +480,7 @@ function TarjetaCardioOpciones({ ev, op, fecha, nombre, sesionId, alCambio, enRu
             <IconoActividad slug={op.lista[0].slug || ev.slug} size={19} />
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: TEXT_LIGHT }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: TEXT_LIGHT }}>
               {enRutina ? 'Ahora: tu cardio · antes de estirar' : 'De tu coach · elige una'}
             </div>
             <div style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, lineHeight: 1.25, marginTop: 2 }}>

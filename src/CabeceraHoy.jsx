@@ -91,7 +91,7 @@ export function FirmaCoach({ claro = false, compacta = false }) {
     <div data-firma-coach style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: compacta ? 10 : 14 }}>
       <span aria-hidden="true" style={{
         width: compacta ? 22 : 26, height: compacta ? 22 : 26, borderRadius: 99, background: TEXT, color: '#FFFFFF', flex: 'none',
-        display: 'grid', placeItems: 'center', fontSize: compacta ? 9 : 10.5, fontWeight: 800, letterSpacing: '0.02em',
+        display: 'grid', placeItems: 'center', fontSize: compacta ? 12 : 12, fontWeight: 800, letterSpacing: '0.02em',
         boxShadow: '0 0 0 2px rgba(255,255,255,0.7)',
       }}>MM</span>
       <span style={{ fontSize: compacta ? 12.5 : 13.5, fontWeight: 600, color: claro ? '#FFFFFF' : '#4A4A48' }}>— Mauro, tu coach</span>
@@ -225,7 +225,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
               </CapaActiva.Provider>
             </div>
           </div>
-          {aro.pie && !prueba && <div data-aro-pie style={{ marginTop: 8, fontSize: 11.5, fontWeight: 600, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.25 }}>{aro.pie}</div>}
+          {aro.pie && !prueba && <div data-aro-pie style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.25 }}>{aro.pie}</div>}
         </div>
       </div>
     );
@@ -288,7 +288,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
               <AnilloMarca plano frac={aro.frac} color={COLOR_ARO[tema] || TEXT} tam={60} grosor={7} riel="rgba(255,255,255,0.9)" etiqueta={aro.pie}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{aro.centro}</div>
               </AnilloMarca>
-              {aro.pie && <div data-aro-pie style={{ fontSize: 11, fontWeight: 500, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.2 }}>{aro.pie}</div>}
+              {aro.pie && <div data-aro-pie style={{ fontSize: 12, fontWeight: 500, color: TEXT_MUTED, textAlign: 'center', lineHeight: 1.2 }}>{aro.pie}</div>}
             </div>
           )}
         </div>

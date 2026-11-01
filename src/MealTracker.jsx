@@ -5866,7 +5866,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               {v2 ? NOMBRE_SECCION[seccionV2] : showTraining ? 'Entrenamiento' : showLearning ? 'Aprendizaje' : 'Entrena con Método'}
             </span>
             {/* Visual nueva: sin el subtítulo (la marca ya está en el ícono y en la entrada). */}
-            {!v2 && <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '10px', whiteSpace: 'nowrap' }}>
+            {!v2 && <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500, fontSize: '12px', whiteSpace: 'nowrap' }}>
               Entrena con Método
             </span>}
           </div>
@@ -6073,7 +6073,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               actualiza, llega el anuncio al chat automáticamente. */}
           {!cardCompact && (
             <div className="text-center mb-3">
-              <div className="text-[11.5px] font-semibold" style={{ color: TEXT_LIGHT }}>
+              <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>
                 Hoy · <span className="capitalize" style={{ color: TEXT_MUTED }}>{formatDate(today)}</span>
                 {streak >= 2 && (
                   <>
@@ -6092,7 +6092,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             // aparecen solos cuando la meta llegue con su anuncio.
             <div className="text-center py-2">
               <div className="text-[13px] font-semibold" style={{ color: TEXT }}>{v2 ? '' : '🎯 '}Tu coach está preparando tu meta nutricional</div>
-              <div className="text-[11px] mt-1" style={{ color: TEXT_MUTED }}>
+              <div className="text-[12px] mt-1" style={{ color: TEXT_MUTED }}>
                 Te avisaré aquí cuando llegue. Mientras tanto cuéntame qué comes y voy llevando tus totales{totals.kcal > 0 ? ` — hoy: ${Math.round(totals.kcal)} kcal · P${Math.round(totals.p)} C${Math.round(totals.c)} G${Math.round(totals.g)}` : ''}.
               </div>
             </div>
@@ -6109,7 +6109,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 ))}
               </div>
               {macroTip && MACRO_INFO[macroTip] && (
-                <div className="text-[10.5px] text-center mt-1.5 px-1 fade-up" style={{ color: TEXT_MUTED, lineHeight: 1.35 }}>
+                <div className="text-[12px] text-center mt-1.5 px-1 fade-up" style={{ color: TEXT_MUTED, lineHeight: 1.35 }}>
                   <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#B98A12' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
                 </div>
               )}
@@ -6131,7 +6131,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 ))}
               </div>
               {macroTip && MACRO_INFO[macroTip] && (
-                <div className="text-[11px] text-center mt-2 px-2 fade-up" style={{ color: TEXT_MUTED, lineHeight: 1.4 }}>
+                <div className="text-[12px] text-center mt-2 px-2 fade-up" style={{ color: TEXT_MUTED, lineHeight: 1.4 }}>
                   <strong style={{ color: macroTip === 'kcal' ? ACCENT_DARK : macroTip === 'p' ? C_PROTEIN : macroTip === 'c' ? '#B98A12' : C_FAT }}>{MACRO_INFO[macroTip].t}</strong> {MACRO_INFO[macroTip].d}
                 </div>
               )}
@@ -6171,11 +6171,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             <div className="flex-1 min-w-0" style={{ fontSize: '12px', color: TEXT_MUTED, lineHeight: 1.3 }}>
               <strong style={{ color: TEXT }}>Recordatorios del día</strong> — te avisamos para que ningún registro se te pase.
             </div>
-            <button onClick={activarPush} className="flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold active:scale-95 transition"
+            <button onClick={activarPush} className="flex-shrink-0 px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
               style={{ background: '#1F1F1F', color: '#FFF' }}>
               Activar
             </button>
-            <button onClick={posponerPush} className="flex-shrink-0 px-2 py-1.5 text-[11px] font-medium active:scale-95 transition"
+            <button onClick={posponerPush} className="flex-shrink-0 px-2 py-1.5 text-[12px] font-medium active:scale-95 transition"
               style={{ color: TEXT_LIGHT }}>
               Luego
             </button>
@@ -6439,7 +6439,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     <div className="text-[12px]" style={{ color: TEXT_MUTED, marginTop: '2px', lineHeight: 1.25 }}>Arranca cuando comas.<br /><span style={{ color: TEXT_LIGHT }}>Los macros aparecen con tu primera comida.</span></div>
                   </div>
                   <RingGauge size={44} stroke={5} pct={0} color="#46965A" track="rgba(138,149,88,0.14)" shadow={null}>
-                    <div className="num" style={{ color: TEXT, fontWeight: 500, fontSize: '11px' }}>0%</div>
+                    <div className="num" style={{ color: TEXT, fontWeight: 500, fontSize: '12px' }}>0%</div>
                   </RingGauge>
                 </div>
               ) : (
@@ -6451,7 +6451,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                         <span style={{ color: TEXT_LIGHT, fontWeight: 700, fontSize: '14px' }}> / {Math.round(goals.kcal).toLocaleString('es')} kcal</span>
                       </div>
                     </div>
-                    <div className="text-[11px] font-semibold flex-shrink-0" style={{ color: ACCENT_DARK }}>Tu día · en vivo</div>
+                    <div className="text-[12px] font-semibold flex-shrink-0" style={{ color: ACCENT_DARK }}>Tu día · en vivo</div>
                   </div>
 
                   {/* Frase de estado — celebra SOLO cumplimiento real: kcal en
@@ -6510,8 +6510,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                           </div>
                         </RingGauge>
                         <div className="text-center leading-tight">
-                          <div className="text-[10.5px] font-bold" style={{ color: '#8B8878', letterSpacing: '0.08em' }}>{mch.k}</div>
-                          <div className="num text-[9.5px]" style={{ color: TEXT_LIGHT, fontWeight: 600, marginTop: '1px' }}>
+                          <div className="text-[12px] font-bold" style={{ color: '#8B8878', letterSpacing: '0.08em' }}>{mch.k}</div>
+                          <div className="num text-[12px]" style={{ color: TEXT_LIGHT, fontWeight: 600, marginTop: '1px' }}>
                             {mch.grad ? `${fmt0(mch.v)}/${fmt0(mch.g)}` : `de ${fmt0(mch.g)} ${mch.u}`}
                           </div>
                         </div>
@@ -6519,7 +6519,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     ))}
                   </div>
                   {v2 && !entries.length && (
-                    <div data-macros-luego className="text-[11.5px] text-center" style={{ color: TEXT_LIGHT, marginTop: '8px' }}>Proteína, carbos y grasas aparecen con tu primera comida.</div>
+                    <div data-macros-luego className="text-[12px] text-center" style={{ color: TEXT_LIGHT, marginTop: '8px' }}>Proteína, carbos y grasas aparecen con tu primera comida.</div>
                   )}
                 </>
               )}
@@ -6548,9 +6548,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                     <tl.icon size={18} strokeWidth={tl.ink ? 2.3 : 2} style={{ color: tl.ink || '#FFF' }} />
                   </div>
                   {tl.badge > 0 && (
-                    <span className="absolute rounded-full text-[10px] font-bold grid place-items-center" style={{ top: '8px', right: '14px', background: DANGER, color: '#FFF', minWidth: '17px', height: '17px', padding: '0 4px' }}>{tl.badge}</span>
+                    <span className="absolute rounded-full text-[12px] font-bold grid place-items-center" style={{ top: '8px', right: '14px', background: DANGER, color: '#FFF', minWidth: '17px', height: '17px', padding: '0 4px' }}>{tl.badge}</span>
                   )}
-                  <div className="text-[11.5px] font-bold" style={{ color: '#3A3A34' }}>{tl.label}</div>
+                  <div className="text-[12px] font-bold" style={{ color: '#3A3A34' }}>{tl.label}</div>
                 </button>
               ))}
             </div>
@@ -6566,6 +6566,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   setTimeout(() => { const api = inputApiRef.current; if (api) { api.setText(`${m.nombre}: `); api.focus && api.focus(); } }, 80);
                 }}
                 alDictar={() => { haptic(8); setTab('chat'); startVoice(); }}
+                ayer={(() => { const d = new Date(); d.setDate(d.getDate() - 1); return historyDetail[getLocalDate(d)] || []; })()}
+                alRepetir={(lista) => {
+                  haptic(12);
+                  const hora = new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+                  const nuevas = lista.map((e, i) => ({ ...e, id: Date.now() + i, time: hora, rawInput: 'repetido de ayer' }));
+                  setEntries(e => [...e, ...nuevas]);
+                  setMessages(m => [...m, ...nuevas.map(n => ({ role: 'assistant', content: 'logged', isLogged: true, entryId: n.id, quantityWarning: null, ts: Date.now() }))]);
+                }}
                 debajo={<InvitaReceta entries={entries} goals={goals} consumed={totals}
                   alAbrir={(id, slot) => abrirRecetarioEn({ id, slot })} />} />
             ) : (<>
@@ -6589,7 +6597,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   <div key={e.id} className="rounded-[28px] px-4 py-3.5" style={{ background: 'rgba(255,255,255,0.93)', boxShadow: '0 1px 0 rgba(255,255,255,0.95) inset, 0 10px 30px rgba(96,102,72,0.11), 0 2px 6px rgba(96,102,72,0.06)' }}>
                     <div className="flex items-baseline justify-between">
                       <span className="text-[12.5px] font-extrabold" style={{ color: ACCENT_DARK, letterSpacing: '0.06em' }}>{e.meal || 'comida'}{e.time ? <span style={{ color: TEXT_LIGHT, fontWeight: 600, marginLeft: '6px', textTransform: 'none', letterSpacing: 0 }}>{e.time}</span> : null}</span>
-                      <span className="num text-[14px] font-extrabold" style={{ color: TEXT }}>{Math.round(e.kcal)} <span className="text-[10px] font-semibold" style={{ color: TEXT_LIGHT }}>kcal</span></span>
+                      <span className="num text-[14px] font-extrabold" style={{ color: TEXT }}>{Math.round(e.kcal)} <span className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>kcal</span></span>
                     </div>
                     <div className="mt-2 space-y-1">
                       {(e.items || []).map((it, i) => (
@@ -6599,7 +6607,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                         </div>
                       ))}
                     </div>
-                    <div className="flex gap-3 mt-2.5 pt-2.5 text-[11px] font-bold num" style={{ borderTop: '1px solid rgba(138,149,88,0.14)' }}>
+                    <div className="flex gap-3 mt-2.5 pt-2.5 text-[12px] font-bold num" style={{ borderTop: '1px solid rgba(138,149,88,0.14)' }}>
                       <span style={{ color: C_PROTEIN }}>P {fmt1(e.p)}g</span>
                       <span style={{ color: '#B98A12' }}>C {fmt1(e.c)}g</span>
                       <span style={{ color: C_FAT }}>G {fmt1(e.g)}g</span>
@@ -6617,9 +6625,9 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         {/* Visual nueva: la firma va solo en el Dash y en «Acerca del programa». */}
         <div data-firma-vieja style={{ margin: '10px 0 0', padding: '14px 2px 6px', textAlign: 'left', display: v2Activa() ? 'none' : undefined }}>
               <div style={{ width: 28, height: 1, background: BORDER, margin: '14px 0 10px' }} />
-              <div style={{ fontSize: '11.5px', fontWeight: 600, letterSpacing: '-.01em', color: TEXT_MUTED }}>Mauro Morón</div>
-              <div style={{ fontSize: '10px', fontWeight: 400, letterSpacing: '.01em', color: TEXT_LIGHT, margin: '2px 0 0' }}>ISSA Certified Fitness &amp; Nutrition Coach</div>
-              <div style={{ fontSize: '9.5px', color: TEXT_LIGHT, opacity: 0.75, margin: '12px 0 0' }}>© 2026 · Acceso personal e intransferible</div>
+              <div style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '-.01em', color: TEXT_MUTED }}>Mauro Morón</div>
+              <div style={{ fontSize: '12px', fontWeight: 400, letterSpacing: '.01em', color: TEXT_LIGHT, margin: '2px 0 0' }}>ISSA Certified Fitness &amp; Nutrition Coach</div>
+              <div style={{ fontSize: '12px', color: TEXT_LIGHT, opacity: 0.75, margin: '12px 0 0' }}>© 2026 · Acceso personal e intransferible</div>
         </div>
           </div>
         </div>
@@ -6860,7 +6868,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                   }} />
                 )}
               </span>
-              <span className="text-[10.5px] font-bold" style={{ letterSpacing: '0.01em' }}>Aprende</span>
+              <span className="text-[12px] font-bold" style={{ letterSpacing: '0.01em' }}>Aprende</span>
               {learningPend > 0 && !showLearning && (
                 <span className="sr-only">{learningPend} sin leer</span>
               )}
@@ -6940,7 +6948,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           }}
           title="Recordatorios de tu coach pendientes">
           <Bell size={18} strokeWidth={2.4} style={{ color: '#6B4E05' }} />
-          <span className="absolute rounded-full text-[10px] font-bold flex items-center justify-center"
+          <span className="absolute rounded-full text-[12px] font-bold flex items-center justify-center"
             style={{ top: '-4px', right: '-4px', background: '#C75A4A', color: '#FFF', minWidth: '18px', height: '18px', padding: '0 4px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
             {coachReminders.filter(r => !r.done_at).length}
           </span>
@@ -7007,7 +7015,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 </div>
               ) : (
               <div>
-                <div className="text-[11px] font-semibold" style={{ color: ACCENT }}>Acciones</div>
+                <div className="text-[12px] font-semibold" style={{ color: ACCENT }}>Acciones</div>
                 <div className="text-[15px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>¿Qué quieres hacer?</div>
               </div>
               )}
@@ -7090,7 +7098,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               {grupos.map(g => (
               <div key={g.titulo}>
                 <div className="flex items-center gap-2 mb-1.5 px-1">
-                  <span className="text-[11px] font-bold" style={{ color: TEXT_MUTED }}>{g.titulo}</span>
+                  <span className="text-[12px] font-bold" style={{ color: TEXT_MUTED }}>{g.titulo}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {g.items.map(it => (
@@ -7514,11 +7522,11 @@ function NovedadesModal({ items, onTerminar }) {
                   <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z" fill="#C4D19A" />
                 </svg>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, color: '#C4D19A', whiteSpace: 'nowrap',
+                  fontSize: 12, fontWeight: 700, color: '#C4D19A', whiteSpace: 'nowrap',
                 }}>Algo nuevo para ti</span>
               </span>
               {total > 1 && (
-                <span className="num" style={{ fontSize: 11, color: 'rgba(255,255,255,.45)' }}>{i + 1} / {total}</span>
+                <span className="num" style={{ fontSize: 12, color: 'rgba(255,255,255,.45)' }}>{i + 1} / {total}</span>
               )}
             </div>
 
@@ -7602,7 +7610,7 @@ function CloudConsentModal({ onAccept, onDecline }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
       <div className="w-full max-w-md p-6 rounded-3xl" style={{ background: SURFACE, border: `1px solid ${BORDER}`, fontFamily: FONT_UI }}>
-        <div className="text-[11.5px] font-semibold mb-2" style={{ color: ACCENT }}>Tu progreso a salvo</div>
+        <div className="text-[12px] font-semibold mb-2" style={{ color: ACCENT }}>Tu progreso a salvo</div>
         <div className="text-[18px] font-bold mb-3" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
           Guardá tu progreso en la nube
         </div>
@@ -7612,7 +7620,7 @@ function CloudConsentModal({ onAccept, onDecline }) {
         <div className="text-[13px] mb-3 leading-relaxed" style={{ color: TEXT_MUTED }}>
           Vas a poder consultar tus tableros de desempeño desde cualquier dispositivo. Y tu coach podrá ver tu progreso en vivo para acompañarte mejor.
         </div>
-        <div className="text-[11px] mb-5 leading-relaxed" style={{ color: TEXT_LIGHT }}>
+        <div className="text-[12px] mb-5 leading-relaxed" style={{ color: TEXT_LIGHT }}>
           Tus datos se guardan en servidores seguros y se usan únicamente para mostrarte tu progreso y para que tu coach te acompañe. No compartimos tu información con terceros. Al tocar Aceptar autorizas su tratamiento con esos fines. Puedes seguir usando la app sin aceptar, pero tus datos solo quedarán en este teléfono.
         </div>
         <div className="flex gap-2">
@@ -7775,7 +7783,7 @@ const InputBar = memo(function InputBar({
             responde con la comida y se corrige ahí si hace falta. */}
         {!v2Activa() && text.trim() && !text.toLowerCase().match(/desayuno|almuerzo|cena|snack|reiniciar|cambiar|resumen|semanal|calendario|favoritos|proporciones|agua|cuántas|cuanto|cuánto/) && (
           <div className="flex justify-center mb-2">
-            <div className="text-[11px] px-3 py-1.5 rounded-full" style={{
+            <div className="text-[12px] px-3 py-1.5 rounded-full" style={{
               // Opaca y con sombra: antes iba al 37% de opacidad sobre la
               // zona transparente de la barra, así que los mensajes del chat
               // se transparentaban por detrás y no se leía ni una cosa ni la
@@ -7949,11 +7957,11 @@ function CompactMacro({ val, goal, color, label, unit = '' }) {
           </g>
           </>)}
         </svg>
-        <div className="absolute inset-0 grid place-items-center text-[8px] font-bold" style={{ color: TEXT_LIGHT }}>{label}</div>
+        <div className="absolute inset-0 grid place-items-center text-[12px] font-bold" style={{ color: TEXT_LIGHT }}>{label}</div>
       </div>
       <div className="num whitespace-nowrap leading-none">
-        <span className="text-[11.5px]" style={{ fontWeight: 600, color: over ? DANGER_SOFT : TEXT, letterSpacing: '-0.01em' }}>{Math.round(val)}</span>
-        <span className="text-[9px] font-medium" style={{ color: TEXT_LIGHT }}>/{Math.round(goal)}{unit}</span>
+        <span className="text-[12px]" style={{ fontWeight: 600, color: over ? DANGER_SOFT : TEXT, letterSpacing: '-0.01em' }}>{Math.round(val)}</span>
+        <span className="text-[12px] font-medium" style={{ color: TEXT_LIGHT }}>/{Math.round(goal)}{unit}</span>
       </div>
     </div>
   );
@@ -7995,9 +8003,9 @@ function GlassRing({ val, goal, color, label, unit = 'g' }) {
         </g>
         </>)}
         <text x={center} y={center - 1} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 700, fontSize: 20, fill: goal > 0 && val > goal * 1.05 ? DANGER_SOFT : TEXT, letterSpacing: '-0.02em' }}>{Math.round(val)}</text>
-        <text x={center} y={center + 13} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 10.5, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
+        <text x={center} y={center + 13} textAnchor="middle" dominantBaseline="middle" className="num" style={{ fontWeight: 500, fontSize: 12, fill: TEXT_LIGHT }}>/{goal}{unit}</text>
       </svg>
-      <div className="text-[11px] mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.03em' }}>
+      <div className="text-[12px] mt-2 font-semibold text-center truncate w-full" style={{ color: TEXT_MUTED, letterSpacing: '0.03em' }}>
         {label}
       </div>
     </div>
@@ -8151,7 +8159,7 @@ function PaymentNotice({ info, style, v2 = false }) {
           <CreditCard size={17} strokeWidth={2.1} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {meses > 1 ? `${meses} MENSUALIDADES PENDIENTES` : 'MENSUALIDAD PENDIENTE'}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 1, minWidth: 0 }}>
@@ -8192,7 +8200,7 @@ function PaymentNotice({ info, style, v2 = false }) {
           {fmtMonto(total, info.moneda)}
         </div>
       ) : null}
-      <div className="text-[11.5px]" style={{ color: TEXT_MUTED, lineHeight: 1.45, marginTop: total ? '3px' : 0 }}>
+      <div className="text-[12px]" style={{ color: TEXT_MUTED, lineHeight: 1.45, marginTop: total ? '3px' : 0 }}>
         {meses > 1
           ? <>Es el total acumulado de tu programa. Cuando lo pongas al día, este aviso desaparece solo.</>
           : <>{textoCorte(info)} Al registrar el pago, este aviso desaparece solo.</>}
@@ -8331,7 +8339,7 @@ function queryDeItems(options = []) {
 function AvisoCalculo({ texto }) {
   const [mas, setMas] = useState(false);
   return (
-    <div data-aviso-calculo className="mt-3 pt-2.5 border-t text-[10.5px]" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
+    <div data-aviso-calculo className="mt-3 pt-2.5 border-t text-[12px]" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT, lineHeight: 1.5 }}>
       Cálculo orientativo · tu coach es quien ajusta tu plan.{' '}
       {mas ? <span>{texto}</span> : (
         <button type="button" onClick={() => setMas(true)} style={{ border: 0, background: 'none', padding: 0, fontFamily: 'inherit', fontSize: 'inherit', color: TEXT_MUTED, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>Más</button>
@@ -8352,7 +8360,7 @@ function NotaRecetario({ onAbrir, query = '', v2 = v2Activa() }) {
       background: v2 ? '#F4F1EB' : `linear-gradient(135deg, ${ACCENT_PASTEL}50, rgba(255,255,255,0.25))`,
       border: '1px solid rgba(255,255,255,0.6)',
     }}>
-      <div className="text-[11.5px]" style={{ color: TEXT, lineHeight: 1.55 }}>
+      <div className="text-[12px]" style={{ color: TEXT, lineHeight: 1.55 }}>
         {larga ? <>
           Esto son <strong>proporciones con tus ingredientes registrados</strong> — lo que ya comes, en las cantidades que cuadran tu meta.
           Aparte, está el <strong>Recetario</strong>: platos completos con su paso a paso, algunos con estos mismos ingredientes y otros con ingredientes distintos.
@@ -8361,7 +8369,7 @@ function NotaRecetario({ onAbrir, query = '', v2 = v2Activa() }) {
       <div className="mt-2.5 flex items-center gap-2 flex-wrap">
         {query && <BotonRecetario v2={v2} label="Recetas con esto" onClick={() => onAbrir({ query })} />}
         <button onClick={() => onAbrir({})}
-          className="px-3 py-1.5 rounded-full text-[11.5px] font-semibold active:scale-95 transition"
+          className="px-3 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
           style={{ background: 'rgba(255,255,255,0.85)', color: TEXT, boxShadow: '0 2px 8px rgba(60,70,50,0.10)' }}>
           Ver todo el recetario
         </button>
@@ -8394,7 +8402,7 @@ const CSS_CHAT_V2 = `
    y una jerarquía clara — etiqueta verde en mayúscula, título grande, texto
    legible y lo secundario en gris. Sin oliva. */
 [data-chat-v2] .fade-up > .rounded-\\[22px\\] { padding: 12px 14px !important; line-height: 1.38 !important; font-size: 14.5px !important; }
-[data-chat-v2] .fade-up > .rounded-\\[22px\\] .text-\\[11\\.5px\\].font-semibold { font-size: 11.5px !important; font-weight: 800 !important; letter-spacing: .07em !important; text-transform: uppercase; color: #2F7F45 !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] .text-\\[11\\.5px\\].font-semibold { font-size: 12px !important; font-weight: 800 !important; letter-spacing: .07em !important; text-transform: uppercase; color: #2F7F45 !important; }
 [data-chat-v2] .fade-up > .rounded-\\[22px\\] :is(.text-\\[10px\\], .text-\\[10\\.5px\\], .text-\\[11px\\], .text-\\[12px\\]) { font-size: 12.5px !important; line-height: 1.38 !important; }
 [data-chat-v2] .fade-up > .rounded-\\[22px\\] :is(.text-xs, .text-\\[12\\.5px\\], .text-\\[13px\\]) { font-size: 14px !important; line-height: 1.38 !important; }
 [data-chat-v2] .fade-up > .rounded-\\[22px\\] .text-base { font-size: 19px !important; font-weight: 800 !important; letter-spacing: -0.02em; }
@@ -8430,7 +8438,7 @@ function TarjetaComidaV2({ e, isHistorical, goals, totals, quantityWarning, esFa
       <div data-tarjeta-comida style={{ width: '100%', maxWidth: '92%', background: '#FFFFFF', borderRadius: '20px 20px 20px 6px', padding: '12px 14px 12px',
         boxShadow: '0 1px 2px rgba(40,40,30,0.05), 0 6px 18px rgba(60,60,40,0.07)', fontFamily: 'inherit', lineHeight: 1.25 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal}</span>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal}</span>
           <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{e.time}</span>
           <span style={{ flex: 1 }} />
           {onFavorite && <button onClick={() => onFavorite(e)} style={boton} aria-label={esFavorita ? 'Ya está en favoritos' : 'Guardar en favoritos'}><Star size={15} style={{ color: esFavorita ? C_CARBS : TEXT_LIGHT, fill: esFavorita ? C_CARBS : 'none' }} /></button>}
@@ -8455,7 +8463,7 @@ function TarjetaComidaV2({ e, isHistorical, goals, totals, quantityWarning, esFa
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 650, color: TEXT }}>
                   {it.name}{it.amount ? <span style={{ fontWeight: 500, color: TEXT_MUTED }}> · {it.amount}</span> : null}
-                  {it.needs_quantity && <span style={{ fontSize: 11.5, fontWeight: 700, color: WARN }}> · estimado</span>}
+                  {it.needs_quantity && <span style={{ fontSize: 12, fontWeight: 700, color: WARN }}> · estimado</span>}
                 </span>
                 <span className="num" style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_MUTED, flex: 'none' }}>{it.kcal} kcal</span>
               </div>
@@ -8535,7 +8543,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             <div className="flex items-center justify-center rounded-[9px]" style={{ width: 22, height: 22, background: v2 ? ACCENT : `linear-gradient(135deg, #A9B87B, #6E7B45)` }}>
               <BookOpen size={12} strokeWidth={2.3} style={{ color: '#FFF' }} />
             </div>
-            <span className="text-[11.5px] font-bold" style={{ color: ACCENT_DARK }}>
+            <span className="text-[12px] font-bold" style={{ color: ACCENT_DARK }}>
               Recetario
             </span>
           </div>
@@ -8545,7 +8553,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
               <div className="text-[13.5px] mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>
                 Dime uno o dos ingredientes que tengas a mano — "pollo y arroz", "huevos", "salmón" — y te muestro las recetas que encajan con tu meta.
               </div>
-              <div className="text-[11.5px] mb-3" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+              <div className="text-[12px] mb-3" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
                 O ábrelo y míralas todas{totalRecetario ? ` (${totalRecetario})` : ''}: puedes buscar por receta o por ingrediente, filtrar por comida y ver el paso a paso.
               </div>
               <BotonRecetario v2={v2} label={totalRecetario ? `Ver las ${totalRecetario} recetas` : 'Abrir el Recetario'} onClick={() => abrir({})} />
@@ -8573,11 +8581,11 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                     <span className="flex items-center justify-center rounded-[13px] flex-shrink-0" style={{ width: 42, height: 42, background: ACCENT_PASTEL + '70', fontSize: 21, color: ACCENT_DARK }}>{v2 ? <ChefHatV2 size={21} weight="regular" /> : r.icon}</span>
                     <span className="flex-1 min-w-0">
                       <span className="block text-[13.5px] font-bold truncate" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{r.name}</span>
-                      <span className="block text-[10.5px] mt-0.5" style={{ color: TEXT_LIGHT }}>{r.slot} · {r.time}</span>
-                      <span className="block text-[11px] mt-1 num" style={{ color: TEXT_MUTED }}>
+                      <span className="block text-[12px] mt-0.5" style={{ color: TEXT_LIGHT }}>{r.slot} · {r.time}</span>
+                      <span className="block text-[12px] mt-1 num" style={{ color: TEXT_MUTED }}>
                         {r.kcal} kcal · <span style={{ color: C_PROTEIN }}>P{r.p}</span> <span style={{ color: C_CARBS_TEXTO }}>C{r.c}</span> <span style={{ color: C_FAT }}>G{r.g}</span>
                       </span>
-                      <span className="block text-[10.5px] mt-1 truncate" style={{ color: TEXT_LIGHT }}>
+                      <span className="block text-[12px] mt-1 truncate" style={{ color: TEXT_LIGHT }}>
                         Lleva: {r.ing.join(', ')}{r.nIng > r.ing.length ? '…' : ''}
                       </span>
                     </span>
@@ -8590,12 +8598,12 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                   label={nMas > 0 ? `Ver las otras ${nMas}` : (totalRecetario ? `Ver las ${totalRecetario} recetas` : 'Abrir el Recetario')}
                   onClick={() => abrir(nMas > 0 ? { query: consulta, slot: slotKey } : {})} />
                 {nMas > 0 && totalRecetario && (
-                  <button onClick={() => abrir({})} className="text-[11.5px] font-semibold underline underline-offset-2" style={{ color: TEXT_MUTED }}>
+                  <button onClick={() => abrir({})} className="text-[12px] font-semibold underline underline-offset-2" style={{ color: TEXT_MUTED }}>
                     o las {totalRecetario} completas
                   </button>
                 )}
               </div>
-              <div className="mt-3 pt-2.5 text-[10.5px]" style={{ borderTop: `1px solid ${BORDER_SOFT}`, color: TEXT_LIGHT, lineHeight: 1.5 }}>
+              <div className="mt-3 pt-2.5 text-[12px]" style={{ borderTop: `1px solid ${BORDER_SOFT}`, color: TEXT_LIGHT, lineHeight: 1.5 }}>
                 Son ideas, no las registré. Cada receta viene con su paso a paso y su porción ajustada a tu meta — desde ahí la registras con un toque. O dímelo por aquí y la anoto.
               </div>
             </>
@@ -8615,7 +8623,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Star size={14} style={{ color: ACCENT_DARK }} />
-            <span className="text-[11px] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
+            <span className="text-[12px] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
           </div>
           {alreadyAdded ? (
             <div className="text-[13px]" style={{ color: TEXT, lineHeight: 1.5 }}>
@@ -8654,7 +8662,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
         }}>
           <div className="flex items-center gap-2 mb-2">
             <ChefHat size={14} style={{ color: ACCENT_DARK }} />
-            <span className="text-[11px] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
+            <span className="text-[12px] font-bold" style={{ color: ACCENT_DARK }}>Sugerencia</span>
           </div>
           <div className="text-[13px] mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>{message.content}</div>
           <div className="flex gap-2">
@@ -8715,7 +8723,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
         }}>
           <div className="flex items-center gap-1.5 mb-1.5">
             <Megaphone size={13} strokeWidth={2.2} style={{ color: tone.icon }} />
-            <span className="text-[11px] font-bold" style={{ color: tone.ink }}>
+            <span className="text-[12px] font-bold" style={{ color: tone.ink }}>
               {message.tag || 'Aviso'}
             </span>
           </div>
@@ -8755,7 +8763,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
         }}>
           <div className="flex items-center gap-1.5 mb-2">
             <Star size={13} strokeWidth={2.2} style={{ color: C_CARBS_TEXTO, fill: C_CARBS }} />
-            <span className="text-[11px] font-bold" style={{ color: C_CARBS_TEXTO }}>
+            <span className="text-[12px] font-bold" style={{ color: C_CARBS_TEXTO }}>
               Guardado en favoritos · no cuenta en tu día
             </span>
           </div>
@@ -8769,7 +8777,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             <span style={{ color: C_CARBS_TEXTO }}>C {Math.round(d.c || 0)}g</span>
             <span style={{ color: C_FAT }}>G {Math.round(d.g || 0)}g</span>
           </div>
-          <div className="text-[11px]" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
+          <div className="text-[12px]" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
             {d.removedFromDay ? 'La saqué de tu contador del día — tus totales ya no la incluyen. ' : ''}
             Quedó como receta en Herramientas → Menús favoritos (ahí puedes renombrarla).
           </div>
@@ -8820,7 +8828,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Info size={12} style={{ color: ACCENT }} />
-            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT }}>Consulta nutricional</span>
+            <span className="text-[12px] font-semibold" style={{ color: ACCENT }}>Consulta nutricional</span>
           </div>
           <div className="text-base font-semibold mb-1" style={{ color: TEXT }}>{d.food}</div>
           <div className="text-xs num mb-2" style={{ color: TEXT_LIGHT }}>{d.amount}</div>
@@ -8830,7 +8838,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(d.c)}g</span>
             <span style={{ color: C_FAT }}>G {fmt1(d.g)}g</span>
           </div>
-          <div className="mt-2 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
+          <div className="mt-2 text-[12px] italic" style={{ color: TEXT_LIGHT }}>
             Consulta informativa — no se registra.
           </div>
         </div>
@@ -8850,7 +8858,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={12} style={{ color: ACCENT }} />
-            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT }}>Análisis y ajuste sugerido</span>
+            <span className="text-[12px] font-semibold" style={{ color: ACCENT }}>Análisis y ajuste sugerido</span>
           </div>
           {d.summary && (
             <div className="text-[13px] mb-3 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
@@ -8874,9 +8882,9 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
               };
               return (
                 <div key={idx} className="p-3 rounded-xl" style={{ background: SURFACE_2, boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 3px 12px rgba(60,70,50,0.08)' }}>
-                  <div className="text-[11.5px] font-semibold mb-1" style={{ color: TEXT_MUTED }}>{a.meal || 'comida'}</div>
+                  <div className="text-[12px] font-semibold mb-1" style={{ color: TEXT_MUTED }}>{a.meal || 'comida'}</div>
                   {a.original_summary && (
-                    <div className="text-[11px] mb-1.5" style={{ color: TEXT_LIGHT }}>Original: {a.original_summary}</div>
+                    <div className="text-[12px] mb-1.5" style={{ color: TEXT_LIGHT }}>Original: {a.original_summary}</div>
                   )}
                   <div className="text-[12px] font-semibold mb-1" style={{ color: TEXT }}>Sugerido:</div>
                   <ul className="text-[12px] mb-2 space-y-0.5" style={{ color: TEXT }}>
@@ -8884,18 +8892,18 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                       <li key={j}>• {it.name}{it.amount ? ` — ${it.amount}` : ''}</li>
                     ))}
                   </ul>
-                  <div className="flex gap-3 text-[11px] num mb-2">
+                  <div className="flex gap-3 text-[12px] num mb-2">
                     <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(totalK)} kcal</span>
                     <span style={{ color: C_PROTEIN }}>P {fmt1(totalP)}</span>
                     <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(totalC)}</span>
                     <span style={{ color: C_FAT }}>G {fmt1(totalG)}</span>
                   </div>
                   {a.change_note && (
-                    <div className="text-[11px] italic mb-2" style={{ color: TEXT_MUTED }}>{a.change_note}</div>
+                    <div className="text-[12px] italic mb-2" style={{ color: TEXT_MUTED }}>{a.change_note}</div>
                   )}
                   {items.length > 0 && onFavorite && (
                     <button onClick={() => onFavorite(entryShaped)}
-                      className="text-[11px] font-semibold py-1.5 px-3 rounded-full"
+                      className="text-[12px] font-semibold py-1.5 px-3 rounded-full"
                       style={{ background: ACCENT, color: '#fff' }}>
                       Guardar como favorito
                     </button>
@@ -8906,8 +8914,8 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           </div>
           {(after.kcal || after.p || after.c || after.g) && (
             <div className="mt-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
-              <div className="text-[11px] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Quedarías hoy en</div>
-              <div className="flex gap-3 text-[11px] num">
+              <div className="text-[12px] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Quedarías hoy en</div>
+              <div className="flex gap-3 text-[12px] num">
                 <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(after.kcal)} kcal</span>
                 <span style={{ color: C_PROTEIN }}>P {fmt1(after.p)}</span>
                 <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(after.c)}</span>
@@ -8916,9 +8924,9 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             </div>
           )}
           {d.tip && (
-            <div className="mt-3 text-[11px] italic leading-relaxed" style={{ color: TEXT_MUTED }}>{v2 ? '' : '💡 '}{d.tip}</div>
+            <div className="mt-3 text-[12px] italic leading-relaxed" style={{ color: TEXT_MUTED }}>{v2 ? '' : '💡 '}{d.tip}</div>
           )}
-          <div className="mt-3 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
+          <div className="mt-3 text-[12px] italic" style={{ color: TEXT_LIGHT }}>
             Solo aprendizaje — no se modifica tu registro de hoy.
           </div>
         </div>
@@ -8943,7 +8951,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
         }}>
           <div className="flex items-center gap-2 mb-2">
             <Star size={12} style={{ color: C_CARBS_TEXTO }} />
-            <span className="text-[11.5px] font-semibold" style={{ color: C_CARBS_TEXTO }}>Ajuste de tus favoritos</span>
+            <span className="text-[12px] font-semibold" style={{ color: C_CARBS_TEXTO }}>Ajuste de tus favoritos</span>
           </div>
           {d.summary && (
             <div className="text-[13px] mb-2 leading-relaxed" style={{ color: TEXT }}>{d.summary}</div>
@@ -8955,13 +8963,13 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           )}
           {(current.kcal || goal.kcal) && (
             <div className="mb-3 p-2.5 rounded-lg" style={{ background: SURFACE_2, boxShadow: '0 1px 0 rgba(255,255,255,0.85) inset, 0 3px 12px rgba(60,70,50,0.08)' }}>
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="grid grid-cols-2 gap-2 text-[12px]">
                 <div>
-                  <div className="text-[11px]" style={{ color: TEXT_LIGHT }}>Suma actual</div>
+                  <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>Suma actual</div>
                   <div className="num" style={{ color: TEXT }}>{fmt0(current.kcal)} kcal · P{fmt1(current.p)} C{fmt1(current.c)} G{fmt1(current.g)}</div>
                 </div>
                 <div>
-                  <div className="text-[11px]" style={{ color: TEXT_LIGHT }}>Meta</div>
+                  <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>Meta</div>
                   <div className="num" style={{ color: TEXT }}>{fmt0(goal.kcal)} kcal · P{fmt1(goal.p)} C{fmt1(goal.c)} G{fmt1(goal.g)}</div>
                 </div>
               </div>
@@ -8991,7 +8999,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                     <span className="text-[12px] font-semibold" style={{ color: TEXT }}>{a.favorite_name || 'Favorito'}</span>
                   </div>
                   {a.original_summary && (
-                    <div className="text-[11px] mb-1.5" style={{ color: TEXT_LIGHT }}>Original: {a.original_summary}</div>
+                    <div className="text-[12px] mb-1.5" style={{ color: TEXT_LIGHT }}>Original: {a.original_summary}</div>
                   )}
                   <div className="text-[12px] font-semibold mb-1" style={{ color: TEXT }}>Versión ajustada:</div>
                   <ul className="text-[12px] mb-2 space-y-0.5" style={{ color: TEXT }}>
@@ -8999,18 +9007,18 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                       <li key={j}>• {it.name}{it.amount ? ` — ${it.amount}` : ''}</li>
                     ))}
                   </ul>
-                  <div className="flex gap-3 text-[11px] num mb-2">
+                  <div className="flex gap-3 text-[12px] num mb-2">
                     <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(totalK)} kcal</span>
                     <span style={{ color: C_PROTEIN }}>P {fmt1(totalP)}</span>
                     <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(totalC)}</span>
                     <span style={{ color: C_FAT }}>G {fmt1(totalG)}</span>
                   </div>
                   {a.change_note && (
-                    <div className="text-[11px] italic mb-2" style={{ color: TEXT_MUTED }}>{a.change_note}</div>
+                    <div className="text-[12px] italic mb-2" style={{ color: TEXT_MUTED }}>{a.change_note}</div>
                   )}
                   {items.length > 0 && onFavorite && (
                     <button onClick={() => onFavorite(entryShaped)}
-                      className="text-[11px] font-semibold py-1.5 px-3 rounded-full"
+                      className="text-[12px] font-semibold py-1.5 px-3 rounded-full"
                       style={{ background: C_CARBS, color: '#fff' }}>
                       Guardar versión ajustada
                     </button>
@@ -9021,8 +9029,8 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           </div>
           {(after.kcal || after.p || after.c || after.g) && (
             <div className="mt-3 pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
-              <div className="text-[11px] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Suma ajustada</div>
-              <div className="flex gap-3 text-[11px] num">
+              <div className="text-[12px] font-semibold mb-1" style={{ color: TEXT_MUTED }}>Suma ajustada</div>
+              <div className="flex gap-3 text-[12px] num">
                 <span style={{ color: ACCENT, fontWeight: 600 }}>{fmt0(after.kcal)} kcal</span>
                 <span style={{ color: C_PROTEIN }}>P {fmt1(after.p)}</span>
                 <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(after.c)}</span>
@@ -9034,7 +9042,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                 const dk = Math.round((after.kcal || 0) - tgt.kcal);
                 const onTarget = Math.abs(dk) <= tgt.kcal * 0.04;
                 return (
-                  <div className="text-[11px] mt-1.5 font-medium" style={{ color: onTarget ? SUCCESS : WARN }}>
+                  <div className="text-[12px] mt-1.5 font-medium" style={{ color: onTarget ? SUCCESS : WARN }}>
                     {onTarget ? '✓ Cuadra con el objetivo' : `${dk > 0 ? '+' : ''}${dk} kcal vs objetivo (${fmt0(tgt.kcal)})`}
                   </div>
                 );
@@ -9042,9 +9050,9 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             </div>
           )}
           {d.tip && (
-            <div className="mt-3 text-[11px] italic leading-relaxed" style={{ color: TEXT_MUTED }}>{v2 ? '' : '💡 '}{d.tip}</div>
+            <div className="mt-3 text-[12px] italic leading-relaxed" style={{ color: TEXT_MUTED }}>{v2 ? '' : '💡 '}{d.tip}</div>
           )}
-          <div className="mt-3 text-[10px] italic" style={{ color: TEXT_LIGHT }}>
+          <div className="mt-3 text-[12px] italic" style={{ color: TEXT_LIGHT }}>
             Propuesta visual — tus favoritos originales siguen guardados intactos.
           </div>
         </div>
@@ -9081,8 +9089,8 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
               <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
                 <CheckCircle2 size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
               </div>
-              <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
-              <span className="text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
+              <span className="text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
+              <span className="text-[12px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
             </div>
             <div className="flex gap-1">
               {(() => { const isFav = favoriteSignatures && favSignature && favoriteSignatures.has(favSignature(e)); return (
@@ -9104,7 +9112,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           </div>
 
           {message.quantityWarning && (
-            <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[11px]" style={{
+            <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[12px]" style={{
               background: '#FBF1E5', color: WARN
             }}>
               <Info size={12} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -9121,14 +9129,14 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                 <div className="flex justify-between gap-3">
                   <span style={{ color: TEXT }}>
                     {it.name}{it.amount ? ` · ${it.amount}` : ''}
-                    {it.needs_quantity && <span className="ml-1 text-[10px]" style={{ color: WARN }}>· estimado</span>}
+                    {it.needs_quantity && <span className="ml-1 text-[12px]" style={{ color: WARN }}>· estimado</span>}
                   </span>
                   <span className="num" style={{ color: TEXT_LIGHT }}>{it.kcal} kcal</span>
                 </div>
                 {/* Macros por ingrediente: en comidas de varios alimentos el
                     total no deja ver QUÉ aporta cada cosa — con esto el
                     cliente aprende y sabe qué ajustar. */}
-                <div className="flex gap-2.5 text-[10px] num mt-0.5">
+                <div className="flex gap-2.5 text-[12px] num mt-0.5">
                   <span style={{ color: C_PROTEIN }}>P {fmt1(it.p ?? 0)}g</span>
                   <span style={{ color: C_CARBS_TEXTO }}>C {fmt1(it.c ?? 0)}g</span>
                   <span style={{ color: C_FAT }}>G {fmt1(it.g ?? 0)}g</span>
@@ -9141,14 +9149,14 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
               <span style={{ color: TEXT_MUTED }}>Total comida</span>
               <span className="num font-medium" style={{ color: ACCENT_DARK }}>{Math.round(e.kcal ?? 0)} kcal</span>
             </div>
-            <div className="flex gap-3 text-[10px] mt-1 num">
+            <div className="flex gap-3 text-[12px] mt-1 num">
               <span style={{ color: C_PROTEIN }}>P {Math.round((e.p ?? 0) * 10) / 10}g</span>
               <span style={{ color: C_CARBS_TEXTO }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
               <span style={{ color: C_FAT }}>G {Math.round((e.g ?? 0) * 10) / 10}g</span>
             </div>
           </div>
           {!isHistorical && (
-            <div className="mt-3 pt-3 border-t text-[10px] num" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT }}>
+            <div className="mt-3 pt-3 border-t text-[12px] num" style={{ borderColor: BORDER_SOFT, color: TEXT_LIGHT }}>
               {(() => {
                 const left = Math.round(goals.kcal - totals.kcal);
                 const ratio = totals.kcal / (goals.kcal || 1);
@@ -9190,13 +9198,13 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <ChefHat size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
             </div>
-            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>{mealLabel} · opciones</span>
+            <span className="text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>{mealLabel} · opciones</span>
           </div>
 
           {missingFavorites ? (
             <div className="p-3 rounded-xl text-[12.5px]" style={{ background: ACCENT_PASTEL + '30', color: TEXT, lineHeight: 1.55 }}>
               Para sugerirte opciones con lo que comes habitualmente, necesito que primero configures tus alimentos favoritos en <strong>Mis ingredientes</strong> (desde Herramientas).
-              <div className="mt-2 text-[11.5px]" style={{ color: TEXT_MUTED }}>
+              <div className="mt-2 text-[12px]" style={{ color: TEXT_MUTED }}>
                 Cuanto más completa esté tu lista de ingredientes saludables, mejores opciones puedo darte. Para criterio personalizado, también puedes consultar con tu coach.
               </div>
             </div>
@@ -9206,13 +9214,13 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             </div>
           ) : (
             <>
-              <div className="text-[11.5px] mb-3" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+              <div className="text-[12px] mb-3" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
                 Basándome en los ingredientes que sueles tener, podrías combinar:
               </div>
               <div className="space-y-2.5">
                 {options.map((opt, i) => (
                   <div key={i} className="p-3 rounded-xl" style={{ background: ACCENT_PASTEL + '30', boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 3px 12px rgba(96,102,72,0.10)' }}>
-                    <div className="text-[11px] font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
+                    <div className="text-[12px] font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
                     <div className="space-y-0.5">
                       {opt.items.map((it, j) => (
                         <div key={j} className="text-[12.5px] flex justify-between gap-3">
@@ -9222,7 +9230,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                       ))}
                     </div>
                     {opt.subtotal && (
-                      <div className="text-[10px] pt-1.5 mt-1.5 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
+                      <div className="text-[12px] pt-1.5 mt-1.5 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
                         <span>≈ {Math.round(opt.subtotal.kcal || 0)} kcal</span>
                         <span style={{ color: C_PROTEIN }}>P {Math.round((opt.subtotal.p || 0) * 10) / 10}g</span>
                         <span style={{ color: C_CARBS_TEXTO }}>C {Math.round((opt.subtotal.c || 0) * 10) / 10}g</span>
@@ -9256,7 +9264,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <PieChart size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
             </div>
-            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>Lo que falta hoy</span>
+            <span className="text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>Lo que falta hoy</span>
           </div>
 
           <div className="space-y-1 mb-3">
@@ -9274,13 +9282,13 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             </div>
           ) : options.length > 0 && (
             <>
-              <div className="text-[11px] font-semibold mb-2 mt-1" style={{ color: TEXT_LIGHT }}>
+              <div className="text-[12px] font-semibold mb-2 mt-1" style={{ color: TEXT_LIGHT }}>
                 De tus ingredientes, equivalencias para cubrirlo
               </div>
               <div className="space-y-2.5">
                 {options.map((opt, i) => (
                   <div key={i} className="p-3 rounded-xl" style={{ background: ACCENT_PASTEL + '30', boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 3px 12px rgba(96,102,72,0.10)' }}>
-                    <div className="text-[11px] font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
+                    <div className="text-[12px] font-bold mb-1.5" style={{ color: ACCENT_DARK }}>Opción {i + 1}</div>
                     <div className="space-y-0.5">
                       {opt.items.map((it, j) => (
                         <div key={j} className="text-[12px] flex justify-between gap-3">
@@ -9290,7 +9298,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                       ))}
                     </div>
                     {opt.subtotal && (
-                      <div className="text-[10px] pt-1.5 mt-1.5 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
+                      <div className="text-[12px] pt-1.5 mt-1.5 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
                         <span>≈ {Math.round(opt.subtotal.kcal || 0)} kcal</span>
                         <span style={{ color: C_PROTEIN }}>P {Math.round((opt.subtotal.p || 0) * 10) / 10}g</span>
                         <span style={{ color: C_CARBS_TEXTO }}>C {Math.round((opt.subtotal.c || 0) * 10) / 10}g</span>
@@ -9327,8 +9335,8 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
               <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
                 <CheckCircle2 size={11} style={{ color: ACCENT_DARK }} strokeWidth={2.2} />
               </div>
-              <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal} actualizado</span>
-              <span className="text-[10px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
+              <span className="text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal} actualizado</span>
+              <span className="text-[12px]" style={{ color: TEXT_LIGHT }}>{e.time}</span>
             </div>
             <div className="flex gap-1">
               {(() => { const isFav = favoriteSignatures && favSignature && favoriteSignatures.has(favSignature(e)); return (
@@ -9347,7 +9355,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
 
           {/* Confirmation banner: makes "this was added to existing meal" obvious */}
           {onSeparateAppended && (
-            <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[11px]" style={{ background: ACCENT_PASTEL + '40', boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 3px 12px rgba(96,102,72,0.10)' }}>
+            <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[12px]" style={{ background: ACCENT_PASTEL + '40', boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 3px 12px rgba(96,102,72,0.10)' }}>
               <Info size={12} style={{ color: ACCENT_DARK, flexShrink: 0, marginTop: 1 }} />
               <div style={{ color: ACCENT_DARK, lineHeight: 1.4 }}>
                 Sumé esto a tu <strong>{e.meal} de las {e.time}</strong>. Si era una comida nueva, sepárala con el botón de abajo.
@@ -9356,13 +9364,13 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           )}
 
           {message.quantityWarning && (
-            <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[11px]" style={{ background: '#FBF1E5', color: WARN }}>
+            <div className="mb-3 p-2.5 rounded-xl flex items-start gap-2 text-[12px]" style={{ background: '#FBF1E5', color: WARN }}>
               <Info size={12} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>{message.quantityWarning}</span>
             </div>
           )}
 
-          <div className="text-[11px] font-semibold mb-1.5" style={{ color: ACCENT_DARK }}>
+          <div className="text-[12px] font-semibold mb-1.5" style={{ color: ACCENT_DARK }}>
             Sumé estos {added.length === 1 ? 'ítem' : 'ítems'}
           </div>
           <div className="space-y-1 mb-3 p-2.5 rounded-xl" style={{ background: ACCENT_PASTEL + '30' }}>
@@ -9374,7 +9382,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             ))}
           </div>
 
-          <div className="text-[11px] font-semibold mb-1.5" style={{ color: TEXT_LIGHT }}>
+          <div className="text-[12px] font-semibold mb-1.5" style={{ color: TEXT_LIGHT }}>
             Comida completa
           </div>
           <div className="space-y-1 mb-3">
@@ -9396,7 +9404,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
               <span style={{ color: TEXT_MUTED }}>Nuevo total comida</span>
               <span className="num font-medium" style={{ color: ACCENT_DARK }}>{Math.round(e.kcal ?? 0)} kcal</span>
             </div>
-            <div className="flex gap-3 text-[10px] mt-1 num">
+            <div className="flex gap-3 text-[12px] mt-1 num">
               <span style={{ color: C_PROTEIN }}>P {Math.round((e.p ?? 0) * 10) / 10}g</span>
               <span style={{ color: C_CARBS_TEXTO }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
               <span style={{ color: C_FAT }}>G {Math.round((e.g ?? 0) * 10) / 10}g</span>
@@ -9406,7 +9414,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
           {onSeparateAppended && (
             <button
               onClick={() => onSeparateAppended(e.id, added)}
-              className="mt-3 w-full py-2 rounded-xl text-[11px] font-semibold transition active:scale-[0.98] flex items-center justify-center gap-1.5"
+              className="mt-3 w-full py-2 rounded-xl text-[12px] font-semibold transition active:scale-[0.98] flex items-center justify-center gap-1.5"
               style={{ background: '#FFFFFF', color: TEXT_MUTED, border: `1px dashed ${BORDER}` }}
               title="Si esto era una comida nueva y no un agregado, sepárala">
               <span style={{ fontSize: '12px' }}>↗</span>
@@ -9430,16 +9438,16 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <Sparkles size={11} style={{ color: ACCENT }} />
             </div>
-            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>Proporciones</span>
+            <span className="text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>Proporciones</span>
           </div>
           <div className="space-y-2 mb-3">
             {d.proportions?.map((p, i) => (
               <div key={i} className="flex justify-between gap-3 text-xs">
                 <div>
                   <div style={{ color: TEXT }}>{p.name}</div>
-                  <div className="text-[10px] num" style={{ color: TEXT_LIGHT }}>{p.amount}</div>
+                  <div className="text-[12px] num" style={{ color: TEXT_LIGHT }}>{p.amount}</div>
                 </div>
-                <div className="text-right num text-[10px]" style={{ color: TEXT_MUTED }}>
+                <div className="text-right num text-[12px]" style={{ color: TEXT_MUTED }}>
                   <div>{fmt0(p.kcal)} kcal</div>
                   <div>P{fmt1(p.p)} C{fmt1(p.c)} G{fmt1(p.g)}</div>
                 </div>
@@ -9450,7 +9458,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             <span style={{ color: TEXT_MUTED }}>Total</span>
             <span className="num font-medium" style={{ color: ACCENT_DARK }}>{d.totals?.kcal} kcal</span>
           </div>
-          {d.note && <div className="mt-2 text-[11px] italic" style={{ color: ACCENT_DARK }}>{d.note}</div>}
+          {d.note && <div className="mt-2 text-[12px] italic" style={{ color: ACCENT_DARK }}>{d.note}</div>}
         </div>
       </div>
     );
@@ -9468,7 +9476,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <LineChart size={11} style={{ color: ACCENT_DARK }} />
             </div>
-            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>Detalle del día</span>
+            <span className="text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>Detalle del día</span>
           </div>
           {dayEntries.length === 0 ? (
             <div className="text-xs italic py-2" style={{ color: TEXT_LIGHT }}>Sin comidas registradas hoy.</div>
@@ -9477,21 +9485,21 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
               {dayEntries.map((e, i) => (
                 <div key={i} className="pb-3" style={{ borderBottom: i < dayEntries.length - 1 ? `1px solid ${BORDER_SOFT}` : 'none' }}>
                   <div className="flex justify-between items-baseline mb-1.5">
-                    <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
-                    <span className="text-[10px] num" style={{ color: TEXT_LIGHT }}>{e.time}</span>
+                    <span className="text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal}</span>
+                    <span className="text-[12px] num" style={{ color: TEXT_LIGHT }}>{e.time}</span>
                   </div>
                   <div className="space-y-0.5 mb-1.5">
                     {e.items.map((it, j) => (
                       <div key={j} className="flex justify-between gap-2 text-xs">
                         <span style={{ color: TEXT }}>
                           {it.name}{it.amount ? ` · ${it.amount}` : ''}
-                          {it.needs_quantity && <span className="ml-1 text-[10px]" style={{ color: WARN }}>· estimado</span>}
+                          {it.needs_quantity && <span className="ml-1 text-[12px]" style={{ color: WARN }}>· estimado</span>}
                         </span>
                         <span className="num" style={{ color: TEXT_LIGHT, flexShrink: 0 }}>{it.kcal} kcal</span>
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-3 text-[10px] num">
+                  <div className="flex gap-3 text-[12px] num">
                     <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{Math.round(e.kcal ?? 0)} kcal</span>
                     <span style={{ color: C_PROTEIN }}>P {Math.round((e.p ?? 0) * 10) / 10}g</span>
                     <span style={{ color: C_CARBS_TEXTO }}>C {Math.round((e.c ?? 0) * 10) / 10}g</span>
@@ -9500,7 +9508,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
                 </div>
               ))}
               <div className="pt-2">
-                <div className="text-[11px] font-semibold mb-2" style={{ color: TEXT_LIGHT }}>Total acumulado</div>
+                <div className="text-[12px] font-semibold mb-2" style={{ color: TEXT_LIGHT }}>Total acumulado</div>
                 <div className="space-y-1.5 text-xs">
                   <Row label="Calorías" val={`${fmt0(message.totals.kcal)} / ${fmt0(goals.kcal)}`} diff={goals.kcal - message.totals.kcal} unit="kcal" color={ACCENT} />
                   <Row label="Proteína" val={`${fmt1(message.totals.p)} / ${fmt1(goals.p)}`} diff={goals.p - message.totals.p} unit="g" color={C_PROTEIN} />
@@ -9533,7 +9541,7 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
             <div className="p-1 rounded-full" style={{ background: ACCENT_PASTEL + '60' }}>
               <LineChart size={11} style={{ color: ACCENT_DARK }} />
             </div>
-            <span className="text-[11.5px] font-semibold" style={{ color: ACCENT_DARK }}>Resumen del día</span>
+            <span className="text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>Resumen del día</span>
           </div>
           <div className="space-y-2 text-xs">
             <Row label="Calorías" val={`${fmt0(totals.kcal)} / ${fmt0(goals.kcal)}`} diff={goals.kcal - totals.kcal} unit="kcal" color={ACCENT} />
@@ -9578,7 +9586,7 @@ function Row({ label, val, diff, unit, color }) {
       </div>
       <div className="flex gap-2 items-baseline">
         <span className="num" style={{ color: TEXT }}>{val} {unit}</span>
-        <span className="text-[10px] num" style={{ color: diff >= 0 ? TEXT_LIGHT : WARN }}>
+        <span className="text-[12px] num" style={{ color: diff >= 0 ? TEXT_LIGHT : WARN }}>
           {diff >= 0 ? `−${fmt1(diff)}` : `+${fmt1(Math.abs(diff))}`}
         </span>
       </div>
@@ -9706,7 +9714,7 @@ function ModalHeader({ accent, label, title, onClose }) {
   return (
     <div className="flex items-start justify-between mb-5">
       <div>
-        <div className="font-semibold" style={{ color: accent, fontSize: v2 ? 13 : 11.5 }}>{label}</div>
+        <div className="font-semibold" style={{ color: accent, fontSize: v2 ? 13 : 12 }}>{label}</div>
         <div className="font-bold tracking-tight mt-0.5" style={{ color: TEXT, letterSpacing: '-0.02em', fontSize: v2 ? 24 : 20, fontWeight: v2 ? 800 : 700, lineHeight: 1.15 }}>{title}</div>
       </div>
       <button
@@ -9748,7 +9756,7 @@ function WeeklyModal({ history, goals, onClose }) {
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: BORDER_SOFT }}>
                   <div className="h-full rounded-full" style={{ width: `${pct}%`, background: ACCENT }} />
                 </div>
-                <div className="flex gap-3 mt-1 text-[10px] num">
+                <div className="flex gap-3 mt-1 text-[12px] num">
                   <span style={{ color: C_PROTEIN }}>P {t.p}g</span>
                   <span style={{ color: C_CARBS_TEXTO }}>C {t.c}g</span>
                   <span style={{ color: C_FAT }}>G {t.g}g</span>
@@ -9831,7 +9839,7 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
 
       {/* Recordatorios que el COACH dejó para este cliente. Tocar = marcar
           cumplido (el coach lo ve ✓ en su CRM en el próximo refresco). */}
-      <div className="font-semibold mb-2" style={{ color: v2 ? TEXT : TEXT_LIGHT, fontSize: v2 ? 16 : 11, fontWeight: v2 ? 750 : 600 }}>
+      <div className="font-semibold mb-2" style={{ color: v2 ? TEXT : TEXT_LIGHT, fontSize: v2 ? 16 : 12, fontWeight: v2 ? 750 : 600 }}>
         De tu coach
       </div>
       {coachReminders.length === 0 ? (
@@ -9865,7 +9873,7 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
                   lineHeight: 1.35,
                 }}>{r.text}</span>
                 {r.done_at && (
-                  <span className="block mt-0.5" style={{ color: TEXT_LIGHT, fontSize: v2 ? 12.5 : 10 }}>
+                  <span className="block mt-0.5" style={{ color: TEXT_LIGHT, fontSize: v2 ? 12.5 : 12 }}>
                     ✓ cumplido {r.done_by === 'coach' ? 'según tu coach' : ''} · toca para desmarcar
                   </span>
                 )}
@@ -9877,11 +9885,11 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
 
       <div className="flex items-center justify-between mb-3 pt-3 border-t" style={{ borderColor: v2 ? 'rgba(31,31,31,0.09)' : BORDER_SOFT, ...(v2 ? { paddingTop: 16, marginTop: 4 } : {}) }}>
         <span className="font-semibold" style={{ color: v2 ? TEXT : TEXT_MUTED, fontSize: v2 ? 16 : 12, fontWeight: v2 ? 750 : 600 }}>Notificaciones</span>
-        <span className="px-3 py-1 rounded-full text-[11px] font-bold" style={{ background: pill.bg, color: pill.fg }}>{pill.txt}</span>
+        <span className="px-3 py-1 rounded-full text-[12px] font-bold" style={{ background: pill.bg, color: pill.fg }}>{pill.txt}</span>
       </div>
 
       {status === 'inactive' && (
-        <p className="text-[11px] text-center mb-3" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
+        <p className="text-[12px] text-center mb-3" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
           Te acompañamos con avisos en el momento justo para que ningún registro se te pase.
         </p>
       )}
@@ -9898,13 +9906,13 @@ function RemindersModal({ onClose, onActivate, coachReminders = [], onToggleRemi
         </p>
       )}
       {status === 'denied' && !v2 && (
-        <p className="text-[11px] text-center" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+        <p className="text-[12px] text-center" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
           Las notificaciones están bloqueadas para esta app. Actívalas desde
           Ajustes del teléfono → Notificaciones → Entrena con Método, y vuelve aquí.
         </p>
       )}
       {status === 'unsupported' && (
-        <p className="text-[11px] text-center" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+        <p className="text-[12px] text-center" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
           Este navegador no permite notificaciones. En iPhone: abre la app desde
           el ícono de tu pantalla de inicio (si no lo tienes: Compartir → Agregar
           a pantalla de inicio) y vuelve a intentar desde ahí.
@@ -9918,9 +9926,9 @@ function Stat({ label, val, goal, color, unit = '' }) {
   const fmt = unit ? fmt1 : fmt0;
   return (
     <div className="text-center p-2 rounded-xl" style={{ background: SURFACE_2 }}>
-      <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
+      <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
       <div className="text-sm font-medium num mt-0.5" style={{ color }}>{fmt(val)}{unit}</div>
-      <div className="text-[10px] num" style={{ color: TEXT_LIGHT }}>de {fmt0(goal)}{unit}</div>
+      <div className="text-[12px] num" style={{ color: TEXT_LIGHT }}>de {fmt0(goal)}{unit}</div>
     </div>
   );
 }
@@ -9963,14 +9971,14 @@ function FavoritesModal({ favorites, onUse, onDelete, onRename, onClose }) {
                   <div className="flex items-center gap-1.5">
                     <div className="text-sm font-medium truncate" style={{ color: TEXT }}>{f.name}</div>
                     {f.type === 'day' && (
-                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                      <span className="text-[12px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
                         día · {Array.isArray(f.days) ? f.days.length : 0} comidas
                       </span>
                     )}
                   </div>
                 )}
-                <div className="text-[10px] num" style={{ color: TEXT_LIGHT }}>
+                <div className="text-[12px] num" style={{ color: TEXT_LIGHT }}>
                   {Math.round(f.kcal || 0)} kcal · P{Math.round(f.p || 0)} C{Math.round(f.c || 0)} G{Math.round(f.g || 0)}
                 </div>
               </div>
@@ -10019,7 +10027,7 @@ function FavoriteNameModal({ entry, todayEntriesCount = 0, onConfirm, onCancel, 
         className="w-full bg-white text-sm font-medium px-3 py-2.5 rounded-xl border outline-none mb-4"
         style={{ color: TEXT, borderColor: BORDER }}
       />
-      <div className="text-[10px] mb-4" style={{ color: TEXT_LIGHT }}>
+      <div className="text-[12px] mb-4" style={{ color: TEXT_LIGHT }}>
         Sin nombre quedaría: <em>{autoName}</em>
       </div>
       <div className="flex gap-2 mb-3">
@@ -10036,7 +10044,7 @@ function FavoriteNameModal({ entry, todayEntriesCount = 0, onConfirm, onCancel, 
       </div>
       {canOfferDay && (
         <div className="pt-3 border-t" style={{ borderColor: BORDER_SOFT }}>
-          <div className="text-[11px] mb-2" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
+          <div className="text-[12px] mb-2" style={{ color: TEXT_MUTED, lineHeight: 1.5 }}>
             ¿Prefieres guardar todo el día completo en vez de solo esta comida?
           </div>
           <button onClick={() => onSaveWholeDay(value)}
@@ -10574,7 +10582,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               return (
                 <div key={i} className="flex-1 h-full flex flex-col justify-end items-center" style={{ minWidth: 0 }}>
                   {rotulados.has(i) && val > 0 && (
-                    <div className="text-[10px] font-bold num" style={{
+                    <div className="text-[12px] font-bold num" style={{
                       color: TEXT_MUTED,
                       marginBottom: `${subir}px`,
                       textShadow: '0 0 3px #fff, 0 0 2px #fff',
@@ -10607,7 +10615,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               const showLbl = type === 'day' || i === 0 || i === days.length - 1 || (type === 'month' && i % 7 === 0);
               const isToday = d.date === today;
               return (
-                <div key={i} className="flex-1 text-center" style={{ fontSize: '9px', color: isToday ? TEXT : TEXT_LIGHT, minWidth: 0, fontWeight: isToday ? 700 : 500 }}>
+                <div key={i} className="flex-1 text-center" style={{ fontSize: '12px', color: isToday ? TEXT : TEXT_LIGHT, minWidth: 0, fontWeight: isToday ? 700 : 500 }}>
                   {showLbl ? (type === 'day' ? dayShort(d.date) : monthDay(d.date)) : ''}
                 </div>
               );
@@ -10658,22 +10666,22 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 cada tarjeta gritara un color distinto y que el texto pareciera
                 un dato más; el color se reserva para las marcas. */}
             <div className="text-[12.5px] font-bold" style={{ color: TEXT }}>{label}</div>
-            <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>
+            <div className="text-[12px] mt-0.5" style={{ color: TEXT_LIGHT }}>
               Promedio diario · meta {goal}{unit}
             </div>
           </div>
           <div className="text-right">
             <div className="text-[18px] font-bold num leading-tight" style={{ color: TEXT }}>
-              {s.avg}<span className="text-[11px] num" style={{ color: TEXT_MUTED }}>{unit}</span>
+              {s.avg}<span className="text-[12px] num" style={{ color: TEXT_MUTED }}>{unit}</span>
             </div>
-            <div className="text-[10px] num" style={{ color: s.pct >= 90 && s.pct <= 110 ? EN_META : s.pct > 110 ? ENCIMA_TINTA : TEXT_LIGHT }}>
+            <div className="text-[12px] num" style={{ color: s.pct >= 90 && s.pct <= 110 ? EN_META : s.pct > 110 ? ENCIMA_TINTA : TEXT_LIGHT }}>
               {s.pct}% de meta
             </div>
           </div>
         </div>
         <Chart days={data} goal={goal} label={statKey} unit={unit} showLabels={true} type={data.length > 14 ? 'month' : 'day'} />
         {recorded > 0 && (
-          <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>
+          <div className="text-[12px] mt-1.5" style={{ color: TEXT_LIGHT }}>
             {recorded === 1 && s.inGoal === 0
               ? '1 día registrado · fuera del rango ±10% de la meta'
               : recorded === 1 && s.inGoal === 1
@@ -10682,7 +10690,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           </div>
         )}
         {recorded === 0 && (
-          <div className="text-[10px] mt-1.5 italic" style={{ color: TEXT_LIGHT }}>
+          <div className="text-[12px] mt-1.5 italic" style={{ color: TEXT_LIGHT }}>
             Aún sin registros en este periodo.
           </div>
         )}
@@ -10699,7 +10707,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
     return (
       <div className="mb-3" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, borderRadius: '14px', padding: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="text-[12.5px] font-bold" style={{ color: TEXT }}>{titulo}</div>
-        <div className="text-[10px] mb-2 mt-0.5" style={{ color: TEXT_LIGHT }}>{nota}</div>
+        <div className="text-[12px] mb-2 mt-0.5" style={{ color: TEXT_LIGHT }}>{nota}</div>
         {items.map((f, i) => (
           <div key={i} className="py-1.5" style={{ borderBottom: i < items.length - 1 ? `1px solid ${BORDER_SOFT}` : 'none' }}>
             <div className="flex items-baseline justify-between gap-2">
@@ -10709,7 +10717,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
             <div className="h-1.5 rounded-full mt-1 overflow-hidden" style={{ background: SURFACE_2 }}>
               <div style={{ width: `${(valor(f) / max) * 100}%`, height: '100%', background: DATO, borderRadius: '999px' }} />
             </div>
-            <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>
+            <div className="text-[12px] mt-0.5" style={{ color: TEXT_LIGHT }}>
               {f.veces}{f.veces === 1 ? ' vez' : ' veces'} esta semana{sufijo ? ` · ${sufijo(f)}` : ''}
             </div>
           </div>
@@ -10781,7 +10789,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {[[`${registrados}`, `/${g.dias}`, 'días registrados'], [promKcal ? promKcal.toLocaleString('es-CO') : '—', '', 'kcal promedio'], [`${enMeta}`, '', 'días en meta']].map(([n, extra, t]) => (
             <div key={t} style={{ background: '#FFFFFF', borderRadius: 14, padding: '9px 8px', textAlign: 'center', boxShadow: SOMBRA_TARJETA_V2 }}>
               <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{n}<span style={{ fontSize: 12, color: TEXT_LIGHT, fontWeight: 600 }}>{extra}</span></div>
-              <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginTop: 2 }}>{t}</div>
+              <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 2 }}>{t}</div>
             </div>
           ))}
         </div>
@@ -10809,7 +10817,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 }}>
                 <span style={{ fontSize: 13, fontWeight: 800, color: esHoy ? SECCION.comida.ink : TEXT_MUTED, textAlign: 'left', padding: '0 2px' }}>{c.dia}</span>
                 {c.data && (
-                  <span style={{ ...chip(clave), borderRadius: 6, fontSize: 10.5, fontWeight: 750, padding: '2px 0', textAlign: 'center', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ ...chip(clave), borderRadius: 6, fontSize: 12, fontWeight: 750, padding: '2px 0', textAlign: 'center', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
                     {Math.round((c.data.kcal || 0) / 100) / 10}k{clave ? flechita[clave] : ''}
                   </span>
                 )}
@@ -10818,7 +10826,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           })}
         </div>
 
-        <div data-leyenda-comida style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', fontSize: 11.5, color: TEXT_MUTED, marginTop: 8, paddingBottom: lote25() ? 86 : 0 }}>
+        <div data-leyenda-comida style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', fontSize: 12, color: TEXT_MUTED, marginTop: 8, paddingBottom: lote25() ? 86 : 0 }}>
           {[['meta', 'En tu meta (±10%)'], ['encima', 'Por encima ↑'], ['debajo', 'Por debajo ↓']].map(([k, t]) => (
             <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 13, height: 9, borderRadius: 3, ...chip(k), padding: 0 }} />{t}
@@ -10855,7 +10863,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           <div className="text-center min-w-0">
             <div className="text-[13px] font-bold capitalize truncate" style={{ color: TEXT }}>{g.nombre}</div>
             {mesAtras > 0 && (
-              <button onClick={() => { haptic(6); setMesAtras(0); }} className="text-[9.5px] underline" style={{ color: TEXT_LIGHT }}>
+              <button onClick={() => { haptic(6); setMesAtras(0); }} className="text-[12px] underline" style={{ color: TEXT_LIGHT }}>
                 volver a este mes
               </button>
             )}
@@ -10868,26 +10876,26 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
             <ChevronRight size={16} strokeWidth={2.4} />
           </button>
         </div>
-        <div className="text-[10px] text-center mb-3" style={{ color: TEXT_LIGHT }}>Toca un día para verlo</div>
+        <div className="text-[12px] text-center mb-3" style={{ color: TEXT_LIGHT }}>Toca un día para verlo</div>
 
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="text-center">
-            <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{registrados}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/{g.dias}</span></div>
-            <div className="text-[10.5px] font-semibold" style={{ color: TEXT_LIGHT }}>días registrados</div>
+            <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{registrados}<span className="text-[12px]" style={{ color: TEXT_LIGHT }}>/{g.dias}</span></div>
+            <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>días registrados</div>
           </div>
           <div className="text-center">
             <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{promKcal || '—'}</div>
-            <div className="text-[10.5px] font-semibold" style={{ color: TEXT_LIGHT }}>kcal promedio</div>
+            <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>kcal promedio</div>
           </div>
           <div className="text-center">
             <div className="text-[17px] font-bold num" style={{ color: TEXT }}>{enMeta}</div>
-            <div className="text-[10.5px] font-semibold" style={{ color: TEXT_LIGHT }}>días en meta</div>
+            <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>días en meta</div>
           </div>
         </div>
 
         <div className="grid grid-cols-7 gap-1 mb-1">
           {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
-            <div key={i} className="text-center text-[10.5px] font-bold" style={{ color: TEXT_LIGHT }}>{d}</div>
+            <div key={i} className="text-center text-[12px] font-bold" style={{ color: TEXT_LIGHT }}>{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -10914,8 +10922,8 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                   padding: 0, cursor: futuro ? 'default' : 'pointer',
                 }}
                 title={`${c.date}${e ? ` · ${Math.round(c.data.kcal || 0)} kcal (${est.pct}% de tu meta) · ${e.label}` : ' · sin registro'}`}>
-                <div className="text-[10px] font-bold leading-none" style={{ color: e ? TEXT : TEXT_LIGHT }}>{c.dia}</div>
-                {e && <div className="text-[8px] leading-none mt-0.5 num font-semibold" style={{ color: e.tinta }}>{Math.round((c.data.kcal || 0) / 100) / 10}k</div>}
+                <div className="text-[12px] font-bold leading-none" style={{ color: e ? TEXT : TEXT_LIGHT }}>{c.dia}</div>
+                {e && <div className="text-[12px] leading-none mt-0.5 num font-semibold" style={{ color: e.tinta }}>{Math.round((c.data.kcal || 0) / 100) / 10}k</div>}
                 {/* Barrita inferior: el estado se lee también sin color */}
                 {e && <div className="absolute bottom-0 left-0 right-0" style={{ height: '3px', background: e.marca }} />}
               </button>
@@ -10923,7 +10931,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           })}
         </div>
 
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[9.5px]" style={{ color: TEXT_MUTED }}>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[12px]" style={{ color: TEXT_MUTED }}>
           {[ESTADOS.debajo, ESTADOS.meta, ESTADOS.encima].map((e, i) => (
             <span key={i} className="inline-flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-sm" style={{ background: e.tinte, borderBottom: `2px solid ${e.marca}` }} />{e.label}
@@ -10959,14 +10967,14 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
         <div className="flex justify-between items-baseline mb-1.5">
           <div>
             <div className="text-[12px] font-medium" style={{ color: TEXT }}>{label}</div>
-            {hint && <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>{hint}</div>}
+            {hint && <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>{hint}</div>}
           </div>
           <div className="text-right">
             <div className="text-[12px] num" style={{ color: TEXT }}>
               <strong>{value < 10 ? value.toFixed(1) : Math.round(value)}{unit}</strong>
               <span style={{ color: TEXT_LIGHT, fontWeight: 400 }}>/día · {direction === 'less' ? 'máx' : 'meta'} {goal}{unit}</span>
             </div>
-            <div className="text-[10px]" style={{ color: statusColor }}>{status}</div>
+            <div className="text-[12px]" style={{ color: statusColor }}>{status}</div>
           </div>
         </div>
         {/* Barra de progreso hacia la referencia diaria */}
@@ -10977,7 +10985,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           />
         </div>
         {direction === 'more' && !covered && suggestion && (
-          <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>
+          <div className="text-[12px] mt-1.5" style={{ color: TEXT_LIGHT }}>
             Puedes sumar: {suggestion}
           </div>
         )}
@@ -11032,7 +11040,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Qué días son EXACTAMENTE: lunes a domingo, los mismos que mira tu
               coach. Sin esto, "esta semana" se presta a que cada uno entienda
               días distintos. */}
-          <div className="text-[10px] mb-3" style={{ color: TEXT_LIGHT }}>
+          <div className="text-[12px] mb-3" style={{ color: TEXT_LIGHT }}>
             Semana de <span style={{ color: TEXT_MUTED, fontWeight: 600 }}>
               {week[0].jsDate.toLocaleDateString('es', { day: 'numeric', month: 'short' })} a {week[6].jsDate.toLocaleDateString('es', { day: 'numeric', month: 'short' })}
             </span> · lunes a domingo
@@ -11045,7 +11053,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Behavior metrics — process-focused, celebrate the habit, not just the goal */}
           {recordedLast7 > 0 && (
             <div className="mb-5">
-              <div className="text-[11.5px] font-semibold mb-3" style={{ color: TEXT }}>Tu comportamiento esta semana</div>
+              <div className="text-[12px] font-semibold mb-3" style={{ color: TEXT }}>Tu comportamiento esta semana</div>
               {/* Tarjetas al estilo de marca: blanco + sombra de tarjeta de la
                   app (antes: beige plano con borde, se veía de otra app). Los
                   números grandes van TODOS en grafito — el color semántico
@@ -11053,31 +11061,31 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                   macro proteína se leía como alerta roja. */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-                  <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>Adherencia</div>
-                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{recordedLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>/7 días</span></div>
-                  <div className="text-[10px] mt-0.5 num" style={{ color: adherenceDelta > 0 ? EN_META : adherenceDelta < 0 ? ENCIMA_TINTA : TEXT_LIGHT }}>
+                  <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>Adherencia</div>
+                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{recordedLast7}<span className="text-[12px]" style={{ color: TEXT_LIGHT }}>/7 días</span></div>
+                  <div className="text-[12px] mt-0.5 num" style={{ color: adherenceDelta > 0 ? EN_META : adherenceDelta < 0 ? ENCIMA_TINTA : TEXT_LIGHT }}>
                     {adherenceDelta > 0 ? `+${adherenceDelta} vs semana anterior` : adherenceDelta < 0 ? `${adherenceDelta} vs semana anterior` : 'igual que la semana anterior'}
                   </div>
                 </div>
 
                 <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-                  <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>Inicio del día</div>
+                  <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>Inicio del día</div>
                   <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{fmtHour(avgFirstHour)}</div>
-                  <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>hora del primer registro en promedio</div>
+                  <div className="text-[12px] mt-0.5" style={{ color: TEXT_LIGHT }}>hora del primer registro en promedio</div>
                 </div>
 
                 <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-                  <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>Proteína · tendencia</div>
-                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{protLast7}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}>g/día</span></div>
-                  <div className="text-[10px] mt-0.5 num" style={{ color: protDelta > 0 ? EN_META : protDelta < 0 ? ENCIMA_TINTA : TEXT_LIGHT }}>
+                  <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>Proteína · tendencia</div>
+                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{protLast7}<span className="text-[12px]" style={{ color: TEXT_LIGHT }}>g/día</span></div>
+                  <div className="text-[12px] mt-0.5 num" style={{ color: protDelta > 0 ? EN_META : protDelta < 0 ? ENCIMA_TINTA : TEXT_LIGHT }}>
                     {protDelta > 0 ? `+${protDelta}g vs semana anterior` : protDelta < 0 ? `${protDelta}g vs semana anterior` : 'igual que la semana anterior'}
                   </div>
                 </div>
 
                 <div className="p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-                  <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>Detalle del registro</div>
-                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{avgItemsPerDay}<span className="text-[11px]" style={{ color: TEXT_LIGHT }}> items/día</span></div>
-                  <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>promedio de alimentos registrados por día</div>
+                  <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>Detalle del registro</div>
+                  <div className="text-[18px] font-bold num mt-0.5" style={{ color: TEXT }}>{avgItemsPerDay}<span className="text-[12px]" style={{ color: TEXT_LIGHT }}> items/día</span></div>
+                  <div className="text-[12px] mt-0.5" style={{ color: TEXT_LIGHT }}>promedio de alimentos registrados por día</div>
                 </div>
               </div>
             </div>
@@ -11086,29 +11094,29 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
           {/* Wellbeing */}
           {wbAvg && (
             <div className="mb-5 p-3 rounded-xl" style={{ background: SURFACE, boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 0 0 1px rgba(60,66,42,0.07) inset, 0 1px 1px rgba(60,66,42,0.10), 0 6px 20px rgba(60,66,42,0.10)' }}>
-              <div className="text-[11.5px] font-semibold mb-2" style={{ color: TEXT }}>Bienestar promedio</div>
+              <div className="text-[12px] font-semibold mb-2" style={{ color: TEXT }}>Bienestar promedio</div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Energía</div>
-                  <div className="text-[16px] font-bold num" style={{ color: TEXT }}>{wbAvg.energy}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
+                  <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>Energía</div>
+                  <div className="text-[16px] font-bold num" style={{ color: TEXT }}>{wbAvg.energy}<span className="text-[12px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
                 </div>
                 <div>
-                  <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Hambre</div>
-                  <div className="text-[16px] font-bold num" style={{ color: TEXT }}>{wbAvg.hunger}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
+                  <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>Hambre</div>
+                  <div className="text-[16px] font-bold num" style={{ color: TEXT }}>{wbAvg.hunger}<span className="text-[12px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
                 </div>
                 <div>
-                  <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>Ánimo</div>
-                  <div className="text-[16px] font-bold num" style={{ color: TEXT }}>{wbAvg.mood}<span className="text-[10px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
+                  <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>Ánimo</div>
+                  <div className="text-[16px] font-bold num" style={{ color: TEXT }}>{wbAvg.mood}<span className="text-[12px]" style={{ color: TEXT_LIGHT }}>/5</span></div>
                 </div>
               </div>
-              <div className="text-[10px] mt-2" style={{ color: TEXT_LIGHT }}>{wbAvg.count} de 7 check-ins</div>
+              <div className="text-[12px] mt-2" style={{ color: TEXT_LIGHT }}>{wbAvg.count} de 7 check-ins</div>
             </div>
           )}
 
           {/* Micronutrients */}
           {microAvg && (
             <div className="mb-3">
-              <div className="text-[11.5px] font-semibold mb-2" style={{ color: TEXT }}>Calidad de tu semana (promedio diario)</div>
+              <div className="text-[12px] font-semibold mb-2" style={{ color: TEXT }}>Calidad de tu semana (promedio diario)</div>
               <div>
                 <MicroRow label="Fibra" value={microAvg.fiber} goal={DAILY_MICRO_GOALS.fiber} unit="g" hint="digestión, saciedad"
                   suggestion="avena, legumbres, verduras, fruta entera" />
@@ -11117,7 +11125,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                 <MicroRow label="Azúcar añadida" value={microAvg.sugar} goal={DAILY_MICRO_GOALS.sugar} unit="g" hint="gaseosas, dulces, postres"
                   direction="less" />
               </div>
-              <div className="text-[10px] mt-3 italic" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
+              <div className="text-[12px] mt-3 italic" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
                 Estimación aproximada a partir de lo que registras (base USDA) — no captura todo lo que comes, así que un valor por debajo de la referencia no significa deficiencia. Información educativa; para una evaluación real, consulta con un profesional de la salud.
               </div>
             </div>
@@ -11129,8 +11137,8 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
               para sentirte mal. */}
           {alimentosSemana.diasConDetalle > 0 && (
             <div className="mb-5">
-              <div className="text-[11.5px] font-semibold mb-1" style={{ color: TEXT }}>Tus alimentos esta semana</div>
-              <div className="text-[10px] mb-3" style={{ color: TEXT_LIGHT }}>
+              <div className="text-[12px] font-semibold mb-1" style={{ color: TEXT }}>Tus alimentos esta semana</div>
+              <div className="text-[12px] mb-3" style={{ color: TEXT_LIGHT }}>
                 Sobre {alimentosSemana.diasConDetalle} {alimentosSemana.diasConDetalle === 1 ? 'día' : 'días'} en que registraste qué comiste, no solo el total.
               </div>
 
@@ -11166,13 +11174,13 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                   <div className="flex justify-between items-end">
                     <div>
                       <div className="text-[12.5px] font-bold" style={{ color: TEXT }}>Azúcar añadida</div>
-                      <div className="text-[10px] mt-0.5" style={{ color: TEXT_LIGHT }}>Promedio por día · referencia OMS: menos de 25 g</div>
+                      <div className="text-[12px] mt-0.5" style={{ color: TEXT_LIGHT }}>Promedio por día · referencia OMS: menos de 25 g</div>
                     </div>
                     <div className="text-right">
                       <div className="text-[18px] font-bold num leading-tight" style={{ color: TEXT }}>
-                        {alimentosSemana.azucarDia}<span className="text-[11px]" style={{ color: TEXT_MUTED }}>g</span>
+                        {alimentosSemana.azucarDia}<span className="text-[12px]" style={{ color: TEXT_MUTED }}>g</span>
                       </div>
-                      <div className="text-[10px] num" style={{ color: alimentosSemana.azucarDia <= 25 ? EN_META : ENCIMA_TINTA }}>
+                      <div className="text-[12px] num" style={{ color: alimentosSemana.azucarDia <= 25 ? EN_META : ENCIMA_TINTA }}>
                         {alimentosSemana.azucarDia <= 25 ? 'dentro de la referencia' : `${Math.round((alimentosSemana.azucarDia / 25) * 100)}% de la referencia`}
                       </div>
                     </div>
@@ -11181,11 +11189,11 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
                     <div style={{ width: `${Math.min(100, (alimentosSemana.azucarDia / 25) * 100)}%`, height: '100%', background: alimentosSemana.azucarDia <= 25 ? EN_META : POR_ENCIMA, borderRadius: '999px' }} />
                   </div>
                   {alimentosSemana.topAzucar.length > 0 && (
-                    <div className="text-[10px] mt-2" style={{ color: TEXT_LIGHT }}>
+                    <div className="text-[12px] mt-2" style={{ color: TEXT_LIGHT }}>
                       Viene sobre todo de: <span style={{ color: TEXT_MUTED, fontWeight: 600 }}>{alimentosSemana.topAzucar.map(f => f.nombre).join(' · ')}</span>
                     </div>
                   )}
-                  <div className="text-[10px] mt-1.5" style={{ color: TEXT_LIGHT }}>
+                  <div className="text-[12px] mt-1.5" style={{ color: TEXT_LIGHT }}>
                     Solo cuenta el azúcar que alguien <em>le agregó</em> a la comida: gaseosa, dulces, postres, salsas. <strong>La fruta entera nunca suma aquí</strong> — su azúcar viene con fibra y agua, y ninguna guía la cuenta. Tampoco el lácteo natural ni la verdura.
                   </div>
                 </div>
@@ -11220,7 +11228,7 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
       {/* Con las barras de un solo color, la leyenda vieja —verde "en meta",
           verde "con registro", gris "sin registro"— hablaba de tres colores
           que ya no existen. Lo único que hay que explicar es la línea. */}
-      <div className="flex items-center justify-center gap-4 mt-4 pt-3 text-[10px]"
+      <div className="flex items-center justify-center gap-4 mt-4 pt-3 text-[12px]"
         style={{ color: TEXT_MUTED, borderTop: `1px solid ${BORDER_SOFT}`, display: alimTab === 'dia' || v2p ? 'none' : 'flex' }}>
         <div className="flex items-center gap-1.5">
           <div className="w-5 border-t-[1.5px] border-dashed" style={{ borderColor: TEXT, opacity: 0.45 }} />
@@ -11322,9 +11330,9 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
                 const v = Math.round(datos[m.k] || 0), g = Math.round(goals?.[m.k] || 0);
                 return (
                   <div key={m.k} data-dato-dia style={{ background: '#FFFFFF', borderRadius: 16, boxShadow: sombra, padding: '10px 10px 9px' }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_MUTED }}>{m.t}</div>
-                    <div className="num" style={{ fontSize: 18, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', marginTop: 2 }}>{v.toLocaleString('es-CO')}<span style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_LIGHT }}>{m.u}</span></div>
-                    {g > 0 && <div className="num" style={{ fontSize: 11.5, color: TEXT_LIGHT }}>de {g.toLocaleString('es-CO')}{m.u}</div>}
+                    <div style={{ fontSize: 12, fontWeight: 700, color: TEXT_MUTED }}>{m.t}</div>
+                    <div className="num" style={{ fontSize: 18, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', marginTop: 2 }}>{v.toLocaleString('es-CO')}<span style={{ fontSize: 12, fontWeight: 700, color: TEXT_LIGHT }}>{m.u}</span></div>
+                    {g > 0 && <div className="num" style={{ fontSize: 12, color: TEXT_LIGHT }}>de {g.toLocaleString('es-CO')}{m.u}</div>}
                     <div style={{ height: 4, borderRadius: 99, background: '#EEEAE1', marginTop: 6, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${g ? Math.min(100, Math.round((v / g) * 100)) : 0}%`, background: m.color, borderRadius: 99 }} />
                     </div>
@@ -11343,7 +11351,7 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
                 {comidas.map((e, i) => (
                   <div key={e.id ?? i} data-comida-dia style={{ background: '#FFFFFF', borderRadius: 18, boxShadow: sombra, padding: '11px 13px 10px', lineHeight: 1.25 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal}</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal}</span>
                       {e.time && <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{e.time}</span>}
                       <span style={{ flex: 1 }} />
                       <span className="num" style={{ fontSize: 15, fontWeight: 800, color: TEXT }}>{Math.round(e.kcal ?? 0)} <span style={{ fontSize: 12, color: TEXT_MUTED }}>kcal</span></span>
@@ -11407,7 +11415,7 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
           <div className="text-[13.5px] font-bold capitalize" style={{ color: TEXT }}>
             {esHoy ? 'Hoy' : formatDate(fecha)}
           </div>
-          {esHoy && <div className="text-[10px]" style={{ color: TEXT_LIGHT }}>{formatDate(fecha)}</div>}
+          {esHoy && <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>{formatDate(fecha)}</div>}
         </div>
         <button onClick={() => mover(1)} disabled={esHoy}
           className="p-2 rounded-full active:scale-90 transition" aria-label="Día siguiente"
@@ -11436,7 +11444,7 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
             <Stat label="G" val={datos.g} goal={goals?.g} color={C_FAT} unit="g" />
           </div>
           {pct != null && (
-            <div className="text-[11px] mb-3" style={{ color: TEXT_LIGHT }}>
+            <div className="text-[12px] mb-3" style={{ color: TEXT_LIGHT }}>
               {pct}% de tu meta de calorías
               {datos.water ? ` · 💧 ${datos.water} ml` : ''}
             </div>
@@ -11444,13 +11452,13 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
 
           {comidas.length > 0 ? (
             <div className="space-y-2">
-              <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>
+              <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>
                 Lo que comiste
               </div>
               {comidas.map((e, i) => (
                 <div key={e.id ?? i} className="text-xs p-3 rounded-xl" style={{ background: SURFACE_2 }}>
                   <div className="flex justify-between items-center mb-1.5 gap-2">
-                    <span className="text-[11px] font-semibold" style={{ color: ACCENT_DARK }}>
+                    <span className="text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>
                       {e.meal}{e.time ? ` · ${e.time}` : ''}
                     </span>
                     <span className="flex items-center gap-1.5 flex-shrink-0">
@@ -11463,7 +11471,7 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
                       {typeof onBorrarComida === 'function' && e.id != null && (
                         armado === e.id ? (
                           <button onClick={() => { setArmado(null); onBorrarComida(fecha, e.id); }}
-                            className="px-2 py-0.5 rounded-full text-[10px] font-semibold active:scale-95 transition"
+                            className="px-2 py-0.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
                             style={{ background: DANGER, color: '#fff' }}>¿Borrar?</button>
                         ) : (
                           <button onClick={() => armar(e.id)} aria-label={`Borrar ${e.meal}`}
@@ -11476,13 +11484,13 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
                   </div>
                   <div className="space-y-0.5">
                     {(e.items || []).map((it, j) => (
-                      <div key={j} className="flex justify-between text-[11px] gap-2">
+                      <div key={j} className="flex justify-between text-[12px] gap-2">
                         <span style={{ color: TEXT }}>{it.name}{it.amount ? ` · ${it.amount}` : ''}</span>
                         <span className="num flex-shrink-0" style={{ color: TEXT_LIGHT }}>{Math.round(it.kcal || 0)} kcal</span>
                       </div>
                     ))}
                   </div>
-                  <div className="text-[10px] num mt-1.5 pt-1.5 border-t flex gap-3" style={{ borderColor: BORDER_SOFT }}>
+                  <div className="text-[12px] num mt-1.5 pt-1.5 border-t flex gap-3" style={{ borderColor: BORDER_SOFT }}>
                     <span style={{ color: ACCENT_DARK, fontWeight: 600 }}>{Math.round(e.kcal ?? 0)} kcal</span>
                     <span style={{ color: C_PROTEIN }}>P{Math.round((e.p ?? 0) * 10) / 10}</span>
                     <span style={{ color: C_CARBS_TEXTO }}>C{Math.round((e.c ?? 0) * 10) / 10}</span>
@@ -11500,19 +11508,19 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {typeof onAgregar === 'function' && (
               <button onClick={() => onAgregar(fecha)}
-                className="px-3.5 py-1.5 rounded-full text-[11.5px] font-semibold active:scale-95 transition"
+                className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
                 style={{ background: SURFACE_2, color: TEXT }}>+ Agregar comida</button>
             )}
             {typeof onBorrarDia === 'function' && (
               armado === 'dia' ? (
                 <button onClick={() => { setArmado(null); onBorrarDia(fecha); }}
-                  className="px-4 py-1.5 rounded-full text-[11px] font-semibold active:scale-95 transition"
+                  className="px-4 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 transition"
                   style={{ background: DANGER, color: '#fff' }}>
                   ¿Seguro? Toca otra vez para borrar todo el día
                 </button>
               ) : (
                 <button onClick={() => armar('dia')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium active:scale-95 transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium active:scale-95 transition"
                   style={{ color: DANGER, background: `${DANGER}12` }}>
                   <Trash2 size={12} /> Borrar todo el día
                 </button>
@@ -11722,7 +11730,7 @@ function PlannerLoading() {
     <div className="py-12 flex flex-col items-center gap-3">
       <Loader2 size={24} className="animate-spin" style={{ color: ACCENT }} />
       <div className="text-[13px] font-medium" style={{ color: TEXT_MUTED }}>{FRASES_ARMADO[i]}</div>
-      <div className="text-[11px] px-6 text-center" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
+      <div className="text-[12px] px-6 text-center" style={{ color: TEXT_LIGHT, lineHeight: 1.5 }}>
         Estoy cuadrando tu día completo al ±5% de la meta — suele tomar 15 a 30 segundos.
       </div>
     </div>
@@ -11761,9 +11769,9 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
           {proposal.meals.map((m, i) => (
             <div key={i} className="mb-4 p-3 rounded-2xl" style={{ background: SURFACE_2, border: `1px solid ${BORDER}` }}>
               <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="text-[11.5px] font-bold" style={{ color: ACCENT_DARK }}>{m.meal}</div>
+                <div className="text-[12px] font-bold" style={{ color: ACCENT_DARK }}>{m.meal}</div>
                 {m.from_favorite && (
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: C_CARBS_PASTEL, color: C_CARBS_TEXTO }}>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold" style={{ background: C_CARBS_PASTEL, color: C_CARBS_TEXTO }}>
                     <Star size={9} strokeWidth={2.2} />
                     De tus favoritos
                   </div>
@@ -11778,7 +11786,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
                 ))}
               </div>
               {m.subtotal && (
-                <div className="text-[10px] pt-2 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
+                <div className="text-[12px] pt-2 border-t flex gap-3 num" style={{ borderColor: BORDER_SOFT, color: TEXT_MUTED }}>
                   <span>{m.subtotal.kcal} kcal</span>
                   <span style={{ color: C_PROTEIN }}>P {m.subtotal.p}g</span>
                   <span style={{ color: C_CARBS_TEXTO }}>C {m.subtotal.c}g</span>
@@ -11790,7 +11798,7 @@ function PlannerModal({ loading, proposal, ingredients, onRegenerate, onRegister
 
           {proposal.total && (
             <div className="p-3 rounded-2xl mb-4" style={{ background: ACCENT_PASTEL + '40', border: `1px solid ${ACCENT_PASTEL}` }}>
-              <div className="text-[11.5px] font-bold mb-1" style={{ color: ACCENT_DARK }}>Total del día</div>
+              <div className="text-[12px] font-bold mb-1" style={{ color: ACCENT_DARK }}>Total del día</div>
               <div className="text-[14px] font-bold num" style={{ color: TEXT }}>
                 {proposal.total.kcal} kcal · P {proposal.total.p}g · C {proposal.total.c}g · G {proposal.total.g}g
               </div>
@@ -11851,7 +11859,7 @@ function WellbeingModal({ name, existing, onSave, onClose }) {
     <div className="mb-5">
       <div className="flex justify-between items-baseline mb-1.5">
         <div className="text-[13px] font-semibold" style={{ color: TEXT }}>{label}</div>
-        <div className="text-[11px]" style={{ color: TEXT_LIGHT }}>{hint}</div>
+        <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>{hint}</div>
       </div>
       <div className="flex gap-1.5">
         {[1, 2, 3, 4, 5].map(n => (
@@ -11910,7 +11918,7 @@ function PerfectDayModal({ name, totals, goals, onClose }) {
         <div className="inline-flex p-4 rounded-full mb-5 pulse-ring" style={{ background: ACCENT_PASTEL + '60' }}>
           <Trophy size={30} style={{ color: ACCENT_DARK }} />
         </div>
-        <div className="text-[11px] font-semibold mb-2" style={{ color: ACCENT }}>
+        <div className="text-[12px] font-semibold mb-2" style={{ color: ACCENT }}>
           Día con precisión
         </div>
         <div className="text-2xl font-bold mb-3 tracking-tight" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
@@ -11930,7 +11938,7 @@ function PerfectDayModal({ name, totals, goals, onClose }) {
                 { l: 'G', v: `${totals.g}g`, c: C_FAT },
               ].map((s, i) => (
                 <div key={i} className="p-2 rounded-xl" style={{ background: SURFACE_2 }}>
-                  <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>{s.l}</div>
+                  <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>{s.l}</div>
                   <div className="text-sm font-semibold num" style={{ color: s.c }}>{s.v}</div>
                 </div>
               ))}
@@ -12049,7 +12057,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
         <div className="flex gap-1">
           {['desayuno', 'almuerzo', 'cena', 'snack'].map(m => (
             <button key={m} onClick={() => setMeal(m)}
-              className="flex-1 py-2 rounded-full text-[11px] font-medium transition"
+              className="flex-1 py-2 rounded-full text-[12px] font-medium transition"
               style={meal === m ? { background: ACCENT, color: '#fff' } : { background: SURFACE_2, color: TEXT_MUTED }}>
               {m}
             </button>
@@ -12072,7 +12080,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
             </div>
 
             <div className="mb-3">
-              <label className="text-[11px] font-semibold block mb-1.5" style={{ color: it.needs_quantity ? WARN : TEXT_MUTED }}>
+              <label className="text-[12px] font-semibold block mb-1.5" style={{ color: it.needs_quantity ? WARN : TEXT_MUTED }}>
                 {it.needs_quantity ? '⚠ Cantidad — escríbela aquí' : 'Cantidad'}
               </label>
               <div className="flex gap-2 items-center">
@@ -12090,7 +12098,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
                 />
                 {recalculating === idx && <Loader2 size={14} className="animate-spin" style={{ color: ACCENT }} />}
               </div>
-              <div className="text-[10px] mt-1" style={{ color: TEXT_LIGHT }}>
+              <div className="text-[12px] mt-1" style={{ color: TEXT_LIGHT }}>
                 Al cambiar la cantidad, las calorías y macros se ajustan automáticamente.
               </div>
             </div>
@@ -12123,7 +12131,7 @@ Validación: 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal. Suma macros entre 85-115% de
 function ReadOnlyStat({ label, val, color }) {
   return (
     <div className="text-center p-2 rounded-lg" style={{ background: '#fff' }}>
-      <div className="text-[11px] font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
+      <div className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}>{label}</div>
       <div className="text-xs font-semibold num mt-0.5" style={{ color }}>{val}</div>
     </div>
   );
@@ -12182,7 +12190,7 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
         {/* Top: subtle progress indicator */}
         <div className="max-w-md w-full mx-auto pt-2 fade-up-1">
           <div className="flex items-center gap-2 mb-2">
-            <div className="text-[11.5px] font-semibold" style={{ color: TEXT_MUTED }}>Paso 1 de 3</div>
+            <div className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>Paso 1 de 3</div>
             <div className="flex-1 flex gap-1">
               <div className="flex-1 h-1 rounded-full" style={{ background: TEXT }} />
               <div className="flex-1 h-1 rounded-full" style={{ background: BORDER }} />
@@ -12275,7 +12283,7 @@ function TutorialModal({ onClose }) {
     <ModalShell onClose={onClose}>
       <div className="mb-5">
         <div className="flex items-center gap-2 mb-3">
-          <div className="text-[11.5px] font-semibold" style={{ color: TEXT_MUTED }}>
+          <div className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>
             {step + 1} de {steps.length}
           </div>
           <div className="flex-1 flex gap-1">
@@ -12336,7 +12344,7 @@ function ExampleCard({ num, emoji, title, example, className, onClick }) {
         {emoji}
       </div>
       <div className="min-w-0 flex-1">
-        {num && <div className="text-[11px] font-semibold mb-1" style={{ color: ACCENT }}>{num}</div>}
+        {num && <div className="text-[12px] font-semibold mb-1" style={{ color: ACCENT }}>{num}</div>}
         <div className="text-[15px] font-bold" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
         <div className="text-[13px] mt-1" style={{ color: TEXT_MUTED, lineHeight: 1.4 }}>{example}</div>
       </div>
@@ -12420,7 +12428,7 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
 
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-2">
-            <div className="text-[11.5px] font-semibold" style={{ color: TEXT_MUTED }}>Paso {step === 0 ? '2' : '3'} de 3</div>
+            <div className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>Paso {step === 0 ? '2' : '3'} de 3</div>
             <div className="flex-1 flex gap-1">
               <div className="flex-1 h-1 rounded-full" style={{ background: TEXT }} />
               <div className="flex-1 h-1 rounded-full" style={{ background: TEXT }} />
@@ -12467,7 +12475,7 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
                 className="w-full bg-transparent border-b py-2 outline-none mb-2 text-base"
                 style={{ borderColor: nameError ? WARN : BORDER, color: TEXT, fontSize: '16px' }} autoFocus
                 onKeyDown={e => e.key === 'Enter' && continueFromName()} />
-              {nameError && <div className="text-[11px] mb-3" style={{ color: '#FF9B6B' }}>{nameError}</div>}
+              {nameError && <div className="text-[12px] mb-3" style={{ color: '#FF9B6B' }}>{nameError}</div>}
               <button onClick={continueFromName} disabled={checkingName}
                 className="w-full py-3.5 mt-4 rounded-2xl text-base font-semibold transition active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70"
                 style={{
@@ -12528,7 +12536,7 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
                 <span className="text-[15px] font-bold num" style={{ color: macroSumOk ? ACCENT_DARK : WARN }}>{macroSum}%</span>
               </div>
               {!macroSumOk && (
-                <div className="text-[11px] mb-2" style={{ color: TEXT_MUTED }}>
+                <div className="text-[12px] mb-2" style={{ color: TEXT_MUTED }}>
                   {macroSum > 100 ? `Baja ${macroSum - 100}% en algún macro para poder continuar.` : `Sube ${100 - macroSum}% en algún macro para poder continuar.`}
                 </div>
               )}
@@ -12563,7 +12571,7 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
           </div>
         </div>
 
-        <div className="text-center mt-6 text-[10px]" style={{ color: TEXT_LIGHT }}>
+        <div className="text-center mt-6 text-[12px]" style={{ color: TEXT_LIGHT }}>
           Tus datos se guardan localmente. Cada semana se envía un resumen a tu coach.
         </div>
       </div>
@@ -12581,7 +12589,7 @@ function SliderRow({ label, color, pct, grams, onChange, darkMode }) {
         </div>
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-semibold num" style={{ color: darkMode ? '#FFF' : TEXT }}>{pct}%</span>
-          <span className="text-[10px] num" style={{ color: darkMode ? 'rgba(255,255,255,0.5)' : TEXT_LIGHT }}>{grams}g</span>
+          <span className="text-[12px] num" style={{ color: darkMode ? 'rgba(255,255,255,0.5)' : TEXT_LIGHT }}>{grams}g</span>
         </div>
       </div>
       <input type="range" min="5" max="80" value={pct} onChange={e => onChange(parseInt(e.target.value))}

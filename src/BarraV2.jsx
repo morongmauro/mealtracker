@@ -177,7 +177,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                 {/* Con el Dash abierto sobra ancho: cada ícono lleva su nombre
                     corto debajo. Con las opciones de otra sección abiertas los
                     botones miden ~36 px y el nombre no cabe. */}
-                {conNombres && <span data-nombre-seccion style={{ fontSize: 11, fontWeight: 650, lineHeight: 1, letterSpacing: '-0.01em', marginTop: 2 }}>{CORTO_SECCION[s.id] || NOMBRE_SECCION[s.id]}</span>}
+                {conNombres && <span data-nombre-seccion style={{ fontSize: 12, fontWeight: 650, lineHeight: 1, letterSpacing: '-0.01em', marginTop: 2 }}>{CORTO_SECCION[s.id] || NOMBRE_SECCION[s.id]}</span>}
                 {punto[s.id] && (
                   // El puntito de novedad, en el color de la sección: se queda
                   // hasta que la persona entra a ver qué hay.

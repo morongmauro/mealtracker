@@ -28,8 +28,8 @@ export function Pastilla({ icono: Icono, children, onClick, href, badge, color =
       {badge > 0 && (
         <span data-badge style={{
           minWidth: 20, height: 20, padding: '0 6px', borderRadius: 99, background: DANGER, color: '#fff',
-          fontSize: 11.5, fontWeight: 700, display: 'grid', placeItems: 'center',
-          ...(soloIcono || badgeEncima ? { position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, padding: '0 5px', fontSize: 11, boxShadow: '0 0 0 2px #fff' } : {}),
+          fontSize: 12, fontWeight: 700, display: 'grid', placeItems: 'center',
+          ...(soloIcono || badgeEncima ? { position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, padding: '0 5px', fontSize: 12, boxShadow: '0 0 0 2px #fff' } : {}),
         }}>{badge}</span>
       )}
     </Tag>
@@ -73,11 +73,11 @@ export function BotonCristal({ icono: Icono, children, rotulo, onClick, href, ba
         {badge > 0 && (
           <span data-badge style={{
             position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99,
-            background: DANGER, color: '#fff', fontSize: 11, fontWeight: 700, display: 'grid', placeItems: 'center', boxShadow: '0 0 0 2px #fff',
+            background: DANGER, color: '#fff', fontSize: 12, fontWeight: 700, display: 'grid', placeItems: 'center', boxShadow: '0 0 0 2px #fff',
           }}>{badge}</span>
         )}
       </span>
-      <span style={{ fontSize: 11, fontWeight: 600, color: '#3A3A3C', whiteSpace: 'nowrap', lineHeight: 1.1 }}>{rotulo || children}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: '#3A3A3C', whiteSpace: 'nowrap', lineHeight: 1.1 }}>{rotulo || children}</span>
     </Tag>
   );
 }

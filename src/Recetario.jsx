@@ -1655,7 +1655,7 @@ function menuADia(menu, g) {
 }
 
 const COST_LABELS = { 1: 'Económica', 2: 'Moderada', 3: 'Premium' };
-const CHIP_MACRO = { fontStyle: 'normal', fontSize: 11, fontWeight: 750, padding: '2px 7px', borderRadius: 99, lineHeight: 1.3 };
+const CHIP_MACRO = { fontStyle: 'normal', fontSize: 12, fontWeight: 750, padding: '2px 7px', borderRadius: 99, lineHeight: 1.3 };
 const SORT_NOTES = {
   reco: 'Las más equilibradas en tiempo, costo y eficiencia nutricional. Nuestra selección para empezar.',
   rapidos: 'Ordenadas de menor a mayor tiempo de preparación.',
@@ -1771,13 +1771,13 @@ function MenuTotales({ dia, g, chico = false }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="num font-bold" style={{ color: TEXT, fontSize: chico ? 12 : 15 }}>
-        {r0(dia.totals.kcal)}<span className="font-semibold" style={{ color: TEXT_LIGHT, fontSize: chico ? 9 : 10 }}> kcal</span>
+        {r0(dia.totals.kcal)}<span className="font-semibold" style={{ color: TEXT_LIGHT, fontSize: chico ? 12 : 12 }}> kcal</span>
       </span>
-      <span className="num font-bold" style={{ color: C_PROTEIN, fontSize: chico ? 11 : 12 }}>P{r0(dia.totals.p)}</span>
-      <span className="num font-bold" style={{ color: C_CARBS_TEXTO, fontSize: chico ? 11 : 12 }}>C{r0(dia.totals.c)}</span>
-      <span className="num font-bold" style={{ color: C_FAT, fontSize: chico ? 11 : 12 }}>G{r0(dia.totals.g)}</span>
+      <span className="num font-bold" style={{ color: C_PROTEIN, fontSize: chico ? 12 : 12 }}>P{r0(dia.totals.p)}</span>
+      <span className="num font-bold" style={{ color: C_CARBS_TEXTO, fontSize: chico ? 12 : 12 }}>C{r0(dia.totals.c)}</span>
+      <span className="num font-bold" style={{ color: C_FAT, fontSize: chico ? 12 : 12 }}>G{r0(dia.totals.g)}</span>
       <span className="px-2 py-0.5 rounded-full font-bold"
-        style={{ background: `${col}1A`, color: col, fontSize: 9 }}>
+        style={{ background: `${col}1A`, color: col, fontSize: 12 }}>
         {d.kcal > 0 ? '+' : ''}{d.kcal}% {chico ? '' : `· ${NIVEL_TEXTO[d.nivel]}`}
       </span>
     </div>
@@ -1794,9 +1794,9 @@ function MenuComida({ c, onAbrir, onCambiar, onRegistrar, onQuitar, registrada }
         <span className="flex items-center justify-center rounded-xl flex-shrink-0"
           style={{ width: 38, height: 38, background: '#fff', fontSize: 20 }}>{c.recipe.icon}</span>
         <span className="flex-1 min-w-0">
-          <span className="block text-[9.5px] font-bold" style={{ color: ACCENT }}>{SLOT_LABELS[c.slot]}</span>
+          <span className="block text-[12px] font-bold" style={{ color: ACCENT }}>{SLOT_LABELS[c.slot]}</span>
           <span className="block font-bold text-[13px] truncate" style={{ color: TEXT }}>{c.recipe.name}</span>
-          <span className="flex items-center gap-2 text-[10.5px] num font-semibold mt-0.5">
+          <span className="flex items-center gap-2 text-[12px] num font-semibold mt-0.5">
             <span style={{ color: TEXT_MUTED }}>{r0(c.sc.totals.kcal)} kcal</span>
             <span style={{ color: C_PROTEIN }}>P{r0(c.sc.totals.p)}</span>
             <span className="flex items-center gap-0.5" style={{ color: TEXT_LIGHT }}><Clock size={9} />{c.recipe.time}</span>
@@ -1856,7 +1856,7 @@ function MenuComidaV2({ c, onAbrir, onCambiar, onRegistrar, onQuitar, registrada
         style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, border: 'none', background: 'none', padding: 0, textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer' }}>
         <FotoReceta id={c.recipe.id} zoom={1.3} style={{ width: 62, borderRadius: 14 }} />
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ ...ETIQUETA_V2, display: 'block', fontSize: 11 }}>{SLOT_LABELS[c.slot]}</span>
+          <span style={{ ...ETIQUETA_V2, display: 'block', fontSize: 12 }}>{SLOT_LABELS[c.slot]}</span>
           <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 15, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em', lineHeight: 1.22, marginTop: 1 }}>{c.recipe.name}</span>
           <span className="num" style={{ display: 'block', fontSize: 12.5, color: TEXT_MUTED, marginTop: 3 }}>
             <b style={{ color: TEXT, fontWeight: 750 }}>{r0(c.sc.totals.kcal)} kcal</b> · P {r0(c.sc.totals.p)} · {c.recipe.time}
@@ -1888,7 +1888,7 @@ function SlotPicker({ slot, g, opts, onElegir, onCerrar }) {
     <div className="fixed inset-0 z-[41] flex flex-col" style={{ background: BG, fontFamily: FONT_UI }}>
       <div className="flex items-center gap-2 px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 62px)', paddingBottom: 10 }}>
         <div className="flex-1">
-          <div className={nueva ? '' : 'text-[9.5px] font-bold'} style={nueva ? ETIQUETA_V2 : { color: ACCENT }}>Elegir para</div>
+          <div className={nueva ? '' : 'text-[12px] font-bold'} style={nueva ? ETIQUETA_V2 : { color: ACCENT }}>Elegir para</div>
           <div className="font-bold" style={{ color: TEXT, fontSize: nueva ? 24 : 17, fontWeight: nueva ? 800 : undefined, letterSpacing: nueva ? '-0.02em' : undefined }}>{SLOT_LABELS[slot]}</div>
         </div>
         <button onClick={onCerrar} aria-label="Cerrar"
@@ -1912,7 +1912,7 @@ function SlotPicker({ slot, g, opts, onElegir, onCerrar }) {
               : <span className="flex items-center justify-center rounded-xl flex-shrink-0" style={{ width: 40, height: 40, background: SURFACE_2, fontSize: 21 }}>{r.icon}</span>}
             <span className="flex-1 min-w-0">
               <span className="block font-bold truncate" style={{ color: TEXT, fontSize: nueva ? 15 : 13.5, fontWeight: nueva ? 750 : undefined }}>{r.name}</span>
-              <span className={`flex items-center gap-2 ${nueva ? 'text-[12.5px]' : 'text-[10.5px]'} num font-semibold mt-0.5`}>
+              <span className={`flex items-center gap-2 ${nueva ? 'text-[12.5px]' : 'text-[12px]'} num font-semibold mt-0.5`}>
                 <span style={{ color: TEXT_MUTED }}>{r0(sc.totals.kcal)} kcal</span>
                 <span style={{ color: C_PROTEIN }}>P{r0(sc.totals.p)}</span>
                 <span className="flex items-center gap-0.5" style={{ color: TEXT_LIGHT }}><Clock size={9} />{r.time}</span>
@@ -1993,7 +1993,7 @@ function DetalleRecetaV2({ open, detail, g, manualK, kSuggested, fitRemaining, h
               <div style={{ height: 6, borderRadius: 99, background: 'rgba(70,150,90,0.07)', marginTop: 7, overflow: 'hidden' }}>
                 <div style={{ width: `${pct(v, m)}%`, height: '100%', borderRadius: 99, background: VERDE_V2 }} />
               </div>
-              <div className="num" style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 4 }}>{pct(v, m)} % del día</div>
+              <div className="num" style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 4 }}>{pct(v, m)} % del día</div>
             </div>
           ))}
         </div>
@@ -2255,7 +2255,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const diaVacio = () => ({ comidas: [], totals: { kcal: 0, p: 0, c: 0, g: 0 }, desvio: desvioDe({ kcal: 0, p: 0, c: 0, g: 0 }, g) });
   const abrirArmador = (base) => { haptic(8); setArmando(base || diaVacio()); };
 
-  const sectionLabel = (t) => <div className="text-[11.5px] font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
+  const sectionLabel = (t) => <div className="text-[12px] font-semibold mb-2.5" style={{ color: ACCENT }}>{t}</div>;
 
   // ───────────────────────── DETALLE (overlay sobre la lista) ─────────────────────────
   // Sin header negro: vive BAJO la píldora de marca y la barra de navegación
@@ -2307,15 +2307,15 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center rounded-2xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24 }}>{open.icon}</div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>{displaySlot(open.slot)}</span>
-              <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}><Clock size={11} /> {open.time}</span>
-              <span className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}><CostTag cost={META[open.id].cost} /> {COST_LABELS[META[open.id].cost]}</span>
-              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}>{META[open.id].diff}</span>
-              {isHighProtein(open) && <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: '#F7E3DC', color: C_PROTEIN }}>Alta proteína</span>}
+              <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>{displaySlot(open.slot)}</span>
+              <span className="flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}><Clock size={11} /> {open.time}</span>
+              <span className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}><CostTag cost={META[open.id].cost} /> {COST_LABELS[META[open.id].cost]}</span>
+              <span className="text-[12px] font-semibold px-2.5 py-1 rounded-full" style={{ background: SURFACE_2, color: TEXT_MUTED }}>{META[open.id].diff}</span>
+              {isHighProtein(open) && <span className="text-[12px] font-semibold px-2.5 py-1 rounded-full" style={{ background: '#F7E3DC', color: C_PROTEIN }}>Alta proteína</span>}
             </div>
           </div>
           {open.allergens.length > 0 && (
-            <div className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full w-fit" style={{ background: '#FBEEE8', color: '#B8732B' }}><AlertTriangle size={11} /> Contiene: {open.allergens.join(', ')}</div>
+            <div className="flex items-center gap-1 text-[12px] font-medium px-2.5 py-1 rounded-full w-fit" style={{ background: '#FBEEE8', color: '#B8732B' }}><AlertTriangle size={11} /> Contiene: {open.allergens.join(', ')}</div>
           )}
 
           {/* Tu porción */}
@@ -2325,7 +2325,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               <MacroDonut totals={detail.totals} size={92} />
               <MacroLegend totals={detail.totals} />
             </div>
-            <div className="text-[11.5px] mt-3 flex items-start gap-1.5" style={{ color: TEXT_MUTED }}>
+            <div className="text-[12px] mt-3 flex items-start gap-1.5" style={{ color: TEXT_MUTED }}>
               <Info size={13} style={{ color: ACCENT, marginTop: 1, flexShrink: 0 }} />
               <span>{fitRemaining ? `Adaptado a lo que te queda disponible hoy (${r0(remaining.kcal)} kcal · ${r0(remaining.p)}g de proteína).` : `Ajustado a tu ${displaySlot(open.slot).toLowerCase()} (~${Math.round((SPLIT[open.slot] || 0.3) * 100)}% de tu meta).`} Las porciones se recalculan solas si cambia tu meta.</span>
             </div>
@@ -2337,8 +2337,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                 El donut y los totales de arriba se actualizan en vivo. */}
             <div className="flex items-center gap-2 mt-3">
               <div>
-                <div className="text-[11.5px] font-semibold" style={{ color: TEXT_MUTED }}>Cantidad de la porción</div>
-                <div className="text-[10.5px]" style={{ color: TEXT_LIGHT }}>La sugerida ya cuadra con tu meta</div>
+                <div className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>Cantidad de la porción</div>
+                <div className="text-[12px]" style={{ color: TEXT_LIGHT }}>La sugerida ya cuadra con tu meta</div>
               </div>
               <div className="ml-auto flex items-center gap-2">
                 <button
@@ -2357,7 +2357,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               </div>
             </div>
             {manualK != null && (
-              <button onClick={() => { haptic(6); setManualK(null); }} className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold" style={{ color: TEXT_MUTED }}>
+              <button onClick={() => { haptic(6); setManualK(null); }} className="mt-1.5 flex items-center gap-1 text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>
                 <RotateCcw size={11} /> Volver a la porción sugerida
               </button>
             )}
@@ -2431,7 +2431,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const avisoIngredientes = (
     <div className="rounded-[20px] px-3.5 py-3 flex gap-2.5" style={plainCard}>
       <Info size={15} style={{ color: TEXT_LIGHT, flexShrink: 0, marginTop: 1 }} />
-      <div className="text-[11.5px] leading-[1.5]" style={{ color: TEXT_MUTED }}>
+      <div className="text-[12px] leading-[1.5]" style={{ color: TEXT_MUTED }}>
         <span className="font-bold" style={{ color: TEXT }}>Si no tienes todos los ingredientes, usa los primarios.</span>{' '}
         Busca conservar la esencia que mantenga los macros — no te preocupes si no queda perfectamente igual.
       </div>
@@ -2459,7 +2459,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const nFiltros = evitar.length + (maxMin ? 1 : 0) + (priorizar ? 1 : 0);
   const barraFiltros = (
     <button onClick={() => { haptic(5); setFiltrosAbiertos(true); }}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold active:scale-95 transition"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold active:scale-95 transition"
       style={{
         background: nFiltros ? TEXT : '#FFFFFF',
         color: nFiltros ? '#fff' : TEXT_MUTED,
@@ -2481,7 +2481,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       }}>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <div className="text-[9.5px] font-bold" style={{ color: ACCENT }}>Menús</div>
+            <div className="text-[12px] font-bold" style={{ color: ACCENT }}>Menús</div>
             <div className="font-bold text-[19px]" style={{ color: TEXT }}>Filtrar</div>
           </div>
           <button onClick={() => setFiltrosAbiertos(false)} aria-label="Cerrar"
@@ -2492,7 +2492,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
         <div className="rounded-[20px] p-3.5" style={cardStyle}>
           <div className="font-bold text-[13.5px]" style={{ color: TEXT }}>Quitar del menú</div>
-          <div className="text-[11px] mb-2.5" style={{ color: TEXT_MUTED }}>Ninguna receta con esto entrará en las propuestas.</div>
+          <div className="text-[12px] mb-2.5" style={{ color: TEXT_MUTED }}>Ninguna receta con esto entrará en las propuestas.</div>
           <div className="flex flex-wrap gap-1.5">
             {ALERGENOS.map(a => {
               const on = evitar.includes(a);
@@ -2509,7 +2509,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
         <div className="rounded-[20px] p-3.5" style={cardStyle}>
           <div className="font-bold text-[13.5px]" style={{ color: TEXT }}>Priorizar</div>
-          <div className="text-[11px] mb-2.5" style={{ color: TEXT_MUTED }}>No excluye nada: solo hace que se propongan primero.</div>
+          <div className="text-[12px] mb-2.5" style={{ color: TEXT_MUTED }}>No excluye nada: solo hace que se propongan primero.</div>
           <div className="flex flex-wrap gap-1.5 mb-3">
             {[['', 'Sin preferencia'], ['proteina', 'Alta en proteína'], ['economico', 'Económicas']].map(([k, l]) => (
               <button key={k} onClick={() => { haptic(4); setPriorizar(k); }}
@@ -2555,9 +2555,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             ['2', 'Cambia los platos que no te convenzan, o arma el tuyo'],
             ['3', 'Llévate la lista de mercado con todo lo que hay que comprar'],
           ].map(([n, txt]) => (
-            <div key={n} className="flex items-start gap-2 text-[11.5px]" style={{ color: TEXT_MUTED }}>
+            <div key={n} className="flex items-start gap-2 text-[12px]" style={{ color: TEXT_MUTED }}>
               <span className="flex items-center justify-center rounded-full flex-shrink-0 font-bold"
-                style={{ width: 16, height: 16, background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 9, marginTop: 1 }}>{n}</span>
+                style={{ width: 16, height: 16, background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 12, marginTop: 1 }}>{n}</span>
               <span>{txt}</span>
             </div>
           ))}
@@ -2584,12 +2584,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         <div className="rounded-[22px] p-3.5 space-y-3" style={cardStyle}>
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-[9.5px] font-bold" style={{ color: ACCENT }}>Propuesta del día</div>
+              <div className="text-[12px] font-bold" style={{ color: ACCENT }}>Propuesta del día</div>
               <div className="mt-1"><MenuTotales dia={diaActivo} g={g} /></div>
-              <div className="text-[10.5px] mt-1" style={{ color: TEXT_LIGHT }}>Tu meta: {g.kcal} kcal · P{g.p} C{g.c} G{g.g}</div>
+              <div className="text-[12px] mt-1" style={{ color: TEXT_LIGHT }}>Tu meta: {g.kcal} kcal · P{g.p} C{g.c} G{g.g}</div>
             </div>
             <button onClick={otraPropuesta}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-full text-[11.5px] font-bold active:scale-95 transition flex-shrink-0"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full text-[12px] font-bold active:scale-95 transition flex-shrink-0"
               style={{ background: SURFACE_2, color: TEXT }}>
               <RotateCcw size={13} /> Otro día
             </button>
@@ -2629,7 +2629,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                   comer, no un formulario. Registrar es lo último, y solo si
                   de verdad te lo comiste. */}
               <div className="pt-1 mt-1" style={{ borderTop: `1px solid ${BORDER}` }}>
-                <div className="text-[10.5px] leading-[1.5] pt-2" style={{ color: TEXT_LIGHT }}>
+                <div className="text-[12px] leading-[1.5] pt-2" style={{ color: TEXT_LIGHT }}>
                   Toca un plato para ver la receta completa · <RotateCcw size={9} style={{ display: 'inline', verticalAlign: 'middle' }} /> cambia solo ese plato
                   <br />
                   <span style={{ color: TEXT_MUTED }}>¿Ya te lo comiste? El <Check size={9} style={{ display: 'inline', verticalAlign: 'middle' }} /> de cada comida la suma a tu día en el tracking.</span>
@@ -2644,9 +2644,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       {menuTab === 'semana' && (
         <div className="space-y-2.5">
           <div className="flex items-center justify-between gap-2 px-1">
-            <div className="text-[11px]" style={{ color: TEXT_MUTED }}>Siete días sin repetir plato de un día para otro.</div>
+            <div className="text-[12px]" style={{ color: TEXT_MUTED }}>Siete días sin repetir plato de un día para otro.</div>
             <button onClick={otraPropuesta}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold active:scale-95 transition flex-shrink-0"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold active:scale-95 transition flex-shrink-0"
               style={{ background: SURFACE_2, color: TEXT }}>
               <RotateCcw size={13} /> Otra semana
             </button>
@@ -2665,13 +2665,13 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                   <span className="font-bold text-[13.5px] flex-shrink-0" style={{ color: TEXT, minWidth: 74 }}>{DIAS_SEM[i]}</span>
                   <span className="flex-1 min-w-0">
                     {!abierto && (
-                      <span className="block text-[11px] truncate" style={{ color: TEXT_MUTED }}>
+                      <span className="block text-[12px] truncate" style={{ color: TEXT_MUTED }}>
                         {d.comidas.map(c => c.recipe.icon + ' ' + c.recipe.name).join(' · ')}
                       </span>
                     )}
                     {abierto && <MenuTotales dia={d} g={g} chico />}
                   </span>
-                  <span className="num text-[11px] font-bold flex-shrink-0" style={{ color: TEXT_LIGHT }}>{r0(d.totals.kcal)}</span>
+                  <span className="num text-[12px] font-bold flex-shrink-0" style={{ color: TEXT_LIGHT }}>{r0(d.totals.kcal)}</span>
                 </button>
                 {abierto && (
                   <div className="px-3 pb-3 space-y-2">
@@ -2743,7 +2743,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             );
           })}
           {misMenus.length > 0 && (
-            <div className="text-[10.5px] text-center px-4" style={{ color: TEXT_LIGHT }}>
+            <div className="text-[12px] text-center px-4" style={{ color: TEXT_LIGHT }}>
               Se guardan en este teléfono. Las porciones se recalculan solas si tu coach cambia tu meta.
             </div>
           )}
@@ -2942,9 +2942,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         }}>
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-[9.5px] font-bold" style={{ color: ACCENT }}>Lista de mercado</div>
+              <div className="text-[12px] font-bold" style={{ color: ACCENT }}>Lista de mercado</div>
               <div className="font-bold text-[19px] leading-tight" style={{ color: TEXT }}>{mercado.titulo}</div>
-              <div className="text-[11.5px] mt-0.5" style={{ color: TEXT_MUTED }}>
+              <div className="text-[12px] mt-0.5" style={{ color: TEXT_MUTED }}>
                 {L.items.length} ingrediente{L.items.length === 1 ? '' : 's'} · cantidades ya sumadas de todas las comidas
               </div>
             </div>
@@ -2961,7 +2961,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           </button>
 
           <div className="rounded-[20px] p-3.5 space-y-1.5" style={cardStyle}>
-            <div className="text-[11px] font-bold mb-1" style={{ color: ACCENT }}>Para comprar</div>
+            <div className="text-[12px] font-bold mb-1" style={{ color: ACCENT }}>Para comprar</div>
             {L.items.map(i => (
               <div key={i.n + i.u} className="flex items-baseline gap-2 py-1" style={{ borderBottom: `1px solid ${BORDER}` }}>
                 <span className="flex-1 min-w-0 text-[13px]" style={{ color: TEXT }}>{i.n}</span>
@@ -2973,12 +2973,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
           {L.despensa.length > 0 && (
             <div className="rounded-[20px] p-3.5" style={plainCard}>
-              <div className="text-[11px] font-bold mb-1.5" style={{ color: TEXT_MUTED }}>De despensa · revisa si te queda</div>
+              <div className="text-[12px] font-bold mb-1.5" style={{ color: TEXT_MUTED }}>De despensa · revisa si te queda</div>
               <div className="text-[12px] leading-[1.6]" style={{ color: TEXT_MUTED }}>{L.despensa.join(' · ')}</div>
             </div>
           )}
 
-          <div className="text-[10.5px] text-center px-4" style={{ color: TEXT_LIGHT }}>
+          <div className="text-[12px] text-center px-4" style={{ color: TEXT_LIGHT }}>
             Las cantidades vienen redondeadas para comprar, no al gramo exacto. Si cambias un plato, vuelve a abrir la lista.
           </div>
         </div>
@@ -2997,7 +2997,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
       }}>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <div className="text-[9.5px] font-bold" style={{ color: ACCENT }}>Armar menú</div>
+            <div className="text-[12px] font-bold" style={{ color: ACCENT }}>Armar menú</div>
             <div className="font-bold text-[19px]" style={{ color: TEXT }}>Tu día, a tu manera</div>
           </div>
           <button onClick={() => setArmando(null)} aria-label="Cerrar"
@@ -3008,7 +3008,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
         <div className="rounded-[20px] p-3.5" style={cardStyle}>
           <MenuTotales dia={armando} g={g} />
-          <div className="text-[10.5px] mt-1" style={{ color: TEXT_LIGHT }}>Tu meta: {g.kcal} kcal · P{g.p} C{g.c} G{g.g}</div>
+          <div className="text-[12px] mt-1" style={{ color: TEXT_LIGHT }}>Tu meta: {g.kcal} kcal · P{g.p} C{g.c} G{g.g}</div>
         </div>
 
         <div className="space-y-2">
@@ -3026,7 +3026,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               <button key={slot} onClick={() => { haptic(6); setPickerSlot(slot); }}
                 className="w-full rounded-2xl px-3.5 py-3 text-left active:scale-[0.99] transition flex items-center gap-2"
                 style={{ background: 'rgba(255,255,255,0.55)', border: `1.5px dashed ${BORDER}` }}>
-                <span className="text-[9.5px] font-bold" style={{ color: ACCENT }}>{SLOT_LABELS[slot]}</span>
+                <span className="text-[12px] font-bold" style={{ color: ACCENT }}>{SLOT_LABELS[slot]}</span>
                 <span className="text-[12.5px] font-semibold ml-auto" style={{ color: TEXT_MUTED }}>+ Elegir receta</span>
               </button>
             );
@@ -3039,7 +3039,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           style={{ background: armando.comidas.length ? TEXT : BORDER, color: '#fff' }}>
           Guardar menú
         </button>
-        <div className="text-[10.5px] text-center" style={{ color: TEXT_LIGHT }}>
+        <div className="text-[12px] text-center" style={{ color: TEXT_LIGHT }}>
           Cada receta se ajusta sola al tamaño que le toca dentro de tu meta.
         </div>
       </div>
@@ -3171,9 +3171,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         </div>
         ) : (
         <div className="rounded-full px-4 py-2.5 flex items-center gap-2" style={cardStyle}>
-          <span className="text-[9.5px] font-bold flex-shrink-0" style={{ color: ACCENT }}>Tu meta de hoy</span>
+          <span className="text-[12px] font-bold flex-shrink-0" style={{ color: ACCENT }}>Tu meta de hoy</span>
           <div className="ml-auto flex items-center gap-2.5 num text-[12px] font-bold whitespace-nowrap">
-            <span style={{ color: TEXT }}>{g.kcal}<span className="text-[9px] font-semibold" style={{ color: TEXT_LIGHT }}> kcal</span></span>
+            <span style={{ color: TEXT }}>{g.kcal}<span className="text-[12px] font-semibold" style={{ color: TEXT_LIGHT }}> kcal</span></span>
             <span style={{ color: C_PROTEIN }}>P{g.p}</span>
             <span style={{ color: C_CARBS_TEXTO }}>C{g.c}</span>
             <span style={{ color: C_FAT }}>G{g.g}</span>
@@ -3212,7 +3212,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               <span style={{ color: TEXT_LIGHT, transform: 'rotate(180deg)', flexShrink: 0 }}><ChevronLeft size={20} /></span>
             </button>
 
-            <div className="text-[11px] text-center px-4 pt-1" style={{ color: TEXT_LIGHT }}>
+            <div className="text-[12px] text-center px-4 pt-1" style={{ color: TEXT_LIGHT }}>
               Puedes moverte entre las dos cuando quieras.
             </div>
           </>
@@ -3269,7 +3269,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {!searching && !v2 && (
           <>
             <div>
-              <div className="text-[11px] font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Filtrar según tipo de comida</div>
+              <div className="text-[12px] font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Filtrar según tipo de comida</div>
               <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
                 {SLOT_FILTERS.map((f, i) => (
                   <React.Fragment key={f.key}>
@@ -3287,7 +3287,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               </div>
             </div>
             <div>
-              <div className="text-[11px] font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Ordenar según</div>
+              <div className="text-[12px] font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Ordenar según</div>
               <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
                 {[{ k: 'reco', l: 'Recomendadas' }, { k: 'rapidos', l: 'Rápidas' }, { k: 'economicos', l: 'Económicas' }, { k: 'proteina', l: 'Alta proteína' }].map((o, i) => (
                   <React.Fragment key={o.k}>
@@ -3350,13 +3350,13 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               ) : (
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{recipe.name}</div>
-                <div className="flex items-center gap-2 text-[10.5px] mt-1" style={{ color: TEXT_MUTED }}>
-                  <span className="px-2 py-0.5 rounded-full font-bold" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 10 }}>{displaySlot(recipe.slot)}</span>
+                <div className="flex items-center gap-2 text-[12px] mt-1" style={{ color: TEXT_MUTED }}>
+                  <span className="px-2 py-0.5 rounded-full font-bold" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 12 }}>{displaySlot(recipe.slot)}</span>
                   <span className="flex items-center gap-1"><Clock size={10} /> {recipe.time}</span>
                   <CostTag cost={META[recipe.id].cost} />
-                  {isHighProtein(recipe) && <span className="font-semibold" style={{ color: C_PROTEIN, fontSize: 10 }}>· Alta proteína</span>}
+                  {isHighProtein(recipe) && <span className="font-semibold" style={{ color: C_PROTEIN, fontSize: 12 }}>· Alta proteína</span>}
                 </div>
-                <div className="flex items-center gap-2.5 mt-1.5 text-[11px] font-semibold num">
+                <div className="flex items-center gap-2.5 mt-1.5 text-[12px] font-semibold num">
                   <span style={{ color: TEXT_MUTED }}>{r0(sc.totals.kcal)} kcal</span>
                   <span style={{ color: C_PROTEIN }}>P{r0(sc.totals.p)}</span>
                   <span style={{ color: C_CARBS_TEXTO }}>C{r0(sc.totals.c)}</span>
@@ -3389,7 +3389,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
 
         {!searching && v2 && <div style={{ height: 1, background: 'rgba(31,31,31,0.09)', margin: '6px 2px 0' }} />}
         {!searching && (
-          <div className="text-[11px] text-center pt-1" style={{ color: TEXT_LIGHT }}>
+          <div className="text-[12px] text-center pt-1" style={{ color: TEXT_LIGHT }}>
             Cada receta se ajusta a su comida dentro de tu meta — y al abrirla puedes adaptarla a lo que te queda del día
           </div>
         )}
@@ -3402,9 +3402,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {/* Visual nueva: la firma va solo en el Dash y en «Acerca del programa». */}
         <div data-firma-vieja style={{ margin: '10px 0 0', padding: '14px 2px 6px', textAlign: 'left', display: v2Activa() ? 'none' : undefined }}>
           <div style={{ width: 28, height: 1, background: BORDER, margin: '14px 0 10px' }} />
-          <div style={{ fontSize: '11.5px', fontWeight: 600, letterSpacing: '-.01em', color: TEXT_MUTED }}>Mauro Morón</div>
-          <div style={{ fontSize: '10px', fontWeight: 400, letterSpacing: '.01em', color: TEXT_LIGHT, margin: '2px 0 0' }}>ISSA Certified Fitness &amp; Nutrition Coach</div>
-          <div style={{ fontSize: '9.5px', color: TEXT_LIGHT, opacity: 0.75, margin: '12px 0 0' }}>© 2026 · Acceso personal e intransferible</div>
+          <div style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '-.01em', color: TEXT_MUTED }}>Mauro Morón</div>
+          <div style={{ fontSize: '12px', fontWeight: 400, letterSpacing: '.01em', color: TEXT_LIGHT, margin: '2px 0 0' }}>ISSA Certified Fitness &amp; Nutrition Coach</div>
+          <div style={{ fontSize: '12px', color: TEXT_LIGHT, opacity: 0.75, margin: '12px 0 0' }}>© 2026 · Acceso personal e intransferible</div>
         </div>
       </div>
       {/* Por portal: dentro del Recetario (z-38) la barra de secciones

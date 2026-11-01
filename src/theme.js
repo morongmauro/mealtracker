@@ -85,7 +85,7 @@ export const BORDER = '#E2DECC';
 export const BORDER_SOFT = '#EEEBE0';
 export const TEXT = '#1F1F1F';           // grafito, nunca negro puro
 export const TEXT_MUTED = '#6B6B6B';
-export const TEXT_LIGHT = '#9A9A9A';
+export const TEXT_LIGHT = '#737373';   // 4,5:1 sobre blanco (antes #9A9A9A, 2,7:1)
 
 // Estados
 export const SUCCESS = '#7A9579';

@@ -101,7 +101,7 @@ export function Chip({ children, tono = 'neutro', style }) {
   };
   return (
     <span style={{
-      display: 'inline-block', fontSize: 11, fontWeight: 700, lineHeight: 1.6,
+      display: 'inline-block', fontSize: 12, fontWeight: 700, lineHeight: 1.6,
       padding: '1px 9px', borderRadius: 999, whiteSpace: 'nowrap',
       ...tonos[tono], ...style,
     }}>{children}</span>
@@ -459,7 +459,7 @@ export function CabezaMarcaCompacta({ etiqueta, nombre, chico, foto, Icono, alCe
           </span>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {etiqueta && <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: colorEtiqueta || T.tinta, lineHeight: 1.2 }}>{etiqueta}</div>}
+          {etiqueta && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: colorEtiqueta || T.tinta, lineHeight: 1.2 }}>{etiqueta}</div>}
           <div data-hoja-nombre style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, color: '#1D1D1F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</div>
           {chico && <div style={{ fontSize: 13, color: '#5F6670', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chico}</div>}
         </div>
@@ -489,7 +489,7 @@ function CabezaMarca({ marca, alCerrar }) {
           </span>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: colorEtiqueta || '#454B54' }}>{etiqueta}</div>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: colorEtiqueta || '#454B54' }}>{etiqueta}</div>
           <div data-hoja-nombre style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15, color: '#1D1D1F' }}>{nombre}</div>
           {chico && <div style={{ fontSize: 12.5, color: '#5F6670', marginTop: 2 }}>{chico}</div>}
         </div>

@@ -105,7 +105,7 @@ export default function VideoLimpio({ src, miniatura, titulo }) {
       {/* Abajo: tiempo, barrita y sonido */}
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '18px 10px 8px', display: 'flex', alignItems: 'center', gap: 9,
         background: 'linear-gradient(0deg, rgba(0,0,0,.55), rgba(0,0,0,0))' }}>
-        <span className="num" style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', minWidth: 30 }}>{mmss(t)}</span>
+        <span className="num" style={{ fontSize: 12, fontWeight: 700, color: '#fff', minWidth: 30 }}>{mmss(t)}</span>
         <input data-video-barra type="range" min={0} max={Math.max(1, Math.round(dur))} step={0.5} value={Math.min(t, dur || t)} aria-label="Mover el video"
           onPointerDown={() => { arrastrando.current = true; }}
           onChange={ev => { const v = Number(ev.target.value); setT(v); mandar('seekTo', [v, true]); }}

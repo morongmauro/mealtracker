@@ -396,7 +396,7 @@ function ContinuarRutina({ plan, alAbrir }) {
       boxShadow: '0 1px 2px rgba(20,20,30,0.04), 0 8px 22px rgba(20,30,60,0.08)',
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '.08em', color: '#EE8434' }}>RUTINA A MEDIAS</div>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', color: '#EE8434' }}>RUTINA A MEDIAS</div>
         <div style={{ fontSize: 17, fontWeight: 800, color: TEXT, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.nombre || 'Tu rutina de hoy'}</div>
         {hora && <div style={{ fontSize: 13, color: '#6E6E73', fontWeight: 600, marginTop: 2 }}>Empezaste a las {hora}. Lo marcado sigue guardado.</div>}
       </div>
@@ -549,7 +549,7 @@ function VistaSemana({ plan, onAbrir }) {
             borderRadius: 18, padding: 18, marginBottom: 14, boxShadow: SHADOW_CARD,
           }}>
             <div style={{
-              fontSize: 11.5, fontWeight: 700,
+              fontSize: 12, fontWeight: 700,
               color: hoy.hecha ? TEXT_LIGHT : ACCENT_PASTEL, marginBottom: 6,
             }}>{hoy.hecha ? (hoy.hecha_el ? 'Hoy · ya la hiciste esta semana' : 'Hoy · ya entrenaste') : hoy.en_curso ? 'Hoy · a medias' : 'Hoy te toca'}</div>
             <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
@@ -573,7 +573,7 @@ function VistaSemana({ plan, onAbrir }) {
       {hoy && (hoy.complementarias || []).map(c => (
         <button key={c.id} data-hoy-bloque={c.id} onClick={() => onAbrir(c.id)} style={{ ...filaBase(false), marginBottom: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_LIGHT }}>{c.hecha ? 'También hoy · ya lo hiciste' : 'También hoy'}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: TEXT_LIGHT }}>{c.hecha ? 'También hoy · ya lo hiciste' : 'También hoy'}</div>
             <div style={{ fontSize: 14.5, fontWeight: 700, color: TEXT }}>{c.nombre}</div>
             <div style={{ fontSize: 12, color: TEXT_MUTED }}>{c.ejercicios} ejercicio{c.ejercicios === 1 ? '' : 's'}{c.minutos ? ` · ~${c.minutos} min` : ''}</div>
           </div>
@@ -581,7 +581,7 @@ function VistaSemana({ plan, onAbrir }) {
       ))}
 
       <div style={{
-        fontSize: 11.5,
+        fontSize: 12,
         fontWeight: 800, color: TEXT_LIGHT, margin: '18px 2px 8px',
       }}>Tu semana</div>
 
@@ -594,7 +594,7 @@ function VistaSemana({ plan, onAbrir }) {
       {plan.sueltas && plan.sueltas.length > 0 && (
         <>
           <div style={{
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: 800, color: TEXT_LIGHT, margin: '18px 2px 8px',
           }}>También en tu fase</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -635,7 +635,7 @@ function FilaDia({ d, onAbrir }) {
           color: d.descanso ? TEXT_MUTED : TEXT,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{d.descanso ? 'Descanso' : d.rutina.nombre}</div>
-        <div style={{ fontSize: 11.5, color: TEXT_LIGHT }}>
+        <div style={{ fontSize: 12, color: TEXT_LIGHT }}>
           {DIAS_LARGO[d.dia]}
           {d.es_hoy ? ' · hoy' : ''}
           {!d.descanso && d.rutina.ejercicios ? ` · ${d.rutina.ejercicios} ejercicios` : ''}
@@ -1524,7 +1524,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
                 background: ACCENT, transition: 'width .25s ease',
               }} />
             </div>
-            <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 5 }}>
+            <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 5 }}>
               {Math.min(hechas, totalSeries)} de {totalSeries} series
             </div>
           </div>
@@ -1579,7 +1579,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
               {tramo.vueltas.length > 1 && (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 8, margin: '12px 2px 6px',
-                  fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase',
+                  fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase',
                   color: TEXT_LIGHT,
                 }}>
                   Vuelta {vi + 1}
@@ -1844,7 +1844,7 @@ function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
                   background: 'linear-gradient(135deg, rgba(60,123,214,0.10), rgba(242,201,76,0.16))' }}>
                   <span style={{ width: 40, height: 40, borderRadius: 12, background: '#FFFFFF', color: '#3C7BD6', display: 'grid', placeItems: 'center', flex: 'none', boxShadow: '0 4px 12px rgba(60,123,214,0.18)' }}><TrendUpV2 size={20} weight="bold" /></span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.08em', color: '#3C7BD6', textTransform: 'uppercase', lineHeight: 1.25 }}>Nuevo mejor · {r.nombre}</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', color: '#3C7BD6', textTransform: 'uppercase', lineHeight: 1.25 }}>Nuevo mejor · {r.nombre}</div>
                     <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{marcaV(r)}</div>
                     <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 1, fontVariantNumeric: 'tabular-nums' }}>
                       {r.antes ? <>La vez pasada: {marcaV(r.antes)}{sube > 0 && <> · <b style={{ color: '#2F7F45' }}>+{coma(sube)} {r.unidad || 'kg'}</b></>}</> : r.primera_vez ? 'Primera vez' : ''}
@@ -1875,7 +1875,7 @@ function RelojSesion({ desde, v2 = false }) {
     }} aria-label="Tiempo de entreno">
       {/* «Entreno»: es el tiempo total que lleva el entreno, para que no se
           confunda con el descanso ni con la cuenta de un ejercicio. */}
-      {v2 ? <span style={{ fontSize: 11, fontWeight: 700, color: '#636366' }}>Entreno</span> : <Timer size={13} strokeWidth={2.4} />}
+      {v2 ? <span style={{ fontSize: 12, fontWeight: 700, color: '#636366' }}>Entreno</span> : <Timer size={13} strokeWidth={2.4} />}
       {h ? `${h}:${String(m).padStart(2, '0')}` : m}:{ss}</span>
   );
 }
@@ -1936,7 +1936,7 @@ function CabeceraBloque({ b, v2 = false }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, margin: '16px 2px 8px',
-      fontSize: v2 ? 12.5 : 11.5, fontWeight: 700, color: v2 ? SECCION.entreno.ink : ACCENT_DARK,
+      fontSize: v2 ? 12.5 : 12, fontWeight: 700, color: v2 ? SECCION.entreno.ink : ACCENT_DARK,
     }}>
       {/* Con la visual nueva no se repite la letra del bloque (A, B…): el
           separador del momento ya dice dónde se está. */}
@@ -2040,7 +2040,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
             {re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}
             {re.rir != null ? ` · RIR ${re.rir}` : ''}
           </div>
-          <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 2 }}>
             {re.tempo ? `Tempo ${re.tempo} · ` : ''}
             {re.descanso_seg ? `Descanso ${re.descanso_seg}s` : ''}
           </div>
@@ -2058,7 +2058,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
       {ultima && ultima.series.length > 0 && (
         <div style={{
           marginTop: 10, padding: '8px 11px', borderRadius: 10, background: SURFACE_2,
-          fontSize: 11.5, color: TEXT_MUTED, lineHeight: 1.5,
+          fontSize: 12, color: TEXT_MUTED, lineHeight: 1.5,
         }}>
           {ultima.record && (
             <div style={{ marginBottom: 3 }}>
@@ -2086,7 +2086,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
           entiende: parece un número suelto en vez de "lo que hiciste". */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 2,
-        fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase',
+        fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase',
         color: TEXT_LIGHT,
       }}>
         <div style={{ width: 24, flexShrink: 0 }} />
@@ -2098,7 +2098,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
         <div style={{ flex: 1, textAlign: 'center' }}>
           <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
             border: `1px solid ${BORDER}`, background: 'transparent', borderRadius: 999,
-            padding: '1px 8px', fontSize: 10, fontWeight: 800, letterSpacing: '.06em',
+            padding: '1px 8px', fontSize: 12, fontWeight: 800, letterSpacing: '.06em',
             textTransform: 'uppercase', color: ACCENT_DARK, cursor: 'pointer', fontFamily: 'inherit',
           }}>{unidad} ⇄</button>
         </div>
@@ -2157,7 +2157,7 @@ function SerieFila({ n, re, marcada, previa, pesoSugerido, repsSugeridas, descan
           el teclado, que es justo cuando lo necesitas. */}
       <div style={{
         width: 52, flexShrink: 0, textAlign: 'right',
-        fontSize: 11.5, color: TEXT_LIGHT, fontVariantNumeric: 'tabular-nums',
+        fontSize: 12, color: TEXT_LIGHT, fontVariantNumeric: 'tabular-nums',
         lineHeight: 1.15,
       }} title={previa ? 'Lo que hiciste en esta serie la última vez' : 'Es la primera vez que haces esta serie'}>
         {previa
@@ -2521,7 +2521,7 @@ function BarraDescanso({ segundos, restante, onSaltar, onMas, v2 = false }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px' }}>
         <Timer size={17} style={{ flexShrink: 0, opacity: 0.9 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.78 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.78 }}>
             {listo ? 'Listo' : 'Descanso'}
           </div>
           <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}>
@@ -2549,7 +2549,7 @@ const btnDescanso = {
 
 const pildora = {
   border: `1px solid ${BORDER}`, background: 'transparent',
-  borderRadius: 999, padding: '3px 11px', fontSize: 11.5, fontWeight: 700,
+  borderRadius: 999, padding: '3px 11px', fontSize: 12, fontWeight: 700,
   color: TEXT_MUTED, cursor: 'pointer', fontFamily: 'inherit',
 };
 

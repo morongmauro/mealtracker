@@ -43,7 +43,7 @@ export default function AvisoCicloFin({ fase, pendientes = 0, hoyToca = null, fi
   const chip = (b, s) => (
     <div style={{ flex: 1, minWidth: 0, background: '#F3F1EB', borderRadius: 16, padding: '10px 12px' }}>
       <b style={{ display: 'block', fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b}</b>
-      <span style={{ fontSize: 11.5, color: TEXT_MUTED, lineHeight: 1.25, display: 'block' }}>{s}</span>
+      <span style={{ fontSize: 12, color: TEXT_MUTED, lineHeight: 1.25, display: 'block' }}>{s}</span>
     </div>
   );
   return (
@@ -74,12 +74,12 @@ export default function AvisoCicloFin({ fase, pendientes = 0, hoyToca = null, fi
               );
             })}
             <div style={{ width: 22, textAlign: 'center', color: '#5F6670', fontWeight: 800 }}>→</div>
-            <div className="ac-s" style={{ flex: 1.1, height: 34, borderRadius: 12, border: '2px dashed #5F6670', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, color: '#5F6670', animationDelay: '.55s' }}>Ciclo nuevo</div>
+            <div className="ac-s" style={{ flex: 1.1, height: 34, borderRadius: 12, border: '2px dashed #5F6670', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 800, color: '#5F6670', animationDelay: '.55s' }}>Ciclo nuevo</div>
           </div>
-          <div style={{ position: 'absolute', left: 22, top: 112, fontSize: 11, color: TEXT_MUTED, fontWeight: 700 }}>Estás aquí · semana {n} de {n}</div>
+          <div style={{ position: 'absolute', left: 22, top: 112, fontSize: 12, color: TEXT_MUTED, fontWeight: 700 }}>Estás aquí · semana {n} de {n}</div>
         </div>
         <div style={{ padding: '14px 22px 20px' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: TEXT_MUTED }}>Tu ciclo</div>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: TEXT_MUTED }}>Tu ciclo</div>
           <div style={{ fontSize: 27, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.06, marginTop: 6 }}>
             <div>Última semana.</div><div>Ciérrala fuerte.</div>
           </div>

@@ -27,7 +27,7 @@ import VentanaMarca, { BotonVentana, GRAFITO, AMARILLO, GRIS_TXT, Color, Negrita
 import { recorridoHecho } from './recorridoEstado.js';
 import { SECCION, DASH_AZUL } from './theme.js';
 
-const GRIS = '#8E8E93', CAMPO = 'rgba(255,255,255,0.85)';
+const GRIS = '#737373', CAMPO = 'rgba(255,255,255,0.85)';
 import { CLAVE_SESION, leerSesion, guardarSesion } from './sesionV2.js';
 export { CLAVE_SESION, leerSesion, guardarSesion };
 
@@ -306,7 +306,7 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
         {[['Dash', DASH_AZUL.base], ['Entreno', SECCION.entreno.base], ['Comida', SECCION.comida.base], ['Aprende', SECCION.aprende.base]].map(([t, c]) => (
           <div key={t} style={{ width: 70, height: 58, borderRadius: 18, background: CAMPO, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <i style={{ width: 12, height: 12, borderRadius: 99, background: c }} /><span style={{ fontSize: 11.5, fontWeight: 700 }}>{t}</span>
+            <i style={{ width: 12, height: 12, borderRadius: 99, background: c }} /><span style={{ fontSize: 12, fontWeight: 700 }}>{t}</span>
           </div>
         ))}
       </div>

@@ -8,7 +8,7 @@
 // final, el atajo para dictar todo el día de una vez.
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
-import { Sun, SunHorizon, Moon, Cookie, Plus, Microphone, PencilSimple } from '@phosphor-icons/react';
+import { Sun, SunHorizon, Moon, Cookie, Plus, Microphone, PencilSimple, ArrowCounterClockwise } from '@phosphor-icons/react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT, C_PROTEIN, C_CARBS_TEXTO, C_FAT } from './theme.js';
 import { enPrueba } from './vistaApp.js';
 
@@ -40,6 +40,30 @@ export function comidaEnHora(ahora, entries = []) {
   return slot;
 }
 
+// «Igual que ayer»: si ayer registró esa misma comida, se repite con un toque
+// (lo mismo que «Repetir ayer» del chat, pero de la comida que toca).
+export function igualQueAyer(ayer = [], k) {
+  const lista = (Array.isArray(ayer) ? ayer : []).filter(e => momentoDe(e.meal) === k && (e.items || []).length);
+  if (!lista.length) return null;
+  const nombres = lista.flatMap(e => (e.items || []).map(it => it.name)).filter(Boolean);
+  return { lista, kcal: Math.round(lista.reduce((a, e) => a + (Number(e.kcal) || 0), 0)),
+    texto: nombres.slice(0, 3).join(', ') + (nombres.length > 3 ? '…' : '') };
+}
+function IgualQueAyer({ rep, alRepetir }) {
+  if (!rep || !alRepetir) return null;
+  return (
+    <div data-igual-ayer style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px 11px 14px', borderRadius: 18, background: '#F2F1EC' }}>
+      <ArrowCounterClockwise size={18} weight="bold" color={VERDE} style={{ flex: 'none' }} />
+      <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, color: '#3A3A3C', lineHeight: 1.3 }}>
+        <b style={{ display: 'block', color: TEXT }}>Igual que ayer</b>
+        <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rep.kcal} kcal · {rep.texto}</span>
+      </span>
+      <button type="button" data-igual-ayer-anotar onClick={() => alRepetir(rep.lista)} style={{ flex: 'none', minHeight: 40, padding: '0 16px', border: 'none', borderRadius: 999,
+        background: '#46965A', color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Anotar</button>
+    </div>
+  );
+}
+
 const TARJETA = { background: '#FFFFFF', borderRadius: 20, boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)' };
 
 // Lo registrado en un momento: sus alimentos en filas cortas y los macros.
@@ -49,7 +73,7 @@ function Registro({ e }) {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
         {e.time && <span style={{ fontSize: 12, fontWeight: 600, color: TEXT_LIGHT }}>{e.time}</span>}
         <span style={{ flex: 1 }} />
-        <span className="num" style={{ fontSize: 14, fontWeight: 800, color: TEXT }}>{Math.round(e.kcal)} <span style={{ fontSize: 11.5, color: TEXT_MUTED }}>kcal</span></span>
+        <span className="num" style={{ fontSize: 14, fontWeight: 800, color: TEXT }}>{Math.round(e.kcal)} <span style={{ fontSize: 12, color: TEXT_MUTED }}>kcal</span></span>
       </div>
       {(e.items || []).map((it, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '3px 0', borderTop: i ? '1px solid #ECEAE3' : 0 }}>
@@ -57,7 +81,7 @@ function Registro({ e }) {
           <span className="num" style={{ fontSize: 12.5, fontWeight: 700, color: TEXT_MUTED, flex: 'none' }}>{Math.round(it.kcal || 0)} kcal</span>
         </div>
       ))}
-      <div className="num" style={{ display: 'flex', gap: 10, fontSize: 11.5, fontWeight: 700, marginTop: 4 }}>
+      <div className="num" style={{ display: 'flex', gap: 10, fontSize: 12, fontWeight: 700, marginTop: 4 }}>
         <span style={{ color: C_PROTEIN }}>P {fmt1(e.p)}g</span><span style={{ color: C_CARBS_TEXTO }}>C {fmt1(e.c)}g</span><span style={{ color: C_FAT }}>G {fmt1(e.g)}g</span>
       </div>
     </div>
@@ -74,7 +98,7 @@ function ListaDelDia({ momentosLista, por, otras, primeroVacio, alAgregar }) {
         return (
           <div key={m.k} data-momento={m.k} data-registrado={lista.length ? '1' : undefined} style={{ borderTop: i ? '1px solid #F0EEE8' : 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
-              <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 12, flex: 'none', display: 'grid', placeItems: 'center', background: lista.length ? 'rgba(70,150,90,0.14)' : '#F2F1EC', color: lista.length ? VERDE : '#8E8E93' }}>
+              <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 12, flex: 'none', display: 'grid', placeItems: 'center', background: lista.length ? 'rgba(70,150,90,0.14)' : '#F2F1EC', color: lista.length ? VERDE : '#737373' }}>
                 <m.Icono size={18} weight={lista.length ? 'fill' : 'regular'} />
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -106,7 +130,7 @@ function ListaDelDia({ momentosLista, por, otras, primeroVacio, alAgregar }) {
   );
 }
 
-export default function DiaComidas({ entries = [], alAgregar, alDictar, debajo = null }) {
+export default function DiaComidas({ entries = [], alAgregar, alDictar, debajo = null, ayer = [], alRepetir = null }) {
   const por = { desayuno: [], almuerzo: [], cena: [], snack: [] };
   const otras = [];
   entries.forEach(e => { const k = momentoDe(e.meal); if (k) por[k].push(e); else otras.push(e); });
@@ -152,6 +176,7 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar, debajo =
             <button type="button" data-prota-escribir onClick={() => alAgregar && alAgregar(m)} aria-label={`Escribir ${m.nombre.toLowerCase()}`} style={{ flex: 1, height: 48, border: 'none', borderRadius: 999,
               background: '#46965A', color: '#fff', fontFamily: 'inherit', fontSize: 15.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}><PencilSimple size={17} weight="bold" />Escribir</button>
           </div>
+          <IgualQueAyer rep={igualQueAyer(ayer, enHora)} alRepetir={alRepetir} />
           {debajo && React.isValidElement(debajo) ? React.cloneElement(debajo, { dentro: true }) : debajo}
         </div>
         {hayLista && <h2 data-titulo-comidas style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '18px 2px 10px' }}>Lo que llevas hoy</h2>}
@@ -173,6 +198,7 @@ export default function DiaComidas({ entries = [], alAgregar, alDictar, debajo =
             <button type="button" data-prota-escribir onClick={() => alAgregar && alAgregar(primeroVacio)} aria-label={`Escribir ${primeroVacio.nombre.toLowerCase()}`} style={{ flex: 1, height: 52, border: 'none', borderRadius: 999,
               background: '#46965A', color: '#fff', fontFamily: 'inherit', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer' }}><PencilSimple size={18} weight="bold" />Escribir</button>
           </div>
+          <IgualQueAyer rep={igualQueAyer(ayer, primeroVacio.k)} alRepetir={alRepetir} />
         </div>
       )}
       {/* Lo que va justo debajo de la pregunta (la invitación al recetario). */}

@@ -174,7 +174,7 @@ function Dato({ valor, unidad, meta, chico }) {
         </span>
         {meta ? <span style={{ fontSize: 12, color: TEXT_LIGHT }}>/ {meta}</span> : null}
       </div>
-      <div style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 2 }}>{unidad}</div>
+      <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 2 }}>{unidad}</div>
     </div>
   );
 }

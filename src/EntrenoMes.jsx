@@ -269,7 +269,7 @@ function MesClasico({ nombre, alEntrenar }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 5 }}>
             {DIAS_CORTO.map(d => (
               <div key={d} style={{
-                fontSize: v2 ? 11 : 10, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase',
+                fontSize: v2 ? 12 : 12, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase',
                 color: TEXT_LIGHT, textAlign: 'center',
               }}>{d}</div>
             ))}
@@ -365,10 +365,10 @@ function Celda({ dia, P, v2, sobre, origen, alTocar, alPresionar }) {
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2,
-        fontSize: v2 ? 12.5 : 11, fontWeight: 700, color: dia.es_hoy ? P.ink : TEXT_MUTED,
+        fontSize: v2 ? 12.5 : 12, fontWeight: 700, color: dia.es_hoy ? P.ink : TEXT_MUTED,
       }}>
         <span>{Number(dia.fecha.slice(8))}</span>
-        {marca && <span style={{ color: v2 && marca.simbolo === '✓' ? P.base : marca.color, fontSize: 11 }}>{marca.simbolo}</span>}
+        {marca && <span style={{ color: v2 && marca.simbolo === '✓' ? P.base : marca.color, fontSize: 12 }}>{marca.simbolo}</span>}
       </div>
 
       {/* La fuerza: un bloque sólido, lo único con peso visual */}
@@ -376,7 +376,7 @@ function Celda({ dia, P, v2, sobre, origen, alTocar, alPresionar }) {
         <div onPointerDown={alPresionar} onContextMenu={e => e.preventDefault()} style={{
           background: bloque.hecha ? P.base : P.suave,
           color: bloque.hecha ? '#fff' : P.ink,
-          borderRadius: 5, fontSize: v2 ? 10 : 8.5, fontWeight: 800, lineHeight: 1.2,
+          borderRadius: 5, fontSize: v2 ? 12 : 12, fontWeight: 800, lineHeight: 1.2,
           padding: v2 ? '3px 3px' : '2px 3px', overflow: 'hidden', textOverflow: 'ellipsis',
           whiteSpace: v2 ? 'normal' : 'nowrap', textAlign: 'left',
           display: v2 ? '-webkit-box' : 'block', WebkitLineClamp: v2 ? 2 : undefined, WebkitBoxOrient: v2 ? 'vertical' : undefined,
@@ -412,7 +412,7 @@ function Leyenda({ P, v2 }) {
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', gap: '4px 14px',
-      fontSize: v2 ? 12.5 : 11, color: TEXT_LIGHT, marginTop: 12, alignItems: 'center',
+      fontSize: v2 ? 12.5 : 12, color: TEXT_LIGHT, marginTop: 12, alignItems: 'center',
     }}>
       <span><Marca estado="completada" style={v2 ? { color: P.base } : undefined} /> entrenaste</span>
       <span><Marca estado="saltada" /> la saltaste</span>
@@ -572,7 +572,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
                     cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                   }}>
                     <div style={{ fontSize: 13.5, fontWeight: 750, color: TEXT }}>{f === hoy ? 'Hoy' : diaCorto(f)}</div>
-                    <div style={{ fontSize: 11.5, color: TEXT_LIGHT }}>{porFecha[f].rutina ? (v2 ? nombreCorto(porFecha[f].rutina.nombre) : porFecha[f].rutina.nombre) : 'libre'}</div>
+                    <div style={{ fontSize: 12, color: TEXT_LIGHT }}>{porFecha[f].rutina ? (v2 ? nombreCorto(porFecha[f].rutina.nombre) : porFecha[f].rutina.nombre) : 'libre'}</div>
                   </button>
                 ))}
                 {!destinos.length && <div style={{ fontSize: t.chico, color: TEXT_LIGHT }}>{destinosSemana ? 'No quedan otros días libres cerca.' : 'No hay días libres cerca en este mes.'}</div>}
@@ -807,7 +807,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
 function Rot({ children }) {
   return (
     <div style={{
-      fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
+      fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
       color: TEXT_LIGHT, margin: '18px 0 8px',
     }}>{children}</div>
   );
@@ -930,7 +930,7 @@ function ChipRutina({ nombre, hecha, movida, P, lineas, grande, arrastre, alToca
       // Movida o añadida por el cliente: borde de puntitos (no rayas).
       border: `${movida && !hecha ? 2 : 1.5}px ${movida && !hecha ? 'dotted' : 'solid'} ${P.base}`,
       borderRadius: grande ? 12 : 6, padding: grande ? '8px 11px' : '3px 2px',
-      fontSize: grande ? 15 : 10, fontWeight: 750, lineHeight: 1.18, textAlign: 'left',
+      fontSize: grande ? 15 : 12, fontWeight: 750, lineHeight: 1.18, textAlign: 'left',
       WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', cursor: 'grab',
     }}>
       {grande && hecha && <Check size={16} weight="bold" style={{ flex: 'none' }} />}
@@ -1261,7 +1261,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', columnGap: 3, marginBottom: 2 }}>
             {DIAS_V2.map(d => (
-              <div key={d} style={{ fontSize: 11.5, fontWeight: 700, color: P.base, padding: '0 4px', letterSpacing: '.02em' }}>{d}</div>
+              <div key={d} style={{ fontSize: 12, fontWeight: 700, color: P.base, padding: '0 4px', letterSpacing: '.02em' }}>{d}</div>
             ))}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', columnGap: 3 }}>
@@ -1556,7 +1556,7 @@ function ChipBloque({ b, chico = false, alTocar }) {
       display: 'flex', alignItems: 'center', gap: chico ? 2 : 5, alignSelf: chico ? 'stretch' : 'flex-start', maxWidth: '100%', minWidth: 0,
       padding: chico ? '1px 3px' : '4px 9px', borderRadius: chico ? 6 : 9,
       border: `1px solid ${hecha ? 'transparent' : 'rgba(31,31,31,0.16)'}`, background: hecha ? '#FBF5E2' : 'rgba(255,255,255,0.9)',
-      color: hecha ? '#8A6A12' : TEXT_MUTED, fontSize: chico ? 9 : 12.5, fontWeight: 700, lineHeight: 1.15, letterSpacing: chico ? '-0.03em' : 0,
+      color: hecha ? '#8A6A12' : TEXT_MUTED, fontSize: chico ? 12 : 12.5, fontWeight: 700, lineHeight: 1.15, letterSpacing: chico ? '-0.03em' : 0,
     }}>
       {hecha ? <Check size={chico ? 8 : 12} weight="bold" style={{ flex: 'none' }} /> : <Stack size={chico ? 8 : 12} weight="bold" style={{ flex: 'none' }} />}
       <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: chico ? 'nowrap' : 'normal' }}>{chico ? nombreCorto(b.nombre) : b.nombre}</span>
@@ -1742,7 +1742,7 @@ function ChipCal({ nombre, estado, arrastre }) {
     : { background: GRIS_CAL, color: GRAFITO_CAL };
   return (
     <div {...(arrastre || {})} onContextMenu={e => e.preventDefault()} data-chip={hecha ? 'hecha' : estado === 'movida' ? 'movida' : estado === 'perdida' ? 'perdida' : 'pendiente'} style={{
-      ...st, borderRadius: 7, padding: '3px 3px', fontSize: 10.5, fontWeight: 700, lineHeight: 1.15, letterSpacing: '-0.03em', textAlign: 'left',
+      ...st, borderRadius: 7, padding: '3px 3px', fontSize: 10.5, fontWeight: 700, lineHeight: 1.15, letterSpacing: '-0.03em', textAlign: 'left',   // 12 px no cabe en la casilla (se ve completo al tocar el día)
       overflowWrap: 'normal', wordBreak: 'keep-all', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none', cursor: arrastre ? 'grab' : 'pointer',
     }}>
       {nombreConMas(nombre)}
@@ -1799,7 +1799,7 @@ function LeyendaCal() {
   // Agrupada en tres filas con su título (eran 10 símbolos seguidos).
   const grupo = (titulo, items) => (
     <div data-leyenda-grupo style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', alignItems: 'center' }}>
-      <span style={{ width: '100%', fontSize: 11.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: TEXT_LIGHT }}>{titulo}</span>
+      <span style={{ width: '100%', fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: TEXT_LIGHT }}>{titulo}</span>
       {items}
     </div>
   );
@@ -1848,7 +1848,7 @@ function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejercicios
       borderTop: primera ? 'none' : '0.5px solid rgba(60,60,67,0.12)', background: sobre ? P.tint : 'transparent', opacity: origen ? 0.5 : 1,
     }}>
       <div style={{ width: 40, flex: 'none', textAlign: 'center' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '.05em', textTransform: 'uppercase' }}>{etiqueta}</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '.05em', textTransform: 'uppercase' }}>{etiqueta}</div>
         <div style={{ width: 30, height: 30, margin: '2px auto 0', borderRadius: 99, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 750,
           background: esHoy ? GRAFITO_CAL : 'transparent', color: esHoy ? '#fff' : TEXT }}>{Number(fecha.slice(8))}</div>
       </div>
@@ -1864,7 +1864,7 @@ function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejercicios
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 30 }}>
-            <span style={{ fontSize: 15, fontWeight: 600, color: '#AEAEB2' }}>{dia ? 'Descanso' : '—'}</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: '#737373' }}>{dia ? 'Descanso' : '—'}</span>
             {alAgregar && <button onClick={(e) => { e.stopPropagation(); alAgregar(); }} style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 650, color: TEXT_MUTED, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Plus size={13} weight="bold" /> Añadir</button>}
           </div>
         )}
@@ -1887,7 +1887,7 @@ function ResumenSemana({ dias }) {
   const cardio = dias.filter(d => d.actividades.length > 0).length;
   const caja = (k, v, u) => (
     <div style={{ ...vidrioCal, flex: 1, padding: '12px 16px' }}>
-      <div style={{ fontSize: 11.5, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '.06em' }}>{k}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '.06em' }}>{k}</div>
       <div style={{ fontSize: 24, fontWeight: 800, color: TEXT, marginTop: 2 }}>{v} <span style={{ fontSize: 14.5, color: TEXT_MUTED, fontWeight: 600 }}>{u}</span></div>
     </div>
   );

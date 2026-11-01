@@ -212,7 +212,7 @@ const nombreMusculo = (x) => (x === 'erectores' ? MUSCULO_POR_SLUG[x].corto : MU
 
 const Pildoras = ({ titulo, lista, punto, fondo }) => (
   <div style={{ marginTop: 10 }}>
-    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>{titulo}</div>
+    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#737373', marginBottom: 6 }}>{titulo}</div>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
       {lista.map(x => (
         <span key={x} data-pildora-musculo={x} style={{

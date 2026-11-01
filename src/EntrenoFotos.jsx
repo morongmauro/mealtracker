@@ -276,7 +276,7 @@ export default function EntrenoFotos({ name }) {
 function Etiqueta({ f, peso, nueva, conPose, chica = false }) {
   return (
     <span style={{
-      position: 'absolute', left: chica ? 6 : 8, top: chica ? 6 : 8, borderRadius: 999, padding: chica ? '3px 7px' : '4px 9px', fontSize: chica ? 11 : 12, fontWeight: 750, color: '#fff', letterSpacing: chica ? '-0.01em' : undefined,
+      position: 'absolute', left: chica ? 6 : 8, top: chica ? 6 : 8, borderRadius: 999, padding: chica ? '3px 7px' : '4px 9px', fontSize: chica ? 12 : 12, fontWeight: 750, color: '#fff', letterSpacing: chica ? '-0.01em' : undefined,
       background: nueva ? AZUL : 'rgba(31,31,31,.78)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
       whiteSpace: 'nowrap', maxWidth: chica ? 'calc(100% - 12px)' : 'calc(100% - 16px)', overflow: 'hidden', textOverflow: 'ellipsis',
     }}>{nueva && f.fecha === hoyLocal() ? 'Hoy' : fechaCorta(f.fecha)}{conPose

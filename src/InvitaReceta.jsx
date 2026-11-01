@@ -79,7 +79,7 @@ export default function InvitaReceta({ entries = [], goals, consumed, alAbrir, d
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.3)' }} />
             </div>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: TEXT, marginTop: 6, lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.nombre}</div>
-            <div className="num" style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 1 }}>{r.kcal} kcal · {r.tiempo}</div>
+            <div className="num" style={{ fontSize: 11.5, color: TEXT_LIGHT, marginTop: 1, whiteSpace: 'nowrap' }}>{r.kcal} kcal · {r.tiempo}</div>
           </button>
         ))}
       </div>

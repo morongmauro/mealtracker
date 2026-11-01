@@ -74,7 +74,7 @@ export function resumenDelMes({ hoy, mes = null, medidas = [], history = {}, goa
     } else if (d.primero) {
       filas.push({ clave: campo, etiqueta, corto, color: '#1F1F1F', valor: fmt(d.valor), sub: `Primer registro · ${fechaCortaMes(d.primero)}` });
     } else {
-      filas.push({ clave: campo, etiqueta, corto: `${corto} · último ${fechaCortaMes(d.ultimo)}`, color: '#8E8E93', gris: true,
+      filas.push({ clave: campo, etiqueta, corto: `${corto} · último ${fechaCortaMes(d.ultimo)}`, color: '#737373', gris: true,
         valor: fmt(d.valor), sub: `Último registro · ${fechaCortaMes(d.ultimo)}` });
     }
   };
