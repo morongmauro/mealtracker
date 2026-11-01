@@ -43,6 +43,7 @@ import CabeceraHoy from './CabeceraHoy.jsx';
 import { enPrueba, lote25, DESVANECIDO_BORDE, verComposicion } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
 import { resumenDelMes, textoParaCoach, resumenVisto, marcarResumenVisto } from './resumenMes.js';
+import { usoSeccion } from './usoApp.js';
 import { reportarRecordatorios, reportarToque } from './recordatoriosReporte.js';
 import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe } from './GraficasV2.jsx';
 import {
@@ -433,6 +434,8 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
   // Al volver a él desde la barra (reinicio cambia) se abre en su inicio,
   // como siempre, pero sin armarse de cero ni volver a pedir los datos.
   useEffect(() => { if (reinicio) setVista('inicio'); }, [reinicio]);
+  // Para el coach (Enganche en el CRM): si abrió la Comunidad ese día.
+  useEffect(() => { if (vista === 'comunidad') usoSeccion('comunidad'); }, [vista]);
   // Desde «Más» (vista compacta) se puede pedir abrir directo Configuración o
   // la Comunidad. Va DESPUÉS del de arriba: si llegan juntos, gana este.
   useEffect(() => { if (abrir && abrir.v) setVista(abrir.v); }, [abrir && abrir.n]);   // eslint-disable-line react-hooks/exhaustive-deps

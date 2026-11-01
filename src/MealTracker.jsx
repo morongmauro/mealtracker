@@ -71,6 +71,15 @@ import { enVerComo as enVerComoEncuesta } from './verComo.js';
 import { pasosInstalar } from './InstalarApp.jsx';
 import { leerAprendizajeConCache } from './aprendizaje.js';
 import { fijarHistoriaComida } from './resumenMes.js';
+import { usoSeccion } from './usoApp.js';
+
+// Lo que abre en la app, para el coach (Enganche en el CRM): una vez por día y
+// sección, y solo si se queda en ella 2 s (al abrir, la app pasa un instante
+// por otras secciones antes de llegar al Dash).
+function ReporteUso({ seccion }) {
+  useEffect(() => { const t = setTimeout(() => usoSeccion(seccion), 2000); return () => clearTimeout(t); }, [seccion]);
+  return null;
+}
 
 // ── Modelos: enrutamiento HÍBRIDO ────────────────────────────────────────
 // FAST (Haiku) clasifica y registra los mensajes del día a día (~85% del
@@ -6891,6 +6900,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             ir: irMasCompacta,
           })} />
       </>)}
+      <ReporteUso seccion={seccionV2 === 'comida' ? (subV2 === 'recetas' ? 'recetas' : subV2 === 'chat' ? 'chat' : 'comida') : seccionV2} />
       {v2 && !compacta && (
         <BarraV2
           barRef={navBarRef}

@@ -1,5 +1,6 @@
 import CabeceraHoy from './CabeceraHoy.jsx';
 import React, { useState, useMemo, useRef, useEffect, startTransition } from 'react';
+import { usoReceta } from './usoApp.js';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, Search, SlidersHorizontal as Sliders, RotateCcw, Check, Info, Clock, AlertTriangle, X, ShoppingCart, Copy } from 'lucide-react';
 
@@ -2186,6 +2187,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   }, [filterSlot, query, sort, remaining, g]);
 
   const open = openId ? recetaPorId(openId) : null;
+  // Para el coach (Enganche en el CRM): qué recetas abre.
+  useEffect(() => { if (open) usoReceta(open.name); }, [openId]);   // eslint-disable-line react-hooks/exhaustive-deps
   const detail = useMemo(() => {
     if (!open) return null;
     if (manualK != null) return scale(open, open.totals.p * manualK);

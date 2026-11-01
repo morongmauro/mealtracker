@@ -1,0 +1,53 @@
+// /api/uso  (POST)
+// (vercel.json lo reescribe a /api/training?modulo=uso: límite de funciones del plan)
+// La app manda aquí, una vez por día y por cosa, la sección que abrió (Dash,
+// Entreno, Comida, Recetas, Aprende, Comunidad, Chat) y las recetas que
+// abrió. Queda en `app_uso` (SQL: sql/app-uso.sql), una fila por cliente y
+// por día, y el CRM lo muestra en Enganche. Solo inserta o actualiza su
+// fila del día; nunca borra nada.
+import { guard } from './_guard.js';
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const isUuid = (s) => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+const corto = (v, n) => (v == null ? '' : String(v).slice(0, n));
+const H = () => ({ apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' });
+const esDia = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+export const SECCIONES_USO = ['dash', 'entreno', 'comida', 'recetas', 'aprende', 'comunidad', 'chat'];
+const TOPE_RECETAS = 40;
+
+// La fila del día con lo nuevo sumado (función pura: la prueba la usa).
+export function fusionarUso(ex, { secciones = [], recetas = [] }) {
+  const s = { ...((ex && ex.secciones) || {}) };
+  secciones.filter(x => SECCIONES_USO.includes(x)).forEach(x => { s[x] = 1; });
+  const r = [...((ex && Array.isArray(ex.recetas)) ? ex.recetas : [])];
+  recetas.map(x => corto(x, 120).trim()).filter(Boolean).forEach(x => { if (!r.includes(x) && r.length < TOPE_RECETAS) r.push(x); });
+  return { secciones: s, recetas: r };
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method not allowed' });
+  if (!guard(req, res, { key: 'uso', limit: 30 })) return;
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return res.status(500).json({ ok: false, error: 'Supabase env vars not configured' });
+  const b = req.body || {};
+  const name = corto(b.name, 120) || null;
+  const user_id = isUuid(b.user_id) ? b.user_id : null;
+  const clave = user_id || (name ? `n:${name}` : null);
+  if (!clave || !esDia(b.hoy)) return res.status(200).json({ ok: false, error: 'sin cliente o sin día' });
+  const nuevo = { secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10) };
+  const tabla = `${SUPABASE_URL}/rest/v1/app_uso`;
+  try {
+    const r = await fetch(`${tabla}?clave=eq.${encodeURIComponent(clave)}&fecha=eq.${b.hoy}&select=id,secciones,recetas`, { headers: H() });
+    if (!r.ok) return res.status(200).json({ ok: false, sinTabla: r.status === 404 });
+    const filas = await r.json();
+    const ex = Array.isArray(filas) ? filas[0] : null;
+    const f = fusionarUso(ex, nuevo);
+    const ahora = new Date().toISOString();
+    const w = ex
+      ? await fetch(`${tabla}?id=eq.${ex.id}`, { method: 'PATCH', headers: { ...H(), Prefer: 'return=minimal' }, body: JSON.stringify({ ...f, ultima: ahora, name, ...(user_id ? { user_id } : {}) }) })
+      : await fetch(tabla, { method: 'POST', headers: { ...H(), Prefer: 'return=minimal,resolution=merge-duplicates' }, body: JSON.stringify({ clave, name, user_id, fecha: b.hoy, ...f, primera: ahora, ultima: ahora }) });
+    return res.status(200).json({ ok: w.ok });
+  } catch (e) {
+    return res.status(200).json({ ok: false });
+  }
+}

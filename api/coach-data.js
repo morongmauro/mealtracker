@@ -193,6 +193,27 @@ function summarize(row) {
     abre_en_at: data.abre_en_at || null,
     // La vista que usa: { modo: 'completa'|'compacta', desde, por: 'cliente'|'coach' }.
     vista_app: data.vista_app && typeof data.vista_app === 'object' ? data.vista_app : null,
+    // Para Enganche: lo que guardó en el recetario y las recetas que
+    // registró (las que anota desde una receta llevan «receta: …»), 28 días.
+    ...recetasDe(data, todayStr),
+  };
+}
+
+export function recetasDe(data = {}, todayStr) {
+  const cutoff = new Date(todayStr + 'T00:00:00');
+  cutoff.setDate(cutoff.getDate() - 27);
+  const desde = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+  const det = { ...(data.historyDetail || {}) };
+  if (data.today && Array.isArray(data.today_entries)) det[data.today] = data.today_entries;
+  const registradas = [];
+  Object.keys(det).filter(f => f >= desde && f <= todayStr).forEach(f => (Array.isArray(det[f]) ? det[f] : []).forEach(e => {
+    const m = /^receta:\s*(.+)$/.exec(String((e && e.rawInput) || ''));
+    if (m) registradas.push({ fecha: f, nombre: m[1].trim().slice(0, 120) });
+  }));
+  return {
+    menus_creados: Array.isArray(data.recetario_menus) ? data.recetario_menus.length : 0,
+    favoritos: Array.isArray(data.favorites) ? data.favorites.length : 0,
+    recetas_registradas: registradas,
   };
 }
 
@@ -283,6 +304,21 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, recordatorios: Array.isArray(rows) ? rows : [] });
     } catch (e) {
       return res.status(200).json({ ok: false, recordatorios: [] });
+    }
+  }
+
+  // USO — lo que abrió cada cliente en su app, día por día (api/uso), de las
+  // últimas 8 semanas: para Enganche. Sin la tabla (falta sql/app-uso.sql), lo dice.
+  if (req.method === 'GET' && action === 'uso') {
+    try {
+      const d = new Date(Date.now() - 56 * 24 * 60 * 60 * 1000);
+      const desde = d.toISOString().slice(0, 10);
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/app_uso?select=clave,name,user_id,fecha,secciones,recetas&fecha=gte.${desde}&order=fecha.desc&limit=20000`, { headers: supaHeaders() });
+      if (!r.ok) return res.status(200).json({ ok: false, sinTabla: r.status === 404, uso: [] });
+      const rows = await r.json();
+      return res.status(200).json({ ok: true, uso: Array.isArray(rows) ? rows : [] });
+    } catch (e) {
+      return res.status(200).json({ ok: false, uso: [] });
     }
   }
 

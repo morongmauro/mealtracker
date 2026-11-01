@@ -31,6 +31,10 @@
       "destination": "/api/training?modulo=recordatorios"
     },
     {
+      "source": "/api/uso",
+      "destination": "/api/training?modulo=uso"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     },
