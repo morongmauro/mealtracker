@@ -36,6 +36,7 @@ import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDia
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import Actividad, { ChipActividad, TarjetaCardioCoach, HojaCardioCoach } from './EntrenoActividad.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
+import { AusenciasCalendario, HojaAusencia, ausenciasVigentes, motivoTexto } from './Ausencias.jsx';
 import { IconoEvento, REGISTRO, iconoDeActividad, Caminadora } from './iconosEntreno.jsx';
 import { PersonSimpleWalk, SoccerBall } from '@phosphor-icons/react';
 import { v2Activa, WHATSAPP_COACH } from './v2.js';
@@ -1014,6 +1015,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const [vista, setVista] = useState('mes');
   const [lunesVer, setLunesVer] = useState(() => lunesDeLocal(hoyLocal()));
   const [ayuda, setAyuda] = useState(false);
+  const [hojaAus, setHojaAus] = useState(null);         // { ausencia }: la hoja «Voy a estar fuera»
 
   const cargar = async (mes) => {
     setError(null);
@@ -1066,7 +1068,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   // lunes, lo pasas al jueves para compensar) y lo de las semanas que vienen,
   // sin hacer, y que sea del plan (lo añadido se quita y se vuelve a añadir).
   const puedeMover = (d) => !!(d && d.rutina && !d.extra && !d.fija && !d.hecho && d.estado !== 'completada' && editable(d.fecha));
-  const puedeAgregar = (d) => !!(d && !d.rutina && !d.hecho && d.semana && editable(d.fecha) && rutinasCiclo.length);
+  const puedeAgregar = (d) => !!(d && !d.rutina && !d.hecho && !d.ausencia && d.semana && editable(d.fecha) && rutinasCiclo.length);
 
   // ¿Queda pegada a una rutina que trabaja lo mismo? Mira el día anterior y
   // el siguiente (como quedarían después del cambio). No bloquea: avisa.
@@ -1299,6 +1301,20 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
           <ResumenSemana dias={semanaVer.map(f => porFecha[f]).filter(Boolean)} />
         </>
       )}
+
+      {listo && modo === 'mes' && (
+        <AusenciasCalendario ausencias={ausenciasVigentes(Object.values(cache), hoy)}
+          alNueva={() => setHojaAus({ ausencia: null })} alEditar={(a) => setHojaAus({ ausencia: a })} />
+      )}
+      <HojaAusencia abierta={!!hojaAus} nombre={nombre} ausencia={hojaAus ? hojaAus.ausencia : null} alCerrar={() => setHojaAus(null)}
+        alGuardar={(a, como) => {
+          setHojaAus(null);
+          setAviso(como === 'quitada' ? 'Listo: esos días vuelven a contar.' : 'Enviado a tu coach.');
+          // Los meses que toca, y los que ya estaban en pantalla.
+          const meses = new Set(necesarios);
+          for (let f = a.desde; f && f <= a.hasta; f = sumarDias(f.slice(0, 7) + '-01', 32).slice(0, 7) + '-01') meses.add(f.slice(0, 7));
+          meses.forEach(cargar);
+        }} />
 
       {listo && modo === 'mes' && (
         <button data-ten-en-cuenta onClick={() => setAyuda(true)} style={{ ...vidrioCal, marginTop: 12, width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
@@ -1648,7 +1664,7 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
             <CurrencyCircleDollar size={16} weight="fill" /> <span style={{ minWidth: 0 }}>Corte de tu mensualidad</span>
           </div>
         )}
-        {nada && <div style={{ fontSize: 14, color: TEXT_LIGHT, display: 'flex', alignItems: 'center', gap: 6 }}><Moon size={15} /> {dia ? 'Descanso' : '—'}</div>}
+        {nada && <div style={{ fontSize: 14, color: TEXT_LIGHT, display: 'flex', alignItems: 'center', gap: 6 }}><Moon size={15} /> {dia ? (dia.ausencia ? `${motivoTexto(dia.ausencia)} · no cuenta en tu semana` : 'Descanso') : '—'}</div>}
       </div>
     </div>
   );
@@ -1764,11 +1780,13 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
     dia.corte_pago && { k: 'pago', I: CurrencyDollar, c: AMBAR_PAGO, t: 'Pago' },
   ].filter(Boolean);
   const nom = dia.rutina ? corto(dia.rutina) : dia.hecho ? corto(dia.hecho) : null;
+  // Fuera (viaje, enfermedad…): rayado suave y el motivo; no cuenta.
+  const fuera = dia.ausencia && !nom;
   return (
-    <button data-fecha={dia.fecha} onClick={alTocar} style={{
+    <button data-fecha={dia.fecha} data-ausente={dia.ausencia ? dia.ausencia : undefined} onClick={alTocar} style={{
       minHeight: 74, padding: '4px 2px 5px', cursor: 'pointer', fontFamily: 'inherit', border: 'none', borderTop: '0.5px solid rgba(60,60,67,0.16)',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3, minWidth: 0, borderRadius: sobre ? 10 : 0,
-      background: sobre ? P.tint : 'transparent', opacity: origen ? 0.45 : ajeno ? 0.5 : 1, outline: sobre ? `2px dotted ${P.base}` : 'none',
+      background: sobre ? P.tint : dia.ausencia ? 'repeating-linear-gradient(135deg, rgba(60,123,214,.10) 0 6px, rgba(60,123,214,.03) 6px 12px)' : 'transparent', opacity: origen ? 0.45 : ajeno ? 0.5 : 1, outline: sobre ? `2px dotted ${P.base}` : 'none',
       WebkitUserSelect: 'none', userSelect: 'none',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -1782,6 +1800,7 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
         </span>
       </div>
       {nom && <ChipCal nombre={nom} estado={est} arrastre={dia.rutina ? arrastrable : null} />}
+      {fuera && <span data-chip-ausencia style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 800, color: '#2F6CC4', background: '#fff', borderRadius: 6, padding: '2px 4px', lineHeight: 1.15, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{motivoTexto(dia.ausencia)}</span>}
       {bloquesDe(dia).map(b => <ChipBloque key={b.id} b={b} chico />)}
       {marcas.length > 0 && (
         <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 3px', padding: '0 1px', marginTop: 'auto' }}>
@@ -1864,7 +1883,7 @@ function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejercicios
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 30 }}>
-            <span style={{ fontSize: 15, fontWeight: 600, color: '#737373' }}>{dia ? 'Descanso' : '—'}</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: dia && dia.ausencia ? '#2F6CC4' : '#737373' }}>{dia ? (dia.ausencia ? `${motivoTexto(dia.ausencia)} · no cuenta` : 'Descanso') : '—'}</span>
             {alAgregar && <button onClick={(e) => { e.stopPropagation(); alAgregar(); }} style={{ border: 'none', background: 'none', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 650, color: TEXT_MUTED, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Plus size={13} weight="bold" /> Añadir</button>}
           </div>
         )}

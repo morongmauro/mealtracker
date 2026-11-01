@@ -29,6 +29,7 @@ import HojaAjustesEntreno from './EntrenoAjustes.jsx';
 import Respira from './Respira.jsx';
 import Reconocimiento, { COLOR_MODULO } from './Reconocimiento.jsx';
 import { diasConComida } from './resumenMes.js';
+import { motivoTexto } from './Ausencias.jsx';
 import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado, TipIconos, AvisoComentarios } from './EntrenoEjercicioV2.jsx';
 import { rutinaLigera, enPrueba, COLORES_MODULO, aclarar } from './vistaApp.js';
@@ -538,8 +539,8 @@ function VistaSemana({ plan, onAbrir }) {
       {hoy && (
         hoy.descanso ? (
           <Tarjeta>
-            <Fila icono={<Calendar size={18} color={TEXT_LIGHT} />} titulo="Hoy descansas" />
-            <Vacio texto="Sin entreno programado. Descansar también es parte del plan." />
+            <Fila icono={<Calendar size={18} color={TEXT_LIGHT} />} titulo={hoy.ausencia ? `${motivoTexto(hoy.ausencia)}: hoy no cuenta` : 'Hoy descansas'} />
+            <Vacio texto={hoy.ausencia ? 'Le avisaste a tu coach. Estos días no cuentan en tu semana.' : 'Sin entreno programado. Descansar también es parte del plan.'} />
           </Tarjeta>
         ) : (
           <button onClick={() => onAbrir(hoy.rutina.id)} style={{
@@ -634,7 +635,7 @@ function FilaDia({ d, onAbrir }) {
           fontSize: 14.5, fontWeight: d.descanso ? 500 : 700,
           color: d.descanso ? TEXT_MUTED : TEXT,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>{d.descanso ? 'Descanso' : d.rutina.nombre}</div>
+        }}>{d.descanso ? (d.ausencia ? `${motivoTexto(d.ausencia)} · no cuenta en tu semana` : 'Descanso') : d.rutina.nombre}</div>
         <div style={{ fontSize: 12, color: TEXT_LIGHT }}>
           {DIAS_LARGO[d.dia]}
           {d.es_hoy ? ' · hoy' : ''}

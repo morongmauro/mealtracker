@@ -139,6 +139,12 @@ export const api = {
   // La encuesta de la app (una vez, desde la segunda semana).
   encuesta:          (name)        => pedir({ accion: 'encuesta', name }),
   encuestaResponder: (name, datos) => pedir({ accion: 'encuesta_responder', name, ...datos }),
+  // Bienestar cada 15 días (sueño, energía, estrés) y ausencias (viaje, enfermedad…).
+  bienestar:          (name)        => pedir({ accion: 'bienestar', name }),
+  bienestarResponder: (name, datos) => pedir({ accion: 'bienestar_responder', name, ...datos }),
+  ausencias:          (name)        => pedir({ accion: 'ausencias', name }),
+  ausenciaGuardar:    (name, datos) => pedir({ accion: 'ausencia_guardar', name, ...datos }),
+  ausenciaQuitar:     (name, id)    => pedir({ accion: 'ausencia_quitar', name, id }),
   fotos:       (name)        => pedir({ accion: 'fotos', name }),
   fotoSubir:   (name, datos) => pedir({ accion: 'foto_subir', name, ...datos }),
   fotoGuardar: (name, datos) => pedir({ accion: 'foto_guardar', name, ...datos }),

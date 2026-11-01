@@ -58,6 +58,7 @@ import { sesionValida } from './authorize.js';
 import manejarBitacora from './_bitacora.js';
 import manejarRecordatorios from './_recordatorios.js';
 import manejarUso from './_uso.js';
+import { diasAusente, ausenciaDe, leerAusencias, verAusencias, guardarAusencia, quitarAusencia, verBienestar, responderBienestar } from './_ausencias.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
@@ -85,7 +86,7 @@ async function buscarCliente(nombre) {
 // que a quien ya entró no se le pide nada. Sin contraseña todavía, pasa por
 // el nombre como siempre (el CRM dice quiénes faltan). El coach, en «ver
 // como cliente», trae el pase del CRM: vale solo para LEER a ese cliente.
-const LECTURAS_PASE_CRM = new Set(['plan', 'rutina', 'mes', 'rutinas', 'catalogo', 'resumen', 'dash', 'conteo', 'medidas', 'comunidad', 'fotos']);
+const LECTURAS_PASE_CRM = new Set(['plan', 'rutina', 'mes', 'rutinas', 'catalogo', 'resumen', 'dash', 'conteo', 'medidas', 'comunidad', 'fotos', 'ausencias']);
 function paseValido(cliente, cuerpo, accion, nombrePedido) {
   if (cuerpo.pase) {
     const p = leerPase(String(cuerpo.pase));
@@ -156,6 +157,11 @@ export default async function handler(req, res) {
     if (!esGet && accion === 'borrar_actividad') return res.status(200).json(await borrarActividad(cliente, cuerpo));
     if (accion === 'encuesta') return res.status(200).json(await verEncuesta(cliente, hoy));
     if (!esGet && accion === 'encuesta_responder') return res.status(200).json(await responderEncuesta(cliente, cuerpo, hoy));
+    if (accion === 'ausencias') return res.status(200).json(await verAusencias(sb, cliente, hoy));
+    if (!esGet && accion === 'ausencia_guardar') return res.status(200).json(await guardarAusencia(sb, cliente, cuerpo, hoy));
+    if (!esGet && accion === 'ausencia_quitar') return res.status(200).json(await quitarAusencia(sb, cliente, cuerpo));
+    if (accion === 'bienestar') return res.status(200).json(await verBienestar(sb, cliente, hoy, await inicioCliente(cliente)));
+    if (!esGet && accion === 'bienestar_responder') return res.status(200).json(await responderBienestar(sb, cliente, cuerpo, hoy));
     if (accion === 'medidas') return res.status(200).json(await verMedidas(cliente));
     if (!esGet && accion === 'medida') return res.status(200).json(await guardarMedida(cliente, cuerpo, hoy));
     if (!esGet && accion === 'nota') return res.status(200).json(await guardarNota(cliente, cuerpo, hoy));
@@ -234,11 +240,16 @@ async function verPlan(cliente, hoy) {
     await extrasDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`, lista),
     await quitadosDe(sb, `cliente_id=eq.${cliente.id}&fase_id=eq.${fase.id}`));
   const letraHoy = letraDeHoy();
+  // Los días que va a estar fuera (viaje, enfermedad…): esa rutina no se le
+  // pide ni cuenta en su semana, salvo que igual haya entrenado ese día.
+  const ausencias = await leerAusencias(sb, cliente.id, lunes, sumarDiasISO(lunes, 6));
   const huecos = DIAS.map((d, i) => {
     const t = new Date(Date.parse(lunes + 'T00:00:00Z')); t.setUTCDate(t.getUTCDate() + i);
     const fecha = t.toISOString().slice(0, 10);
-    const r = rutinaDe(fecha);
-    return { fecha, rutinaId: r ? r.id : null, r };
+    const fuera = ausenciaDe(ausencias, fecha);
+    const entreno = sesiones.some(x => x.fecha === fecha && (x.estado === 'completada' || x.estado === 'en_curso'));
+    const r = fuera && !entreno ? null : rutinaDe(fecha);
+    return { fecha, rutinaId: r ? r.id : null, r, fuera };
   });
   const asignadas = asignarSesiones(huecos, sesiones);
   // Un bloque complementario está hecho ese día si hay una sesión SUYA en esa
@@ -254,6 +265,7 @@ async function verPlan(cliente, hoy) {
     return {
       dia: d, fecha, es_hoy: d === letraHoy,
       descanso: !r,
+      ausencia: huecos[i].fuera ? huecos[i].fuera.motivo : null,
       rutina: r ? {
         id: r.id, nombre: r.nombre, tipo: r.tipo_sesion,
         minutos: minDe[r.id] || r.duracion_estimada_min || null,
@@ -1166,6 +1178,8 @@ async function verMes(cliente, ym, hoy) {
   ]);
   const hechoDe = {};
   (Array.isArray(regs) ? regs : []).forEach(r => { hechoDe[`${r.evento_id}:${r.fecha}`] = r; });
+  // Las ausencias del mes y las que vienen (las que puede ver y editar).
+  const ausencias = await leerAusencias(sb, cliente.id, primero < hoy ? primero : hoy, sumarDiasISO(ultimo > hoy ? ultimo : hoy, 400));
   const sesiones = Array.isArray(ses) ? ses : [];
   const actividades = Array.isArray(act) ? act : [];
   const eventosPorFecha = expandirEventos(evs, fase);
@@ -1192,7 +1206,10 @@ async function verMes(cliente, ym, hoy) {
     const letra = DIAS[(d.getUTCDay() + 6) % 7];
     const dentro = !!fase?.fecha_inicio && fecha >= fase.fecha_inicio
       && fecha <= finDeFase(fase);
-    const r = dentro ? rutinaDe(fecha) : null;
+    // Fuera (viaje, enfermedad…): ese día no se le pide la rutina, salvo que igual entrene.
+    const fuera = ausenciaDe(ausencias, fecha);
+    const entrenoEseDia = sesiones.some(x => x.fecha === fecha && (x.estado === 'completada' || x.estado === 'en_curso'));
+    const r = dentro && !(fuera && !entrenoEseDia) ? rutinaDe(fecha) : null;
     const s = r
       ? (sesiones.find(x => x.fecha === fecha && x.rutina_id === r.id)
         || sesiones.find(x => x.fecha === fecha && !x.rutina_id))
@@ -1219,6 +1236,7 @@ async function verMes(cliente, ym, hoy) {
     });
     dias.push({
       fecha, dia: letra, es_hoy: fecha === hoy,
+      ausencia: fuera ? fuera.motivo : null,
       semana: dentro ? Math.floor((Date.parse(fecha) - Date.parse(fase.fecha_inicio)) / 86400000 / 7) + 1 : null,
       rutina: r ? { id: r.id, nombre: r.nombre, corto: nombreCorto(r.nombre), minutos: minDe[r.id] || r.duracion_estimada_min || null } : null,
       // Los bloques aparte de ese día, debajo de la fuerza.
@@ -1259,6 +1277,8 @@ async function verMes(cliente, ym, hoy) {
     // (Los bloques complementarios no se añaden a un día libre: van en sus días.)
     rutinas: rutinas.filter(r => !esComplementaria(r)).map(r => ({ id: r.id, nombre: r.nombre, corto: nombreCorto(r.nombre), musculos: musculos[r.id] || [] })),
     dias,
+    // Viaje, enfermedad…: las del mes y las que vienen (las puede editar).
+    ausencias: ausencias.map(a => ({ id: a.id, desde: a.desde, hasta: a.hasta, motivo: a.motivo, nota: a.nota || '', origen: a.origen })),
   };
 }
 
@@ -1991,7 +2011,7 @@ const CARDIO_BASE = ['cinta', 'eliptica', 'remo_maquina', 'escaladora', 'bici_es
 const EVENTOS_QUE_SE_HACEN = ['actividad', 'medidas', 'peso', 'fotos', 'medicion'];
 
 export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres = {}, alias = {}, actividades = [], medidas = [],
-  eventosSemana = {}, registros = [], categorias = {}, programa = null, pendientes = [] }) {
+  eventosSemana = {}, registros = [], categorias = {}, programa = null, pendientes = [], ausentes = new Set() }) {
   const lunesHoy = lunesDe(hoy);
   const semanas = [];
   for (let i = DASH_SEMANAS - 1; i >= 0; i--) {
@@ -2001,10 +2021,16 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   const semanaDe = (f) => semanas.find(w => f >= w.desde && f <= w.hasta) || null;
 
   // Lo planeado: los días de la fase que cubría esa semana. Sin fase, cero —
-  // no se inventa una meta que el coach no puso.
+  // no se inventa una meta que el coach no puso. Los días que estuvo fuera
+  // (viaje, enfermedad…) no se cuentan.
+  const LETRAS_SEM = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   semanas.forEach(w => {
     const f = fases.find(x => x.fecha_inicio && x.fecha_inicio <= w.hasta && finDeFase(x) >= w.desde);
-    w.planeados = f ? (f.dias_semana || []).length : 0;
+    const total = f ? (f.dias_semana || []).length : 0;
+    const dias = new Set((f?.dias_semana || []).map(String));
+    let fuera = 0;
+    for (let i = 0; i < 7 && f && ausentes.size; i++) if (dias.has(LETRAS_SEM[i]) && ausentes.has(sumarDiasISO(w.desde, i))) fuera++;
+    w.planeados = Math.max(0, total - fuera);
   });
 
   const fechaDe = {};
@@ -2110,7 +2136,7 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   let planeadosHoy = 0;
   for (let i = 0; i < 7; i++) {
     const f = sumarDiasISO(actual.desde, i);
-    if (f > hoy || !diasFase.has(LETRAS[i])) continue;
+    if (f > hoy || !diasFase.has(LETRAS[i]) || ausentes.has(f)) continue;
     if (f < hoy || hechosHoy > 0) planeadosHoy++;
   }
   semana.fuerza.planeados_hoy = Math.max(planeadosHoy, Math.min(actual.hechos, actual.planeados));
@@ -2163,7 +2189,7 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   for (let f = mesDesde; f <= mesHasta; f = sumarDiasISO(f, 1)) {
     const fase = fases.find(x => x.fecha_inicio && x.fecha_inicio <= f && finDeFase(x) >= f);
     const letra = LETRAS[(new Date(`${f}T12:00:00Z`).getUTCDay() + 6) % 7];
-    if (fase && (fase.dias_semana || []).map(String).includes(letra)) mesPlaneados++;
+    if (fase && (fase.dias_semana || []).map(String).includes(letra) && !ausentes.has(f)) mesPlaneados++;
   }
   const mesHechos = sesiones.filter(x => x.estado === 'completada' && !x.bloque && x.fecha >= mesDesde && x.fecha <= mesHasta).length;
   let mesFuerza = null;
@@ -2217,6 +2243,9 @@ async function verDash(cliente, hoy) {
     sb(`evento_registros?select=evento_id,fecha,estado&cliente_id=eq.${cliente.id}&fecha=gte.${lunes}&fecha=lte.${domingo}`).catch(() => []),
     sb('actividades_catalogo?select=slug,categoria').catch(() => []),
   ]);
+  // Los días que estuvo o estará fuera (también el mes pasado, por el resumen).
+  const desdeFuera = `${sumarDiasISO(`${hoy.slice(0, 7)}-01`, -1).slice(0, 7)}-01` < desde ? `${sumarDiasISO(`${hoy.slice(0, 7)}-01`, -1).slice(0, 7)}-01` : desde;
+  const ausentes = diasAusente(await leerAusencias(sb, cliente.id, desdeFuera, domingo), desdeFuera, domingo);
 
   // Las series solo de las sesiones hechas, en tandas: una lista de cientos
   // de ids en la URL la corta el servidor.
@@ -2273,6 +2302,7 @@ async function verDash(cliente, hoy) {
     pendientes: await pendientesRegistro(cliente, hoy, Array.isArray(eventos) ? eventos : [], faseHoy, catalogo).catch(() => []),
     registros: Array.isArray(registros) ? registros : [],
     categorias: Object.fromEntries((Array.isArray(catalogo) ? catalogo : []).map(c => [c.slug, c.categoria])),
+    ausentes,
   }) };
 }
 

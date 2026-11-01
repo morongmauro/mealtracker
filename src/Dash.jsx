@@ -40,6 +40,7 @@ const bienvenidaVista = () => { try { return !!localStorage.getItem(CLAVE_BIENVE
 const marcarBienvenida = () => { try { localStorage.setItem(CLAVE_BIENVENIDA, new Date().toISOString()); } catch (e) {} };
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
+import TarjetaBienestar from './Bienestar.jsx';
 import { enPrueba, lote25, DESVANECIDO_BORDE, verComposicion } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
 import { resumenDelMes, textoParaCoach, resumenVisto, marcarResumenVisto } from './resumenMes.js';
@@ -592,6 +593,8 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
           <BotonVentana secundario onClick={() => cerrarBienvenida(false)}>Ahora no</BotonVentana>
         </VentanaMarca>
       )}
+      {/* Bienestar cada 15 días (sueño, energía, estrés): solo cuando le toca. */}
+      {entrenoOn && <TarjetaBienestar name={name} />}
       <Seccion>Tu semana</Seccion>
 
       {/* Protagonista 1: entrenamiento */}
