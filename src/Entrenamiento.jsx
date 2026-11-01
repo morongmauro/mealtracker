@@ -10,7 +10,7 @@ import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria, { precargarGaleria } from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, rutinaEnCurso, guardarRutinaEnCurso, borrarRutinaEnCurso, fechaLarga, codigoDia, fijarClaveTecleado, borrarTecleado, leerTecleado, useAlVolverRed, conPase, siPaseInvalido } from './entrenoDatos.js';
+import { api as entrenoApi, miniatura, hoyLocal, sumarDias, aFecha, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, rutinaEnCurso, guardarRutinaEnCurso, borrarRutinaEnCurso, fechaLarga, codigoDia, fijarClaveTecleado, borrarTecleado, leerTecleado, useAlVolverRed, conPase, siPaseInvalido } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { enVerComo } from './verComo.js';
@@ -27,7 +27,8 @@ import ExplicacionAro from './ExplicacionAro.jsx';
 import { Bell, Ruler, CheckCircle, WhatsappLogo, ChatCircle, Wind, Snowflake, Fire, Camera, CaretRight, GearSix } from '@phosphor-icons/react';
 import HojaAjustesEntreno from './EntrenoAjustes.jsx';
 import Respira from './Respira.jsx';
-import Reconocimiento from './Reconocimiento.jsx';
+import Reconocimiento, { COLOR_MODULO } from './Reconocimiento.jsx';
+import { diasConComida } from './resumenMes.js';
 import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado, TipIconos, AvisoComentarios } from './EntrenoEjercicioV2.jsx';
 import { rutinaLigera, enPrueba, COLORES_MODULO, aclarar } from './vistaApp.js';
@@ -1781,6 +1782,11 @@ function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
   const hoy = hoyLocal();
   const frase = vozFinEntreno({ hoy, hechos: fin.hechos, total: fin.total, records: fin.records.length });
   const [respira, setRespira] = useState(false);
+  // Como la hoja de cierre: sin la barra de abajo encima del final de la hoja.
+  useEffect(() => {
+    document.documentElement.classList.add('hoja-fin');
+    return () => document.documentElement.classList.remove('hoja-fin');
+  }, []);
   const dias = ((plan && plan.dias) || []).map(d => ({ ...d }));
   const propia = (d) => d.rutina && d.rutina.id === rutinaId;
   const nombre = (dias.find(propia) || {}).rutina?.nombre || '';
@@ -1794,7 +1800,16 @@ function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
   const puntos = dias.length ? dias.map(d => (d.rutina && d.hecha) ? 'hecho' : d.fecha === hoy ? 'hoy' : 'nada') : null;
   const ORD = ['Primer', 'Segundo', 'Tercer', 'Cuarto', 'Quinto', 'Sexto', 'Séptimo'];
   const titulo = [nombre ? `${nombre}, hecho.` : 'Entreno hecho.',
-    semanaCerrada ? 'Semana completa.' : (hechas >= 1 && hechas <= 7 ? `${ORD[hechas - 1]} entreno de la semana.` : null)];
+    semanaCerrada ? 'Cumpliste tu semana.' : (hechas >= 1 && hechas <= 7 ? `${ORD[hechas - 1]} entreno de la semana.` : null)];
+  // Al cumplir la semana, lo que hizo en ella: las rutinas y los días con su
+  // comida registrada (de lunes a hoy; si no registró ninguno, no sale).
+  const lunesSemana = sumarDias(hoy, -((aFecha(hoy).getDay() + 6) % 7));
+  const diasSemana = Math.round((aFecha(hoy) - aFecha(lunesSemana)) / 86400000) + 1;
+  const conComida = semanaCerrada ? diasConComida(lunesSemana, hoy) : 0;
+  const lista = semanaCerrada ? [
+    { color: COLOR_MODULO.entreno, texto: <><b style={{ color: TEXT }}>{hechas} de {planeadas}</b> {planeadas === 1 ? 'rutina' : 'rutinas'} de la semana</> },
+    ...(conComida > 0 ? [{ color: COLOR_MODULO.comida, texto: <><b style={{ color: TEXT }}>{conComida} de {diasSemana}</b> {diasSemana === 1 ? 'día' : 'días'} con tu comida registrada</> }] : []),
+  ] : null;
   // Sin «x de y»: lo que hizo, no lo que le faltó.
   const chips = [
     ...(fin.hechos > 0 ? [[<Conteo valor={fin.hechos} ms={900} />, fin.hechos === 1 ? 'ejercicio' : 'ejercicios']] : []),
@@ -1805,9 +1820,10 @@ function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
   else if (fin.kilos > 0) chips.push([<Conteo valor={fin.kilos} ms={1100} />, 'kg movidos']);
   return (
     <>
+      <style>{'html.hoja-fin [data-barra-v2], html.hoja-fin [data-barra-compacta] { display: none !important; }'}</style>
       <Reconocimiento tema="entreno" grande especial={semanaCerrada} attrs={{ 'data-fin-entreno': '' }}
         numero={planeadas ? { valor: hechas, sufijo: `/${planeadas}`, pie: 'RUTINAS · SEMANA' } : { valor: fin.series, pie: 'SERIES' }} puntos={puntos}
-        etiqueta="Entreno hecho" titulo={titulo} linea={frase} chips={chips}
+        etiqueta="Entreno hecho" titulo={titulo} linea={frase} lista={lista} chips={chips}
         boton={{ texto: 'Seguir', onClick: alCerrar }}
         enlace={v2Activa() ? { texto: '¿Bajamos pulsaciones? Respira', icono: <Wind size={18} weight="fill" data-fin-respira-icono="" />, onClick: () => setRespira(true) } : null}
         alCerrar={alCerrar}>

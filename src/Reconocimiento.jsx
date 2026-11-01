@@ -50,12 +50,12 @@ const estiloEnlace = {
 };
 
 // numero: { valor, sufijo, pie } · puntos: ['hecho' | 'hoy' | 'nada', …] ·
-// titulo: una o dos líneas · chips: [[cifra, qué], …] (hasta tres) ·
+// titulo: una o dos líneas · lista: [{ color, texto }, …] (con su check) · chips: [[cifra, qué], …] (hasta tres) ·
 // boton: { texto, onClick } · enlace: { texto, onClick } · attrs: atributos
 // extra del fondo (data-… para las pruebas).
 export default function Reconocimiento({
   tema = 'entreno', grande = false, especial = false, confeti = true, numero = null, puntos = null,
-  etiqueta = '', titulo = [], linea = '', chips = [], boton = { texto: 'Seguir' }, enlace = null,
+  etiqueta = '', titulo = [], linea = '', lista = null, chips = [], boton = { texto: 'Seguir' }, enlace = null,
   attrs = {}, children = null, alCerrar,
 }) {
   useEffect(() => { asegurarCSS(); vibrar([20, 50, 20, 50, 40]); }, []);
@@ -114,6 +114,18 @@ export default function Reconocimiento({
             {lineas.map((l, i) => <div key={i}>{l}</div>)}
           </div>
           {linea && <div data-rc-linea style={{ fontSize: 15.5, fontWeight: 700, color: t.tinta, lineHeight: 1.3, marginTop: 8 }}>{linea}</div>}
+          {lista && lista.length > 0 && (
+            <div data-rc-lista style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+              {lista.map((it, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600, color: '#3A3A3C', lineHeight: 1.3 }}>
+                  <span style={{ flex: 'none', width: 22, height: 22, borderRadius: 99, background: it.color, display: 'grid', placeItems: 'center' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                  </span>
+                  <span>{it.texto}</span>
+                </div>
+              ))}
+            </div>
+          )}
           {chips.length > 0 && (
             <div data-rc-chips style={{ display: 'flex', gap: 8, marginTop: 14 }}>
               {chips.map(([b, s], i) => (

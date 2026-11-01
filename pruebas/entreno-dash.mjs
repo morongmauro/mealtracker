@@ -152,5 +152,35 @@ await caso('la semana en curso: fuerza, cardio, lo del coach y la actividad extr
   igual(r.semana.extra, { dias: 1 }, 'actividad extra');
 });
 
+await caso('el mes pasado: rutinas contra la fase y el ejercicio que más subió su 1RM', async () => {
+  const H = '2026-10-15';
+  const d = armarDash({
+    hoy: H,
+    fases: [{ fecha_inicio: '2026-08-03', semanas: 12, dias_semana: ['L', 'X', 'V'] }],
+    sesiones: [
+      { id: 'a', fecha: '2026-08-28', estado: 'completada' },
+      { id: 'b', fecha: '2026-09-02', estado: 'completada' },
+      { id: 'c', fecha: '2026-09-25', estado: 'completada' },
+      { id: 'd', fecha: '2026-09-26', estado: 'completada', bloque: true },
+      { id: 'e', fecha: '2026-09-28', estado: 'en_curso' },
+    ],
+    series: [
+      { sesion_id: 'a', ejercicio_id: 'banca', reps: 8, peso: 60 },
+      { sesion_id: 'b', ejercicio_id: 'banca', reps: 8, peso: 62.5 },
+      { sesion_id: 'c', ejercicio_id: 'banca', reps: 8, peso: 65 },
+      { sesion_id: 'a', ejercicio_id: 'remo', reps: 10, peso: 50 },
+      { sesion_id: 'c', ejercicio_id: 'remo', reps: 10, peso: 45 },
+      { sesion_id: 'b', ejercicio_id: 'curl', reps: 10, peso: 12 },
+    ],
+    nombres: { banca: 'Press banca', remo: 'Remo', curl: 'Curl' },
+  });
+  igual([d.mes.desde, d.mes.hasta], ['2026-09-01', '2026-09-30'], 'septiembre');
+  // septiembre 2026: 13 lunes, miércoles y viernes
+  igual(d.mes.rutinas, { hechos: 2, planeados: 13 }, 'rutinas');
+  igual([d.mes.fuerza.id, d.mes.fuerza.antes, d.mes.fuerza.mejor, d.mes.fuerza.sube], ['banca', 76, 82.3, 6.3], 'banca subió; remo bajó y curl no tiene con qué comparar');
+  const sin = armarDash({ hoy: H, sesiones: [{ id: 'x', fecha: '2026-09-10', estado: 'completada' }], series: [{ sesion_id: 'x', ejercicio_id: 'remo', reps: 10, peso: 40 }] });
+  igual([sin.mes.rutinas, sin.mes.fuerza], [{ hechos: 1, planeados: 0 }, null], 'sin fase ni con qué comparar');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

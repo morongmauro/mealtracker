@@ -70,6 +70,7 @@ import { encuestaPospuesta } from './encuestaLuego.js';
 import { enVerComo as enVerComoEncuesta } from './verComo.js';
 import { pasosInstalar } from './InstalarApp.jsx';
 import { leerAprendizajeConCache } from './aprendizaje.js';
+import { fijarHistoriaComida } from './resumenMes.js';
 
 // ── Modelos: enrutamiento HÍBRIDO ────────────────────────────────────────
 // FAST (Haiku) clasifica y registra los mensajes del día a día (~85% del
@@ -623,6 +624,8 @@ export default function MealTracker() {
   // nunca pierda un favorito que no fue borrado explícitamente.
   const [favoritesDeleted, setFavoritesDeleted] = useState([]);
   const [history, setHistory] = useState({});
+  // El cierre de la semana en el entreno cuenta los días con comida registrada.
+  useEffect(() => { fijarHistoriaComida(history); }, [history]);
   const [historyDetail, setHistoryDetail] = useState({});
   // Cuenta con contraseña (visual nueva): la sesión guardada en el teléfono
   // y si la pantalla de cuenta sigue abierta (sus pasos de datos y avisos).
@@ -6663,7 +6666,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <div className="fixed inset-0 pointer-events-none" style={{ background: v2 ? BG_STAINS_DASH : BG_STAINS }} />
           <CapaActiva.Provider value={showDash}>
           <Suspense fallback={null}>
-            <Dash name={name} history={history} detalle={historyDetail} goals={goals} kcalHoy={totals?.kcal || 0} reinicio={dashReinicio} abrir={dashPedido}
+            <Dash name={name} history={history} detalle={historyDetail} goals={goals} goalsHistory={goalsHistory} kcalHoy={totals?.kcal || 0} reinicio={dashReinicio} abrir={dashPedido}
               avisoPago={paymentDue && !paymentDue.bloqueo ? <PaymentNotice v2={v2} info={paymentDue} style={{ marginTop: '16px' }} /> : null}
               alIr={(sec, op) => irSubV2(sec, op)} entrenoOn={trainingOn}
               racha={streak} pendientes={coachReminders.filter(r => !r.done_at).length}

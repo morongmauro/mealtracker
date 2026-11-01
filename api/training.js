@@ -2150,8 +2150,36 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   };
   semana.intensidad = intensidad.semana;
 
+  // ── EL MES PASADO (el resumen que se abre una vez al empezar el mes) ────
+  //   rutinas — hechas contra los días de la fase de cada fecha del mes
+  //   fuerza  — el ejercicio que más subió su 1RM estimado: lo mejor del mes
+  //             contra lo mejor de antes (o, sin antes, contra su primera
+  //             sesión del mes). Si ninguno subió, no se muestra.
+  const iniMes = `${hoy.slice(0, 7)}-01`;
+  const mesDesde = `${sumarDiasISO(iniMes, -1).slice(0, 7)}-01`, mesHasta = sumarDiasISO(iniMes, -1);
+  let mesPlaneados = 0;
+  for (let f = mesDesde; f <= mesHasta; f = sumarDiasISO(f, 1)) {
+    const fase = fases.find(x => x.fecha_inicio && x.fecha_inicio <= f && finDeFase(x) >= f);
+    const letra = LETRAS[(new Date(`${f}T12:00:00Z`).getUTCDay() + 6) % 7];
+    if (fase && (fase.dias_semana || []).map(String).includes(letra)) mesPlaneados++;
+  }
+  const mesHechos = sesiones.filter(x => x.estado === 'completada' && !x.bloque && x.fecha >= mesDesde && x.fecha <= mesHasta).length;
+  let mesFuerza = null;
+  Object.entries(mejor).forEach(([id, porFecha]) => {
+    const fechas = Object.keys(porFecha).sort();
+    const delMes = fechas.filter(f => f >= mesDesde && f <= mesHasta);
+    if (!delMes.length) return;
+    const antes = fechas.filter(f => f < mesDesde);
+    const base = antes.length ? Math.max(...antes.map(f => porFecha[f])) : (delMes.length >= 2 ? porFecha[delMes[0]] : null);
+    if (base == null) return;
+    const tope = Math.max(...delMes.map(f => porFecha[f]));
+    const sube = Math.round((tope - base) * 10) / 10;
+    if (sube > 0 && (!mesFuerza || sube > mesFuerza.sube)) mesFuerza = { id, nombre: nombres[id] || 'Ejercicio', alias: alias[id] || null, antes: base, mejor: tope, sube };
+  });
+  const mes = { desde: mesDesde, hasta: mesHasta, rutinas: { hechos: mesHechos, planeados: mesPlaneados }, fuerza: mesFuerza };
+
   return {
-    ok: true, hoy, semanas, ejercicios, pesos, semana, intensidad,
+    ok: true, hoy, semanas, ejercicios, pesos, semana, intensidad, mes,
     medidas: medidas.slice().sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
       .map(m => ({ fecha: m.fecha, peso: m.peso == null ? null : Number(m.peso), grasa_pct: m.grasa_pct == null ? null : Number(m.grasa_pct) })),
   };

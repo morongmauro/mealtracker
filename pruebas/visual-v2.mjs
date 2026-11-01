@@ -243,6 +243,9 @@ async function abrir(nombre, { ancho = 390, pago = null, aviso = false, nube = n
   // con este apagador de pruebas; las de «para todos» lo quitan (extra null).
   guardado['mt:pruebaTodos'] = '0';
   if (sinNombre) { delete guardado['mt:name']; delete guardado['mt:goals']; }
+  // El resumen del mes pasado ya lo vio (se abre solo una vez al mes): las
+  // pruebas que lo miran lo quitan (extra { 'mt:resumenMes:…': null }).
+  { const [a, m] = hoy.split('-').map(Number); guardado[`mt:resumenMes:${nombre}`] = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`; }
   if (extra) for (const [k, v] of Object.entries(extra)) { if (v === null) delete guardado[k]; else guardado[k] = v; }
   // Mauro ya entró con su contraseña (la cuenta se prueba aparte, sinSesion)
   if (!sinSesion) guardado['mt:sesion'] = 'v1.prueba';
@@ -2179,7 +2182,7 @@ try {
     await finW.waitFor({ timeout: 8000 }).catch(() => {});
     await espera(1600);
     ok('semana completa: al cerrar todo lo planeado sale el anuncio especial (sello «Semana completa», más confeti)', (await finW.getAttribute('data-especial').catch(() => null)) === '1'
-      && /SEMANA COMPLETA/.test(await finW.locator('[data-rc-sello]').innerText().catch(() => '')) && /Semana completa\./.test(await finW.innerText().catch(() => ''))
+      && /SEMANA COMPLETA/.test(await finW.locator('[data-rc-sello]').innerText().catch(() => '')) && /Cumpliste tu semana\./.test(await finW.innerText().catch(() => ''))
       && (await w.p.locator('.mt-confeti i').count()) > 50, await finW.innerText().catch(() => 'no salió'));
     await foto(w.p, '16b-semana-completa');
     ok('semana completa: sin errores de JavaScript', w.errores.length === 0, w.errores.join(' | '));

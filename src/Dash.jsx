@@ -18,6 +18,7 @@
 // los números y la persona saca su conclusión.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, VideoCamera } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
@@ -41,6 +42,7 @@ import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import { enPrueba, lote25, DESVANECIDO_BORDE, verComposicion } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
+import { resumenDelMes, textoParaCoach, resumenVisto, marcarResumenVisto } from './resumenMes.js';
 import { reportarRecordatorios, reportarToque } from './recordatoriosReporte.js';
 import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe } from './GraficasV2.jsx';
 import {
@@ -415,7 +417,7 @@ const Marco = React.forwardRef(({ children }, ref) => (
 const cacheDash = new Map();
 const cacheAprende = new Map();
 
-export default function Dash({ name, history, detalle = {}, goals, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null, kcalHoy = 0, reinicio = 0, abrir = null }) {
+export default function Dash({ name, history, detalle = {}, goals, goalsHistory = null, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null, kcalHoy = 0, reinicio = 0, abrir = null }) {
   const hoy = hoyLocal();
   const [ent, setEnt] = useState(() => cacheDash.get(name) || null);
   // El plan de la semana (la rutina de hoy, para el bloque «Hoy»): el mismo
@@ -493,6 +495,17 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
   }, [vista]);
 
   const comida = useMemo(() => datosComida(history, goals, hoy), [history, goals, hoy]);
+  // El resumen del mes pasado: se abre solo la primera vez que entra en el
+  // mes nuevo (si hay algo que contar) y queda al final del Dash.
+  const resumen = useMemo(() => (enPrueba() && ent ? resumenDelMes({ hoy, mes: ent.mes, medidas: ent.medidas || [], history, goals, goalsHistory }) : null),
+    [ent, history, goals, goalsHistory, hoy]);
+  const [verMes, setVerMes] = useState(false);
+  const hayMes = !!(resumen && resumen.filas.length && ent?.mes);
+  useEffect(() => {
+    if (!hayMes || vista !== 'inicio' || bienvenida || acciones.ventanaLibre === false || resumenVisto(name, resumen.clave)) return;
+    marcarResumenVisto(name, resumen.clave);
+    setVerMes(true);
+  }, [hayMes, vista, bienvenida, acciones.ventanaLibre]);   // eslint-disable-line react-hooks/exhaustive-deps
   const destacados = useMemo(() => alimentosDestacados(detalle, hoy), [detalle, hoy]);
   const ultimaSemana = ent?.semanas?.[ent.semanas.length - 1];
   // La semana en curso, con el bono de su actividad extra (cardio, deportes…).
@@ -692,6 +705,9 @@ export default function Dash({ name, history, detalle = {}, goals, entrenoOn = t
       {/* Aprendizaje: cuánto ha visto del centro de recursos */}
       <Seccion>Aprendizaje</Seccion>
       <TarjetaAprende aprende={aprende} alProfundizar={() => setVista('aprende')} />
+
+      {hayMes && <><Seccion>Tu mes</Seccion><TarjetaMes resumen={resumen} alAbrir={() => setVerMes(true)} /></>}
+      {hayMes && verMes && <PantallaMes resumen={resumen} whatsapp={WHATSAPP_COACH} alCerrar={() => setVerMes(false)} />}
     </Marco>
   );
 }
@@ -729,6 +745,66 @@ function TarjetaAprende({ aprende, alProfundizar }) {
       )}
       <Profundiza color={NARANJA} onClick={alProfundizar}>Profundiza en tu aprendizaje</Profundiza>
     </Tarjeta>
+  );
+}
+
+// ── El resumen del mes pasado ─────────────────────────────────────────────
+// Al final del Dash: las cuatro primeras cifras y «Ver el resumen completo».
+function TarjetaMes({ resumen, alAbrir }) {
+  return (
+    <Tarjeta>
+      <div data-tarjeta-mes>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', color: DASH_AZUL.base, textTransform: 'uppercase' }}>Resumen de {resumen.nombre}</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', marginTop: 3 }}>Tu {resumen.nombre}, con método.</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
+          {resumen.filas.slice(0, 4).map(f => (
+            <div key={f.clave} style={{ background: CREMA, borderRadius: 16, padding: '11px 12px' }}>
+              <div style={{ fontSize: f.gris ? 17 : 21, fontWeight: 800, color: f.color, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{f.valor}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_MUTED, lineHeight: 1.25, marginTop: 1 }}>{f.corto}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <Profundiza color={AZUL} onClick={alAbrir}>Ver el resumen completo</Profundiza>
+    </Tarjeta>
+  );
+}
+
+// A pantalla completa: se abre sola una vez al empezar el mes, y desde la
+// tarjeta cuando quiera. «Compartir con mi coach» lo manda por WhatsApp.
+function PantallaMes({ resumen, whatsapp, alCerrar }) {
+  const wa = whatsapp ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(textoParaCoach(resumen))}` : null;
+  // Directo en el body: dentro del Dash quedaría debajo de la barra de abajo.
+  return createPortal(
+    <div data-pantalla-mes role="dialog" aria-label={`Resumen de ${resumen.nombre}`} style={{
+      position: 'fixed', inset: 0, zIndex: 95, overflowY: 'auto', fontFamily: 'inherit',
+      background: 'linear-gradient(170deg, #EAF1FB 0%, #FBF7EA 55%, #FCEFE4 100%)',
+    }}>
+      <div style={{ minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto',
+        padding: 'calc(env(safe-area-inset-top, 0px) + 52px) 24px calc(env(safe-area-inset-bottom, 0px) + 22px)' }}>
+        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.08em', color: DASH_AZUL.base, textTransform: 'uppercase' }}>Resumen del mes · {resumen.nombre}</div>
+        <div style={{ fontSize: 34, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.05, marginTop: 6 }}>
+          Tu {resumen.nombre},<br /><span style={{ color: VERDE }}>con método.</span>
+        </div>
+        <div style={{ fontSize: 15.5, fontWeight: 500, color: '#55565B', marginTop: 10, lineHeight: 1.35 }}>Esto es lo que construiste este mes.</div>
+        <div style={{ marginTop: 10 }}>
+          {resumen.filas.map(f => (
+            <div key={f.clave} data-fila-mes={f.clave} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: '1px solid rgba(31,31,31,.08)' }}>
+              <span style={{ fontSize: 16, fontWeight: 600, color: '#3A3A3C', minWidth: 0 }}>{f.etiqueta}
+                {f.sub && <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#8E8E93', marginTop: 2 }}>{f.sub}</span>}
+              </span>
+              <span style={{ flex: 'none', fontSize: f.gris ? 16 : 23, fontWeight: f.gris ? 600 : 800, color: f.color, letterSpacing: '-0.02em', textAlign: 'right' }}>{f.valor}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 'auto', paddingTop: 24, display: 'grid', gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#8E8E93', textAlign: 'center', marginBottom: 4 }}>Lo vuelves a ver al final de tu Dash</div>
+          {wa && <a href={wa} target="_blank" rel="noreferrer" data-compartir-mes style={{ height: 52, borderRadius: 15, background: '#1D1D1F', color: '#fff', fontWeight: 700, fontSize: 15.5, display: 'grid', placeItems: 'center', textDecoration: 'none' }}>Compartir con mi coach</a>}
+          <button onClick={alCerrar} data-cerrar-mes style={{ height: 48, border: 'none', background: 'none', fontWeight: 700, fontSize: 15, fontFamily: 'inherit', color: '#3A3A3C', cursor: 'pointer' }}>Cerrar</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
