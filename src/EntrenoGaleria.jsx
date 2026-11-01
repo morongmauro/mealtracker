@@ -13,7 +13,7 @@ import { v2Activa } from './v2.js';
 import { Barbell as BarbellVacio } from '@phosphor-icons/react';
 import { lote25, DESVANECIDO_BORDE } from './vistaApp.js';
 import React, { useEffect, useMemo, useState } from 'react';
-import { api, miniatura, useAlVolverRed } from './entrenoDatos.js';
+import { api, miniatura, useAlVolverRed, guardado } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { nombresEj } from './v2.js';
@@ -176,8 +176,17 @@ export async function precargarGaleria(nombre) {
   try { const r = await traerGaleria(nombre); if (r && !cacheGaleria.has(nombre)) cacheGaleria.set(nombre, r); } catch (e) { /* al abrir se vuelve a pedir */ }
 }
 
+// Lo último que se vio (guardado en el teléfono): la galería abre al instante.
+function galeriaGuardada(nombre) {
+  const lista = guardado('rutinas', nombre);
+  if (!lista || !Array.isArray(lista.rutinas) || !lista.rutinas.length) return null;
+  const det = lista.rutinas.map(r => guardado('rutina', nombre, r.id));
+  if (det.some(d => !d || !d.rutina)) return null;
+  return lista.rutinas.map((r, i) => ({ id: r.id, nombre: r.nombre, ejercicios: det[i].rutina.ejercicios || [] }));
+}
+
 export default function Galeria({ nombre }) {
-  const [rutinas, setRutinasEstado] = useState(() => cacheGaleria.get(nombre) || null);
+  const [rutinas, setRutinasEstado] = useState(() => cacheGaleria.get(nombre) || galeriaGuardada(nombre) || null);
   const setRutinas = (v) => { cacheGaleria.set(nombre, v); setRutinasEstado(v); };
   const [error, setError] = useState(null);
   const [filtro, setFiltro] = useState('todas');
@@ -187,7 +196,7 @@ export default function Galeria({ nombre }) {
   const cargar = async () => {
     setError(null);
     const lista = await api.rutinas(nombre);
-    if (!lista.ok) { if (!cacheGaleria.has(nombre)) setError(lista.motivo || 'error'); return; }
+    if (!lista.ok) { if (!cacheGaleria.has(nombre) && !rutinas) setError(lista.motivo || 'error'); return; }
     // Cada rutina trae sus ejercicios completos (con video). Son pocas —de
     // dos a seis—, así que van en paralelo.
     const detalles = await Promise.all((lista.rutinas || []).map(r => api.rutina(nombre, r.id)));

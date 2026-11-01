@@ -39,6 +39,17 @@ function guardarCache(b, d) {
   } catch (e) { /* sin espacio: se sigue sin guardar */ }
 }
 export const hayCache = (accion, name, extra = '') => !!leerCache({ accion, name, id: extra });
+// Lo último que se vio (guardado en el teléfono): las pantallas lo pintan al
+// instante y lo cambian cuando llega lo nuevo, en vez de mostrar «cargando»
+// cada vez que se abren. `deEstaSemana`: solo si es de la semana de hoy (el
+// plan y el Dash de la semana pasada confundirían).
+export const guardado = (accion, name, extra = '') => (name ? leerCache({ accion, name, id: extra }) : null);
+export function guardadoDeEstaSemana(accion, name) {
+  const r = guardado(accion, name);
+  if (!r || !r.hoy) return null;
+  const lunes = (f) => { const d = new Date(`${f}T12:00:00`); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toDateString(); };
+  return lunes(String(r.hoy).slice(0, 10)) === lunes(hoyLocal()) ? r : null;
+}
 
 // El pase de la cuenta (correo + contraseña) viaja con cada petición: el
 // servidor lo exige a quien ya tiene contraseña. En «ver como cliente» (el

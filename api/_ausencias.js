@@ -46,6 +46,9 @@ export async function leerAusencias(sb, clienteId, desde, hasta) {
     return Array.isArray(r) ? r : [];
   } catch (e) { return []; }
 }
+// Sin la tabla (SQL sin correr) PostgREST contesta 404; cualquier otro
+// error es otra cosa (se registra para verlo en los logs de Vercel).
+const motivoDe = (e, que) => { const m = String(e && e.message || ''); console.error(`[${que}]`, m); return /supabase 404/.test(m) ? 'sin_tabla' : 'error'; };
 const publica = (a) => ({ id: a.id, desde: a.desde, hasta: a.hasta, motivo: a.motivo, nota: a.nota || '', origen: a.origen });
 
 // Las que vienen o están en curso (y las de los últimos 60 días): lo que
@@ -86,7 +89,7 @@ export async function guardarAusencia(sb, cliente, cuerpo, hoy) {
       body: JSON.stringify({ user_id: cliente.user_id, cliente_id: cliente.id, ...v, origen: 'cliente' }),
     });
     return { ok: true, ausencia: publica(Array.isArray(r) ? r[0] : r) };
-  } catch (e) { return { ok: false, motivo: 'sin_tabla' }; }
+  } catch (e) { return { ok: false, motivo: motivoDe(e, 'ausencias') }; }
 }
 
 export async function quitarAusencia(sb, cliente, cuerpo) {
@@ -97,7 +100,7 @@ export async function quitarAusencia(sb, cliente, cuerpo) {
       body: JSON.stringify({ anulada_en: new Date().toISOString(), updated_at: new Date().toISOString() }),
     });
     return { ok: Array.isArray(r) && r.length > 0 };
-  } catch (e) { return { ok: false, motivo: 'sin_tabla' }; }
+  } catch (e) { return { ok: false, motivo: motivoDe(e, 'ausencias') }; }
 }
 
 // ── Bienestar ────────────────────────────────────────────────────────────
@@ -124,5 +127,5 @@ export async function responderBienestar(sb, cliente, cuerpo, hoy) {
   try {
     await sb('bienestar?on_conflict=cliente_id,fecha', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(fila) });
     return { ok: true };
-  } catch (e) { return { ok: false, motivo: 'sin_tabla' }; }
+  } catch (e) { return { ok: false, motivo: motivoDe(e, 'bienestar') }; }
 }

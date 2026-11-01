@@ -32,7 +32,7 @@ import { createPortal } from 'react-dom';
 import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, CurrencyDollar, PersonSimpleRun, Moon, Info, Wind, Stack } from '@phosphor-icons/react';
 import { Bascula } from './iconosEntreno.jsx';
 import Respira from './Respira.jsx';
-import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto, useAlVolverRed } from './entrenoDatos.js';
+import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto, useAlVolverRed, guardado } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
 import Actividad, { ChipActividad, TarjetaCardioCoach, HojaCardioCoach } from './EntrenoActividad.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
@@ -1000,7 +1000,13 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
   const hoy = hoyLocal();
   const lunes = lunesDeLocal(hoy);
   const [ym, setYm] = useState(hoy.slice(0, 7));
-  const [cache, setCacheEstado] = useState(() => cacheMeses.get(nombre) || {});
+  // Lo último que se vio de este mes y de los de esta semana (guardado en el
+  // teléfono): el calendario abre al instante y se refresca por detrás.
+  const [cache, setCacheEstado] = useState(() => cacheMeses.get(nombre) || (() => {
+    const out = {};
+    unicos([hoy.slice(0, 7), lunes.slice(0, 7), sumarDias(lunes, 6).slice(0, 7)]).forEach(m => { const g = guardado('mes', nombre, m); if (g && g.ok !== false) out[m] = g; });
+    return out;
+  })());
   const setCache = (f) => setCacheEstado(c => { const n = f(c); cacheMeses.set(nombre, n); return n; });
   const [error, setError] = useState(null);
   const [abierto, setAbierto] = useState(null);
@@ -1021,7 +1027,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
     setError(null);
     const r = await api.mes(nombre, mes);
     // Sin red pero con el mes guardado: se queda lo guardado, sin error.
-    if (!r.ok) { if (!cacheMeses.get(nombre)?.[mes]) setError(r.motivo || 'error'); return; }
+    if (!r.ok) { if (!cacheMeses.get(nombre)?.[mes] && !cache[mes]) setError(r.motivo || 'error'); return; }
     setCache(c => ({ ...c, [mes]: r }));
   };
   const semana = Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i));

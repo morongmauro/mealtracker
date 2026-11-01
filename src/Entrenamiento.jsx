@@ -10,7 +10,7 @@ import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria, { precargarGaleria } from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, sumarDias, aFecha, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, rutinaEnCurso, guardarRutinaEnCurso, borrarRutinaEnCurso, fechaLarga, codigoDia, fijarClaveTecleado, borrarTecleado, leerTecleado, useAlVolverRed, conPase, siPaseInvalido } from './entrenoDatos.js';
+import { api as entrenoApi, miniatura, hoyLocal, sumarDias, aFecha, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, rutinaEnCurso, guardarRutinaEnCurso, borrarRutinaEnCurso, fechaLarga, codigoDia, fijarClaveTecleado, borrarTecleado, leerTecleado, useAlVolverRed, conPase, siPaseInvalido, guardadoDeEstaSemana } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { enVerComo } from './verComo.js';
@@ -219,8 +219,9 @@ export async function precargarRutinas(name, plan) {
 }
 
 export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, recordatorios = null, avisoPago = null, compacta = false }) {
-  const [plan, setPlan] = useState(() => cachePlan.get(name) || null);
-  const [cargando, setCargando] = useState(() => !cachePlan.has(name));
+  // Lo último que vio esta semana, al instante; lo nuevo llega por detrás.
+  const [plan, setPlan] = useState(() => cachePlan.get(name) || guardadoDeEstaSemana('plan', name) || null);
+  const [cargando, setCargando] = useState(() => !cachePlan.has(name) && !guardadoDeEstaSemana('plan', name));
   // La rutina que quedó abierta (si la página se recargó o la app se cerró a
   // mitad del entreno) se vuelve a abrir sola.
   const [rutinaId, setRutinaId] = useState(() => (rutinaAbierta() || {}).id || null);
@@ -241,11 +242,11 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   }, [seccionV2]);
 
   const cargarPlan = useCallback(async () => {
-    if (!cachePlan.has(name)) setCargando(true);
+    if (!cachePlan.has(name) && !guardadoDeEstaSemana('plan', name)) setCargando(true);
     const r = await api({ accion: 'plan', name });
     if (r && r.ok) { cachePlan.set(name, r); precargarRutinas(name, r); }
     // Sin red y con algo guardado: se queda lo guardado, no un «sin plan».
-    setPlan(r && r.ok ? r : (cachePlan.get(name) || { ok: false }));
+    setPlan(r && r.ok ? r : (cachePlan.get(name) || guardadoDeEstaSemana('plan', name) || { ok: false }));
     setCargando(false);
   }, [name]);
 

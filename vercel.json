@@ -1,9 +1,19 @@
 {
-  "git": { "deploymentEnabled": { "claude/*": false, "claude/**": false } },
+  "git": {
+    "deploymentEnabled": {
+      "claude/*": false,
+      "claude/**": false
+    }
+  },
   "rewrites": [
     {
       "source": "/manifest-app.json",
-      "has": [{ "type": "host", "value": "entrenaconmetodoapp.vercel.app" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "entrenaconmetodoapp.vercel.app"
+        }
+      ],
       "destination": "/manifest-v2.json"
     },
     {
@@ -77,6 +87,69 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/recetas/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/fonts/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/arranque/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/recetario-hero.jpg",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/recetario-hero.png",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/avocado.webp",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/avocado.png",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
         }
       ]
     }

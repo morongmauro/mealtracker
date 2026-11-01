@@ -12178,8 +12178,8 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
       }}>
 
         {/* Editorial avocado image — sits to the right, doesn't cover text */}
-        <img src="/avocado.png" alt=""
-          onError={(e) => { e.target.style.display = 'none'; }}
+        <img src="/avocado.webp" alt="" decoding="async"
+          onError={(e) => { const el = e.target; if (!el.dataset.fb) { el.dataset.fb = '1'; el.src = '/avocado.png'; return; } el.style.display = 'none'; }}
           style={{
             position: 'absolute',
             top: '8%',

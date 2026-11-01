@@ -3105,13 +3105,15 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         background: 'linear-gradient(135deg, #3A4126 0%, #4A5238 55%, #6B7350 100%)',
       }}>
         <img
-          src="/recetario-hero.png"
+          src="/recetario-hero.jpg"
           alt=""
+          decoding="async"
           onError={(e) => {
-            // La foto puede subirse como .png o .jpg: se prueba la otra antes
-            // de rendirse, y si tampoco está queda el degradado oliva.
+            // La foto va en .jpg (liviana: 130 KB; el .png original pesaba
+            // 6,7 MB). Si faltara, se prueba el .png y si tampoco está queda
+            // el degradado oliva.
             const el = e.currentTarget;
-            if (!el.dataset.retry) { el.dataset.retry = '1'; el.src = '/recetario-hero.jpg'; return; }
+            if (!el.dataset.retry) { el.dataset.retry = '1'; el.src = '/recetario-hero.png'; return; }
             el.style.display = 'none';
           }}
           style={{

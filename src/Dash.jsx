@@ -23,7 +23,7 @@ import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, Ch
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal, recomendarAprendizaje } from './aprendizaje.js';
-import { api, hoyLocal, sumarDias, aFecha, nombreCorto, useAlVolverRed } from './entrenoDatos.js';
+import { api, hoyLocal, sumarDias, aFecha, nombreCorto, useAlVolverRed, guardadoDeEstaSemana } from './entrenoDatos.js';
 import { aroSemana, partesSemana, progresoEntreno } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
 import AvisoInstalar from './InstalarApp.jsx';
@@ -421,7 +421,7 @@ const cacheAprende = new Map();
 
 export default function Dash({ name, history, detalle = {}, goals, goalsHistory = null, entrenoOn = true, alIr, racha = 0, pendientes = 0, acciones = {}, avisoPago = null, kcalHoy = 0, reinicio = 0, abrir = null }) {
   const hoy = hoyLocal();
-  const [ent, setEnt] = useState(() => cacheDash.get(name) || null);
+  const [ent, setEnt] = useState(() => cacheDash.get(name) || guardadoDeEstaSemana('dash', name) || null);
   // El plan de la semana (la rutina de hoy, para el bloque «Hoy»): el mismo
   // que precarga Entrenamiento, así no se pide dos veces.
   const [plan, setPlan] = useState(null);
