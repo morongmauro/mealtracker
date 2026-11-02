@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
-import { momentoDe } from './DiaComidas.jsx';
+import { momentoDe, comidaDeHora, ORDEN_DIA } from './DiaComidas.jsx';
 
 const CLAVE = 'mt:invitaReceta';
 const VERDE = '#2F7F45';
@@ -24,10 +24,9 @@ const masDias = (f, n) => { const [y, m, d] = f.split('-').map(Number); return f
 
 // Qué comida sugerir ahora: { slot, cual } — cual: 'ahora' (la de esta
 // hora), 'siguiente' (la de esta hora ya está; la que sigue) o 'manana'.
-const ORDEN = ['desayuno', 'almuerzo', 'snack', 'cena'];
+const ORDEN = ORDEN_DIA;
 export function comidaParaInvitar(ahora, entries = []) {
-  const min = ahora.getHours() * 60 + ahora.getMinutes();
-  const deHora = min < 630 ? 'desayuno' : min < 930 ? 'almuerzo' : min < 1080 ? 'snack' : 'cena';
+  const deHora = comidaDeHora(ahora);
   const hecho = (k) => entries.some(e => momentoDe(e.meal) === k);
   if (!hecho(deHora)) return { slot: deHora, cual: 'ahora' };
   const sigue = ORDEN.slice(ORDEN.indexOf(deHora) + 1).find(k => !hecho(k));
