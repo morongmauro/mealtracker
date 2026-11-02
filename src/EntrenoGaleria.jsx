@@ -104,8 +104,7 @@ function TarjetaV2({ item, alto, alTocar }) {
         <span data-familia-etiqueta data-solida style={{
           position: 'absolute', left: 10, top: 10, display: 'inline-flex', alignItems: 'center',
           padding: '5px 10px', borderRadius: 99, background: fam.color, boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
-          fontSize: 12, fontWeight: 750, color: '#FFFFFF', letterSpacing: '0.08em', textTransform: 'uppercase',
-        }}>{fam.texto}</span>
+          fontSize: 12, fontWeight: 750, color: '#FFFFFF', letterSpacing: '0.01em', }}>{fam.texto}</span>
       ) : (
       <span data-familia-etiqueta style={{
         position: 'absolute', left: 10, top: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -113,7 +112,7 @@ function TarjetaV2({ item, alto, alTocar }) {
         background: 'linear-gradient(160deg, rgba(255,255,255,0.46) 0%, rgba(255,255,255,0.26) 100%)',
         backdropFilter: 'blur(18px) saturate(1.8)', WebkitBackdropFilter: 'blur(18px) saturate(1.8)',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 0 0 0.8px rgba(255,255,255,0.35), 0 1px 2px rgba(0,0,0,0.10)',
-        fontSize: 12, fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.08em', textTransform: 'uppercase', textShadow: '0 1px 1px rgba(0,0,0,0.18)',
+        fontSize: 12, fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.01em', textShadow: '0 1px 1px rgba(0,0,0,0.18)',
       }}>
         <i style={{ width: 7, height: 7, borderRadius: 9, background: PUNTO[f], boxShadow: '0 0 0 2px rgba(255,255,255,0.35)' }} />{fam.texto}
       </span>

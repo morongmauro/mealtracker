@@ -67,8 +67,7 @@ function Cara({ formas, prim, sec, titulo, idClip, etiqueta }) {
       </svg>
       {etiqueta && (
         <figcaption style={{
-          fontSize: '.6rem', letterSpacing: '.04em', textTransform: 'uppercase',
-          color: TEXT_LIGHT,
+          fontSize: '.6rem', letterSpacing: '0.01em', color: TEXT_LIGHT,
         }}>{titulo}</figcaption>
       )}
     </figure>
@@ -109,8 +108,7 @@ function CaraV2({ formas, lineas, prim, sec, titulo, idClip, etiqueta }) {
     <figure style={{ margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, height: '100%' }}>
       {etiqueta && (
         <figcaption data-cara-figura style={{
-          fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase',
-          color: '#3A3A3C', background: '#F2F2F4', borderRadius: 999, padding: '4px 10px', lineHeight: 1.2, flex: 'none',
+          fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#3A3A3C', background: '#F2F2F4', borderRadius: 999, padding: '4px 10px', lineHeight: 1.2, flex: 'none',
         }}>{titulo}</figcaption>
       )}
       <svg viewBox="0 0 100 205" role="img" aria-label={titulo}
@@ -212,7 +210,7 @@ const nombreMusculo = (x) => (x === 'erectores' ? MUSCULO_POR_SLUG[x].corto : MU
 
 const Pildoras = ({ titulo, lista, punto, fondo }) => (
   <div style={{ marginTop: 10 }}>
-    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#737373', marginBottom: 6 }}>{titulo}</div>
+    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#737373', marginBottom: 6 }}>{titulo}</div>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
       {lista.map(x => (
         <span key={x} data-pildora-musculo={x} style={{

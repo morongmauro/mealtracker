@@ -109,7 +109,7 @@ export default function Reconocimiento({
         {/* Sin puntos debajo del blob: parecían de un carrusel (algo que se
             desliza) y el número del blob ya dice cómo va la semana. */}
         <div style={{ padding: grande ? '18px 22px 20px' : '22px 22px 20px' }}>
-          {etiqueta && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: TEXT_MUTED }}>{etiqueta}</div>}
+          {etiqueta && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_MUTED }}>{etiqueta}</div>}
           <div data-rc-titulo style={{ fontSize: 27, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.06, marginTop: 6 }}>
             {lineas.map((l, i) => <div key={i}>{l}</div>)}
           </div>

@@ -77,7 +77,7 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
     <div data-configuracion style={{ paddingTop: arriba }}>
       {respira && <Respira alCerrar={() => setRespira(false)} origen="dash" />}
       {instalar && <Hoja abierta alCerrar={() => setInstalar(false)} titulo="Configuración · Instalar la app" alto="70vh" tono="dash"><AvisoInstalar enHoja /></Hoja>}
-      <CabeceraHoy tema="dash" fondo={false} voz={{ etiqueta: 'CONFIGURACIÓN', a: 'Tu app,', b: 'a tu manera.' }} />
+      <CabeceraHoy tema="dash" fondo={false} voz={{ etiqueta: 'Configuración', a: 'Tu app,', b: 'a tu manera.' }} />
       {vistaApp && <ElegirVista modo={vistaApp.modo || (vistaApp.compacta ? 'compacta' : 'completa')} alCambiar={vistaApp.cambiar} />}
       <div style={{ background: '#FFFFFF', borderRadius: 22, boxShadow: SOMBRA, padding: '4px 0' }}>
         {filas.map((f, i) => {
@@ -183,7 +183,7 @@ export function RelojesLista({ name, arriba = 0, alVolver }) {
       <button onClick={alVolver} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: 0, background: '#FFFFFF', boxShadow: SOMBRA, borderRadius: 99, padding: '8px 14px 8px 10px', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: TEXT, cursor: 'pointer', marginTop: 8 }}>
         <CaretLeft size={16} /> Configuración
       </button>
-      <CabeceraHoy tema="dash" fondo={false} voz={{ etiqueta: 'RELOJES Y ANILLOS', a: 'Conecta tu reloj', b: 'y suma tus datos.', sub: 'Pasos, sueño, pulso y recuperación llegan solos a tu Dash y a tu coach.' }} />
+      <CabeceraHoy tema="dash" fondo={false} voz={{ etiqueta: 'Relojes y anillos', a: 'Conecta tu reloj', b: 'y suma tus datos.', sub: 'Pasos, sueño, pulso y recuperación llegan solos a tu Dash y a tu coach.' }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {RELOJES.map(r => {
           const c = conectados[r.id];

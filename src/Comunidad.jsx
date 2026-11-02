@@ -210,7 +210,7 @@ export default function Comunidad({ name, arriba = 0 }) {
   return (
     <div ref={raiz} data-comunidad style={{ paddingTop: arriba }}>
       <CabeceraHoy tema="dash" fondo={false} voz={{
-        etiqueta: 'COMUNIDAD', a: 'Lo que comparto', b: 'con todo el equipo.',
+        etiqueta: 'Comunidad', a: 'Lo que comparto', b: 'con todo el equipo.',
         sub: 'Tips y novedades del programa. Reacciona y comenta.',
       }} />
       {!datos ? (

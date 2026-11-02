@@ -24,41 +24,41 @@ import { CLAVE_RECORRIDO as CLAVE } from './recorridoEstado.js';
 //   foco: 'nav' · { barra: 'aria-label de un botón de la barra' } · { el: 'selector' }
 const E = SECCION.entreno.base, C = SECCION.comida.base, A = SECCION.aprende.base, D = DASH_AZUL.base;
 const PASOS = [
-  { color: '#1F1F1F', etiqueta: 'BIENVENIDA', titulo: 'Esta es tu app del programa.',
+  { color: '#1F1F1F', etiqueta: 'Bienvenida', titulo: 'Esta es tu app del programa.',
     texto: 'Tu entrenamiento, tu alimentación y tu aprendizaje, en un solo lugar. Te muestro dónde está cada cosa.' },
-  { foco: 'nav', color: '#1F1F1F', etiqueta: 'LA BARRA', titulo: 'Cuatro secciones, abajo.',
+  { foco: 'nav', color: '#1F1F1F', etiqueta: 'La barra', titulo: 'Cuatro secciones, abajo.',
     texto: 'Dash, Entrenamiento, Alimentación y Aprendizaje. Al tocar una, a su lado aparecen sus opciones.' },
   // Entrenamiento
-  { sec: 'entreno', op: 'hoy', foco: { barra: 'Hoy' }, color: E, etiqueta: 'ENTRENAMIENTO · HOY', titulo: 'Lo que te toca hoy.',
+  { sec: 'entreno', op: 'hoy', foco: { barra: 'Hoy' }, color: E, etiqueta: 'Entrenamiento · hoy', titulo: 'Lo que te toca hoy.',
     texto: 'Tu rutina del día y, debajo, cómo va tu semana.' },
-  { sec: 'entreno', op: 'hoy', foco: { el: '[data-hoy-rutina], [data-hoy-te-toca]' }, color: E, etiqueta: 'TU RUTINA', titulo: 'Tócala y entrenas.',
+  { sec: 'entreno', op: 'hoy', foco: { el: '[data-hoy-rutina], [data-hoy-te-toca]' }, color: E, etiqueta: 'Tu rutina', titulo: 'Tócala y entrenas.',
     texto: 'Cada ejercicio con su video, sus series, repeticiones y descanso. Marcas cada serie con su peso y el entreno arranca solo.' },
-  { sec: 'entreno', op: 'mes', foco: { barra: 'Calendario' }, color: E, etiqueta: 'CALENDARIO', titulo: 'Tu mes y tu semana.',
+  { sec: 'entreno', op: 'mes', foco: { barra: 'Calendario' }, color: E, etiqueta: 'Calendario', titulo: 'Tu mes y tu semana.',
     texto: 'Lo que te toca cada día. Si algo cambia, mueves la rutina a otro día de la semana o añades un cardio o un deporte.' },
-  { sec: 'entreno', op: 'galeria', foco: { barra: 'Galería' }, color: E, etiqueta: 'GALERÍA', titulo: 'Todos tus ejercicios.',
+  { sec: 'entreno', op: 'galeria', foco: { barra: 'Galería' }, color: E, etiqueta: 'Galería', titulo: 'Todos tus ejercicios.',
     texto: 'Cada ejercicio de tu plan con su video y los músculos que trabaja.' },
   // Alimentación
-  { sec: 'comida', op: 'hoy', foco: { barra: 'Hoy' }, color: C, etiqueta: 'ALIMENTACIÓN · HOY', titulo: 'Cómo vas con tu meta.',
+  { sec: 'comida', op: 'hoy', foco: { barra: 'Hoy' }, color: C, etiqueta: 'Alimentación · hoy', titulo: 'Cómo vas con tu meta.',
     texto: 'Tus calorías y macros del día, en anillos que se llenan con cada comida.' },
-  { sec: 'comida', op: 'chat', foco: { el: '.msg-input' }, color: C, etiqueta: 'CHAT', titulo: 'Escribe o dicta lo que comiste.',
+  { sec: 'comida', op: 'chat', foco: { el: '.msg-input' }, color: C, etiqueta: 'Chat', titulo: 'Escribe o dicta lo que comiste.',
     texto: '«Dos huevos y una arepa» y listo: queda registrado contra tu meta. También le puedes preguntar qué comer.' },
-  { sec: 'comida', op: 'recetas', foco: { barra: 'Recetas' }, color: C, etiqueta: 'RECETAS', titulo: 'Ideas que encajan en tu meta.',
+  { sec: 'comida', op: 'recetas', foco: { barra: 'Recetas' }, color: C, etiqueta: 'Recetas', titulo: 'Ideas que encajan en tu meta.',
     texto: 'Cada receta al tamaño que te toca, y tu día o tu semana organizados con su lista de mercado.' },
-  { sec: 'comida', op: 'hoy', foco: { barra: 'Calendario' }, color: C, etiqueta: 'CALENDARIO DE COMIDAS', titulo: 'Cada día, cómo te fue.',
+  { sec: 'comida', op: 'hoy', foco: { barra: 'Calendario' }, color: C, etiqueta: 'Calendario de comidas', titulo: 'Cada día, cómo te fue.',
     texto: 'Qué comiste cada día y qué tan cerca quedaste de tu meta, por mes, semana y día.' },
   // Aprendizaje
-  { sec: 'aprende', op: 'lecturas', foco: { barra: 'Lecturas' }, color: A, etiqueta: 'LECTURAS', titulo: 'Cápsulas y guía de alimentación.',
+  { sec: 'aprende', op: 'lecturas', foco: { barra: 'Lecturas' }, color: A, etiqueta: 'Lecturas', titulo: 'Cápsulas y guía de alimentación.',
     texto: 'Temas cortos de entrenamiento, nutrición y bienestar, y la guía, capítulo a capítulo.' },
-  { sec: 'aprende', op: 'videos', foco: { barra: 'Videos' }, color: A, etiqueta: 'VIDEOS', titulo: 'Para ver o escuchar.',
+  { sec: 'aprende', op: 'videos', foco: { barra: 'Videos' }, color: A, etiqueta: 'Videos', titulo: 'Para ver o escuchar.',
     texto: 'Los episodios que te recomiendo, cuando quieras.' },
-  { sec: 'aprende', op: 'programa', foco: { barra: 'Sobre el programa' }, color: A, etiqueta: 'SOBRE EL PROGRAMA', titulo: 'Cómo funciona tu proceso.',
+  { sec: 'aprende', op: 'programa', foco: { barra: 'Sobre el programa' }, color: A, etiqueta: 'Sobre el programa', titulo: 'Cómo funciona tu proceso.',
     texto: 'El método, sus pilares, las fases de tu trayecto y las preguntas frecuentes.' },
   // Dash
-  { sec: 'dash', foco: { el: '[data-tarjeta="Entrenamiento"]' }, color: D, etiqueta: 'DASH', titulo: 'Tu avance, en gráficas.',
+  { sec: 'dash', foco: { el: '[data-tarjeta="Entrenamiento"]' }, color: D, etiqueta: 'Dash', titulo: 'Tu avance, en gráficas.',
     texto: 'Tu constancia de entreno y qué tan cerca vas de tu meta de comida, semana a semana.' },
-  { sec: 'dash', foco: { barra: 'Dash' }, color: D, etiqueta: 'DASH', titulo: 'Y mucho más.',
+  { sec: 'dash', foco: { barra: 'Dash' }, color: D, etiqueta: 'Dash', titulo: 'Y mucho más.',
     texto: 'Tus pesos, tu composición corporal, tu aprendizaje y el botón para escribirme por WhatsApp.' },
-  { color: '#1F1F1F', etiqueta: 'LISTO', titulo: 'Ya conoces tu app.',
+  { color: '#1F1F1F', etiqueta: 'Listo', titulo: 'Ya conoces tu app.',
     texto: 'Cuando el calendario te pida pesarte, fotos o medidas, la app te avisa al abrirla. Cualquier duda, me escribes. Vamos.' },
 ];
 
@@ -128,7 +128,7 @@ export default function RecorridoApp({ nombre, alIr, alTerminar }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ width: 8, height: 8, borderRadius: 99, background: paso.color }} />
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.07em', color: TEXT_MUTED }}>{paso.etiqueta}</span>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_MUTED }}>{paso.etiqueta}</span>
           <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 700, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{i + 1} de {PASOS.length}</span>
         </div>
         <div style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.12, color: TEXT, marginTop: 8 }}>{paso.titulo}</div>

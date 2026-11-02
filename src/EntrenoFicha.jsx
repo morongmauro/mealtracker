@@ -156,8 +156,7 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
         <div style={{ marginTop: 18, borderTop: `1px solid ${BORDER_SOFT}`, paddingTop: 12 }}>
           <button onClick={() => setVerCaracs(v => !v)} style={{
             border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
-            fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
-            color: TEXT_LIGHT, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit',
+            fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit',
           }}>
             Características
             <span style={{ transform: verCaracs ? 'rotate(90deg)' : 'none', transition: 'transform .16s' }}>›</span>
@@ -266,8 +265,7 @@ function TuHistorial({ item }) {
         <>
           <button onClick={() => setVerTodo(v => !v)} style={{
             border: 'none', background: 'transparent', padding: '10px 0 0', cursor: 'pointer',
-            fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
-            color: TEXT_LIGHT, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit',
+            fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit',
           }}>
             {verTodo ? 'Ocultar' : `Las ${resto.length} anteriores`}
             <span style={{ transform: verTodo ? 'rotate(90deg)' : 'none', transition: 'transform .16s' }}>›</span>
@@ -300,8 +298,7 @@ function TuHistorial({ item }) {
 function Rotulo({ children, style }) {
   return (
     <div style={{
-      fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
-      color: TEXT_LIGHT, marginBottom: 6, ...style,
+      fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT, marginBottom: 6, ...style,
     }}>{children}</div>
   );
 }

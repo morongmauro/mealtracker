@@ -36,7 +36,7 @@ export default function HojaVideo({ re, alCerrar }) {
       {v && <div data-hoja-video>
         {v.corregir && (
           <div data-video-corregir style={{ background: NARANJA_FONDO, borderRadius: 16, padding: '12px 14px', marginBottom: 12 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: NARANJA_TINTA }}>Qué corregir</div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.01em', color: NARANJA_TINTA }}>Qué corregir</div>
             <div style={{ fontSize: 15, lineHeight: 1.45, color: TEXT, marginTop: 3 }}>{v.corregir}</div>
           </div>
         )}

@@ -125,7 +125,7 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
     <div ref={raiz} data-acerca-programa style={{ maxWidth: 560, margin: '0 auto', padding: '0 20px', paddingTop: arriba, paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))' }}>
       {/* Sin curva, como Videos: la cabecera curva es de Lecturas. */}
       <CabeceraHoy tema="aprende" fondo={false} voz={{
-        etiqueta: 'SOBRE EL PROGRAMA', a: 'Tu progreso,', b: 'con método.',
+        etiqueta: 'Sobre el programa', a: 'Tu progreso,', b: 'con método.',
         sub: 'Cómo funciona tu proceso: qué hacemos, en qué orden y qué te toca a ti.',
       }} />
 
@@ -142,7 +142,7 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
       {/* 1 · La idea */}
       <section data-parte="metodo" style={{ ...bloque, marginTop: 18, scrollMarginTop: 80 }}>
         <div style={{ background: '#1F1F1F', color: '#fff', borderRadius: 22, padding: '20px 20px 22px' }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.06em', color: '#F6B27D' }}>EL MÉTODO EN UNA IDEA</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.01em', color: '#F6B27D' }}>El método en una idea</div>
           <div style={{ fontSize: 23, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.15, marginTop: 8 }}>Se acabó la improvisación.</div>
           <p style={{ fontSize: 15.5, lineHeight: 1.5, margin: '10px 0 0', color: 'rgba(255,255,255,0.86)' }}>
             Entrenamiento, alimentación y descanso funcionan como un solo sistema. Cada rutina, cada meta y cada registro responde a esa lógica.
@@ -297,7 +297,7 @@ export default function AcercaPrograma({ nombre, parte, alRecorrido, arriba }) {
       </section>
 
       <div style={{ textAlign: 'center', marginTop: 26, color: TEXT_LIGHT }}>
-        <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.04em', color: TEXT_MUTED }}>ENTRENA CON MÉTODO</div>
+        <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_MUTED }}>Entrena con Método</div>
         <div style={{ fontSize: 12.5, marginTop: 4 }}>Mauro Morón · ISSA Training and Nutrition Coach</div>
       </div>
     </div>

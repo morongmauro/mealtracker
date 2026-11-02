@@ -1844,7 +1844,7 @@ function NivelDia({ dia }) {
   const d = dia.desvio, col = NIVEL_COLOR[d.nivel];
   return <span style={{ fontSize: 12.5, fontWeight: 700, color: col }}>{NIVEL_TEXTO[d.nivel]} · {d.kcal > 0 ? '+' : ''}{d.kcal}%</span>;
 }
-const ETIQUETA_V2 = { fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#2F7F45' };
+const ETIQUETA_V2 = { fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#2F7F45' };
 const botonMenuV2 = (oscuro) => ({ width: '100%', height: 48, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 700,
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: oscuro ? '#1F1F1F' : '#F1F0EB', color: oscuro ? '#FFFFFF' : TEXT });
 const redondoV2 = (on) => ({ width: 38, height: 38, borderRadius: 999, border: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', flex: 'none',
@@ -3095,8 +3095,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         <div className="relative max-w-xl mx-auto px-4" style={{ zIndex: 3, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 70px)' }}>
           {/* La voz de la sección, con la letra de la marca y sin curva */}
           <CabeceraHoy tema="comida" fondo={false} voz={vista === 'menus'
-            ? { etiqueta: 'ORGANIZA TU DÍA', a: 'Tu día,', b: 'resuelto.', sub: 'Las recetas repartidas en tu día o tu semana, con su lista de mercado.' }
-            : { etiqueta: 'RECETAS', a: 'Comer bien', b: 'también es rico.', sub: `${RECIPES.length} recetas, cada una al tamaño que le toca dentro de tu meta.` }} />
+            ? { etiqueta: 'Organiza tu día', a: 'Tu día,', b: 'resuelto.', sub: 'Las recetas repartidas en tu día o tu semana, con su lista de mercado.' }
+            : { etiqueta: 'Recetas', a: 'Comer bien', b: 'también es rico.', sub: `${RECIPES.length} recetas, cada una al tamaño que le toca dentro de tu meta.` }} />
         </div>
       ) : (
       <div className="relative w-full overflow-hidden" style={{
@@ -3130,7 +3130,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           <div style={{
             color: '#FFFFFF', fontFamily: FONT_DISPLAY, fontWeight: 400,
             fontSize: '40px', letterSpacing: '0.02em', marginTop: '4px', lineHeight: 0.96,
-            textTransform: 'uppercase', textShadow: '0 1px 3px rgba(0,0,0,0.5), 0 4px 24px rgba(0,0,0,0.55)',
+            textShadow: '0 1px 3px rgba(0,0,0,0.5), 0 4px 24px rgba(0,0,0,0.55)',
           }}>Recetario</div>
           <div style={{ width: 44, height: 2, borderRadius: 2, background: ACCENT_PASTEL, marginTop: 8, opacity: 0.9 }} />
         </div>
@@ -3380,7 +3380,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             const grupos = ['Desayuno', 'Almuerzo / Cena', 'Snack'].filter(g => porGrupo.has(g));
             return grupos.map(g => (
               <React.Fragment key={g}>
-                {grupos.length > 1 && <div data-receta-grupo style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#2F7F45', margin: '12px 2px 2px' }}>{g}</div>}
+                {grupos.length > 1 && <div data-receta-grupo style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#2F7F45', margin: '12px 2px 2px' }}>{g}</div>}
                 {porGrupo.get(g).map(fila)}
               </React.Fragment>
             ));

@@ -79,7 +79,7 @@ export default function AvisoCicloFin({ fase, pendientes = 0, hoyToca = null, fi
           <div style={{ position: 'absolute', left: 22, top: 112, fontSize: 12, color: TEXT_MUTED, fontWeight: 700 }}>Estás aquí · semana {n} de {n}</div>
         </div>
         <div style={{ padding: '14px 22px 20px' }}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: TEXT_MUTED }}>Tu ciclo</div>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_MUTED }}>Tu ciclo</div>
           <div style={{ fontSize: 27, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.06, marginTop: 6 }}>
             <div>Última semana.</div><div>Ciérrala fuerte.</div>
           </div>

@@ -165,7 +165,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
   const texto = (
     <div className="cab-texto" style={{ position: 'relative', paddingRight: Ilus && !grande ? (conAro ? 'min(46vw, 168px)' : 'min(30vw, 104px)') : 0, minHeight: !grande && conAro ? 118 : undefined, flex: grande ? 1 : undefined, minWidth: 0 }}>
       {voz?.etiqueta && (
-        <div data-etiqueta style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
+        <div data-etiqueta style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.01em', color: TEXT_MUTED }}>{voz.etiqueta}</div>
       )}
       {voz ? (
         <h1 data-frase style={{

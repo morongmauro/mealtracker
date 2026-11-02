@@ -227,13 +227,13 @@ export default function Ranking() {
         </div>
         <div className="flex items-center justify-center gap-2 mt-1.5">
           {info?.finished ? (
-            <span className="text-[12px] uppercase tracking-[0.14em] font-semibold" style={{ color: TEXT_MUTED }}>
+            <span className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>
               🏁 Reto finalizado · {shortDate(info.start)} – {shortDate(info.end)}
             </span>
           ) : (
             <>
               <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#C75A4A', animation: 'rkPulse 1.6s ease-in-out infinite' }} />
-              <span className="text-[12px] uppercase tracking-[0.14em] font-semibold" style={{ color: TEXT_MUTED }}>
+              <span className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>
                 {/* Las fechas SOLO vienen del API (única fuente de verdad) */}
                 En vivo{info ? ` · Reto ${shortDate(info.start)} – ${shortDate(info.end)}` : ''}
               </span>

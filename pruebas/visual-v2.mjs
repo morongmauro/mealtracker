@@ -861,7 +861,7 @@ try {
   ok('el saludo está en el Dash', (await p.getByText('Hola, Mauro').count()) === 1);
   // Mauro tiene el fondo blanco (a prueba): dos manchas (azul y el amarillo muy suave) en vez de cuatro.
   ok('Dash: el saludo como las demás cabeceras (dos líneas, la segunda en azul), sin firma, con banda curva y sus manchas (2 con el fondo blanco de Mauro)', await p.locator('[data-cabecera-hoy="dash"] [data-frase]').isVisible()
-    && /^MARTES 29/.test(await p.locator('[data-cabecera-hoy="dash"] [data-etiqueta]').innerText())
+    && /^Martes 29/.test(await p.locator('[data-cabecera-hoy="dash"] [data-etiqueta]').innerText())
     && await p.locator('[data-cabecera-hoy="dash"] [data-frase] span').evaluate(el => getComputedStyle(el).color === 'rgb(47, 108, 196)')
     && (await p.locator('[data-cabecera-hoy="dash"] [data-sub]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
@@ -1358,7 +1358,7 @@ try {
   }));
   ok('rutina estilo Apple: el primer ejercicio sin terminar dice AHORA, video chico al lado, campos grises sin borde', await p.evaluate(() => {
     const ahora = document.querySelectorAll('[data-ahora="1"]');
-    const t = ahora[0]; if (ahora.length !== 1 || !/AHORA/.test(t.innerText)) return false;
+    const t = ahora[0]; if (ahora.length !== 1 || !/AHORA/i.test(t.innerText)) return false;
     const mini = t.querySelector('button[aria-label^="Ver "]').getBoundingClientRect();
     const campo = document.querySelector('[data-ejercicio] input[aria-label^="Repeticiones"]'), cs = getComputedStyle(campo);
     return mini.width <= 80 && mini.height <= 62 && cs.borderTopStyle === 'none' && cs.backgroundColor === 'rgb(242, 242, 244)';
@@ -1472,7 +1472,7 @@ try {
   const banca = p.locator('[data-ejercicio="Barbell Bench Press"]');
   ok('al ladito de cada serie, en gris, lo que hizo la última vez (reps × peso, en la unidad de hoy; la unidad la dice la cabecera)',
     (await banca.locator('[data-serie-anterior]').first().innerText()) === '8 × 157'
-    && /^ÚLTIMA\n\d+ [A-Z]+$/.test(await banca.locator('[data-cab-ultima]').innerText())
+    && /^Última\n\d+ [a-zA-Z]+\.?$/.test(await banca.locator('[data-cab-ultima]').innerText())
     && (await banca.locator('[data-serie-anterior]').first().evaluate(el => getComputedStyle(el).color)) === 'rgb(174, 174, 178)',
     await banca.locator('[data-serie-anterior]').first().innerText());
   ok('las cajitas de reps y peso más largas, y lo de la última vez pegado al check (sin hueco en el medio)',
@@ -1852,8 +1852,8 @@ try {
   await foto(p, '10c-calendario-comidas');
   ok('calendario de comidas: es una página de Alimentación (no una ventana), con su etiqueta CALENDARIO como el de entreno',
     (await p.locator('[data-view="calendario-comida"]').count()) === 1 && (await p.getByRole('dialog').count()) === 0
-    && /CALENDARIO/.test(await p.locator('[data-pagina-calendario-comida] [data-cabecera-hoy="comida"]').innerText())
-    && !/CALENDARIO DE COMIDAS/.test(await p.locator('[data-pagina-calendario-comida]').innerText()));
+    && /CALENDARIO/i.test(await p.locator('[data-pagina-calendario-comida] [data-cabecera-hoy="comida"]').innerText())
+    && !/Calendario de comidas/.test(await p.locator('[data-pagina-calendario-comida]').innerText()));
   ok('calendario de comidas: la barra marca Calendario', await p.locator('nav[aria-label="Secciones"] [data-activo="1"]').evaluate(el => /Calendario/.test(el.getAttribute('aria-label') || el.textContent)));
   // Desde el chat, el calendario no deja la barra de escribir encima.
   await p.getByRole('button', { name: 'Chat', exact: true }).click(); await espera(700);
@@ -2082,7 +2082,7 @@ try {
   await espera(300);
   ok('recorrido: no se cierra con Escape ni tocando afuera, y no tiene X', (await rec.count()) === 1 && (await rec.getByRole('button', { name: /Cerrar|Saltar|Omitir/ }).count()) === 0);
   const vistos = [];
-  const fotosRec = { 'TU RUTINA': '17c-recorrido-rutina', 'CHAT': '17e-recorrido-chat', 'RECETAS': '17f-recorrido-recetas', 'DASH': '17d-recorrido-dash' };
+  const fotosRec = { 'Tu rutina': '17c-recorrido-rutina', 'Chat': '17e-recorrido-chat', 'Recetas': '17f-recorrido-recetas', 'Dash': '17d-recorrido-dash' };
   for (let k = 0; k < 20; k++) {
     if (/Finalizar/.test(await rec.locator('[data-rec-siguiente]').innerText())) break;
     await rec.locator('[data-rec-siguiente]').click(); await espera(1500);
@@ -2092,8 +2092,8 @@ try {
   }
   const ets = vistos.map(v => v.et);
   ok('recorrido: muestra cada parte (rutina, calendario, galería, chat, recetas, calendario de comidas, lecturas, videos, programa, gráficas)',
-    ['ENTRENAMIENTO · HOY', 'TU RUTINA', 'CALENDARIO', 'GALERÍA', 'ALIMENTACIÓN · HOY', 'CHAT', 'RECETAS', 'CALENDARIO DE COMIDAS', 'LECTURAS', 'VIDEOS', 'SOBRE EL PROGRAMA', 'DASH'].every(e => ets.includes(e)), JSON.stringify(ets));
-  ok('recorrido: en cada parte se ilumina algo', vistos.filter(v => v.et !== 'LISTO').every(v => v.foco === 1), JSON.stringify(vistos));
+    ['Entrenamiento · hoy', 'Tu rutina', 'Calendario', 'Galería', 'Alimentación · hoy', 'Chat', 'Recetas', 'Calendario de comidas', 'Lecturas', 'Videos', 'Sobre el programa', 'Dash'].every(e => ets.includes(e)), JSON.stringify(ets));
+  ok('recorrido: en cada parte se ilumina algo', vistos.filter(v => v.et !== 'Listo').every(v => v.foco === 1), JSON.stringify(vistos));
   ok('recorrido: el último paso dice «Finalizar»', /Finalizar/.test(await rec.locator('[data-rec-siguiente]').innerText()));
   await rec.locator('[data-rec-siguiente]').click(); await espera(900);
   ok('recorrido: al finalizar se cierra, vuelve a «Sobre el programa» y queda hecho', (await rec.count()) === 0 && await p.locator('[data-acerca-programa]').isVisible()
@@ -2182,7 +2182,7 @@ try {
     await finW.waitFor({ timeout: 8000 }).catch(() => {});
     await espera(1600);
     ok('semana completa: al cerrar todo lo planeado sale el anuncio especial (sello «Semana completa», más confeti)', (await finW.getAttribute('data-especial').catch(() => null)) === '1'
-      && /SEMANA COMPLETA/.test(await finW.locator('[data-rc-sello]').innerText().catch(() => '')) && /Cumpliste tu semana\./.test(await finW.innerText().catch(() => ''))
+      && /SEMANA COMPLETA/i.test(await finW.locator('[data-rc-sello]').innerText().catch(() => '')) && /Cumpliste tu semana\./.test(await finW.innerText().catch(() => ''))
       && (await w.p.locator('.mt-confeti i').count()) > 50, await finW.innerText().catch(() => 'no salió'));
     await foto(w.p, '16b-semana-completa');
     ok('semana completa: sin errores de JavaScript', w.errores.length === 0, w.errores.join(' | '));
@@ -2351,7 +2351,7 @@ try {
   ok('fin: «Push, hecho.» con el entreno de la semana en palabras, la frase del coach y lo que hizo (sin «x de y»)', /Push, hecho\./.test(await fin.innerText()) && /(Primer|Segundo|Tercer|Cuarto|Quinto|Sexto|Séptimo) entreno de la semana\./.test(await fin.innerText())
     && /\b1\s*ejercicio\b/.test(await fin.innerText()) && !/\d+\s*\/\s*7\s*ejercicios/.test(await fin.innerText()) && (await fin.locator('[data-firma-coach]').count()) === 0, await fin.innerText());
   ok('fin: siempre la ventana completa, con el blob (rutinas de la semana) y sin puntos debajo', (await fin.locator('[data-rc-portada]').count()) === 1 && (await fin.locator('[data-rc-puntos]').count()) === 0
-    && /RUTINAS · SEMANA/.test(await fin.locator('[data-rc-portada]').innerText()));
+    && /RUTINAS · SEMANA/i.test(await fin.locator('[data-rc-portada]').innerText()));
   ok('fin: sin cerrar la semana no es el anuncio especial', (await fin.getAttribute('data-especial')) === null && (await fin.locator('[data-rc-sello]').count()) === 0);
   await foto(n.p, '16-fin-entreno');
   ok('fin: «¿Bajamos pulsaciones? Respira» abre la respiración guiada', await (async () => {
@@ -2792,7 +2792,7 @@ try {
     ok('rutina (lote 30): al terminar un ejercicio baja suave: el terminado se ve en amarillo bajo la barra y el siguiente debajo, con AHORA',
       bajada.hecho != null && bajada.hecho >= bajada.barra - 2 && bajada.sig > bajada.hecho && bajada.sig <= bajada.alto * 0.42 && bajada.ahora === 're-e4', JSON.stringify(bajada));
     await p.locator('[data-volver-semana]').click(); await espera(1200);
-    ok('Hoy (prueba): la rutina empezada y sin terminar sale arriba con «Continuar»', /RUTINA A MEDIAS/.test(await p.locator('[data-continuar-rutina]').innerText().catch(() => '')));
+    ok('Hoy (prueba): la rutina empezada y sin terminar sale arriba con «Continuar»', /Rutina a medias/.test(await p.locator('[data-continuar-rutina]').innerText().catch(() => '')));
     await foto(p, '40f-prueba-continuar');
     await p.locator('[data-continuar-rutina]').click(); await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(500);
     ok('…«Continuar» vuelve a la rutina con lo marcado', (await p.locator('[data-avance-rutina] [data-segmento="hecho"]').count()) >= 1);

@@ -374,7 +374,7 @@ function CabeceraFase({ fase: f, v2 = false }) {
   }
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em', textTransform: 'uppercase', lineHeight: 1, color: TEXT }}>{f.nombre}</div>
+      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em', lineHeight: 1, color: TEXT }}>{f.nombre}</div>
       {f.objetivo && <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 5 }}>{f.objetivo}</div>}
     </div>
   );
@@ -398,7 +398,7 @@ function ContinuarRutina({ plan, alAbrir }) {
       boxShadow: '0 1px 2px rgba(20,20,30,0.04), 0 8px 22px rgba(20,30,60,0.08)',
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', color: '#EE8434' }}>RUTINA A MEDIAS</div>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#EE8434' }}>Rutina a medias</div>
         <div style={{ fontSize: 17, fontWeight: 800, color: TEXT, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.nombre || 'Tu rutina de hoy'}</div>
         {hora && <div style={{ fontSize: 13, color: '#6E6E73', fontWeight: 600, marginTop: 2 }}>Empezaste a las {hora}. Lo marcado sigue guardado.</div>}
       </div>
@@ -455,8 +455,8 @@ function BloqueActividad({ name }) {
         gap: 8, marginBottom: 10,
       }}>
         <h2 style={{
-          fontSize: 12, fontWeight: 800, letterSpacing: '.08em',
-          textTransform: 'uppercase', color: TEXT_LIGHT, margin: 0,
+          fontSize: 12, fontWeight: 800, letterSpacing: '0.01em',
+          color: TEXT_LIGHT, margin: 0,
         }}>Además de la fuerza</h2>
         <button onClick={() => setRegistrando(true)} style={{
           border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
@@ -525,7 +525,7 @@ function VistaSemana({ plan, onAbrir }) {
         <div style={{ marginBottom: 16 }}>
           <div style={{
             fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em',
-            textTransform: 'uppercase', lineHeight: 1, color: TEXT,
+            lineHeight: 1, color: TEXT,
           }}>{f.nombre}</div>
           {f.objetivo && <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 5 }}>{f.objetivo}</div>}
         </div>
@@ -1234,7 +1234,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
         <div style={{ marginBottom: 16 }}>
           {titulo
             ? <div style={v2c ? { fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, color: TEXT }
-              : { fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em', textTransform: 'uppercase', lineHeight: 1, color: TEXT }}>{titulo}</div>
+              : { fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em', lineHeight: 1, color: TEXT }}>{titulo}</div>
             : <div className="mt-esq" style={{ height: 28, width: '60%', borderRadius: 8 }} />}
           <div className="mt-esq" style={{ height: 12, width: '45%', borderRadius: 6, marginTop: 12 }} />
         </div>
@@ -1501,7 +1501,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
           fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1, color: TEXT,
         } : {
           fontFamily: FONT_DISPLAY, fontSize: 26, letterSpacing: '0.03em',
-          textTransform: 'uppercase', lineHeight: 1, color: TEXT,
+          lineHeight: 1, color: TEXT,
         }}>{datos.nombre}</div>
         {/* Tiempo sugerido: series, reps, descansos y cambios de peso o de
             máquina (api/_tiempo.js), el mismo que ve el coach. Lo real lo
@@ -1581,8 +1581,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
               {tramo.vueltas.length > 1 && (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 8, margin: '12px 2px 6px',
-                  fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase',
-                  color: TEXT_LIGHT,
+                  fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT,
                 }}>
                   Vuelta {vi + 1}
                   <div style={{ flex: 1, height: 1, background: BORDER }} />
@@ -1758,9 +1757,9 @@ export function agruparEnTramos(ejercicios, bloqueDe, clase = null) {
 
 // Lo que dice arriba el Calendario y la Galería (visual nueva).
 const VOZ_SECCION = {
-  mes: { etiqueta: 'CALENDARIO', a: 'Tu semana,', b: 'en orden.' },
-  galeria: { etiqueta: 'GALERÍA', a: 'Mira, aprende', b: 'y ejecuta.' },
-  fotos: { etiqueta: 'FOTOS DE PROGRESO', a: 'Mírate', b: 'con datos.' },
+  mes: { etiqueta: 'Calendario', a: 'Tu semana,', b: 'en orden.' },
+  galeria: { etiqueta: 'Galería', a: 'Mira, aprende', b: 'y ejecuta.' },
+  fotos: { etiqueta: 'Fotos de progreso', a: 'Mírate', b: 'con datos.' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1824,7 +1823,7 @@ function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
     <>
       <style>{'html.hoja-fin [data-barra-v2], html.hoja-fin [data-barra-compacta] { display: none !important; }'}</style>
       <Reconocimiento tema="entreno" grande especial={semanaCerrada} attrs={{ 'data-fin-entreno': '' }}
-        numero={planeadas ? { valor: hechas, sufijo: `/${planeadas}`, pie: 'RUTINAS · SEMANA' } : { valor: fin.series, pie: 'SERIES' }} puntos={puntos}
+        numero={planeadas ? { valor: hechas, sufijo: `/${planeadas}`, pie: 'rutinas · semana' } : { valor: fin.series, pie: 'series' }} puntos={puntos}
         etiqueta="Entreno hecho" titulo={titulo} linea={frase} lista={lista} chips={chips}
         boton={{ texto: 'Seguir', onClick: alCerrar }}
         enlace={v2Activa() ? { texto: '¿Bajamos pulsaciones? Respira', icono: <Wind size={18} weight="fill" data-fin-respira-icono="" />, onClick: () => setRespira(true) } : null}
@@ -1846,7 +1845,7 @@ function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
                   background: 'linear-gradient(135deg, rgba(60,123,214,0.10), rgba(242,201,76,0.16))' }}>
                   <span style={{ width: 40, height: 40, borderRadius: 12, background: '#FFFFFF', color: '#3C7BD6', display: 'grid', placeItems: 'center', flex: 'none', boxShadow: '0 4px 12px rgba(60,123,214,0.18)' }}><TrendUpV2 size={20} weight="bold" /></span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', color: '#3C7BD6', textTransform: 'uppercase', lineHeight: 1.25 }}>Nuevo mejor · {r.nombre}</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#3C7BD6', lineHeight: 1.25 }}>Nuevo mejor · {r.nombre}</div>
                     <div style={{ fontSize: 19, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{marcaV(r)}</div>
                     <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 1, fontVariantNumeric: 'tabular-nums' }}>
                       {r.antes ? <>La vez pasada: {marcaV(r.antes)}{sube > 0 && <> · <b style={{ color: '#2F7F45' }}>+{coma(sube)} {r.unidad || 'kg'}</b></>}</> : r.primera_vez ? 'Primera vez' : ''}
@@ -2088,8 +2087,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
           entiende: parece un número suelto en vez de "lo que hiciste". */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 2,
-        fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase',
-        color: TEXT_LIGHT,
+        fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT,
       }}>
         <div style={{ width: 24, flexShrink: 0 }} />
         <div style={{ width: 52, flexShrink: 0, textAlign: 'right' }}>Antes</div>
@@ -2100,8 +2098,8 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
         <div style={{ flex: 1, textAlign: 'center' }}>
           <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
             border: `1px solid ${BORDER}`, background: 'transparent', borderRadius: 999,
-            padding: '1px 8px', fontSize: 12, fontWeight: 800, letterSpacing: '.06em',
-            textTransform: 'uppercase', color: ACCENT_DARK, cursor: 'pointer', fontFamily: 'inherit',
+            padding: '1px 8px', fontSize: 12, fontWeight: 800, letterSpacing: '0.01em',
+            color: ACCENT_DARK, cursor: 'pointer', fontFamily: 'inherit',
           }}>{unidad} ⇄</button>
         </div>
         </>}

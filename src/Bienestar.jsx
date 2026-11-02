@@ -58,7 +58,7 @@ export default function TarjetaBienestar({ name }) {
         </div>
       ) : (
         <>
-          <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '.08em', color: '#3C7BD6' }}>CADA 15 DÍAS · 10 SEGUNDOS</div>
+          <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.01em', color: '#3C7BD6' }}>Cada 15 días · 10 segundos</div>
           <div style={{ fontWeight: 800, fontSize: 22, color: '#1F1F1F', letterSpacing: '-.02em', marginTop: 4, lineHeight: 1.2 }}>¿Cómo vienes estas dos semanas?</div>
           <div style={{ fontSize: 14.5, color: '#55565B', marginTop: 4, lineHeight: 1.35 }}>Se lo envías a tu coach.</div>
           {PREGUNTAS.map(p => (

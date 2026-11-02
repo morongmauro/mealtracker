@@ -105,7 +105,7 @@ export function HojaMas({ abierta, alCerrar, grupos, alVerCompleta }) {
       <div data-hoja-mas>
         {grupos.filter(g => g.items.length).map(g => (
           <div key={g.titulo} style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', color: TEXT_MUTED, textTransform: 'uppercase', margin: '2px 2px 8px' }}>{g.titulo}</div>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_MUTED, margin: '2px 2px 8px' }}>{g.titulo}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 }}>
               {g.items.map(it => {
                 const Tag = it.href ? 'a' : 'button';

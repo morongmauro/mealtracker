@@ -33,11 +33,11 @@ export function delDia(lista, fecha, sal = 0) {
 
 const miles = (n) => Math.round(n).toLocaleString('es-CO');
 
-// «MARTES 2 · SEMANA 3 DE 8»
+// «Martes 2 · semana 3 de 8» (solo la primera letra en mayúscula)
 export function etiquetaDia(fecha, extra = '') {
   const d = Number(String(fecha).slice(8, 10));
-  const t = `${DIAS[diaSemana(fecha)]} ${d}`.toUpperCase();
-  return extra ? `${t} · ${extra.toUpperCase()}` : t;
+  const t = `${DIAS[diaSemana(fecha)]} ${d}`.replace(/^./, c => c.toUpperCase());
+  return extra ? `${t} · ${extra}` : t;
 }
 
 // ── ENTRENAMIENTO ─────────────────────────────────────────────────────────
@@ -152,7 +152,7 @@ const VAS_BIEN = [
 // cuántas registró hoy y `racha` los días seguidos registrando.
 export function vozComida({ hoy, hora, kcal = 0, meta = 0, comidas = 0, racha = 0 }) {
   // Sin la fecha (ya está en el Dash); solo la racha, cuando la hay.
-  const etiqueta = racha >= 3 ? `${racha} días registrando`.toUpperCase() : undefined;
+  const etiqueta = racha >= 3 ? `${racha} días registrando` : undefined;
   if (!meta) return { etiqueta, a: 'Así va tu día.', b: delDia(V.sinMeta, hoy) };
   if (!comidas || kcal <= 0) {
     if (hora < 11) return { etiqueta, a: 'Buen día.', b: delDia(V.desayuno, hoy) };

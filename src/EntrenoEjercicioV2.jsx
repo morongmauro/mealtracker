@@ -592,18 +592,18 @@ function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = nu
       fontSize: 12, fontWeight: 700, color: GRIS, letterSpacing: '.04em',
     }}>
       <div style={{ width: 22, flex: 'none' }} />
-      <div style={{ ...CAJA, textAlign: 'center', whiteSpace: 'nowrap' }}>{lado ? 'REPS/LADO' : 'REPS'}</div>
+      <div style={{ ...CAJA, textAlign: 'center', whiteSpace: 'nowrap' }}>{lado ? 'Reps/lado' : 'Reps'}</div>
       {!soloReps && <>
       <div style={{ ...CAJA, textAlign: 'center' }}>
         <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
           border: 'none', background: 'transparent', borderRadius: 999, padding: '2px 6px',
           fontSize: 12, fontWeight: 700, color: GRIS, letterSpacing: '.04em', cursor: 'pointer', fontFamily: 'inherit',
-        }}>{unidad.toUpperCase()} ⇄</button>
+        }}>{unidad} ⇄</button>
       </div>
       </>}
       {ultima && (ultima.series || []).length > 0 && (
         <div data-cab-ultima style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', color: '#737373', lineHeight: 1.2 }}>
-          ÚLTIMA<br />{fechaCorta(ultima.fecha).toUpperCase()}
+          Última<br />{fechaCorta(ultima.fecha)}
         </div>
       )}
       <div style={{ width: 34, flex: 'none' }} />
@@ -704,7 +704,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
           }}><CaretUp size={16} weight="bold" /></button>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {ahora && <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
+          {ahora && <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>Ahora</span>}
           {/* Vista en prueba: Ficha · Historial · Nota arriba a la derecha, a la
               altura del nombre; el texto les da la vuelta (si el nombre no
               cabe, sigue en la línea de abajo) y nada queda detrás. */}
@@ -889,7 +889,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Miniatura e={e} ancho={54} alto={42} alTocar={() => setFicha(re)} enVivo={prueba && ahora === `${re.id}:${vi + 1}` && !ficha} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      {prueba && ahora === `${re.id}:${vi + 1}` && <span data-ahora-circuito style={{ display: 'inline-block', fontSize: 12, fontWeight: 800, letterSpacing: '.06em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>AHORA</span>}
+                      {prueba && ahora === `${re.id}:${vi + 1}` && <span data-ahora-circuito style={{ display: 'inline-block', fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>Ahora</span>}
                       {/* Vista en prueba: los íconos arriba a la derecha, como en Fuerza. */}
                       {vi === 0 && ligera && prueba && <div data-botones-arriba style={{ float: 'right', margin: '-2px -2px 4px 8px' }}><Botones soloIconos chicos items={botonesDe({
                         sinCarga, onNota: onNota ? () => onNota(re) : null, re,

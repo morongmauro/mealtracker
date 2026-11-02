@@ -124,7 +124,7 @@ function LoginView({ onLogin }) {
     <div className="min-h-screen flex items-center justify-center px-4">
       <form onSubmit={submit} className="w-full max-w-sm p-8 rounded-3xl"
         style={{ background: SURFACE, border: `1px solid ${BORDER}`, boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>
-        <div className="text-[13px] tracking-[0.05em] uppercase font-semibold mb-2" style={{ color: ACCENT }}>Coach</div>
+        <div className="text-[13px] font-semibold mb-2" style={{ color: ACCENT }}>Coach</div>
         <div className="text-[28px] font-bold mb-2" style={{ color: TEXT, letterSpacing: '-0.01em' }}>
           Panel privado
         </div>
@@ -558,7 +558,7 @@ function ClientRow({ client, onClick }) {
           <div className="text-[16px] font-semibold truncate" style={{ color: TEXT }}>{c.name}</div>
           {isMerged && (
             <span
-              className="text-[12px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-1"
+              className="text-[12px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-1"
               style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}
               title={`Datos fusionados de ${c.device_count} dispositivos / sesiones del mismo nombre`}>
               <Link2 size={9} strokeWidth={2.5} /> {c.device_count} sesiones
@@ -582,7 +582,7 @@ function ClientRow({ client, onClick }) {
                 background: kcalPct > 110 ? DANGER : kcalPct > 95 ? SUCCESS : kcalPct > 70 ? INFO : WARN
               }} />
             </div>
-            <div className="text-[12px] uppercase tracking-wider mt-0.5" style={{ color: TEXT_LIGHT }}>kcal hoy</div>
+            <div className="text-[12px] mt-0.5" style={{ color: TEXT_LIGHT }}>kcal hoy</div>
           </>
         ) : (
           <div className="text-[13px]" style={{ color: TEXT_LIGHT }}>Sin registro hoy</div>
@@ -671,7 +671,7 @@ function LeaderboardCard({ clients, onSelectClient }) {
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-1.5" style={{ color: ACCENT_DARK }}>
           <span className="text-[15px] leading-none">🏆</span>
-          <span className="text-[13px] uppercase tracking-wider font-semibold">Top 5 del mes · {monthLabel}</span>
+          <span className="text-[13px] font-semibold">Top 5 del mes · {monthLabel}</span>
         </div>
         <div className="flex gap-1.5">
           {Object.entries(LB_METRICS).map(([k, m]) => (
@@ -940,7 +940,7 @@ function DayDetailModal({ date, goals: goalsProp, goalsHistory, summary, entries
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-3 sm:p-6" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
       <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl p-4 sm:p-6" style={{ background: BG, border: `1px solid ${BORDER}`, boxShadow: '0 20px 50px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <div className="text-[13px] tracking-[0.04em] uppercase font-semibold" style={{ color: ACCENT }}>Detalle del día</div>
+          <div className="text-[13px] font-semibold" style={{ color: ACCENT }}>Detalle del día</div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 transition" aria-label="Cerrar">
             <X size={18} style={{ color: TEXT_MUTED }} />
           </button>
@@ -967,7 +967,7 @@ function Header({ title, subtitle, onBack, onLogout }) {
           EM
         </div>
         <div className="min-w-0">
-          <div className="text-[13px] tracking-[0.05em] uppercase font-semibold" style={{ color: ACCENT }}>Coach</div>
+          <div className="text-[13px] font-semibold" style={{ color: ACCENT }}>Coach</div>
           <div className="text-[24px] font-bold truncate" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{title}</div>
           {subtitle && <div className="text-[14px]" style={{ color: TEXT_LIGHT }}>{subtitle}</div>}
         </div>
@@ -987,7 +987,7 @@ function KpiCard({ icon, label, value }) {
   return (
     <div className="p-4 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[12px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>{label}</span>
+        <span className="text-[12px] font-semibold" style={{ color: TEXT_MUTED }}>{label}</span>
         <span className="text-[18px] leading-none">{icon}</span>
       </div>
       <div className="text-[28px] font-bold num" style={{ color: TEXT }}>{value}</div>
@@ -1021,7 +1021,7 @@ function GoalsCard({ goals, editing, setEditing, onSave }) {
   return (
     <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[13px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>Meta diaria</div>
+        <div className="text-[13px] font-semibold" style={{ color: TEXT_MUTED }}>Meta diaria</div>
         {!editing ? (
           <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-[13px] font-medium px-2.5 py-1 rounded-full"
             style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
@@ -1090,7 +1090,7 @@ function DuplicateCard({ client, apiFetch, onChange }) {
   return (
     <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[13px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>Marcar como duplicado</div>
+        <div className="text-[13px] font-semibold" style={{ color: TEXT_MUTED }}>Marcar como duplicado</div>
         {current && !editing && (
           <button onClick={async () => { setTargetId(''); await save(); }}
             className="text-[13px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1"
@@ -1167,7 +1167,7 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride, on
     <div className="space-y-4">
       {/* Meta diaria */}
       <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
-        <div className="text-[12px] uppercase tracking-[0.04em] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Metas diarias</div>
+        <div className="text-[12px] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Metas diarias</div>
         <div className="grid grid-cols-4 gap-3">
           <div>
             <div className="text-[28px] font-bold num" style={{ color: ACCENT }}>{fmt0(goals.kcal)}</div>
@@ -1194,10 +1194,10 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride, on
           {labelOverride || formatLongDate(date)}
         </div>
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-[15px] num">
-          <span><span className="text-[12px] uppercase tracking-wider mr-1" style={{ color: ACCENT }}>kcal</span> <strong style={{ color: TEXT }}>{fmt0(t.kcal)}</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.kcal)}</span></span>
-          <span><span className="text-[12px] uppercase tracking-wider mr-1" style={{ color: C_PROTEIN }}>P</span> <strong style={{ color: TEXT }}>{fmt1(t.p)}g</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.p)}g</span></span>
-          <span><span className="text-[12px] uppercase tracking-wider mr-1" style={{ color: C_CARBS }}>C</span> <strong style={{ color: TEXT }}>{fmt1(t.c)}g</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.c)}g</span></span>
-          <span><span className="text-[12px] uppercase tracking-wider mr-1" style={{ color: C_FAT }}>G</span> <strong style={{ color: TEXT }}>{fmt1(t.g)}g</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.g)}g</span></span>
+          <span><span className="text-[12px] mr-1" style={{ color: ACCENT }}>kcal</span> <strong style={{ color: TEXT }}>{fmt0(t.kcal)}</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.kcal)}</span></span>
+          <span><span className="text-[12px] mr-1" style={{ color: C_PROTEIN }}>P</span> <strong style={{ color: TEXT }}>{fmt1(t.p)}g</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.p)}g</span></span>
+          <span><span className="text-[12px] mr-1" style={{ color: C_CARBS }}>C</span> <strong style={{ color: TEXT }}>{fmt1(t.c)}g</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.c)}g</span></span>
+          <span><span className="text-[12px] mr-1" style={{ color: C_FAT }}>G</span> <strong style={{ color: TEXT }}>{fmt1(t.g)}g</strong><span style={{ color: TEXT_LIGHT }}>/{fmt0(goals.g)}g</span></span>
         </div>
         {t.water > 0 && (
           <div className="flex items-center gap-1.5 text-[14px] mt-1.5" style={{ color: TEXT_MUTED }}>
@@ -1217,8 +1217,8 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride, on
           {entries.map((e, i) => (
             <div key={i} className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
               <div className="flex justify-between items-baseline mb-2">
-                <div className="text-[13px] uppercase tracking-[0.04em] font-bold flex items-center gap-2" style={{ color: TEXT }}>
-                  {(e.meal || 'comida').toUpperCase()}
+                <div className="text-[13px] font-bold flex items-center gap-2" style={{ color: TEXT }}>
+                  {(e.meal || 'comida').replace(/^./, c => c.toUpperCase())}
                   {e.coach_added && (
                     <span className="text-[10px] normal-case tracking-normal font-semibold px-1.5 py-0.5 rounded-full" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>agregada por ti</span>
                   )}
@@ -1260,7 +1260,7 @@ function DayDetail({ date, goals, summary, entries, wellbeing, labelOverride, on
       {/* Bienestar del día (si hay) */}
       {wellbeing && (
         <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
-          <div className="text-[12px] uppercase tracking-[0.04em] font-semibold mb-2" style={{ color: TEXT_MUTED }}>Bienestar</div>
+          <div className="text-[12px] font-semibold mb-2" style={{ color: TEXT_MUTED }}>Bienestar</div>
           <div className="flex flex-wrap gap-4 text-[15px]" style={{ color: TEXT }}>
             <span>⚡ Energía: <strong>{wellbeing.energy}/5</strong></span>
             <span>🍴 Hambre: <strong>{wellbeing.hunger}/5</strong></span>
@@ -1310,7 +1310,7 @@ function CoachAddMeal({ date, onDayEdit }) {
   return (
     <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${ACCENT}`, boxShadow: SHADOW_CARD }}>
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[13px] uppercase tracking-[0.04em] font-semibold" style={{ color: ACCENT_DARK }}>Agregar comida · {date}</div>
+        <div className="text-[13px] font-semibold" style={{ color: ACCENT_DARK }}>Agregar comida · {date}</div>
         <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 transition">
           <X size={14} style={{ color: TEXT_MUTED }} />
         </button>
@@ -1395,7 +1395,7 @@ function MacroBars({ days, goal, color, statKey, unit = '', onSelectDay, goalFor
       <div className="relative w-full" style={{ height: '96px', background: SURFACE_2 + '80', borderRadius: '8px', padding: '8px 6px' }}>
         <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${goalPct}%`, height: '1px', zIndex: 1 }}>
           <div className="flex-1 border-t-[1.5px] border-dashed" style={{ borderColor: SUCCESS, opacity: 0.6 }} />
-          <span className="px-1 text-[12px] font-semibold uppercase tracking-wider" style={{ color: SUCCESS, background: SURFACE_2 }}>meta {fmt0(goal)}{unit}</span>
+          <span className="px-1 text-[12px] font-semibold" style={{ color: SUCCESS, background: SURFACE_2 }}>meta {fmt0(goal)}{unit}</span>
         </div>
         <div className="absolute inset-0 flex items-end gap-[3px] px-2 pb-2 pt-2" style={{ zIndex: 2 }}>
           {days.map((d, i) => {
@@ -1504,7 +1504,7 @@ function TabSemana({ goals, goalsHistory, history, onSelectDay }) {
     <div className="space-y-3">
       <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div className="text-[13px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>
+          <div className="text-[13px] font-semibold" style={{ color: TEXT_MUTED }}>
             {ventana === 'iso' ? 'Semana en curso (lun–dom)' : 'Últimos 7 días (ventana móvil)'}
             <span className="ml-2 normal-case tracking-normal font-normal" style={{ color: TEXT_LIGHT }}>{rango}</span>
           </div>
@@ -1535,7 +1535,7 @@ function TabSemana({ goals, goalsHistory, history, onSelectDay }) {
 
       <div className="p-5 rounded-2xl space-y-4" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
         <div className="flex items-center justify-between">
-          <div className="text-[13px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>Día por día vs meta</div>
+          <div className="text-[13px] font-semibold" style={{ color: TEXT_MUTED }}>Día por día vs meta</div>
           <div className="text-[12px]" style={{ color: ACCENT_DARK }}>Toca una barra para ver el día</div>
         </div>
         {[
@@ -1603,7 +1603,7 @@ function TabMes({ goals, goalsHistory, history, onSelectDay }) {
   return (
     <div className="space-y-3">
       <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
-        <div className="text-[13px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Últimos 35 días</div>
+        <div className="text-[13px] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Últimos 35 días</div>
         <div className="grid grid-cols-4 gap-3 mb-4">
           <Stat label="kcal prom" val={avg.kcal} goal={goals.kcal} color={ACCENT} />
           <Stat label="P prom" val={avg.p} goal={goals.p} color={C_PROTEIN} unit="g" />
@@ -1614,7 +1614,7 @@ function TabMes({ goals, goalsHistory, history, onSelectDay }) {
       </div>
 
       <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
-        <div className="text-[13px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Heatmap (cada cuadro = un día)</div>
+        <div className="text-[13px] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Heatmap (cada cuadro = un día)</div>
         <div className="grid grid-cols-7 gap-1.5">
           {days.map((d, i) => {
             const clickable = !!d.data && typeof onSelectDay === 'function';
@@ -1685,7 +1685,7 @@ function TabTendencia({ history }) {
   return (
     <div className="space-y-3">
       <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
-        <div className="text-[13px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Tendencia · 4 semanas</div>
+        <div className="text-[13px] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Tendencia · 4 semanas</div>
         <div className="space-y-3">
           {weeks.map((w, i) => (
             <div key={i} className="p-3 rounded-xl" style={{ background: SURFACE_2 }}>
@@ -1762,7 +1762,7 @@ function TabMicros({ historyDetail }) {
 
   return (
     <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
-      <div className="text-[13px] uppercase tracking-wider font-semibold mb-1" style={{ color: TEXT_MUTED }}>
+      <div className="text-[13px] font-semibold mb-1" style={{ color: TEXT_MUTED }}>
         Micros · promedio de la semana en curso (lun–dom)
       </div>
       <div className="text-[12px] mb-3" style={{ color: TEXT_LIGHT }}>
@@ -1902,7 +1902,7 @@ function TabBienestar({ wellbeing }) {
 
   return (
     <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
-      <div className="text-[13px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Bienestar · últimos 14 check-ins</div>
+      <div className="text-[13px] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Bienestar · últimos 14 check-ins</div>
       <div className="space-y-1.5">
         {days.map((d, i) => (
           <div key={i} className="flex items-center justify-between text-[14px] py-1.5 px-2 rounded-lg" style={{ background: i % 2 === 0 ? SURFACE_2 : 'transparent' }}>
@@ -1934,7 +1934,7 @@ function TabHistorial({ historyDetail }) {
   return (
     <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
       <div className="flex flex-wrap items-center justify-between mb-3 gap-2">
-        <div className="text-[13px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED }}>Historial completo · {allEntries.length} entradas</div>
+        <div className="text-[13px] font-semibold" style={{ color: TEXT_MUTED }}>Historial completo · {allEntries.length} entradas</div>
         <div className="flex gap-1.5">
           {['all', 'desayuno', 'almuerzo', 'snack', 'cena'].map(m => (
             <button key={m} onClick={() => setFilter(m)}
@@ -1953,7 +1953,7 @@ function TabHistorial({ historyDetail }) {
             <div key={i} className="p-2.5 rounded-lg text-[14px]" style={{ background: SURFACE_2 }}>
               <div className="flex justify-between mb-1" style={{ color: TEXT_LIGHT }}>
                 <span className="num">{e.date}</span>
-                <span className="uppercase tracking-wider text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal} · {e.time}</span>
+                <span className="text-[12px] font-semibold" style={{ color: ACCENT_DARK }}>{e.meal} · {e.time}</span>
               </div>
               <div style={{ color: TEXT }}>{(e.items || []).map(i => i.name).join(', ')}</div>
               <div className="text-[12px] num mt-1 flex gap-2" style={{ color: TEXT_LIGHT }}>
@@ -1978,7 +1978,7 @@ function TabFavoritos({ favorites }) {
   }
   return (
     <div className="p-5 rounded-2xl" style={{ background: SURFACE, border: `1px solid ${BORDER_SOFT}`, boxShadow: SHADOW_CARD }}>
-      <div className="text-[13px] uppercase tracking-wider font-semibold mb-3" style={{ color: TEXT_MUTED }}>Favoritos · {favorites.length}</div>
+      <div className="text-[13px] font-semibold mb-3" style={{ color: TEXT_MUTED }}>Favoritos · {favorites.length}</div>
       <div className="space-y-2">
         {favorites.map(f => (
           <div key={f.id} className="p-3 rounded-xl flex items-center gap-3" style={{ background: SURFACE_2 }}>
@@ -1986,7 +1986,7 @@ function TabFavoritos({ favorites }) {
               <div className="flex items-center gap-2">
                 <div className="text-[15px] font-semibold truncate" style={{ color: TEXT }}>{f.name}</div>
                 {f.type === 'day' && (
-                  <span className="text-[12px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                  <span className="text-[12px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
                     style={{ background: ACCENT_PASTEL, color: ACCENT_DARK }}>
                     día · {Array.isArray(f.days) ? f.days.length : 0} comidas
                   </span>

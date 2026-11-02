@@ -47,7 +47,7 @@ export default function MetaComida({ totals, goals, history = {}, hoy, perfecto 
   ];
   return (
     <Reconocimiento tema="comida" grande especial={especial} attrs={{ 'data-meta-comida': '', 'data-perfecto': perfecto ? '1' : undefined }}
-      numero={{ valor: enMeta, sufijo: '/7', pie: 'DÍAS EN META' }} puntos={puntos}
+      numero={{ valor: enMeta, sufijo: '/7', pie: 'días en meta' }} puntos={puntos}
       etiqueta="Alimentación" titulo={titulo} linea={linea} chips={chips}
       boton={{ texto: 'Seguir', onClick: alCerrar }}
       enlace={alCalendario ? { texto: 'Ver mi calendario de comidas', onClick: alCalendario } : null}

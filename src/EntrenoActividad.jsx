@@ -327,8 +327,7 @@ export default function Actividad({
 }
 
 const rotulo = {
-  fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
-  color: TEXT_LIGHT, marginBottom: 7,
+  fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT, marginBottom: 7,
 };
 
 const campo = {
@@ -401,7 +400,7 @@ export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambi
           <IconoActividad slug={ev.slug} size={19} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: TEXT_LIGHT }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT }}>
             {enRutina ? 'Ahora: tu cardio · antes de estirar' : ev.despues && conFuerza ? 'Después de entrenar · de tu coach' : 'De tu coach'}
           </div>
           <div style={{ fontSize: 15, fontWeight: 750, color: TEXT, lineHeight: 1.25, marginTop: 2 }}>
@@ -480,7 +479,7 @@ function TarjetaCardioOpciones({ ev, op, fecha, nombre, sesionId, alCambio, enRu
             <IconoActividad slug={op.lista[0].slug || ev.slug} size={19} />
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: TEXT_LIGHT }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT }}>
               {enRutina ? 'Ahora: tu cardio · antes de estirar' : 'De tu coach · elige una'}
             </div>
             <div style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, lineHeight: 1.25, marginTop: 2 }}>

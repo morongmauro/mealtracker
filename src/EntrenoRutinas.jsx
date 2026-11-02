@@ -63,8 +63,7 @@ export default function Rutinas({ nombre, alEntrenar }) {
       {datos.fase.objetivo && (
         <Card style={{ marginTop: 14, padding: 14, background: '#F1F3E5', border: 'none' }}>
           <div style={{
-            fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
-            color: ACCENT_DARK, marginBottom: 4, opacity: .8,
+            fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: ACCENT_DARK, marginBottom: 4, opacity: .8,
           }}>El objetivo de esta fase</div>
           <div style={{ fontSize: 14, color: ACCENT_DARK, lineHeight: 1.5 }}>{datos.fase.objetivo}</div>
         </Card>

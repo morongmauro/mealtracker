@@ -743,7 +743,7 @@ function LoProximo({ aprende, alAbrir }) {
         {r.bloque === 'podcast' ? <VideoCamera size={20} color={NARANJA} /> : <BookOpenText size={20} color={NARANJA} />}
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 12, fontWeight: 800, letterSpacing: '.08em', color: '#B4541D', textTransform: 'uppercase' }}>Lo próximo para ti</span>
+        <span style={{ display: 'block', fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#B4541D', }}>Lo próximo para ti</span>
         <span style={{ display: 'block', fontSize: 16, fontWeight: 700, color: TEXT, marginTop: 2 }}>{r.title}</span>
         <span style={{ display: 'block', fontSize: 13.5, color: TEXT_MUTED }}>{TIPO_PIEZA[r.bloque] || r.bloqueTitulo} · {r.motivo}</span>
       </span>
@@ -794,7 +794,7 @@ function TarjetaMes({ resumen, alAbrir }) {
   return (
     <Tarjeta>
       <div data-tarjeta-mes>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', color: DASH_AZUL.base, textTransform: 'uppercase' }}>Resumen de {resumen.nombre}</div>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: DASH_AZUL.base, }}>Resumen de {resumen.nombre}</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', marginTop: 3 }}>Tu {resumen.nombre}, con método.</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
           {resumen.filas.slice(0, 4).map(f => (
@@ -822,7 +822,7 @@ function PantallaMes({ resumen, whatsapp, alCerrar }) {
     }}>
       <div style={{ minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto',
         padding: 'calc(env(safe-area-inset-top, 0px) + 52px) 24px calc(env(safe-area-inset-bottom, 0px) + 22px)' }}>
-        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.08em', color: DASH_AZUL.base, textTransform: 'uppercase' }}>Resumen del mes · {resumen.nombre}</div>
+        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.01em', color: DASH_AZUL.base, }}>Resumen del mes · {resumen.nombre}</div>
         <div style={{ fontSize: 34, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.05, marginTop: 6 }}>
           Tu {resumen.nombre},<br /><span style={{ color: VERDE }}>con método.</span>
         </div>
@@ -1582,7 +1582,7 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
       <section data-recordatorios-dash data-prota-dash data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 12, background: '#FFFFFF', borderRadius: 24, padding: '12px 14px 12px 16px',
         boxShadow: '0 2px 4px rgba(20,20,30,.04), 0 14px 32px rgba(20,30,60,.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.09em', color: '#3C7BD6' }}>AHORA <span style={{ color: TEXT_MUTED, fontWeight: 600, letterSpacing: 0 }}>· {hoyHechos} de {hoyItems.length} hoy</span></span>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#3C7BD6' }}>Ahora <span style={{ color: TEXT_MUTED, fontWeight: 600, letterSpacing: 0 }}>· {hoyHechos} de {hoyItems.length} hoy</span></span>
           {/* Nada se pierde: «Ver todo» abre la lista completa de siempre. */}
           <button data-ver-recordatorios onClick={() => setTodos(true)} style={{ border: 0, background: 'none', padding: '10px 6px', margin: '-10px -6px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: TEXT_MUTED, cursor: 'pointer' }}>
             Ver todo{items.length + hoyItems.length - 1 > 0 ? ` (${items.length + hoyItems.length - 1})` : ''}

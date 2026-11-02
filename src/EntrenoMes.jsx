@@ -271,8 +271,7 @@ function MesClasico({ nombre, alEntrenar }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 5 }}>
             {DIAS_CORTO.map(d => (
               <div key={d} style={{
-                fontSize: v2 ? 12 : 12, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase',
-                color: TEXT_LIGHT, textAlign: 'center',
+                fontSize: v2 ? 12 : 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT, textAlign: 'center',
               }}>{d}</div>
             ))}
           </div>
@@ -444,7 +443,7 @@ function FilaViene({ dia, P, hoy, alTocar }) {
       boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)',
     }}>
       <div style={{ width: 46, flex: 'none' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: dia.fecha === hoy ? P.ink : TEXT_LIGHT, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: dia.fecha === hoy ? P.ink : TEXT_LIGHT, letterSpacing: '0.01em' }}>
           {dia.fecha === hoy ? 'Hoy' : diaCorto(dia.fecha).split(' ')[0]}
         </div>
         <div style={{ fontSize: 20, fontWeight: 800, color: TEXT, lineHeight: 1.1 }}>{Number(dia.fecha.slice(8))}</div>
@@ -809,8 +808,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
 function Rot({ children }) {
   return (
     <div style={{
-      fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase',
-      color: TEXT_LIGHT, margin: '18px 0 8px',
+      fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT, margin: '18px 0 8px',
     }}>{children}</div>
   );
 }
@@ -1635,7 +1633,7 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
       boxShadow: '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.05)',
     }}>
       <div style={{ width: 42, flex: 'none', textAlign: 'center' }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: P.base, textTransform: 'uppercase', letterSpacing: '.04em' }}>{esHoy ? 'Hoy' : etiqueta}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: P.base, letterSpacing: '0.01em' }}>{esHoy ? 'Hoy' : etiqueta}</div>
         <div style={{ fontSize: 22, fontWeight: 800, color: TEXT, lineHeight: 1.1 }}>{Number(fecha.slice(8))}</div>
       </div>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' }}>
@@ -1831,7 +1829,7 @@ function LeyendaCal({ ciclo = false }) {
   // Agrupada en tres filas con su título (eran 10 símbolos seguidos).
   const grupo = (titulo, items) => (
     <div data-leyenda-grupo style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', alignItems: 'center' }}>
-      <span style={{ width: '100%', fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: TEXT_LIGHT }}>{titulo}</span>
+      <span style={{ width: '100%', fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_LIGHT }}>{titulo}</span>
       {items}
     </div>
   );
@@ -1885,7 +1883,7 @@ function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejercicios
       borderTop: primera ? 'none' : '0.5px solid rgba(60,60,67,0.12)', background: sobre ? P.tint : 'transparent', opacity: origen ? 0.5 : 1,
     }}>
       <div style={{ width: 40, flex: 'none', textAlign: 'center' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '.05em', textTransform: 'uppercase' }}>{etiqueta}</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: TEXT_MUTED, letterSpacing: '0.01em', }}>{etiqueta}</div>
         <div style={{ width: 30, height: 30, margin: '2px auto 0', borderRadius: 99, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 750,
           background: esHoy ? GRAFITO_CAL : 'transparent', color: esHoy ? '#fff' : TEXT }}>{Number(fecha.slice(8))}</div>
       </div>
@@ -1930,8 +1928,8 @@ function ResumenSemana({ dias }) {
   );
   return (
     <div data-resumen-semana style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-      {caja('ESTA SEMANA', hechas, `de ${conRutina.length} rutina${conRutina.length === 1 ? '' : 's'}`)}
-      {caja('CARDIO', cardio, cardio === 1 ? 'día' : 'días')}
+      {caja('Esta semana', hechas, `de ${conRutina.length} rutina${conRutina.length === 1 ? '' : 's'}`)}
+      {caja('Cardio', cardio, cardio === 1 ? 'día' : 'días')}
     </div>
   );
 }

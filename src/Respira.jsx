@@ -97,7 +97,7 @@ export default function Respira({ alCerrar, inicial = 1, titulo = 'Respira', ori
 
       <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         padding: 'calc(env(safe-area-inset-top, 0px) + 40px) 20px calc(env(safe-area-inset-bottom, 0px) + 24px)', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: GRIS_TXT }}>{titulo}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.01em', color: GRIS_TXT }}>{titulo}</div>
         <div key={fase || estado} className="rs-fase" data-fase={fase || estado} style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.025em', marginTop: 6, minHeight: 38 }}>
           {estado === 'elegir' ? '¿Cuánto tiempo?' : estado === 'fin' ? 'Listo.' : fase === 'inhala' ? 'Inhala' : 'Exhala'}
         </div>

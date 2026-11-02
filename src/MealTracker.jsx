@@ -5562,7 +5562,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           background: '#FFFFFF', border: '1px solid rgba(255,255,255,0.7)',
           boxShadow: '0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 32px rgba(0,0,0,0.06)'
         }}>
-          <div className="display mb-2" style={{ fontFamily: FONT_DISPLAY, fontSize: 30, textTransform: 'uppercase', color: TEXT, lineHeight: 1 }}>
+          <div className="display mb-2" style={{ fontFamily: FONT_DISPLAY, fontSize: 30, color: TEXT, lineHeight: 1 }}>
             {accessBlocked === 'finalizado' ? 'Plan finalizado' : 'Plan en pausa'}
           </div>
           <div className="h-[2px] w-12 mx-auto mt-1 mb-4 rounded-full" style={{ background: ACCENT }} />
@@ -5913,8 +5913,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
               color: '#FFF',
               fontSize: '14px',
               lineHeight: 1,
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
+              letterSpacing: '0.01em',
               whiteSpace: 'nowrap'
             }}>
               {v2 ? NOMBRE_SECCION[seccionV2] : showTraining ? 'Entrenamiento' : showLearning ? 'Aprendizaje' : 'Entrena con Método'}
@@ -7241,7 +7240,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         alCerrar={() => setMetaComida(null)} alCalendario={v2 ? () => { setMetaComida(null); irSubV2('comida', 'calendario'); } : null} /></Suspense>}
       {recoAprende && <Suspense fallback={null}>
         <Reconocimiento key={recoAprende.k} tema="aprende" grande
-          numero={{ valor: recoAprende.n, sufijo: recoAprende.total ? `/${recoAprende.total}` : '', pie: recoAprende.tipo === 'cap' ? 'CÁPSULAS DE LA FASE' : 'VIDEOS' }}
+          numero={{ valor: recoAprende.n, sufijo: recoAprende.total ? `/${recoAprende.total}` : '', pie: recoAprende.tipo === 'cap' ? 'cápsulas de la fase' : 'videos' }}
           puntos={Array.from({ length: Math.max(1, Math.min(7, recoAprende.total || recoAprende.n)) }, (_, i) => (i < Math.min(7, recoAprende.n) ? (i === Math.min(7, recoAprende.n) - 1 ? 'hoy' : 'hecho') : 'nada'))}
           etiqueta="Aprendizaje"
           titulo={recoAprende.completa ? ['Fase completa.', 'Todas las cápsulas, leídas.']
@@ -7596,7 +7595,7 @@ function NovedadesModal({ items, onTerminar }) {
                 <div style={{
                   fontFamily: FONT_DISPLAY, fontWeight: 400,
                   fontSize: 35, lineHeight: .94, letterSpacing: '.02em',
-                  color: '#FFF', textTransform: 'uppercase',
+                  color: '#FFF',
                 }}>{n.titulo}</div>
                 <div style={{ width: 34, height: 2, background: ACCENT, borderRadius: 2, margin: '10px 0 9px' }} />
                 <div style={{ fontSize: 14.5, lineHeight: 1.38, color: 'rgba(255,255,255,.68)' }}>{n.bajada}</div>
@@ -7653,7 +7652,6 @@ function NovedadesModal({ items, onTerminar }) {
                 minWidth: 176, padding: '13px 34px 11px', borderRadius: 999,
                 background: '#141414', color: '#fff', border: 'none',
                 fontFamily: FONT_DISPLAY, fontSize: 20, lineHeight: 1, letterSpacing: '.07em',
-                textTransform: 'uppercase',
                 boxShadow: '0 1px 0 rgba(255,255,255,.16) inset, 0 10px 24px rgba(16,18,12,.30)',
               }}>
               {ultima ? (total > 1 ? 'Listo, ya lo vi' : 'Entendido') : 'Siguiente'}
@@ -8219,7 +8217,7 @@ function PaymentNotice({ info, style, v2 = false }) {
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {meses > 1 ? `${meses} MENSUALIDADES PENDIENTES` : 'MENSUALIDAD PENDIENTE'}
+            {meses > 1 ? `${meses} mensualidades pendientes` : 'Mensualidad pendiente'}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 1, minWidth: 0 }}>
             {totalV2 ? <span className="num" style={{ color: TEXT, fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', flex: 'none' }}>{fmtMonto(totalV2, info.moneda)}</span> : null}
@@ -8461,7 +8459,7 @@ const CSS_CHAT_V2 = `
    y una jerarquía clara — etiqueta verde en mayúscula, título grande, texto
    legible y lo secundario en gris. Sin oliva. */
 [data-chat-v2] .fade-up > .rounded-\\[22px\\] { padding: 12px 14px !important; line-height: 1.38 !important; font-size: 14.5px !important; }
-[data-chat-v2] .fade-up > .rounded-\\[22px\\] .text-\\[11\\.5px\\].font-semibold { font-size: 12px !important; font-weight: 800 !important; letter-spacing: .07em !important; text-transform: uppercase; color: #2F7F45 !important; }
+[data-chat-v2] .fade-up > .rounded-\\[22px\\] .text-\\[11\\.5px\\].font-semibold { font-size: 12px !important; font-weight: 800 !important; letter-spacing: .01em; color: #2F7F45 !important; }
 [data-chat-v2] .fade-up > .rounded-\\[22px\\] :is(.text-\\[10px\\], .text-\\[10\\.5px\\], .text-\\[11px\\], .text-\\[12px\\]) { font-size: 12.5px !important; line-height: 1.38 !important; }
 [data-chat-v2] .fade-up > .rounded-\\[22px\\] :is(.text-xs, .text-\\[12\\.5px\\], .text-\\[13px\\]) { font-size: 14px !important; line-height: 1.38 !important; }
 [data-chat-v2] .fade-up > .rounded-\\[22px\\] .text-base { font-size: 19px !important; font-weight: 800 !important; letter-spacing: -0.02em; }
@@ -8497,7 +8495,7 @@ function TarjetaComidaV2({ e, isHistorical, goals, totals, quantityWarning, esFa
       <div data-tarjeta-comida style={{ width: '100%', maxWidth: '92%', background: '#FFFFFF', borderRadius: '20px 20px 20px 6px', padding: '12px 14px 12px',
         boxShadow: '0 1px 2px rgba(40,40,30,0.05), 0 6px 18px rgba(60,60,40,0.07)', fontFamily: 'inherit', lineHeight: 1.25 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal}</span>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal}</span>
           <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{e.time}</span>
           <span style={{ flex: 1 }} />
           {onFavorite && <button onClick={() => onFavorite(e)} style={boton} aria-label={esFavorita ? 'Ya está en favoritos' : 'Guardar en favoritos'}><Star size={15} style={{ color: esFavorita ? C_CARBS : TEXT_LIGHT, fill: esFavorita ? C_CARBS : 'none' }} /></button>}
@@ -11058,9 +11056,9 @@ function PerformanceModal({ history, historyDetail, entries, goals, today, name,
   const Marco = pagina ? MarcoPagina : MarcoVentana;
   return (
     <Marco onClose={onClose} fondo={v2p ? FONDO_V2 : null}>
-      {!pagina && <ModalHeader accent={v2p ? SECCION.comida.ink : TEXT_MUTED} label={v2p ? 'CALENDARIO DE COMIDAS' : 'Mis gráficas'} title={v2p ? null : (name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido')} onClose={onClose} />}
+      {!pagina && <ModalHeader accent={v2p ? SECCION.comida.ink : TEXT_MUTED} label={v2p ? 'Calendario de comidas' : 'Mis gráficas'} title={v2p ? null : (name ? `Cómo te ha ido, ${name.split(' ')[0]}` : 'Cómo te ha ido')} onClose={onClose} />}
       {/* Visual nueva: la voz de la sección, en dos tonos y sin curva */}
-      {v2p && <div style={{ marginTop: pagina ? 0 : -26 }}><CabeceraHoy tema="comida" fondo={false} voz={{ etiqueta: pagina ? 'CALENDARIO' : undefined, a: 'Cada día suma.', b: 'Mira cómo vas.', sub: 'Qué comiste cada día y qué tan cerca quedaste de tu meta.' }} /></div>}
+      {v2p && <div style={{ marginTop: pagina ? 0 : -26 }}><CabeceraHoy tema="comida" fondo={false} voz={{ etiqueta: pagina ? 'Calendario' : undefined, a: 'Cada día suma.', b: 'Mira cómo vas.', sub: 'Qué comiste cada día y qué tan cerca quedaste de tu meta.' }} /></div>}
 
       {/* UNA sola sección, tres ventanas de tiempo. Antes esto vivía partido
           en dos botones —"Mi semana" y "Calendario"— que contaban lo mismo
@@ -11369,7 +11367,7 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <button onClick={() => mover(-1)} aria-label="Día anterior" style={flecha}><ChevronLeft size={18} style={{ color: TEXT }} /></button>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED }}>{esHoy ? 'HOY' : 'DÍA'}</div>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_MUTED }}>{esHoy ? 'Hoy' : 'Día'}</div>
             <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: TEXT }}>{(() => { const f = String(formatDate(fecha) || '').toLowerCase(); return f.charAt(0).toUpperCase() + f.slice(1); })()}</div>
           </div>
           <button onClick={() => mover(1)} disabled={esHoy} aria-label="Día siguiente" style={{ ...flecha, opacity: esHoy ? 0.35 : 1 }}><ChevronRight size={18} style={{ color: TEXT }} /></button>
@@ -11404,13 +11402,13 @@ function VistaDia({ fecha, setFecha, hoy, historia, detalle, goals, onBorrarComi
                 <b style={{ color: '#2F7F45' }}>{pct} %</b> de tu meta de calorías{datos.water ? ` · ${datos.water} ml de agua` : ''}
               </div>
             )}
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: TEXT_MUTED, margin: '18px 2px 8px' }}>LO QUE COMISTE</div>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: TEXT_MUTED, margin: '18px 2px 8px' }}>Lo que comiste</div>
             {comidas.length > 0 ? (
               <div style={{ display: 'grid', gap: 8 }}>
                 {comidas.map((e, i) => (
                   <div key={e.id ?? i} data-comida-dia style={{ background: '#FFFFFF', borderRadius: 18, boxShadow: sombra, padding: '11px 13px 10px', lineHeight: 1.25 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal}</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#2F7F45', background: '#E3F0E6', padding: '4px 9px', borderRadius: 99 }}>{e.meal}</span>
                       {e.time && <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{e.time}</span>}
                       <span style={{ flex: 1 }} />
                       <span className="num" style={{ fontSize: 15, fontWeight: 800, color: TEXT }}>{Math.round(e.kcal ?? 0)} <span style={{ fontSize: 12, color: TEXT_MUTED }}>kcal</span></span>
@@ -12266,8 +12264,7 @@ function Welcome({ onContinue, onTutorial, tutorialOpen, onCloseTutorial }) {
           <div className="display" style={{
             fontSize: '64px',
             lineHeight: 0.88,
-            letterSpacing: '0.005em',
-            textTransform: 'uppercase',
+            letterSpacing: '0.01em',
             color: TEXT
           }}>
             Entrena<br />con Método
@@ -12519,7 +12516,6 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
                 fontSize: '32px',
                 lineHeight: 0.95,
                 letterSpacing: '0.01em',
-                textTransform: 'uppercase',
                 color: TEXT
               }}>
                 Hola
@@ -12556,7 +12552,6 @@ function Onboarding({ onComplete, onCancel, existingGoals, existingName }) {
                 fontSize: '32px',
                 lineHeight: 0.95,
                 letterSpacing: '0.01em',
-                textTransform: 'uppercase',
                 color: TEXT
               }}>
                 Tus Metas
