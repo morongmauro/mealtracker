@@ -1485,7 +1485,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegi
               ? <><b style={{ color: TEXT }}>Hoy no toca fuerza.</b> Te queda tu bloque de abajo.</>
               : <><b style={{ color: TEXT }}>Hoy descansas.</b> Descansar también es parte del plan.</>}</span>
             <button data-descanso-respira onClick={() => setRespira(true)} style={{
-              flexBasis: '100%', marginTop: 4, padding: '11px 14px', borderRadius: 14, border: 0, background: '#EEF3FB', color: '#2F6CC4',
+              flexBasis: '100%', marginTop: 4, padding: '11px 14px', borderRadius: 14, border: 0, background: '#EFF0F2', color: '#454B54',
               fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}><Wind size={17} weight="fill" /> Respira unos minutos</button>
           </div>
@@ -1794,7 +1794,7 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
     <button data-fecha={dia.fecha} data-ausente={dia.ausencia ? dia.ausencia : undefined} onClick={alTocar} style={{
       minHeight: 74, padding: '4px 2px 5px', cursor: 'pointer', fontFamily: 'inherit', border: 'none', borderTop: '0.5px solid rgba(60,60,67,0.16)',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3, minWidth: 0, borderRadius: sobre ? 10 : 0,
-      background: sobre ? P.tint : dia.ausencia ? 'repeating-linear-gradient(135deg, rgba(60,123,214,.10) 0 6px, rgba(60,123,214,.03) 6px 12px)' : 'transparent', opacity: origen ? 0.45 : ajeno ? 0.5 : 1, outline: sobre ? `2px dotted ${P.base}` : 'none',
+      background: sobre ? P.tint : dia.ausencia ? 'repeating-linear-gradient(135deg, rgba(95,102,112,.12) 0 6px, rgba(95,102,112,.04) 6px 12px)' : 'transparent', opacity: origen ? 0.45 : ajeno ? 0.5 : 1, outline: sobre ? `2px dotted ${P.base}` : 'none',
       WebkitUserSelect: 'none', userSelect: 'none',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -1808,7 +1808,7 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
         </span>
       </div>
       {nom && <ChipCal nombre={nom} estado={est} arrastre={dia.rutina ? arrastrable : null} />}
-      {fuera && <span data-chip-ausencia style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 800, color: '#2F6CC4', background: '#fff', borderRadius: 6, padding: '2px 4px', lineHeight: 1.15, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{motivoTexto(dia.ausencia)}</span>}
+      {fuera && <span data-chip-ausencia style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 800, color: '#454B54', background: '#fff', borderRadius: 6, padding: '2px 4px', lineHeight: 1.15, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{motivoTexto(dia.ausencia)}</span>}
       {bloquesDe(dia).map(b => <ChipBloque key={b.id} b={b} chico />)}
       {marcas.length > 0 && (
         <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 3px', padding: '0 1px', marginTop: 'auto' }}>

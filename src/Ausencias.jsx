@@ -20,7 +20,8 @@ export const MOTIVOS = [
   { k: 'otro', t: 'Otro', I: CalendarX },
 ];
 export const motivoTexto = (k) => (MOTIVOS.find(m => m.k === k) || { t: 'Fuera' }).t.replace(/^Otro$/, 'Fuera');
-const AZUL = '#3C7BD6';
+// Colores del módulo de entrenamiento (gris), no el azul del Dash.
+const TONO = '#5F6670';
 const GRAFITO = '#1F1F1F';
 const GRIS = '#F2F1EC';
 const DIAS_SEM = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
@@ -46,7 +47,7 @@ export function AusenciasCalendario({ ausencias, alNueva, alEditar }) {
         const M = MOTIVOS.find(m => m.k === a.motivo) || MOTIVOS[4];
         return (
           <div key={a.id} data-ausencia={a.id} style={{ ...estiloCaja, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px' }}>
-            <span style={{ flex: 'none', width: 38, height: 38, borderRadius: 12, background: 'rgba(60,123,214,.12)', display: 'grid', placeItems: 'center' }}><M.I size={21} weight="bold" color={AZUL} /></span>
+            <span style={{ flex: 'none', width: 38, height: 38, borderRadius: 12, background: 'rgba(95,102,112,.12)', display: 'grid', placeItems: 'center' }}><M.I size={21} weight="bold" color={TONO} /></span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <b style={{ display: 'block', fontSize: 15.5, color: TEXT }}>{motivoTexto(a.motivo)} · {rangoTexto(a)}</b>
               <span style={{ display: 'block', fontSize: 13.5, color: '#55565B', lineHeight: 1.3, marginTop: 2 }}>Esos días no cuentan en tu semana</span>
