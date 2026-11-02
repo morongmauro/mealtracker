@@ -10,16 +10,18 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { CSS_ESCALA } from './escalaLetra.js';
 import React from 'react';
-import { COLORES_MODULO } from './vistaApp.js';
+import { COLORES_MODULO, INTENSIDAD_FONDO as I } from './vistaApp.js';
 
 const BLANCO = '#FCFCFD';
 // Un solo degradado continuo: el color del módulo arriba, apagándose hacia
 // abajo, y un toque del segundo color a la derecha. Antes eran tres manchas
 // repartidas en un mosaico de 1500 px que se repetía: en páginas largas
 // (galería, calendario) se veían como franjas de color interrumpidas.
-const fondo = ({ p, q }, fuerte = 1) => `radial-gradient(95% 460px at 0% 0%, rgba(${p},${(0.24 * fuerte).toFixed(2)}), rgba(${p},0) 100%), `
-  + `radial-gradient(70% 380px at 100% 200px, rgba(${q},0.13), rgba(${q},0) 100%), `
-  + `linear-gradient(180deg, rgba(${p},${(0.10 * fuerte).toFixed(2)}) 0%, rgba(${p},0) 900px), ${BLANCO}`;
+// (Las transparencias van por INTENSIDAD_FONDO: el nivel intermedio.)
+const a = (v) => (v * I).toFixed(3);
+const fondo = ({ p, q }, fuerte = 1) => `radial-gradient(95% 460px at 0% 0%, rgba(${p},${a(0.24 * fuerte)}), rgba(${p},0) 100%), `
+  + `radial-gradient(70% 380px at 100% 200px, rgba(${q},${a(0.13)}), rgba(${q},0) 100%), `
+  + `linear-gradient(180deg, rgba(${p},${a(0.10 * fuerte)}) 0%, rgba(${p},0) 900px), ${BLANCO}`;
 const capa = (sel, c, fuerte) => `${sel}{background:${fondo(c, fuerte)}!important;background-size:auto!important;background-repeat:no-repeat!important;background-attachment:local!important}`;
 
 const CSS = [
@@ -39,7 +41,7 @@ const CSS = [
   // derecha, amarillo a la izquierda, apagándose hacia abajo. Los mensajes
   // pasan por encima y las manchas se quedan.
   `[data-chat-scroller]{background:transparent!important}`,
-  `.min-h-screen.relative:has(>[data-chat-scroller]){background:radial-gradient(95% 340px at 100% 0%, rgba(${COLORES_MODULO.comida.p},0.46), rgba(${COLORES_MODULO.comida.p},0) 100%), radial-gradient(80% 300px at 0% 110px, rgba(${COLORES_MODULO.comida.q},0.40), rgba(${COLORES_MODULO.comida.q},0) 100%), linear-gradient(180deg, rgba(${COLORES_MODULO.comida.p},0.12) 0%, rgba(${COLORES_MODULO.comida.p},0) 55vh), ${BLANCO}!important}`,
+  `.min-h-screen.relative:has(>[data-chat-scroller]){background:radial-gradient(95% 340px at 100% 0%, rgba(${COLORES_MODULO.comida.p},${a(0.46)}), rgba(${COLORES_MODULO.comida.p},0) 100%), radial-gradient(80% 300px at 0% 110px, rgba(${COLORES_MODULO.comida.q},${a(0.40)}), rgba(${COLORES_MODULO.comida.q},0) 100%), linear-gradient(180deg, rgba(${COLORES_MODULO.comida.p},${a(0.12)}) 0%, rgba(${COLORES_MODULO.comida.p},0) 55vh), ${BLANCO}!important}`,
   // Los desvanecidos de arriba y abajo eran del gris cálido: en blanco.
   `.fixed.pointer-events-none[style*="rgba(237, 236, 229"]{display:none!important}`,
   // Sin la píldora negra; la franja curva más corta y todo sube.
@@ -94,11 +96,11 @@ const CSS_PRUEBA = [
   `[data-cabecera-hoy]:not(:has(>[data-banda])){margin-top:-46px!important}`,
   // Y arriba, detrás del título, un degradado suave del color de la sección
   // (con un toque del segundo color a un lado): la página no queda plana.
-  `[data-cabecera-hoy]:not(:has(>[data-banda]))::before{content:'';position:absolute;z-index:-1;pointer-events:none;left:calc(50% - 50vw);width:100vw;top:-60vh;height:calc(60vh + 260px);background:radial-gradient(55% 200px at 100% 60vh,rgba(var(--deg-p),.16),transparent 72%),radial-gradient(40% 150px at 0% calc(60vh + 40px),rgba(var(--deg-q),.12),transparent 72%)}`,
-  `[data-cabecera-hoy="dash"]{--deg-p:60,123,214;--deg-q:242,201,76}`,
-  `[data-cabecera-hoy="entreno"]{--deg-p:95,102,112;--deg-q:242,201,76}`,
-  `[data-cabecera-hoy="comida"]{--deg-p:70,150,90;--deg-q:242,201,76}`,
-  `[data-cabecera-hoy="aprende"]{--deg-p:238,132,52;--deg-q:60,123,214}`,
+  `[data-cabecera-hoy]:not(:has(>[data-banda]))::before{content:'';position:absolute;z-index:-1;pointer-events:none;left:calc(50% - 50vw);width:100vw;top:-60vh;height:calc(60vh + 260px);background:radial-gradient(55% 200px at 100% 60vh,rgba(var(--deg-p),${a(0.16)}),transparent 72%),radial-gradient(40% 150px at 0% calc(60vh + 40px),rgba(var(--deg-q),${a(0.12)}),transparent 72%)}`,
+  `[data-cabecera-hoy="dash"]{--deg-p:${COLORES_MODULO.dash.p};--deg-q:${COLORES_MODULO.dash.q}}`,
+  `[data-cabecera-hoy="entreno"]{--deg-p:${COLORES_MODULO.entreno.p};--deg-q:${COLORES_MODULO.entreno.q}}`,
+  `[data-cabecera-hoy="comida"]{--deg-p:${COLORES_MODULO.comida.p};--deg-q:${COLORES_MODULO.comida.q}}`,
+  `[data-cabecera-hoy="aprende"]{--deg-p:${COLORES_MODULO.aprende.p};--deg-q:${COLORES_MODULO.aprende.q}}`,
   // Entreno: «Hoy te toca» más grande, con el botón de ancho completo.
   `[data-hoy-rutina]{padding:20px!important;border-radius:28px!important}`,
   `[data-hoy-rutina]>div:nth-child(2){font-size:30px!important;letter-spacing:-0.03em!important}`,

@@ -107,8 +107,25 @@ export function textoParaCoach(res) {
   return `Hola Mau! Mi resumen de ${res.nombre}:\n${lineas.join('\n')}`;
 }
 
-// Una sola vez por mes y por persona.
+// Una sola vez por mes y por persona. Se guarda en el teléfono y también en
+// el servidor (/api/uso): así no vuelve a salir si abre la app en otro
+// teléfono, en el navegador o después de volver a entrar.
 const llave = (nombre) => `mt:resumenMes:${nombre || ''}`;
+const usuario = () => { try { return localStorage.getItem('cloudUserId') || null; } catch (e) { return null; } };
+const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const usoPost = (cuerpo) => fetch('/api/uso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+  body: JSON.stringify({ user_id: usuario(), hoy: hoyLocal(), ...cuerpo }) });
+// ¿Ya lo vio en otro lado? true / false; null si no se pudo saber (sin red).
+export async function resumenVistoEnServidor(nombre, clave) {
+  try {
+    const r = await usoPost({ name: nombre, consulta: 'resumen', mes: clave });
+    const x = await r.json();
+    return x && x.ok ? !!x.visto : null;
+  } catch (e) { return null; }
+}
+export function marcarResumenEnServidor(nombre, clave) {
+  try { usoPost({ name: nombre, resumen: clave }).catch(() => {}); } catch (e) { /* nada */ }
+}
 export function resumenVisto(nombre, clave) {
   try { return localStorage.getItem(llave(nombre)) === clave; } catch (e) { return true; }
 }

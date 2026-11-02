@@ -14,7 +14,7 @@ import { vibrar } from './vibrar.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour, Compass, Brain } from '@phosphor-icons/react';
 import { SECCION, DASH_AZUL } from './theme.js';
-import { enPrueba, lote25 } from './vistaApp.js';
+import { enPrueba, lote25, tinteSuave } from './vistaApp.js';
 
 export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: ForkKnife, aprende: GraduationCap };
 // Vista en prueba: los mismos íconos que van dentro del blob de cada cabecera
@@ -201,7 +201,7 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
             <div key={s.id} ref={grupoRef} className="bv2-grupo" role="group" aria-label={NOMBRE_SECCION[s.id]}
               style={{
                 flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 2,
-                background: c.tint, borderRadius: 999, padding: P ? 5 : 4, overflowX: 'auto',
+                background: tinteSuave(c.tint), borderRadius: 999, padding: P ? 5 : 4, overflowX: 'auto',
               }}>
               {/* El ícono de la sección se queda a la vista con sus opciones
                   abiertas: se sabe en qué parte de la app se está. */}

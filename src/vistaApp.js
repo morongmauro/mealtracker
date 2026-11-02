@@ -51,13 +51,28 @@ export const FONDO_BLANCO_TODOS = PRUEBA_TODOS;
 export function fondoBlanco() {
   return FONDO_BLANCO_TODOS || ((PRUEBA_TODOS || FONDO_BLANCO_PRUEBA.includes(normal(nombreGuardado()))) && enPrueba());
 }
-// El color de cada módulo (p) y el segundo, muy suave (q), en «r,g,b».
-export const COLORES_MODULO = {
+// Intensidad de los fondos de color de los módulos (2 nov, «intermedio
+// entre A y B»): las manchas y degradados a 65 % de lo que eran y sus
+// colores un 26 % menos saturados. Solo fondos: textos, íconos y botones
+// siguen con los colores de marca.
+export const INTENSIDAD_FONDO = 0.65;
+const SATURACION_FONDO = 0.74;
+export const desaturar = (rgb, s = SATURACION_FONDO) => {
+  const [r, g, b] = rgb.split(',').map(Number);
+  const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return [r, g, b].map(c => Math.max(0, Math.min(255, Math.round(l + s * (c - l))))).join(',');
+};
+// Un «rgba(r,g,b,a)» con su transparencia y su color al nivel intermedio.
+export const tinteSuave = (rgba) => rgba.replace(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/, (m, r, g, b, a) => `rgba(${desaturar(`${r},${g},${b}`)},${+(a * INTENSIDAD_FONDO).toFixed(3)})`);
+// El color de cada módulo (p) y el segundo, muy suave (q), en «r,g,b»
+// (ya al nivel intermedio: estos se usan solo en fondos).
+const BASE_MODULO = {
   dash:    { p: '60,123,214', q: '242,201,76' },   // azul + amarillo
   entreno: { p: '95,102,112', q: '242,201,76' },   // gris + amarillo
   comida:  { p: '70,150,90',  q: '242,201,76' },   // verde + amarillo
   aprende: { p: '238,132,52', q: '60,123,214' },   // naranja + azul
 };
+export const COLORES_MODULO = Object.fromEntries(Object.entries(BASE_MODULO).map(([k, v]) => [k, { p: desaturar(v.p), q: desaturar(v.q) }]));
 // Un color del módulo aclarado con blanco (para las manchas, que van en hex).
 export const aclarar = (rgb, cuanto) => '#' + rgb.split(',').map(Number)
   .map(c => Math.round(c * cuanto + 255 * (1 - cuanto)).toString(16).padStart(2, '0')).join('');

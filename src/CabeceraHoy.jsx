@@ -24,7 +24,14 @@ import { TEXT, TEXT_MUTED } from './theme.js';
 import ObjetoCabecera, { CAJA } from './ObjetoCabecera.jsx';
 import { AnilloMarca } from './GraficasV2.jsx';
 import Blob, { BlobVidrio } from './Blob.jsx';
-import { blobVidrio, fondoBlanco, enPrueba, COLORES_MODULO, aclarar } from './vistaApp.js';
+import { blobVidrio, fondoBlanco, enPrueba, COLORES_MODULO, aclarar, INTENSIDAD_FONDO, desaturar } from './vistaApp.js';
+// La franja de arriba, al nivel intermedio de color (como los fondos).
+const bandaSuave = (hex) => {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return hex;
+  const rgb = [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16)).join(',');
+  return '#' + desaturar(rgb).split(',').map(c => Number(c).toString(16).padStart(2, '0')).join('');
+};
 import NumeroHeroe from './NumeroHeroe.jsx';
 import { CapaActiva, useCapaActiva } from './capaActiva.js';
 import { Compass, Barbell, ForkKnife, Brain } from '@phosphor-icons/react';
@@ -240,7 +247,7 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
     );
   }
   const cm = fondoBlanco() && COLORES_MODULO[tema];
-  const tm = cm ? { ...t, base: 'transparent', m1: aclarar(cm.p, tema === 'entreno' ? 0.42 : 0.36), m2: aclarar(cm.q, 0.22), m3: null, m4: null } : t;
+  const tm = cm ? { ...t, base: 'transparent', m1: aclarar(cm.p, (tema === 'entreno' ? 0.42 : 0.36) * INTENSIDAD_FONDO), m2: aclarar(cm.q, 0.22 * INTENSIDAD_FONDO), m3: null, m4: null } : t;
   return (
     <div data-cabecera-hoy={tema} style={{
       position: 'relative',
@@ -263,8 +270,8 @@ export default function CabeceraHoy({ tema = 'entreno', voz, titulo, firma = fal
       </div>
       {/* La banda delgada: solo detrás de la barra de arriba, borde curvo. */}
       {t.banda && <div aria-hidden="true" data-banda style={{
-        '--banda-tope': t.banda[0], position: 'absolute', top: 0, left: 0, right: 0, height: `calc(${arriba} + 14px)`, pointerEvents: 'none',
-        background: `linear-gradient(180deg, ${t.banda[0]} 0%, ${t.banda[1]} 100%)`,
+        '--banda-tope': bandaSuave(t.banda[0]), position: 'absolute', top: 0, left: 0, right: 0, height: `calc(${arriba} + 14px)`, pointerEvents: 'none',
+        background: `linear-gradient(180deg, ${bandaSuave(t.banda[0])} 0%, ${bandaSuave(t.banda[1])} 100%)`,
         WebkitMaskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
         maskImage: 'radial-gradient(ellipse 60% 18px at 50% 100%, transparent 97%, #000 100%)',
       }} />}

@@ -43,7 +43,8 @@ import CabeceraHoy from './CabeceraHoy.jsx';
 import TarjetaBienestar from './Bienestar.jsx';
 import { enPrueba, lote25, DESVANECIDO_BORDE, verComposicion } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
-import { resumenDelMes, textoParaCoach, resumenVisto, marcarResumenVisto } from './resumenMes.js';
+import { resumenDelMes, textoParaCoach, resumenVisto, marcarResumenVisto, resumenVistoEnServidor, marcarResumenEnServidor } from './resumenMes.js';
+import { enVerComo } from './verComo.js';
 import { usoSeccion } from './usoApp.js';
 import { reportarRecordatorios, reportarToque } from './recordatoriosReporte.js';
 import { useAncho, Tarjeta as TarjetaBase, Leyenda, Globo, Columnas, niceTope, REJILLA, AnilloMarca, rielDe } from './GraficasV2.jsx';
@@ -506,9 +507,18 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
   const [verMes, setVerMes] = useState(false);
   const hayMes = !!(resumen && resumen.filas.length && ent?.mes);
   useEffect(() => {
-    if (!hayMes || vista !== 'inicio' || bienvenida || acciones.ventanaLibre === false || resumenVisto(name, resumen.clave)) return;
-    marcarResumenVisto(name, resumen.clave);
-    setVerMes(true);
+    if (!hayMes || vista !== 'inicio' || bienvenida || acciones.ventanaLibre === false || resumenVisto(name, resumen.clave)) return undefined;
+    // Antes de abrirlo, se pregunta si ya lo vio en otro teléfono o navegador.
+    let vivo = true;
+    const clave = resumen.clave;
+    resumenVistoEnServidor(name, clave).then(visto => {
+      if (!vivo || resumenVisto(name, clave)) return;
+      marcarResumenVisto(name, clave);
+      if (visto) return;
+      if (!enVerComo()) marcarResumenEnServidor(name, clave);
+      setVerMes(true);
+    });
+    return () => { vivo = false; };
   }, [hayMes, vista, bienvenida, acciones.ventanaLibre]);   // eslint-disable-line react-hooks/exhaustive-deps
   const destacados = useMemo(() => alimentosDestacados(detalle, hoy), [detalle, hoy]);
   const ultimaSemana = ent?.semanas?.[ent.semanas.length - 1];

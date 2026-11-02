@@ -20,11 +20,15 @@ const TOPE_RECETAS = 40;
 // s: segundos, m: minutos elegidos, o: desde dónde } dentro de la misma
 // fila del día (secciones.respira), sin tabla nueva.
 const TOPE_RESPIRA = 20;
+const MES_OK = (m) => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m);
 const respiraValida = (x) => x && /^\d{2}:\d{2}$/.test(String(x.h || '')) && Number.isFinite(+x.s) && +x.s >= 0 && +x.s <= 3600;
 
 // La fila del día con lo nuevo sumado (función pura: la prueba la usa).
-export function fusionarUso(ex, { secciones = [], recetas = [], respira = [] }) {
+export function fusionarUso(ex, { secciones = [], recetas = [], respira = [], resumen = null }) {
   const s = { ...((ex && ex.secciones) || {}) };
+  // El resumen del mes ya se le mostró (AAAA-MM del mes resumido): así no
+  // vuelve a salir aunque abra la app en otro teléfono o en el navegador.
+  if (MES_OK(resumen)) s.resumen_mes = resumen;
   secciones.filter(x => SECCIONES_USO.includes(x)).forEach(x => { s[x] = 1; });
   const nuevas = (Array.isArray(respira) ? respira : []).filter(respiraValida)
     .map(x => ({ h: String(x.h), s: Math.round(+x.s), m: [1, 3, 5].includes(+x.m) ? +x.m : null, o: corto(x.o, 20) || null }));
@@ -43,8 +47,21 @@ export default async function handler(req, res) {
   const user_id = isUuid(b.user_id) ? b.user_id : null;
   const clave = user_id || (name ? `n:${name}` : null);
   if (!clave || !esDia(b.hoy)) return res.status(200).json({ ok: false, error: 'sin cliente o sin día' });
-  const nuevo = { secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10), respira: (Array.isArray(b.respira) ? b.respira : []).slice(0, 3) };
   const tabla = `${SUPABASE_URL}/rest/v1/app_uso`;
+  // ¿Ya vio el resumen de ese mes (en cualquier teléfono)? Por su clave o
+  // por su nombre (sin importar mayúsculas), en cualquier día.
+  if (b.consulta === 'resumen') {
+    if (!MES_OK(b.mes)) return res.status(200).json({ ok: false });
+    const q = (v) => `"${String(v).replace(/["\\]/g, '')}"`;
+    const quien = [`clave.eq.${q(clave)}`, ...(name ? [`name.ilike.${q(name)}`] : [])].join(',');
+    try {
+      const r = await fetch(`${tabla}?select=id&or=${encodeURIComponent(`(${quien})`)}&secciones->>resumen_mes=eq.${b.mes}&limit=1`, { headers: H() });
+      if (!r.ok) return res.status(200).json({ ok: false });
+      const filas = await r.json();
+      return res.status(200).json({ ok: true, visto: Array.isArray(filas) && filas.length > 0 });
+    } catch (e) { return res.status(200).json({ ok: false }); }
+  }
+  const nuevo = { resumen: MES_OK(b.resumen) ? b.resumen : null, secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10), respira: (Array.isArray(b.respira) ? b.respira : []).slice(0, 3) };
   try {
     const r = await fetch(`${tabla}?clave=eq.${encodeURIComponent(clave)}&fecha=eq.${b.hoy}&select=id,secciones,recetas`, { headers: H() });
     if (!r.ok) return res.status(200).json({ ok: false, sinTabla: r.status === 404 });

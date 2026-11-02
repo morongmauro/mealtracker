@@ -29,5 +29,28 @@ caso('Respira: como mucho 20 por día', () => {
   for (let i = 0; i < 25; i++) f = fusionarUso(f, { respira: [{ h: '10:00', s: 60, m: 1 }] });
   igual(f.secciones.respira.length, 20, 'tope');
 });
+caso('resumen del mes: queda guardado que ya lo vio (solo AAAA-MM)', () => {
+  igual(fusionarUso({ secciones: { dash: 1 }, recetas: [] }, { resumen: '2026-10' }).secciones, { dash: 1, resumen_mes: '2026-10' }, 'visto');
+  igual(fusionarUso(null, { resumen: 'x' }).secciones, {}, 'mal formado');
+});
+// La consulta «¿ya lo vio?» (por su clave o por su nombre, en cualquier día).
+{
+  process.env.SUPABASE_URL = 'https://app.test'; process.env.SUPABASE_SERVICE_KEY = 'k';
+  const { default: handler } = await import('../api/_uso.js?con-env');
+  const filas = [{ id: 1, clave: 'n:Mauro Morón', name: 'Mauro Morón', fecha: '2026-11-01', secciones: { dash: 1, resumen_mes: '2026-10' } }];
+  const pedidas = [];
+  globalThis.fetch = async (url) => {
+    pedidas.push(decodeURIComponent(url));
+    const u = new URL(url); const or = u.searchParams.get('or') || ''; const mes = u.searchParams.get('secciones->>resumen_mes') || '';
+    const r = filas.filter(f => (or.includes(`clave.eq."${f.clave}"`) || or.toLowerCase().includes(`name.ilike."${f.name.toLowerCase()}"`)) && mes === `eq.${f.secciones.resumen_mes}`);
+    return { ok: true, status: 200, json: async () => r };
+  };
+  const llamar = async (body) => { let out; const res = { status: () => res, json: (x) => { out = x; return res; }, setHeader() {} };
+    await handler({ method: 'POST', headers: { host: 'a.test', origin: 'https://a.test' }, socket: {}, body }, res); return out; };
+  const otroTel = await llamar({ name: 'mauro morón', user_id: null, hoy: '2026-11-02', consulta: 'resumen', mes: '2026-10' });
+  const nuevo = await llamar({ name: 'Ana', user_id: null, hoy: '2026-11-02', consulta: 'resumen', mes: '2026-10' });
+  caso('resumen del mes: ya lo vio ayer en otro teléfono (nombre en minúsculas) → no sale otra vez', () => igual(otroTel, { ok: true, visto: true }, 'mauro'));
+  caso('resumen del mes: quien no lo ha visto → sale', () => igual(nuevo, { ok: true, visto: false }, 'ana'));
+}
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);
