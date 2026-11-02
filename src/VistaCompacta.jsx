@@ -11,7 +11,7 @@ import React from 'react';
 import { Barbell, ForkKnife, SquaresFour, ChartLineUp, GraduationCap, UsersThree, ChatCircle, GearSix, FilmStrip, Sun, BookOpenText, CalendarBlank, WhatsappLogo, Compass, Brain } from '@phosphor-icons/react';
 import { Hoja } from './entrenoUI.jsx';
 import { AnilloMarca } from './GraficasV2.jsx';
-import { SECCION, DASH_AZUL, TEXT, TEXT_MUTED } from './theme.js';
+import { SECCION, DASH_AZUL, TEXT, TEXT_MUTED, DANGER } from './theme.js';
 import { enPrueba } from './vistaApp.js';
 
 const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.07)';
@@ -19,7 +19,7 @@ const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.07)';
 // ── La barra ───────────────────────────────────────────────────────────────
 // activa: 'entreno' | 'comida' | 'mas'. Estando en Comida, el botón se abre
 // en «Chat | Recetas» (como en la vista completa): `comidaSub` dice cuál.
-export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, oculta, entrenoOn = true, comidaSub = 'chat', alChat, alRecetas }) {
+export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, oculta, entrenoOn = true, comidaSub = 'chat', alChat, alRecetas, puntoMas = false }) {
   const items = [
     ...(entrenoOn ? [{ id: 'entreno', label: 'Entreno', Icono: Barbell, tinta: SECCION.entreno.tint, color: SECCION.entreno.ink, alTocar: alEntreno }] : []),
     { id: 'comida', label: 'Comida', Icono: ForkKnife, tinta: SECCION.comida.tint, color: SECCION.comida.ink, alTocar: alComida },
@@ -76,14 +76,18 @@ export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, ocul
             );
           }
           return (
-            <button key={id} data-compacta-boton={id} data-activo={on ? '1' : '0'} onClick={alTocar} aria-label={label} aria-current={on ? 'page' : undefined}
+            <button key={id} data-compacta-boton={id} data-activo={on ? '1' : '0'} onClick={alTocar} aria-label={id === 'mas' && puntoMas ? `${label} · hay novedades en la Comunidad` : label} aria-current={on ? 'page' : undefined}
               style={{
                 flex: 1, height: P ? 54 : 52, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                 background: on ? tinta : 'transparent', color: on ? color : '#6A6860',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
                 WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
               }}>
-              <Icono size={22} weight={on ? 'fill' : 'regular'} />
+              <span style={{ position: 'relative', display: 'grid' }}>
+                <Icono size={22} weight={on ? 'fill' : 'regular'} />
+                {/* Lo nuevo de la Comunidad sin ver: un punto en «Más». */}
+                {id === 'mas' && puntoMas && <i data-punto-mas aria-hidden="true" style={{ position: 'absolute', top: -2, right: -4, width: 9, height: 9, borderRadius: 99, background: '#3C7BD6', border: '2px solid #fff' }} />}
+              </span>
               <span style={{ fontSize: 12, fontWeight: 750 }}>{label}</span>
             </button>
           );
@@ -114,8 +118,9 @@ export function HojaMas({ abierta, alCerrar, grupos, alVerCompleta }) {
                       fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, lineHeight: 1.15, color: TEXT, textAlign: 'left',
                       cursor: 'pointer', textDecoration: 'none', WebkitTapHighlightColor: 'transparent',
                     }}>
-                    <span style={{ width: 34, height: 34, borderRadius: 11, background: it.tinta, color: it.color, display: 'grid', placeItems: 'center' }}>
+                    <span style={{ position: 'relative', width: 34, height: 34, borderRadius: 11, background: it.tinta, color: it.color, display: 'grid', placeItems: 'center' }}>
                       <it.Icono size={20} />
+                      {it.badge > 0 && <b data-mas-badge style={{ position: 'absolute', top: -6, right: -8, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99, background: DANGER, color: '#fff', fontSize: 11, fontWeight: 800, display: 'grid', placeItems: 'center', border: '2px solid #fff' }}>{it.badge > 9 ? '9+' : it.badge}</b>}
                     </span>
                     {it.label}
                   </Tag>
@@ -137,7 +142,7 @@ export function HojaMas({ abierta, alCerrar, grupos, alVerCompleta }) {
 }
 
 // Los grupos de «Más» con sus colores, a partir de lo que hay disponible.
-export function gruposMas({ entrenoOn, aprendeOn, whatsapp, ir }) {
+export function gruposMas({ entrenoOn, aprendeOn, whatsapp, ir, comunidadNuevas = 0 }) {
   const T = (s) => ({ tinta: SECCION[s].tint, color: SECCION[s].ink });
   const azul = { tinta: DASH_AZUL.tint, color: DASH_AZUL.ink };
   const gris = { tinta: '#F1F1F3', color: TEXT };
@@ -151,7 +156,7 @@ export function gruposMas({ entrenoOn, aprendeOn, whatsapp, ir }) {
     { titulo: 'Tú', items: [
       { id: 'dash', label: 'Tu progreso', Icono: ChartLineUp, ...azul, alTocar: () => ir('dash') },
       ...(aprendeOn ? [{ id: 'aprende', label: 'Aprendizaje', Icono: GraduationCap, ...T('aprende'), alTocar: () => ir('aprende') }] : []),
-      { id: 'comunidad', label: 'Comunidad', Icono: UsersThree, ...azul, alTocar: () => ir('comunidad') },
+      { id: 'comunidad', label: 'Comunidad', Icono: UsersThree, ...azul, alTocar: () => ir('comunidad'), badge: comunidadNuevas },
       ...(whatsapp ? [{ id: 'coach', label: 'Escríbele a tu coach', Icono: enPrueba() ? WhatsappLogo : ChatCircle, ...gris, href: whatsapp }] : []),
       { id: 'config', label: 'Configuración', Icono: GearSix, ...gris, alTocar: () => ir('config') },
     ] },

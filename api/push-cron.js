@@ -349,6 +349,34 @@ async function handleCoachSend(req, res) {
     }
   }
 
+  // ── Publicación nueva en la Comunidad: a todos los clientes que el CRM
+  // manda (los activos), con su push activo y sin los avisos del coach
+  // apagados. Lo marca el coach al publicar («Avisar por notificación»).
+  if (req.body && req.body.mode === 'comunidad') {
+    const texto = String(req.body.body || '').trim().slice(0, 160);
+    if (!texto) return res.status(400).json({ ok: false, causa: 'Falta el texto.' });
+    const nombres = new Set((Array.isArray(req.body.names) ? req.body.names : []).map(normalizeName).filter(Boolean));
+    try {
+      const rs = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,user_id,name,sub`, { headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+      const subs = (rs.ok ? await rs.json() : []).filter(s => s.name && nombres.has(normalizeName(s.name)));
+      const prefs = await avisosPorUsuario(SUPABASE_URL, SUPABASE_SERVICE_KEY, subs.map(s => s.user_id));
+      const permitidos = subs.filter(s => permiteAviso(prefs.get(s.user_id), 'coach'));
+      const llegaron = new Set();
+      for (const s of permitidos) {
+        try {
+          await webpush.sendNotification(s.sub, JSON.stringify({ title: String(req.body.title || 'Nuevo en la comunidad').slice(0, 80), body: texto, tag: 'ecm-comunidad', url: '/?ir=comunidad' }));
+          llegaron.add(normalizeName(s.name));
+        } catch (e) {
+          const code = e && e.statusCode;
+          if (code === 404 || code === 410) await fetch(`${SUPABASE_URL}/rest/v1/push_subs?endpoint=eq.${encodeURIComponent(s.endpoint)}`, { method: 'DELETE', headers: sbHeaders(SUPABASE_SERVICE_KEY) });
+        }
+      }
+      return res.status(200).json({ ok: true, enviados: llegaron.size, con_push: new Set(subs.map(s => normalizeName(s.name))).size, total: nombres.size });
+    } catch (e) {
+      return res.status(500).json({ ok: false, causa: 'Error al enviar: ' + String(e).slice(0, 150) });
+    }
+  }
+
   const { user_id, name, title, body } = req.body || {};
   const texto = String(body || '').trim().slice(0, 400);
   if (!texto) return res.status(400).json({ error: 'body requerido' });

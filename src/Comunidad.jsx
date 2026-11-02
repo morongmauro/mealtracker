@@ -167,7 +167,7 @@ export default function Comunidad({ name, arriba = 0 }) {
     if (!datos || !datos.ok || !raiz.current || typeof IntersectionObserver === 'undefined') return;
     const pendientes = new Set();
     let t = null;
-    const enviar = () => { const ids = [...pendientes]; pendientes.clear(); if (ids.length) api.comunidadVisto(name, ids); };
+    const enviar = () => { const ids = [...pendientes]; pendientes.clear(); if (ids.length) api.comunidadVisto(name, ids).then(() => { try { window.dispatchEvent(new Event('mt:comunidad-vista')); } catch (e) {} }).catch(() => {}); };
     const obs = new IntersectionObserver((ents) => ents.forEach(e => {
       if (!e.isIntersecting) return;
       const id = e.target.getAttribute('data-post');

@@ -961,6 +961,43 @@ export default function MealTracker() {
     const f = seccionVista === 'comida' ? firmaMetaComida : firmas[seccionVista];
     if (f != null) { marcarVisto(seccionVista, f); setVistoTick(t => t + 1); }
   }, [v2, view, seccionVista, firmaMetaComida, firmas]);
+  // Comunidad: se revisa al abrir la app (no solo al entrar al Dash), para
+  // que lo nuevo se note: el punto en «Dash» de la barra y, en la compacta,
+  // el número en «Más» y en Comunidad. Se repite al volver a la app, al
+  // cambiar de sección (como mucho cada 30 s) y después de verla.
+  const [comunidad, setComunidad] = useState({ nuevas: 0, reciente: false });
+  const comunidadAt = useRef(0);
+  useEffect(() => {
+    if (!v2 || view !== 'main' || !name) return undefined;
+    let vivo = true;
+    const revisar = (forzar) => {
+      if (!forzar && Date.now() - comunidadAt.current < 30000) return;
+      comunidadAt.current = Date.now();
+      apiEntreno.comunidad(name).then(r => {
+        if (!vivo || !r || !r.ok || !Array.isArray(r.posts)) return;
+        const sinVer = r.posts.filter(p => !p.visto);
+        const semana = Date.now() - 7 * 86400000;
+        setComunidad({ nuevas: sinVer.length, reciente: sinVer.some(p => Date.parse(p.publicado_en) >= semana) });
+        const firma = r.posts.length ? r.posts.map(p => p.publicado_en).sort().slice(-1)[0] : null;
+        if (firma) setFirmas(x => (x.dash === firma ? x : { ...x, dash: firma }));
+      }).catch(() => {});
+    };
+    revisar(true);
+    const alVolver = () => { if (document.visibilityState === 'visible') revisar(false); };
+    const alVer = () => revisar(true);
+    document.addEventListener('visibilitychange', alVolver);
+    window.addEventListener('mt:comunidad-vista', alVer);
+    return () => { vivo = false; document.removeEventListener('visibilitychange', alVolver); window.removeEventListener('mt:comunidad-vista', alVer); };
+  }, [v2, view, name]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!v2 || view !== 'main' || !name || Date.now() - comunidadAt.current < 30000) return;
+    comunidadAt.current = Date.now();
+    apiEntreno.comunidad(name).then(r => {
+      if (!r || !r.ok || !Array.isArray(r.posts)) return;
+      const sinVer = r.posts.filter(p => !p.visto);
+      setComunidad({ nuevas: sinVer.length, reciente: sinVer.some(p => Date.parse(p.publicado_en) >= Date.now() - 7 * 86400000) });
+    }).catch(() => {});
+  }, [seccionVista]);   // eslint-disable-line react-hooks/exhaustive-deps
   const initialLoadDone = useRef(false);
   // Copia viva de favoritesDeleted para closures async (pull del server).
   const favoritesDeletedRef = useRef([]);
@@ -3162,6 +3199,14 @@ export default function MealTracker() {
     if (view !== 'main' || !trainingOn) return;
     const ir = irPedido.current;
     if (ir === 'entreno') { irPedido.current = null; openTraining(); }
+  });
+  // El aviso de una publicación en la Comunidad abre la Comunidad; el de una
+  // respuesta del coach a una nota, el Dash (ahí está la tarjeta).
+  useEffect(() => {
+    if (view !== 'main' || !v2) return;
+    const ir = irPedido.current;
+    if (ir === 'comunidad') { irPedido.current = null; irMasCompacta('comunidad'); }
+    else if (ir === 'dash') { irPedido.current = null; irSubV2('dash'); }
   });
   // «Tomar foto de hoy» en el recordatorio de fotos (Hoy, calendario o el
   // aviso al abrir): lleva a Fotos de progreso dentro de Entrenamiento.
@@ -6894,13 +6939,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           alRecetas={() => irSubV2('comida', 'recetas')}
           alEntreno={() => irSubV2('entreno', seccionV2 === 'entreno' && entrenoSub === 'mes' ? 'mes' : 'hoy')}
           alComida={() => irSubV2('comida', 'chat')}
-          alMas={() => { haptic(6); setMasAbierto(true); }} />
+          alMas={() => { haptic(6); setMasAbierto(true); }} puntoMas={comunidad.nuevas > 0} />
         <HojaMas abierta={masAbierto} alCerrar={() => setMasAbierto(false)}
           alVerCompleta={() => guardarVista('completa')}
           grupos={gruposMas({
             entrenoOn: trainingOn, aprendeOn: !!learningUrl,
             whatsapp: WHATSAPP_COACH ? `https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}` : null,
-            ir: irMasCompacta,
+            ir: irMasCompacta, comunidadNuevas: comunidad.nuevas,
           })} />
       </>)}
       <ReporteUso seccion={seccionV2 === 'comida' ? (subV2 === 'recetas' ? 'recetas' : subV2 === 'chat' ? 'chat' : 'comida') : seccionV2} />
@@ -6918,7 +6963,8 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             // Recordatorios del coach sin ver: salen en el Hoy de las dos.
             entreno: seccionV2 !== 'entreno' && (remSinVer || hayNovedad('entreno', firmas.entreno)),
             comida: seccionV2 !== 'comida' && (remSinVer || hayNovedad('comida', firmaComida)),
-            dash: seccionV2 !== 'dash' && hayNovedad('dash', firmas.dash),
+            // Lo nuevo de la Comunidad sin ver (de la última semana) también.
+            dash: seccionV2 !== 'dash' && (hayNovedad('dash', firmas.dash) || comunidad.reciente),
           }}
         />
       )}
