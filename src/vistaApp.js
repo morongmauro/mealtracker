@@ -47,6 +47,11 @@ export const rutinaLigera = (nombre) => RUTINA_LIGERA_TODOS || ((PRUEBA_TODOS ||
 // la píldora negra de arriba y con la franja curva más corta (a prueba).
 // Para todos: FONDO_BLANCO_TODOS en true.
 export const FONDO_BLANCO_PRUEBA = ['mauro moron'];
+// Cabeceras a prueba (2 nov): una propuesta distinta en cada módulo para
+// compararlas en el teléfono (Dash C, Entreno B, Alimentación A, Aprende D).
+// Solo en estas cuentas; los clientes siguen con la de siempre.
+export const CABECERAS_PRUEBA = ['mauro moron'];
+export const cabecerasPrueba = () => CABECERAS_PRUEBA.includes(normal(nombreGuardado()));
 export const FONDO_BLANCO_TODOS = PRUEBA_TODOS;
 export function fondoBlanco() {
   return FONDO_BLANCO_TODOS || ((PRUEBA_TODOS || FONDO_BLANCO_PRUEBA.includes(normal(nombreGuardado()))) && enPrueba());

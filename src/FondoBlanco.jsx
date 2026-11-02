@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { CSS_ESCALA } from './escalaLetra.js';
 import React from 'react';
-import { COLORES_MODULO, INTENSIDAD_FONDO as I } from './vistaApp.js';
+import { COLORES_MODULO, INTENSIDAD_FONDO as I, cabecerasPrueba } from './vistaApp.js';
 
 const BLANCO = '#FCFCFD';
 // Un solo degradado continuo: el color del módulo arriba, apagándose hacia
@@ -133,6 +133,32 @@ export function entrarContenido(el) {
   try { el.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' }); } catch (e) { /* sin animación */ }
 }
 
+// ── Cabeceras a prueba (solo cabecerasPrueba()): cada módulo con su
+// propuesta, encima de la de siempre, para compararlas.
+//   Dash · C banda clara con brillo · Entreno · B manchas aurora
+//   Alimentación · A luz suave · Aprende · D degradado con luz y textura
+const VELO = (x) => `linear-gradient(180deg, rgba(252,252,253,${x}) 0%, rgba(252,252,253,${x}) 60%, rgba(252,252,253,0) 100%)`;
+const RUIDO = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")`;
+const cab = (m) => `[data-cabecera-hoy="${m}"]`;
+const CSS_CABECERAS = [
+  ...Object.entries(COLORES_MODULO).map(([m, c]) => `${cab(m)}{--hp:${c.p};--hq:${c.q};isolation:isolate}`),
+  `[data-cabecera-hoy]::after{content:'';position:absolute;z-index:-1;pointer-events:none;left:calc(50% - 50vw);width:100vw;top:-140px;height:calc(100% + 220px);-webkit-mask-image:linear-gradient(180deg,#000 0,#000 52%,transparent 100%);mask-image:linear-gradient(180deg,#000 0,#000 52%,transparent 100%)}`,
+  // C · Dash
+  `${cab('dash')}>[data-banda]{opacity:.32!important}`,
+  `${cab('dash')}::after{background:linear-gradient(112deg, rgba(255,255,255,0) 24%, rgba(255,255,255,.75) 42%, rgba(255,255,255,0) 58%),linear-gradient(180deg, rgba(var(--hp),.10) 0%, rgba(var(--hp),0) 80%),${VELO(0.35)}}`,
+  // B · Entreno
+  `${cab('entreno')}>[data-banda]{opacity:0!important;border-top-color:transparent!important}`,
+  `${cab('entreno')} .cab-m{opacity:0!important}`,
+  `${cab('entreno')}::after{filter:blur(10px);background:radial-gradient(60% 250px at 92% 120px, rgba(var(--hp),.30), rgba(var(--hp),0) 72%),radial-gradient(55% 220px at 4% 330px, rgba(var(--hq),.26), rgba(var(--hq),0) 72%),radial-gradient(45% 180px at 40% 40px, rgba(var(--hp),.12), rgba(var(--hp),0) 72%),${VELO(0.6)}}`,
+  // A · Alimentación
+  `${cab('comida')}>[data-banda]{opacity:0!important;border-top-color:transparent!important}`,
+  `${cab('comida')}::after{background:radial-gradient(75% 260px at 12% 60px, rgba(255,255,255,.95), rgba(255,255,255,0) 72%),radial-gradient(70% 260px at 100% 40px, rgba(var(--hp),.20), rgba(var(--hp),0) 72%),${VELO(0.5)}}`,
+  // D · Aprende
+  `${cab('aprende')}>[data-banda]{opacity:0!important;border-top-color:transparent!important}`,
+  `${cab('aprende')} .cab-m{opacity:0!important}`,
+  `${cab('aprende')}::after{background:${RUIDO},radial-gradient(55% 220px at 80% 90px, rgba(255,255,255,.85), rgba(255,255,255,0) 70%),linear-gradient(165deg, rgba(var(--hp),.24) 0%, rgba(var(--hq),.12) 55%, rgba(var(--hq),0) 90%),${VELO(0.55)}}`,
+].join('\n');
+
 export default function EstiloFondoBlanco({ activo, prueba = false, l25 = false }) {
   React.useEffect(() => {
     const h = document.documentElement;
@@ -141,5 +167,5 @@ export default function EstiloFondoBlanco({ activo, prueba = false, l25 = false 
     if (prueba && l25) h.setAttribute('data-lote25', ''); else h.removeAttribute('data-lote25');
     return () => { h.removeAttribute('data-fondo-blanco'); h.removeAttribute('data-vista-prueba'); h.removeAttribute('data-lote25'); };
   }, [activo, prueba, l25]);
-  return activo ? <style data-estilo-fondo-blanco>{CSS}{prueba ? '\n' + CSS_PRUEBA + CSS_CAMBIO + (l25 ? CSS_L25 + '\n' + CSS_ESCALA : '') : ''}</style> : null;
+  return activo ? <style data-estilo-fondo-blanco>{CSS}{prueba ? '\n' + CSS_PRUEBA + CSS_CAMBIO + (l25 ? CSS_L25 + '\n' + CSS_ESCALA : '') : ''}{cabecerasPrueba() ? '\n' + CSS_CABECERAS : ''}</style> : null;
 }
