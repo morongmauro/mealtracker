@@ -151,7 +151,7 @@
         } catch (e) {}
         if (raiz.classList.contains('splash-v2') && !raiz.classList.contains('warm-start')) {
           // La entrada completa sale en la PRIMERA apertura del día; las
-          // demás de ese día son cortas: la misma secuencia en ~1,1 s
+          // demás de ese día son cortas: la misma secuencia en ~1,8 s
           // (html.intro-corta; main.jsx hace lo mismo al volver tras 2 h).
           try {
             var dHoy = new Date(), diaHoy = dHoy.getFullYear() + '-' + (dHoy.getMonth() + 1) + '-' + dHoy.getDate();
@@ -458,39 +458,39 @@
         #splash .shine, #splash .sub { animation: none; opacity: 0; }
         #splash .sub { opacity: 1; }
       }
-      /* ── Casi vidrio → vidrio (2 nov): el blob nace ya casi de vidrio
-         (blanco translúcido con el desenfoque detrás, los colores se asoman
-         borrosos a través) y al absorber las manchas se vuelve vidrio del
+      /* ── Vidrio casi todo el tiempo (2 nov): el blob nace ya de vidrio
+         (blanco muy translúcido con el desenfoque detrás, los colores se ven
+         borrosos a través) y antes del primer segundo se vuelve vidrio del
          todo: el blanco baja, entran el borde que refracta y los colores de
-         adentro. Larga ~2,3 s; corta ~1,1 s con la misma secuencia
-         comprimida (el ícono ya dibujado). ── */
-      html.intro-l25 #splash2 .disco path { fill: rgba(255,255,255,.58); }
-      html.intro-l25.intro-anda #splash2 .vidrio { animation: s2aparece .5s ease-out .12s forwards; }
-      html.intro-l25.intro-anda #splash2 .disco path { animation: s2vidrioB .6s ease-out .95s forwards; }
-      html.intro-l25.intro-anda #splash2 .vidrio-b { animation: s2aparece .6s ease-out .95s forwards; }
-      html.intro-l25.intro-anda #splash2 .dentro { animation: s2aparece .6s ease-out 1.0s forwards; }
-      /* Corta: lo mismo en ~1 s. */
+         adentro, y así se queda hasta el final. Larga ~3,2 s; corta ~1,8 s
+         con la misma secuencia más corta (el ícono ya dibujado). ── */
+      html.intro-l25 #splash2 .disco path { fill: rgba(255,255,255,.42); }
+      html.intro-l25.intro-anda #splash2 .vidrio { animation: s2aparece .5s ease-out .1s forwards; }
+      html.intro-l25.intro-anda #splash2 .disco path { animation: s2vidrioB .8s ease-out .6s forwards; }
+      html.intro-l25.intro-anda #splash2 .vidrio-b { animation: s2aparece .8s ease-out .6s forwards; }
+      html.intro-l25.intro-anda #splash2 .dentro { animation: s2aparece .8s ease-out .7s forwards; }
+      /* Corta: lo mismo en ~1,8 s, sin apuro. */
       html.intro-corta.intro-anda #splash2 .traza { stroke-dashoffset: 0; animation: none; }
-      html.intro-corta.intro-anda #splash2 .marca { animation: s2aparece .15s ease-out 0s forwards; }
-      html.intro-corta.intro-anda #splash2 .punto { animation: s2pop .3s cubic-bezier(.3,1.6,.5,1) .35s forwards; }
-      html.intro-corta.intro-anda #splash2 .halo { animation: s2halo .5s ease-out .36s forwards; }
-      html.intro-corta.intro-anda #splash2 .remolino { animation: s2gira .9s cubic-bezier(.25,.6,.2,1) forwards; }
-      html.intro-corta.intro-anda #splash2 .m { animation: s2sale .42s cubic-bezier(.22,.7,.2,1) forwards, s2entra .4s cubic-bezier(.4,0,.2,1) .42s forwards; }
-      html.intro-corta.intro-anda #splash2 .m2 { animation-delay: .02s, .44s; }
-      html.intro-corta.intro-anda #splash2 .m3 { animation-delay: .04s, .46s; }
-      html.intro-corta.intro-anda #splash2 .m4 { animation-delay: .06s, .48s; }
-      html.intro-corta.intro-anda #splash2 .plano { animation: s2aparece .4s ease-out .5s forwards; }
-      html.intro-corta.intro-anda #splash2 .disco { animation: s2disco .35s cubic-bezier(.2,1.12,.35,1) 0s forwards; }
-      html.intro-corta.intro-anda #splash2 .vidrio { animation: s2aparece .3s ease-out .05s forwards; }
-      html.intro-corta.intro-anda #splash2 .disco path { animation: s2vidrioB .35s ease-out .45s forwards; }
-      html.intro-corta.intro-anda #splash2 .vidrio-b { animation: s2aparece .35s ease-out .45s forwards; }
-      html.intro-corta.intro-anda #splash2 .dentro { animation: s2aparece .35s ease-out .48s forwards; }
-      html.intro-corta.intro-anda #splash2 .op-sb { animation: s2aparece .3s ease .2s forwards; }
-      html.intro-corta.intro-anda #splash2 .op-st { animation: s2aparece .3s ease .4s forwards; }
-      html.intro-corta.intro-anda #splash2 .nombre { animation: s2sombraNombre .3s ease .4s forwards; }
-      html.intro-corta.intro-anda #splash2 .nombre .l1 { animation: s2letra .35s cubic-bezier(.4,0,.2,1) .3s forwards; }
-      html.intro-corta.intro-anda #splash2 .nombre .l2 { animation: s2letra .35s cubic-bezier(.4,0,.2,1) .4s forwards; }
-      html.intro-corta.intro-anda #splash2 .nombre .pto { animation: s2pop2 .2s ease-out .65s forwards; }
+      html.intro-corta.intro-anda #splash2 .marca { animation: s2aparece .25s ease-out 0s forwards; }
+      html.intro-corta.intro-anda #splash2 .punto { animation: s2pop .4s cubic-bezier(.3,1.6,.5,1) .55s forwards; }
+      html.intro-corta.intro-anda #splash2 .halo { animation: s2halo .7s ease-out .56s forwards; }
+      html.intro-corta.intro-anda #splash2 .remolino { animation: s2gira 1.4s cubic-bezier(.25,.6,.2,1) forwards; }
+      html.intro-corta.intro-anda #splash2 .m { animation: s2sale .65s cubic-bezier(.22,.7,.2,1) forwards, s2entra .6s cubic-bezier(.4,0,.2,1) .7s forwards; }
+      html.intro-corta.intro-anda #splash2 .m2 { animation-delay: .03s, .73s; }
+      html.intro-corta.intro-anda #splash2 .m3 { animation-delay: .06s, .76s; }
+      html.intro-corta.intro-anda #splash2 .m4 { animation-delay: .09s, .79s; }
+      html.intro-corta.intro-anda #splash2 .plano { animation: s2aparece .5s ease-out .8s forwards; }
+      html.intro-corta.intro-anda #splash2 .disco { animation: s2disco .5s cubic-bezier(.2,1.12,.35,1) 0s forwards; }
+      html.intro-corta.intro-anda #splash2 .vidrio { animation: s2aparece .35s ease-out .05s forwards; }
+      html.intro-corta.intro-anda #splash2 .disco path { animation: s2vidrioB .6s ease-out .3s forwards; }
+      html.intro-corta.intro-anda #splash2 .vidrio-b { animation: s2aparece .6s ease-out .3s forwards; }
+      html.intro-corta.intro-anda #splash2 .dentro { animation: s2aparece .6s ease-out .35s forwards; }
+      html.intro-corta.intro-anda #splash2 .op-sb { animation: s2aparece .4s ease .3s forwards; }
+      html.intro-corta.intro-anda #splash2 .op-st { animation: s2aparece .5s ease .6s forwards; }
+      html.intro-corta.intro-anda #splash2 .nombre { animation: s2sombraNombre .5s ease .6s forwards; }
+      html.intro-corta.intro-anda #splash2 .nombre .l1 { animation: s2letra .5s cubic-bezier(.4,0,.2,1) .5s forwards; }
+      html.intro-corta.intro-anda #splash2 .nombre .l2 { animation: s2letra .5s cubic-bezier(.4,0,.2,1) .65s forwards; }
+      html.intro-corta.intro-anda #splash2 .nombre .pto { animation: s2pop2 .3s ease-out 1.05s forwards; }
     </style>
   </head>
   <body>

@@ -73,11 +73,11 @@ if (typeof window !== 'undefined') {
   const raiz = document.documentElement;
   const splashV2 = raiz.classList.contains('splash-v2');
   const conEntrada = raiz.classList.contains('intro-completa');
-  // Completa en la primera apertura del día (~2,3 s); corta (la misma
-  // secuencia comprimida, ~1,1 s) en las demás de ese día (index.html ›
-  // intro-corta).
-  const ENTRADA_MS = 2300;
-  const ENTRADA_CORTA_MS = 1100;
+  // Completa en la primera apertura del día (~3,2 s); corta (la misma
+  // secuencia más corta, ~1,8 s) en las demás de ese día (index.html ›
+  // intro-corta). En las dos el blob es de vidrio casi todo el tiempo.
+  const ENTRADA_MS = 3200;
+  const ENTRADA_CORTA_MS = 1800;
   const esPrimeraDelDia = () => {
     try {
       const d = new Date(), dia = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
