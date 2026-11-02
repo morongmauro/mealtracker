@@ -140,6 +140,8 @@ export const api = {
   comunidad: (name)        => pedir({ accion: 'comunidad', name }),
   reaccionar: (name, datos) => pedir({ accion: 'reaccionar', name, ...datos }),
   comunidadVisto: (name, ids) => pedir({ accion: 'comunidad_visto', name, ids }),
+  respuestas: (name) => pedir({ accion: 'respuestas', name }),
+  respuestaVista: (name, id) => pedir({ accion: 'respuesta_vista', name, id }),
   comentar: (name, post_id, texto) => pedir({ accion: 'comentar', name, post_id, texto }),
   borrarComentario: (name, id) => pedir({ accion: 'borrar_comentario', name, id }),
 

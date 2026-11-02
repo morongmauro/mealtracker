@@ -21,6 +21,7 @@ import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 're
 import { createPortal } from 'react-dom';
 import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, VideoCamera } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
+import RespuestaCoach from './RespuestaCoach.jsx';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal, recomendarAprendizaje } from './aprendizaje.js';
 import { api, hoyLocal, sumarDias, aFecha, nombreCorto, useAlVolverRed, guardadoDeEstaSemana } from './entrenoDatos.js';
@@ -576,6 +577,9 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
         {acciones.recordatorios && <BotonCristal tono={TONO_ATAJOS.dash} icono={Bell} color="#C95F17" ancho={54} badge={pendientes} rotulo="Avisos" onClick={acciones.recordatorios}>Recordatorios</BotonCristal>}
         <BotonCristal tono={TONO_ATAJOS.dash} icono={GearSix} color="#636366" ancho={54} data-abrir-config rotulo="Ajustes" onClick={() => setVista('config')}>Configuración</BotonCristal>
       </FilaCristal>
+
+      {/* El coach respondió una nota suya (Bandeja del CRM): arriba, hasta «Entendido». */}
+      <RespuestaCoach name={name} whatsapp={wa} />
 
       {/* En el navegador del teléfono (no instalada): instalarla, primero. */}
       <AvisoInstalar />

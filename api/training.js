@@ -39,6 +39,7 @@
 // Fail-safe: ante cualquier problema devuelve { ok:false } y la app muestra
 // su estado vacío. Nunca rompe la pantalla.
 
+import { verRespuestas, respuestaVista } from './_respuestas.js';
 import { actividadExtra, bonoExtra, slugDeEvento, esDespuesDeEntrenar, opcionesDeEvento, penalSinMarcar, cardioDelCoach } from './_actividad.js';
 import { guard, cors } from './_guard.js';
 import {
@@ -87,7 +88,7 @@ async function buscarCliente(nombre) {
 // que a quien ya entró no se le pide nada. Sin contraseña todavía, pasa por
 // el nombre como siempre (el CRM dice quiénes faltan). El coach, en «ver
 // como cliente», trae el pase del CRM: vale solo para LEER a ese cliente.
-const LECTURAS_PASE_CRM = new Set(['plan', 'rutina', 'mes', 'rutinas', 'catalogo', 'resumen', 'dash', 'conteo', 'medidas', 'comunidad', 'fotos', 'ausencias']);
+const LECTURAS_PASE_CRM = new Set(['plan', 'rutina', 'mes', 'rutinas', 'catalogo', 'resumen', 'dash', 'conteo', 'medidas', 'comunidad', 'fotos', 'ausencias', 'respuestas']);
 function paseValido(cliente, cuerpo, accion, nombrePedido) {
   if (cuerpo.pase) {
     const p = leerPase(String(cuerpo.pase));
@@ -171,6 +172,9 @@ export default async function handler(req, res) {
     if (!esGet && accion === 'medida') return res.status(200).json(await guardarMedida(cliente, cuerpo, hoy));
     if (!esGet && accion === 'nota') return res.status(200).json(await guardarNota(cliente, cuerpo, hoy));
     if (!esGet && accion === 'comentarios_leidos') return res.status(200).json(await marcarComentariosLeidos(cliente, cuerpo));
+    // Respuestas del coach a una nota de sesión (api/_respuestas.js).
+    if (accion === 'respuestas') return res.status(200).json(await verRespuestas(sb, cliente, hoy));
+    if (!esGet && accion === 'respuesta_vista') return res.status(200).json(await respuestaVista(sb, cliente, cuerpo));
     if (accion === 'comunidad') return res.status(200).json(await verComunidad(cliente));
     if (!esGet && accion === 'reaccionar') return res.status(200).json(await reaccionarComunidad(cliente, cuerpo));
     if (!esGet && accion === 'comunidad_visto') return res.status(200).json(await vistoComunidad(cliente, cuerpo));
