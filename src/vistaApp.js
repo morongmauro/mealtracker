@@ -50,6 +50,9 @@ export const FONDO_BLANCO_PRUEBA = ['mauro moron'];
 // Cabecera opción 1 (2 nov): fondo de luz suave y banda con luz y vidrio al
 // 85 % de transparencia. Primero a prueba en la cuenta del coach; ahora de
 // todos (CABECERAS_TODOS). Aprende la tiene igual dentro del centro.
+// Mi ciclo (ciclo menstrual): a prueba en estas cuentas (src/MiCiclo.jsx).
+export const CICLO_PRUEBA = ['mauro moron'];
+export const cicloPrueba = () => CICLO_PRUEBA.includes(normal(nombreGuardado()));
 export const CABECERAS_TODOS = true;
 export const CABECERAS_PRUEBA = ['mauro moron'];
 export const cabecerasPrueba = () => CABECERAS_TODOS || CABECERAS_PRUEBA.includes(normal(nombreGuardado()));

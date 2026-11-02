@@ -59,6 +59,7 @@ import manejarBitacora from './_bitacora.js';
 import manejarRecordatorios from './_recordatorios.js';
 import manejarUso from './_uso.js';
 import { diasAusente, ausenciaDe, leerAusencias, verAusencias, guardarAusencia, quitarAusencia, verBienestar, responderBienestar } from './_ausencias.js';
+import { verCiclo, activarCiclo, guardarCiclo } from './_ciclo.js';
 
 const CRM_URL = process.env.CRM_SUPABASE_URL;
 const CRM_KEY = process.env.CRM_SUPABASE_SERVICE_KEY;
@@ -162,6 +163,10 @@ export default async function handler(req, res) {
     if (!esGet && accion === 'ausencia_quitar') return res.status(200).json(await quitarAusencia(sb, cliente, cuerpo));
     if (accion === 'bienestar') return res.status(200).json(await verBienestar(sb, cliente, hoy, await inicioCliente(cliente)));
     if (!esGet && accion === 'bienestar_responder') return res.status(200).json(await responderBienestar(sb, cliente, cuerpo, hoy));
+    // Mi ciclo (ciclo menstrual, opcional; api/_ciclo.js).
+    if (accion === 'ciclo') return res.status(200).json(await verCiclo(sb, cliente, { desde: cuerpo.desde, hasta: cuerpo.hasta }, hoy));
+    if (!esGet && accion === 'ciclo_activar') return res.status(200).json(await activarCiclo(sb, cliente, cuerpo));
+    if (!esGet && accion === 'ciclo_guardar') return res.status(200).json(await guardarCiclo(sb, cliente, cuerpo, hoy));
     if (accion === 'medidas') return res.status(200).json(await verMedidas(cliente));
     if (!esGet && accion === 'medida') return res.status(200).json(await guardarMedida(cliente, cuerpo, hoy));
     if (!esGet && accion === 'nota') return res.status(200).json(await guardarNota(cliente, cuerpo, hoy));

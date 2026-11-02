@@ -154,6 +154,10 @@ export const api = {
   bienestar:          (name)        => pedir({ accion: 'bienestar', name }),
   bienestarResponder: (name, datos) => pedir({ accion: 'bienestar_responder', name, ...datos }),
   ausencias:          (name)        => pedir({ accion: 'ausencias', name }),
+  // Mi ciclo (ciclo menstrual, opcional).
+  ciclo:              (name, desde, hasta) => pedir({ accion: 'ciclo', name, desde, hasta }),
+  cicloActivar:       (name, activo) => pedir({ accion: 'ciclo_activar', name, activo }),
+  cicloGuardar:       (name, datos) => pedir({ accion: 'ciclo_guardar', name, ...datos }),
   ausenciaGuardar:    (name, datos) => pedir({ accion: 'ausencia_guardar', name, ...datos }),
   ausenciaQuitar:     (name, id)    => pedir({ accion: 'ausencia_quitar', name, id }),
   fotos:       (name)        => pedir({ accion: 'fotos', name }),

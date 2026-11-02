@@ -8,11 +8,13 @@
 // Oura, Whoop, Polar…, ver cuáles están conectados y desconectarlos.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
-import { Ruler, Bell, Watch, Compass, BookOpenText, WhatsappLogo, CaretRight, CaretLeft, CheckCircle, Wind, DeviceMobile, SquaresFour } from '@phosphor-icons/react';
+import { Ruler, Bell, Watch, Compass, BookOpenText, WhatsappLogo, CaretRight, CaretLeft, CheckCircle, Wind, DeviceMobile, SquaresFour, Drop } from '@phosphor-icons/react';
 import Respira from './Respira.jsx';
 import AvisoInstalar, { hayQueInstalar } from './InstalarApp.jsx';
 import { Hoja } from './entrenoUI.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
+import { HojaMiCiclo, useMiCiclo } from './MiCiclo.jsx';
+import { cicloPrueba } from './vistaApp.js';
 import { HojaUnidades, useUnidades } from './Unidades.jsx';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
 import { PRUEBA_TODOS, lote25 } from './vistaApp.js';
@@ -47,6 +49,8 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
   const [respira, setRespira] = useState(false);
   const [instalar, setInstalar] = useState(false);
   const [avisosAbiertos, setAvisosAbiertos] = useState(false);
+  const [cicloAbierto, setCicloAbierto] = useState(false);
+  const ciclo = useMiCiclo(name);
   const unidad = useUnidades();
   const [permiso, setPermiso] = useState(() => { try { return Notification.permission; } catch (e) { return 'unsupported'; } });
 
@@ -61,6 +65,8 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
       // tipo de aviso; si aún no dio permiso, desde ahí mismo lo activa.
       alTocar: lote25() && permiso !== 'unsupported' ? () => setAvisosAbiertos(true)
         : permiso === 'default' && alActivarPush ? async () => { await alActivarPush(); try { setPermiso(Notification.permission); } catch (e) { /* nada */ } } : null },
+    // Mi ciclo (a prueba): se activa aquí y se registra en el Dash.
+    ...(cicloPrueba() ? [{ id: 'ciclo', Icono: Drop, titulo: 'Mi ciclo', detalle: ciclo.activo ? 'Activado · registra cómo te sientes cada día' : 'Registra tu período, tu energía y tus molestias', alTocar: () => setCicloAbierto(true) }] : []),
     { id: 'respira', Icono: Wind, titulo: 'Respira', detalle: 'Uno, tres o cinco minutos para bajar pulsaciones', alTocar: () => setRespira(true) },
     { id: 'recorrido', Icono: Compass, titulo: 'Recorrido de la app', detalle: 'Qué hay en cada sección', alTocar: alRecorrido },
     { id: 'programa', Icono: BookOpenText, titulo: 'Sobre el programa', detalle: 'El método, tu trayecto y las dudas', alTocar: alPrograma },
@@ -104,6 +110,7 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
           comprobar si ya entró una actualización. */}
       <p data-version-app style={{ margin: '18px 4px 0', fontSize: 12.5, color: TEXT_LIGHT, textAlign: 'center' }}>{textoVersion()}</p>
       <HojaUnidades abierta={unidadesAbierta} alCerrar={() => setUnidadesAbierta(false)} />
+      {cicloPrueba() && <HojaMiCiclo abierta={cicloAbierto} alCerrar={() => setCicloAbierto(false)} name={name} Interruptor={Interruptor} />}
       <HojaAvisos abierta={avisosAbiertos} alCerrar={() => setAvisosAbiertos(false)} permiso={permiso}
         alActivar={alActivarPush ? async () => { await alActivarPush(); try { setPermiso(Notification.permission); } catch (e) { /* nada */ } } : null} />
     </div>

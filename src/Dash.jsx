@@ -41,6 +41,7 @@ const marcarBienvenida = () => { try { localStorage.setItem(CLAVE_BIENVENIDA, ne
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import TarjetaBienestar from './Bienestar.jsx';
+import { TarjetaCiclo } from './MiCiclo.jsx';
 import { enPrueba, lote25, DESVANECIDO_BORDE, verComposicion } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
 import { resumenDelMes, textoParaCoach, resumenVisto, marcarResumenVisto, resumenVistoEnServidor, marcarResumenEnServidor } from './resumenMes.js';
@@ -605,6 +606,7 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
       )}
       {/* Bienestar cada 15 días (sueño, energía, estrés): solo cuando le toca. */}
       {entrenoOn && <TarjetaBienestar name={name} />}
+      {entrenoOn && <TarjetaCiclo name={name} />}
       <Seccion>Tu semana</Seccion>
 
       {/* Protagonista 1: entrenamiento */}

@@ -37,6 +37,7 @@ import { MUSCULO_POR_SLUG } from './musculos.js';
 import Actividad, { ChipActividad, TarjetaCardioCoach, HojaCardioCoach } from './EntrenoActividad.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { AusenciasCalendario, HojaAusencia, ausenciasVigentes, motivoTexto } from './Ausencias.jsx';
+import { useMiCiclo, ROSA, ROSA_SUAVE } from './MiCiclo.jsx';
 import { IconoEvento, REGISTRO, iconoDeActividad, esDeporte } from './iconosEntreno.jsx';
 import { SoccerBall, Footprints, SneakerMove, Heartbeat, Bicycle } from '@phosphor-icons/react';
 import { v2Activa, WHATSAPP_COACH } from './v2.js';
@@ -996,6 +997,9 @@ export async function precargarMeses(nombre) {
 }
 
 function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
+  // Mi ciclo (a prueba): los días de período y de energía baja en el mes.
+  const ciclo = useMiCiclo(nombre);
+  const cicloDe = (f) => (ciclo.activo ? ciclo.registros[f] : null);
   const P = paleta(true);
   const hoy = hoyLocal();
   const lunes = lunesDeLocal(hoy);
@@ -1274,13 +1278,13 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', columnGap: 3 }}>
             {celdas.map((d, i) => d
-              ? <CeldaCal key={d.fecha} dia={d} P={P} hoy={hoy} ajeno={d.fecha.slice(0, 7) !== ym}
+              ? <CeldaCal key={d.fecha} dia={d} P={P} hoy={hoy} ajeno={d.fecha.slice(0, 7) !== ym} ciclo={cicloDe(d.fecha)}
                   sobre={arrastre && arrastre.sobre === d.fecha && arrastre.desde !== d.fecha}
                   origen={arrastre && arrastre.desde === d.fecha}
                   arrastrable={arrastrable(d)} alTocar={() => abrir(d.fecha)} />
               : <div key={`h${i}`} style={{ borderTop: '0.5px solid rgba(60,60,67,0.16)' }} />)}
           </div>
-          <LeyendaCal />
+          <LeyendaCal ciclo={ciclo.activo} />
         </div>
       )}
 
@@ -1774,7 +1778,7 @@ function ChipCal({ nombre, estado, arrastre }) {
   );
 }
 
-function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
+function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno, ciclo = null }) {
   const esHoy = dia.fecha === hoy;
   const est = estadoCal(dia, hoy);
   // Lo que hay ese día, con su ícono: cardio o deporte (persona trotando),
@@ -1791,10 +1795,10 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
   // Fuera (viaje, enfermedad…): rayado suave y el motivo; no cuenta.
   const fuera = dia.ausencia && !nom;
   return (
-    <button data-fecha={dia.fecha} data-ausente={dia.ausencia ? dia.ausencia : undefined} onClick={alTocar} style={{
+    <button data-fecha={dia.fecha} data-ausente={dia.ausencia ? dia.ausencia : undefined} data-periodo={ciclo && ciclo.periodo ? '1' : undefined} onClick={alTocar} style={{
       minHeight: 74, padding: '4px 2px 5px', cursor: 'pointer', fontFamily: 'inherit', border: 'none', borderTop: '0.5px solid rgba(60,60,67,0.16)',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 3, minWidth: 0, borderRadius: sobre ? 10 : 0,
-      background: sobre ? P.tint : dia.ausencia ? 'repeating-linear-gradient(135deg, rgba(95,102,112,.12) 0 6px, rgba(95,102,112,.04) 6px 12px)' : 'transparent', opacity: origen ? 0.45 : ajeno ? 0.5 : 1, outline: sobre ? `2px dotted ${P.base}` : 'none',
+      background: sobre ? P.tint : dia.ausencia ? 'repeating-linear-gradient(135deg, rgba(95,102,112,.12) 0 6px, rgba(95,102,112,.04) 6px 12px)' : ciclo && ciclo.periodo ? ROSA_SUAVE : 'transparent', opacity: origen ? 0.45 : ajeno ? 0.5 : 1, outline: sobre ? `2px dotted ${P.base}` : 'none',
       WebkitUserSelect: 'none', userSelect: 'none',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -1805,6 +1809,7 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
         <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {est === 'hecha' && <span data-hecha-check aria-label="Hecha" style={{ width: 13, height: 13, borderRadius: 99, background: AMARILLO_CAL, color: GRAFITO_CAL, display: 'grid', placeItems: 'center' }}><Check size={9} weight="bold" /></span>}
           {dia.inicio_ciclo && <Flag size={10} weight="fill" color={TEXT_MUTED} aria-label="Inicio de ciclo" />}
+          {ciclo && ciclo.energia === 'baja' && <span data-energia-baja aria-label="Energía baja" style={{ width: 7, height: 7, borderRadius: 99, background: ROSA }} />}
         </span>
       </div>
       {nom && <ChipCal nombre={nom} estado={est} arrastre={dia.rutina ? arrastrable : null} />}
@@ -1819,7 +1824,7 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
   );
 }
 
-function LeyendaCal() {
+function LeyendaCal({ ciclo = false }) {
   const item = (muestra, texto) => <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>{muestra}{texto}</span>;
   const caja = (st) => <span style={{ width: 14, height: 10, borderRadius: 3, ...st }} />;
   const icono = (I, c) => <I size={13} weight="bold" color={c} />;
@@ -1848,6 +1853,10 @@ function LeyendaCal() {
       {grupo('Otros', <>
         {item(icono(Bascula, PUNTO.registro), 'Peso / fotos')}
         {item(icono(CurrencyDollar, AMBAR_PAGO), 'Pago')}
+      </>)}
+      {ciclo && grupo('Mi ciclo', <>
+        {item(caja({ background: ROSA_SUAVE }), 'Período')}
+        {item(<span style={{ width: 8, height: 8, borderRadius: 99, background: ROSA }} />, 'Energía baja')}
       </>)}
     </div>
   );
