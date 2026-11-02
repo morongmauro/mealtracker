@@ -21,10 +21,13 @@ const TOPE_RECETAS = 40;
 // fila del día (secciones.respira), sin tabla nueva.
 const TOPE_RESPIRA = 20;
 const MES_OK = (m) => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m);
+// Ficha del ejercicio: { h: 'HH:MM', e: id del ejercicio, n: su nombre }, en secciones.fichas.
+const TOPE_FICHAS = 40;
+const fichaValida = (x) => x && /^\d{2}:\d{2}$/.test(String(x.h || '')) && (x.e || x.n);
 const respiraValida = (x) => x && /^\d{2}:\d{2}$/.test(String(x.h || '')) && Number.isFinite(+x.s) && +x.s >= 0 && +x.s <= 3600;
 
 // La fila del día con lo nuevo sumado (función pura: la prueba la usa).
-export function fusionarUso(ex, { secciones = [], recetas = [], respira = [], resumen = null }) {
+export function fusionarUso(ex, { secciones = [], recetas = [], respira = [], resumen = null, fichas = [] }) {
   const s = { ...((ex && ex.secciones) || {}) };
   // El resumen del mes ya se le mostró (AAAA-MM del mes resumido): así no
   // vuelve a salir aunque abra la app en otro teléfono o en el navegador.
@@ -33,6 +36,8 @@ export function fusionarUso(ex, { secciones = [], recetas = [], respira = [], re
   const nuevas = (Array.isArray(respira) ? respira : []).filter(respiraValida)
     .map(x => ({ h: String(x.h), s: Math.round(+x.s), m: [1, 3, 5].includes(+x.m) ? +x.m : null, o: corto(x.o, 20) || null }));
   if (nuevas.length) s.respira = [...(Array.isArray(s.respira) ? s.respira : []), ...nuevas].slice(-TOPE_RESPIRA);
+  const nf = (Array.isArray(fichas) ? fichas : []).filter(fichaValida).map(x => ({ h: String(x.h), e: corto(x.e, 40) || null, n: corto(x.n, 80) || null }));
+  if (nf.length) s.fichas = [...(Array.isArray(s.fichas) ? s.fichas : []), ...nf].slice(-TOPE_FICHAS);
   const r = [...((ex && Array.isArray(ex.recetas)) ? ex.recetas : [])];
   recetas.map(x => corto(x, 120).trim()).filter(Boolean).forEach(x => { if (!r.includes(x) && r.length < TOPE_RECETAS) r.push(x); });
   return { secciones: s, recetas: r };
@@ -61,7 +66,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, visto: Array.isArray(filas) && filas.length > 0 });
     } catch (e) { return res.status(200).json({ ok: false }); }
   }
-  const nuevo = { resumen: MES_OK(b.resumen) ? b.resumen : null, secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10), respira: (Array.isArray(b.respira) ? b.respira : []).slice(0, 3) };
+  const nuevo = { resumen: MES_OK(b.resumen) ? b.resumen : null, secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10), respira: (Array.isArray(b.respira) ? b.respira : []).slice(0, 3), fichas: (Array.isArray(b.fichas) ? b.fichas : []).slice(0, 3) };
   try {
     const r = await fetch(`${tabla}?clave=eq.${encodeURIComponent(clave)}&fecha=eq.${b.hoy}&select=id,secciones,recetas`, { headers: H() });
     if (!r.ok) return res.status(200).json({ ok: false, sinTabla: r.status === 404 });

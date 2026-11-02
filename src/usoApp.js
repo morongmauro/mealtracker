@@ -66,3 +66,23 @@ export function usoRespira({ segundos, minutos, origen }) {
   } catch (e) { /* nada */ }
 }
 export const usoReceta = (nombreReceta) => anotar('r', String(nombreReceta || '').slice(0, 120));
+
+// Ficha del ejercicio: cada vez que la abre (para el coach: quién mira la
+// técnica y con qué frecuencia). La misma ficha dentro de un minuto cuenta
+// una sola vez.
+let ultimaFicha = { id: null, t: 0 };
+export function usoFicha(ejercicio) {
+  if (!ejercicio || enVerComo()) return;
+  const id = String(ejercicio.id || '');
+  if (ultimaFicha.id === id && Date.now() - ultimaFicha.t < 60000) return;
+  ultimaFicha = { id, t: Date.now() };
+  const name = nombre();
+  if (!name) return;
+  const d = new Date();
+  const h = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const n = String(ejercicio.nombre || '').slice(0, 80);
+  try {
+    fetch('/api/uso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ name, user_id: usuario(), hoy: hoyLocal(), fichas: [{ h, e: id.slice(0, 40), n }] }) }).catch(() => {});
+  } catch (e) { /* nada */ }
+}

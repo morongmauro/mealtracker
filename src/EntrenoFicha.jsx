@@ -17,7 +17,8 @@
 import React, { useState } from 'react';
 import { Info } from '@phosphor-icons/react';
 import { Hoja, Chip, Card, TEXT, TEXT_MUTED, TEXT_LIGHT, SURFACE_2, BORDER_SOFT, ACCENT_DARK } from './entrenoUI.jsx';
-import FiguraMusculos from './FiguraMusculos.jsx';
+import FiguraMusculos, { LeyendaMusculos } from './FiguraMusculos.jsx';
+import { usoFicha } from './usoApp.js';
 import { v2Activa, nombresEj } from './v2.js';
 import { lote25 } from './vistaApp.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
@@ -33,6 +34,8 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
   // El componente se desmonta al cerrar, pero por si acaso: cambiar de
   // ejercicio con el video abierto no debe heredar el reproductor anterior.
   React.useEffect(() => { setVerVideo(false); setVerCaracs(v2Activa()); }, [item?.ejercicio?.id]);
+  // Para el coach (Enganche en el CRM): cada vez que abre la ficha.
+  React.useEffect(() => { if (abierto && item?.ejercicio) usoFicha(item.ejercicio); }, [abierto, item?.ejercicio?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const e = item?.ejercicio;
   if (!e) return null;
@@ -40,6 +43,7 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
   const thumb = miniatura(e);
   const video = urlVideo(e);
   const claves = e.claves_tecnicas || [];
+  const errores = e.errores_tecnicos || [];
   const tieneMusculos = !!(e.musculos_primarios?.length || e.musculos_secundarios?.length);
   const caracs = [
     ['Patrón', LABEL.patron[e.patron]],
@@ -150,9 +154,58 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
       </div>
       )}
 
+      {/* ── Visual nueva: qué trabaja (texto a la izquierda, figura a la
+          derecha) y debajo cómo hacerlo bien y los errores comunes. ── */}
+      {v2Activa() && (tieneMusculos || caracs.length > 0) && (
+        <div data-ficha-trabaja style={{ display: 'flex', gap: 12, marginTop: 16, alignItems: 'flex-start' }}>
+          <div style={{ flex: '1 1 0', minWidth: 0 }}>
+            {tieneMusculos && <LeyendaMusculos primarios={e.musculos_primarios || []} secundarios={e.musculos_secundarios || []} />}
+            {caracs.length > 0 && (
+              <dl style={{ margin: '12px 0 0', display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '5px 10px', fontSize: 13.5 }}>
+                {caracs.filter(([k]) => ['Patrón', 'Tipo', 'Equipo'].includes(k)).map(([k, v]) => (
+                  <React.Fragment key={k}><dt style={{ color: TEXT_LIGHT }}>{k}</dt><dd style={{ margin: 0, color: TEXT }}>{v}</dd></React.Fragment>
+                ))}
+              </dl>
+            )}
+          </div>
+          {tieneMusculos && (
+            <div style={{ flex: 'none', width: 150 }}>
+              <FiguraMusculos primarios={e.musculos_primarios || []} secundarios={e.musculos_secundarios || []} alto={178} leyenda={false} separacion={8} />
+            </div>
+          )}
+        </div>
+      )}
+      {/* ── Cómo hacerlo bien (visual nueva): las claves (lo que sí) y los
+          posibles errores (lo que no), en una sola tarjeta separadas por una
+          línea. Títulos en minúscula, como el resto de la app. ── */}
+      {v2Activa() && (claves.length > 0 || errores.length > 0) && (
+        <div data-ficha-tecnica style={{ marginTop: 14, background: '#fff', borderRadius: 18, padding: '12px 14px', boxShadow: '0 1px 2px rgba(40,40,30,.04), 0 6px 16px rgba(60,60,40,.06)' }}>
+          {claves.length > 0 && (
+            <div data-ficha-claves>
+              <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, marginBottom: 6 }}>Cómo hacerlo bien</div>
+              {claves.map((c, i) => (
+                <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 14.5, lineHeight: 1.35, padding: '4px 0', color: TEXT }}>
+                  <span aria-hidden="true" style={{ flex: 'none', width: 18, height: 18, borderRadius: 99, background: 'rgba(70,150,90,.14)', color: '#2F7F45', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, marginTop: 1 }}>✓</span>{c}
+                </div>
+              ))}
+            </div>
+          )}
+          {errores.length > 0 && (
+            <div data-ficha-errores style={claves.length ? { borderTop: `1px solid ${BORDER_SOFT}`, marginTop: 10, paddingTop: 10 } : null}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: TEXT, marginBottom: 6 }}>Errores comunes</div>
+              {errores.map((c, i) => (
+                <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 14.5, lineHeight: 1.35, padding: '4px 0', color: TEXT }}>
+                  <span aria-hidden="true" style={{ flex: 'none', width: 18, height: 18, borderRadius: 99, background: '#FDE2DF', color: '#C0392B', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, marginTop: 1 }}>✕</span>{c}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Características ── (visual nueva: abiertas, con el cuerpo y los
           músculos que trabaja marcados, grande y a lo ancho) */}
-      {(caracs.length > 0 || (v2Activa() && tieneMusculos)) && (
+      {!v2Activa() && caracs.length > 0 && (
         <div style={{ marginTop: 18, borderTop: `1px solid ${BORDER_SOFT}`, paddingTop: 12 }}>
           <button onClick={() => setVerCaracs(v => !v)} style={{
             border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',

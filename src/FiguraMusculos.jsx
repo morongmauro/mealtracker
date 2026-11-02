@@ -108,7 +108,8 @@ function CaraV2({ formas, lineas, prim, sec, titulo, idClip, etiqueta }) {
     <figure style={{ margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, height: '100%' }}>
       {etiqueta && (
         <figcaption data-cara-figura style={{
-          fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#3A3A3C', background: '#F2F2F4', borderRadius: 999, padding: '4px 10px', lineHeight: 1.2, flex: 'none',
+          fontSize: 12, fontWeight: 700,
+          color: '#3A3A3C', background: '#F2F2F4', borderRadius: 999, padding: '3px 9px', lineHeight: 1.2, flex: 'none',
         }}>{titulo}</figcaption>
       )}
       <svg viewBox="0 0 100 205" role="img" aria-label={titulo}
@@ -134,7 +135,7 @@ let _seq = 0;
 // por defecto sigue a `cara`.
 export default function FiguraMusculos({
   primarios = [], secundarios = [], cara = 'ambas', leyenda = true, alto = 150,
-  etiquetas = null,
+  etiquetas = null, separacion = null,
 }) {
   const p = useMemo(() => (primarios || []).filter(Boolean), [primarios]);
   const s = useMemo(
@@ -156,7 +157,7 @@ export default function FiguraMusculos({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: v2 ? 28 : 14, height: alto }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: separacion ?? (v2 ? 28 : 14), height: alto }}>
         {v2 ? (
           <>
             {cara !== 'espalda' && (
@@ -208,9 +209,15 @@ export default function FiguraMusculos({
 const nombreMusculo = (x) => (x === 'erectores' ? MUSCULO_POR_SLUG[x].corto : MUSCULO_POR_SLUG[x]?.nombre)
   || String(x).replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
 
-const Pildoras = ({ titulo, lista, punto, fondo }) => (
-  <div style={{ marginTop: 10 }}>
-    <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#737373', marginBottom: 6 }}>{titulo}</div>
+// La lista de músculos sola (la ficha la pone al lado de la figura).
+export function LeyendaMusculos({ primarios = [], secundarios = [] }) {
+  const p = (primarios || []).filter(Boolean); const s = (secundarios || []).filter(Boolean).filter(x => !p.includes(x));
+  return (<div data-leyenda-musculos>{!!p.length && <Pildoras titulo="Trabaja" lista={p} punto={V2.prim} fondo="#FDE6D3" primero />}{!!s.length && <Pildoras titulo="Ayudan" lista={s} punto={V2.sec} fondo="#F2F2F4" />}</div>);
+}
+
+const Pildoras = ({ titulo, lista, punto, fondo, primero }) => (
+  <div style={{ marginTop: primero ? 0 : 10 }}>
+    <div style={{ fontSize: 13, fontWeight: 700, color: '#737373', marginBottom: 6 }}>{titulo}</div>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
       {lista.map(x => (
         <span key={x} data-pildora-musculo={x} style={{
