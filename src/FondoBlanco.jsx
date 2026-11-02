@@ -135,28 +135,19 @@ export function entrarContenido(el) {
 
 // ── Cabeceras a prueba (solo cabecerasPrueba()): cada módulo con su
 // propuesta, encima de la de siempre, para compararlas.
-//   Dash · A + banda 90 % transparente con vidrio · Entreno · B manchas aurora
-//   Alimentación · A + banda 90 % transparente sin vidrio · Aprende · D degradado con luz y textura
+//   Opción elegida (1): fondo A + banda con luz y vidrio al 85 % de
+//   transparencia, en los cuatro módulos.
 const VELO = (x) => `linear-gradient(180deg, rgba(252,252,253,${x}) 0%, rgba(252,252,253,${x}) 60%, rgba(252,252,253,0) 100%)`;
-const RUIDO = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")`;
-const cab = (m) => `[data-cabecera-hoy="${m}"]`;
+// Con html[data-fondo-blanco] delante: así gana a las reglas de la banda de
+// siempre (que llevan ese mismo prefijo).
+const cab = (m) => `html[data-fondo-blanco] [data-cabecera-hoy="${m}"]`;
 const CSS_CABECERAS = [
   ...Object.entries(COLORES_MODULO).map(([m, c]) => `${cab(m)}{--hp:${c.p};--hq:${c.q};isolation:isolate}`),
-  `[data-cabecera-hoy]::after{content:'';position:absolute;z-index:-1;pointer-events:none;left:calc(50% - 50vw);width:100vw;top:-140px;height:calc(100% + 220px);-webkit-mask-image:linear-gradient(180deg,#000 0,#000 52%,transparent 100%);mask-image:linear-gradient(180deg,#000 0,#000 52%,transparent 100%)}`,
-  // Dash · fondo A (luz suave) + la banda al 90 % de transparencia, con luz y vidrio
-  `${cab('dash')}>[data-banda]{opacity:1!important;border-top-color:rgba(var(--hp),.10)!important;background:linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(255,255,255,.22) 70%, rgba(255,255,255,.35) 100%), linear-gradient(180deg, rgba(var(--hp),.10) 0%, rgba(var(--hp),.10) 100%)!important;-webkit-backdrop-filter:blur(18px) saturate(1.5)!important;backdrop-filter:blur(18px) saturate(1.5)!important;box-shadow:inset 0 -1.5px 0 rgba(255,255,255,.9), inset 0 -10px 18px rgba(255,255,255,.35)}`,
-  `${cab('dash')}::after{background:radial-gradient(75% 260px at 12% 60px, rgba(255,255,255,.95), rgba(255,255,255,0) 72%),radial-gradient(70% 260px at 100% 40px, rgba(var(--hp),.20), rgba(var(--hp),0) 72%),${VELO(0.5)}}`,
-  // B · Entreno
-  `${cab('entreno')}>[data-banda]{opacity:0!important;border-top-color:transparent!important}`,
-  `${cab('entreno')} .cab-m{opacity:0!important}`,
-  `${cab('entreno')}::after{filter:blur(10px);background:radial-gradient(60% 250px at 92% 120px, rgba(var(--hp),.30), rgba(var(--hp),0) 72%),radial-gradient(55% 220px at 4% 330px, rgba(var(--hq),.26), rgba(var(--hq),0) 72%),radial-gradient(45% 180px at 40% 40px, rgba(var(--hp),.12), rgba(var(--hp),0) 72%),${VELO(0.6)}}`,
-  // Alimentación · fondo A (luz suave) + la banda al 90 % de transparencia, con luz y sin vidrio
-  `${cab('comida')}>[data-banda]{opacity:1!important;border-top-color:rgba(var(--hp),.10)!important;background:linear-gradient(180deg, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 100%), linear-gradient(180deg, rgba(var(--hp),.10) 0%, rgba(var(--hp),.10) 100%)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}`,
-  `${cab('comida')}::after{background:radial-gradient(75% 260px at 12% 60px, rgba(255,255,255,.95), rgba(255,255,255,0) 72%),radial-gradient(70% 260px at 100% 40px, rgba(var(--hp),.20), rgba(var(--hp),0) 72%),${VELO(0.5)}}`,
-  // D · Aprende
-  `${cab('aprende')}>[data-banda]{opacity:0!important;border-top-color:transparent!important}`,
-  `${cab('aprende')} .cab-m{opacity:0!important}`,
-  `${cab('aprende')}::after{background:${RUIDO},radial-gradient(55% 220px at 80% 90px, rgba(255,255,255,.85), rgba(255,255,255,0) 70%),linear-gradient(165deg, rgba(var(--hp),.24) 0%, rgba(var(--hq),.12) 55%, rgba(var(--hq),0) 90%),${VELO(0.55)}}`,
+  `html[data-fondo-blanco] [data-cabecera-hoy]::after{content:'';position:absolute;z-index:-1;pointer-events:none;left:calc(50% - 50vw);width:100vw;top:-140px;height:calc(100% + 220px);-webkit-mask-image:linear-gradient(180deg,#000 0,#000 52%,transparent 100%);mask-image:linear-gradient(180deg,#000 0,#000 52%,transparent 100%)}`,
+  // Todos los módulos · fondo A (luz suave) + la banda de arriba con luz y
+  // vidrio, su color al 85 % de transparencia (opción 1).
+  `html[data-fondo-blanco] [data-cabecera-hoy]>[data-banda]{opacity:1!important;border-top-color:rgba(var(--hp),.15)!important;background:linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(255,255,255,.22) 70%, rgba(255,255,255,.35) 100%), linear-gradient(180deg, rgba(var(--hp),.15) 0%, rgba(var(--hp),.15) 100%)!important;-webkit-backdrop-filter:blur(18px) saturate(1.5)!important;backdrop-filter:blur(18px) saturate(1.5)!important;box-shadow:inset 0 -1.5px 0 rgba(255,255,255,.9), inset 0 -10px 18px rgba(255,255,255,.35)}`,
+  `html[data-fondo-blanco] [data-cabecera-hoy]::after{background:radial-gradient(75% 260px at 12% 60px, rgba(255,255,255,.95), rgba(255,255,255,0) 72%),radial-gradient(70% 260px at 100% 40px, rgba(var(--hp),.20), rgba(var(--hp),0) 72%),${VELO(0.5)}}`,
 ].join('\n');
 
 export default function EstiloFondoBlanco({ activo, prueba = false, l25 = false }) {
