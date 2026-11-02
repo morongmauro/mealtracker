@@ -19,5 +19,15 @@ caso('las recetas que cocinó salen de lo que registró desde una receta (28 dí
   const r = recetasDe({ recetario_menus: [1, 2], favorites: [1], historyDetail: { '2026-10-30': [{ rawInput: 'receta: Bowl burrito de pollo' }, { rawInput: 'huevos' }], '2026-09-01': [{ rawInput: 'receta: Vieja' }] }, today: '2026-11-01', today_entries: [{ rawInput: 'receta: Huevos con atún' }] }, '2026-11-01');
   igual(r, { menus_creados: 2, favoritos: 1, recetas_registradas: [{ fecha: '2026-10-30', nombre: 'Bowl burrito de pollo' }, { fecha: '2026-11-01', nombre: 'Huevos con atún' }] }, 'recetas');
 });
+caso('Respira: cada vez que la termina suma una entrada (hora, segundos, minutos y desde dónde)', () => {
+  let f = fusionarUso({ secciones: { dash: 1 }, recetas: [] }, { respira: [{ h: '07:10', s: 180, m: 3, o: 'fin-entreno' }] });
+  f = fusionarUso(f, { respira: [{ h: '21:05', s: 61.4, m: 1, o: 'dash' }, { h: 'mal', s: 20 }, { h: '22:00', s: 99999 }] });
+  igual(f.secciones, { dash: 1, respira: [{ h: '07:10', s: 180, m: 3, o: 'fin-entreno' }, { h: '21:05', s: 61, m: 1, o: 'dash' }] }, 'respira');
+});
+caso('Respira: como mucho 20 por día', () => {
+  let f = null;
+  for (let i = 0; i < 25; i++) f = fusionarUso(f, { respira: [{ h: '10:00', s: 60, m: 1 }] });
+  igual(f.secciones.respira.length, 20, 'tope');
+});
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);

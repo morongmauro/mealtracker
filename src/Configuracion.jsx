@@ -69,7 +69,7 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
 
   return (
     <div data-configuracion style={{ paddingTop: arriba }}>
-      {respira && <Respira alCerrar={() => setRespira(false)} />}
+      {respira && <Respira alCerrar={() => setRespira(false)} origen="dash" />}
       {instalar && <Hoja abierta alCerrar={() => setInstalar(false)} titulo="Configuración · Instalar la app" alto="70vh" tono="dash"><AvisoInstalar enHoja /></Hoja>}
       <CabeceraHoy tema="dash" fondo={false} voz={{ etiqueta: 'CONFIGURACIÓN', a: 'Tu app,', b: 'a tu manera.' }} />
       {vistaApp && <ElegirVista modo={vistaApp.modo || (vistaApp.compacta ? 'compacta' : 'completa')} alCambiar={vistaApp.cambiar} />}

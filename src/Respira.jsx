@@ -7,13 +7,15 @@
 // amarillo en la punta. En cada cambio, una vibración corta (en los
 // teléfonos que la permiten).
 //
-// No guarda nada: ni registros ni rachas. Es para usarla y ya.
+// No lleva rachas ni metas. Solo le cuenta al coach (Enganche, en el CRM)
+// que la hizo: cuándo, cuánto y desde dónde (usoApp.js).
 // Se abre desde el Dash («Respira»), al terminar la rutina («¿Bajamos
 // pulsaciones?») y en los días de descanso.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from '@phosphor-icons/react';
+import { usoRespira } from './usoApp.js';
 import { FondoManchas, GRAFITO, AMARILLO, GRIS_TXT } from './VentanaMarca.jsx';
 
 const INHALA = 4000, EXHALA = 6000, CICLO = INHALA + EXHALA;
@@ -35,12 +37,20 @@ const CSS = `
 const vibrar = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { /* nada */ } };
 const reloj = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
-export default function Respira({ alCerrar, inicial = 1, titulo = 'Respira' }) {
+export default function Respira({ alCerrar, inicial = 1, titulo = 'Respira', origen = null }) {
   const [min, setMin] = useState(OPCIONES.includes(inicial) ? inicial : 1);
   const [estado, setEstado] = useState('elegir');   // elegir | anda | fin
   const [ahora, setAhora] = useState(0);
   const desde = useRef(0);
   const total = min * 60 * 1000;
+  // Al terminar (completa o con «Terminar»), se cuenta una vez.
+  const contada = useRef(false);
+  useEffect(() => {
+    if (estado !== 'fin' || contada.current) return;
+    contada.current = true;
+    const hecho = Math.min(total, desde.current ? Date.now() - desde.current : 0);
+    usoRespira({ segundos: hecho / 1000, minutos: min, origen });
+  }, [estado]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (estado !== 'anda') return;

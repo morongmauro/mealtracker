@@ -17,8 +17,9 @@ import { enPrueba } from './vistaApp.js';
 const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.07)';
 
 // ── La barra ───────────────────────────────────────────────────────────────
-// activa: 'entreno' | 'comida' | 'mas'
-export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, oculta, entrenoOn = true }) {
+// activa: 'entreno' | 'comida' | 'mas'. Estando en Comida, el botón se abre
+// en «Chat | Recetas» (como en la vista completa): `comidaSub` dice cuál.
+export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, oculta, entrenoOn = true, comidaSub = 'chat', alChat, alRecetas }) {
   const items = [
     ...(entrenoOn ? [{ id: 'entreno', label: 'Entreno', Icono: Barbell, tinta: SECCION.entreno.tint, color: SECCION.entreno.ink, alTocar: alEntreno }] : []),
     { id: 'comida', label: 'Comida', Icono: ForkKnife, tinta: SECCION.comida.tint, color: SECCION.comida.ink, alTocar: alComida },
@@ -58,6 +59,22 @@ export function BarraCompacta({ activa, alEntreno, alComida, alMas, barRef, ocul
       }}>
         {items.map(({ id, label, Icono, tinta, color, alTocar }) => {
           const on = activa === id;
+          if (id === 'comida' && on && alChat && alRecetas) {
+            const pill = (k, t, fn) => (
+              <button key={k} type="button" data-comida-sub={k} data-activo={comidaSub === k ? '1' : '0'} aria-current={comidaSub === k ? 'page' : undefined} onClick={fn}
+                style={{ border: 'none', cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '0 13px', height: P ? 44 : 42,
+                  fontSize: 15, fontWeight: 800, color, background: comidaSub === k ? '#FFFFFF' : 'transparent',
+                  boxShadow: comidaSub === k ? '0 2px 8px rgba(0,0,0,0.08)' : 'none', WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>{t}</button>
+            );
+            return (
+              <div key={id} data-compacta-boton="comida" data-activo="1" style={{ flex: 1.7, height: P ? 54 : 52, borderRadius: 999, background: tinta, color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '0 5px' }}>
+                <Icono size={20} weight="fill" style={{ flex: 'none', margin: '0 3px 0 4px' }} />
+                {pill('chat', 'Chat', alChat)}
+                {pill('recetas', 'Recetas', alRecetas)}
+              </div>
+            );
+          }
           return (
             <button key={id} data-compacta-boton={id} data-activo={on ? '1' : '0'} onClick={alTocar} aria-label={label} aria-current={on ? 'page' : undefined}
               style={{

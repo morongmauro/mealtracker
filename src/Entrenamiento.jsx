@@ -1858,7 +1858,7 @@ function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
           </div>
         )}
       </Reconocimiento>
-      {respira && <div onClick={e => e.stopPropagation()}><Respira titulo="Bajamos pulsaciones" alCerrar={() => setRespira(false)} /></div>}
+      {respira && <div onClick={e => e.stopPropagation()}><Respira titulo="Bajamos pulsaciones" origen="fin-entreno" alCerrar={() => setRespira(false)} /></div>}
     </>
   );
 }

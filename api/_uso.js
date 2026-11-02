@@ -16,10 +16,19 @@ const esDia = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
 export const SECCIONES_USO = ['dash', 'entreno', 'comida', 'recetas', 'aprende', 'comunidad', 'chat'];
 const TOPE_RECETAS = 40;
 
+// Respira: cada vez que la termina se guarda una entrada { h: 'HH:MM',
+// s: segundos, m: minutos elegidos, o: desde dónde } dentro de la misma
+// fila del día (secciones.respira), sin tabla nueva.
+const TOPE_RESPIRA = 20;
+const respiraValida = (x) => x && /^\d{2}:\d{2}$/.test(String(x.h || '')) && Number.isFinite(+x.s) && +x.s >= 0 && +x.s <= 3600;
+
 // La fila del día con lo nuevo sumado (función pura: la prueba la usa).
-export function fusionarUso(ex, { secciones = [], recetas = [] }) {
+export function fusionarUso(ex, { secciones = [], recetas = [], respira = [] }) {
   const s = { ...((ex && ex.secciones) || {}) };
   secciones.filter(x => SECCIONES_USO.includes(x)).forEach(x => { s[x] = 1; });
+  const nuevas = (Array.isArray(respira) ? respira : []).filter(respiraValida)
+    .map(x => ({ h: String(x.h), s: Math.round(+x.s), m: [1, 3, 5].includes(+x.m) ? +x.m : null, o: corto(x.o, 20) || null }));
+  if (nuevas.length) s.respira = [...(Array.isArray(s.respira) ? s.respira : []), ...nuevas].slice(-TOPE_RESPIRA);
   const r = [...((ex && Array.isArray(ex.recetas)) ? ex.recetas : [])];
   recetas.map(x => corto(x, 120).trim()).filter(Boolean).forEach(x => { if (!r.includes(x) && r.length < TOPE_RECETAS) r.push(x); });
   return { secciones: s, recetas: r };
@@ -34,7 +43,7 @@ export default async function handler(req, res) {
   const user_id = isUuid(b.user_id) ? b.user_id : null;
   const clave = user_id || (name ? `n:${name}` : null);
   if (!clave || !esDia(b.hoy)) return res.status(200).json({ ok: false, error: 'sin cliente o sin día' });
-  const nuevo = { secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10) };
+  const nuevo = { secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10), respira: (Array.isArray(b.respira) ? b.respira : []).slice(0, 3) };
   const tabla = `${SUPABASE_URL}/rest/v1/app_uso`;
   try {
     const r = await fetch(`${tabla}?clave=eq.${encodeURIComponent(clave)}&fecha=eq.${b.hoy}&select=id,secciones,recetas`, { headers: H() });

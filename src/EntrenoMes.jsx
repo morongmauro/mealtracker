@@ -37,8 +37,8 @@ import { MUSCULO_POR_SLUG } from './musculos.js';
 import Actividad, { ChipActividad, TarjetaCardioCoach, HojaCardioCoach } from './EntrenoActividad.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { AusenciasCalendario, HojaAusencia, ausenciasVigentes, motivoTexto } from './Ausencias.jsx';
-import { IconoEvento, REGISTRO, iconoDeActividad, Caminadora } from './iconosEntreno.jsx';
-import { PersonSimpleWalk, SoccerBall } from '@phosphor-icons/react';
+import { IconoEvento, REGISTRO, iconoDeActividad, esDeporte } from './iconosEntreno.jsx';
+import { SoccerBall, Footprints, SneakerMove, Heartbeat, Bicycle } from '@phosphor-icons/react';
 import { v2Activa, WHATSAPP_COACH } from './v2.js';
 import { SECCION } from './theme.js';
 import { Card, Boton, Titulo, Hoja, Cargando, Fallo, Marca, MARCAS,
@@ -1490,7 +1490,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegi
             }}><Wind size={17} weight="fill" /> Respira unos minutos</button>
           </div>
         )}
-        {respira && <Respira alCerrar={() => setRespira(false)} inicial={3} />}
+        {respira && <Respira alCerrar={() => setRespira(false)} inicial={3} origen="descanso" />}
 
         {/* «También hoy»: todo lo demás que dejó el coach para hoy, debajo
             de la fuerza (que sigue siendo lo primero que se ve): los bloques
@@ -1655,12 +1655,12 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
         {dia?.eventos.filter(e => !e.registra).map(e => (
           <div key={e.id} data-evento={e.tipo} onClick={e.tipo === 'actividad' ? directo(alEvento && (() => alEvento(e))) : undefined}
             style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: TEXT_MUTED, cursor: e.tipo === 'actividad' ? 'pointer' : undefined }}>
-            {e.tipo === 'actividad' ? React.createElement(iconoDeActividad(e), { size: 16, color: PUNTO.cardio, weight: 'bold' }) : <IconoEvento tipo={e.tipo} size={16} />} <span style={{ minWidth: 0 }}>{e.hora ? `${String(e.hora).slice(0, 5)} · ` : ''}{e.titulo}</span>
+            {e.tipo === 'actividad' ? React.createElement(iconoDeActividad(e), { size: 16, color: colorAct(e), weight: 'bold' }) : <IconoEvento tipo={e.tipo} size={16} />} <span style={{ minWidth: 0 }}>{e.hora ? `${String(e.hora).slice(0, 5)} · ` : ''}{e.titulo}</span>
           </div>
         ))}
         {dia?.actividades.map(a => (
           <div key={a.id} style={{ fontSize: 13.5, color: TEXT_MUTED, display: 'flex', alignItems: 'center', gap: 6 }}>
-            {React.createElement(iconoDeActividad(a), { size: 16, color: PUNTO.cardio, weight: 'bold' })} {a.titulo || a.tipo}{a.duracion_min ? ` · ${a.duracion_min} min` : ''}
+            {React.createElement(iconoDeActividad(a), { size: 16, color: colorAct(a), weight: 'bold' })} {a.titulo || a.tipo}{a.duracion_min ? ` · ${a.duracion_min} min` : ''}
           </div>
         ))}
         {/* Un aviso, no un botón: sin la píldora rellena (se confundía con
@@ -1713,7 +1713,9 @@ const flechaCal = {
   background: 'radial-gradient(circle, rgba(118,118,128,0.12) 0 16.5px, rgba(118,118,128,0) 17px)',
   display: 'grid', placeItems: 'center',
 };
-const PUNTO = { cardio: '#46965A', registro: '#AF52DE', pago: AMARILLO_CAL };
+const PUNTO = { cardio: '#46965A', deporte: '#EE8434', registro: '#AF52DE', pago: AMARILLO_CAL };
+// Cardio en verde, deportes en naranja.
+const colorAct = (a) => (esDeporte(a) ? PUNTO.deporte : PUNTO.cardio);
 
 function Segmentado({ valor, alCambiar, opciones }) {
   return (
@@ -1736,9 +1738,9 @@ function Segmentado({ valor, alCambiar, opciones }) {
 // el cliente), cada uno con su ícono y sin repetir.
 function iconosActividad(dia) {
   const out = [];
-  const meter = (I, t) => { if (!out.some(x => x.I === I)) out.push({ I, t }); };
-  (dia?.eventos || []).filter(e => e.tipo === 'actividad').forEach(e => meter(iconoDeActividad(e), e.titulo));
-  (dia?.actividades || []).forEach(a => meter(iconoDeActividad(a), a.titulo || a.tipo));
+  const meter = (I, t, c) => { if (!out.some(x => x.I === I)) out.push({ I, t, c }); };
+  (dia?.eventos || []).filter(e => e.tipo === 'actividad').forEach(e => meter(iconoDeActividad(e), e.titulo, colorAct(e)));
+  (dia?.actividades || []).forEach(a => meter(iconoDeActividad(a), a.titulo || a.tipo, colorAct(a)));
   return out;
 }
 
@@ -1781,7 +1783,7 @@ function CeldaCal({ dia, P, hoy, sobre, origen, arrastrable, alTocar, ajeno }) {
   // bici…), sin repetir el mismo dos veces; si no caben en una fila, la
   // casilla crece.
   const marcas = [
-    ...iconosActividad(dia).map((m, i) => ({ k: `act${i}`, I: m.I, c: PUNTO.cardio, t: m.t })),
+    ...iconosActividad(dia).map((m, i) => ({ k: `act${i}`, I: m.I, c: m.c || PUNTO.cardio, t: m.t })),
     dia.eventos.some(e => e.registra) && { k: 'registro', I: Bascula, c: PUNTO.registro, t: 'Peso / fotos' },
     dia.corte_pago && { k: 'pago', I: CurrencyDollar, c: AMBAR_PAGO, t: 'Pago' },
   ].filter(Boolean);
@@ -1837,10 +1839,11 @@ function LeyendaCal() {
         {item(caja({ outline: `1.5px dashed ${GRAFITO_CAL}`, outlineOffset: -1.5 }), 'Movida o añadida por ti')}
       </>)}
       {grupo('Actividad extra', <>
-        {item(icono(Caminadora, PUNTO.cardio), 'Cardio tras entrenar')}
-        {item(icono(PersonSimpleWalk, PUNTO.cardio), 'Caminata')}
-        {item(icono(PersonSimpleRun, PUNTO.cardio), 'Running')}
-        {item(icono(SoccerBall, PUNTO.cardio), 'Deporte')}
+        {item(icono(Heartbeat, PUNTO.cardio), 'Cardio tras entrenar o en máquina')}
+        {item(icono(Footprints, PUNTO.cardio), 'Caminata')}
+        {item(icono(SneakerMove, PUNTO.cardio), 'Trote')}
+        {item(icono(Bicycle, PUNTO.cardio), 'Bici')}
+        {item(icono(SoccerBall, PUNTO.deporte), 'Deporte')}
       </>)}
       {grupo('Otros', <>
         {item(icono(Bascula, PUNTO.registro), 'Peso / fotos')}
@@ -1858,9 +1861,9 @@ function FilaSemanaCal({ primera, fecha, etiqueta, dia, P, hoy, fase, ejercicios
   const sub = !r ? null : est === 'hecha' ? 'Hecha' : est === 'movida' ? (dia.extra ? 'La añadiste tú' : 'La moviste tú') : est === 'perdida' ? 'No se hizo' : ([n ? `${n} ejercicio${n === 1 ? '' : 's'}` : null, r.minutos ? `~${r.minutos} min` : null].filter(Boolean).join(' · ') || 'Por hacer');
   const extras = [
     // Con los mismos íconos que el mes y la leyenda: báscula, persona trotando y $.
-    ...(dia?.eventos || []).map(e => ({ k: e.id, c: e.registra ? PUNTO.registro : e.tipo === 'actividad' ? PUNTO.cardio : TEXT_LIGHT,
+    ...(dia?.eventos || []).map(e => ({ k: e.id, c: e.registra ? PUNTO.registro : e.tipo === 'actividad' ? colorAct(e) : TEXT_LIGHT,
       I: e.registra ? Bascula : e.tipo === 'actividad' ? iconoDeActividad(e) : null, t: e.registra ? (REGISTRO[e.tipo]?.nombre || e.titulo) : e.titulo })),
-    ...(dia?.actividades || []).map(a => ({ k: 'a' + a.id, c: PUNTO.cardio, I: iconoDeActividad(a), t: `${a.titulo || a.tipo}${a.duracion_min ? ` · ${a.duracion_min} min` : ''}` })),
+    ...(dia?.actividades || []).map(a => ({ k: 'a' + a.id, c: colorAct(a), I: iconoDeActividad(a), t: `${a.titulo || a.tipo}${a.duracion_min ? ` · ${a.duracion_min} min` : ''}` })),
     ...(dia?.corte_pago ? [{ k: 'pago', c: AMBAR_PAGO, I: CurrencyDollar, t: 'Corte de tu mensualidad' }] : []),
     ...(dia?.inicio_ciclo ? [{ k: 'ini', c: TEXT_MUTED, I: Flag, t: 'Empieza tu ciclo nuevo' }] : []),
   ];

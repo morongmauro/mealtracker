@@ -52,4 +52,17 @@ function anotar(tipo, valor) {
 }
 
 export const usoSeccion = (seccion) => anotar('s', seccion);
+// Respira: cada vez que la termina (no una vez por día), al momento.
+// `origen`: desde dónde la abrió (fin de entreno, descanso, ajustes).
+export function usoRespira({ segundos, minutos, origen }) {
+  if (enVerComo() || !(segundos >= 15)) return;
+  const name = nombre();
+  if (!name) return;
+  const d = new Date();
+  const h = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  try {
+    fetch('/api/uso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ name, user_id: usuario(), hoy: hoyLocal(), respira: [{ h, s: Math.round(segundos), m: minutos, o: origen || null }] }) }).catch(() => {});
+  } catch (e) { /* nada */ }
+}
 export const usoReceta = (nombreReceta) => anotar('r', String(nombreReceta || '').slice(0, 120));

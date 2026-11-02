@@ -6888,7 +6888,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       )}
       {v2 && compacta && (<>
         <BarraCompacta barRef={navBarRef} oculta={actionsExpanded} entrenoOn={trainingOn}
-          activa={seccionV2 === 'entreno' && entrenoSub !== 'galeria' ? 'entreno' : (seccionV2 === 'comida' && subV2 === 'chat' && !showRecetario) ? 'comida' : 'mas'}
+          activa={seccionV2 === 'entreno' && entrenoSub !== 'galeria' ? 'entreno' : (showRecetario || (seccionV2 === 'comida' && subV2 === 'chat')) ? 'comida' : 'mas'}
+          comidaSub={showRecetario ? 'recetas' : 'chat'}
+          alChat={() => irSubV2('comida', 'chat')}
+          alRecetas={() => irSubV2('comida', 'recetas')}
           alEntreno={() => irSubV2('entreno', seccionV2 === 'entreno' && entrenoSub === 'mes' ? 'mes' : 'hoy')}
           alComida={() => irSubV2('comida', 'chat')}
           alMas={() => { haptic(6); setMasAbierto(true); }} />

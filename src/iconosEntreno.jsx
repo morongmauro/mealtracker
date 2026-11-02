@@ -6,7 +6,7 @@ import {
   PersonSimpleRun, PersonSimpleWalk, PersonSimpleBike, Bicycle, Stairs, Boat, Mountains,
   SwimmingPool, TennisBall, PingPong, SoccerBall, Basketball, Volleyball, BoxingGlove, Barbell,
   MusicNotes, PersonSimpleTaiChi, FlowerLotus, ArrowsClockwise, Waves, Sparkle,
-  Ruler, Scales, Camera, CalendarBlank, Note, Moon,
+  Ruler, Scales, Camera, CalendarBlank, Note, Moon, Footprints, SneakerMove, Heartbeat,
 } from '@phosphor-icons/react';
 
 // La caminadora (el cardio de después de entrenar): no está en el juego de
@@ -26,14 +26,24 @@ export function Caminadora({ size = 16, color = 'currentColor', weight = 'regula
   );
 }
 
+// Un ícono por actividad, que se distinga a 13 px: huellas (caminata),
+// zapatilla (trote), corazón (cardio de máquina y el de después de
+// entrenar), bici y, para los deportes, sus pelotas (van en naranja).
 const POR_SLUG = {
-  cinta: Caminadora, eliptica: ArrowsClockwise, remo_maquina: Boat, escaladora: Stairs,
-  bici_estatica: Bicycle, running: PersonSimpleRun, caminata: PersonSimpleWalk, ciclismo: PersonSimpleBike,
+  cinta: Heartbeat, eliptica: Heartbeat, remo_maquina: Heartbeat, escaladora: Heartbeat,
+  bici_estatica: Bicycle, running: SneakerMove, caminata: Footprints, ciclismo: Bicycle,
   trote_trail: Mountains, natacion: SwimmingPool, tenis: TennisBall, padel: PingPong, futbol: SoccerBall,
   baloncesto: Basketball, voleibol: Volleyball, boxeo: BoxingGlove, crossfit: Barbell, baile: MusicNotes,
   yoga: FlowerLotus, pilates: PersonSimpleTaiChi, estiramiento: PersonSimpleTaiChi, movilidad: Waves,
 };
-const POR_CATEGORIA = { cardio: PersonSimpleRun, deporte: SoccerBall, movilidad: Waves };
+const POR_CATEGORIA = { cardio: Heartbeat, deporte: SoccerBall, movilidad: Waves };
+// Los deportes van en naranja; el cardio, en verde.
+const DEPORTES = new Set(['tenis', 'padel', 'futbol', 'baloncesto', 'voleibol', 'boxeo', 'crossfit', 'baile']);
+const ICONOS_DEPORTE = new Set([SoccerBall, Basketball, Volleyball, TennisBall, PingPong, BoxingGlove, MusicNotes]);
+export function esDeporte(act = {}) {
+  if (act.categoria) return act.categoria === 'deporte';
+  return DEPORTES.has(act.slug || act.tipo) || ICONOS_DEPORTE.has(iconoDeActividad(act));
+}
 
 // Por el nombre, cuando no hay slug (lo que escribe el cliente o el coach a
 // mano): «fútbol con amigos» → pelota, «caminata al parque» → caminando.
@@ -41,8 +51,8 @@ const POR_TEXTO = [
   [/f[uú]tbol|soccer|micro/, SoccerBall], [/balonc|basket/, Basketball], [/v[oó]ley|volley/, Volleyball],
   [/tenis(?!.*mesa)|tennis/, TennisBall], [/p[aá]del|ping|mesa/, PingPong], [/box|golpe/, BoxingGlove],
   [/nata|swim|pisc/, SwimmingPool], [/bici|cicl|spin|bike/, Bicycle], [/escal|stair/, Stairs], [/remo|row/, Boat],
-  [/el[ií]ptic/, ArrowsClockwise], [/cinta|caminadora|treadmill/, Caminadora],
-  [/run|corr|trot|sprint/, PersonSimpleRun], [/camin|walk|sender|hik|paseo/, PersonSimpleWalk],
+  [/el[ií]ptic/, Heartbeat], [/cinta|caminadora|treadmill/, Heartbeat],
+  [/run|corr|trot|sprint/, SneakerMove], [/camin|walk|sender|hik|paseo/, Footprints],
   [/yoga|lotus/, FlowerLotus], [/pilates|estir|stretch|tai/, PersonSimpleTaiChi], [/movil|recup|foam/, Waves],
   [/cross|pesas|gym/, Barbell], [/bail|danza|zumba/, MusicNotes],
 ];
@@ -52,12 +62,12 @@ const normTxt = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[
 // entrenar es la caminadora; lo demás por su slug, por su nombre o, al final,
 // por la categoría (deporte → pelota).
 export function iconoDeActividad({ slug, titulo, tipo, categoria, despues } = {}) {
-  if (despues) return Caminadora;
+  if (despues) return Heartbeat;
   const s = slug || tipo;
   if (s && POR_SLUG[s]) return POR_SLUG[s];
   const t = normTxt(`${titulo || ''} ${s && s !== 'otro' ? s : ''}`);
   for (const [re, I] of POR_TEXTO) if (re.test(t)) return I;
-  return POR_CATEGORIA[categoria] || (categoria === 'otro' ? SoccerBall : PersonSimpleRun);
+  return POR_CATEGORIA[categoria] || (categoria === 'otro' ? SoccerBall : Heartbeat);
 }
 
 export function IconoActividad({ slug, categoria, titulo, size = 18, color = 'currentColor' }) {

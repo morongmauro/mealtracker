@@ -2374,20 +2374,38 @@ export function nombreMiembro(nombre) {
 }
 const iniciales = (corto) => corto.replace('.', '').split(' ').map(x => x.charAt(0)).join('').toUpperCase().slice(0, 2);
 
+// Cliente nuevo: lo que publicó el coach ANTES de que empezara no le cae de
+// golpe (40 «nuevas» que nadie lee). Le va saliendo una por semana, de la
+// más antigua a la más reciente, como nueva; la primera, el día que empieza.
+// Lo publicado desde que empezó y lo fijado salen normal. Función pura.
+export function comunidadParaCliente(posts, inicio, hoy) {
+  const ini = /^\d{4}-\d{2}-\d{2}$/.test(String(inicio || '').slice(0, 10)) ? String(inicio).slice(0, 10) : null;
+  if (!ini || ini > hoy) return posts.slice(0, 40);
+  const dia = (p) => String(p.publicado_en || '').slice(0, 10);
+  const normales = posts.filter(p => p.fijado || dia(p) >= ini);
+  const antes = posts.filter(p => !p.fijado && dia(p) < ini).sort((a, b) => String(a.publicado_en).localeCompare(String(b.publicado_en)));
+  const semanas = Math.floor((Date.parse(hoy) - Date.parse(ini)) / 86400000 / 7);
+  const liberadas = antes.slice(0, Math.max(0, semanas + 1)).map((p, i) => {
+    const d = new Date(`${ini}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 7 * i);
+    return { ...p, publicado_en: d.toISOString(), publicado_original: p.publicado_en, para_ti: true };
+  });
+  return [...normales, ...liberadas].sort((a, b) => (Number(!!b.fijado) - Number(!!a.fijado)) || String(b.publicado_en).localeCompare(String(a.publicado_en))).slice(0, 40);
+}
+
 async function verComunidad(cliente) {
   if (!cliente.user_id) return { ok: true, posts: [], miembros: [] };
   let posts;
   try {
     posts = await sb(`comunidad_posts?select=id,texto,imagen_url,enlace_url,fijado,publicado_en,editado_en`
-      + `&user_id=eq.${cliente.user_id}&borrado_en=is.null&order=fijado.desc,publicado_en.desc&limit=40`);
+      + `&user_id=eq.${cliente.user_id}&borrado_en=is.null&order=fijado.desc,publicado_en.desc&limit=100`);
   } catch (e) {
     // Sin la columna editado_en (migración vieja), igual se lee.
     try {
       posts = await sb(`comunidad_posts?select=id,texto,imagen_url,enlace_url,fijado,publicado_en`
-        + `&user_id=eq.${cliente.user_id}&borrado_en=is.null&order=fijado.desc,publicado_en.desc&limit=40`);
+        + `&user_id=eq.${cliente.user_id}&borrado_en=is.null&order=fijado.desc,publicado_en.desc&limit=100`);
     } catch (e2) { return { ok: false, motivo: 'sin_tabla' }; }
   }
-  posts = Array.isArray(posts) ? posts : [];
+  posts = comunidadParaCliente(Array.isArray(posts) ? posts : [], await inicioCliente(cliente), hoyBogota());
   // La bienvenida (la escribe el coach en el CRM): le sale a cada quien la
   // primera vez que entra. Sin la tabla (migración aún no corrida), nada.
   const bv = await sb(`comunidad_bienvenida?select=titulo,texto,activa,editado_en&user_id=eq.${cliente.user_id}&limit=1`).catch(() => null);

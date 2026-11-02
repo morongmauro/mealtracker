@@ -232,6 +232,13 @@ export default function Galeria({ nombre }) {
 
   return (
     <div>
+      {/* Lo que pasa detrás de la barra se aclara: las tarjetas oscuras de
+          los videos no se confunden con el texto y los íconos de la barra
+          (la barra sigue de vidrio). */}
+      {v2 && <div aria-hidden="true" data-velo-galeria style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0, height: 140, zIndex: 2, pointerEvents: 'none',
+        background: 'linear-gradient(180deg, rgba(252,252,253,0) 0%, rgba(252,252,253,0.55) 55%, rgba(252,252,253,0.8) 100%)',
+      }} />}
       {!v2Activa() && <Titulo>Galería</Titulo>}
       <div style={{ color: v2 ? TEXT_LIGHT : TEXT_MUTED, fontSize: v2 ? 14 : 13.5 }}>
         {todos.length} ejercicio{todos.length === 1 ? '' : 's'} de tu plan{v2 ? '' : ' · toca uno para ver su video y lo que trabaja'}
