@@ -546,7 +546,7 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
   if (vista === 'comunidad') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <Comunidad name={name} /></Marco>;
   if (vista === 'config') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
-    <Configuracion name={name} whatsapp={wa} alRecorrido={acciones.recorrido} alPrograma={acciones.programa} alActivarPush={acciones.activarPush} alCerrarSesion={acciones.cerrarSesion} vistaApp={acciones.vista} /></Marco>;
+    <Configuracion name={name} whatsapp={wa} alRecorrido={() => { setVista('inicio'); acciones.recorrido && acciones.recorrido(); }} alPrograma={acciones.programa} alActivarPush={acciones.activarPush} alCerrarSesion={acciones.cerrarSesion} vistaApp={acciones.vista} /></Marco>;
 
   // Constancia del entrenamiento en las últimas 8 semanas (% de lo planeado).
   // La semana que va en curso no se pinta como un porcentaje a medias (un 33 %
