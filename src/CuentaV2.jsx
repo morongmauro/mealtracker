@@ -25,6 +25,7 @@ import { LockSimple, ShieldCheck, Bell, MapPin, Check } from '@phosphor-icons/re
 import { WHATSAPP_COACH } from './v2.js';
 import VentanaMarca, { BotonVentana, GRAFITO, AMARILLO, GRIS_TXT, Color, Negrita } from './VentanaMarca.jsx';
 import { recorridoHecho } from './recorridoEstado.js';
+import { appInstalada } from './InstalarApp.jsx';
 import { SECCION, DASH_AZUL } from './theme.js';
 
 const GRIS = '#737373', CAMPO = 'rgba(255,255,255,0.85)';
@@ -320,7 +321,8 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
 
   if (paso === 'nada') return null;
   return (
-    <VentanaMarca data-cuenta-v2={paso} paso={enEtapa} pasos={etapas.length} simbolo={v.simbolo} titulo={v.titulo} texto={v.texto} sinIcono={paso === 'entrar'}>
+    <VentanaMarca data-cuenta-v2={paso} paso={enEtapa} pasos={etapas.length} simbolo={v.simbolo} titulo={v.titulo} texto={v.texto} sinIcono={paso === 'entrar'}
+      esquina={paso === 'entrada'} etapa={paso === 'entrada' && appInstalada() ? [2, 3] : null}>
       {v.cuerpo}
     </VentanaMarca>
   );

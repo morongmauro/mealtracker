@@ -22,6 +22,7 @@ const Dash = lazy(() => import('./Dash.jsx'));
 const AprendeHoy = lazy(() => import('./AprendeHoy.jsx'));
 const AcercaPrograma = lazy(() => import('./AcercaPrograma.jsx'));
 const RecorridoApp = lazy(() => import('./RecorridoApp.jsx'));
+const InstalarPrimero = lazy(() => import('./InstalarPrimero.jsx'));
 const RepasoRecorrido = lazy(() => import('./RepasoRecorrido.jsx'));
 const EncuestaApp = lazy(() => import('./EncuestaApp.jsx'));
 import BarraV2, { NOMBRE_SECCION } from './BarraV2.jsx';
@@ -69,6 +70,7 @@ import { sumarDias, api as apiEntreno } from './entrenoDatos.js';
 import { encuestaPospuesta } from './encuestaLuego.js';
 import { enVerComo as enVerComoEncuesta } from './verComo.js';
 import { pasosInstalar } from './InstalarApp.jsx';
+import { pedirInstalarPrimero } from './instalarPrimeroEstado.js';
 import { leerAprendizajeConCache } from './aprendizaje.js';
 import { fijarHistoriaComida } from './resumenMes.js';
 import { usoSeccion } from './usoApp.js';
@@ -649,6 +651,8 @@ export default function MealTracker() {
     return () => window.removeEventListener('mt:sesionInvalida', f);
   }, []);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
+  // «Seguir en el navegador» en la ventana de instalar primero.
+  const [instalarSaltado, setInstalarSaltado] = useState(false);
   // Ventanas de primera vez para quien ya tenía cuenta (ver más abajo).
   const [primeraVezVista, setPrimeraVezVista] = useState(() => { try { return !!localStorage.getItem('mt:primeraVezVista'); } catch (e) { return true; } });
   const terminarPrimeraVez = useCallback(() => {
@@ -5583,6 +5587,10 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
   // Visual nueva (instalada con ?v2=1, o un teléfono que ya fue de Mauro):
   // la entrada es la de la cuenta, en negro, con correo y contraseña.
   if (view === 'welcome' && typeof document !== 'undefined' && document.documentElement.classList.contains('marca-v2')) {
+    // En el navegador del teléfono, antes de la cuenta: instalar la app.
+    if (pedirInstalarPrimero() && !instalarSaltado) {
+      return <Suspense fallback={null}><InstalarPrimero alSeguir={() => setInstalarSaltado(true)} /></Suspense>;
+    }
     return <Suspense fallback={null}><CuentaV2 nombre={null} datosAceptados={cloudConsent === 'accepted'}
       alSesion={(s, n) => {
         guardarSesion(s); setSesionV2(s); setCuentaAbierta(true);

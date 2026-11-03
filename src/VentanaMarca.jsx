@@ -78,9 +78,33 @@ export function SimboloVentana({ children }) {
   );
 }
 
+// El ícono de la app (el de la pantalla de inicio), grande e inclinado como
+// el blob de la intro, asomado sobre la esquina de la tarjeta.
+export function IconoEsquina() {
+  return (
+    <img src="/icon-512.png?v=4" alt="" aria-hidden="true" data-icono-esquina width="96" height="96" style={{
+      position: 'absolute', right: 14, top: -40, width: 96, height: 96, borderRadius: 23, transform: 'rotate(-8deg)',
+      boxShadow: '0 14px 26px rgba(60,60,40,0.16), 0 2px 5px rgba(30,30,40,0.06)', pointerEvents: 'none',
+    }} />
+  );
+}
+
+// «Paso 1 de 3»: las rayitas y el texto (la entrada: instalar, cuenta, datos).
+function EtapaEntrada({ n, de }) {
+  return (
+    <div data-etapa-entrada style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 14, fontSize: 13, fontWeight: 650, color: GRIS_TXT }}>
+      {Array.from({ length: de }, (_, i) => <i key={i} style={{ display: 'block', width: 20, height: 4, borderRadius: 4, background: i < n ? GRAFITO : 'rgba(29,29,31,0.14)' }} />)}
+      <span style={{ marginLeft: 4 }}>Paso {n} de {de}</span>
+    </div>
+  );
+}
+
 // `paso`/`pasos`: los puntitos de avance (sin ellos, no se muestran).
 // `sinIcono`: sin el ícono de la app arriba (la de la contraseña ya lleva el candado).
-export default function VentanaMarca({ paso = null, pasos = 0, simbolo = null, titulo, texto, children, z = 9000, sinIcono = false, ...resto }) {
+// `esquina`: el ícono de la app asomado en la esquina de la tarjeta y el
+// texto a la izquierda (la entrada: instalar y bienvenida). `etapa`: [n, de].
+export default function VentanaMarca({ paso = null, pasos = 0, simbolo = null, titulo, texto, children, z = 9000, sinIcono = false, esquina = false, etapa = null, ...resto }) {
+  const alinear = esquina ? 'left' : 'center';
   return (
     <div data-ventana-marca {...resto} role="dialog" aria-modal="true" aria-label={typeof titulo === 'string' ? titulo : undefined} style={{
       position: 'fixed', inset: 0, zIndex: z, overflowY: 'auto', color: GRAFITO,
@@ -93,12 +117,14 @@ export default function VentanaMarca({ paso = null, pasos = 0, simbolo = null, t
           ícono y la tarjeta juntos, en el medio. Si no cabe, se desliza. */}
       <div style={{ position: 'relative', minHeight: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: 460, margin: '0 auto',
         padding: 'calc(env(safe-area-inset-top, 0px) + 28px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px)', boxSizing: 'border-box' }}>
-        {!sinIcono && <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 20 }}><IconoApp tam={78} /></div>}
-        <div className="vm-tarjeta" style={{
+        {!sinIcono && !esquina && <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 20 }}><IconoApp tam={78} /></div>}
+        <div className="vm-tarjeta" style={{ position: 'relative', marginTop: esquina ? 44 : 0,
           background: 'rgba(255,255,255,0.72)', WebkitBackdropFilter: 'blur(30px) saturate(1.4)', backdropFilter: 'blur(30px) saturate(1.4)',
-          borderRadius: 32, boxShadow: '0 30px 60px rgba(40,40,50,0.12), inset 0 0 0 1px rgba(255,255,255,0.7)', padding: '26px 22px 18px',
+          borderRadius: 32, boxShadow: '0 30px 60px rgba(40,40,50,0.12), inset 0 0 0 1px rgba(255,255,255,0.7)', padding: esquina ? '24px 22px 18px' : '26px 22px 18px',
         }}>
-          {pasos > 1 && paso !== null && (
+          {esquina && <IconoEsquina />}
+          {esquina && etapa && <EtapaEntrada n={etapa[0]} de={etapa[1]} />}
+          {!esquina && pasos > 1 && paso !== null && (
             <div data-pasos style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 16 }}>
               {Array.from({ length: pasos }, (_, i) => (
                 <i key={i} style={{ height: 6, width: i === paso ? 18 : 6, borderRadius: 3, background: i <= paso ? GRAFITO : 'rgba(29,29,31,0.18)', transition: 'width .3s' }} />
@@ -108,8 +134,8 @@ export default function VentanaMarca({ paso = null, pasos = 0, simbolo = null, t
           {simbolo && <SimboloVentana>{simbolo}</SimboloVentana>}
           {/* Títulos más grandes y una negrita menos pesada (750, no 800):
               en grande se lee mejor y se parece a las frases de los módulos. */}
-          {titulo && <h1 style={{ margin: 0, textAlign: 'center', fontSize: 31, fontWeight: 750, letterSpacing: '-0.03em', lineHeight: 1.08, textWrap: 'balance' }}>{titulo}</h1>}
-          {texto && <p style={{ margin: '10px 0 0', textAlign: 'center', fontSize: 16.5, fontWeight: 450, color: GRIS_TXT, lineHeight: 1.45, textWrap: 'pretty' }}>{texto}</p>}
+          {titulo && <h1 style={{ margin: esquina && !etapa ? '18px 0 0' : 0, textAlign: alinear, fontSize: 31, fontWeight: 750, letterSpacing: '-0.03em', lineHeight: 1.08, textWrap: 'balance' }}>{titulo}</h1>}
+          {texto && <p style={{ margin: '10px 0 0', textAlign: alinear, fontSize: 16.5, fontWeight: 450, color: GRIS_TXT, lineHeight: 1.45, textWrap: 'pretty' }}>{texto}</p>}
           <div style={{ marginTop: 14 }}>{children}</div>
         </div>
       </div>
