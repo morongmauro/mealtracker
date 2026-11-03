@@ -2019,6 +2019,7 @@ export default function MealTracker() {
   // comporta como si la ventana no existiera.
   const mostrarNovedades = (
     NOVEDADES.activo === true &&
+    !v2 &&                                   // la visual nueva no muestra este aviso viejo (estilo viejo y ya vencido)
     Array.isArray(NOVEDADES.items) && NOVEDADES.items.length > 0 &&
     view === 'main' &&                       // ya está dentro de la app
     cloudConsent !== null &&                 // no se apila sobre el consentimiento
@@ -7417,9 +7418,14 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {repaso && (
         <Suspense fallback={null}><RepasoRecorrido alVer={() => { setRepasoVisto(true); setRecorrido(true); }} alSaltar={() => setRepasoVisto(true)} /></Suspense>
       )}
-      {view === 'main' && cloudConsent === null && cuentaRevisada && !mudanza && !primeraVez && (
+      {view === 'main' && cloudConsent === null && cuentaRevisada && !mudanza && !primeraVez && (v2 ? (
+        // Visual nueva: la ventana de datos nueva (antes salía la vieja,
+        // «Guardá tu progreso en la nube», a quien seguía sin cuenta).
+        <Suspense fallback={null}><CuentaV2 nombre={name} pendientes datosAceptados={false}
+          alAceptarDatos={acceptCloudConsent} alRechazarDatos={declineCloudConsent} alListo={() => {}} /></Suspense>
+      ) : (
         <CloudConsentModal onAccept={acceptCloudConsent} onDecline={declineCloudConsent} />
-      )}
+      ))}
 
       {/* MUDANZA a la dirección nueva (ver mudanza.js). */}
       {view === 'main' && mudanza && (

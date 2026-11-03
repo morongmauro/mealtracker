@@ -91,13 +91,14 @@ const Enlace = ({ children, onClick, href }) => {
 // `nombre`: el que ya conoce el teléfono (null = no sabe quién es).
 // `alSesion(sesion, nombre)`: entró (guardar sesión y nombre).
 // `alAceptarDatos()`, `alActivarAvisos()`: los dos pasos finales.
+// `alRechazarDatos()`: «Ahora no» en la de datos (solo quien sigue sin cuenta).
 // `alRecorrido()`: «Empezar recorrido» (si no viene, no se ofrece).
 // `alListo()`: terminó. `alSaltar`: seguir sin contraseña (solo si el
 // servidor no responde: nunca deja a nadie afuera de su app).
 // `pendientes`: ya tiene sesión; solo las ventanas de primera vez que le
 // falten (datos, avisos, recorrido). Es lo que ve la primera vez que abre la
 // app nueva quien ya tenía cuenta.
-export default function CuentaV2({ nombre = null, datosAceptados = false, pendientes = false, alSesion, alAceptarDatos, alActivarAvisos, alRecorrido, alListo, alSaltar }) {
+export default function CuentaV2({ nombre = null, datosAceptados = false, pendientes = false, alSesion, alAceptarDatos, alRechazarDatos = null, alActivarAvisos, alRecorrido, alListo, alSaltar }) {
   const [paso, setPaso] = useState(() => {
     if (!pendientes) return nombre ? 'cargando' : 'entrada';
     if (!datosAceptados) return 'datos';
@@ -289,6 +290,8 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
         </div>
       ))}
       <Boton onClick={() => { alAceptarDatos && alAceptarDatos(); avisosPendientes() ? setPaso('avisos') : terminar(); }} data-aceptar-datos>Aceptar y seguir</Boton>
+      {/* Sin cuenta todavía: puede seguir sin la nube (sus datos quedan solo en este teléfono). */}
+      {alRechazarDatos && <Boton secundario onClick={() => { alRechazarDatos(); terminar(); }} data-rechazar-datos>Ahora no</Boton>}
     </>) };
   } else if (paso === 'avisos') {
     v = { simbolo: I(Bell, '#C95F17'), titulo: <>Activa tus<br /><Color c="naranja">avisos.</Color></>, texto: <>Te aviso cuando <Negrita>tu coach te escriba</Negrita>, te ajuste el plan o te toque entrenar. <Negrita c="naranja">Nada de spam.</Negrita></>, cuerpo: (<>
