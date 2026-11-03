@@ -8,7 +8,7 @@
 // Ver vistaApp.js para quién la ve y cómo se guarda.
 // ─────────────────────────────────────────────────────────────────────────
 import React from 'react';
-import { Barbell, ForkKnife, SquaresFour, ChartLineUp, GraduationCap, UsersThree, ChatCircle, GearSix, FilmStrip, Sun, BookOpenText, CalendarBlank, WhatsappLogo, Compass, Brain } from '@phosphor-icons/react';
+import { Barbell, ForkKnife, SquaresFour, ChartLineUp, GraduationCap, UsersThree, ChatCircle, GearSix, FilmStrip, Sun, BookOpenText, CalendarBlank, WhatsappLogo, ChartBar, Brain } from '@phosphor-icons/react';
 import { Hoja } from './entrenoUI.jsx';
 import { AnilloMarca } from './GraficasV2.jsx';
 import { SECCION, DASH_AZUL, TEXT, TEXT_MUTED, DANGER } from './theme.js';
@@ -167,7 +167,7 @@ export function gruposMas({ entrenoOn, aprendeOn, whatsapp, ir, comunidadNuevas 
 // Título, el aro chico de la semana y el cambio entre las opciones.
 // Vista compacta: el aro con su ícono y la cifra en grafito (sin blob), y
 // arriba un degradado suave del color de la sección en una esquina.
-const ICONO_TEMA = { entreno: Barbell, comida: ForkKnife, dash: Compass, aprende: Brain };
+const ICONO_TEMA = { entreno: Barbell, comida: ForkKnife, dash: ChartBar, aprende: Brain };
 const COLOR_TEMA = { entreno: '#5F6670', comida: '#46965A', dash: '#3C7BD6', aprende: '#EE8434' };
 function AroBlob({ aro, tema, alTocar }) {
   const Ic = ICONO_TEMA[tema] || Barbell, c = COLOR_TEMA[tema] || TEXT;
