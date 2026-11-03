@@ -228,6 +228,13 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   // De qué día del calendario se abrió (si era otro día y no se movió).
   const [rutinaPlan, setRutinaPlan] = useState(() => (rutinaAbierta() || {}).planeada || null);
   const abrirRutina = useCallback((id, planeada = null) => { setRutinaPlan(planeada || null); setRutinaId(id); }, []);
+  // El recorrido de la app abre una rutina para mostrarla y la cierra al
+  // seguir (solo se mira: abrirla no empieza el entreno).
+  useEffect(() => {
+    const f = () => { setRutinaId(null); borrarRutinaAbierta(); };
+    window.addEventListener('mt:cerrarRutina', f);
+    return () => window.removeEventListener('mt:cerrarRutina', f);
+  }, []);
   const [seccionPropia, setSeccionPropia] = useState('hoy');
   const seccion = seccionV2 || seccionPropia;
   const setSeccion = seccionV2 ? (alSeccionV2 || (() => {})) : setSeccionPropia;

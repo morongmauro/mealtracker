@@ -22,24 +22,28 @@ import { CLAVE_RECORRIDO as CLAVE } from './recorridoEstado.js';
 
 // En cada paso: qué se abre (sec y op, como la barra), qué botón de la barra
 // se marca (barra: su aria-label) y qué parte de la página se marca (area).
-// Solo lo principal, en orden de prioridad (8 pasos); las herramientas se
+// Solo lo principal, en orden de prioridad (9 pasos); las herramientas se
 // mencionan al final. La página queda a la vista: se marca, no se oscurece.
 const E = SECCION.entreno.base, C = SECCION.comida.base, A = SECCION.aprende.base, D = DASH_AZUL.base;
 const CENTRO = 'iframe[title="Centro de aprendizaje"]';
 const PASOS = [
   { color: '#1F1F1F', etiqueta: 'Bienvenida', titulo: 'Esta es tu app del programa.',
-    texto: 'Te muestro lo principal en 8 pasos: dónde está cada cosa y para qué sirve.' },
-  { sec: 'dash', barra: 'Dash', area: '[data-cabecera-hoy="dash"]', color: D, etiqueta: 'Dash', titulo: 'Tu avance, de un vistazo.',
-    texto: 'Cómo vas en la semana con tu entreno, tu comida y tu aprendizaje. Más abajo, tus gráficas.' },
-  { sec: 'entreno', op: 'hoy', barra: 'Hoy', area: '[data-hoy-rutina], [data-hoy-te-toca]', color: E, etiqueta: 'Entrenamiento · hoy', titulo: 'Tócala y entrenas.',
-    texto: 'Tu rutina del día: cada ejercicio con su video, series y descanso. Marcas cada serie y el entreno avanza solo.' },
+    texto: 'Te muestro lo principal en 9 pasos: dónde está cada cosa y para qué sirve.' },
+  { sec: 'dash', barra: 'Dash', area: '[data-tarjeta="Entrenamiento"], [data-tarjeta="Alimentación"], [data-cabecera-hoy="dash"]', color: D, etiqueta: 'Dash', titulo: 'Tu avance, en gráficas.',
+    texto: 'Cómo vas semana a semana con tu entreno y tu comida. Arriba, el resumen de tu semana.' },
+  { sec: 'entreno', op: 'hoy', barra: 'Hoy', area: '[data-hoy-te-toca], [data-hoy-rutina]', color: E, etiqueta: 'Entrenamiento · hoy', titulo: 'Lo que te toca hoy.',
+    texto: 'Tu rutina del día. La tocas y entras a entrenar.' },
+  // La rutina abierta (solo se mira: abrirla no empieza el entreno; empieza
+  // al marcar la primera serie). Si hoy no hay rutina, se explica igual.
+  { sec: 'entreno', op: 'hoy', abrir: '[data-hoy-rutina]', area: '[data-ejercicio]', unir: 3, color: E, etiqueta: 'Tu rutina', titulo: 'Tus ejercicios, uno a uno.',
+    texto: 'Cada ejercicio con su video, sus series, repeticiones y descanso. Marcas cada serie con su peso y el entreno avanza solo.' },
   { sec: 'entreno', op: 'mes', barra: 'Calendario', area: '[data-calendario-v2]', color: E, etiqueta: 'Calendario de entreno', titulo: 'Tu mes de entreno.',
     texto: 'Qué te toca cada día. Si algo cambia, mueves la rutina de día o añades un cardio o un deporte.' },
-  { sec: 'comida', op: 'hoy', barra: 'Hoy', area: '[data-cabecera-hoy="comida"]', color: C, etiqueta: 'Alimentación · hoy', titulo: 'Cómo vas con tu meta.',
-    texto: 'Tus calorías y macros del día: los anillos se llenan con cada comida.' },
+  { sec: 'comida', op: 'hoy', barra: 'Hoy', area: '[data-prota-comida], [data-dia-comidas], [data-cabecera-hoy="comida"]', color: C, etiqueta: 'Alimentación · hoy', titulo: 'Anota lo que comes.',
+    texto: 'Aquí mismo la dices o la escribes, y tus anillos del día se llenan con cada comida.' },
   { sec: 'comida', op: 'chat', barra: 'Chat', area: '.msg-input', color: C, etiqueta: 'Chat', titulo: 'Escribe o dicta lo que comiste.',
     texto: '«Dos huevos y una arepa» y listo: queda registrado contra tu meta. También le puedes preguntar qué comer.' },
-  { sec: 'comida', op: 'recetas', barra: 'Recetas', area: '[data-recetario-botones]', color: C, etiqueta: 'Recetas', titulo: 'Recetas que encajan en tu meta.',
+  { sec: 'comida', op: 'recetas', barra: 'Recetas', area: '[data-receta-foto]', unir: 2, tarjeta: true, color: C, etiqueta: 'Recetas', titulo: 'Recetas que encajan en tu meta.',
     texto: 'Cada receta al tamaño que te toca, y tu día o tu semana organizados con su lista de mercado.' },
   { sec: 'aprende', op: 'lecturas', barra: 'Lecturas', area: CENTRO, color: A, etiqueta: 'Cápsulas', titulo: 'Aprende en un minuto.',
     texto: 'Cápsulas cortas de entrenamiento, nutrición y bienestar, y la guía de alimentación.' },
@@ -48,17 +52,26 @@ const PASOS = [
   { color: '#1F1F1F', etiqueta: 'Listo', titulo: 'Ya conoces lo principal.',
     texto: 'Las herramientas (pesarte, medidas, lista de mercado…) están en cada sección, en el botón de cuadritos. Cualquier duda, escríbele a tu coach.' },
 ];
-const NUCLEO = PASOS.length - 2;   // los 8 pasos numerados (sin bienvenida ni cierre)
+const NUCLEO = PASOS.length - 2;   // los pasos numerados (sin bienvenida ni cierre)
 
 export default function RecorridoApp({ nombre, alIr, alTerminar }) {
   const [i, setI] = useState(0);
   const [marcas, setMarcas] = useState(null);   // { area, boton, nav }
   const [altoTarjeta, setAltoTarjeta] = useState(230);
   const tarjeta = useRef(null);
+  const abrio = useRef(false);
   const paso = PASOS[i];
   const ultimo = i === PASOS.length - 1;
 
-  useEffect(() => { if (paso.sec && alIr) alIr(paso.sec, paso.op); }, [i]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (paso.sec && alIr) alIr(paso.sec, paso.op);
+    // La rutina se abre solo en su paso; en los demás se cierra.
+    // (Solo cierra la que abrió el recorrido: si estaba entrenando, no la toca.)
+    if (!paso.abrir) { if (abrio.current) { abrio.current = false; window.dispatchEvent(new Event('mt:cerrarRutina')); } return undefined; }
+    const t = setTimeout(() => { const el = document.querySelector(paso.abrir); if (el) { abrio.current = true; el.click(); } }, 650);
+    return () => clearTimeout(t);
+  }, [i]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (abrio.current) window.dispatchEvent(new Event('mt:cerrarRutina')); }, []);
   useLayoutEffect(() => { if (tarjeta.current) setAltoTarjeta(tarjeta.current.getBoundingClientRect().height); }, [i]);
 
   // Dónde está lo que se marca (se vuelve a medir al cambiar de paso y al
@@ -69,16 +82,31 @@ export default function RecorridoApp({ nombre, alIr, alTerminar }) {
     const medir = () => {
       const nav = document.querySelector('nav[aria-label="Secciones"]');
       const boton = paso.barra && nav ? nav.querySelector(`[aria-label="${paso.barra}"]`) : null;
-      const area = paso.area ? [...document.querySelectorAll(paso.area)].find(x => x.getBoundingClientRect().height > 0) || null : null;
-      if (area && !movido) { movido = true; try { area.scrollIntoView({ block: 'start' }); } catch (e) { /* nada */ } }
+      // La primera parte que se ve de la lista de selectores (en su orden);
+      // con `unir`, las primeras N juntas (los ejercicios, las recetas).
+      let partes = [];
+      for (const sel of (paso.area ? paso.area.split(',') : [])) {
+        partes = [...document.querySelectorAll(sel.trim())].filter(x => x.getBoundingClientRect().height > 0);
+        if (partes.length) break;
+      }
+      if (paso.tarjeta) partes = partes.map(x => x.closest('button, a, [role="button"]') || x.parentElement || x);
+      partes = partes.slice(0, paso.unir || 1);
+      if (partes[0] && !movido) { movido = true; try { partes[0].scrollIntoView({ block: 'start' }); } catch (e) { /* nada */ } }
       const r = (el) => { if (!el) return null; const q = el.getBoundingClientRect(); return { x: q.left, y: q.top, w: q.width, h: q.height }; };
-      setMarcas({ area: r(area), boton: r(boton), nav: r(nav) });
+      let area = null;
+      if (partes.length) {
+        const qs = partes.map(x => x.getBoundingClientRect());
+        const x0 = Math.min(...qs.map(q => q.left)), y0 = Math.min(...qs.map(q => q.top));
+        const x1 = Math.max(...qs.map(q => q.right)), y1 = Math.max(...qs.map(q => q.bottom));
+        area = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+      }
+      setMarcas({ area, boton: r(boton), nav: r(nav) });
     };
     medir();
-    const t1 = setTimeout(medir, 260), t2 = setTimeout(medir, 700), t3 = setTimeout(medir, 1300);
+    const t1 = setTimeout(medir, 260), t2 = setTimeout(medir, 700), t3 = setTimeout(medir, 1300), t4 = setTimeout(medir, 2000);
     window.addEventListener('resize', medir);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); window.removeEventListener('resize', medir); };
-  }, [i, paso.sec, paso.area, paso.barra]);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); window.removeEventListener('resize', medir); };
+  }, [i, paso.sec, paso.area, paso.barra, paso.unir, paso.tarjeta]);
 
   const terminar = () => {
     try { localStorage.setItem(CLAVE, new Date().toISOString()); } catch (e) { /* sin almacenamiento */ }
