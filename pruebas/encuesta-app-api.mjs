@@ -6,6 +6,8 @@ import { crearSupabaseFalso, llamar } from './_supabase-falso.mjs';
 
 process.env.CRM_SUPABASE_URL = 'https://crm.test';
 process.env.CRM_SUPABASE_SERVICE_KEY = 'k';
+process.env.SUPABASE_URL = 'https://app.test';
+process.env.SUPABASE_SERVICE_KEY = 'k';
 // La fecha desde la que sale se prueba al final; antes, apagada.
 process.env.ENCUESTA_DESDE = '';
 const { default: handler, semanaCliente } = await import('../api/training.js');
@@ -18,21 +20,35 @@ const haceDias = (n) => new Date(Date.parse(hoy) - n * 86400000).toISOString().s
 ok('semana 1 los primeros 7 días, semana 2 desde el día 8', semanaCliente('2026-10-01', '2026-10-07') === 1 && semanaCliente('2026-10-01', '2026-10-08') === 2);
 ok('sin fecha de inicio (o en el futuro) no hay semana', semanaCliente(null, hoy) === null && semanaCliente('2099-01-01', hoy) === null);
 
-function preparar(inicio, conTabla = true) {
-  const tablas = { clientes: [{ id: 'c1', user_id: 'coach-1', nombre: 'Ana Pérez', estado: 'activo', fecha_inicio: inicio }] };
+// Uso de la app: un día cada `paso` días desde hace `primero` días, `n` días en total.
+const usoApp = (primero, n, paso = 1) => Array.from({ length: n }, (_, k) => ({ id: 'u' + k, clave: 'n:Ana Pérez', name: 'ana perez', fecha: haceDias(primero - k * paso) }));
+function preparar(inicio, conTabla = true, uso = usoApp(20, 8)) {
+  const tablas = { clientes: [{ id: 'c1', user_id: 'coach-1', nombre: 'Ana Pérez', estado: 'activo', fecha_inicio: inicio }], app_uso: uso };
   if (conTabla) tablas.encuesta_app = [];
   const sb = crearSupabaseFalso({ tablas, estricto: !conTabla });
   globalThis.fetch = (url, opts) => sb.fetch(url, opts);
   return sb;
 }
 
-let sb = preparar(haceDias(3));
+let sb = preparar(haceDias(3), true, usoApp(3, 3));
 let r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });
-ok('cliente nuevo en su primera semana: todavía no', r.ok && r.toca === false && r.semana === 1, JSON.stringify(r));
+ok('cliente nuevo con 3 días en la app: todavía no', r.ok && r.toca === false && r.motivo === 'antes_de_15_dias', JSON.stringify(r));
 
-sb = preparar(haceDias(9));
+sb = preparar(haceDias(120), true, usoApp(0, 1));
 r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });
-ok('en su segunda semana: le toca', r.ok && r.toca === true && r.semana === 2, JSON.stringify(r));
+ok('inicio hace meses en el CRM pero hoy es su primer día en la app: no', r.toca === false && r.motivo === 'antes_de_15_dias', JSON.stringify(r));
+
+sb = preparar(haceDias(120), true, []);
+r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });
+ok('sin ningún uso registrado: no', r.toca === false && r.motivo === 'sin_uso', JSON.stringify(r));
+
+sb = preparar(haceDias(30), true, usoApp(20, 3, 7));
+r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });
+ok('20 días desde el primer uso pero solo 3 días de uso: no', r.toca === false && r.motivo === 'poco_uso', JSON.stringify(r));
+
+sb = preparar(haceDias(16), true, usoApp(16, 6, 3));
+r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });
+ok('16 días desde el primer uso y 6 días de uso: le toca', r.ok && r.toca === true && r.semana === 3, JSON.stringify(r));
 
 sb = preparar(haceDias(120));
 r = await llamar(handler, { accion: 'encuesta', name: 'Ana Pérez' });

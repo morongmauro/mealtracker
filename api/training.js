@@ -157,7 +157,7 @@ export default async function handler(req, res) {
     if (!esGet && accion === 'quitar_rutina') return res.status(200).json(await quitarRutina(cliente, cuerpo, hoy));
     if (!esGet && accion === 'actividad') return res.status(200).json(await guardarActividad(cliente, cuerpo, hoy));
     if (!esGet && accion === 'borrar_actividad') return res.status(200).json(await borrarActividad(cliente, cuerpo));
-    if (accion === 'encuesta') return res.status(200).json(await verEncuesta(cliente, hoy));
+    if (accion === 'encuesta') return res.status(200).json(await verEncuesta(cliente, hoy, cuerpo.name));
     if (!esGet && accion === 'encuesta_responder') return res.status(200).json(await responderEncuesta(cliente, cuerpo, hoy));
     if (accion === 'ausencias') return res.status(200).json(await verAusencias(sb, cliente, hoy));
     if (!esGet && accion === 'ausencia_guardar') return res.status(200).json(await guardarAusencia(sb, cliente, cuerpo, hoy));
@@ -1888,8 +1888,8 @@ async function guardarMedida(cliente, cuerpo, hoy) {
 // Llegan a la Bandeja del CRM y al teléfono del coach. La tabla
 // `notas_entreno` llega con carga/migracion-bandeja.sql.
 // ── ENCUESTA DE LA APP ─────────────────────────────────────────────────
-// Una sola vez por cliente, desde su segunda semana (la cuenta desde su
-// fecha de inicio en el CRM). Si ya la respondió, nunca más. «Ahora no» lo
+// Una sola vez por cliente, a los 15 días de su primer uso de la app y con
+// al menos 5 días de uso (ver encuestaPorUso). Si ya la respondió, nunca más. «Ahora no» lo
 // guarda el teléfono (vuelve a salir la semana siguiente). Tabla:
 // CRM_entrenaconmetodo/migraciones/encuesta-app.sql.
 export const ENCUESTA_ID = 'app-1';
@@ -1907,11 +1907,41 @@ async function inicioCliente(cliente) {
   const c = Array.isArray(r) ? r[0] : null;
   return c ? (c.fecha_inicio || String(c.created_at || '').slice(0, 10) || null) : null;
 }
-async function verEncuesta(cliente, hoy) {
+// Cuándo sale: a los 15 días de su PRIMER uso de la app (no de su inicio en
+// el CRM: quien empezó el programa hace meses y recién instala la app no
+// tiene nada que opinar todavía) y con al menos 5 días de uso. El uso sale de
+// `app_uso` (una fila por cliente y por día, la de Enganche), en la base de
+// ESTA app. Si no se puede saber, no sale.
+export const ENCUESTA_DIAS = 15;
+export const ENCUESTA_MIN_DIAS_USO = 5;
+async function usoDeLaApp(nombres, hoy) {
+  const URL = process.env.SUPABASE_URL;
+  const KEY = process.env.SUPABASE_SERVICE_KEY;
+  if (!URL || !KEY) return null;
+  const buscados = new Set(nombres.filter(Boolean).map(normalizeName));
+  const desde = new Date(Date.parse(hoy) - 400 * 86400000).toISOString().slice(0, 10);
+  try {
+    const r = await fetch(`${URL}/rest/v1/app_uso?select=name,fecha&fecha=gte.${desde}&limit=50000`,
+      { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
+    if (!r.ok) return null;
+    const filas = await r.json();
+    const dias = [...new Set((Array.isArray(filas) ? filas : []).filter(x => buscados.has(normalizeName(x.name))).map(x => String(x.fecha).slice(0, 10)))].sort();
+    return { primero: dias[0] || null, dias: dias.length };
+  } catch (e) { return null; }
+}
+export function encuestaPorUso(uso, hoy) {
+  if (!uso || !uso.primero) return { toca: false, motivo: 'sin_uso' };
+  const desdePrimerUso = Math.floor((Date.parse(hoy) - Date.parse(uso.primero)) / 86400000);
+  if (desdePrimerUso < ENCUESTA_DIAS) return { toca: false, motivo: 'antes_de_15_dias', desdePrimerUso, diasUso: uso.dias };
+  if (uso.dias < ENCUESTA_MIN_DIAS_USO) return { toca: false, motivo: 'poco_uso', desdePrimerUso, diasUso: uso.dias };
+  return { toca: true, desdePrimerUso, diasUso: uso.dias };
+}
+async function verEncuesta(cliente, hoy, nombrePedido) {
   if (String(cliente.estado || 'activo').toLowerCase() !== 'activo') return { ok: true, toca: false, motivo: 'no_activo' };
   if (encuestaDesde() && hoy < encuestaDesde()) return { ok: true, toca: false, motivo: 'antes_de_fecha', desde: encuestaDesde() };
   const semana = semanaCliente(await inicioCliente(cliente), hoy);
-  if (!semana || semana < 2) return { ok: true, toca: false, semana, motivo: 'antes_de_semana_2' };
+  const porUso = encuestaPorUso(await usoDeLaApp([nombrePedido, cliente.nombre], hoy), hoy);
+  if (!porUso.toca) return { ok: true, toca: false, semana, ...porUso };
   let ya;
   try { ya = await sb(`encuesta_app?select=id&cliente_id=eq.${cliente.id}&encuesta=eq.${ENCUESTA_ID}&limit=1`); }
   catch (e) { return { ok: false, toca: false, motivo: 'sin_tabla' }; }

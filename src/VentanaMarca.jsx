@@ -42,11 +42,11 @@ export function FondoManchas() {
     <div className="vm-mancha" style={{ ...st, background: `radial-gradient(closest-side, rgba(${color},${a}), rgba(${color},0))`, ...extra }} />
   );
   return (
-    <div aria-hidden="true" style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: 'linear-gradient(180deg, #FFFFFF, #EEECE7)' }}>
-      {m({ width: 540, height: 450, left: -210, top: -160 }, '60,123,214', 0.5, { '--r': '-8deg', '--dx': '18px', '--dy': '14px' })}
-      {m({ width: 500, height: 420, right: -200, top: -130 }, '242,201,76', 0.58, { '--r': '10deg', '--dx': '-16px', '--dy': '18px', animationDelay: '-4s' })}
-      {m({ width: 540, height: 440, left: -220, bottom: -160 }, '70,150,90', 0.46, { '--r': '6deg', '--dx': '14px', '--dy': '-16px', animationDelay: '-8s' })}
-      {m({ width: 500, height: 440, right: -210, bottom: -120 }, '238,132,52', 0.42, { '--r': '-12deg', '--dx': '-18px', '--dy': '-12px', animationDelay: '-11s' })}
+    <div aria-hidden="true" style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: 'linear-gradient(180deg, #FBFAF7, #F3F1EB)' }}>
+      {m({ width: 540, height: 450, left: -210, top: -160 }, '60,123,214', 0.26, { '--r': '-8deg', '--dx': '18px', '--dy': '14px' })}
+      {m({ width: 500, height: 420, right: -200, top: -130 }, '242,201,76', 0.30, { '--r': '10deg', '--dx': '-16px', '--dy': '18px', animationDelay: '-4s' })}
+      {m({ width: 540, height: 440, left: -220, bottom: -160 }, '70,150,90', 0.22, { '--r': '6deg', '--dx': '14px', '--dy': '-16px', animationDelay: '-8s' })}
+      {m({ width: 500, height: 440, right: -210, bottom: -120 }, '238,132,52', 0.22, { '--r': '-12deg', '--dx': '-18px', '--dy': '-12px', animationDelay: '-11s' })}
       <div style={{ position: 'absolute', inset: '0 0 auto 0', height: '55%', background: 'radial-gradient(90% 100% at 50% 0%, rgba(255,255,255,.35), rgba(255,255,255,0))' }} />
     </div>
   );
