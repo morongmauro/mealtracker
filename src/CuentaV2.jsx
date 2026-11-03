@@ -292,7 +292,7 @@ export default function CuentaV2({ nombre = null, datosAceptados = false, pendie
   } else if (paso === 'avisos') {
     v = { simbolo: I(Bell, '#C95F17'), titulo: <>Activa tus<br /><Color c="naranja">avisos.</Color></>, texto: <>Te aviso cuando <Negrita>tu coach te escriba</Negrita>, te ajuste el plan o te toque entrenar. <Negrita c="naranja">Nada de spam.</Negrita></>, cuerpo: (<>
       <div style={{ background: 'rgba(255,255,255,0.92)', borderRadius: 18, padding: '11px 13px', display: 'flex', gap: 10, alignItems: 'center', boxShadow: '0 6px 16px rgba(0,0,0,0.06)' }}>
-        <img src="/icon-192.png" alt="" width="36" height="36" style={{ borderRadius: 9, flex: 'none' }} />
+        <img src="/icon-192.png?v=4" alt="" width="36" height="36" style={{ borderRadius: 9, flex: 'none' }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700 }}>Tu coach<span style={{ fontWeight: 500, color: GRIS }}>ahora</span></div>
           <div style={{ fontSize: 13.5, color: '#3A3A3C', marginTop: 1 }}>Hoy te toca entrenar.</div>

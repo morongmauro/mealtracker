@@ -60,10 +60,10 @@ export function IconoApp({ tam = 96 }) {
         <linearGradient id="vm-t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3B3A37" /><stop offset="1" stopColor="#1F1E1C" /></linearGradient>
         <filter id="vm-s" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="14" stdDeviation="14" floodColor="#000" floodOpacity=".16" /></filter>
       </defs>
-      <g transform="translate(256 262) scale(0.9) translate(-256 -248)" fill="none" filter="url(#vm-s)">
-        <path className="vm-traza" d="M128 162 C96 72 160 18 256 18 C352 18 416 72 384 162" pathLength="100" stroke="url(#vm-t)" strokeWidth="40" strokeLinecap="round" />
-        <path className="vm-traza" d="M256 164 A136 136 0 1 1 120 300" pathLength="100" stroke="url(#vm-t)" strokeWidth="40" strokeLinecap="round" />
-        <circle className="vm-punto" cx="120" cy="300" r="28.8" fill={AMARILLO} />
+      <g transform="translate(256 262) scale(0.900) translate(-256 -248.7)" fill="none" filter="url(#vm-s)">
+        <path className="vm-traza" d="M148.0 217.3 C122.7 96.0 153.1 61.3 256 61.3 C358.9 61.3 389.3 96.0 364.0 217.3" pathLength="100" stroke="url(#vm-t)" strokeWidth="46" strokeLinecap="round" />
+        <path className="vm-traza" d="M148.0 217.3 A136 136 0 1 1 120.0 300.0" pathLength="100" stroke="url(#vm-t)" strokeWidth="46" strokeLinecap="round" />
+        <circle className="vm-punto" cx="120.0" cy="300.0" r="40" fill={AMARILLO} />
       </g>
     </svg>
   );
