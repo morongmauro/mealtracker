@@ -3055,6 +3055,21 @@ export default function MealTracker() {
     return () => { window.removeEventListener('message', alPedir); document.documentElement.classList.remove('em-video-completo'); };
   }, []);
   useEffect(() => { if (!showLearning) document.documentElement.classList.remove('em-video-completo'); }, [showLearning]);
+  // Mientras suena un podcast del centro, la pantalla no se apaga (si el
+  // teléfono se bloquea, YouTube pausa el video). El centro avisa con
+  // 'em-sonando'; si la app vuelve al frente con el podcast sonando, se pide
+  // de nuevo (el teléfono la suelta al salir).
+  useEffect(() => {
+    let lock = null, sonando = false;
+    const pedir = async () => { try { if (navigator.wakeLock && !lock) { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => { lock = null; }); } } catch (e) { lock = null; } };
+    const soltar = () => { try { lock && lock.release(); } catch (e) {} lock = null; };
+    const alMensaje = (ev) => { const d = ev && ev.data; if (!d || d.tipo !== 'em-sonando') return; sonando = !!d.on; if (sonando) pedir(); else soltar(); };
+    const alVolver = () => { if (sonando && document.visibilityState === 'visible') pedir(); };
+    window.addEventListener('message', alMensaje);
+    document.addEventListener('visibilitychange', alVolver);
+    return () => { window.removeEventListener('message', alMensaje); document.removeEventListener('visibilitychange', alVolver); soltar(); };
+  }, []);
+  useEffect(() => { if (!showLearning) { try { window.postMessage({ tipo: 'em-sonando', on: false }, '*'); } catch (e) {} } }, [showLearning]);
 
   // RECONOCIMIENTO DE APRENDIZAJE. El centro avisa cada pieza vista
   // (em-visto). Cada 3 cápsulas, cada 2 videos, o al completar las cápsulas
