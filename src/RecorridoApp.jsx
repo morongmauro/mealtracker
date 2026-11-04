@@ -41,9 +41,9 @@ const PASOS = [
     texto: 'Qué te toca cada día. Si algo cambia, mueves la rutina de día o añades un cardio o un deporte.' },
   { sec: 'comida', op: 'hoy', barra: 'Hoy', area: '[data-prota-comida], [data-dia-comidas], [data-cabecera-hoy="comida"]', color: C, etiqueta: 'Alimentación · hoy', titulo: 'Anota lo que comes.',
     texto: 'Aquí mismo la dices o la escribes, y tus anillos del día se llenan con cada comida.' },
-  { sec: 'comida', op: 'chat', barra: 'Chat', area: '.msg-input', color: C, etiqueta: 'Chat', titulo: 'Escribe o dicta lo que comiste.',
+  { sec: 'comida', op: 'chat', barra: 'Chat', area: '.msg-input', sobre: '.msg-input', color: C, etiqueta: 'Chat', titulo: 'Escribe o dicta lo que comiste.',
     texto: '«Dos huevos y una arepa» y listo: queda registrado contra tu meta. También le puedes preguntar qué comer.' },
-  { sec: 'comida', op: 'recetas', barra: 'Recetas', area: '[data-receta-foto]', unir: 2, tarjeta: true, color: C, etiqueta: 'Recetas', titulo: 'Recetas que encajan en tu meta.',
+  { sec: 'comida', op: 'recetas', barra: 'Recetas', area: '[data-receta-foto], [data-recetario-botones]', unir: 2, tarjeta: true, color: C, etiqueta: 'Recetas', titulo: 'Recetas que encajan en tu meta.',
     texto: 'Cada receta al tamaño que te toca, y tu día o tu semana organizados con su lista de mercado.' },
   { sec: 'aprende', op: 'lecturas', barra: 'Lecturas', area: CENTRO, color: A, etiqueta: 'Cápsulas', titulo: 'Aprende en un minuto.',
     texto: 'Cápsulas cortas de entrenamiento, nutrición y bienestar, y la guía de alimentación.' },
@@ -77,22 +77,28 @@ export default function RecorridoApp({ nombre, alIr, alTerminar }) {
   // Dónde está lo que se marca (se vuelve a medir al cambiar de paso y al
   // girar el teléfono; la página y la barra se acomodan un instante después).
   useLayoutEffect(() => {
-    if (!paso.sec) { setMarcas(null); return; }
-    let movido = false;
     const medir = () => {
-      const nav = document.querySelector('nav[aria-label="Secciones"]');
-      const boton = paso.barra && nav ? nav.querySelector(`[aria-label="${paso.barra}"]`) : null;
-      // La primera parte que se ve de la lista de selectores (en su orden);
-      // con `unir`, las primeras N juntas (los ejercicios, las recetas).
-      let partes = [];
-      for (const sel of (paso.area ? paso.area.split(',') : [])) {
-        partes = [...document.querySelectorAll(sel.trim())].filter(x => x.getBoundingClientRect().height > 0);
-        if (partes.length) break;
-      }
-      if (paso.tarjeta) partes = partes.map(x => x.closest('button, a, [role="button"]') || x.parentElement || x);
-      partes = partes.slice(0, paso.unir || 1);
-      if (partes[0] && !movido) { movido = true; try { partes[0].scrollIntoView({ block: 'start' }); } catch (e) { /* nada */ } }
       const r = (el) => { if (!el) return null; const q = el.getBoundingClientRect(); return { x: q.left, y: q.top, w: q.width, h: q.height }; };
+      const nav = document.querySelector('nav[aria-label="Secciones"]');
+      if (!paso.sec) { setMarcas({ area: null, boton: null, nav: r(nav), piso: null }); return; }
+      const boton = paso.barra && nav ? nav.querySelector(`[aria-label="${paso.barra}"]`) : null;
+      // Lo que queda fijo abajo, encima de la barra (la caja de escribir del
+      // chat): la burbuja va encima de eso, sin taparlo.
+      const fijo = paso.sobre ? document.querySelector(paso.sobre) : null;
+      const fijoCaja = fijo ? (fijo.closest('form') || fijo.parentElement || fijo).getBoundingClientRect() : null;
+      // La página se muestra tal cual se ve (sin moverla ni hacer zoom): se
+      // marca lo primero de la lista que YA está a la vista; si no está, lo
+      // siguiente. Con `unir`, las primeras N juntas (ejercicios, recetas).
+      const hasta = (nav ? nav.getBoundingClientRect().top : window.innerHeight) - 200;
+      let partes = [], primero = true;
+      for (const sel of (paso.area ? paso.area.split(',') : [])) {
+        partes = [...document.querySelectorAll(sel.trim())].filter(x => { const q = x.getBoundingClientRect(); return q.height > 0 && q.bottom > 0 && q.top < (fijo ? window.innerHeight : hasta); });
+        if (partes.length) break;
+        primero = false;
+      }
+      // `tarjeta`: del primer selector se marca la tarjeta entera (la receta).
+      if (paso.tarjeta && primero) partes = partes.map(x => x.closest('button, a, [role="button"]') || x.parentElement || x);
+      partes = partes.slice(0, paso.unir || 1);
       let area = null;
       if (partes.length) {
         const qs = partes.map(x => x.getBoundingClientRect());
@@ -100,13 +106,13 @@ export default function RecorridoApp({ nombre, alIr, alTerminar }) {
         const x1 = Math.max(...qs.map(q => q.right)), y1 = Math.max(...qs.map(q => q.bottom));
         area = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
       }
-      setMarcas({ area, boton: r(boton), nav: r(nav) });
+      setMarcas({ area, boton: r(boton), nav: r(nav), piso: fijoCaja ? fijoCaja.top : null });
     };
     medir();
     const t1 = setTimeout(medir, 260), t2 = setTimeout(medir, 700), t3 = setTimeout(medir, 1300), t4 = setTimeout(medir, 2000);
     window.addEventListener('resize', medir);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); window.removeEventListener('resize', medir); };
-  }, [i, paso.sec, paso.area, paso.barra, paso.unir, paso.tarjeta]);
+  }, [i, paso.sec, paso.area, paso.barra, paso.unir, paso.tarjeta, paso.sobre]);
 
   const terminar = () => {
     try { localStorage.setItem(CLAVE, new Date().toISOString()); } catch (e) { /* sin almacenamiento */ }
@@ -115,35 +121,32 @@ export default function RecorridoApp({ nombre, alIr, alTerminar }) {
     alTerminar && alTerminar();
   };
 
-  // La burbuja va justo encima de la barra, con su pico hacia el botón. Si lo
-  // marcado de la página queda abajo (el chat), la burbuja sube arriba.
+  // La burbuja va SIEMPRE en el mismo lugar: encima de la barra, con su pico
+  // hacia el botón (en el chat, encima de la caja de escribir).
   const H = typeof window !== 'undefined' ? window.innerHeight : 800;
   const W = typeof window !== 'undefined' ? window.innerWidth : 390;
-  const ancho = Math.min(W * 0.9, 380), izq = (W - ancho) / 2;
+  const ancho = Math.min(W * 0.92, 380), izq = (W - ancho) / 2;
   const techoBarra = marcas?.nav ? marcas.nav.y : H - 16;
-  const areaAbajo = !!(marcas?.area && marcas.area.y + marcas.area.h / 2 > H * 0.55);
-  const arriba = !!marcas && areaAbajo;
-  const posTarjeta = !marcas ? { top: '50%', marginTop: -altoTarjeta / 2 }
-    : arriba ? { top: 'calc(env(safe-area-inset-top, 0px) + 14px)' }
-    : { bottom: Math.max(16, H - techoBarra + 14) };
-  // Lo marcado de la página, recortado a lo que queda a la vista.
+  const base = marcas?.piso ? Math.min(marcas.piso, techoBarra) : techoBarra;
+  const abajoTarjeta = Math.max(16, H - base + 12);
+  const posTarjeta = { bottom: abajoTarjeta };
+  // Lo marcado de la página, recortado a lo que queda a la vista sobre la burbuja.
   let caja = null;
   if (marcas?.area) {
     const a = marcas.area;
-    const tope = arriba ? 14 + altoTarjeta + 12 : 8;
-    const piso = arriba ? techoBarra - 8 : H - Math.max(16, H - techoBarra + 14) - altoTarjeta - 12;
-    const y0 = Math.max(a.y - 6, tope), y1 = Math.min(a.y + a.h + 6, piso);
-    if (y1 - y0 > 40) caja = { x: Math.max(8, a.x - 6), y: y0, w: Math.min(W - 16, a.w + 12), h: y1 - y0 };
+    const piso = marcas.piso ? H : H - abajoTarjeta - altoTarjeta - 10;
+    const y0 = Math.max(a.y - 6, 8), y1 = Math.min(a.y + a.h + 6, piso);
+    if (y1 - y0 > 36) caja = { x: Math.max(8, a.x - 6), y: y0, w: Math.min(W - 16, a.w + 12), h: y1 - y0 };
   }
   const b = marcas?.boton;
-  const pico = b && !arriba ? Math.min(ancho - 34, Math.max(20, b.x + b.w / 2 - izq - 13)) : null;
+  const pico = b && !marcas?.piso ? Math.min(ancho - 34, Math.max(20, b.x + b.w / 2 - izq - 13)) : null;
   const n = i >= 1 && i <= NUCLEO ? i : null;
 
   return (
     <div data-recorrido role="dialog" aria-modal="true" aria-label="Recorrido de la app" style={{ position: 'fixed', inset: 0, zIndex: 90 }}>
       <style>{CSS}</style>
       {/* La página queda a la vista: solo un velo claro y suave. */}
-      <div style={{ position: 'fixed', inset: 0, background: marcas ? 'rgba(243,241,235,0.28)' : 'rgba(243,241,235,0.55)', WebkitBackdropFilter: marcas ? 'none' : 'blur(6px)', backdropFilter: marcas ? 'none' : 'blur(6px)' }} />
+      <div style={{ position: 'fixed', inset: 0, background: paso.sec ? 'rgba(243,241,235,0.28)' : 'rgba(243,241,235,0.55)', WebkitBackdropFilter: paso.sec ? 'none' : 'blur(6px)', backdropFilter: paso.sec ? 'none' : 'blur(6px)' }} />
       {caja && (
         <div data-foco-area style={{
           position: 'fixed', left: caja.x, top: caja.y, width: caja.w, height: caja.h, borderRadius: 24, pointerEvents: 'none',
@@ -161,18 +164,18 @@ export default function RecorridoApp({ nombre, alIr, alTerminar }) {
 
       <div key={i} ref={tarjeta} className="rec-tarjeta" style={{
         position: 'fixed', left: '50%', transform: 'translateX(-50%)', width: ancho, boxSizing: 'border-box', ...posTarjeta,
-        background: '#FFFFFF', borderRadius: 24, padding: '18px 18px 14px', boxShadow: '0 14px 40px rgba(40,40,30,0.22)',
+        background: '#FFFFFF', borderRadius: 22, padding: '13px 15px 11px', boxShadow: '0 12px 34px rgba(40,40,30,0.2)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ width: 8, height: 8, borderRadius: 99, background: paso.color }} />
-          <span style={{ fontSize: 12.5, fontWeight: 750, color: TEXT_MUTED }}>{paso.etiqueta}</span>
-          {n && <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 700, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{n} de {NUCLEO}</span>}
+          <span style={{ fontSize: 12, fontWeight: 750, color: TEXT_MUTED }}>{paso.etiqueta}</span>
+          {n && <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>{n} de {NUCLEO}</span>}
         </div>
-        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.12, color: TEXT, marginTop: 6 }}>{paso.titulo}</div>
-        <p style={{ fontSize: 15, lineHeight: 1.45, color: TEXT_MUTED, margin: '6px 0 0' }}>{paso.texto}</p>
-        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.15, color: TEXT, marginTop: 4 }}>{paso.titulo}</div>
+        <p style={{ fontSize: 13.5, lineHeight: 1.4, color: TEXT_MUTED, margin: '4px 0 0' }}>{paso.texto}</p>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
           {i > 0 && (
-            <button onClick={() => setI(i - 1)} aria-label="Atrás" style={{ ...boton, flex: 'none', width: 48, background: '#F1EFE9', color: TEXT }}>
+            <button onClick={() => setI(i - 1)} aria-label="Atrás" style={{ ...boton, flex: 'none', width: 44, background: '#F1EFE9', color: TEXT }}>
               <ArrowLeft size={20} weight="bold" />
             </button>
           )}
@@ -188,7 +191,7 @@ export default function RecorridoApp({ nombre, alIr, alTerminar }) {
   );
 }
 
-const boton = { height: 46, borderRadius: 14, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 16, fontWeight: 750, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
+const boton = { height: 40, borderRadius: 12, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 750, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 };
 const CSS = `
 @keyframes rec-entra { from { opacity: 0; transform: translate(-50%, 12px) scale(.98) } to { opacity: 1; transform: translate(-50%, 0) scale(1) } }
 .rec-tarjeta { animation: rec-entra .35s cubic-bezier(.2,.8,.2,1) both; }
