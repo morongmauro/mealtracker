@@ -19,8 +19,11 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Entrena con Método';
   event.waitUntil(self.registration.showNotification(title, {
     body: data.body || '',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    // Con versión: el teléfono guarda la imagen por su dirección; así toma
+    // el ícono nuevo y no una copia vieja. (En iPhone el aviso siempre usa el
+    // ícono de la app instalada en la pantalla de inicio.)
+    icon: '/icon-192.png?v=4',
+    badge: '/icon-192.png?v=4',
     tag: data.tag || 'ecm',
     data: { url: data.url || '/' },
   }));
