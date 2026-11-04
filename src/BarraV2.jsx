@@ -12,15 +12,14 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { vibrar } from './vibrar.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ChartLineUp, Barbell, ForkKnife, GraduationCap, SquaresFour, Brain } from '@phosphor-icons/react';
-import { AnilloDash } from './IconoDash.jsx';
+import { ChartLineUp, ChartBar, Barbell, ForkKnife, GraduationCap, SquaresFour, Brain } from '@phosphor-icons/react';
 import { SECCION, DASH_AZUL } from './theme.js';
 import { enPrueba, lote25, tinteSuave } from './vistaApp.js';
 
 export const ICONO_SECCION = { dash: ChartLineUp, entreno: Barbell, comida: ForkKnife, aprende: GraduationCap };
 // Vista en prueba: los mismos íconos que van dentro del blob de cada cabecera
-// (anillo de progreso, mancuerna, cubiertos y mente): un solo idioma en toda la app.
-const ICONO_PRUEBA = { dash: AnilloDash, entreno: Barbell, comida: ForkKnife, aprende: Brain };
+// (barras, mancuerna, cubiertos y mente): un solo idioma en toda la app.
+const ICONO_PRUEBA = { dash: ChartBar, entreno: Barbell, comida: ForkKnife, aprende: Brain };
 export const NOMBRE_SECCION = { dash: 'Dash', entreno: 'Entrenamiento', comida: 'Alimentación', aprende: 'Aprendizaje' };
 // El nombre corto, debajo del ícono (cuando cabe).
 const CORTO_SECCION = { dash: 'Dash', entreno: 'Entreno', comida: 'Comida', aprende: 'Aprende' };
