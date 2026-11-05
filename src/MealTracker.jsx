@@ -66,7 +66,7 @@ import { leerSesion, guardarSesion } from './sesionV2.js';
 const CuentaV2 = lazy(() => import('./CuentaV2.jsx'));
 import { aroComida, progresoComida } from './aros.js';
 import ExplicacionAro from './ExplicacionAro.jsx';
-import { sumarDias, api as apiEntreno } from './entrenoDatos.js';
+import { sumarDias, api as apiEntreno, pedirAbrirRutina } from './entrenoDatos.js';
 import { encuestaPospuesta } from './encuestaLuego.js';
 import { enVerComo as enVerComoEncuesta } from './verComo.js';
 import { pasosInstalar } from './InstalarApp.jsx';
@@ -3219,6 +3219,12 @@ export default function MealTracker() {
     if (view !== 'main' || !trainingOn) return;
     const ir = irPedido.current;
     if (ir === 'entreno') { irPedido.current = null; openTraining(); }
+    // «Tu Lower quedó abierta»: Entrenamiento con esa rutina, para terminarla.
+    else if (ir && ir.startsWith('rutina:')) {
+      irPedido.current = null;
+      if (v2 && irSubV2Ref.current) irSubV2Ref.current('entreno', 'hoy'); else openTraining();
+      setTimeout(() => pedirAbrirRutina(ir.slice(7)), 300);
+    }
   });
   // El aviso de una publicación en la Comunidad abre la Comunidad; el de una
   // respuesta del coach a una nota, el Dash (ahí está la tarjeta).

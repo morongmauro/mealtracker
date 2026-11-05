@@ -394,6 +394,57 @@ export async function cerrarOlvidadas(sb, hoy) {
   return res;
 }
 
+// ── Rutinas que quedaron abiertas ────────────────────────────────────────
+// Entrenó, marcó sus series y no tocó «Terminar». A las 2 horas de su última
+// serie se le avisa al teléfono para que la cierre (antes, al día siguiente
+// la abría vacía y creía que se le había borrado). Solo las de hoy y ayer:
+// las más viejas las cierra solas cerrarOlvidadas.
+//
+// Devuelve [{ sesion_id, rutina_id, rutina, nombre, ultima }] (ultima = la
+// hora de su última serie, la del teléfono si la hay).
+export async function rutinasAbiertas(sb, hoy) {
+  const ses = await sb(`sesiones?select=id,cliente_id,rutina_id,fecha,origen&estado=eq.en_curso&fecha=gte.${sumarDiasISO(hoy, -1)}&limit=300`);
+  const lista = (Array.isArray(ses) ? ses : []).filter(x => (x.origen || 'cliente') === 'cliente' && x.rutina_id);
+  if (!lista.length) return [];
+  const series = await sb(`series_log?select=*&completada=is.true&sesion_id=in.(${lista.map(x => x.id).join(',')})`);
+  const ultima = {};
+  (Array.isArray(series) ? series : []).forEach(x => {
+    const t = Date.parse(x.marcada_en || x.created_at);
+    if (Number.isFinite(t) && (!ultima[x.sesion_id] || t > ultima[x.sesion_id])) ultima[x.sesion_id] = t;
+  });
+  const conSeries = lista.filter(x => ultima[x.id]);
+  if (!conSeries.length) return [];
+  const [cli, rut] = await Promise.all([
+    sb(`clientes?select=id,nombre&id=in.(${[...new Set(conSeries.map(x => x.cliente_id))].join(',')})`),
+    sb(`rutinas?select=id,nombre&id=in.(${[...new Set(conSeries.map(x => x.rutina_id))].join(',')})`),
+  ]);
+  const nombre = Object.fromEntries((Array.isArray(cli) ? cli : []).map(c => [c.id, c.nombre]));
+  const rutina = Object.fromEntries((Array.isArray(rut) ? rut : []).map(r => [r.id, r.nombre]));
+  return conSeries.filter(x => nombre[x.cliente_id]).map(x => ({
+    sesion_id: x.id, rutina_id: x.rutina_id, rutina: rutina[x.rutina_id] || 'rutina',
+    nombre: nombre[x.cliente_id], ultima: new Date(ultima[x.id]).toISOString(),
+  }));
+}
+
+// ¿Toca avisarle AHORA? El cron corre cada hora: el aviso sale en la pasada
+// que cae entre las 2 h y las 3 h 15 min después de su última serie. De
+// noche no se molesta (de 10 pm a 7 am, hora del cliente): si las 2 h caen
+// ahí, el aviso sale en la pasada de las 7 am. Si una pasada se repite, el
+// aviso lleva la misma etiqueta y el teléfono reemplaza el anterior.
+export function tocaAvisarAbierta(ultimaISO, ahoraMs, tz = 'America/Bogota') {
+  const ultima = Date.parse(ultimaISO);
+  if (!Number.isFinite(ultima)) return false;
+  const objetivo = ultima + 2 * 3600e3;
+  if (ahoraMs < objetivo) return false;
+  const hora = (ms) => {
+    try { return Number(new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).format(new Date(ms))); }
+    catch (e) { return new Date(ms).getUTCHours(); }
+  };
+  const noche = (h) => h >= 22 || h < 7;
+  if (!noche(hora(objetivo))) return ahoraMs - objetivo < 75 * 60e3;
+  return hora(ahoraMs) === 7 && ahoraMs - objetivo < 12 * 3600e3;
+}
+
 // ── Lo que le toca hoy a cada cliente ────────────────────────────────────
 // Para el aviso de la mañana: la rutina de hoy (si no la hizo ya esta
 // semana) y si hoy tiene un evento de medición. Una pasada por TODOS los

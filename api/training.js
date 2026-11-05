@@ -896,8 +896,13 @@ async function abrirSesion(cliente, cuerpo, hoy) {
   // La fecha es la de HOY, salvo que la app mande la de ayer: son series que
   // se marcaron sin señal y suben después de medianoche. Más atrás no, y
   // nunca en el futuro.
-  const fecha = (/^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || ''))
-    && cuerpo.fecha <= hoy && cuerpo.fecha >= sumarDiasISO(hoy, -1)) ? cuerpo.fecha : hoy;
+  const pedida = /^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.fecha || '')) ? cuerpo.fecha : null;
+  let fecha = (pedida && pedida <= hoy && pedida >= sumarDiasISO(hoy, -1)) ? pedida : hoy;
+  // RETOMAR: la rutina que dejó a medias otro día (sin «Terminar»). Solo se
+  // busca la sesión que ya existe en esa fecha (hasta 6 días atrás): nunca
+  // se crea una sesión vieja.
+  const retomar = !!(cuerpo.retomar && pedida && pedida < hoy && pedida >= sumarDiasISO(hoy, -6));
+  if (retomar) fecha = pedida;
 
   const ya = await sb(`sesiones?select=id,estado,rpe,notas_cliente,fecha,finalizada_en&cliente_id=eq.${cliente.id}`
     + `&rutina_id=eq.${rutina.id}&fecha=eq.${fecha}&limit=1`);
@@ -909,12 +914,19 @@ async function abrirSesion(cliente, cuerpo, hoy) {
       + `&completada=is.true`);
     return { ok: true, sesion: ya[0], series: Array.isArray(series) ? series : [], retomada: true };
   }
+  if (retomar) return { ok: false, motivo: 'no_hay' };
+
+  // ¿La dejó a medias otro día? Hoy no tiene sesión de esta rutina, pero la
+  // de un día anterior sigue abierta y con series marcadas: la app se la
+  // muestra para terminarla en vez de enseñarle la rutina vacía (antes creía
+  // que se le había borrado lo que marcó).
+  const pendiente = cuerpo.crear === false ? await pendienteDe(cliente.id, rutina.id, fecha, hoy).catch(() => null) : null;
 
   // Mirar no es entrenar. La app abre la rutina con `crear:false` y solo crea
   // la sesión cuando se marca la primera serie. Antes, curiosear el jueves
   // desde el lunes dejaba una sesión «a medias» del jueves fechada el lunes,
   // que nunca se cerraba y ensuciaba la semana del cliente y el CRM.
-  if (cuerpo.crear === false) return { ok: true, sesion: null, series: [], retomada: false };
+  if (cuerpo.crear === false) return { ok: true, sesion: null, series: [], retomada: false, ...(pendiente ? { pendiente } : {}) };
 
   const creada = await sb('sesiones', {
     method: 'POST',
@@ -934,6 +946,21 @@ async function abrirSesion(cliente, cuerpo, hoy) {
   });
   const sesion = Array.isArray(creada) ? creada[0] : creada;
   return { ok: true, sesion, series: [], retomada: false };
+}
+
+// La sesión ABIERTA (sin «Terminar») de esta rutina en un día anterior, con
+// cuántas series marcó. Hasta 6 días atrás: más viejas ya las cerró solas el
+// cron (cerrarOlvidadas). Sin series no cuenta: abrirla para mirar no es
+// entrenar.
+async function pendienteDe(clienteId, rutinaId, fecha, hoy) {
+  const abiertas = await sb(`sesiones?select=id,fecha&cliente_id=eq.${clienteId}&rutina_id=eq.${encodeURIComponent(rutinaId)}`
+    + `&estado=eq.en_curso&fecha=lt.${fecha}&fecha=gte.${sumarDiasISO(hoy, -6)}&order=fecha.desc&limit=3`);
+  for (const a of (Array.isArray(abiertas) ? abiertas : [])) {
+    const series = await sb(`series_log?select=id&sesion_id=eq.${a.id}&completada=is.true`);
+    const n = Array.isArray(series) ? series.length : 0;
+    if (n > 0) return { fecha: a.fecha, series: n };
+  }
+  return null;
 }
 
 // Que la sesión sea suya antes de escribirle nada.
@@ -1062,7 +1089,11 @@ async function cerrarSesion(cliente, cuerpo) {
   const horas = (Array.isArray(primeras) ? primeras : [])
     .map(x => new Date(x.marcada_en || x.created_at).getTime()).filter(Number.isFinite);
   const inicio = horas.length ? Math.min(...horas) : null;
-  if (inicio) dur = Math.max(0, Math.round((ahora - inicio) / 1000));
+  const ultimaSerie = horas.length ? Math.max(...horas) : null;
+  // La terminó mucho después (la dejó a medias y la cierra horas o días
+  // más tarde): el entreno acabó con su última serie, no al tocar «Terminar».
+  const tarde = !!(ultimaSerie && ahora - ultimaSerie > 2 * 3600e3);
+  if (inicio) dur = Math.max(0, Math.round(((tarde ? ultimaSerie : ahora) - inicio) / 1000));
   // Qué récords batió hoy. Se mira ANTES de marcar la sesión como cerrada
   // porque da igual el estado: lo que cuenta son las series que dejó.
   let records = [];
@@ -1108,7 +1139,7 @@ async function cerrarSesion(cliente, cuerpo) {
 
   const cierre = {
     estado: cuerpo.estado === 'saltada' ? 'saltada' : 'completada',
-    finalizada_en: ahora.toISOString(),
+    finalizada_en: (tarde ? new Date(ultimaSerie) : ahora).toISOString(),
     duracion_seg: dur,
     rpe: (() => {
       const n = Number(cuerpo.rpe);

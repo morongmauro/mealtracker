@@ -54,7 +54,7 @@ import { checkOrigin } from './_guard.js';
 import manejarDescanso from './_descanso.js';
 // La regla de cobro, compartida con el banner de la app. Ver _pagos.js.
 import { leerContexto, evaluarCliente, normalizeName as normPagos, crmHeaders } from './_pagos.js';
-import { agendaDeHoy, cerrarOlvidadas, hoyBogota } from './_entreno.js';
+import { agendaDeHoy, cerrarOlvidadas, hoyBogota, rutinasAbiertas, tocaAvisarAbierta } from './_entreno.js';
 import { cerrarSemana } from './_semana.js';
 import { avisosDe, permiteAviso, avisosPorUsuario } from './_avisos.js';
 import { TRAINING_PARA_TODOS, TRAINING_BETA } from './_clients.js';
@@ -112,6 +112,9 @@ MSGS.cierreAmbosSinMeta = [
   'Cierre del día 🌙 Tu {rutina} aún no está registrada y falta poner tu comida al día. Registra lo que entrenaste y lo que comiste.',
   'Antes de descansar: marca tu {rutina} si ya entrenaste y registra lo que comiste hoy 🌙',
 ];
+
+// La rutina que quedó sin «Terminar».
+export const textoRutinaAbierta = (rutina) => `Tu ${rutina} quedó abierta. Toca para terminarla y que cuente 💪`;
 
 // Lo de mañana (peso, medición, fotos), en palabras.
 export function queRegistra(tipos = []) {
@@ -611,7 +614,31 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true, subs: subs.length, sent, removed, olvidadas, semana, videos });
+    // 4) Rutina que quedó abierta: a las 2 h de su última serie sin
+    //    «Terminar», un aviso para cerrarla (ver rutinasAbiertas). Al tocarlo
+    //    abre esa rutina. Respeta el «Recordatorio del día» apagado.
+    let abiertasAvisadas = 0;
+    if (CRM_URL && CRM_KEY) {
+      try {
+        const abiertas = await rutinasAbiertas(sbCrm, hoyBogota());
+        const ahora = Date.now();
+        for (const a of abiertas) {
+          for (const s of subs.filter(x => x.name && normalizeName(x.name) === normalizeName(a.nombre))) {
+            if (!tocaAvisarAbierta(a.ultima, ahora, s.tz || 'America/Bogota')) continue;
+            if (!permiteAviso((activity.get(s.user_id) || {}).avisos, 'dia')) continue;
+            try {
+              await webpush.sendNotification(s.sub, JSON.stringify({
+                title: 'Tu coach', body: textoRutinaAbierta(a.rutina), tag: `ecm-abierta-${a.sesion_id}`,
+                url: `/?ir=${encodeURIComponent('rutina:' + a.rutina_id)}`,
+              }));
+              sent++; abiertasAvisadas++;
+            } catch (e) { /* suscripción vencida: la limpia el turno normal */ }
+          }
+        }
+      } catch (e) { /* si falla, lo demás ya salió */ }
+    }
+
+    return res.status(200).json({ ok: true, subs: subs.length, sent, removed, olvidadas, semana, videos, abiertas: abiertasAvisadas });
   } catch (e) {
     return res.status(500).json({ error: 'cron failed', detail: String(e) });
   }

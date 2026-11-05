@@ -115,7 +115,8 @@ export const api = {
 
   // `crear:false` solo consulta: devuelve la sesión de hoy si ya existe, sin
   // crearla. Mirar una rutina no es entrenarla.
-  abrir:  (name, rutina_id, { crear = true, fecha } = {}) => pedir({ accion: 'abrir', name, rutina_id, crear, fecha }),
+  // `retomar` + `fecha`: la sesión que dejó a medias otro día (solo si existe).
+  abrir:  (name, rutina_id, { crear = true, fecha, retomar = false } = {}) => pedir({ accion: 'abrir', name, rutina_id, crear, fecha, ...(retomar ? { retomar: true } : {}) }),
   serie:  (name, datos)     => pedir({ accion: 'serie', name, ...datos }),
   cerrar: (name, datos)     => pedir({ accion: 'cerrar', name, ...datos }),
   // Deshacer el «Terminar» de hoy (3 h): la sesión vuelve a en curso con sus series.
@@ -328,6 +329,16 @@ export function rutinaAbierta() {
 // preguntar si se pasa a hoy al marcar la primera serie.
 export function guardarRutinaAbierta(id, fecha, planeada = null) {
   try { localStorage.setItem(CLAVE_ABIERTA, JSON.stringify({ id, fecha, planeada, t: Date.now() })); } catch (e) { /* sin almacenamiento */ }
+}
+// Un aviso del teléfono pide abrir una rutina (la que quedó abierta): se
+// deja anotada hasta que Entrenamiento la toma.
+const CLAVE_PEDIDA = 'mt:abrirRutinaPedida';
+export function pedirAbrirRutina(id) {
+  try { sessionStorage.setItem(CLAVE_PEDIDA, String(id)); } catch (e) { /* nada */ }
+  try { window.dispatchEvent(new CustomEvent('mt:abrirRutinaPedida')); } catch (e) { /* nada */ }
+}
+export function tomarRutinaPedida() {
+  try { const id = sessionStorage.getItem(CLAVE_PEDIDA); sessionStorage.removeItem(CLAVE_PEDIDA); return id || null; } catch (e) { return null; }
 }
 export function borrarRutinaAbierta() {
   try { localStorage.removeItem(CLAVE_ABIERTA); } catch (e) { /* nada */ }

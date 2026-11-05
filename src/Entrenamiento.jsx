@@ -10,7 +10,7 @@ import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria, { precargarGaleria } from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
-import { api as entrenoApi, miniatura, hoyLocal, sumarDias, aFecha, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, rutinaEnCurso, guardarRutinaEnCurso, borrarRutinaEnCurso, fechaLarga, codigoDia, fijarClaveTecleado, borrarTecleado, leerTecleado, useAlVolverRed, conPase, siPaseInvalido, guardadoDeEstaSemana } from './entrenoDatos.js';
+import { api as entrenoApi, miniatura, hoyLocal, sumarDias, aFecha, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, tomarRutinaPedida, rutinaEnCurso, guardarRutinaEnCurso, borrarRutinaEnCurso, fechaLarga, codigoDia, fijarClaveTecleado, borrarTecleado, leerTecleado, useAlVolverRed, conPase, siPaseInvalido, guardadoDeEstaSemana } from './entrenoDatos.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { enVerComo } from './verComo.js';
@@ -227,7 +227,19 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   const [rutinaId, setRutinaId] = useState(() => (rutinaAbierta() || {}).id || null);
   // De qué día del calendario se abrió (si era otro día y no se movió).
   const [rutinaPlan, setRutinaPlan] = useState(() => (rutinaAbierta() || {}).planeada || null);
-  const abrirRutina = useCallback((id, planeada = null) => { setRutinaPlan(planeada || null); setRutinaId(id); }, []);
+  // `rutinaFecha`: la rutina se abrió para TERMINAR la que dejó a medias
+  // otro día (su sesión de ese día, con lo que marcó). Null = la de hoy.
+  const [rutinaFecha, setRutinaFecha] = useState(null);
+  const abrirRutina = useCallback((id, planeada = null) => { setRutinaPlan(planeada || null); setRutinaFecha(null); setRutinaId(id); }, []);
+  // Un aviso del teléfono («Tu Lower quedó abierta») abre esa rutina.
+  useEffect(() => {
+    // Un momento después de montar: al llegar desde el aviso, la barra
+    // cambia a «Hoy» y ese cambio cierra la rutina abierta (ver abajo).
+    const f = () => { const id = tomarRutinaPedida(); if (id) abrirRutina(id); };
+    const t = setTimeout(f, 700);
+    window.addEventListener('mt:abrirRutinaPedida', f);
+    return () => { clearTimeout(t); window.removeEventListener('mt:abrirRutinaPedida', f); };
+  }, [abrirRutina]);
   // El recorrido de la app abre una rutina para mostrarla y la cierra al
   // seguir (solo se mira: abrirla no empieza el entreno).
   useEffect(() => {
@@ -284,8 +296,10 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     return (
       <Envoltorio>
         <VistaRutina
+          key={`${rutinaId}:${rutinaFecha || ''}`}
           name={name} rutinaId={rutinaId} plan={plan} compacta={compacta} planeada={rutinaPlan}
-          onVolver={() => { setRutinaId(null); borrarRutinaAbierta(); cargarPlan(); }}
+          fechaSesion={rutinaFecha} onRetomar={(f) => setRutinaFecha(f)}
+          onVolver={() => { setRutinaId(null); setRutinaFecha(null); borrarRutinaAbierta(); cargarPlan(); }}
         />
       </Envoltorio>
     );
@@ -661,7 +675,15 @@ function FilaDia({ d, onAbrir }) {
 }
 
 // ── UNA RUTINA, Y SU EJECUCIÓN ────────────────────────────────────────────
-function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, planeada = null }) {
+// «ayer, martes 3» o «el martes 3»: el día de la rutina que dejó a medias.
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+function diaPendiente(f) {
+  const d = aFecha(f);
+  const dia = `${DIAS_SEMANA[d.getDay()]} ${d.getDate()}`;
+  return f === sumarDias(hoyLocal(), -1) ? `ayer, ${dia}` : `el ${dia}`;
+}
+
+function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, planeada = null, fechaSesion = null, onRetomar = null }) {
   // Vista en prueba (solo Mauro): barra de avance discreta y velo debajo.
   const prueba = enPrueba();
   // Se abre AL INSTANTE con la copia guardada en el teléfono (la precarga deja
@@ -680,7 +702,9 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
       if (r && r.ok) setSesion(s => ({ ...s, estado: 'en_curso', finalizada_en: null }));
     } finally { setReabriendo(false); }
   };
-  const [marcadas, setMarcadas] = useState(() => sobre({}, marcadasDeCola(name, rutinaId, hoyLocal())));   // "reId:serie" → { reps, peso }
+  const [marcadas, setMarcadas] = useState(() => sobre({}, marcadasDeCola(name, rutinaId, fechaSesion || hoyLocal())));   // "reId:serie" → { reps, peso }
+  // La misma rutina, a medias de otro día (sin «Terminar»): { fecha, series }.
+  const [pendiente, setPendiente] = useState(null);
   const [cargando, setCargando] = useState(() => !leerRutinaLocal(almacen, rutinaId));
   const [actualizando, setActualizando] = useState(true);
   // Lo que marca o desmarca mientras llega lo del servidor: gana sobre eso.
@@ -745,7 +769,9 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     const id = setTimeout(() => setAvisarPendientes(true), 2500);
     return () => clearTimeout(id);
   }, [pendientes > 0]);
-  const fecha = useRef(hoyLocal()).current;       // el día en que se abrió, aunque pase medianoche
+  // El día en que se abrió, aunque pase medianoche; o el de la sesión que dejó
+  // a medias, si la abrió para terminarla.
+  const fecha = useRef(fechaSesion || hoyLocal()).current;
   // Queda anotada como abierta (para volver a ella si la página se recarga) y
   // lo tecleado sin marcar se guarda bajo su clave.
   // La clave se fija AL PINTAR (no en un efecto): las cajitas leen lo
@@ -932,12 +958,13 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
       // al marcar la primera serie (o al decir "no pude entrenar").
       const [r, s] = await Promise.all([
         api({ accion: 'rutina', name, id: rutinaId }),
-        entrenoApi.abrir(name, rutinaId, { crear: false }),
+        entrenoApi.abrir(name, rutinaId, { crear: false, ...(fechaSesion ? { fecha: fechaSesion, retomar: true } : {}) }),
       ]);
       if (!vivo) return;
       let rutina = r && r.ok ? r.rutina : null;
       if (rutina) guardarRutinaLocal(almacen, rutina);
-      if (r && r.ok && Array.isArray(r.cardio)) setCardio(r.cardio);
+      // El cardio del coach es el de HOY: no va dentro de la rutina de otro día.
+      if (r && r.ok && Array.isArray(r.cardio)) setCardio(fechaSesion ? [] : r.cardio);
       else if (r && r.motivo === 'sin_red') {
         // Sin señal: la última copia que se guardó en el teléfono. Se puede
         // entrenar igual; lo marcado sube cuando vuelva la red.
@@ -948,6 +975,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
       const m = {};
       if (s && s.ok) {
         if (s.sesion) setSesion(s.sesion);
+        setPendiente(!s.sesion && s.pendiente && s.pendiente.fecha ? s.pendiente : null);
         (s.series || []).forEach(x => {
           if (x.rutina_ejercicio_id && x.completada !== false) {
             m[`${x.rutina_ejercicio_id}:${x.serie_num}`] = { reps: x.reps, peso: x.peso, unidad: x.unidad || 'kg' };
@@ -1539,6 +1567,47 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
           </div>
         )}
       </div>
+
+      {/* La dejó a medias otro día: en vez de verla vacía (y creer que se
+          borró lo que marcó), se le muestra para terminarla. */}
+      {pendiente && !fechaSesion && !sesion && hechas === 0 && onRetomar && (
+        <div data-rutina-pendiente style={{
+          margin: '0 0 16px', padding: '14px 16px', borderRadius: 22, background: '#FFFFFF',
+          boxShadow: '0 1px 2px rgba(20,20,30,0.04), 0 8px 22px rgba(20,30,60,0.08)',
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#EE8434' }}>Rutina a medias</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: TEXT, marginTop: 2, lineHeight: 1.25 }}>
+            La dejaste a medias {diaPendiente(pendiente.fecha)}
+          </div>
+          <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 3, lineHeight: 1.4 }}>
+            {pendiente.series} serie{pendiente.series === 1 ? '' : 's'} marcada{pendiente.series === 1 ? '' : 's'}. Lo que marcaste está guardado.
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
+            <button data-retomar onClick={() => onRetomar(pendiente.fecha)} style={{
+              height: 42, padding: '0 20px', border: 'none', borderRadius: 999, background: TEXT, color: '#fff',
+              fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+            }}>Terminarla</button>
+            <button data-empezar-de-cero onClick={() => setPendiente(null)} style={{
+              border: 'none', background: 'transparent', padding: 0, color: TEXT_MUTED,
+              fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+            }}>Empezar hoy de cero</button>
+          </div>
+        </div>
+      )}
+      {fechaSesion && sesion && sesion.estado === 'en_curso' && (
+        <div data-rutina-retomada style={{
+          display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 16px', padding: '12px 14px 12px 16px', borderRadius: 20, background: '#FFFFFF',
+          boxShadow: '0 1px 2px rgba(20,20,30,0.04), 0 8px 22px rgba(20,30,60,0.08)',
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#EE8434' }}>Tu rutina {diaPendiente(fechaSesion)}</div>
+            <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 2, lineHeight: 1.4 }}>Aquí está lo que marcaste. Si te faltó algo, márcalo y dale «Terminar».</div>
+          </div>
+          <button data-terminar-retomada
+            onClick={() => { setDescanso(null); setCuenta(null); setErrorCierre(null); setCerrandoHoja(true); }}
+            style={{ flex: 'none', height: 40, padding: '0 16px', border: 'none', borderRadius: 999, background: TEXT, color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Terminar</button>
+        </div>
+      )}
 
       {/* Visual nueva: el avance se queda pegado arriba mientras se baja, para
           saber siempre cuánto falta sin volver al principio. */}
