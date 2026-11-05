@@ -29,7 +29,7 @@ import { lote25 } from './vistaApp.js';
 import { vibrar as vibrarL25 } from './vibrar.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, CurrencyDollar, PersonSimpleRun, Moon, Info, Wind, Stack } from '@phosphor-icons/react';
+import { CheckCircle, CaretRight, CaretLeft, ArrowsLeftRight, Plus, Check, Flag, FlagCheckered, CurrencyCircleDollar, CurrencyDollar, PersonSimpleRun, Moon, Info, Wind, Stack, VideoCamera } from '@phosphor-icons/react';
 import { Bascula } from './iconosEntreno.jsx';
 import Respira from './Respira.jsx';
 import { api, hoyLocal, MESES, DIAS_CORTO, fechaLarga, CATALOGO_MINIMO, sumarDias, aFecha, nombreCorto, useAlVolverRed, guardado } from './entrenoDatos.js';
@@ -994,7 +994,7 @@ export async function precargarMeses(nombre) {
   }));
 }
 
-function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
+function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {}, videosHoy = [] }) {
   // Mi ciclo (a prueba): los días de período y de energía baja en el mes.
   const ciclo = useMiCiclo(nombre);
   const cicloDe = (f) => (ciclo.activo ? ciclo.registros[f] : null);
@@ -1232,7 +1232,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {} }) {
 
       {/* ── HOY TE TOCA ── */}
       {listo && modo === 'hoy' && (
-        <HoyTeToca dia={dHoy} P={P} nombre={nombre} ejerciciosDe={ejerciciosDe} pendientes={(cache[hoy.slice(0, 7)] || {}).pendientes || []}
+        <HoyTeToca dia={dHoy} P={P} nombre={nombre} ejerciciosDe={ejerciciosDe} videosHoy={videosHoy} pendientes={(cache[hoy.slice(0, 7)] || {}).pendientes || []}
           alEntrenar={alEntrenar} alRegistrarActividad={() => setRegistrando(hoy)}
           alReabrir={async (id) => { const r = await api.reabrir(nombre, id, hoy); if (r && r.ok) { await cargar(hoy.slice(0, 7)); alEntrenar(id); } }}
           alAgregar={puedeAgregar(dHoy) ? () => setEligiendo(hoy) : null}
@@ -1428,7 +1428,7 @@ function AccionDirecta({ ev, fecha, nombre, alCerrar, alCambio }) {
 }
 
 // ── Lo que toca hoy, todo junto ──────────────────────────────────────────
-function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegistrarActividad, alAgregar, alQuitar, alCambio, pendientes = [] }) {
+function HoyTeToca({ dia, P, nombre, ejerciciosDe, videosHoy = [], alEntrenar, alReabrir, alRegistrarActividad, alAgregar, alQuitar, alCambio, pendientes = [] }) {
   const [reabriendo, setReabriendo] = useState(false);
   const hoy = hoyLocal();
   const r = dia?.rutina;
@@ -1498,7 +1498,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegi
             de la fuerza (que sigue siendo lo primero que se ve): los bloques
             aparte (un recovery), el cardio y la caminata, y pesarse o las
             fotos. */}
-        {(bloques.length > 0 || registros.length > 0 || otros.length > 0 || pendientes.length > 0) && (
+        {(bloques.length > 0 || registros.length > 0 || otros.length > 0 || pendientes.length > 0 || (videosHoy.length > 0 && r && !hecha)) && (
           <div data-tambien-hoy style={{ fontSize: 13.5, fontWeight: 750, color: TEXT_MUTED, margin: '4px 2px -2px' }}>También hoy</div>
         )}
         {bloques.map(b => <TarjetaBloque key={b.id} b={b} P={P} n={ejerciciosDe[b.id]} alEntrenar={alEntrenar} />)}
@@ -1510,6 +1510,32 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, alEntrenar, alReabrir, alRegi
         {registros.map(ev => (
           <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 compacta alCambio={alCambio} />
         ))}
+        {/* El video que pidió el coach de un ejercicio de la rutina de hoy:
+            su propia tarjeta, para que lo grabe al entrenar. */}
+        {videosHoy.length > 0 && r && !hecha && (
+          <div data-hoy-video style={{ borderRadius: 14, padding: '9px 12px', background: SURFACE, border: '1px solid #F6D2B4' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ width: 30, height: 30, borderRadius: 99, background: '#FDEBDD', color: '#EE8434', display: 'grid', placeItems: 'center', flex: 'none' }}>
+                <VideoCamera size={16} weight="fill" />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{videosHoy.length === 1 ? 'Hoy toca grabar' : `Hoy toca grabar ${videosHoy.length} videos`}</div>
+                {/* Uno: el nombre debajo. Varios: uno por línea, hasta tres, y
+                    «y N más» (en la rutina cada ejercicio trae su marca). */}
+                {videosHoy.slice(0, 3).map(v => (
+                  <div key={v.id || v.nombre} data-hoy-video-ej style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.35, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    {videosHoy.length > 1 && <span style={{ width: 5, height: 5, borderRadius: 9, background: '#EE8434', flex: 'none', transform: 'translateY(-2px)' }} />}
+                    <span style={{ minWidth: 0 }}>{v.nombre}</span>
+                  </div>
+                ))}
+                {videosHoy.length > 3 && (
+                  <div data-hoy-video-mas style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.35, fontWeight: 650, marginTop: 1 }}>y {videosHoy.length - 3} más</div>
+                )}
+              </div>
+              <button data-hoy-video-ir onClick={() => alEntrenar(r.id)} style={{ ...botonPrimario, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none' }}>Grabar</button>
+            </div>
+          </div>
+        )}
         {/* Lo que quedó de días pasados (pesarse, fotos, medición): se queda
             aquí, con su fecha, hasta que lo haga. */}
         {pendientes.map(p => (

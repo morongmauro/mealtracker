@@ -367,7 +367,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
         // día. El Calendario queda para el mes: no se repite lo mismo.
         <>
           {enPrueba() && <ContinuarRutina plan={plan} alAbrir={abrirRutina} />}
-          <HoySemana nombre={name} alEntrenar={abrirRutina}
+          <HoySemana nombre={name} alEntrenar={abrirRutina} videosHoy={(plan.videos || []).filter(v => v.hoy)}
             ejerciciosDe={Object.fromEntries((plan.dias || []).flatMap(d => [...(d.rutina ? [[d.rutina.id, d.rutina.ejercicios]] : []), ...(d.complementarias || []).map(c => [c.id, c.ejercicios])]))} />
           <Sueltas plan={plan} onAbrir={abrirRutina} />
           {/* Acceso fijo a sus fotos y al comparativo (antes y ahora), estén
