@@ -26,6 +26,11 @@ const capa = (sel, c, fuerte) => `${sel}{background:${fondo(c, fuerte)}!importan
 
 const CSS = [
   `body{background:${BLANCO}!important}`,
+  // 5 nov, «B · mucho más transparente» (Dash, Entrenamiento, Alimentación y
+  // Aprendizaje): las manchas fijas de cada sección y las burbujas de color de
+  // la cabecera, a 15 %.
+  `div.fixed.inset-0.pointer-events-none[style*="radial-gradient"]{opacity:${I}!important}`,
+  `[data-cabecera-hoy] .cab-m{opacity:${I}!important}`,
   // El fondo de siempre (#EDECE5) pasa a blanco; sus manchas fijas se van.
   `.min-h-screen.relative[style*="rgb(237, 236, 229)"]{background:${BLANCO}!important}`,
   `.min-h-screen.relative>.fixed.inset-0.pointer-events-none[style*="radial-gradient"],.bg-stains-chat{display:none!important}`,

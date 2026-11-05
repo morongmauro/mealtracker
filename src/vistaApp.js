@@ -61,10 +61,11 @@ export function fondoBlanco() {
   return FONDO_BLANCO_TODOS || ((PRUEBA_TODOS || FONDO_BLANCO_PRUEBA.includes(normal(nombreGuardado()))) && enPrueba());
 }
 // Intensidad de los fondos de color de los módulos (2 nov, «intermedio
-// entre A y B», luego 70 %): las manchas y degradados a 70 % de lo que eran y sus
+// entre A y B», luego 70 %, y el 5 nov «B · mucho más transparente», 15 %): las
+// manchas y degradados a 15 % de lo que eran y sus
 // colores un 26 % menos saturados. Solo fondos: textos, íconos y botones
 // siguen con los colores de marca.
-export const INTENSIDAD_FONDO = 0.70;
+export const INTENSIDAD_FONDO = 0.15;
 const SATURACION_FONDO = 0.74;
 export const desaturar = (rgb, s = SATURACION_FONDO) => {
   const [r, g, b] = rgb.split(',').map(Number);
