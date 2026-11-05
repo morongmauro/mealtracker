@@ -370,6 +370,9 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
           <HoySemana nombre={name} alEntrenar={abrirRutina}
             ejerciciosDe={Object.fromEntries((plan.dias || []).flatMap(d => [...(d.rutina ? [[d.rutina.id, d.rutina.ejercicios]] : []), ...(d.complementarias || []).map(c => [c.id, c.ejercicios])]))} />
           <Sueltas plan={plan} onAbrir={abrirRutina} />
+          {/* Acceso fijo a sus fotos y al comparativo (antes y ahora), estén
+              subidas desde la app o por su coach desde el CRM. */}
+          <AtajoFotos onClick={() => setSeccion('fotos')} />
         </>
       ) : (
         <>
@@ -2663,7 +2666,7 @@ const Vacio = ({ texto }) => (
   <p style={{ fontSize: 13, color: TEXT_MUTED, lineHeight: 1.55, margin: 0 }}>{texto}</p>
 );
 
-// ── Fotos de progreso: la entrada desde Hoy (lote 26, solo Mauro) ─────────
+// ── Fotos de progreso: la entrada fija desde Hoy, al final ───────────────
 function AtajoFotos({ onClick }) {
   return (
     <button data-atajo-fotos onClick={onClick} style={{
