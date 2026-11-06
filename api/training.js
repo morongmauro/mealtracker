@@ -1220,7 +1220,7 @@ async function verMes(cliente, ym, hoy) {
     actividadesDeEventos(cliente.id, primero, ultimo),
   ]);
   const hechoDe = {};
-  (Array.isArray(regs) ? regs : []).forEach(r => { hechoDe[`${r.evento_id}:${r.fecha}`] = r; });
+  (await conCargaDelCoach(regs, cliente, evs, fase, primero, ultimo < hoy ? ultimo : hoy)).forEach(r => { hechoDe[`${r.evento_id}:${r.fecha}`] = r; });
   // Las ausencias del mes y las que vienen (las que puede ver y editar).
   const ausencias = await leerAusencias(sb, cliente.id, primero < hoy ? primero : hoy, sumarDiasISO(ultimo > hoy ? ultimo : hoy, 400));
   const sesiones = Array.isArray(ses) ? ses : [];
@@ -1588,6 +1588,41 @@ function eventoParaApp(ev, fecha, catalogo, hechoReg, hechoAct) {
   };
 }
 
+// ── LO QUE EL COACH CARGÓ POR ÉL ──────────────────────────────────────────
+// Si te mandó la medición, el peso o las fotos por WhatsApp y tú los cargas en
+// el CRM, el recordatorio de esa fecha queda hecho: deja de salirle en la app
+// hasta la próxima fecha del calendario, sin que él haga nada. Vale lo cargado
+// desde 3 días antes de la fecha del recordatorio hasta 13 días después (así
+// no tapa el de la semana siguiente).
+const CARGA_COACH = { medidas: 'med', medicion: 'med', peso: 'peso', fotos: 'fotos' };
+async function conCargaDelCoach(regs, cliente, evs, fase, desde, hasta) {
+  const lista = Array.isArray(regs) ? regs.slice() : [];
+  try {
+    const porFecha = expandirEventos(evs, fase);
+    const toca = [];
+    Object.keys(porFecha).forEach(f => { if (f >= desde && f <= hasta) porFecha[f].forEach(ev => { if (CARGA_COACH[ev.tipo]) toca.push({ ev, f }); }); });
+    if (!toca.length) return lista;
+    const ya = new Set(lista.map(r => `${r.evento_id}:${r.fecha}`));
+    const pend = toca.filter(x => !ya.has(`${x.ev.id}:${x.f}`));
+    if (!pend.length) return lista;
+    const d = sumarDiasISO(desde, -3), h = sumarDiasISO(hasta, 13);
+    const [med, fot] = await Promise.all([
+      sb(`mediciones_corporales?select=fecha,peso&cliente_id=eq.${cliente.id}&fecha=gte.${d}&fecha=lte.${h}`).catch(() => []),
+      pend.some(x => x.ev.tipo === 'fotos') ? sb(`fotos_progreso?select=fecha&cliente_id=eq.${cliente.id}&fecha=gte.${d}&fecha=lte.${h}`).catch(() => []) : [],
+    ]);
+    const fechas = {
+      med: (Array.isArray(med) ? med : []).map(m => String(m.fecha || '').slice(0, 10)),
+      peso: (Array.isArray(med) ? med : []).filter(m => m.peso != null).map(m => String(m.fecha || '').slice(0, 10)),
+      fotos: (Array.isArray(fot) ? fot : []).map(m => String(m.fecha || '').slice(0, 10)),
+    };
+    pend.forEach(({ ev, f }) => {
+      const lo = sumarDiasISO(f, -3), hi = sumarDiasISO(f, 13);
+      if ((fechas[CARGA_COACH[ev.tipo]] || []).some(x => x >= lo && x <= hi)) lista.push({ evento_id: ev.id, fecha: f, estado: 'hecho', valor: null, por_coach: true });
+    });
+  } catch (e) { /* si algo falla, queda como estaba */ }
+  return lista;
+}
+
 // ── PENDIENTES DE REGISTRO ────────────────────────────────────────────────
 // Pesarse, las fotos o la medición que el coach puso en días que ya pasaron
 // y el cliente no marcó: se quedan en Hoy (Entreno y Dash) hasta que lo
@@ -1610,8 +1645,8 @@ async function pendientesRegistro(cliente, hoy, evs, fase, catalogo) {
   const hoyIds = new Set((porFecha[hoy] || []).map(ev => ev.id));
   const ids = Object.keys(ultima).filter(id => !hoyIds.has(id));
   if (!ids.length) return [];
-  const regs = await sb(`evento_registros?select=evento_id,fecha,estado&cliente_id=eq.${cliente.id}`
-    + `&fecha=gte.${desde}&fecha=lte.${ayer}&evento_id=in.(${ids.join(',')})`).catch(() => []);
+  const regs = await conCargaDelCoach(await sb(`evento_registros?select=evento_id,fecha,estado&cliente_id=eq.${cliente.id}`
+    + `&fecha=gte.${desde}&fecha=lte.${ayer}&evento_id=in.(${ids.join(',')})`).catch(() => []), cliente, evs, fase, desde, ayer);
   const marcado = new Set((Array.isArray(regs) ? regs : []).map(r => `${r.evento_id}:${r.fecha}`));
   return ids.filter(id => !marcado.has(`${id}:${ultima[id].fecha}`))
     .map(id => ({
@@ -2373,7 +2408,7 @@ async function verDash(cliente, hoy) {
     medidas: Array.isArray(medidas) ? medidas : [],
     eventosSemana: expandirEventos(Array.isArray(eventos) ? eventos : [], faseHoy),
     pendientes: await pendientesRegistro(cliente, hoy, Array.isArray(eventos) ? eventos : [], faseHoy, catalogo).catch(() => []),
-    registros: Array.isArray(registros) ? registros : [],
+    registros: await conCargaDelCoach(registros, cliente, Array.isArray(eventos) ? eventos : [], faseHoy, lunes, hoy),
     categorias: Object.fromEntries((Array.isArray(catalogo) ? catalogo : []).map(c => [c.slug, c.categoria])),
     ausentes,
   }) };
