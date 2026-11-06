@@ -19,10 +19,16 @@ const BLANCO = '#FCFCFD';
 // (galería, calendario) se veían como franjas de color interrumpidas.
 // (Las transparencias van por INTENSIDAD_FONDO: el nivel intermedio.)
 const a = (v) => (v * I).toFixed(3);
-const fondo = ({ p, q }, fuerte = 1) => `radial-gradient(95% 460px at 0% 0%, rgba(${p},${a(0.24 * fuerte)}), rgba(${p},0) 100%), `
-  + `radial-gradient(70% 380px at 100% 200px, rgba(${q},${a(0.13)}), rgba(${q},0) 100%), `
-  + `linear-gradient(180deg, rgba(${p},${a(0.10 * fuerte)}) 0%, rgba(${p},0) 900px), ${BLANCO}`;
-const capa = (sel, c, fuerte) => `${sel}{background:${fondo(c, fuerte)}!important;background-size:auto!important;background-repeat:no-repeat!important;background-attachment:local!important}`;
+// 6 nov · fondo B (el elegido): crema clara #F7F6F2, una luz blanca arriba
+// a la izquierda, el color del módulo arriba a la derecha y el segundo color
+// a la izquierda a la altura de la cabecera, más transparentes; un velo muy
+// suave del color que se apaga a media pantalla. Igual en las cuatro secciones.
+const CREMA_B = '#F7F6F2';
+const fondo = ({ p, q }, fuerte = 1) => `radial-gradient(60% 240px at 14% 30px, rgba(255,255,255,0.7), rgba(255,255,255,0) 100%), `
+  + `radial-gradient(95% 340px at 100% 0%, rgba(${p},${(0.12 * fuerte).toFixed(3)}), rgba(${p},0) 100%), `
+  + `radial-gradient(80% 300px at 0% 120px, rgba(${q},0.11), rgba(${q},0) 100%), `
+  + `linear-gradient(180deg, rgba(${p},${(0.04 * fuerte).toFixed(3)}) 0%, rgba(${p},0) 55vh), ${CREMA_B}`;
+const capa = (sel, c, fuerte) => `${sel}{background:${fondo(c, fuerte)}!important;background-size:auto!important;background-repeat:no-repeat!important;background-attachment:scroll!important}`;
 
 const CSS = [
   `body{background:${BLANCO}!important}`,
@@ -46,7 +52,7 @@ const CSS = [
   // derecha, amarillo a la izquierda, apagándose hacia abajo. Los mensajes
   // pasan por encima y las manchas se quedan.
   `[data-chat-scroller]{background:transparent!important}`,
-  `.min-h-screen.relative:has(>[data-chat-scroller]){background:radial-gradient(95% 340px at 100% 0%, rgba(${COLORES_MODULO.comida.p},${a(0.46)}), rgba(${COLORES_MODULO.comida.p},0) 100%), radial-gradient(80% 300px at 0% 110px, rgba(${COLORES_MODULO.comida.q},${a(0.40)}), rgba(${COLORES_MODULO.comida.q},0) 100%), linear-gradient(180deg, rgba(${COLORES_MODULO.comida.p},${a(0.12)}) 0%, rgba(${COLORES_MODULO.comida.p},0) 55vh), ${BLANCO}!important}`,
+  `.min-h-screen.relative:has(>[data-chat-scroller]){background:${fondo(COLORES_MODULO.comida)}!important}`,
   // Los desvanecidos de arriba y abajo eran del gris cálido: en blanco.
   `.fixed.pointer-events-none[style*="rgba(237, 236, 229"]{display:none!important}`,
   // Sin la píldora negra; la franja curva más corta y todo sube.
