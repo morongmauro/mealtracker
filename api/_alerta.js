@@ -16,18 +16,27 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const COACH = process.env.COACH_PUSH_NAME || 'Mauro Morón';
 
-export async function alertarCoach({ title, body, tag = 'ecm-coach-alerta' }) {
+// Las suscripciones del CRM del coach (coach-data?action=push_sub) llevan
+// este nombre. Si tiene alguna, los avisos van al CRM (y abren donde hay que
+// actuar: `ir`, p. ej. '?seg=<cliente>' o '?ver=bandeja'); si no, a su app de
+// cliente como siempre.
+export const CRM_COACH = 'crm:coach';
+
+export async function alertarCoach({ title, body, tag = 'ecm-coach-alerta', ir = '?ver=bandeja' }) {
   try {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return 0;
     webpush.setVapidDetails('mailto:morongmauro@gmail.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
     const h = { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` };
     const r = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,name,sub`, { headers: h });
     const subs = r.ok ? await r.json() : [];
-    const mias = (Array.isArray(subs) ? subs : []).filter(s => normalizeName(s.name) === normalizeName(COACH));
+    const todas = Array.isArray(subs) ? subs : [];
+    const crm = todas.filter(s => s.name === CRM_COACH);
+    const mias = crm.length ? crm : todas.filter(s => normalizeName(s.name) === normalizeName(COACH));
+    const url = crm.length ? `/${String(ir || '').replace(/^\/+/, '')}` : '/';
     let n = 0;
     for (const s of mias) {
       try {
-        await webpush.sendNotification(s.sub, JSON.stringify({ title: String(title).slice(0, 80), body: String(body).slice(0, 300), tag, url: '/' }));
+        await webpush.sendNotification(s.sub, JSON.stringify({ title: String(title).slice(0, 80), body: String(body).slice(0, 300), tag, url }));
         n++;
       } catch (e) { /* suscripción vieja: la limpia el cron de siempre */ }
     }

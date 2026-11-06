@@ -517,6 +517,8 @@ export default async function handler(req, res) {
     // `last_slot` ("YYYY-MM-DD#id") basta para no duplicar dentro del turno.
     let sent = 0, removed = 0;
     for (const s of subs) {
+      // El CRM del coach (avisos de sus clientes) no recibe recordatorios de cliente.
+      if (s.name === 'crm:coach') continue;
       const { hour, date } = localNow(s.tz || 'America/Bogota');
       const act = activity.get(s.user_id) || { date: '', count: 0 };
       const registrosHoy = act.date === date ? act.count : 0;

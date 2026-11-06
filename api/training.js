@@ -835,7 +835,7 @@ async function guardarFoto(cliente, cuerpo, hoy) {
   await alertarCoach({
     title: `${cliente.nombre} subió una foto de progreso`,
     body: [FOTO_POSE_NOMBRE[f.pose] || f.pose, f.peso_kg != null ? `${String(f.peso_kg).replace('.', ',')} kg` : null, f.nota].filter(Boolean).join(' · '),
-    tag: 'ecm-foto',
+    tag: 'ecm-foto', ir: `?seg=${cliente.id}`,
   });
   return { ok: true, foto: { id: f.id, fecha: f.fecha, pose: f.pose, peso_kg: f.peso_kg, nota: f.nota, url: await firmarVer(f.ruta).catch(() => null) } };
 }
@@ -1377,7 +1377,7 @@ async function registrarEvento(cliente, cuerpo, hoy) {
       await alertarCoach({
         title: `${cliente.nombre} ${QUE_HIZO[ev.tipo] || 'registró algo'}`,
         body: [ev.titulo, valor != null ? `${String(valor).replace('.', ',')} kg` : null, fila.nota].filter(Boolean).join(' · '),
-        tag: 'ecm-registro',
+        tag: 'ecm-registro', ir: `?seg=${cliente.id}`,
       });
     }
     // «No tengo cómo pesarme»: se quita el compromiso (deja de salir en Hoy)
@@ -1386,7 +1386,7 @@ async function registrarEvento(cliente, cuerpo, hoy) {
       await alertarCoach({
         title: `${cliente.nombre} no tiene cómo ${ev.tipo === 'peso' ? 'pesarse' : ev.tipo === 'fotos' ? 'tomarse las fotos' : 'medirse'}`,
         body: `${ev.titulo} · lo quitó de sus pendientes`,
-        tag: 'ecm-registro',
+        tag: 'ecm-registro', ir: `?seg=${cliente.id}`,
       }).catch(() => null);
     }
   } catch (e) {
@@ -1943,7 +1943,7 @@ async function guardarMedida(cliente, cuerpo, hoy) {
     peso != null ? `${peso} kg${dif(peso, previa ? Number(previa.peso) : null, 'kg')}` : null,
     grasa != null ? `${grasa}% grasa${dif(grasa, previa && previa.grasa_pct != null ? Number(previa.grasa_pct) : null, 'pts')}` : null,
   ].filter(Boolean);
-  await alertarCoach({ title: `${cliente.nombre} registró su medida`, body: partes.join(' · '), tag: 'ecm-medida' });
+  await alertarCoach({ title: `${cliente.nombre} registró su medida`, body: partes.join(' · '), tag: 'ecm-medida', ir: `?seg=${cliente.id}` });
   return { ok: true, medida: { id: m.id, fecha: m.fecha, peso: m.peso, grasa_pct: m.grasa_pct } };
 }
 

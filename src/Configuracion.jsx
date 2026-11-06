@@ -21,6 +21,15 @@ import { PRUEBA_TODOS, lote25 } from './vistaApp.js';
 import { TIPOS_AVISO, useAvisos, guardarAviso } from './avisos.js';
 
 const SOMBRA = '0 1px 2px rgba(40,40,30,0.04), 0 6px 16px rgba(60,60,40,0.06)';
+// Vista coach: al abrir tu app desde el CRM («Mi app (vista cliente)»), la
+// dirección trae ?crm=<el CRM>; se recuerda en este teléfono y aquí sale
+// «Vista coach (CRM)» para volver. Solo lo ve quien entró desde el CRM.
+const CLAVE_CRM = 'ecm:crm';
+try {
+  const q = new URLSearchParams(location.search).get('crm');
+  if (q && /^https:\/\/[a-z0-9.-]+$/i.test(q)) localStorage.setItem(CLAVE_CRM, q);
+} catch (e) { /* sin almacenamiento */ }
+function urlCRM() { try { const u = localStorage.getItem(CLAVE_CRM); return u && /^https:\/\//.test(u) ? u : null; } catch (e) { return null; } }
 // Sello del build (vite.config.js); en el servidor de desarrollo no hay.
 function textoVersion() {
   const v = typeof __BUILD_VERSION__ !== 'undefined' ? Number(__BUILD_VERSION__) : 0;
@@ -71,6 +80,7 @@ export default function Configuracion({ name, arriba = 0, alRecorrido, alProgram
     { id: 'recorrido', Icono: Compass, titulo: 'Recorrido de la app', detalle: 'Qué hay en cada sección', alTocar: alRecorrido },
     { id: 'programa', Icono: BookOpenText, titulo: 'Sobre el programa', detalle: 'El método, tu trayecto y las dudas', alTocar: alPrograma },
     ...(whatsapp ? [{ id: 'coach', Icono: WhatsappLogo, titulo: 'Hablar con tu coach', detalle: 'Por WhatsApp', href: whatsapp }] : []),
+    ...(urlCRM() ? [{ id: 'crm', Icono: SquaresFour, titulo: 'Vista coach (CRM)', detalle: 'Volver al CRM', href: `${urlCRM()}/?ver=hoy` }] : []),
   ];
 
   return (

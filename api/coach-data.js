@@ -15,6 +15,7 @@ import { verifyCoachToken } from './coach-auth.js';
 import { firmarPase, DOMINIO_NUEVO } from './_verComo.js';
 import { checkOrigin } from './_guard.js';
 import { dashParaCoach } from './training.js';
+import { CRM_COACH } from './_alerta.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -233,6 +234,29 @@ export default async function handler(req, res) {
   if (!payload) return res.status(401).json({ error: 'unauthorized' });
 
   const action = req.query.action;
+
+  // AVISOS EN EL CRM — el teléfono del coach se suscribe desde el CRM: los
+  // avisos de sus clientes (te escribió, registró una medida, subió una
+  // foto…) le llegan ahí y, al tocarlos, abren el CRM en ese cliente
+  // (api/_alerta.js). Solo con el token de coach.
+  if (req.method === 'GET' && action === 'push_key') {
+    return res.status(200).json({ publicKey: process.env.VAPID_PUBLIC_KEY || null });
+  }
+  if (req.method === 'POST' && action === 'push_sub') {
+    const sub = req.body && req.body.sub;
+    if (!sub || typeof sub !== 'object' || typeof sub.endpoint !== 'string' || !sub.endpoint.startsWith('https://')) return res.status(400).json({ error: 'invalid subscription' });
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?on_conflict=endpoint`, {
+        method: 'POST',
+        headers: { ...supaHeaders(), Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ endpoint: sub.endpoint, user_id: null, name: CRM_COACH, tz: 'America/Bogota', sub, updated_at: new Date().toISOString() }),
+      });
+      if (!r.ok) return res.status(500).json({ error: 'save failed' });
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      return res.status(500).json({ error: 'save failed' });
+    }
+  }
 
   // VER COMO — un pase de 15 minutos para abrir la app como ese cliente, en
   // solo lectura (api/_verComo.js). Devuelve la dirección lista para abrir.
