@@ -132,8 +132,8 @@ export default async function handler(req, res) {
 
   try {
     const cliente = await buscarCliente(cuerpo.name);
-    if (!cliente) return res.status(200).json({ ok: false, motivo: 'sin_cliente' });
-    if (!paseValido(cliente, cuerpo, accion, cuerpo.name)) return res.status(200).json({ ok: false, motivo: 'sesion' });
+    if (!cliente) { if (!esGet && ENTRENO_CLAVE.has(accion)) await anotarFalloEntreno(cuerpo.name, accion, 'sin_cliente', cuerpo); return res.status(200).json({ ok: false, motivo: 'sin_cliente' }); }
+    if (!paseValido(cliente, cuerpo, accion, cuerpo.name)) { if (!esGet && ENTRENO_CLAVE.has(accion)) await anotarFalloEntreno(cliente.nombre, accion, 'sesion', cuerpo); return res.status(200).json({ ok: false, motivo: 'sesion' }); }
 
     if (accion === 'plan') return res.status(200).json(await verPlan(cliente, hoy));
     if (accion === 'rutina') return res.status(200).json(await verRutina(cliente, cuerpo.id, hoy));
@@ -147,9 +147,20 @@ export default async function handler(req, res) {
       const hechas = await todas(`sesiones?select=id&cliente_id=eq.${cliente.id}&estado=eq.completada&order=id.asc`);
       return res.status(200).json({ entrenos_total: hechas.length });
     }
-    if (!esGet && accion === 'abrir') return res.status(200).json(await abrirSesion(cliente, cuerpo, hoy));
-    if (!esGet && accion === 'serie') return res.status(200).json(await guardarSerie(cliente, cuerpo));
-    if (!esGet && accion === 'cerrar') return res.status(200).json(await cerrarSesion(cliente, cuerpo));
+    // Abrir, guardar una serie y terminar: si fallan, queda el motivo exacto
+    // en la bitácora de su ficha (CRM), para saber por qué no pudo terminar.
+    if (!esGet && ENTRENO_CLAVE.has(accion)) {
+      let r;
+      try {
+        r = accion === 'abrir' ? await abrirSesion(cliente, cuerpo, hoy) : accion === 'serie' ? await guardarSerie(cliente, cuerpo) : await cerrarSesion(cliente, cuerpo);
+      } catch (e) {
+        await anotarFalloEntreno(cliente.nombre, accion, 'error', cuerpo, e);
+        return res.status(200).json({ ok: false, motivo: 'error' });
+      }
+      // «no_hay» es solo «no tienes una a medias» al consultar: no es un fallo.
+      if (r && r.ok === false && r.motivo !== 'no_hay') await anotarFalloEntreno(cliente.nombre, accion, r.motivo, cuerpo);
+      return res.status(200).json(r);
+    }
     if (!esGet && accion === 'reabrir') return res.status(200).json(await reabrirSesion(cliente, cuerpo, hoy));
     if (!esGet && accion === 'registrar') return res.status(200).json(await registrarEvento(cliente, cuerpo, hoy));
     if (!esGet && accion === 'mover') return res.status(200).json(await moverRutina(cliente, cuerpo, hoy));
@@ -1076,6 +1087,25 @@ async function guardarSerie(cliente, cuerpo) {
     await anotarSerieNoGuardada(cliente, cuerpo, e).catch(() => {});
     return { ok: true, serie: null, no_guardada: true };
   }
+}
+
+const ENTRENO_CLAVE = new Set(['abrir', 'serie', 'cerrar']);
+async function anotarFalloEntreno(nombre, accion, motivo, cuerpo, e) {
+  const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) return;
+  const que = { abrir: 'abrir la rutina', serie: 'guardar una serie', cerrar: 'terminar la rutina' }[accion] || accion;
+  try {
+    await fetch(`${url}/rest/v1/app_errores`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        name: String(nombre || '').slice(0, 120), tipo: 'entreno',
+        mensaje: `No pudo ${que} (${motivo})`,
+        detalle: JSON.stringify({ rutina_id: cuerpo.rutina_id, sesion_id: cuerpo.sesion_id, fecha: cuerpo.fecha, rutina_ejercicio_id: cuerpo.rutina_ejercicio_id, serie_num: cuerpo.serie_num, con_sesion: !!cuerpo.sesion, error: e ? String((e && e.message) || e).slice(0, 300) : undefined }).slice(0, 1500),
+        pantalla: `Entrenamiento › ${accion}`,
+      }),
+    });
+  } catch (er) { /* la bitácora nunca rompe lo demás */ }
 }
 
 async function anotarSerieNoGuardada(cliente, cuerpo, e) {
