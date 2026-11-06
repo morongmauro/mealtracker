@@ -1068,10 +1068,29 @@ async function guardarSerie(cliente, cuerpo) {
         return { ok: true, serie: Array.isArray(ins) ? ins[0] : ins, actualizada: false, sin_linea: true };
       } catch (e2) { /* sigue abajo */ }
     }
-    // El servidor no la acepta (no es la señal): el teléfono la aparta y deja
-    // terminar la rutina con lo demás.
-    return { ok: false, motivo: 'serie_rechazada' };
+    // El servidor no la acepta (no es la señal). Se responde «ok» para que
+    // el teléfono la suelte y siga con las demás: así también se destraba un
+    // teléfono que todavía tiene la versión anterior de la app (que no sabe
+    // apartarla y se quedaba diciendo «Sin señal»). La serie queda anotada en
+    // la bitácora de su ficha en el CRM, con sus datos, para no perderla.
+    await anotarSerieNoGuardada(cliente, cuerpo, e).catch(() => {});
+    return { ok: true, serie: null, no_guardada: true };
   }
+}
+
+async function anotarSerieNoGuardada(cliente, cuerpo, e) {
+  const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) return;
+  await fetch(`${url}/rest/v1/app_errores`, {
+    method: 'POST',
+    headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      name: String(cliente.nombre || '').slice(0, 120), tipo: 'serie',
+      mensaje: 'Serie que no se pudo guardar (se soltó para que pudiera terminar la rutina)',
+      detalle: JSON.stringify({ sesion_id: cuerpo.sesion_id, rutina_ejercicio_id: cuerpo.rutina_ejercicio_id, ejercicio_id: cuerpo.ejercicio_id, serie_num: cuerpo.serie_num, reps: cuerpo.reps, peso: cuerpo.peso, unidad: cuerpo.unidad, error: String((e && e.message) || e || '').slice(0, 300) }).slice(0, 1500),
+      pantalla: 'Entrenamiento › serie',
+    }),
+  });
 }
 
 // Si la base todavía no tiene la columna, no se intenta en cada serie: se
