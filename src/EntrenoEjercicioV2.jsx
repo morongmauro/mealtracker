@@ -585,6 +585,17 @@ function AvisoPesoIgual({ id }) {
   );
 }
 
+// Movilidad, estiramiento y cardio: la misma cabecera que fuerza, con «Meta»
+// (lo que le toca), porque ahí no se escribe nada.
+function CabeceraMeta() {
+  return (
+    <div data-cab-meta style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 9, marginBottom: 1, fontSize: 12, fontWeight: 700, color: GRIS, letterSpacing: '.04em' }}>
+      <div style={{ width: 22, flex: 'none' }} />
+      <div style={{ flex: 1 }}>Meta</div>
+    </div>
+  );
+}
+
 function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = null }) {
   return (
     <div style={{
@@ -753,9 +764,9 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </div>
       )}
 
-      {sinCarga ? <div style={{ height: 10 }} /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} soloReps={soloReps} ultima={re.ultima_vez} />}
+      {sinCarga ? <CabeceraMeta /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={onUnidad} soloReps={soloReps} ultima={re.ultima_vez} />}
       {!sinCarga && !soloReps && pesoAsumido(re, 1, unidad) != null && <AvisoPesoIgual id={re.id} />}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: sinCarga ? 6 : 2 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {series.map(s => (
           <SerieFilaV2 key={s} n={s} re={re} unidad={unidad} sinCarga={sinCarga} soloReps={soloReps}
             marcada={marcadas[`${re.id}:${s}`]}
@@ -905,8 +916,8 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                       abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re), abrirVideo: () => setVideo(re),
                     })} />
                   )}
-                  {!sinCarga && <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={() => onUnidad(re)} soloReps={soloReps} ultima={re.ultima_vez} />}
-                  <div style={{ marginTop: sinCarga ? 8 : 0 }}>
+                  {sinCarga ? <CabeceraMeta /> : <CabeceraCajitas lado={lado} unidad={unidad} onUnidad={() => onUnidad(re)} soloReps={soloReps} ultima={re.ultima_vez} />}
+                  <div>
                     <SerieFilaV2 n={vi + 1} re={re} unidad={unidad} sinCarga={sinCarga} soloReps={soloReps} etiqueta={vi + 1}
                       marcada={marcadas[`${re.id}:${vi + 1}`]} descansoSeg={desc}
                       onMarcar={onMarcar} onDesmarcar={onDesmarcar} />
@@ -945,6 +956,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   const anterior = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps, false);
   const anteriorLeido = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps);
   const asumido = sinCarga || soloReps ? null : pesoAsumido(re, n, unidad);
+  const metaReps = /^\s*\d+\s*$/.test(String(re.reps || '')) ? Number(re.reps) : null;
   // Ya marcada: contra el peso de la última vez, «= igual», «▲ +1,25» o «▼ −2,5».
   const cambio = (() => {
     if (!hecha || asumido == null || marcada?.peso == null) return null;
@@ -988,7 +1000,9 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       celebrar();
       return;
     }
-    const r = numero(reps);
+    // Peso corporal: la meta (12) se ve en gris en la cajita; si hizo esas,
+    // basta con marcar. Si la meta es un rango (8-12), hay que escribirlas.
+    const r = numero(reps) ?? (soloReps ? metaReps : null);
     // Sin reps no se marca: no se inventa un número. Se lleva el dedo a la cajita.
     if (r == null) { setFalta(true); repsRef.current && repsRef.current.focus(); return; }
     setFalta(false);
@@ -1001,49 +1015,39 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   };
   const brillo = pop > 0 && hecha ? <span key={pop} className="mt-barrido" aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none' }} /> : null;
 
-  // Por tiempo («30 s»): en vez del check, «▶ Empezar 30 s». Arranca la
-  // cuenta atrás en la ventanita negra, con pitido al empezar y al terminar,
-  // y la serie se marca sola al acabar.
+  // Movilidad, estiramiento y cardio: la misma fila que fuerza (número de
+  // serie, lo de la serie y el círculo a la derecha), sin nada que escribir:
+  // la meta en negrita. Por tiempo («30 s»), además «▶ 30 s»: arranca la
+  // cuenta atrás en la ventanita negra y al terminar se marca sola. Hecha, se
+  // ve igual que en fuerza: el círculo negro con el visto amarillo.
   const segTiempo = sinCarga ? segundosDeTiempo(re.reps) : null;
-  if (segTiempo && cuenta && !hecha) {
-    const enCurso = cuenta.activa === idSerie;
-    return (
-      <div data-serie-tiempo={idSerie} style={{
-        display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 40, padding: '0 5px 0 14px',
-        borderRadius: 14, background: CAMPO, boxSizing: 'border-box',
-      }}>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600, color: '#3A3A3C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {re.series > 1 ? `Serie ${n} · ${textoReps(re)}` : textoReps(re)}
-        </span>
-        <button data-empezar-tiempo onClick={() => cuenta.empezar(re, n, segTiempo, descansoSeg, unidad)} disabled={enCurso}
-          aria-label={enCurso ? `Serie ${n} en curso` : `Empezar ${textoTiempo(segTiempo)}, serie ${n}`} style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 999, border: 'none',
-          background: GRAFITO, color: '#FFFFFF', fontSize: 13, fontWeight: 700, cursor: enCurso ? 'default' : 'pointer', fontFamily: 'inherit',
-          flex: 'none', opacity: enCurso ? 0.55 : 1,
-        }}>
-          <Play size={12} weight="fill" /> {enCurso ? 'En curso' : `Empezar ${textoTiempo(segTiempo)}`}
-        </button>
-      </div>
-    );
-  }
-
   if (sinCarga) {
+    const enCurso = !!(segTiempo && cuenta && cuenta.activa === idSerie);
+    const meta = textoReps(re) || 'Hecho';
     return (
-      <button onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
-        display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 40, padding: '0 5px 0 14px',
-        borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', border: 'none',
-        background: hecha ? 'transparent' : CAMPO, boxShadow: hecha ? `inset 0 0 0 1px ${'#E5E5EA'}` : 'none',
-        position: 'relative', overflow: 'hidden',
+      <div data-serie={idSerie} data-serie-meta={segTiempo ? 'tiempo' : 'reps'} style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0', minHeight: 36,
+        borderRadius: 14, position: 'relative', overflow: 'hidden',
       }}>
         {brillo}
-        <span style={{ flex: 1, fontSize: 14.5, fontWeight: hecha ? 700 : 600, color: hecha ? TEXT : '#3A3A3C' }}>
-          {hecha ? 'Hecho' : (re.series > 1 ? `Serie ${n} · ${textoReps(re)}` : textoReps(re) || 'Marcar hecho')}
-        </span>
-        <span key={pop} className={pop && hecha ? 'mt-pop' : undefined} style={{
-          width: 30, height: 30, borderRadius: 99, display: 'grid', placeItems: 'center', flex: 'none',
-          background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6', color: hecha ? AMARILLO : '#C7C7CC',
-        }}><Check size={15} weight="bold" /></span>
-      </button>
+        <div style={{ width: 22, flex: 'none', textAlign: 'center', fontSize: 14, fontWeight: 700, color: hecha ? TEXT : '#737373' }}>{n}</div>
+        <div data-meta style={{ flex: 1, minWidth: 0, fontSize: 16, fontWeight: 700, color: TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</div>
+        {segTiempo && cuenta && !hecha && (
+          <button data-empezar-tiempo onClick={() => cuenta.empezar(re, n, segTiempo, descansoSeg, unidad)} disabled={enCurso}
+            aria-label={enCurso ? `Serie ${n} en curso` : `Empezar ${textoTiempo(segTiempo)}, serie ${n}`} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 999, border: 'none',
+            background: enCurso ? AMARILLO : GRAFITO, color: enCurso ? GRAFITO : '#FFFFFF', fontSize: 13, fontWeight: 700, cursor: enCurso ? 'default' : 'pointer', fontFamily: 'inherit',
+            flex: 'none',
+          }}>
+            {enCurso ? 'En curso' : <><Play size={12} weight="fill" /> {textoTiempo(segTiempo)}</>}
+          </button>
+        )}
+        <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
+          flex: 'none', width: 32, height: 32, borderRadius: 99, cursor: 'pointer', border: 'none',
+          background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
+          color: hecha ? AMARILLO : '#C7C7CC', display: 'grid', placeItems: 'center',
+        }}><Check size={16} weight="bold" /></button>
+      </div>
     );
   }
 
@@ -1068,6 +1072,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       <div style={CAJA}>
         <input ref={repsRef} inputMode="numeric" value={reps} className="rv2-campo"
           onChange={ev => { setReps(ev.target.value); if (falta) setFalta(false); }}
+          placeholder={soloReps && !hecha && metaReps != null ? String(metaReps) : undefined}
           aria-label={`Repeticiones serie ${n}`}
           style={campo(falta)} disabled={hecha} />
       </div>

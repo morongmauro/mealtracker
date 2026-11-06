@@ -1393,8 +1393,8 @@ try {
   ok('sin reps no se marca la serie', (await p.locator('[aria-label="Deshacer serie 1"]').count()) === 0);
   // El calentamiento empieza con «Running · 3 min suave»: es por tiempo, así
   // que se arranca con «Empezar 3 min» y aquí se da por hecho con «Listo».
-  ok('calentamiento por tiempo: «Empezar 3 min» en vez del check', /Empezar 3 min/.test(await p.locator('[data-serie-tiempo="re-e7:1"] [data-empezar-tiempo]').innerText()));
-  await p.locator('[data-serie-tiempo="re-e7:1"] [data-empezar-tiempo]').click();
+  ok('calentamiento por tiempo: «▶ 3 min» junto al check', /3 min/.test(await p.locator('[data-serie="re-e7:1"] [data-empezar-tiempo]').innerText()) && await p.locator('[data-serie="re-e7:1"] button[aria-label^="Marcar serie"]').count() === 1);
+  await p.locator('[data-serie="re-e7:1"] [data-empezar-tiempo]').click();
   await espera(300);
   ok('…y al tocarlo sale la ventanita negra con la cuenta del ejercicio', /Running/.test(await p.locator('[data-cuenta-ejercicio]').innerText()));
   await p.locator('[data-cuenta-ejercicio]').getByRole('button', { name: 'Listo' }).click();
@@ -2311,9 +2311,9 @@ try {
   // al acabar la serie se marca sola.
   await n.p.evaluate(() => { window.__notas = []; });
   const filaTiempo = 're-e10:1';
-  const botonTiempo = n.p.locator(`[data-serie-tiempo="${filaTiempo}"] [data-empezar-tiempo]`);
+  const botonTiempo = n.p.locator(`[data-serie="${filaTiempo}"] [data-empezar-tiempo]`);
   await botonTiempo.scrollIntoViewIfNeeded();
-  ok('por tiempo: el botón dice «Empezar 30 s»', /Empezar 30 s/.test(await botonTiempo.innerText()));
+  ok('por tiempo: el botón dice «30 s»', /30 s/.test(await botonTiempo.innerText()));
   await botonTiempo.click();
   await espera(400);
   ok('por tiempo: la ventanita negra cuenta el ejercicio, con pitido al empezar y el del final a los 30 s', /Child's Pose/.test(await n.p.locator('[data-cuenta-ejercicio]').innerText())
@@ -2323,7 +2323,7 @@ try {
   await n.ctx.clock.setFixedTime(new DateReal(FIJO + 40000));
   await espera(900);
   ok('por tiempo: al acabar se cierra la cuenta y la serie queda hecha', (await n.p.locator('[data-cuenta-ejercicio]').count()) === 0
-    && (await n.p.locator(`[data-serie-tiempo="${filaTiempo}"]`).count()) === 0);
+    && (await n.p.locator(`[data-serie="${filaTiempo}"] [data-empezar-tiempo]`).count()) === 0);
   await n.ctx.clock.setFixedTime(new DateReal(FIJO));
   ok('el reloj de arriba dice «Entreno»: es el tiempo total', /^Entreno/.test(await n.p.locator('[data-reloj-sesion]').innerText()));
   await n.p.locator('[data-terminar]').click();
