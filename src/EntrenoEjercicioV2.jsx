@@ -38,6 +38,15 @@ const GRAFITO = '#1D1D1F';
 const AMARILLO = '#F2C94C';
 // «Hecho» en toda la rutina: el verde de la marca con el visto blanco.
 const VERDE_HECHO = '#46965A';
+// El círculo de marcar se ve de 28 px, pero se toca en un área más grande
+// (invisible): con la mano sudada en el gimnasio no hay que apuntar.
+if (typeof document !== 'undefined' && !document.getElementById('rv2-check-area')) {
+  const st = document.createElement('style');
+  st.id = 'rv2-check-area';
+  st.textContent = 'button[aria-label^="Marcar serie"],button[aria-label^="Deshacer serie"]{position:relative}'
+    + 'button[aria-label^="Marcar serie"]::after,button[aria-label^="Deshacer serie"]::after{content:"";position:absolute;inset:-8px}';
+  document.head.appendChild(st);
+}
 const CAMPO = '#F2F2F4';
 const GRIS = '#737373';
 const HECHO_FONDO = '#EEF6F0';   // verde muy suave: el «hecho» es verde en toda la rutina
@@ -619,7 +628,7 @@ function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = nu
           Última<br />{fechaCorta(ultima.fecha)}
         </div>
       )}
-      <div style={{ width: 34, flex: 'none' }} />
+      <div style={{ width: 30, flex: 'none' }} />
     </div>
   );
 }
@@ -1045,10 +1054,10 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
           </button>
         )}
         <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
-          flex: 'none', width: 32, height: 32, borderRadius: 99, cursor: 'pointer', border: 'none',
+          flex: 'none', width: 28, height: 28, borderRadius: 99, cursor: 'pointer', border: 'none',
           background: hecha ? VERDE_HECHO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
           color: hecha ? '#FFFFFF' : '#C7C7CC', display: 'grid', placeItems: 'center',
-        }}><Check size={16} weight="bold" /></button>
+        }}><Check size={14} weight="bold" /></button>
       </div>
     );
   }
@@ -1106,10 +1115,10 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       )}
       <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`}
         title={escrita ? 'Falta marcar esta serie' : undefined} style={{
-        flex: 'none', width: 32, height: 32, borderRadius: 99, cursor: 'pointer', border: 'none',
+        flex: 'none', width: 28, height: 28, borderRadius: 99, cursor: 'pointer', border: 'none',
         background: hecha ? VERDE_HECHO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
         color: hecha ? '#FFFFFF' : '#C7C7CC', display: 'grid', placeItems: 'center',
-      }}><Check size={16} weight="bold" /></button>
+      }}><Check size={14} weight="bold" /></button>
     </div>
   );
 }
