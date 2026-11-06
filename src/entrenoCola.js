@@ -19,6 +19,8 @@
 
 const CLAVE = 'entreno:cola:v1';
 const CLAVE_APARTADAS = 'entreno:cola:apartadas:v1';
+// Los «Terminar» que no se pudieron enviar: se envían solos después.
+const CLAVE_CIERRES = 'entreno:cierres:v1';
 const CLAVE_RUTINA = (id) => `entreno:rutina:v1:${id}`;
 
 export function crearCola({ almacen, api, hoy, alApartar = null }) {
@@ -122,10 +124,59 @@ export function crearCola({ almacen, api, hoy, alApartar = null }) {
     }
   }
 
+  // ── Los «Terminar» pendientes ────────────────────────────────────────
+  // Si al terminar no hay señal (o el servidor falla), la rutina se termina
+  // igual en el teléfono y el cierre queda aquí. Se envía solo cuando ya
+  // subieron todas sus series. Nunca se borra sin enviarse: si el servidor
+  // lo rechaza 5 veces, se aparta (guardado) y se avisa a la bitácora.
+  const leerC = () => { try { const v = JSON.parse(almacen.getItem(CLAVE_CIERRES) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  const escribirC = (l) => { try { almacen.setItem(CLAVE_CIERRES, JSON.stringify(l)); } catch (e) {} };
+  const claveC = (c) => `${c.name}|${c.rutina_id}|${c.fecha}`;
+  function encolarCierre({ name, rutina_id, fecha = hoy(), sesion_id = null, estado, rpe = null, notas = null }) {
+    const c = { name, rutina_id, fecha, sesion_id, estado, rpe, notas, en: Date.now() };
+    escribirC([...leerC().filter(x => claveC(x) !== claveC(c)), c]);
+    avisar();
+  }
+  const quitarC = (c) => escribirC(leerC().filter(x => !(claveC(x) === claveC(c) && x.en === c.en)));
+  const falloC = (c, motivo) => {
+    const l = leerC(); const y = l.find(x => claveC(x) === claveC(c) && x.en === c.en);
+    if (!y) return;
+    y.fallos = (y.fallos || 0) + 1; y.ultimo = motivo || 'error';
+    if (y.fallos >= 5) {
+      escribirC(l.filter(x => x !== y));
+      try { const v = JSON.parse(almacen.getItem(CLAVE_APARTADAS) || '[]'); const a = Array.isArray(v) ? v : []; a.push({ cierre: true, ...y, apartada: Date.now() }); almacen.setItem(CLAVE_APARTADAS, JSON.stringify(a.slice(-200))); } catch (e) { /* nada */ }
+      try { alApartar && alApartar({ rutina_id: y.rutina_id, fecha: y.fecha, datos: { cierre: true, estado: y.estado, rpe: y.rpe } }, `cierre ${y.ultimo}`); } catch (e) { /* nada */ }
+      return;
+    }
+    escribirC(l);
+  };
+  async function subirCierres() {
+    for (const c of leerC()) {
+      // Primero sus series: la duración y los récords salen de ellas.
+      if (leer().some(x => x.name === c.name && x.rutina_id === c.rutina_id && x.fecha === c.fecha)) continue;
+      let sid = c.sesion_id || sesionDe.get(claveC(c)) || null;
+      if (!sid) {
+        const s = await api.abrir(c.name, c.rutina_id, { crear: true, fecha: c.fecha });
+        if (!s || !s.ok || !s.sesion) {
+          if (s && (s.motivo === 'no_es_suya' || s.motivo === 'no_enviada')) { quitarC(c); continue; }
+          if (!s || esDeRed(s.motivo) || s.motivo === 'sesion') return;
+          falloC(c, s.motivo); continue;
+        }
+        sid = s.sesion.id;
+      }
+      const r = await api.cerrar(c.name, { sesion_id: sid, rpe: c.rpe, notas: c.notas, estado: c.estado });
+      if (r && r.ok) { quitarC(c); continue; }
+      if (r && r.motivo === 'no_es_suya') { quitarC(c); continue; }
+      if (!r || esDeRed(r.motivo) || r.motivo === 'sesion') return;
+      falloC(c, r.motivo);
+    }
+  }
+
   // Nunca dos vaciados a la vez: el segundo espera al primero y vuelve a mirar.
   function vaciar(primero) {
     if (enCurso) return enCurso.then(() => vaciar(primero));
-    enCurso = vaciarUnaVez(primero).catch(() => leer().length).finally(() => { enCurso = null; });
+    enCurso = vaciarUnaVez(primero).then(async (n) => { if (leerC().length) { try { await subirCierres(); } catch (e) { /* luego */ } } return n; })
+      .catch(() => leer().length).finally(() => { enCurso = null; });
     return enCurso;
   }
 
@@ -136,7 +187,10 @@ export function crearCola({ almacen, api, hoy, alApartar = null }) {
   }
 
   return {
-    encolar, vaciar, apartarRechazadas,
+    encolar, vaciar, apartarRechazadas, encolarCierre,
+    cierresPendientes: (filtro) => leerC().filter(c => !filtro || filtro(c)),
+    // Si el «Terminar» que se daba por perdido sí llegó (tarde), no se repite.
+    quitarCierres: (filtro) => escribirC(leerC().filter(c => !filtro(c))),
     pendientes: (filtro) => leer().filter(x => !filtro || filtro(x)),
     alCambiar: (f) => { oyentes.add(f); return () => oyentes.delete(f); },
     // La sesión que ya abrió la cola, para que la pantalla no pida otra.

@@ -1225,19 +1225,27 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     // calculan con las series que YA están en el servidor.
     // Las de esta rutina van primero; si el servidor rechaza alguna (no es la
     // señal), se aparta y se cierra con lo demás.
-    await cola.vaciar(deEsta);
-    cola.apartarRechazadas(deEsta);
-    const quedan = cola.pendientes(deEsta).length;
-    const s = quedan ? null : await asegurarSesion();
-    const r = s ? await api({ accion: 'cerrar', name, sesion_id: s.id, rpe, notas: nota, estado }) : null;
+    // Todo esto tiene un tope de 25 s: si la señal no da, se termina igual.
+    const intento = (async () => {
+      await cola.vaciar(deEsta);
+      cola.apartarRechazadas(deEsta);
+      const quedan = cola.pendientes(deEsta).length;
+      const s = quedan ? null : await asegurarSesion();
+      return { s, r: s ? await api({ accion: 'cerrar', name, sesion_id: s.id, rpe, notas: nota, estado }) : null };
+    })().catch(() => ({ s: null, r: null }));
+    const res = await Promise.race([intento, new Promise(ok => setTimeout(() => ok({ s: null, r: null, tarde: true }), 25000))]);
+    const s = res.s;
+    let r = res.r;
     setCerrando(false);
     if (!r || !r.ok) {
-      // No se cierra la hoja ni se sale: decir "enviado" sin haberlo enviado
-      // es justo lo que hacía perder entrenos. Lo marcado sigue guardado.
-      setErrorCierre(quedan
-        ? 'Sin señal. Tus series están guardadas en el teléfono y suben solas; vuelve a intentarlo en un momento.'
-        : 'No se envió. Revisa tu señal e inténtalo en un momento.');
-      return;
+      // Sin señal o con cualquier problema, igual se termina: las series y el
+      // «Terminar» quedan guardados en el teléfono y se envían solos cuando
+      // se pueda (entrenoCola.js). Nada se borra.
+      cola.encolarCierre({ name, rutina_id: rutinaId, fecha, sesion_id: s ? s.id : (sesion ? sesion.id : null), estado, rpe, notas: nota });
+      // Si el intento que se cortó a los 25 s termina llegando, ese cierre ya
+      // está hecho: no se manda dos veces.
+      if (res.tarde) intento.then(x => { if (x && x.r && x.r.ok) cola.quitarCierres(deEsta); });
+      r = { ok: true, records: [], pendiente: true };
     }
     setCerrandoHoja(false);
     // Cerrada: ya no hay rutina abierta ni cajitas por recuperar.
@@ -1262,12 +1270,12 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
       const seg = r.sesion && r.sesion.duracion_seg != null ? r.sesion.duracion_seg : (inicio ? Math.round((Date.now() - inicio) / 1000) : null);
       try { localStorage.removeItem(claveInicio); localStorage.removeItem(claveReloj); } catch (e) { /* nada */ }
       vibrarL25('logro');
-      setFin({ ...conteoRef.current, minutos: seg != null ? Math.max(1, Math.round(seg / 60)) : null, records: r.records || [] });
+      setFin({ ...conteoRef.current, minutos: seg != null ? Math.max(1, Math.round(seg / 60)) : null, records: r.records || [], pendiente: !!r.pendiente });
       return;
     }
     if (r.records?.length) setRecords(r.records);
     else setRemate(true);
-  }, [cerrando, deEsta, asegurarSesion, name, onVolver, inicio, claveInicio]);
+  }, [cerrando, deEsta, asegurarSesion, name, onVolver, inicio, claveInicio, rutinaId, fecha, sesion]);
 
   // Primera vez que abre esta rutina (no hay copia en el teléfono): la
   // pantalla sale ya, con su nombre y la forma de las tarjetas, mientras llega.
@@ -1915,6 +1923,9 @@ function HojaFin({ fin, plan = null, rutinaId = null, alCerrar }) {
         boton={{ texto: 'Seguir', onClick: alCerrar }}
         enlace={v2Activa() ? { texto: '¿Bajamos pulsaciones? Respira', icono: <Wind size={18} weight="fill" data-fin-respira-icono="" />, onClick: () => setRespira(true) } : null}
         alCerrar={alCerrar}>
+        {fin.pendiente && (
+          <div data-fin-pendiente style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 10, lineHeight: 1.4 }}>Quedó guardado en tu teléfono. Se le envía a tu coach solo, apenas haya señal.</div>
+        )}
         {fin.kilos > 0 && fin.minutos != null && (
           <div style={{ fontSize: 13, color: TEXT_MUTED, marginTop: 10 }}><b style={{ color: TEXT }}>{fin.kilos.toLocaleString('es-CO')} kg</b> movidos en total.</div>
         )}

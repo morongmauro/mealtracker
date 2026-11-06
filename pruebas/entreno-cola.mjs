@@ -41,6 +41,36 @@ const serie = (re, n, peso, completada = true) => ({ rutina_ejercicio_id: re, ej
 
 console.log('cola de series sin señal');
 
+await caso('«Terminar» sin señal: queda guardado y se envía solo después de sus series', async () => {
+  const sv = servidor(); sv.red = false; sv.cerradas = [];
+  sv.api.cerrar = async (name, d) => { sv.llamadas++; if (!sv.red) return { ok: false, motivo: 'sin_red' }; sv.cerradas.push(d); return { ok: true }; };
+  const cola = crearCola({ almacen: memoria(), api: sv.api, hoy: () => '2026-11-06' });
+  cola.encolar({ name: 'M', rutina_id: 'r1', datos: serie('re1', 1, 60) });
+  cola.encolarCierre({ name: 'M', rutina_id: 'r1', estado: 'completada', rpe: 8, notas: 'bien' });
+  await cola.vaciar();
+  igual(cola.cierresPendientes().length, 1, 'sin señal sigue guardado');
+  sv.red = true;
+  await cola.vaciar();
+  igual(sv.series.length, 1, 'primero subió la serie');
+  igual(sv.cerradas.length, 1, 'y después se cerró');
+  igual([sv.cerradas[0].rpe, sv.cerradas[0].notas, sv.cerradas[0].estado], [8, 'bien', 'completada'], 'con su intensidad y su nota');
+  igual(cola.cierresPendientes().length, 0, 'ya no queda pendiente');
+});
+
+await caso('«Terminar» que el servidor rechaza no se borra: a la 5.ª se aparta y avisa', async () => {
+  const sv = servidor(); const avisos = [];
+  sv.api.cerrar = async () => ({ ok: false, motivo: 'error' });
+  const alm = memoria();
+  const cola = crearCola({ almacen: alm, api: sv.api, hoy: () => '2026-11-06', alApartar: (x, m) => avisos.push(m) });
+  cola.encolarCierre({ name: 'M', rutina_id: 'r1', estado: 'completada', rpe: 7 });
+  for (let i = 0; i < 4; i++) await cola.vaciar();
+  igual(cola.cierresPendientes().length, 1, 'sigue guardado tras 4 fallos');
+  await cola.vaciar();
+  igual(cola.cierresPendientes().length, 0, 'a la quinta sale de la fila');
+  igual(JSON.parse(alm.getItem('entreno:cola:apartadas:v1')).filter(x => x.cierre).length, 1, 'pero queda guardado aparte');
+  igual(avisos, ['cierre error'], 'y avisó a la bitácora');
+});
+
 await caso('una serie que el servidor rechaza (no es la señal) no traba las demás ni el cierre', async () => {
   const sv = servidor();
   const base = sv.api.serie;

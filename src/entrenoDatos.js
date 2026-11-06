@@ -74,15 +74,23 @@ export function siPaseInvalido(r) {
 async function pedir(body) {
   const cachear = LECTURAS_CACHE.has(body.accion);
   let r;
+  // Con señal muy débil una petición puede quedarse colgada sin contestar
+  // nunca: a los 20 s se da por «sin señal» (lo marcado queda guardado y se
+  // reintenta solo), en vez de dejar la pantalla esperando para siempre.
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const reloj = ctl ? setTimeout(() => ctl.abort(), 20000) : null;
   try {
     const res = await fetch('/api/training', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(conPase(body)),
+      ...(ctl ? { signal: ctl.signal } : {}),
     });
     r = res.ok ? siPaseInvalido(await res.json()) : { ok: false, motivo: `http_${res.status}` };
   } catch (e) {
     r = { ok: false, motivo: 'sin_red' };
+  } finally {
+    if (reloj) clearTimeout(reloj);
   }
   // Sin pase válido no se muestra la copia guardada: hay que entrar.
   if (r && r.ok === false && r.motivo === 'sesion') return r;
