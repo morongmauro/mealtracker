@@ -30,11 +30,16 @@ export async function alertarCoach({ title, body, tag = 'ecm-coach-alerta', ir =
     const r = await fetch(`${SUPABASE_URL}/rest/v1/push_subs?select=endpoint,name,sub`, { headers: h });
     const subs = r.ok ? await r.json() : [];
     const todas = Array.isArray(subs) ? subs : [];
-    const crm = todas.filter(s => s.name === CRM_COACH);
-    const mias = crm.length ? crm : todas.filter(s => normalizeName(s.name) === normalizeName(COACH));
-    const url = crm.length ? `/${String(ir || '').replace(/^\/+/, '')}` : '/';
+    // A su app (la de cliente, con la vista coach adentro): al tocarlo abre el
+    // CRM en ese cliente (?coach=…). Y si además activó avisos en el CRM de
+    // un navegador, también ahí.
+    const destino = String(ir || '').replace(/^\/+/, '');
+    const mias = [
+      ...todas.filter(s => normalizeName(s.name) === normalizeName(COACH)).map(s => [s, `/?coach=${encodeURIComponent(destino)}`]),
+      ...todas.filter(s => s.name === CRM_COACH).map(s => [s, `/${destino}`]),
+    ];
     let n = 0;
-    for (const s of mias) {
+    for (const [s, url] of mias) {
       try {
         await webpush.sendNotification(s.sub, JSON.stringify({ title: String(title).slice(0, 80), body: String(body).slice(0, 300), tag, url }));
         n++;

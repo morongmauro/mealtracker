@@ -14,6 +14,8 @@ import Salvavidas from './Salvavidas.jsx';
 import { prepararVerComo } from './verComo.js';
 import { instalarBitacora } from './bitacora.js';
 import { titulosDelgados } from './titulosDelgados.js';
+// Vista coach (solo Mauro): abre el CRM dentro de la app al tocar un aviso.
+import './vistaCoach.js';
 
 // El dashboard del coach se carga en un chunk aparte: los clientes no
 // descargan su código, y el coach solo lo baja al entrar a /coach.

@@ -36,11 +36,13 @@ self.addEventListener('notificationclick', (event) => {
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       // A dónde abre (?ir=entreno…): con la app ya abierta se le avisa por
       // mensaje; cerrada, va en el enlace.
-      let ir = null;
-      try { ir = new URL(url, self.location.origin).searchParams.get('ir'); } catch (e) {}
+      let ir = null, coach = null;
+      try { const q = new URL(url, self.location.origin).searchParams; ir = q.get('ir'); coach = q.get('coach'); } catch (e) {}
       for (const c of list) {
         if ('focus' in c) {
           if (ir) { try { c.postMessage({ ir }); } catch (e) {} }
+          // Aviso de un cliente al coach: abre la vista coach en ese cliente.
+          if (coach != null) { try { c.postMessage({ coach }); } catch (e) {} }
           return c.focus();
         }
       }

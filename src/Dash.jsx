@@ -19,7 +19,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, VideoCamera } from '@phosphor-icons/react';
+import { Briefcase, Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, VideoCamera } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import RespuestaCoach from './RespuestaCoach.jsx';
 import Configuracion from './Configuracion.jsx';
@@ -34,6 +34,7 @@ import { IconoEvento } from './iconosEntreno.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
 import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.jsx';
+import { esCoach, abrirVistaCoach } from './vistaCoach.js';
 import VentanaMarca, { BotonVentana } from './VentanaMarca.jsx';
 
 const CLAVE_BIENVENIDA = 'mt:bienvenidaComunidad';
@@ -576,6 +577,8 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
           onClick={() => setVista('comunidad')}>Comunidad</BotonCristal>
         {acciones.recordatorios && <BotonCristal tono={TONO_ATAJOS.dash} icono={Bell} color="#C95F17" ancho={54} badge={pendientes} rotulo="Avisos" onClick={acciones.recordatorios}>Recordatorios</BotonCristal>}
         <BotonCristal tono={TONO_ATAJOS.dash} icono={GearSix} color="#636366" ancho={54} data-abrir-config rotulo="Ajustes" onClick={() => setVista('config')}>Configuración</BotonCristal>
+        {/* Solo el coach: el CRM dentro de la app (vistaCoach.js). */}
+        {esCoach(name) && <BotonCristal tono={TONO_ATAJOS.dash} icono={Briefcase} color="#1F1F1F" ancho={54} data-vista-coach-btn rotulo="Coach" aria-label="Vista coach (CRM)" onClick={() => abrirVistaCoach(name)}>Vista coach</BotonCristal>}
       </FilaCristal>
 
       {/* El coach respondió una nota suya (Bandeja del CRM): arriba, hasta «Entendido». */}

@@ -135,6 +135,8 @@ export default async function handler(req, res) {
     if (!cliente) { if (!esGet && ENTRENO_CLAVE.has(accion)) await anotarFalloEntreno(cuerpo.name, accion, 'sin_cliente', cuerpo); return res.status(200).json({ ok: false, motivo: 'sin_cliente' }); }
     if (!paseValido(cliente, cuerpo, accion, cuerpo.name)) { if (!esGet && ENTRENO_CLAVE.has(accion)) await anotarFalloEntreno(cliente.nombre, accion, 'sesion', cuerpo); return res.status(200).json({ ok: false, motivo: 'sesion' }); }
 
+    // Vista coach (solo el coach): la dirección del CRM para abrirlo dentro de su app.
+    if (accion === 'crm') return res.status(200).json(crmDelCoach(cliente, req));
     if (accion === 'plan') return res.status(200).json(await verPlan(cliente, hoy));
     if (accion === 'rutina') return res.status(200).json(await verRutina(cliente, cuerpo.id, hoy));
     if (accion === 'mes') return res.status(200).json(await verMes(cliente, cuerpo.ym, hoy));
@@ -1087,6 +1089,21 @@ async function guardarSerie(cliente, cuerpo) {
     await anotarSerieNoGuardada(cliente, cuerpo, e).catch(() => {});
     return { ok: true, serie: null, no_guardada: true };
   }
+}
+
+// La dirección del CRM, solo para el coach (COACH_PUSH_NAME, o «Mauro Morón»).
+// Sale de CRM_APP_URL si está en Vercel; si no, de ALLOWED_ORIGINS (el CRM ya
+// está ahí para poder hablar con la app): la que no es la app ni el centro de
+// recursos, y mejor si dice «crm».
+function crmDelCoach(cliente, req) {
+  if (normalizeName(cliente.nombre) !== normalizeName(process.env.COACH_PUSH_NAME || 'Mauro Morón')) return { ok: false, motivo: 'no_es_coach' };
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
+  const cand = [process.env.CRM_APP_URL, ...String(process.env.ALLOWED_ORIGINS || '').split(',')]
+    .map(x => String(x || '').trim()).filter(Boolean)
+    .map(x => (/^https?:\/\//i.test(x) ? x : `https://${x}`))
+    .filter(u => { try { const h = new URL(u).host.toLowerCase(); return h !== host && !/centrorecursos|localhost|127\.0\.0\.1|entrenaconmetodoapp|mealtracker/.test(h); } catch (e) { return false; } });
+  const url = process.env.CRM_APP_URL ? cand[0] : (cand.find(u => /crm/i.test(u)) || cand[0]);
+  try { return url ? { ok: true, url: new URL(url).origin } : { ok: false, motivo: 'sin_url' }; } catch (e) { return { ok: false, motivo: 'sin_url' }; }
 }
 
 const ENTRENO_CLAVE = new Set(['abrir', 'serie', 'cerrar']);
