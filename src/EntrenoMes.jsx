@@ -707,7 +707,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
                 : (ev.tipo === 'peso' ? (ev.atrasado ? ev.detalle : '') : (ev.detalle || (ev.titulo && ev.titulo !== q.nombre ? ev.titulo : null) || ''))}
             </div>
           </div>
-          {hecho ? <CheckCircle size={20} weight="fill" color={MORADO} aria-label="Hecho" /> : !pasada && !futuro && (
+          {hecho ? <CheckCircle size={20} weight="fill" color="#46965A" aria-label="Hecho" /> : !pasada && !futuro && (
             ev.tipo === 'peso' ? (
               <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
                 <input inputMode="decimal" value={peso} onChange={e => setPeso(e.target.value)} placeholder="kg" aria-label="Tu peso en kg"
@@ -750,7 +750,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
             <div style={{ fontSize: v2 ? 13 : 12, color: TEXT_LIGHT }}>{ev.detalle || ev.titulo}</div>
           )}
         </div>
-        {hecho && <CheckCircle size={22} weight="fill" color={MORADO} aria-label="Hecho" />}
+        {hecho && <CheckCircle size={22} weight="fill" color="#46965A" aria-label="Hecho" />}
       </div>
 
       {!hecho && !futuro && !pasada && (

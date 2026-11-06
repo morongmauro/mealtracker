@@ -36,9 +36,11 @@ const CREMA = '#F4F1EB';
 // check en grafito con la palomita amarilla de la marca.
 const GRAFITO = '#1D1D1F';
 const AMARILLO = '#F2C94C';
+// «Hecho» en toda la rutina: el verde de la marca con el visto blanco.
+const VERDE_HECHO = '#46965A';
 const CAMPO = '#F2F2F4';
 const GRIS = '#737373';
-const HECHO_FONDO = '#FBF5E2';
+const HECHO_FONDO = '#EEF6F0';   // verde muy suave: el «hecho» es verde en toda la rutina
 const HECHO_BORDE = 'rgba(242,201,76,0.45)';
 const HECHO_TINTA = '#8A6A12';
 const TARJETA = {
@@ -93,7 +95,7 @@ export function SeparadorMomento({ fase, hechos, total }) {
     <div data-momento={fase} style={{ display: 'flex', alignItems: 'center', gap: 9, margin: '18px 4px 8px' }}>
       <span style={{
         width: 26, height: 26, borderRadius: 999, flex: 'none', display: 'grid', placeItems: 'center',
-        background: listo ? GRAFITO : m.tinte, color: listo ? AMARILLO : m.color,
+        background: listo ? VERDE_HECHO : m.tinte, color: listo ? '#FFFFFF' : m.color,
       }}>{listo ? <Check size={14} weight="bold" /> : <m.Icono size={14} weight="fill" />}</span>
       <div style={{ flex: 1, minWidth: 0, fontSize: 22, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', lineHeight: 1.15 }}>{m.titulo}</div>
       {total > 0 && (
@@ -655,7 +657,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 10,
       }}>
-        <span style={{ width: 26, height: 26, borderRadius: 99, background: GRAFITO, color: AMARILLO, display: 'grid', placeItems: 'center', flex: 'none' }}>
+        <span style={{ width: 26, height: 26, borderRadius: 99, background: VERDE_HECHO, color: '#FFFFFF', display: 'grid', placeItems: 'center', flex: 'none' }}>
           <Check size={14} weight="bold" />
         </span>
         <span style={{ flex: 1, minWidth: 0 }}>
@@ -821,7 +823,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
         width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 10,
       }}>
-        <span style={{ width: 26, height: 26, borderRadius: 99, background: GRAFITO, color: AMARILLO, display: 'grid', placeItems: 'center', flex: 'none' }}>
+        <span style={{ width: 26, height: 26, borderRadius: 99, background: VERDE_HECHO, color: '#FFFFFF', display: 'grid', placeItems: 'center', flex: 'none' }}>
           <Check size={14} weight="bold" />
         </span>
         <span style={{ flex: 1, minWidth: 0 }}>
@@ -1044,8 +1046,8 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
         )}
         <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`} style={{
           flex: 'none', width: 32, height: 32, borderRadius: 99, cursor: 'pointer', border: 'none',
-          background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
-          color: hecha ? AMARILLO : '#C7C7CC', display: 'grid', placeItems: 'center',
+          background: hecha ? VERDE_HECHO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
+          color: hecha ? '#FFFFFF' : '#C7C7CC', display: 'grid', placeItems: 'center',
         }}><Check size={16} weight="bold" /></button>
       </div>
     );
@@ -1105,8 +1107,8 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       <button key={pop} className={pop && hecha ? 'mt-pop' : undefined} onClick={marcar} aria-label={hecha ? `Deshacer serie ${n}` : `Marcar serie ${n}`}
         title={escrita ? 'Falta marcar esta serie' : undefined} style={{
         flex: 'none', width: 32, height: 32, borderRadius: 99, cursor: 'pointer', border: 'none',
-        background: hecha ? GRAFITO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
-        color: hecha ? AMARILLO : '#C7C7CC', display: 'grid', placeItems: 'center',
+        background: hecha ? VERDE_HECHO : '#FFFFFF', boxShadow: hecha ? 'none' : 'inset 0 0 0 1.6px #D1D1D6',
+        color: hecha ? '#FFFFFF' : '#C7C7CC', display: 'grid', placeItems: 'center',
       }}><Check size={16} weight="bold" /></button>
     </div>
   );
