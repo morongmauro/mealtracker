@@ -11,6 +11,7 @@ import EntrenoGaleria, { precargarGaleria } from './EntrenoGaleria.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
 import HojaNota from './EntrenoNota.jsx';
 import { api as entrenoApi, miniatura, hoyLocal, sumarDias, aFecha, numero, descansoEnCircuito, convertir, sinPeso, rutinaAbierta, guardarRutinaAbierta, borrarRutinaAbierta, tomarRutinaPedida, rutinaEnCurso, guardarRutinaEnCurso, borrarRutinaEnCurso, fechaLarga, codigoDia, fijarClaveTecleado, borrarTecleado, leerTecleado, useAlVolverRed, conPase, siPaseInvalido, guardadoDeEstaSemana } from './entrenoDatos.js';
+import { reportar } from './bitacora.js';
 import { crearCola, guardarRutinaLocal, leerRutinaLocal } from './entrenoCola.js';
 import { nombresEj, v2Activa, WHATSAPP_COACH } from './v2.js';
 import { enVerComo } from './verComo.js';
@@ -96,7 +97,10 @@ const almacen = (() => {
   try { return window.localStorage; } catch (e) { return { getItem: () => null, setItem: () => {} }; }
 })();
 // Una sola cola para toda la app: las series marcadas sin señal esperan aquí.
-const cola = crearCola({ almacen, api: entrenoApi, hoy: hoyLocal });
+// Una serie que el servidor rechaza se aparta (no traba la cola) y queda en
+// la bitácora del CRM para que el coach lo sepa.
+const cola = crearCola({ almacen, api: entrenoApi, hoy: hoyLocal,
+  alApartar: (x, motivo) => reportar('serie', `Serie apartada (${motivo})`, JSON.stringify({ rutina: x.rutina_id, fecha: x.fecha, ...x.datos }).slice(0, 600)) });
 // Para la mudanza de dirección: sube lo pendiente antes de irse.
 export const vaciarCola = () => cola.vaciar();
 if (typeof window !== 'undefined') {
@@ -949,7 +953,7 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     const quitar = cola.alCambiar(contar);
     // Mientras quede algo, se reintenta cada 15 s aunque el teléfono no avise
     // de que volvió la red (iOS no siempre lo hace).
-    const id = setInterval(() => { if (cola.pendientes(deEsta).length) cola.vaciar(); }, 15000);
+    const id = setInterval(() => { if (cola.pendientes(deEsta).length) cola.vaciar(deEsta); }, 15000);
     return () => { quitar(); clearInterval(id); };
   }, [deEsta]);
 
@@ -1219,7 +1223,11 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     setErrorCierre(null);
     // Primero sube lo que quede en el teléfono: los récords y la duración se
     // calculan con las series que YA están en el servidor.
-    const quedan = (await cola.vaciar(), cola.pendientes(deEsta).length);
+    // Las de esta rutina van primero; si el servidor rechaza alguna (no es la
+    // señal), se aparta y se cierra con lo demás.
+    await cola.vaciar(deEsta);
+    cola.apartarRechazadas(deEsta);
+    const quedan = cola.pendientes(deEsta).length;
     const s = quedan ? null : await asegurarSesion();
     const r = s ? await api({ accion: 'cerrar', name, sesion_id: s.id, rpe, notas: nota, estado }) : null;
     setCerrando(false);

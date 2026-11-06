@@ -18,9 +18,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 const CLAVE = 'entreno:cola:v1';
+const CLAVE_APARTADAS = 'entreno:cola:apartadas:v1';
 const CLAVE_RUTINA = (id) => `entreno:rutina:v1:${id}`;
 
-export function crearCola({ almacen, api, hoy }) {
+export function crearCola({ almacen, api, hoy, alApartar = null }) {
   const leer = () => {
     try { const v = JSON.parse(almacen.getItem(CLAVE) || '[]'); return Array.isArray(v) ? v : []; }
     catch (e) { return []; }
@@ -60,9 +61,42 @@ export function crearCola({ almacen, api, hoy }) {
   const sesionDe = new Map();
   let enCurso = null;
 
-  async function vaciarUnaVez() {
-    let lista = leer();
-    while (lista.length) {
+  // ¿Falló por la señal (o el servidor no contestó)? Eso se reintenta. Lo
+  // demás es que el servidor RECHAZÓ esa serie: reintentarla igual no sirve.
+  const esDeRed = (m) => !m || m === 'sin_red' || /^http_(5\d\d|408|429)$/.test(m);
+  // Una serie que el servidor rechaza no puede trancar a las demás (antes se
+  // quedaba primera en la cola para siempre: ninguna otra subía y la rutina
+  // no se podía terminar, con el aviso «Sin señal» aunque hubiera señal).
+  // Se salta, se le cuenta el fallo y, a la tercera, se aparta: queda
+  // guardada aparte en el teléfono (no se borra) y se avisa a la bitácora.
+  const apartar = (x, motivo) => {
+    quitar(x);
+    try {
+      const v = JSON.parse(almacen.getItem(CLAVE_APARTADAS) || '[]');
+      const l = Array.isArray(v) ? v : [];
+      l.push({ ...x, motivo, apartada: Date.now() });
+      almacen.setItem(CLAVE_APARTADAS, JSON.stringify(l.slice(-200)));
+    } catch (e) { /* nada */ }
+    try { alApartar && alApartar(x, motivo); } catch (e) { /* nada */ }
+  };
+  const fallo = (x, motivo) => {
+    const k = claveDe(x);
+    const actual = leer();
+    const y = actual.find(z => claveDe(z) === k && z.en === x.en);
+    if (!y) return;
+    y.fallos = (y.fallos || 0) + 1;
+    y.ultimo = motivo || 'error';
+    if (y.fallos >= 3) { apartar(y, y.ultimo); return; }
+    escribir(actual);
+  };
+
+  async function vaciarUnaVez(primero) {
+    const saltadas = new Set();
+    for (;;) {
+      let lista = leer().filter(x => !saltadas.has(`${claveDe(x)}|${x.en}`));
+      // Las de la rutina que se está terminando, primero.
+      if (primero) lista = [...lista.filter(primero), ...lista.filter(x => !primero(x))];
+      if (!lista.length) return leer().length;
       const x = lista[0];
       let sesionId = x.sesion_id || sesionDe.get(`${x.name}|${x.rutina_id}|${x.fecha}`) || null;
       if (!sesionId) {
@@ -70,33 +104,39 @@ export function crearCola({ almacen, api, hoy }) {
         if (!s || !s.ok || !s.sesion) {
           // La rutina ya no existe o dejó de ser visible: esa serie no tiene a
           // dónde ir. Se descarta para que no bloquee a las demás para siempre.
-          if (s && (s.motivo === 'no_es_suya' || s.motivo === 'no_enviada')) { lista = quitar(x); continue; }
-          return leer().length;
+          if (s && (s.motivo === 'no_es_suya' || s.motivo === 'no_enviada')) { quitar(x); continue; }
+          if (!s || esDeRed(s.motivo) || s.motivo === 'sesion') return leer().length;
+          fallo(x, s.motivo); saltadas.add(`${claveDe(x)}|${x.en}`); continue;
         }
         sesionId = s.sesion.id;
         sesionDe.set(`${x.name}|${x.rutina_id}|${x.fecha}`, sesionId);
       }
       const r = await api.serie(x.name, { sesion_id: sesionId, ...x.datos });
       if (!r || !r.ok) {
-        if (r && (r.motivo === 'no_es_suya' || r.motivo === 'serie_invalida' || r.motivo === 'sin_ejercicio')) {
-          lista = quitar(x); continue;
-        }
-        return leer().length;
+        if (r && (r.motivo === 'no_es_suya' || r.motivo === 'serie_invalida' || r.motivo === 'sin_ejercicio')) { quitar(x); continue; }
+        if (r && r.motivo === 'serie_rechazada') { apartar(x, r.motivo); continue; }
+        if (!r || esDeRed(r.motivo) || r.motivo === 'sesion') return leer().length;
+        fallo(x, r.motivo); saltadas.add(`${claveDe(x)}|${x.en}`); continue;
       }
-      lista = quitar(x);
+      quitar(x);
     }
-    return 0;
   }
 
   // Nunca dos vaciados a la vez: el segundo espera al primero y vuelve a mirar.
-  function vaciar() {
-    if (enCurso) return enCurso.then(() => vaciar());
-    enCurso = vaciarUnaVez().catch(() => leer().length).finally(() => { enCurso = null; });
+  function vaciar(primero) {
+    if (enCurso) return enCurso.then(() => vaciar(primero));
+    enCurso = vaciarUnaVez(primero).catch(() => leer().length).finally(() => { enCurso = null; });
     return enCurso;
   }
 
+  // Al terminar la rutina: las series de ESTA rutina que el servidor rechazó
+  // (no por señal) se apartan para que se pueda cerrar con lo demás.
+  function apartarRechazadas(filtro) {
+    leer().filter(x => (!filtro || filtro(x)) && x.ultimo && !esDeRed(x.ultimo) && x.ultimo !== 'sesion').forEach(x => apartar(x, x.ultimo));
+  }
+
   return {
-    encolar, vaciar,
+    encolar, vaciar, apartarRechazadas,
     pendientes: (filtro) => leer().filter(x => !filtro || filtro(x)),
     alCambiar: (f) => { oyentes.add(f); return () => oyentes.delete(f); },
     // La sesión que ya abrió la cola, para que la pantalla no pida otra.

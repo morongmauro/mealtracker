@@ -41,6 +41,44 @@ const serie = (re, n, peso, completada = true) => ({ rutina_ejercicio_id: re, ej
 
 console.log('cola de series sin señal');
 
+await caso('una serie que el servidor rechaza (no es la señal) no traba las demás ni el cierre', async () => {
+  const sv = servidor();
+  const base = sv.api.serie;
+  sv.api.serie = async (name, d) => (d.rutina_ejercicio_id === 'roto' ? { ok: false, motivo: 'error' } : base(name, d));
+  const apartadas = [];
+  const alm = memoria();
+  const cola = crearCola({ almacen: alm, api: sv.api, hoy: () => '2026-11-05', alApartar: (x, m) => apartadas.push(m) });
+  // Ayer quedó una serie que el servidor no acepta; hoy entrena otra rutina.
+  cola.encolar({ name: 'M', rutina_id: 'r0', fecha: '2026-11-05', datos: serie('roto', 1, 50) });
+  cola.encolar({ name: 'M', rutina_id: 'r1', fecha: '2026-11-06', datos: serie('re1', 1, 60) });
+  cola.encolar({ name: 'M', rutina_id: 'r1', fecha: '2026-11-06', datos: serie('re1', 2, 60) });
+  const deHoy = (x) => x.rutina_id === 'r1';
+  await cola.vaciar(deHoy);
+  igual(cola.pendientes(deHoy).length, 0, 'las de hoy subieron');
+  igual(sv.series.length, 2, 'series de hoy en el servidor');
+  igual(cola.pendientes().length, 1, 'la rechazada sigue guardada (1 fallo)');
+  await cola.vaciar(); await cola.vaciar();
+  igual(cola.pendientes().length, 0, 'a la tercera se aparta');
+  igual(apartadas, ['error'], 'avisó a la bitácora');
+  igual(JSON.parse(alm.getItem('entreno:cola:apartadas:v1')).length, 1, 'no se borró: quedó aparte en el teléfono');
+});
+
+await caso('al cerrar, la serie rechazada de ESTA rutina se aparta y deja cerrar; sin señal no', async () => {
+  const sv = servidor();
+  const base = sv.api.serie;
+  sv.api.serie = async (name, d) => (d.rutina_ejercicio_id === 'roto' ? { ok: false, motivo: 'error' } : base(name, d));
+  const cola = crearCola({ almacen: memoria(), api: sv.api, hoy: () => '2026-11-06' });
+  cola.encolar({ name: 'M', rutina_id: 'r1', datos: serie('roto', 1, 50) });
+  cola.encolar({ name: 'M', rutina_id: 'r1', datos: serie('re1', 1, 60) });
+  const deEsta = (x) => x.rutina_id === 'r1';
+  await cola.vaciar(deEsta); cola.apartarRechazadas(deEsta);
+  igual(cola.pendientes(deEsta).length, 0, 'se puede cerrar');
+  sv.red = false;
+  cola.encolar({ name: 'M', rutina_id: 'r1', datos: serie('re1', 2, 60) });
+  await cola.vaciar(deEsta); cola.apartarRechazadas(deEsta);
+  igual(cola.pendientes(deEsta).length, 1, 'sin señal la serie se queda (sube sola después)');
+});
+
 await caso('sin señal no se pierde nada, y al volver sube todo con UNA sola sesión', async () => {
   const sv = servidor(); sv.red = false;
   const cola = crearCola({ almacen: memoria(), api: sv.api, hoy: () => '2026-09-26' });

@@ -1049,12 +1049,29 @@ async function guardarSerie(cliente, cuerpo) {
     sinColumnaHora = Date.now();
     return sb(ruta, { method: metodo, headers: { Prefer: 'return=representation' }, body: JSON.stringify(fila) });
   });
-  if (antes) {
-    const upd = await escribir(`series_log?id=eq.${antes.id}`, 'PATCH');
-    return { ok: true, serie: Array.isArray(upd) ? upd[0] : upd, actualizada: true };
+  try {
+    if (antes) {
+      const upd = await escribir(`series_log?id=eq.${antes.id}`, 'PATCH');
+      return { ok: true, serie: Array.isArray(upd) ? upd[0] : upd, actualizada: true };
+    }
+    const ins = await escribir('series_log', 'POST');
+    return { ok: true, serie: Array.isArray(ins) ? ins[0] : ins, actualizada: false };
+  } catch (e) {
+    // La línea de la rutina ya no existe (el coach cambió ese ejercicio
+    // mientras el cliente tenía la rutina abierta): la serie se guarda igual,
+    // por su ejercicio. Antes fallaba siempre, se quedaba primera en la cola
+    // del teléfono y no dejaba terminar la rutina.
+    if (fila.rutina_ejercicio_id) {
+      try {
+        const suelta = { ...fila, rutina_ejercicio_id: null };
+        const ins = await sb('series_log', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(suelta) });
+        return { ok: true, serie: Array.isArray(ins) ? ins[0] : ins, actualizada: false, sin_linea: true };
+      } catch (e2) { /* sigue abajo */ }
+    }
+    // El servidor no la acepta (no es la señal): el teléfono la aparta y deja
+    // terminar la rutina con lo demás.
+    return { ok: false, motivo: 'serie_rechazada' };
   }
-  const ins = await escribir('series_log', 'POST');
-  return { ok: true, serie: Array.isArray(ins) ? ins[0] : ins, actualizada: false };
 }
 
 // Si la base todavía no tiene la columna, no se intenta en cada serie: se
