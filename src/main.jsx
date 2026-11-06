@@ -13,6 +13,7 @@ import MealTracker, { NOVEDADES } from './MealTracker.jsx';
 import Salvavidas from './Salvavidas.jsx';
 import { prepararVerComo } from './verComo.js';
 import { instalarBitacora } from './bitacora.js';
+import { titulosDelgados } from './titulosDelgados.js';
 
 // El dashboard del coach se carga en un chunk aparte: los clientes no
 // descargan su código, y el coach solo lo baja al entrar a /coach.
@@ -53,6 +54,8 @@ const montar = () => ReactDOM.createRoot(document.getElementById('root')).render
 const verComo = prepararVerComo({ novedades: [NOVEDADES.version].filter(Boolean) });
 // Lo que falle en el teléfono del cliente queda en la bitácora del CRM.
 if (!verComo) instalarBitacora();
+// Títulos un poco más delgados en toda la app (titulosDelgados.js).
+titulosDelgados();
 if (verComo) verComo.then(r => { if (r.listo) montar(); });
 else if (esperaEntrada > 0) setTimeout(montar, esperaEntrada); else montar();
 
