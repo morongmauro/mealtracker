@@ -1754,11 +1754,13 @@ async function conCargaDelCoach(regs, cliente, evs, fase, desde, hasta) {
 // ── PENDIENTES DE REGISTRO ────────────────────────────────────────────────
 // Pesarse, las fotos o la medición que el coach puso en días que ya pasaron
 // y el cliente no marcó: se quedan en Hoy (Entreno y Dash) hasta que lo
-// haga. Se mira hasta 21 días atrás; de cada evento solo la ÚLTIMA vez que
+// haga (o hasta que el coach lo quite o lo marque en el CRM): no se apagan
+// por tiempo. Se mira hasta un año atrás (antes eran 21 días y después
+// desaparecía sin hacerse); de cada evento solo la ÚLTIMA vez que
 // tocó (si tocaba cada lunes y ya hizo el último, no debe nada), y si
 // también cae hoy, hoy ya lo pide por su cuenta. Lo saltado a propósito
 // («más tarde» no es saltar; saltar es decir que no) tampoco se queda.
-const ATRASO_DIAS = 21;
+const ATRASO_DIAS = 365;
 async function pendientesRegistro(cliente, hoy, evs, fase, catalogo) {
   const desde = sumarDiasISO(hoy, -ATRASO_DIAS), ayer = sumarDiasISO(hoy, -1);
   const porFecha = expandirEventos(evs, fase);
@@ -2464,6 +2466,24 @@ async function todas(path) {
   return out;
 }
 
+async function pedidosDelCoach(cliente, medidas) {
+  const p = await sb(`pedidos_cliente?select=id,tipo,pedido_en&cliente_id=eq.${cliente.id}&entregado_en=is.null&tipo=in.(fotos,peso,medidas)&order=pedido_en.desc&limit=20`).catch(() => []);
+  if (!Array.isArray(p) || !p.length) return [];
+  const fotos = p.some(x => x.tipo === 'fotos')
+    ? await sb(`fotos_progreso?select=fecha&cliente_id=eq.${cliente.id}&order=fecha.desc&limit=1`).catch(() => []) : [];
+  const ultFoto = Array.isArray(fotos) && fotos[0] ? String(fotos[0].fecha).slice(0, 10) : null;
+  const visto = new Set(), out = [];
+  p.forEach(x => {
+    if (visto.has(x.tipo)) return;   // el más reciente de cada tipo
+    visto.add(x.tipo);
+    const desde = String(x.pedido_en).slice(0, 10);
+    const hecho = x.tipo === 'fotos' ? !!(ultFoto && ultFoto >= desde)
+      : medidas.some(m => String(m.fecha).slice(0, 10) >= desde && (x.tipo !== 'peso' || m.peso != null));
+    if (!hecho) out.push({ id: x.id, tipo: x.tipo, desde });
+  });
+  return out;
+}
+
 async function verDash(cliente, hoy) {
   const desde = sumarDiasISO(lunesDe(hoy), -7 * (DASH_SEMANAS - 1));
   const lunes = lunesDe(hoy), domingo = sumarDiasISO(lunesDe(hoy), 6);
@@ -2532,7 +2552,11 @@ async function verDash(cliente, hoy) {
   // El sexo de su ficha: la tabla de referencia del % de grasa va por sexo.
   const ficha = await sb(`clientes?select=sexo&id=eq.${cliente.id}&limit=1`).catch(() => null);
   const sexo = Array.isArray(ficha) && ficha[0] && (ficha[0].sexo === 'F' || ficha[0].sexo === 'M') ? ficha[0].sexo : null;
-  return { cierre, sexo, ...armarDash({
+  // Lo que el coach le pidió desde Toques («Pedir» fotos, peso o medidas):
+  // sale en Hoy hasta que lo haga (una medición o unas fotos con fecha desde
+  // el pedido) o el coach lo marque entregado en el CRM.
+  const pedidosCoach = await pedidosDelCoach(cliente, Array.isArray(medidas) ? medidas : []).catch(() => []);
+  return { cierre, sexo, pedidos_coach: pedidosCoach, ...armarDash({
     hoy, fases: listaFases, sesiones: sesiones.map(x => (bloques.has(x.rutina_id) ? { ...x, bloque: true } : x)), series, nombres, alias, programa,
     actividades: Array.isArray(actividades) ? actividades : [],
     medidas: Array.isArray(medidas) ? medidas : [],

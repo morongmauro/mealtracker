@@ -593,7 +593,7 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
       <RecordatoriosLinea name={name} hoy={hoy} aprende={aprende} medidas={ent?.medidas} cierre={ent?.cierre} cargandoMedidas={entrenoOn && !ent && !falloEnt}
         coach={acciones.recordatoriosCoach || []} alMarcarCoach={acciones.marcarRecordatorio}
         alPrograma={acciones.programa} alMedir={() => setMidiendo(true)} alAbrir={acciones.abrirAprendizaje}
-        plan={entrenoOn ? plan : null} coachHoy={entrenoOn ? (ent?.semana?.hoy || []) : []} kcalHoy={kcalHoy} alIr={alIr} />
+        plan={entrenoOn ? plan : null} coachHoy={entrenoOn ? (ent?.semana?.hoy || []) : []} pedidosCoach={entrenoOn ? (ent?.pedidos_coach || []) : []} kcalHoy={kcalHoy} alIr={alIr} />
 
       {explicar && (
         <ExplicacionSemana semana={semana} history={history} goals={goals} hoy={hoy} alCerrar={() => setExplicar(false)} />
@@ -1486,13 +1486,12 @@ function DetalleComposicion({ ent, cargando, alMedir }) {
 //   · leer las cápsulas y ver los videos, mientras falte alguno.
 // El círculo de la izquierda marca como hecho (los del coach y el del
 // mes); tocar la línea lleva a donde se hace.
-const CLAVE_MES = (ym) => `mt:medidaMes:${ym}`;
 // Primero LO DE HOY (la rutina, lo que puso el coach para hoy, registrar la
 // comida), con «N de M» como performance del día; lo demás (recordatorios
 // del coach, cierre de ciclo, medida del mes, cápsulas y videos) se despliega
 // con «Ver todo». Un recordatorio de leer no tapa el entreno de hoy.
 function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargandoMedidas, coach, alMarcarCoach, alPrograma, alMedir, alAbrir,
-  plan = null, coachHoy = [], kcalHoy = 0, alIr = null }) {
+  plan = null, coachHoy = [], pedidosCoach = [], kcalHoy = 0, alIr = null }) {
   const [todos, setTodos] = useState(false);
   const hoyItems = [];
   const d = plan && Array.isArray(plan.dias) ? plan.dias.find(x => x.es_hoy || x.fecha === hoy) : null;
@@ -1510,10 +1509,18 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
     const desde = ev.atrasado && ev.fecha ? ` · desde el ${new Date(ev.fecha + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' }).replace('.', '')}` : '';
     hoyItems.push({ id: `hoy-e-${ev.id}`, texto: texto + desde, hecho: !!ev.hecho, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: (p) => <IconoEvento tipo={ev.tipo} {...p} />, color: ev.tipo === 'actividad' ? AZUL : '#8E5BD8' });
   });
+  // Lo que el coach le pidió desde el CRM (fotos, peso, medidas): en Hoy hasta
+  // que lo haga. Si ya está en su calendario como pendiente, no se repite.
+  const TIPO_EV = { fotos: ['fotos'], peso: ['peso'], medidas: ['medidas', 'medicion'] };
+  const yaEnHoy = (t) => coachHoy.some(ev => !ev.hecho && TIPO_EV[t].includes(ev.tipo));
+  pedidosCoach.filter(pc => TIPO_EV[pc.tipo] && !yaEnHoy(pc.tipo)).forEach(pc => {
+    const texto = pc.tipo === 'fotos' ? 'Enviar tus fotos · te las pidió tu coach' : pc.tipo === 'peso' ? 'Registrar tu peso · te lo pidió tu coach' : 'Tu medición corporal · te la pidió tu coach';
+    // Las fotos van por WhatsApp (en la app no se suben); peso y medidas, en su hoja.
+    const ir = pc.tipo === 'fotos' ? (WHATSAPP_COACH ? () => window.open(`https://wa.me/${WHATSAPP_COACH}`, '_blank', 'noopener') : null) : alMedir;
+    hoyItems.push({ id: `hoy-p-${pc.id}`, texto, hecho: false, ir, Icono: (p) => <IconoEvento tipo={pc.tipo === 'medidas' ? 'medicion' : pc.tipo} {...p} />, color: '#8E5BD8' });
+  });
   const comida = Number(kcalHoy) > 0;
   hoyItems.push({ id: 'hoy-comida', texto: comida ? `Comida registrada · ${Math.round(kcalHoy).toLocaleString('es-CO')} kcal` : 'Registrar lo que comiste', hecho: comida, ir: alIr ? () => alIr('comida', 'chat') : null, Icono: ForkKnife, color: '#46965A' });
-  const hoyHechos = hoyItems.filter(i => i.hecho).length;
-  const [mesHecho, setMesHecho] = useState(() => { try { return localStorage.getItem(CLAVE_MES(hoy.slice(0, 7))) === '1'; } catch (e) { return false; } });
   const ym = hoy.slice(0, 7);
   const bloque = (k) => (aprende && aprende.bloques ? aprende.bloques.find(b => b.k === k) : null);
   const items = [];
@@ -1521,16 +1528,15 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const hub = bloque('hub');
   const programaVisto = (hub && hub.piezas.some(p => p.id === 'programa' && p.vista)) || marcadaLocal(name, 'hub', 'programa');
   if (aprende !== undefined && !programaVisto) items.push({ id: 'programa', texto: 'Lee «Sobre el programa»: cómo funciona tu proceso', ir: alPrograma, Icono: BookOpenText, color: '#C95F17' });
-  // Fin de ciclo: composición corporal y fotos. Va primero y se queda hasta
-  // que registre su composición (no se puede descartar con el circulito).
+  // Fin de ciclo y la medición del mes: van en HOY (antes quedaban en «Ver
+  // todo» y la del mes se podía tachar sin hacerla). Se quedan hasta que
+  // registre su medición; no se pueden descartar con el circulito.
   const cierrePendiente = !!(cierre && !cierre.composicion);
-  if (cierrePendiente) items.push({ id: 'cierre', texto: `Fin de ciclo: actualiza tu composición corporal${cierre.fotos ? '' : ' y tus fotos'}`, ir: alMedir, Icono: Heartbeat, color: AMBAR });
-  // Peso y composición del mes.
+  const medidaPedida = hoyItems.some(i => !i.hecho && /^hoy-(p|e)-/.test(i.id) && /medición|peso/i.test(i.texto));
+  if (cierrePendiente) hoyItems.push({ id: 'hoy-cierre', texto: `Fin de ciclo: actualiza tu composición corporal${cierre.fotos ? '' : ' y tus fotos'}`, hecho: false, ir: alMedir, Icono: Heartbeat, color: AMBAR });
   const medidaMes = (medidas || []).some(m => String(m.fecha || '').slice(0, 7) === ym);
-  if (!cierrePendiente && !cargandoMedidas && medidas && !medidaMes && !mesHecho) items.push({ id: 'medida', texto: 'Registra tu peso y composición de este mes', ir: alMedir, marcar: () => {
-    try { localStorage.setItem(CLAVE_MES(ym), '1'); } catch (e) { /* sin almacenamiento */ }
-    setMesHecho(true);
-  }, Icono: Heartbeat, color: AMBAR });
+  if (!cierrePendiente && !medidaPedida && !cargandoMedidas && medidas && !medidaMes) hoyItems.push({ id: 'hoy-medida', texto: 'Registra tu peso y composición de este mes', hecho: false, ir: alMedir, Icono: Heartbeat, color: AMBAR });
+  const hoyHechos = hoyItems.filter(i => i.hecho).length;
   // Los del coach, pendientes.
   coach.filter(r => !r.done_at).forEach(r => items.push({ id: 'c-' + r.id, texto: r.text, marcar: alMarcarCoach ? () => alMarcarCoach(r.id) : null, Icono: Bell, color: '#E0A21A', coach: true }));
   videos.filter(v => !v.hoy).forEach(v => items.push({ id: `v-${v.id}`, texto: `Video pedido: ${v.nombre}`, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: VideoCamera, color: '#C9672B', coach: true }));

@@ -468,10 +468,10 @@ await caso('añadir rutina: en la semana que viene sí', async () => {
   igual([r.ok, r.agregada && r.agregada.fecha], [true, mas(lunes, 12)], 'el sábado que viene');
 });
 
-await caso('semanas que ya pasaron: no se llenan (actividad); un registro atrasado sí, hasta 3 semanas', async () => {
+await caso('semanas que ya pasaron: no se llenan (actividad); un registro atrasado sí, hasta un año', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   igual((await llamar(handler, { accion: 'actividad', name: yo, tipo: 'caminata', fecha: mas(lunes, -1), duracion_min: 30 })).motivo, 'semana_pasada', 'caminata del domingo pasado');
-  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'x', fecha: mas(hoy, -22) })).motivo, 'semana_pasada', 'registro de hace más de 3 semanas');
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'x', fecha: mas(hoy, -400) })).motivo, 'semana_pasada', 'registro de hace más de un año');
 });
 
 await caso('el mes trae los músculos de cada rutina (para avisar si se repiten días seguidos)', async () => {
@@ -812,23 +812,24 @@ await caso('lo de registrar que quedó de días pasados sigue en Hoy (mes y dash
   const sb = base(); globalThis.fetch = sb.fetch;
   sb.db.eventos = [
     { id: 'evp3', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse', fecha: mas(hoy, -3), visible_cliente: true },      // hace 3 días, sin hacer → pendiente
-    { id: 'evf30', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Fotos', fecha: mas(hoy, -30), visible_cliente: true },    // hace un mes → ya no
+    { id: 'evf30', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Fotos', fecha: mas(hoy, -30), visible_cliente: true },    // hace un mes → sigue (ya no se apaga por tiempo)
     { id: 'evm5', cliente_id: 'c1', fase_id: null, tipo: 'medidas', titulo: 'Medición', fecha: mas(hoy, -5), visible_cliente: true }, // hace 5, pero lo saltó → no
     { id: 'evc2', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Caminar', fecha: mas(hoy, -2), visible_cliente: true }, // cardio: no es registro
   ];
   sb.db.evento_registros = [{ id: 'r1', evento_id: 'evm5', cliente_id: 'c1', fecha: mas(hoy, -5), estado: 'saltado' }];
   const m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
-  igual(m.pendientes.map(p => [p.id, p.fecha, p.atrasado, p.dias]), [['evp3', mas(hoy, -3), true, 3]], 'pendientes del mes');
+  igual(m.pendientes.map(p => [p.id, p.fecha, p.atrasado, p.dias]), [['evf30', mas(hoy, -30), true, 30], ['evp3', mas(hoy, -3), true, 3]], 'pendientes del mes');
   const d = await llamar(handler, { accion: 'dash', name: yo });
-  igual(d.semana.hoy.filter(x => x.atrasado).map(x => [x.id, x.fecha]), [['evp3', mas(hoy, -3)]], 'en el dash también');
+  igual(d.semana.hoy.filter(x => x.atrasado).map(x => [x.id, x.fecha]), [['evf30', mas(hoy, -30)], ['evp3', mas(hoy, -3)]], 'en el dash también');
+  // Las fotos de hace un mes se marcan (antes, pasadas 3 semanas, desaparecían sin hacerse).
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evf30', fecha: mas(hoy, -30), hecho: true })).ok, true, 'marcar las fotos de hace un mes');
   // Lo hace (con la fecha en que tocaba): deja de estar pendiente.
   igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evp3', fecha: mas(hoy, -3), valor: '80', hecho: true })).ok, true, 'marcar lo atrasado');
   igual((await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) })).pendientes, [], 'ya no debe nada');
   // Si el mismo evento también cae hoy, no se duplica: hoy lo pide por su cuenta.
   sb.db.eventos.push({ id: 'evp3', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse', fecha: hoy, visible_cliente: true });
   igual((await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) })).pendientes, [], 'hoy manda');
-  // Lo de hace más de 3 semanas no se puede marcar.
-  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evf30', fecha: mas(hoy, -30), hecho: true })).motivo, 'semana_pasada', 'muy viejo');
+
 });
 
 
