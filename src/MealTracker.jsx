@@ -73,7 +73,7 @@ import { pasosInstalar } from './InstalarApp.jsx';
 import { pedirInstalarPrimero } from './instalarPrimeroEstado.js';
 import { leerAprendizajeConCache } from './aprendizaje.js';
 import { fijarHistoriaComida } from './resumenMes.js';
-import { usoSeccion } from './usoApp.js';
+import { usoSeccion, usoAvisoCiclo } from './usoApp.js';
 
 // Lo que abre en la app, para el coach (Enganche en el CRM): una vez por día y
 // sección, y solo si se queda en ella 2 s (al abrir, la app pasa un instante
@@ -3144,8 +3144,9 @@ export default function MealTracker() {
         setCicloUltima({ num: f.semanas, pendientes, fin });
         let visto = '';
         try { visto = localStorage.getItem('mt:avisoCicloFin') || ''; } catch (e) {}
-        if (visto === clave) return;
+        if (visto === clave) { usoAvisoCiclo(clave); return; }
         setAvisoCiclo({ fase: f, pendientes, hoyToca, fin, clave });
+        usoAvisoCiclo(clave);
       } catch (e) { /* sin plan: sin aviso */ }
     }, 1500);
     return () => { vivo = false; clearTimeout(t); };

@@ -66,6 +66,19 @@ export function usoRespira({ segundos, minutos, origen }) {
   } catch (e) { /* nada */ }
 }
 export const usoReceta = (nombreReceta) => anotar('r', String(nombreReceta || '').slice(0, 120));
+// La ventana de la última semana del ciclo le salió (o ya la había visto):
+// que el coach lo sepa en Toques. Una vez por día y por ciclo.
+export function usoAvisoCiclo(clave) {
+  if (!clave || enVerComo()) return;
+  const name = nombre();
+  if (!name) return;
+  const hoy = hoyLocal(), marca = `${hoy}|${clave}`;
+  try { if (localStorage.getItem('mt:usoAvisoCiclo') === marca) return; localStorage.setItem('mt:usoAvisoCiclo', marca); } catch (e) { /* sin almacenamiento */ }
+  try {
+    fetch('/api/uso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ name, user_id: usuario(), hoy, aviso_ciclo: String(clave) }) }).catch(() => {});
+  } catch (e) { /* nada */ }
+}
 
 // Ficha del ejercicio: cada vez que la abre (para el coach: quién mira la
 // técnica y con qué frecuencia). La misma ficha dentro de un minuto cuenta

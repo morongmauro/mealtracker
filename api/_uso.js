@@ -27,8 +27,11 @@ const fichaValida = (x) => x && /^\d{2}:\d{2}$/.test(String(x.h || '')) && (x.e 
 const respiraValida = (x) => x && /^\d{2}:\d{2}$/.test(String(x.h || '')) && Number.isFinite(+x.s) && +x.s >= 0 && +x.s <= 3600;
 
 // La fila del día con lo nuevo sumado (función pura: la prueba la usa).
-export function fusionarUso(ex, { secciones = [], recetas = [], respira = [], resumen = null, fichas = [] }) {
+export function fusionarUso(ex, { secciones = [], recetas = [], respira = [], resumen = null, fichas = [], aviso_ciclo = null }) {
   const s = { ...((ex && ex.secciones) || {}) };
+  // La ventana «última semana del ciclo» ya le salió (el ciclo: su id). El
+  // CRM lo muestra en Toques → Ciclo.
+  if (typeof aviso_ciclo === 'string' && aviso_ciclo.trim()) s.aviso_ciclo = corto(aviso_ciclo.trim(), 80);
   // El resumen del mes ya se le mostró (AAAA-MM del mes resumido): así no
   // vuelve a salir aunque abra la app en otro teléfono o en el navegador.
   if (MES_OK(resumen)) s.resumen_mes = resumen;
@@ -66,7 +69,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, visto: Array.isArray(filas) && filas.length > 0 });
     } catch (e) { return res.status(200).json({ ok: false }); }
   }
-  const nuevo = { resumen: MES_OK(b.resumen) ? b.resumen : null, secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10), respira: (Array.isArray(b.respira) ? b.respira : []).slice(0, 3), fichas: (Array.isArray(b.fichas) ? b.fichas : []).slice(0, 3) };
+  const nuevo = { resumen: MES_OK(b.resumen) ? b.resumen : null, secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10), respira: (Array.isArray(b.respira) ? b.respira : []).slice(0, 3), fichas: (Array.isArray(b.fichas) ? b.fichas : []).slice(0, 3), aviso_ciclo: typeof b.aviso_ciclo === 'string' ? b.aviso_ciclo : null };
   try {
     const r = await fetch(`${tabla}?clave=eq.${encodeURIComponent(clave)}&fecha=eq.${b.hoy}&select=id,secciones,recetas`, { headers: H() });
     if (!r.ok) return res.status(200).json({ ok: false, sinTabla: r.status === 404 });
