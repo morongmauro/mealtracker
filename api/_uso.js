@@ -27,8 +27,13 @@ const fichaValida = (x) => x && /^\d{2}:\d{2}$/.test(String(x.h || '')) && (x.e 
 const respiraValida = (x) => x && /^\d{2}:\d{2}$/.test(String(x.h || '')) && Number.isFinite(+x.s) && +x.s >= 0 && +x.s <= 3600;
 
 // La fila del día con lo nuevo sumado (función pura: la prueba la usa).
-export function fusionarUso(ex, { secciones = [], recetas = [], respira = [], resumen = null, fichas = [], aviso_ciclo = null }) {
+export function fusionarUso(ex, { secciones = [], recetas = [], respira = [], resumen = null, fichas = [], aviso_ciclo = null, encuesta = null, visual = null }) {
   const s = { ...((ex && ex.secciones) || {}) };
+  // La encuesta de la app: le salió («vista») o tocó «Ahora no» («luego»,
+  // que pesa más ese día). El CRM dice por qué no la ha respondido.
+  if (encuesta === 'luego' || (encuesta === 'vista' && s.encuesta !== 'luego')) s.encuesta = encuesta;
+  // En qué dirección usa la app: «nueva» (la visual nueva) o «vieja».
+  if (visual === 'nueva' || visual === 'vieja') s.visual = visual;
   // La ventana «última semana del ciclo» ya le salió (el ciclo: su id). El
   // CRM lo muestra en Toques → Ciclo.
   if (typeof aviso_ciclo === 'string' && aviso_ciclo.trim()) s.aviso_ciclo = corto(aviso_ciclo.trim(), 80);
@@ -69,7 +74,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, visto: Array.isArray(filas) && filas.length > 0 });
     } catch (e) { return res.status(200).json({ ok: false }); }
   }
-  const nuevo = { resumen: MES_OK(b.resumen) ? b.resumen : null, secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10), respira: (Array.isArray(b.respira) ? b.respira : []).slice(0, 3), fichas: (Array.isArray(b.fichas) ? b.fichas : []).slice(0, 3), aviso_ciclo: typeof b.aviso_ciclo === 'string' ? b.aviso_ciclo : null };
+  const nuevo = { resumen: MES_OK(b.resumen) ? b.resumen : null, secciones: (Array.isArray(b.secciones) ? b.secciones : []).slice(0, 10).map(x => corto(x, 20)), recetas: (Array.isArray(b.recetas) ? b.recetas : []).slice(0, 10), respira: (Array.isArray(b.respira) ? b.respira : []).slice(0, 3), fichas: (Array.isArray(b.fichas) ? b.fichas : []).slice(0, 3), aviso_ciclo: typeof b.aviso_ciclo === 'string' ? b.aviso_ciclo : null, encuesta: typeof b.encuesta === 'string' ? b.encuesta : null, visual: typeof b.visual === 'string' ? b.visual : null };
   try {
     const r = await fetch(`${tabla}?clave=eq.${encodeURIComponent(clave)}&fecha=eq.${b.hoy}&select=id,secciones,recetas`, { headers: H() });
     if (!r.ok) return res.status(200).json({ ok: false, sinTabla: r.status === 404 });

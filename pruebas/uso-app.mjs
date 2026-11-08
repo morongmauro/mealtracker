@@ -24,6 +24,14 @@ caso('Respira: cada vez que la termina suma una entrada (hora, segundos, minutos
   f = fusionarUso(f, { respira: [{ h: '21:05', s: 61.4, m: 1, o: 'dash' }, { h: 'mal', s: 20 }, { h: '22:00', s: 99999 }] });
   igual(f.secciones, { dash: 1, respira: [{ h: '07:10', s: 180, m: 3, o: 'fin-entreno' }, { h: '21:05', s: 61, m: 1, o: 'dash' }] }, 'respira');
 });
+caso('encuesta y dirección: «Ahora no» pesa más que «vista» ese día; la dirección se guarda', () => {
+  let f = fusionarUso(null, { encuesta: 'vista', visual: 'nueva' });
+  igual([f.secciones.encuesta, f.secciones.visual], ['vista', 'nueva'], 'le salió');
+  f = fusionarUso(f, { encuesta: 'luego' });
+  igual(f.secciones.encuesta, 'luego', 'tocó Ahora no');
+  f = fusionarUso(f, { encuesta: 'vista', visual: 'otra' });
+  igual([f.secciones.encuesta, f.secciones.visual], ['luego', 'nueva'], 'no vuelve a «vista» ni acepta valores raros');
+});
 caso('Respira: como mucho 20 por día', () => {
   let f = null;
   for (let i = 0; i < 25; i++) f = fusionarUso(f, { respira: [{ h: '10:00', s: 60, m: 1 }] });

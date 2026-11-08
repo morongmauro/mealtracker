@@ -10,6 +10,8 @@ import { hoyLocal } from './entrenoDatos.js';
 
 const nombre = () => { try { return JSON.parse(localStorage.getItem('mt:name') || '""') || ''; } catch (e) { return ''; } };
 const usuario = () => { try { return localStorage.getItem('cloudUserId') || null; } catch (e) { return null; } };
+// En qué dirección la usa (la visual nueva solo está en la nueva): para el CRM.
+const visual = () => { try { return document.documentElement.hasAttribute('data-v2') ? 'nueva' : 'vieja'; } catch (e) { return null; } };
 
 // Lo ya contado hoy (en memoria y en el teléfono, para no repetirlo al reabrir).
 let dia = '', ya = null;
@@ -36,7 +38,7 @@ function enviar() {
   if (!name) return;
   try {
     fetch('/api/uso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-      body: JSON.stringify({ name, user_id: usuario(), hoy: c.dia, secciones, recetas }) }).catch(() => {});
+      body: JSON.stringify({ name, user_id: usuario(), hoy: c.dia, secciones, recetas, visual: visual() }) }).catch(() => {});
   } catch (e) { /* nada */ }
 }
 
@@ -52,6 +54,16 @@ function anotar(tipo, valor) {
 }
 
 export const usoSeccion = (seccion) => anotar('s', seccion);
+// La encuesta de la app: le salió («vista») o tocó «Ahora no» («luego»).
+export function usoEncuesta(estado) {
+  if (enVerComo() || !['vista', 'luego'].includes(estado)) return;
+  const name = nombre();
+  if (!name) return;
+  try {
+    fetch('/api/uso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ name, user_id: usuario(), hoy: hoyLocal(), encuesta: estado, visual: visual() }) }).catch(() => {});
+  } catch (e) { /* nada */ }
+}
 // Respira: cada vez que la termina (no una vez por día), al momento.
 // `origen`: desde dónde la abrió (fin de entreno, descanso, ajustes).
 export function usoRespira({ segundos, minutos, origen }) {

@@ -8,11 +8,12 @@
 // respondió, no vuelve a salir. «Ahora no» la guarda para la semana
 // siguiente (la clave es el lunes de esta semana).
 // ─────────────────────────────────────────────────────────────────────────
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChatCircleText } from '@phosphor-icons/react';
 import VentanaMarca, { BotonVentana, Color, GRAFITO } from './VentanaMarca.jsx';
 import { api } from './entrenoDatos.js';
 import { posponerEncuesta } from './encuestaLuego.js';
+import { usoEncuesta } from './usoApp.js';
 
 const PREGUNTAS = [
   { k: 'util', t: '¿Qué tan útil te resulta la app?', min: 1, max: 5, de: 'Nada útil', a: 'Muy útil' },
@@ -48,6 +49,8 @@ export default function EncuestaApp({ nombre, alCerrar }) {
   const [error, setError] = useState('');
   const completa = PREGUNTAS.every(p => r[p.k] != null);
   const primer = String(nombre || '').trim().split(/\s+/)[0] || '';
+  // Para el coach: le salió (en el CRM, «Le salió y no respondió»).
+  useEffect(() => { usoEncuesta('vista'); }, []);
   const enviar = async () => {
     if (!completa || enviando) return;
     setEnviando(true); setError('');
@@ -78,7 +81,7 @@ export default function EncuestaApp({ nombre, alCerrar }) {
       {error && <div style={{ marginTop: 12, fontSize: 13.5, color: '#A3301B', textAlign: 'center' }}>{error}</div>}
       {/* Hasta responder las 4 se ve apagado (y no envía). */}
       <div style={{ opacity: completa ? 1 : 0.4, transition: 'opacity .2s' }}><BotonVentana onClick={enviar} cargando={enviando} data-encuesta-enviar aria-disabled={!completa}>Enviar</BotonVentana></div>
-      <BotonVentana secundario onClick={() => { posponerEncuesta(); alCerrar && alCerrar(); }} data-encuesta-luego>Ahora no</BotonVentana>
+      <BotonVentana secundario onClick={() => { posponerEncuesta(); usoEncuesta('luego'); alCerrar && alCerrar(); }} data-encuesta-luego>Ahora no</BotonVentana>
     </VentanaMarca>
   );
 }
