@@ -339,9 +339,13 @@ async function verPlan(cliente, hoy) {
       const hoyEjs = new Set([...(d && d.rutina ? [d.rutina.id] : []), ...(d ? d.complementarias.map(c => c.id) : [])]
         .flatMap(id => [...(ejsDe[id] || [])]));
       const delCiclo = new Set(Object.values(ejsDe).flatMap(st => [...st]));
+      // Un video pedido de una ficha que se cambió por otra en sus rutinas
+      // cuenta como de la nueva (no queda en pausa).
+      const aNueva = aFichaNueva(await fichasAnteriores([...delCiclo]).catch(() => ({})));
+      const suId = (v) => v.ejercicio_id ? (aNueva[String(v.ejercicio_id)] || String(v.ejercicio_id)) : null;
       return (await videosPedidos(cliente).catch(() => []))
-        .filter(v => !v.ejercicio_id || delCiclo.has(String(v.ejercicio_id)))
-        .map(v => ({ ...v, hoy: !!(v.ejercicio_id && hoyEjs.has(String(v.ejercicio_id))) }));
+        .filter(v => !v.ejercicio_id || delCiclo.has(suId(v)))
+        .map(v => ({ ...v, hoy: !!(v.ejercicio_id && hoyEjs.has(suId(v))) }));
     })(),
   };
 }
@@ -477,6 +481,9 @@ async function verRutina(cliente, rutinaId, hoy) {
   // El comentario del coach de cada ejercicio y lo que él le contestó.
   const comentarios = await comentariosDe(cliente, [...new Set(lista.map(x => x.ejercicio_id))]).catch(() => ({}));
   const videos = await videosPedidos(cliente).catch(() => []);
+  // Los pedidos de la ficha que esta reemplazó cuentan como de esta.
+  const aNuevaV = aFichaNueva(await fichasAnteriores([...new Set(lista.map(x => x.ejercicio_id))]).catch(() => ({})));
+  videos.forEach(v => { if (v.ejercicio_id && aNuevaV[String(v.ejercicio_id)]) v.ejercicio_id = aNuevaV[String(v.ejercicio_id)]; });
 
   return {
     ok: true, hoy, cardio,
@@ -511,7 +518,9 @@ async function verRutina(cliente, rutinaId, hoy) {
 // Sin la tabla, no llega nada y la app sigue como siempre.
 async function comentariosDe(cliente, ejIds) {
   if (!ejIds.length) return {};
-  const ids = ejIds.map(encodeURIComponent).join(',');
+  // Lo que le escribiste en la ficha que esta reemplazó sigue saliendo aquí.
+  const aNueva = aFichaNueva(await fichasAnteriores(ejIds).catch(() => ({})));
+  const ids = [...new Set([...ejIds.map(String), ...Object.keys(aNueva)])].map(encodeURIComponent).join(',');
   const [cs, ns] = await Promise.all([
     sb(`comentarios_coach?select=id,ejercicio_id,tipo,texto,creado_en,leido_en&cliente_id=eq.${cliente.id}`
       + `&ejercicio_id=in.(${ids})&quitado_en=is.null&order=creado_en.asc`).catch(() => []),
@@ -520,7 +529,7 @@ async function comentariosDe(cliente, ejIds) {
       + `&ejercicio_id=in.(${ids})&order=created_at.desc&limit=300`).then(x => (Array.isArray(x) ? x.reverse() : [])).catch(() => []),
   ]);
   const out = {};
-  const de = (id) => out[id] || (out[id] = { siempre: null, puntuales: [], notas: [] });
+  const de = (id0) => { const id = aNueva[id0] || id0; return out[id] || (out[id] = { siempre: null, puntuales: [], notas: [] }); };
   (Array.isArray(cs) ? cs : []).forEach(c => {
     const x = de(c.ejercicio_id);
     const f = { id: c.id, texto: c.texto, creado_en: c.creado_en, leido_en: c.leido_en || null };
@@ -569,8 +578,32 @@ function limpiarRutina(r) {
 const TOPE_SESIONES = 400;
 const TOPE_HISTORIAL = 12;
 
+// ── FICHAS REPETIDAS QUE SE CAMBIARON EN SUS RUTINAS ────────────────────
+// Desde la Galería del CRM, una ficha repetida se cambia en las rutinas por
+// la que se dejó: la vieja queda archivada con \`duplicado_de\` = la nueva.
+// Sus series siguen guardadas con el id viejo, así que la «última vez», el
+// récord y el historial de la nueva juntan los dos. { nuevaId: [fichas viejas] }
+// Al revés: { idVieja: idNueva }.
+const aFichaNueva = (viejas) => Object.fromEntries(Object.entries(viejas).flatMap(([nueva, l]) => l.map(f => [String(f.id), nueva])));
+async function fichasAnteriores(ejercicioIds) {
+  if (!ejercicioIds.length) return {};
+  let filas;
+  try {
+    filas = await sb(`ejercicios?select=id,nombre,alias,duplicado_de&archivado=is.true&duplicado_de=in.(${ejercicioIds.join(',')})`);
+  } catch (e) { return {}; }   // si falla, cada ficha con lo suyo (como antes)
+  const out = {};
+  (Array.isArray(filas) ? filas : []).forEach(f => {
+    if (!f.duplicado_de || String(f.id) === String(f.duplicado_de)) return;
+    (out[f.duplicado_de] || (out[f.duplicado_de] = [])).push(f);
+  });
+  return out;
+}
+
 async function ultimasSeries(clienteId, ejercicioIds, { excluirSesion = null } = {}) {
   if (!ejercicioIds.length) return {};
+  // Las fichas viejas de cada una: sus series cuentan como de la nueva.
+  const aNueva = aFichaNueva(await fichasAnteriores(ejercicioIds));
+  const todosIds = [...new Set([...ejercicioIds.map(String), ...Object.keys(aNueva)])];
   const ses = await sb(`sesiones?select=id,fecha&cliente_id=eq.${clienteId}`
     + `&order=fecha.desc&limit=${TOPE_SESIONES}`);
   // Al cerrar hace falta saber cómo estaba el récord ANTES de hoy: con la
@@ -589,7 +622,7 @@ async function ultimasSeries(clienteId, ejercicioIds, { excluirSesion = null } =
   for (let i = 0; i < lista.length; i += 120) {
     const ids = lista.slice(i, i + 120).map(s => s.id).join(',');
     logs.push(...await todas(`series_log?select=ejercicio_id,sesion_id,serie_num,reps,peso,unidad`
-      + `&sesion_id=in.(${ids})&ejercicio_id=in.(${ejercicioIds.join(',')})`
+      + `&sesion_id=in.(${ids})&ejercicio_id=in.(${todosIds.join(',')})`
       + `&completada=is.true&order=id`));
   }
 
@@ -599,7 +632,8 @@ async function ultimasSeries(clienteId, ejercicioIds, { excluirSesion = null } =
   logs.forEach(l => {
     const fecha = fechaDe[l.sesion_id];
     if (!fecha) return;
-    const dias = porEjercicio[l.ejercicio_id] || (porEjercicio[l.ejercicio_id] = {});
+    const id = aNueva[l.ejercicio_id] || l.ejercicio_id;
+    const dias = porEjercicio[id] || (porEjercicio[id] = {});
     (dias[fecha] || (dias[fecha] = [])).push(l);
   });
 
@@ -636,8 +670,10 @@ async function ultimosDeTrainerize(clienteId, ejercicios) {
     }));
   });
   const out = {};
+  // La ficha de hoy y, si reemplazó a otra en sus rutinas, la vieja.
+  const viejas = await fichasAnteriores(ejercicios.map(e => e.id)).catch(() => ({}));
   ejercicios.forEach(ej => {
-    const t = porNombre[normNombre(ej.alias)] || porNombre[normNombre(ej.nombre)];
+    const t = [ej, ...(viejas[ej.id] || [])].map(f => porNombre[normNombre(f.alias)] || porNombre[normNombre(f.nombre)]).find(Boolean);
     if (!t) return;
     const series = t.hist
       .map((a, i) => ({ serie_num: i + 1, reps: Array.isArray(a) ? a[0] : null, peso: Array.isArray(a) ? a[1] : null, unidad: 'kg' }))

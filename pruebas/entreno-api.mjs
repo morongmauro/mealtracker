@@ -880,5 +880,46 @@ await caso('video pedido: se recuerda en la rutina y en el plan (hoy si toca), c
   igual((await llamar(handler, { accion: 'plan', name: yo })).videos, [], 'sin tabla');
 });
 
+await caso('ficha repetida cambiada en sus rutinas: la nueva trae la «última vez», el récord y el historial de la vieja', async () => {
+  const sb = base();
+  // «Remo» (e2) reemplazó en sus rutinas a «Seated Row» (e2v), que quedó archivada.
+  sb.db.ejercicios.push({ id: 'e2v', nombre: 'Remo sentado', alias: 'Seated Row', archivado: true, duplicado_de: 'e2' },
+    { id: 'e9', nombre: 'Otra ficha archivada', archivado: true, duplicado_de: null });
+  sb.db.sesiones.push({ id: 's1', cliente_id: 'c1', rutina_id: 'r1', fase_id: 'f1', fecha: mas(lunes, -14), estado: 'completada' });
+  sb.db.series_log.push(
+    { id: 'l1', sesion_id: 's1', rutina_ejercicio_id: 're2', ejercicio_id: 'e2v', serie_num: 1, reps: 10, peso: 45, unidad: 'kg', completada: true, created_at: '2020-01-01T10:00:00Z' },
+    { id: 'l2', sesion_id: 's1', rutina_ejercicio_id: 're2', ejercicio_id: 'e2v', serie_num: 2, reps: 9, peso: 45, unidad: 'kg', completada: true, created_at: '2020-01-01T10:01:00Z' });
+  globalThis.fetch = sb.fetch;
+  const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  const remo = r.rutina.ejercicios.find(x => x.id === 're2');
+  igual([remo.ultima_vez && remo.ultima_vez.fecha, remo.ultima_vez && remo.ultima_vez.mejor_peso, remo.ultima_vez && remo.ultima_vez.series.length], [mas(lunes, -14), 45, 2], 'última vez de la ficha vieja');
+  igual([remo.ultima_vez.record.peso, remo.ultima_vez.record.reps, remo.ultima_vez.historial.length], [45, 10, 1], 'récord e historial');
+  igual(r.rutina.ejercicios.find(x => x.id === 're1').ultima_vez.mejor_peso, 60, 'el press, con lo suyo');
+  // Tu comentario y el video que le pediste en la ficha vieja siguen en la nueva.
+  sb.db.comentarios_coach = [{ id: 'cc1', cliente_id: 'c1', ejercicio_id: 'e2v', tipo: 'siempre', texto: 'Codos pegados', creado_en: '2026-09-01T10:00:00Z', leido_en: null, quitado_en: null }];
+  sb.db.notas_entreno = [];
+  sb.db.videos_tecnica = [{ id: 'vv', cliente_id: 'c1', ejercicio_id: 'e2v', ejercicio_nombre: 'Seated Row', estado: 'pedido', pedido_en: mas(hoy, -2), created_at: '2026-09-27T10:00:00Z' }];
+  const r2 = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  const remo2 = r2.rutina.ejercicios.find(x => x.id === 're2');
+  igual([remo2.coach && remo2.coach.siempre && remo2.coach.siempre.texto, !!remo2.video_pedido], ['Codos pegados', true], 'comentario y video pedido');
+  igual((await llamar(handler, { accion: 'plan', name: yo })).videos.map(v => v.nombre), ['Seated Row'], 'el video pedido no queda en pausa');
+  delete sb.db.comentarios_coach; delete sb.db.videos_tecnica;
+  // Al cerrar: 40 kg no es récord (con la vieja hizo 45).
+  const a = await llamar(handler, { accion: 'abrir', name: yo, rutina_id: 'r1' });
+  await llamar(handler, { accion: 'serie', name: yo, sesion_id: a.sesion.id, rutina_ejercicio_id: 're2', ejercicio_id: 'e2', serie_num: 1, reps: 10, peso: 40 });
+  const c = await llamar(handler, { accion: 'cerrar', name: yo, sesion_id: a.sesion.id, rpe: 7 });
+  igual((c.records || []).filter(x => x.ejercicio_id === 'e2').length, 0, 'no es récord: con la ficha vieja hizo 45 kg');
+});
+
+await caso('ficha repetida cambiada: lo de Trainerize también se busca por el nombre de la vieja', async () => {
+  const sb = base();
+  sb.db.ejercicios.push({ id: 'e2v', nombre: 'Remo sentado', alias: 'Seated Cable Row', archivado: true, duplicado_de: 'e2' });
+  sb.db.trainerize_resumen = [fotoTrainerize([{ alias: 'Seated Cable Row', fecha: '2026-08-25', hist: [[8, 70]] }])];
+  globalThis.fetch = sb.fetch;
+  const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
+  const remo = r.rutina.ejercicios.find(x => x.id === 're2');
+  igual([remo.ultima_vez && remo.ultima_vez.fecha, remo.ultima_vez && remo.ultima_vez.mejor_peso], ['2026-08-25', 70], 'última vez de Trainerize por el nombre viejo');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);
