@@ -9,6 +9,11 @@
 // Los avisos de sus clientes le llegan a esta app; al tocarlos se abre esta
 // vista directo en ese cliente (?coach=?seg=… / ?coach=?ver=bandeja).
 // La primera vez se entra al CRM con el correo de siempre y queda guardado.
+//
+// En iPhone y iPad no va en el marco: Safari maneja mal una página dentro de
+// otra (no respeta el alto de la pantalla y lo que va fijo abajo queda corrido).
+// Ahí se abre en la ventana de navegador propia del teléfono, a pantalla
+// completa y sin salir de la app; «Listo» arriba devuelve a la vista cliente.
 // ─────────────────────────────────────────────────────────────────────────
 import { conPase } from './entrenoDatos.js';
 
@@ -49,8 +54,23 @@ function armar() {
   document.body.appendChild(capa);
 }
 
-export async function abrirVistaCoach(name = nombreGuardado(), ir = '') {
+export const esIOS = () => typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+const urlGuardada = () => { if (urlCRM) return urlCRM; try { const g = localStorage.getItem('mt:crmUrl'); if (g && /^https:\/\//.test(g)) return g; } catch (e) { /* nada */ } return null; };
+
+// `gesto`: viene de un toque (botón). Safari solo deja abrir su ventana en el
+// mismo instante del toque; desde un aviso se navega a la dirección y el
+// teléfono la abre en esa misma ventana propia, con «Listo» para volver.
+export async function abrirVistaCoach(name = nombreGuardado(), ir = '', { gesto = true } = {}) {
   if (!esCoach(name)) return false;
+  if (esIOS()) {
+    const g = urlGuardada();
+    if (g) {
+      const destino = `${g}/${String(ir || '').replace(/^\/+/, '')}`;
+      if (gesto) { const w = window.open(destino, '_blank'); if (w) { pedirURL(name); return true; } }
+      location.assign(destino);
+      return true;
+    }
+  }
   const url = await pedirURL(name);
   if (!url) {
     alert('No encontré la dirección del CRM. Agrega CRM_APP_URL (la dirección del CRM) en las variables de Vercel del proyecto de la app.');
@@ -74,7 +94,7 @@ export function cerrarVistaCoach() {
 // Al tocar un aviso de un cliente: la app abre (o ya estaba abierta) con
 // ?coach=<a dónde>. Se abre la vista coach ahí.
 if (typeof window !== 'undefined') {
-  const abrirDesde = (ir) => { if (ir != null && esCoach(nombreGuardado())) abrirVistaCoach(nombreGuardado(), ir); };
+  const abrirDesde = (ir) => { if (ir != null && esCoach(nombreGuardado())) abrirVistaCoach(nombreGuardado(), ir, { gesto: false }); };
   try {
     const q = new URLSearchParams(location.search);
     if (q.has('coach')) {
