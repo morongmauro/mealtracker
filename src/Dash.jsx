@@ -592,7 +592,7 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
           campanita sigue; esto es una ayudita para quien no va a buscarla. */}
       <RecordatoriosLinea name={name} hoy={hoy} aprende={aprende} medidas={ent?.medidas} cierre={ent?.cierre} cargandoMedidas={entrenoOn && !ent && !falloEnt}
         coach={acciones.recordatoriosCoach || []} alMarcarCoach={acciones.marcarRecordatorio}
-        alPrograma={acciones.programa} alMedir={() => setMidiendo(true)} alAbrir={acciones.abrirAprendizaje}
+        alPrograma={acciones.programa} alMedir={() => setMidiendo(true)} alAbrir={acciones.abrirAprendizaje} alAprende={() => setVista('aprende')}
         plan={entrenoOn ? plan : null} coachHoy={entrenoOn ? (ent?.semana?.hoy || []) : []} pedidosCoach={entrenoOn ? (ent?.pedidos_coach || []) : []} kcalHoy={kcalHoy} alIr={alIr} />
 
       {explicar && (
@@ -1491,7 +1491,7 @@ function DetalleComposicion({ ent, cargando, alMedir }) {
 // del coach, cierre de ciclo, medida del mes, cápsulas y videos) se despliega
 // con «Ver todo». Un recordatorio de leer no tapa el entreno de hoy.
 function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargandoMedidas, coach, alMarcarCoach, alPrograma, alMedir, alAbrir,
-  plan = null, coachHoy = [], pedidosCoach = [], kcalHoy = 0, alIr = null }) {
+  plan = null, coachHoy = [], pedidosCoach = [], kcalHoy = 0, alIr = null, alAprende = null }) {
   const [todos, setTodos] = useState(false);
   const hoyItems = [];
   const d = plan && Array.isArray(plan.dias) ? plan.dias.find(x => x.es_hoy || x.fecha === hoy) : null;
@@ -1544,8 +1544,13 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const cap = bloque('capsula'), pod = bloque('podcast');
   const sigCap = cap && cap.piezas.find(p => !p.vista);
   const sigPod = pod && pod.piezas.find(p => !p.vista);
-  if (sigCap) items.push({ id: 'cap', rid: `cap:${sigCap.id}`, texto: `Lee una cápsula: «${sigCap.title}»`, ir: alAbrir ? () => alAbrir(`cap:${sigCap.id}`) : null, Icono: BookOpenText, color: '#C95F17' });
-  if (sigPod) items.push({ id: 'pod', rid: `pod:${sigPod.id}`, texto: `Mira un video: «${sigPod.title}»`, ir: alAbrir ? () => alAbrir(`pod:${sigPod.id}`) : null, Icono: Sparkle, color: '#C95F17' });
+  // Una sola línea para lo de aprender (antes eran dos, cápsula y video, y
+  // pesaban mucho en la lista). Lleva a Aprendizaje en corto, dentro del Dash.
+  if (sigCap || sigPod) {
+    const que = sigCap && sigPod ? 'cápsula y video por ver' : sigCap ? 'cápsula por leer' : 'video por ver';
+    const ir = alAprende || (alAbrir ? () => alAbrir(sigCap ? `cap:${sigCap.id}` : `pod:${sigPod.id}`) : null);
+    items.push({ id: 'aprende', rid: `aprende:${sigCap ? sigCap.id : ''}:${sigPod ? sigPod.id : ''}`, texto: `Aprendizaje: ${que}`, ir, Icono: BookOpenText, color: '#C95F17' });
+  }
   // Para el coach: cada toque se le cuenta (ver recordatoriosReporte.js).
   const conToque = (it, tipo) => {
     const rid = it.rid || it.id;
