@@ -15,6 +15,7 @@ import { lote25, DESVANECIDO_BORDE } from './vistaApp.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { api, miniatura, useAlVolverRed, guardado } from './entrenoDatos.js';
 import { MUSCULO_POR_SLUG } from './musculos.js';
+import { FAMILIAS, familiaDe, etiquetaDe } from './familias.js';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import { nombresEj } from './v2.js';
 import { MagnifyingGlass } from '@phosphor-icons/react';
@@ -37,30 +38,19 @@ export function armarGaleria(rutinas) {
   return [...porId.values()];
 }
 
-// El tipo de cada ejercicio, con su tono (visual nueva): Movilidad,
-// Resistencia, Potencia o Fuerza. La fuerza va toda en el mismo color y
+// El tipo de cada ejercicio, con su tono (visual nueva): 5 familias —
+// Fuerza (con core), Potencia, Agilidad y velocidad, Resistencia, y
+// Movilidad y estiramientos. La fuerza va toda en el mismo color y
 // dice además si es empuje o jalón, de tren superior o inferior. Sale del
 // tipo, el patrón y el segmento que el coach le puso en la galería.
-const FAMILIAS = {
-  movilidad:   { texto: 'Movilidad',   color: '#178A8F', tinte: '#DFF2F2', fondo: ['#6FC3C7', '#2C9196'] },
-  resistencia: { texto: 'Resistencia', color: '#C23D78', tinte: '#F9E3EE', fondo: ['#E68DB8', '#BF4A82'] },
-  potencia:    { texto: 'Potencia',    color: '#C2413B', tinte: '#FAE5E3', fondo: ['#E8908A', '#C2463F'] },
-  fuerza:      { texto: 'Fuerza',      color: '#454B54', tinte: '#E9EBEE', fondo: ['#A7ADB5', '#7B828B'] },
-};
 // El velo de abajo de cada tarjeta (visual nueva): el tono oscuro del tipo,
 // para que el texto blanco se lea sobre cualquier cuadro del video. El punto
 // de la etiqueta va en el tono vivo.
-const VELO = { movilidad: '19,116,121', resistencia: '169,46,102', potencia: '170,50,44', fuerza: '52,57,64' };
-const PUNTO = { movilidad: '#2CA5AA', resistencia: '#D9599A', potencia: '#DA5E55', fuerza: '#9AA1AA' };
+const VELO = { agilidad: '150,90,18', movilidad: '19,116,121', resistencia: '169,46,102', potencia: '170,50,44', fuerza: '52,57,64' };
+const PUNTO = { agilidad: '#E09A3A', movilidad: '#2CA5AA', resistencia: '#D9599A', potencia: '#DA5E55', fuerza: '#9AA1AA' };
 // Los estantes, en este orden: lo que prepara, lo principal y lo de cierre.
-const ORDEN_FAMILIAS = ['movilidad', 'fuerza', 'potencia', 'resistencia'];
-export function familiaDe(e) {
-  const tipo = e?.tipo;
-  if (tipo === 'cardio') return 'resistencia';
-  if (['movilidad', 'calentamiento', 'estiramiento', 'estiramiento_pasivo', 'estiramiento_activo'].includes(tipo)) return 'movilidad';
-  if (['potencia', 'pliometrico', 'agilidad'].includes(tipo)) return 'potencia';
-  return 'fuerza';
-}
+const ORDEN_FAMILIAS = ['movilidad', 'fuerza', 'potencia', 'agilidad', 'resistencia'];
+export { familiaDe, etiquetaDe, FAMILIAS };
 // En la fuerza: empuje o jalón, de tren superior o inferior (sentadillas y
 // zancadas empujan con la pierna; bisagras y puentes jalan con la cadera).
 export function tipoFuerza(e) {
@@ -104,7 +94,7 @@ function TarjetaV2({ item, alto, alTocar }) {
         <span data-familia-etiqueta data-solida style={{
           position: 'absolute', left: 10, top: 10, display: 'inline-flex', alignItems: 'center',
           padding: '5px 10px', borderRadius: 99, background: fam.color, boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
-          fontSize: 12, fontWeight: 750, color: '#FFFFFF', letterSpacing: '0.01em', }}>{fam.texto}</span>
+          fontSize: 12, fontWeight: 750, color: '#FFFFFF', letterSpacing: '0.01em', }}>{etiquetaDe(e)}</span>
       ) : (
       <span data-familia-etiqueta style={{
         position: 'absolute', left: 10, top: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -114,7 +104,7 @@ function TarjetaV2({ item, alto, alTocar }) {
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), inset 0 0 0 0.8px rgba(255,255,255,0.35), 0 1px 2px rgba(0,0,0,0.10)',
         fontSize: 12, fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.01em', textShadow: '0 1px 1px rgba(0,0,0,0.18)',
       }}>
-        <i style={{ width: 7, height: 7, borderRadius: 9, background: PUNTO[f], boxShadow: '0 0 0 2px rgba(255,255,255,0.35)' }} />{fam.texto}
+        <i style={{ width: 7, height: 7, borderRadius: 9, background: PUNTO[f], boxShadow: '0 0 0 2px rgba(255,255,255,0.35)' }} />{etiquetaDe(e)}
       </span>
       )}
       <span style={{ position: 'absolute', left: 12, right: 12, bottom: 12, color: '#FFFFFF', display: 'block', textShadow: lote25() ? '0 1px 3px rgba(0,0,0,0.35)' : undefined }}>
@@ -306,7 +296,7 @@ export default function Galeria({ nombre }) {
                 <div style={{ position: 'relative' }}>
                   {fam && (
                     <div style={{ marginBottom: 5 }}>
-                      <span data-familia-etiqueta style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.22)', color: '#FFFFFF', fontSize: 12, fontWeight: 700, letterSpacing: '0.02em' }}>{fam.texto}</span>
+                      <span data-familia-etiqueta style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.22)', color: '#FFFFFF', fontSize: 12, fontWeight: 700, letterSpacing: '0.02em' }}>{etiquetaDe(e)}</span>
                       {sub && <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.86)', marginTop: 3, marginLeft: 2 }}>{sub}</div>}
                     </div>
                   )}

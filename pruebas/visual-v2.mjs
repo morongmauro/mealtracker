@@ -120,7 +120,10 @@ function base() {
       ].map(([id, nombre, mus, tipo], i) => ({ id, nombre, tipo: tipo || 'fuerza', patron: { e1: 'push', e2: 'rodilla', e3: 'pull', e4: 'push', e5: 'cadera', e6: 'pull', e11: 'push' }[id] || null, musculos_primarios: mus, video_fuente: 'youtube', video_ref: yt[i % yt.length],
         alias: { e1: 'Barbell Bench Press', e2: 'Barbell Back Squat', e3: 'Dumbbell Single Arm Row', e4: 'Dumbbell Lateral Raise', e5: 'Bench Single Leg Hip Thrust', e6: 'Wide Grip Lat Pulldown',
           e7: 'Running', e8: 'SuperBand Dislocates', e9: 'Table Top Half Arm Thoracic Rotation', e10: "Child's Pose", e11: 'Push Up' }[id],
-        musculos_secundarios: id === 'e2' ? ['isquiotibiales', 'aductores', 'erectores'] : [] })),
+        musculos_secundarios: id === 'e2' ? ['isquiotibiales', 'aductores', 'erectores'] : [],
+        // La ficha según la familia: articulaciones (movilidad) y «También mejora».
+        articulaciones: { e9: ['columna_toracica', 'hombro'] }[id] || [],
+        cualidades: { e11: ['estabilidad'], e9: ['estabilidad'] }[id] || [] })),
       sesiones, series_log,
       actividades: [{ id: 'a1', cliente_id: 'c1', user_id: 'coach', fecha: hace(0), tipo: 'cinta', duracion_min: 25 }],
       actividades_catalogo: [
@@ -383,10 +386,57 @@ const hacerRecorrido = async (p) => {
 };
 const foto = (p, nombre) => p.screenshot({ path: path.join(CAPTURAS, nombre + '.png') });
 
+// Las 5 familias en la galería y la ficha según la familia.
+async function probarFamilias(p) {
+  ok('galería: el estante se llama «Movilidad y estiramientos» y cada tarjeta dice el suyo', await p.evaluate(() => {
+    const est = document.querySelector('[data-estante="movilidad"]');
+    const et = (t) => [...est.querySelectorAll('[data-familia]')].find(b => b.innerText.includes(t))?.querySelector('[data-familia-etiqueta]')?.textContent;
+    return /Movilidad y estiramientos/.test(est.querySelector('div').textContent) && et('Dislocaciones') === 'Movilidad' && et('Postura del niño') === 'Estiramiento';
+  }));
+  // La ficha según la familia.
+  const fichaDe = async (t) => { await p.getByText(t).first().click(); await espera(700); const x = await p.evaluate(() => { const f = document.querySelector('[data-ficha-familia]'); const l = document.querySelector('[data-leyenda-musculos]'); return { fam: f && f.dataset.fichaFamilia, txt: f ? f.innerText.replace(/\s+/g, ' ') : '', ley: l ? l.innerText.replace(/\s+/g, ' ') : '' }; }); return x; };
+  const cerrarFicha = async () => { await p.getByRole('button', { name: 'Cerrar' }).last().click().catch(() => {}); await espera(500); };
+  let fx = await fichaDe('Rotación torácica');
+  await foto(p, '07b-ficha-movilidad');
+  ok('ficha de movilidad: «Qué mejoras: rango y control de tu columna torácica y hombro», «Articulaciones que mueves» y «También mejora»', fx.fam === 'movilidad' && /Qué mejoras/.test(fx.txt) && /Rango y control de tu columna torácica y hombro/.test(fx.txt) && /Articulaciones que mueves/.test(fx.txt) && /También mejora Estabilidad/.test(fx.txt), JSON.stringify(fx));
+  await cerrarFicha();
+  fx = await fichaDe('Postura del niño');
+  await foto(p, '07c-ficha-estiramiento');
+  ok('ficha de estiramiento: «Cómo estirarlo: sostén de 30 a 60 s, respira y no rebotes»', fx.fam === 'movilidad' && /Cómo estirarlo/.test(fx.txt) && /Sostén de 30 a 60 s, respira y no rebotes/.test(fx.txt), JSON.stringify(fx));
+  await cerrarFicha();
+  fx = await fichaDe('Carrera continua');
+  ok('ficha de resistencia: «Qué entrenas: tu aguante y tu corazón»', fx.fam === 'resistencia' && /Qué entrenas/.test(fx.txt) && /aguante y tu corazón/.test(fx.txt), JSON.stringify(fx));
+  await cerrarFicha();
+  fx = await fichaDe('Flexión de brazos');
+  await foto(p, '07d-ficha-fuerza-tambien');
+  ok('ficha de fuerza: «Trabaja» en los músculos y «También mejora: Estabilidad»', fx.fam === 'fuerza' && /También mejora Estabilidad/.test(fx.txt) && /^Trabaja/.test(fx.ley), JSON.stringify(fx));
+  await cerrarFicha();
+}
+
 try {
   // MAQUETA=archivo.json: fotos de propuestas visuales SIN tocar la app. Cada
   // variante trae { nombre, css, js, pantallas } y se pinta encima de la app
   // real de Mauro; MAQUETA_FUENTES=carpeta sirve letras en https://maqueta.fuentes/.
+  // SOLO_FAMILIAS=1: directo a la galería (las familias y sus fichas).
+  if (process.env.SOLO_FAMILIAS) {
+    const pv = await abrir('Mauro Morón', { caliente: true });
+    const p = pv.p;
+    await espera(4500);
+    // El splash espera la brújula del Dash, que en esta máquina no carga (falla igual sin estos cambios).
+    await p.evaluate(() => document.body.classList.add('app-ready'));
+    await espera(1500);
+    await p.screenshot({ path: path.join(CAPTURAS, 'familias-0-inicio.png') });
+    await p.locator('nav[aria-label="Secciones"]').getByRole('button', { name: 'Entrenamiento', exact: true }).click(); await espera(900);
+    await p.getByRole('button', { name: 'Galería' }).click();
+    await p.getByText('Sentadilla con barra').first().waitFor({ timeout: 15000 });
+    await espera(800);
+    await foto(p, '06-entreno-galeria');
+    await p.screenshot({ path: path.join(CAPTURAS, '06b-galeria-completa.png'), fullPage: true });
+    await probarFamilias(p);
+    ok('sin errores de JavaScript', !pv.errores.length, pv.errores.slice(0, 3).join(' | '));
+    console.log(fallos ? `\n${fallos} fallo(s)` : '\ntodo bien');
+    await b.close(); await vite.close(); process.exit(fallos ? 1 : 0);
+  }
   if (process.env.MAQUETA) {
     const variantes = JSON.parse(fs.readFileSync(process.env.MAQUETA, 'utf8'));
     for (const v of variantes) {
@@ -867,7 +917,7 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === (await p.evaluate(() => document.documentElement.hasAttribute('data-fondo-blanco')) ? 2 : 4));
-  ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0)
+  ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0, null, { timeout: 8000 }).catch(() => false)
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
   ok('Dash: el blob junto a la frase, con la brújula a dos colores y el porcentaje en grafito adentro del aro', await ilusBien(p, 'dash'));
   // Opción B de los aros: azul pleno y una luz continua (tajadas de medio grado) hacia el punto blanco; sin sombras.
@@ -1716,7 +1766,7 @@ try {
   ok('galería: un estante por tipo (movilidad, fuerza…, resistencia) en ese orden, la fuerza en rejilla de dos', await p.evaluate(() => {
     const est = [...document.querySelectorAll('[data-estante]')].map(e => e.dataset.estante);
     const fz = document.querySelector('[data-estante="fuerza"] > div:last-child');
-    const orden = ['movilidad', 'fuerza', 'potencia', 'resistencia'].filter(f => est.includes(f));
+    const orden = ['movilidad', 'fuerza', 'potencia', 'agilidad', 'resistencia'].filter(f => est.includes(f));
     return est.length >= 3 && est.join() === orden.join() && getComputedStyle(fz).gridTemplateColumns.split(' ').length === 2
       && [...document.querySelectorAll('[data-estante]')].every(e => [...e.querySelectorAll('[data-familia]')].every(b => b.dataset.familia === e.dataset.estante));
   }));
@@ -1733,9 +1783,11 @@ try {
   }));
   ok('galería: los filtros sin borde', await p.evaluate(() => [...document.querySelectorAll('[data-view="entrena"] button')].filter(b => b.textContent === 'Todas').every(b => getComputedStyle(b).borderTopStyle === 'none')));
   ok('entreno: sin firma (va solo en el Dash y en «Acerca del programa»)', (await p.locator('[data-view="entrena"] [data-firma]').count()) === 0);
+  await probarFamilias(p);
   await p.getByText('Sentadilla con barra').first().click();
   await espera(700);
   await foto(p, '07-galeria-ficha');
+  ok('ficha de fuerza sin «También mejora»: no sale el cuadro de familia', (await p.locator('[data-ficha-familia]').count()) === 0);
   ok('la ficha pinta el cuerpo nuevo con lo que trabaja', (await p.locator('path[data-activo="1"]').count()) >= 4);
   ok('la ficha trae las características abiertas', await p.locator('dl dt', { hasText: 'Tipo' }).first().isVisible());
   ok('la ficha ya no dice «cómo se hace»', (await p.getByRole('dialog').last().getByText(/Cómo se hace/i).count()) === 0);

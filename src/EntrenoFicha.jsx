@@ -25,6 +25,56 @@ import { MUSCULO_POR_SLUG } from './musculos.js';
 import { LABEL } from './taxonomia.js';
 import { miniatura, urlVideo, urlVideoLimpio, fechaLarga } from './entrenoDatos.js';
 import VideoLimpio from './VideoLimpio.jsx';
+import { FAMILIAS, familiaDe, etiquetaDe } from './familias.js';
+
+// ── Lo que dice la ficha según la familia del ejercicio ──────────────────
+// Fuerza: «Músculos que trabajas». Potencia, agilidad y resistencia: qué
+// entrena, y los músculos «se activan» (se usan, pero no se busca que
+// crezcan). Movilidad: qué mejora y las articulaciones que mueve.
+// Estiramiento: lo que estira y cómo sostenerlo. Y debajo, «También mejora».
+const ARTICULACION = { cadera: 'cadera', tobillo: 'tobillo', rodilla: 'rodilla', columna_toracica: 'columna torácica', columna_lumbar: 'columna lumbar', columna: 'columna', hombro: 'hombro', escapula: 'escápula', codo: 'codo', muneca: 'muñeca', cuello: 'cuello' };
+const CUALIDAD = { fuerza: 'Fuerza', potencia: 'Potencia', agilidad: 'Agilidad', velocidad: 'Velocidad', resistencia: 'Resistencia', estabilidad: 'Estabilidad', equilibrio: 'Equilibrio', coordinacion: 'Coordinación', movilidad: 'Movilidad', flexibilidad: 'Flexibilidad' };
+const y = (l) => (l.length > 1 ? `${l.slice(0, -1).join(', ')} y ${l[l.length - 1]}` : l[0] || '');
+export function perfilFicha(e) {
+  const f = familiaDe(e), estira = /^estiramiento/.test(e?.tipo || '');
+  const arts = (e?.articulaciones || []).map(a => ARTICULACION[a] || String(a).replace(/_/g, ' ')).filter(Boolean);
+  const tambien = (e?.cualidades || []).map(c => CUALIDAD[c] || null).filter(Boolean).filter(c => c !== etiquetaDe(e)).slice(0, 2);
+  const base = { familia: f, etiqueta: etiquetaDe(e), color: FAMILIAS[f].color, tinte: FAMILIAS[f].tinte, tambien, arts: [] };
+  if (f === 'fuerza') return { ...base, titulo: null, frase: null, titulos: ['Trabaja', 'Ayudan'] };
+  if (f === 'potencia') return { ...base, titulo: 'Qué entrenas', frase: 'Explosividad: saltar, lanzar y empujar rápido', titulos: ['Se activan', 'Ayudan'] };
+  if (f === 'agilidad') return { ...base, titulo: 'Qué entrenas', frase: 'Cambiar de dirección rápido y con control: frenar, girar y reaccionar', titulos: ['Se activan', 'Ayudan'] };
+  if (f === 'resistencia') return { ...base, titulo: 'Qué entrenas', frase: 'Tu aguante y tu corazón', titulos: ['Se activan', 'Ayudan'] };
+  // Estiramiento: «Lo que estiras» son los músculos (abajo); arriba, cómo sostenerlo.
+  if (estira) return e.tipo === 'estiramiento_activo'
+    ? { ...base, titulo: 'Cómo estirarlo', frase: 'Llega a la posición con tu propio músculo, con control y sin rebotar', titulos: ['Lo que estiras', 'También se estira'] }
+    : { ...base, titulo: 'Cómo estirarlo', frase: 'Sostén de 30 a 60 s, respira y no rebotes', titulos: ['Lo que estiras', 'También se estira'] };
+  return { ...base, titulo: 'Qué mejoras', frase: arts.length ? `Rango y control de tu ${y(arts)}` : 'Rango de movimiento y control', arts, titulos: ['Intervienen', 'Ayudan'] };
+}
+function QueEntrenas({ p }) {
+  if (!p.titulo && !p.tambien.length) return null;
+  const chip = (t, key) => <span key={key} style={{ display: 'inline-flex', padding: '5px 10px', borderRadius: 999, background: '#fff', fontSize: 13, fontWeight: 650, color: TEXT }}>{t}</span>;
+  return (
+    <div data-ficha-familia={p.familia} style={{ marginTop: 14, background: p.tinte, borderRadius: 18, padding: '12px 14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        {p.titulo && <div style={{ fontSize: 15, fontWeight: 800, color: TEXT }}>{p.titulo}</div>}
+        <span style={{ fontSize: 12, fontWeight: 750, color: '#fff', background: p.color, padding: '3px 9px', borderRadius: 99, marginLeft: 'auto' }}>{p.etiqueta}</span>
+      </div>
+      {p.frase && <div data-ficha-frase style={{ fontSize: 14.5, lineHeight: 1.4, color: TEXT, marginTop: 4 }}>{p.frase}</div>}
+      {p.arts.length > 0 && (
+        <div data-ficha-articulaciones style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#737373', marginBottom: 6 }}>Articulaciones que mueves</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{p.arts.map((a, i) => chip(a.charAt(0).toUpperCase() + a.slice(1), i))}</div>
+        </div>
+      )}
+      {p.tambien.length > 0 && (
+        <div data-ficha-tambien style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#737373', marginBottom: 6 }}>También mejora</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{p.tambien.map((t, i) => chip(t, i))}</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Ejercicio({ item, abierto, alCerrar }) {
   const [verVideo, setVerVideo] = useState(false);
@@ -45,6 +95,7 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
   const claves = e.claves_tecnicas || [];
   const errores = e.errores_tecnicos || [];
   const tieneMusculos = !!(e.musculos_primarios?.length || e.musculos_secundarios?.length);
+  const perfil = perfilFicha(e);
   const caracs = [
     ['Patrón', LABEL.patron[e.patron]],
     ['Segmento', LABEL.segmento[e.segmento]],
@@ -156,13 +207,14 @@ export default function Ejercicio({ item, abierto, alCerrar }) {
 
       {/* ── Visual nueva: qué trabaja (texto a la izquierda, figura a la
           derecha) y debajo cómo hacerlo bien y los errores comunes. ── */}
+      {v2Activa() && <QueEntrenas p={perfil} />}
       {v2Activa() && (tieneMusculos || caracs.length > 0) && (
         <div data-ficha-trabaja style={{ display: 'flex', gap: 12, marginTop: 16, alignItems: 'flex-start' }}>
           <div style={{ flex: '1 1 0', minWidth: 0 }}>
-            {tieneMusculos && <LeyendaMusculos primarios={e.musculos_primarios || []} secundarios={e.musculos_secundarios || []} />}
+            {tieneMusculos && <LeyendaMusculos primarios={e.musculos_primarios || []} secundarios={e.musculos_secundarios || []} titulos={perfil.titulos} />}
             {caracs.length > 0 && (
               <dl style={{ margin: '12px 0 0', display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '5px 10px', fontSize: 13.5 }}>
-                {caracs.filter(([k]) => ['Patrón', 'Tipo', 'Equipo'].includes(k)).map(([k, v]) => (
+                {caracs.filter(([k]) => ['Tipo', 'Equipo'].includes(k) || (k === 'Patrón' && ['fuerza', 'potencia'].includes(perfil.familia))).map(([k, v]) => (
                   <React.Fragment key={k}><dt style={{ color: TEXT_LIGHT }}>{k}</dt><dd style={{ margin: 0, color: TEXT }}>{v}</dd></React.Fragment>
                 ))}
               </dl>

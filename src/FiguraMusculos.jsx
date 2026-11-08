@@ -210,9 +210,11 @@ const nombreMusculo = (x) => (x === 'erectores' ? MUSCULO_POR_SLUG[x].corto : MU
   || String(x).replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
 
 // La lista de músculos sola (la ficha la pone al lado de la figura).
-export function LeyendaMusculos({ primarios = [], secundarios = [] }) {
+// `titulos`: cómo se llaman los dos grupos según la familia del ejercicio
+// («Trabaja» en fuerza, «Se activan» en potencia, «Lo que estiras»…).
+export function LeyendaMusculos({ primarios = [], secundarios = [], titulos = ['Trabaja', 'Ayudan'] }) {
   const p = (primarios || []).filter(Boolean); const s = (secundarios || []).filter(Boolean).filter(x => !p.includes(x));
-  return (<div data-leyenda-musculos>{!!p.length && <Pildoras titulo="Trabaja" lista={p} punto={V2.prim} fondo="#FDE6D3" primero />}{!!s.length && <Pildoras titulo="Ayudan" lista={s} punto={V2.sec} fondo="#F2F2F4" />}</div>);
+  return (<div data-leyenda-musculos>{!!p.length && <Pildoras titulo={titulos[0]} lista={p} punto={V2.prim} fondo="#FDE6D3" primero />}{!!s.length && <Pildoras titulo={titulos[1]} lista={s} punto={V2.sec} fondo="#F2F2F4" />}</div>);
 }
 
 const Pildoras = ({ titulo, lista, punto, fondo, primero }) => (

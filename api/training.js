@@ -446,7 +446,10 @@ async function verRutina(cliente, rutinaId, hoy) {
   const ids = [...new Set(lista.map(x => x.ejercicio_id))].join(',');
   // Con los errores comunes (migraciones/ejercicios-errores.sql en el CRM);
   // sin la columna todavía, se piden sin ellos.
-  const ejs = await sb(`ejercicios?select=${CAMPOS_EJERCICIO},errores_tecnicos&id=in.(${ids})`)
+  // Articulaciones y «también mejora» (cualidades) van si la base ya tiene
+  // esas columnas; si no, la ficha sale como antes.
+  const ejs = await sb(`ejercicios?select=${CAMPOS_EJERCICIO},errores_tecnicos,articulaciones,cualidades&id=in.(${ids})`)
+    .catch(() => sb(`ejercicios?select=${CAMPOS_EJERCICIO},errores_tecnicos&id=in.(${ids})`))
     .catch(() => sb(`ejercicios?select=${CAMPOS_EJERCICIO}&id=in.(${ids})`));
   const porId = {};
   (Array.isArray(ejs) ? ejs : []).forEach(e => { porId[e.id] = completarMusculos(e); });
