@@ -43,6 +43,7 @@ const marcarBienvenida = () => { try { localStorage.setItem(CLAVE_BIENVENIDA, ne
 import Firma from './Firma.jsx';
 import CabeceraHoy from './CabeceraHoy.jsx';
 import TarjetaBienestar from './Bienestar.jsx';
+import TarjetaSemana from './TarjetaSemana.jsx';
 import { TarjetaCiclo } from './MiCiclo.jsx';
 import { enPrueba, lote25, DESVANECIDO_BORDE, verComposicion } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
@@ -615,6 +616,9 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
       {entrenoOn && <TarjetaBienestar name={name} />}
       {entrenoOn && <TarjetaCiclo name={name} />}
       <Seccion>Tu semana</Seccion>
+      {/* La semana pasada (lunes completa, de martes a sábado corta) y, el
+          domingo, esta semana contra la pasada (TarjetaSemana.jsx). */}
+      <TarjetaSemana semanas={ent?.semanas} history={history} goals={goals} hoy={hoy} alIr={alIr} />
 
       {/* Protagonista 1: entrenamiento */}
       {entrenoOn && (

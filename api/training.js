@@ -2295,6 +2295,8 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   const esCardio = (tipo) => (categorias[tipo] ? categorias[tipo] === 'cardio' : CARDIO_BASE.includes(tipo));
   const actSemana = actividades.filter(a => deLaSemana(a.fecha));
   const diasCon = (lista) => new Set(lista.map(a => a.fecha)).size;
+  // Días con cardio de cada semana (para comparar la semana con la pasada).
+  semanas.forEach(w => { w.cardio_dias = diasCon(actividades.filter(a => a.fecha >= w.desde && a.fecha <= w.hasta && esCardio(a.tipo))); });
   const hechoRegistro = new Set(registros.filter(r => r.estado === 'hecho').map(r => `${r.evento_id}:${r.fecha}`));
   const hechoActividad = new Set(actSemana.filter(a => a.evento_id).map(a => `${a.evento_id}:${a.fecha}`));
   let coachTotal = 0, coachHechos = 0;
