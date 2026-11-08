@@ -156,7 +156,10 @@ function summarize(row) {
       const g = goalsForDate(data, date) || {};
       recentDays[date] = {
         kcal: Math.round(Number(h.kcal) || 0), p: Math.round(Number(h.p) || 0),
+        // Carbohidratos y grasa (Seguimiento del CRM: % de cada macro contra su meta).
+        c: Math.round(Number(h.c) || 0), g: Math.round(Number(h.g) || 0),
         goal_kcal: Number(g.kcal) || null, goal_p: Number(g.p) || null,
+        goal_c: Number(g.c) || null, goal_g: Number(g.g) || null,
       };
     }
   }
