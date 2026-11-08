@@ -865,6 +865,13 @@ await caso('video pedido: se recuerda en la rutina y en el plan (hoy si toca), c
   igual(p.videos.map(v => [v.nombre, v.hoy, v.vez, v.corregir]).sort(), [['Press banca', false, 2, 'Baja más controlado'], ['Remo', true, 1, null]], 'plan');
   const r = await llamar(handler, { accion: 'rutina', name: yo, id: 'r1' });
   igual(r.rutina.ejercicios.map(x => x.video_pedido ? x.video_pedido.vez : null), [2, 1, 2], 'en la rutina: el press (las dos veces que sale) y el remo');
+  // Un video de un ejercicio que ya no está en su ciclo: no se le pide (y
+  // uno escrito a mano, sin ejercicio de la galería, sí).
+  sb.db.videos_tecnica.push(
+    { id: 'v4', cliente_id: 'c1', ejercicio_id: 'e-fuera', ejercicio_nombre: 'Hip thrust', estado: 'pedido', pedido_en: mas(hoy, -2), created_at: '2026-09-27T10:00:00Z' },
+    { id: 'v5', cliente_id: 'c1', ejercicio_id: null, ejercicio_nombre: 'Sentadilla en casa', estado: 'pedido', pedido_en: mas(hoy, -2), created_at: '2026-09-27T11:00:00Z' });
+  igual((await llamar(handler, { accion: 'plan', name: yo })).videos.map(v => v.nombre).sort(), ['Press banca', 'Remo', 'Sentadilla en casa'], 'el de un ejercicio que ya no está en su ciclo no sale; el escrito a mano sí');
+  sb.db.videos_tecnica.splice(4, 2);
   // El coach lo marca como llegado: deja de salir.
   sb.db.videos_tecnica[2].estado = 'recibido';
   igual((await llamar(handler, { accion: 'plan', name: yo })).videos.map(v => v.nombre), ['Press banca'], 'llegó el del remo');

@@ -330,12 +330,18 @@ async function verPlan(cliente, hoy) {
     sueltas: lista.filter(r => !Object.values(porDia).some(x => x && x.id === r.id) && !(esComplementaria(r) && diasDeRutina(r).length))
       .map(r => ({ id: r.id, nombre: r.nombre, tipo: r.tipo_sesion, ejercicios: conteo[r.id] || 0 })),
     // Los videos que pidió el coach y todavía no llegan; `hoy`: ese ejercicio
-    // está en lo que toca hoy (ahí se recuerda grabarlo).
+    // está en lo que toca hoy (ahí se recuerda grabarlo). Si el ejercicio ya
+    // no está en su ciclo, no se le pide (queda en pausa: el pedido y su
+    // historia siguen en el CRM, y si el ejercicio vuelve, vuelve a salir).
+    // Los pedidos escritos a mano (sin ejercicio de la galería) se quedan.
     videos: await (async () => {
       const d = dias.find(x => x.es_hoy);
       const hoyEjs = new Set([...(d && d.rutina ? [d.rutina.id] : []), ...(d ? d.complementarias.map(c => c.id) : [])]
         .flatMap(id => [...(ejsDe[id] || [])]));
-      return (await videosPedidos(cliente).catch(() => [])).map(v => ({ ...v, hoy: !!(v.ejercicio_id && hoyEjs.has(String(v.ejercicio_id))) }));
+      const delCiclo = new Set(Object.values(ejsDe).flatMap(st => [...st]));
+      return (await videosPedidos(cliente).catch(() => []))
+        .filter(v => !v.ejercicio_id || delCiclo.has(String(v.ejercicio_id)))
+        .map(v => ({ ...v, hoy: !!(v.ejercicio_id && hoyEjs.has(String(v.ejercicio_id))) }));
     })(),
   };
 }
