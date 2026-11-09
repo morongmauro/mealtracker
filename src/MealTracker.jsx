@@ -1937,6 +1937,12 @@ export default function MealTracker() {
     }).catch(() => {});
     return () => { vivo = false; clearTimeout(t); };
   }, [view, v2, name]);
+  // Desde «Ver todo» del Dash («Cuéntame cómo te va con la app»).
+  useEffect(() => {
+    const abrir = () => setEncuesta(true);
+    window.addEventListener('mt:abrirEncuesta', abrir);
+    return () => window.removeEventListener('mt:abrirEncuesta', abrir);
+  }, []);
   const verEncuesta = encuesta && view === 'main' && !cuentaAbierta && !primeraVez && !repaso && !mudanza && !recorrido;
   // Lo que encontró en la cuenta al llegar a la dirección nueva.
   const [llegadaCuenta, setLlegadaCuenta] = useState(null);

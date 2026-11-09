@@ -12,7 +12,7 @@ import React, { useEffect, useState } from 'react';
 import { ChatCircleText } from '@phosphor-icons/react';
 import VentanaMarca, { BotonVentana, Color, GRAFITO } from './VentanaMarca.jsx';
 import { api } from './entrenoDatos.js';
-import { posponerEncuesta } from './encuestaLuego.js';
+import { posponerEncuesta, encuestaRespondida } from './encuestaLuego.js';
 import { usoEncuesta } from './usoApp.js';
 
 const PREGUNTAS = [
@@ -56,7 +56,7 @@ export default function EncuestaApp({ nombre, alCerrar }) {
     setEnviando(true); setError('');
     const res = await api.encuestaResponder(nombre, { ...r, mejoraria: mejoraria.trim() }).catch(() => null);
     setEnviando(false);
-    if (res && res.ok) setGracias(true);
+    if (res && res.ok) { encuestaRespondida(); setGracias(true); }
     else setError('No pude enviarla. Revisa tu conexión e inténtalo de nuevo.');
   };
   if (gracias) {
@@ -71,7 +71,7 @@ export default function EncuestaApp({ nombre, alCerrar }) {
   return (
     <VentanaMarca data-encuesta-app sinIcono simbolo={<ChatCircleText size={28} weight="fill" color="#2F6CC4" />}
       titulo={<>¿Cómo te va<br /><Color c="azul">con la app{primer ? `, ${primer}` : ''}?</Color></>}
-      texto="Son preguntas rápidas y solo te las hago una vez.">
+      texto="Son 5 preguntas rápidas: te toma 1 minuto. Solo te las hago esta vez.">
       {PREGUNTAS.map(p => <Escala key={p.k} p={p} valor={r[p.k]} alElegir={(v) => setR(x => ({ ...x, [p.k]: v }))} />)}
       <div data-encuesta-pregunta="mejoraria" style={{ marginTop: 16, textAlign: 'left' }}>
         <div style={{ fontSize: 15.5, fontWeight: 650, lineHeight: 1.3, marginBottom: 8 }}>¿Qué mejorarías? <span style={{ fontWeight: 450, color: '#7A7A80' }}>(opcional)</span></div>

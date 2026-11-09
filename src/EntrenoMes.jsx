@@ -1232,7 +1232,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {}, videosHoy 
 
       {/* ── HOY TE TOCA ── */}
       {listo && modo === 'hoy' && (
-        <HoyTeToca dia={dHoy} P={P} nombre={nombre} ejerciciosDe={ejerciciosDe} videosHoy={videosHoy} pendientes={(cache[hoy.slice(0, 7)] || {}).pendientes || []}
+        <HoyTeToca dia={dHoy} P={P} nombre={nombre} ejerciciosDe={ejerciciosDe} videosHoy={videosHoy} pendientes={(cache[hoy.slice(0, 7)] || {}).pendientes || []} delCoach={(cache[hoy.slice(0, 7)] || {}).del_coach || null}
           alEntrenar={alEntrenar} alRegistrarActividad={() => setRegistrando(hoy)}
           alReabrir={async (id) => { const r = await api.reabrir(nombre, id, hoy); if (r && r.ok) { await cargar(hoy.slice(0, 7)); alEntrenar(id); } }}
           alAgregar={puedeAgregar(dHoy) ? () => setEligiendo(hoy) : null}
@@ -1428,8 +1428,27 @@ function AccionDirecta({ ev, fecha, nombre, alCerrar, alCambio }) {
 }
 
 // ── Lo que toca hoy, todo junto ──────────────────────────────────────────
-function HoyTeToca({ dia, P, nombre, ejerciciosDe, videosHoy = [], alEntrenar, alReabrir, alRegistrarActividad, alAgregar, alQuitar, alCambio, pendientes = [] }) {
+// Lo que el coach le pidió desde el CRM (fotos, peso, medidas), la medición
+// del mes y el fin de ciclo: filas en «También hoy». No se repite lo que ya
+// está en su calendario de hoy o pendiente de días pasados.
+function filasDelCoach(delCoach, registros, pendientes) {
+  if (!delCoach) return [];
+  const ya = new Set([...registros, ...pendientes].map(e => (e.tipo === 'medicion' ? 'medidas' : e.tipo)));
+  const out = [];
+  if (delCoach.cierre) out.push({ id: 'cierre', tipo: 'medidas', titulo: `Fin de ciclo: actualiza tu composición${delCoach.cierre.fotos ? '' : ' y tus fotos'}`, sub: 'Para cerrar el ciclo con tus datos' });
+  (delCoach.pedidos || []).filter(p => !ya.has(p.tipo) && !(p.tipo !== 'fotos' && delCoach.cierre)).forEach(p => out.push({
+    id: `p-${p.id}`, tipo: p.tipo,
+    titulo: p.tipo === 'fotos' ? 'Enviar tus fotos' : p.tipo === 'peso' ? 'Registrar tu peso' : 'Tu medición corporal',
+    sub: p.tipo === 'fotos' ? 'Te las pidió tu coach · van por WhatsApp' : p.tipo === 'peso' ? 'Te lo pidió tu coach' : 'Te la pidió tu coach',
+  }));
+  const medidaYa = out.some(x => x.tipo !== 'fotos') || ya.has('medidas') || ya.has('peso');
+  if (delCoach.medida_mes && !medidaYa) out.push({ id: 'mes', tipo: 'medidas', titulo: 'Tu peso y composición de este mes', sub: 'Una vez al mes' });
+  return out;
+}
+
+function HoyTeToca({ dia, P, nombre, ejerciciosDe, videosHoy = [], alEntrenar, alReabrir, alRegistrarActividad, alAgregar, alQuitar, alCambio, pendientes = [], delCoach = null }) {
   const [reabriendo, setReabriendo] = useState(false);
+  const [midiendo, setMidiendo] = useState(false);
   const hoy = hoyLocal();
   const r = dia?.rutina;
   const hecha = dia?.estado === 'completada';
@@ -1438,6 +1457,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, videosHoy = [], alEntrenar, a
   const n = r ? ejerciciosDe[r.id] : null;
   const bloques = bloquesDe(dia);
   const [respira, setRespira] = useState(false);
+  const delCoachFilas = filasDelCoach(delCoach, registros, pendientes);
   return (
     <div data-hoy-te-toca>
       <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '4px 2px 12px' }}>Hoy te toca</h2>
@@ -1498,7 +1518,7 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, videosHoy = [], alEntrenar, a
             de la fuerza (que sigue siendo lo primero que se ve): los bloques
             aparte (un recovery), el cardio y la caminata, y pesarse o las
             fotos. */}
-        {(bloques.length > 0 || registros.length > 0 || otros.length > 0 || pendientes.length > 0 || (videosHoy.length > 0 && r && !hecha)) && (
+        {(bloques.length > 0 || registros.length > 0 || otros.length > 0 || pendientes.length > 0 || delCoachFilas.length > 0 || (videosHoy.length > 0 && r && !hecha)) && (
           <div data-tambien-hoy style={{ fontSize: 13.5, fontWeight: 750, color: TEXT_MUTED, margin: '4px 2px -2px' }}>También hoy</div>
         )}
         {bloques.map(b => <TarjetaBloque key={b.id} b={b} P={P} n={ejerciciosDe[b.id]} alEntrenar={alEntrenar} />)}
@@ -1543,6 +1563,21 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, videosHoy = [], alEntrenar, a
             <FilaRegistro ev={{ ...p, detalle: `Pendiente desde el ${diaCorto(p.fecha)}` }} fecha={p.fecha} nombre={nombre} futuro={false} v2 compacta alCambio={alCambio} />
           </div>
         ))}
+        {delCoachFilas.map(x => (
+          <div key={x.id} data-del-coach={x.id} style={{ borderRadius: 14, padding: '9px 12px', background: SURFACE, border: '1px solid #E4DCF5', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: 30, height: 30, borderRadius: 99, background: '#F1EAFB', color: '#8E5BD8', display: 'grid', placeItems: 'center', flex: 'none' }}>
+              <IconoEvento tipo={x.tipo === 'medidas' ? 'medicion' : x.tipo} size={16} />
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{x.titulo}</div>
+              <div style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.35 }}>{x.sub}</div>
+            </div>
+            {x.tipo === 'fotos'
+              ? (WHATSAPP_COACH ? <a data-del-coach-ir href={`https://wa.me/${WHATSAPP_COACH}`} target="_blank" rel="noopener" style={{ ...botonPrimario, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Enviar</a> : null)
+              : <button data-del-coach-ir onClick={() => setMidiendo(true)} style={{ ...botonPrimario, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none' }}>Registrar</button>}
+          </div>
+        ))}
+        <HojaMedida abierta={midiendo} nombre={nombre} alCerrar={() => setMidiendo(false)} alGuardar={() => { setMidiendo(false); alCambio && alCambio(); }} />
         {otros.filter(ev => ev.tipo !== 'actividad').map(ev => (
           <div key={ev.id} style={{ ...cajaDia, fontSize: 14.5 }}>
             <IconoEvento tipo={ev.tipo} size={18} />

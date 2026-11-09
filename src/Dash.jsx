@@ -32,6 +32,7 @@ import { precargar as planDe } from './Entrenamiento.jsx';
 import { Hoja, CargandoModulo } from './entrenoUI.jsx';
 import { IconoEvento } from './iconosEntreno.jsx';
 import { HojaMedida } from './EntrenoMedidas.jsx';
+import { encuestaEnVerTodo, abrirEncuesta } from './encuestaLuego.js';
 import { WHATSAPP_COACH, nombresEj } from './v2.js';
 import { Pastilla, BotonCristal, TONO_ATAJOS, FilaCristal } from './PastillaV2.jsx';
 import { esCoach, abrirVistaCoach } from './vistaCoach.js';
@@ -1537,6 +1538,8 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const medidaMes = (medidas || []).some(m => String(m.fecha || '').slice(0, 7) === ym);
   if (!cierrePendiente && !medidaPedida && !cargandoMedidas && medidas && !medidaMes) hoyItems.push({ id: 'hoy-medida', texto: 'Registra tu peso y composición de este mes', hecho: false, ir: alMedir, Icono: Heartbeat, color: AMBAR });
   const hoyHechos = hoyItems.filter(i => i.hecho).length;
+  // La encuesta de la app, si dijo «Ahora no»: aquí, sin insistir, hasta que la responda.
+  if (encuestaEnVerTodo()) items.push({ id: 'encuesta', texto: 'Cuéntame cómo te va con la app · 1 minuto', ir: abrirEncuesta, Icono: ChatCircle, color: '#2F6CC4' });
   // Los del coach, pendientes.
   coach.filter(r => !r.done_at).forEach(r => items.push({ id: 'c-' + r.id, texto: r.text, marcar: alMarcarCoach ? () => alMarcarCoach(r.id) : null, Icono: Bell, color: '#E0A21A', coach: true }));
   videos.filter(v => !v.hoy).forEach(v => items.push({ id: `v-${v.id}`, texto: `Video pedido: ${v.nombre}`, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: VideoCamera, color: '#C9672B', coach: true }));

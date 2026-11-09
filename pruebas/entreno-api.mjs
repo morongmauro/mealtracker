@@ -808,6 +808,19 @@ await caso('el pase: quien ya tiene contraseña lo tiene que traer; sin contrase
 });
 
 
+await caso('Entreno › Hoy (también la compacta): lo que pidió el coach desde Toques y la medición del mes', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.mediciones_corporales = [{ id: 'm0', cliente_id: 'c1', fecha: mas(hoy, -40), peso: 80 }];
+  sb.db.pedidos_cliente = [
+    { id: 'pf', cliente_id: 'c1', tipo: 'fotos', pedido_en: mas(hoy, -2) + 'T10:00:00Z', entregado_en: null },
+    { id: 'pp', cliente_id: 'c1', tipo: 'peso', pedido_en: mas(hoy, -50) + 'T10:00:00Z', entregado_en: null },   // ya se pesó después → no
+  ];
+  const m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
+  igual(m.del_coach && m.del_coach.pedidos.map(p => p.tipo), ['fotos'], 'solo las fotos siguen pedidas');
+  igual(m.del_coach && m.del_coach.medida_mes, mas(hoy, -40).slice(0, 7) !== hoy.slice(0, 7), 'la medición del mes, si no tiene una este mes');
+  const otro = await llamar(handler, { accion: 'mes', name: yo, ym: mas(hoy, -40).slice(0, 7) });
+  igual(otro.del_coach, null, 'otro mes: nada');
+});
 await caso('lo de registrar que quedó de días pasados sigue en Hoy (mes y dash) hasta que lo haga', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   sb.db.eventos = [

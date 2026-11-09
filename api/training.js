@@ -1438,8 +1438,12 @@ async function verMes(cliente, ym, hoy) {
   // Lo atrasado (pesarse, fotos, medición de días pasados sin marcar) solo
   // viaja con el mes de hoy: es lo que Hoy pone arriba hasta que se haga.
   const pendientes = mes === hoy.slice(0, 7) ? await pendientesRegistro(cliente, hoy, evs, fase, catalogo).catch(() => []) : [];
+  // Lo que el coach le pidió (fotos, peso, medidas desde Toques), la medición
+  // del mes y el fin de ciclo: también en Entreno › Hoy (la vista compacta
+  // cae aquí y el Dash queda en «Más»). Solo con el mes de hoy.
+  const delCoach = mes === hoy.slice(0, 7) ? await delCoachHoy(cliente, hoy).catch(() => null) : null;
   return {
-    ok: true, mes, hoy, pendientes,
+    ok: true, mes, hoy, pendientes, del_coach: delCoach,
     fase: fase ? { nombre: nombreFase(fase.nombre), semanas: fase.semanas, desde: fase.fecha_inicio, hasta: finDeFase(fase) } : null,
     // La semana en la que se puede mover y añadir.
     semana: { desde: lunesDe(hoy), hasta: sumarDiasISO(lunesDe(hoy), 6) },
@@ -2464,6 +2468,21 @@ async function todas(path) {
     if (filas.length < 1000) break;
   }
   return out;
+}
+
+async function delCoachHoy(cliente, hoy) {
+  const medidas = await sb(`mediciones_corporales?select=fecha,peso,grasa_pct&cliente_id=eq.${cliente.id}&order=fecha.desc&limit=24`).catch(() => []);
+  const lista = Array.isArray(medidas) ? medidas : [];
+  const fases = await sb(`fases?select=id,fecha_inicio,semanas,dias_semana,visible_cliente,estado&cliente_id=eq.${cliente.id}&estado=in.(activa,finalizada)&visible_cliente=is.true`).catch(() => []);
+  const [pedidos, cierre] = await Promise.all([
+    pedidosDelCoach(cliente, lista).catch(() => []),
+    cierreDeCiclo(cliente, Array.isArray(fases) ? fases : [], lista, hoy).catch(() => null),
+  ]);
+  return {
+    pedidos,
+    medida_mes: lista.length > 0 && !lista.some(m => String(m.fecha || '').slice(0, 7) === hoy.slice(0, 7)),
+    cierre: cierre && !cierre.composicion ? { fotos: !!cierre.fotos } : null,
+  };
 }
 
 async function pedidosDelCoach(cliente, medidas) {
