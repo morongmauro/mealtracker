@@ -1856,11 +1856,122 @@ const opcionV2 = (on) => ({
 // Semáforo del día: qué tan cerca quedó de la meta.
 // Entrada para el tracker a partir de una receta ya escalada. La comparten el
 // detalle de la receta y las comidas de un menú: una sola forma de registrar.
+// ── Calorías y macros de CADA ingrediente de una receta ──────────────────
+// La receta trae el total del plato (calculado), no el de cada ingrediente.
+// Antes cada ingrediente quedaba en 0: se veía «0 kcal» y, si el cliente
+// corregía una cantidad por el chat, la comida se recalculaba sumando los
+// ingredientes y casi desaparecía. Ahora cada uno lleva su parte: se estima
+// con valores típicos por 100 g y luego se ajusta para que la suma dé
+// EXACTAMENTE el total de la receta (el total no cambia nunca).
+// [palabra clave, kcal, p, c, g por 100 g, peso de 1 unidad en g]
+const PERFIL_INGREDIENTE = [
+  // Primero los que llevan otra palabra clave adentro («caldo de res» no es carne).
+  ['spray', 8, 0, 0, 0.9, 1], ['caldo', 5, 0.5, 0.5, 0.2, 240], ['salsa de soya', 53, 8, 5, 0.6, 15], ['leche de coco', 197, 2, 3, 21, 240],
+  ['aceite', 884, 0, 0, 100, 14], ['mantequilla de mani', 588, 25, 20, 50, 16], ['mantequilla de almendra', 614, 21, 19, 56, 16],
+  ['crema de mani', 588, 25, 20, 50, 16], ['mantequilla', 717, 1, 0, 81, 5], ['ghee', 876, 0, 0, 99, 5],
+  ['proteina de arveja', 380, 80, 5, 6, 30], ['whey', 375, 75, 12, 6, 30], ['proteina', 375, 75, 12, 6, 30],
+  ['clara', 52, 11, 0.7, 0.2, 33], ['huevo', 143, 12.6, 0.7, 9.5, 50],
+  ['pollo', 165, 31, 0, 3.6, 120], ['pavo', 135, 25, 1, 3.5, 25], ['tocino', 300, 20, 2, 24, 12],
+  ['salmon', 206, 22, 0, 12, 120], ['atun', 116, 26, 0, 1, 100], ['camaron', 99, 24, 0, 0.3, 15], ['pescado', 128, 26, 0, 2.7, 120],
+  ['res', 217, 26, 0, 12, 120], ['carne', 217, 26, 0, 12, 120], ['lomo', 196, 27, 0, 9, 120], ['cerdo', 196, 27, 0, 9, 120],
+  ['cottage', 98, 11, 3.4, 4.3, 30], ['feta', 264, 14, 4, 21, 30], ['parmesano', 431, 38, 4, 29, 10], ['queso', 300, 22, 2, 22, 30],
+  ['yogur griego', 59, 10, 3.6, 0.4, 170], ['yogur', 61, 3.5, 4.7, 3.3, 170], ['leche de almendra', 15, 0.6, 0.3, 1.2, 240],
+  ['leche', 50, 3.3, 4.8, 1.9, 240], ['crema', 200, 2.5, 4, 20, 15],
+  ['arroz', 130, 2.7, 28, 0.3, 150], ['quinoa', 120, 4.4, 21, 1.9, 150], ['quinua', 120, 4.4, 21, 1.9, 150], ['pasta', 158, 5.8, 31, 0.9, 150],
+  ['batata', 86, 1.6, 20, 0.1, 130], ['camote', 86, 1.6, 20, 0.1, 130], ['papa', 87, 1.9, 20, 0.1, 150],
+  ['tortilla', 300, 8, 50, 7, 65], ['pita', 275, 9, 55, 1.2, 60], ['pan', 265, 9, 49, 3.2, 30], ['tostada', 380, 8, 80, 3, 9],
+  ['avena', 379, 13, 67, 6.5, 40], ['harina', 364, 10, 76, 1, 10], ['granola', 470, 10, 64, 20, 30],
+  ['lenteja', 116, 9, 20, 0.4, 150], ['frijol', 127, 8.7, 22.8, 0.5, 150], ['garbanzo', 164, 8.9, 27, 2.6, 150], ['hummus', 166, 8, 14, 10, 15],
+  ['maiz', 96, 3.4, 21, 1.5, 100], ['platano', 122, 0.8, 32, 0.2, 120], ['banan', 89, 1.1, 23, 0.3, 120],
+  ['aguacate', 160, 2, 8.5, 14.7, 70], ['coco', 354, 3.3, 15, 33, 10],
+  ['chocolate', 550, 7, 45, 38, 10], ['cacao', 228, 20, 58, 14, 5], ['miel', 304, 0.3, 82, 0, 7], ['sirope', 260, 0, 67, 0, 7],
+  ['azucar', 387, 0, 100, 0, 4], ['maicena', 381, 0.3, 91, 0.1, 8], ['soya', 53, 8, 5, 0.6, 15], ['balsamico', 88, 0.5, 17, 0, 15], ['mermelada', 250, 0.4, 60, 0.1, 15],
+  ['nuez', 654, 15, 14, 65, 5], ['almendra', 579, 21, 22, 50, 1.2], ['mani', 567, 26, 16, 49, 1], ['semilla', 560, 25, 15, 45, 10], ['chia', 486, 17, 42, 31, 10],
+  ['pesto', 400, 5, 6, 40, 15], ['mayonesa', 680, 1, 1, 75, 15], ['teriyaki', 90, 6, 16, 0, 15], ['salsa', 60, 1.5, 10, 1.5, 15],
+  ['fresa', 32, 0.7, 7.7, 0.3, 12], ['arandano', 57, 0.7, 14, 0.3, 1], ['durazno', 39, 0.9, 10, 0.3, 150], ['manzana', 52, 0.3, 14, 0.2, 180],
+  ['kiwi', 61, 1.1, 15, 0.5, 75], ['mandarina', 53, 0.8, 13, 0.3, 80], ['pina', 50, 0.5, 13, 0.1, 100], ['mango', 60, 0.8, 15, 0.4, 150],
+  ['fruta', 50, 0.7, 13, 0.3, 100], ['caldo', 5, 0.5, 0.5, 0.2, 240],
+];
+const PERFIL_VERDURA = [25, 1.5, 5, 0.2, 60];      // verduras y hortalizas, por defecto
+const _sinAcento = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const ES_CONDIMENTO = /\b(sal|pimienta|oregano|comino|paprika|canela|vainilla|especia|ajo en polvo|cebolla en polvo|curry en polvo|hierba|perejil|cilantro|albahaca|limon|lima|vinagre|mostaza|stevia|edulcorante|agua|hielo|polvo de hornear|bicarbonato|extracto)\b/;
+function gramosDe(i, uni) {
+  const q = Number(i.q) || 0;
+  switch (i.u) {
+    case 'g': case 'ml': return q;
+    case 'cda': return q * 15;
+    case 'cdta': return q * 5;
+    case 'scoop': return q * 30;
+    case 'rebanadas': return q * 30;
+    case 'dientes': return q * 4;
+    case 'tallos': return q * 40;
+    default: return q * (uni || 50);   // unidad / unidades
+  }
+}
+// Estimación de un ingrediente con valores típicos.
+function _estimar(nombre, i) {
+  const n = _sinAcento(nombre);
+  const hit = PERFIL_INGREDIENTE.find(([k]) => new RegExp(`(^|[^a-zñ])${k}`).test(n));
+  if (!hit && ES_CONDIMENTO.test(n)) return { kcal: 0, p: 0, c: 0, g: 0 };
+  const [kcal, p, c, g, uni] = hit ? hit.slice(1) : PERFIL_VERDURA;
+  const f = gramosDe(i, uni) / 100;
+  return { kcal: kcal * f, p: p * f, c: c * f, g: g * f };
+}
+// «Pesto · 3 cdta», «Miel · ¾ cda», «Sal y pimienta al gusto» → { n, q, u }.
+const _FRAC = { '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 0.33, '⅔': 0.67 };
+function _aderezo(txt) {
+  const [nombre, cant = ''] = String(txt).split('·').map(x => x.trim());
+  const m = cant.replace(',', '.').match(/^(\d+(?:\.\d+)?)?\s*([½¼¾⅓⅔])?\s*([a-záéíóúñ]+)?/i);
+  const q = (m && m[1] ? Number(m[1]) : 0) + (m && m[2] ? _FRAC[m[2]] : 0);
+  const u0 = _sinAcento(m && m[3] ? m[3] : '');
+  const u = /^(g|gr|gramos)$/.test(u0) ? 'g' : u0 === 'ml' ? 'ml' : /^cdta/.test(u0) ? 'cdta' : /^cda/.test(u0) ? 'cda' : /^diente/.test(u0) ? 'dientes' : 'unidad';
+  return { n: nombre, q: q || 0, u };
+}
+// main: ingredientes de la receta ya escalados; season: sus aderezos (sin
+// escalar, como vienen); k: el factor de la porción.
+export function macrosPorIngrediente(main, totals, season = [], k = 1) {
+  const M = ['kcal', 'p', 'c', 'g'];
+  const est = main.map(i => _estimar(i.n, i));
+  // Los aderezos que sí suman (aceite, miel, pesto, soya…), en una sola línea.
+  const ader = { kcal: 0, p: 0, c: 0, g: 0 };
+  const conCalorias = [];
+  for (const t of season || []) {
+    const a = _aderezo(t);
+    if (!a.q) continue;
+    const e = _estimar(a.n, { ...a, q: a.q * k });
+    if (e.kcal >= 5) { M.forEach(m => { ader[m] += e[m]; }); conCalorias.push(a.n.toLowerCase()); }
+  }
+  // Una pizca de cebolla o de especias no merece su propia línea.
+  const hayAderezos = ader.kcal >= 25;
+  const filas = hayAderezos ? [...est, ader] : est;
+  // Cada macro se ajusta en proporción para que la suma sea EXACTAMENTE la
+  // de la receta (el total de la receta manda; la estimación solo reparte).
+  // Primero proteína, carbos y grasas; las calorías al final, según los macros
+  // ya repartidos (así cada fila es coherente: grasa alta → calorías altas).
+  for (const m of ['p', 'c', 'g', 'kcal']) {
+    const total = Number(totals[m]) || 0;
+    let base = m === 'kcal' ? filas.map(f => f.p * 4 + f.c * 4 + f.g * 9) : filas.map(f => f[m]);
+    let suma = base.reduce((a, b) => a + b, 0);
+    if (suma <= 0) { base = filas.map(f => f.kcal); suma = base.reduce((a, b) => a + b, 0); }
+    if (suma <= 0) { base = filas.map(() => 1); suma = filas.length; }
+    const dec = m === 'kcal' ? 1 : 10;
+    const vals = base.map(b => Math.round((total * b / suma) * dec) / dec);
+    const dif = Math.round((Math.round(total * dec) / dec - vals.reduce((a, b) => a + b, 0)) * dec) / dec;
+    if (dif && vals.length) { const j = vals.indexOf(Math.max(...vals)); vals[j] = Math.round((vals[j] + dif) * dec) / dec; }
+    vals.forEach((v, j) => { filas[j][m] = Math.max(0, v); });
+  }
+  return { items: est, resto: hayAderezos ? ader : null, aderezos: conCalorias };
+}
+
 function entradaDeReceta(recipe, sc, slot) {
+  const tot = { kcal: r0(sc.totals.kcal), p: r0(sc.totals.p), c: r0(sc.totals.c), g: r0(sc.totals.g) };
+  const { items: porIng, resto, aderezos } = macrosPorIngrediente(sc.main, tot, recipe.season, sc.k || 1);
+  const items = sc.main.map((i, k) => ({ name: i.n, amount: `${i.q} ${i.u}`, ...porIng[k], needs_quantity: false }));
+  if (resto) items.push({ name: 'Aderezos de la receta', amount: aderezos.slice(0, 3).join(', ') + (aderezos.length > 3 ? '…' : ''), ...resto, needs_quantity: false });
   return {
     id: Date.now(), meal: slot || recipe.slot,
-    items: sc.main.map(i => ({ name: i.n, amount: `${i.q} ${i.u}`, kcal: 0, p: 0, c: 0, g: 0, needs_quantity: false })),
-    kcal: r0(sc.totals.kcal), p: r0(sc.totals.p), c: r0(sc.totals.c), g: r0(sc.totals.g),
+    items,
+    kcal: tot.kcal, p: tot.p, c: tot.c, g: tot.g,
     time: new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
     rawInput: `receta: ${recipe.name}`, hasMissingQuantity: false,
   };
