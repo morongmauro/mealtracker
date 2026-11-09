@@ -179,7 +179,7 @@ export default async function handler(req, res) {
       const dataToWrite = { ...data };
       try {
         const r0 = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,recetario_menus:data->recetario_menus,novedades_vistas:data->novedades_vistas,prefs_dispositivo:data->prefs_dispositivo,app_nueva_at:data->app_nueva_at,pwa_nueva_at:data->pwa_nueva_at,vista_app:data->vista_app`,
+          `${SUPABASE_URL}/rest/v1/user_data?user_id=eq.${user_id}&select=goals:data->goals,goals_updated:data->goals_updated,favorites:data->favorites,favorites_deleted:data->favoritesDeleted,history_deleted:data->historyDeleted,history_day_ops:data->historyDayOps,coach_reminders:data->coach_reminders,reminders_updated:data->reminders_updated,coach_day_edits:data->coach_day_edits,coach_edits_updated:data->coach_edits_updated,pwa_installed_at:data->pwa_installed_at,push_enabled_at:data->push_enabled_at,recetario_menus:data->recetario_menus,recetas_favoritas:data->recetas_favoritas,novedades_vistas:data->novedades_vistas,prefs_dispositivo:data->prefs_dispositivo,app_nueva_at:data->app_nueva_at,pwa_nueva_at:data->pwa_nueva_at,vista_app:data->vista_app`,
           { headers }
         );
         const rows0 = await r0.json();
@@ -205,6 +205,12 @@ export default async function handler(req, res) {
           if (Array.isArray(existing.recetario_menus) && existing.recetario_menus.length
               && !(Array.isArray(dataToWrite.recetario_menus) && dataToWrite.recetario_menus.length)) {
             dataToWrite.recetario_menus = existing.recetario_menus;
+          }
+          // Recetas favoritas: gana la lista más nueva. Un teléfono que nunca
+          // tocó la estrella (o con una lista vieja) no borra la de la cuenta.
+          const favEx = existing.recetas_favoritas, favIn = dataToWrite.recetas_favoritas;
+          if (favEx && Array.isArray(favEx.ids) && (!favIn || !Array.isArray(favIn.ids) || String(favEx.at || '') > String(favIn.at || ''))) {
+            dataToWrite.recetas_favoritas = favEx;
           }
           // Ya se pasó a la dirección nueva: lo marca el primer dispositivo
           // que abre allí; nunca se des-marca.

@@ -47,6 +47,7 @@ import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
 import { repasoOfrecido } from './RepasoRecorrido.jsx';
 import { hayNovedad, marcarVisto } from './novedades.js';
 import { vozComida } from './vozCoach.js';
+import { idsFavoritas, marcarFavorita, adoptarFavoritasNube, favoritasParaNube } from './recetasFavoritas.js';
 import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2, ChatCircle as ChatV2 } from '@phosphor-icons/react';
 import { aplicarV2 } from './v2-fuentes.js';
 
@@ -1572,6 +1573,8 @@ export default function MealTracker() {
         if (Array.isArray(d.recetario_menus) && d.recetario_menus.length) {
           try { if (!localStorage.getItem('mt:menus_guardados')) localStorage.setItem('mt:menus_guardados', JSON.stringify(d.recetario_menus)); } catch (e) {}
         }
+        // Recetas favoritas: gana la lista más nueva (de este teléfono o de la cuenta).
+        adoptarFavoritasNube(d.recetas_favoritas);
         if (d.frequentItems && typeof d.frequentItems === 'object') {
           // Fusión: gana la entrada con más registros (count más alto)
           setFrequentItems(local => {
@@ -1867,6 +1870,8 @@ export default function MealTracker() {
       // Versiones de novedades ya vistas: así la ventana no reaparece
       // al entrar desde otro teléfono.
       novedades_vistas: novedadesVistasRef.current.length ? novedadesVistasRef.current : undefined,
+      // Recetas favoritas (la estrella): en la cuenta, para no perderlas al cambiar de celular.
+      recetas_favoritas: favoritasParaNube(),
       recetario_menus: (() => {
         try {
           const raw = localStorage.getItem('mt:menus_guardados');
@@ -3750,10 +3755,10 @@ SCHEMA:
   // filtrada por unos ingredientes (query). Es lo que convierte las tarjetas
   // del chat en algo explorable — se toca y se cae en la receta completa, con
   // sus pasos y su botón de registrar, que es donde se gestiona todo.
-  const abrirRecetarioEn = useCallback(({ id = null, query = '', slot = null } = {}) => {
+  const abrirRecetarioEn = useCallback(({ id = null, query = '', slot = null, favoritas = false } = {}) => {
     haptic(10);
     if (!goals) { avisarMetaPendiente(); return; }
-    setRecetarioAbrir({ id, query, slot, ts: Date.now() });
+    setRecetarioAbrir({ id, query, slot, favoritas, ts: Date.now() });
     setShowLearning(false);
     setShowDash(false);
     // Si veníamos de la hoja de Herramientas hay que cerrarla por el camino
@@ -3784,6 +3789,93 @@ SCHEMA:
       expiresAt: Date.now() + 5 * 60 * 1000,
     };
   };
+
+  // ── Recetas del recetario por su NOMBRE, desde el chat ───────────────────
+  // «Almorcé el bowl mexicano» → se registra la receta REAL, con la porción
+  // ajustada a su meta (no lo que la IA estime). «Guarda el wrap de carne como
+  // favorita» → le pone la estrella. El nombre no tiene que ser exacto; si
+  // hay varias parecidas, se le muestran para que elija.
+  // modo: 'comer' | 'favorita'. Devuelve false si no hay receta que encaje
+  // (el chat sigue con su registro normal).
+  const COMIDAS_DIA = ['desayuno', 'almuerzo', 'cena', 'snack'];
+  const registrarRecetaPorId = (mod, id, slot, fecha) => {
+    const entry = mod.entradaRecetaPorId(id, goals, slot);
+    if (!entry) return false;
+    const nombre = mod.nombreRecetaPorId(id);
+    haptic(12);
+    if (fecha) {
+      addEntriesToDate(fecha, [{ ...entry, time: '' }]);
+      const dia = new Date(fecha + 'T12:00:00').toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+      setMessages(m => [...m, { role: 'assistant', content: `Listo: registré «${nombre}» del recetario en tu ${entry.meal} del ${dia}, con tu porción (${entry.kcal} kcal · P${entry.p} C${entry.c} G${entry.g}). Tu día de hoy queda intacto.`, ts: Date.now() }]);
+      return true;
+    }
+    setEntries(e => [...e, entry]);
+    setMessages(m => [...m,
+      { role: 'assistant', content: `Lo registré con la receta «${nombre}» del recetario, en tu porción de ${entry.meal}.`, ts: Date.now() },
+      { role: 'assistant', content: 'logged', isLogged: true, entryId: entry.id, ts: Date.now() + 1 }]);
+    armUndo([entry.id]);
+    return true;
+  };
+  const tarjetasRecetaChat = (mod, ids, data) => {
+    setMessages(m => [...m, { role: 'assistant', isRecipeIdeas: true, data: { ...data, recetas: mod.tarjetasRecetas(ids, goals) }, ts: Date.now() }]);
+  };
+  const manejarRecetaChat = async (modo, ref, opts = {}) => {
+    let mod;
+    try { mod = await import('./Recetario.jsx'); } catch (e) { return false; }
+    const favs = idsFavoritas();
+    // «¿Cuáles son mis recetas favoritas?»
+    if (modo === 'favorita' && !String(ref || '').trim()) {
+      if (!favs.length) {
+        setMessages(m => [...m, { role: 'assistant', content: 'Aún no tienes recetas favoritas. Abre una receta del recetario y toca «Guardar como favorita», o dime por aquí: «guarda el bowl mexicano como favorita».', ts: Date.now() }]);
+      } else {
+        tarjetasRecetaChat(mod, favs.slice(0, 6), { modo: 'favoritas', titulo: `Tus recetas favoritas (${favs.length}). Toca una y la abro completa.` });
+      }
+      return true;
+    }
+    const { receta, candidatas, seguro } = mod.buscarRecetaPorNombre(ref, favs);
+    const dijoRecetario = /receta|recetario|favorit/i.test(opts.texto || '');
+    if (modo === 'comer') {
+      const slot = COMIDAS_DIA.includes(opts.meal) ? opts.meal : null;
+      // Solo cuando está clara: dijo casi todo el nombre, o habló del recetario.
+      if (receta && (seguro || dijoRecetario)) return registrarRecetaPorId(mod, receta.id, slot, opts.fecha);
+      // Habló del recetario pero hay varias parecidas: que elija.
+      if (dijoRecetario && candidatas.length) {
+        tarjetasRecetaChat(mod, candidatas, { modo: 'comer', slotComida: slot, fecha: opts.fecha || null, titulo: `¿Cuál de estas ${slot ? `fue tu ${slot}` : 'fue'}? Tócala y la registro con tu porción.` });
+        return true;
+      }
+      return false;
+    }
+    // modo 'favorita'
+    if (receta) {
+      marcarFavorita(receta.id, true);
+      haptic(12);
+      tarjetasRecetaChat(mod, [receta.id], { modo: 'hecha', titulo: favs.includes(receta.id) ? `«${receta.name}» ya estaba en tus favoritas.` : `Listo: «${receta.name}» quedó en tus recetas favoritas. La encuentras en el recetario, en «Favoritas».` });
+      return true;
+    }
+    if (candidatas.length) {
+      tarjetasRecetaChat(mod, candidatas, { modo: 'favorita', titulo: '¿Cuál quieres guardar como favorita? Toca la estrella de la que es.' });
+      return true;
+    }
+    setMessages(m => [...m, { role: 'assistant', content: `No encontré «${ref}» en el recetario. Ábrelo y búscala: dentro de cada receta está el botón «Guardar como favorita».`, showRecetarioButton: true, ts: Date.now() }]);
+    return true;
+  };
+  // Lo que toca el cliente en las tarjetas «¿cuál fue?» del chat.
+  const elegirRecetaRef = useRef(null);
+  elegirRecetaRef.current = async ({ id, modo, slot, fecha }) => {
+    let mod;
+    try { mod = await import('./Recetario.jsx'); } catch (e) { return; }
+    if (modo === 'comer') { registrarRecetaPorId(mod, id, slot, fecha); return; }
+    if (modo === 'favorita') {
+      marcarFavorita(id, true);
+      haptic(12);
+      tarjetasRecetaChat(mod, [id], { modo: 'hecha', titulo: `Listo: «${mod.nombreRecetaPorId(id)}» quedó en tus recetas favoritas. La encuentras en el recetario, en «Favoritas».` });
+    }
+  };
+  useEffect(() => {
+    const h = (e) => elegirRecetaRef.current && elegirRecetaRef.current(e.detail || {});
+    window.addEventListener('mt:elegirReceta', h);
+    return () => window.removeEventListener('mt:elegirReceta', h);
+  }, []);
 
   const responderIdeasRecetas = async (texto) => {
     try {
@@ -3837,8 +3929,14 @@ SCHEMA:
   const pideIdeasRecetas = (t) => {
     const x = (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (!/receta|que cocino|que puedo cocinar|que hago de (comer|almuerzo|cena|desayuno)|ideas? de comida|que preparo/.test(x)) return false;
-    // "registra la receta que comí" NO es pedir ideas.
-    return !/registra|anota|apunta|me comi|comi |desayune|almorce|cene/.test(x);
+    // "registra la receta que comí" NO es pedir ideas. Tampoco guardar una
+    // receta como favorita ni ver las favoritas (eso va por manejarRecetaChat).
+    return !/registra|anota|apunta|me comi|comi |desayune|almorce|cene|hice|prepare|cocine|favorit|guarda|marca|estrella/.test(x);
+  };
+  // «¿Cuáles son mis recetas favoritas?»: se responde aquí, sin el modelo.
+  const pideVerFavoritas = (t) => {
+    const x = (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return /recetas? favoritas?/.test(x) && !/guarda|marca|agrega|anade|pon(le|me)?\b|quita|saca|estrella/.test(x);
   };
 
   const repeatYesterday = () => {
@@ -4323,6 +4421,11 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
     // modelo: es la única forma de garantizar que no invente recetas.
     if (pending && pending.type === 'recipe_ideas') {
       await responderIdeasRecetas(userMsg);
+      voiceInputRef.current = false;
+      return;
+    }
+    if (!pending && pideVerFavoritas(userMsg)) {
+      await manejarRecetaChat('favorita', '', { texto: userMsg });
       voiceInputRef.current = false;
       return;
     }
@@ -4812,6 +4915,9 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         else if (parsed.command === 'save_day_favorite') {
           saveDayAsFavorite();
         }
+        else if (parsed.command === 'favorite_recipe') {
+          await manejarRecetaChat('favorita', parsed.recipe_ref || '', { texto: userMsg });
+        }
         else if (parsed.command === 'recipes') {
           // Las recetas SIEMPRE salen del catálogo, nunca del modelo: él solo
           // detecta la intención y de qué ingredientes hablaba. Si no nombró
@@ -4968,6 +5074,16 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
         return d < today ? d : null; // solo fechas pasadas; hoy/futuro = flujo normal
       };
       const globalLogDate = normPastDate(parsed.log_date);
+      // «Almorcé el bowl mexicano»: si es una receta del recetario, se registra
+      // la receta real con su porción (si no la encuentra, sigue lo de siempre).
+      if (intent === 'log_meal' && parsed.recipe_ref && !(Array.isArray(parsed.meals) && parsed.meals.length > 1)) {
+        const m0 = Array.isArray(parsed.meals) && parsed.meals[0] ? parsed.meals[0] : null;
+        const hecho = await manejarRecetaChat('comer', parsed.recipe_ref, {
+          texto: userMsg, meal: parsed.meal || (m0 && m0.meal) || null,
+          fecha: globalLogDate || normPastDate(m0 && m0.log_date),
+        });
+        if (hecho) { setLoading(false); setLoadingPreview(''); return; }
+      }
       if (intent === 'log_meal') {
         const srcMeals = (Array.isArray(parsed.meals) && parsed.meals.length > 0)
           ? parsed.meals
@@ -8628,8 +8744,52 @@ const MessageBubble = memo(function MessageBubble({ message: mensajeOriginal, go
   // completa en el Recetario (pasos, porción ajustada, registrar). El chat
   // propone; el Recetario es donde se gestiona.
   if (message.isRecipeIdeas && message.data) {
-    const { ask, entrada, slotLabel, slotKey, consulta = '', recetas = [], total = 0, totalRecetario } = message.data;
+    const { ask, entrada, slotLabel, slotKey, consulta = '', recetas = [], total = 0, totalRecetario, modo, titulo, slotComida, fecha } = message.data;
     const abrir = (arg) => onOpenRecetario?.(arg);
+    // Recetas por su nombre (registrar, guardar como favorita o ver las favoritas).
+    if (modo) {
+      const elegir = (id) => window.dispatchEvent(new CustomEvent('mt:elegirReceta', { detail: { id, modo, slot: slotComida || null, fecha: fecha || null } }));
+      return (
+        <div className="flex justify-start fade-up">
+          <div data-recetas-chat={modo} className="max-w-[92%] w-full p-4 rounded-[22px] rounded-bl-lg" style={{
+            background: `linear-gradient(135deg, ${ACCENT_PASTEL}55, rgba(255,255,255,0.35)), rgba(255,255,255,0.96)`,
+            border: '1px solid rgba(255,255,255,0.7)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.9) inset, 0 8px 24px rgba(96,102,72,0.14), 0 1px 4px rgba(0,0,0,0.05)',
+          }}>
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="flex items-center justify-center rounded-[9px]" style={{ width: 22, height: 22, background: v2 ? ACCENT : `linear-gradient(135deg, #A9B87B, #6E7B45)` }}>
+                {modo === 'comer' ? <BookOpen size={12} strokeWidth={2.3} style={{ color: '#FFF' }} /> : <StarV2 size={12} weight="fill" color="#FFF" />}
+              </div>
+              <span className="text-[12px] font-bold" style={{ color: ACCENT_DARK }}>{modo === 'comer' ? 'Recetario' : 'Recetas favoritas'}</span>
+            </div>
+            {titulo && <div className="text-[13.5px] mb-3" style={{ color: TEXT, lineHeight: 1.5 }}>{titulo}</div>}
+            <div className="space-y-2">
+              {recetas.map(r => (
+                <button key={r.id} data-receta-chat={r.id} onClick={() => (modo === 'comer' || modo === 'favorita') ? elegir(r.id) : abrir({ id: r.id })}
+                  className="w-full text-left p-3 rounded-[18px] flex items-center gap-3 active:scale-[0.98] transition"
+                  style={{ background: '#FFFFFF', boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 4px 14px rgba(96,102,72,0.12)' }}>
+                  <span className="flex items-center justify-center rounded-[13px] flex-shrink-0" style={{ width: 42, height: 42, background: ACCENT_PASTEL + '70', fontSize: 21, color: ACCENT_DARK }}>{v2 ? <ChefHatV2 size={21} weight="regular" /> : r.icon}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[13.5px] font-bold truncate" style={{ color: TEXT, letterSpacing: '-0.01em' }}>{r.name}</span>
+                    <span className="block text-[12px] mt-0.5" style={{ color: TEXT_LIGHT }}>{r.slot} · {r.time}</span>
+                    <span className="block text-[12px] mt-1 num" style={{ color: TEXT_MUTED }}>
+                      {r.kcal} kcal · <span style={{ color: C_PROTEIN }}>P{r.p}</span> <span style={{ color: C_CARBS_TEXTO }}>C{r.c}</span> <span style={{ color: C_FAT }}>G{r.g}</span>
+                    </span>
+                  </span>
+                  {modo === 'comer' ? <span className="text-[12px] font-bold px-2.5 py-1.5 rounded-full flex-shrink-0" style={{ background: '#1F1F1F', color: '#FFF' }}>Registrar</span>
+                    : modo === 'favorita' ? <StarV2 size={22} weight="regular" color="#1F1F1F" style={{ flexShrink: 0 }} />
+                    : modo === 'hecha' ? <StarV2 size={22} weight="fill" color="#F2C94C" style={{ flexShrink: 0 }} />
+                    : <ChevronRight size={17} style={{ color: TEXT_LIGHT, flexShrink: 0 }} />}
+                </button>
+              ))}
+            </div>
+            {(modo === 'hecha' || modo === 'favoritas') && (
+              <div className="mt-3"><BotonRecetario v2={v2} label="Ver tus favoritas" onClick={() => abrir({ favoritas: true })} /></div>
+            )}
+          </div>
+        </div>
+      );
+    }
     const nMas = Math.max(0, total - recetas.length);
     return (
       <div className="flex justify-start fade-up">

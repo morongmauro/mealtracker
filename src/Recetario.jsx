@@ -13,7 +13,8 @@ import {
 } from './theme.js';
 
 import { v2Activa } from './v2.js';
-import { SlidersHorizontal, CalendarBlank, MagnifyingGlass } from '@phosphor-icons/react';
+import { SlidersHorizontal, CalendarBlank, MagnifyingGlass, Star as EstrellaV2 } from '@phosphor-icons/react';
+import { idsFavoritas, marcarFavorita, EVENTO_FAVORITAS } from './recetasFavoritas.js';
 import { lote25 } from './vistaApp.js';
 import { CabezaMarcaCompacta } from './entrenoUI.jsx';
 
@@ -48,6 +49,28 @@ const slotMatches = (recipeSlot, filterKey) => filterKey === 'principal'
   ? (recipeSlot === 'almuerzo' || recipeSlot === 'cena')
   : recipeSlot === filterKey;
 const displaySlot = (slot) => (slot === 'almuerzo' || slot === 'cena') ? 'Almuerzo / Cena' : SLOT_LABELS[slot];
+
+// Con o sin vegetales (filtro de la búsqueda avanzada), por los ingredientes
+// principales: verduras y hortalizas (no frutas, ni aguacate, ni proteína de
+// arveja en polvo).
+const VEGETALES_RE = /(^|[^a-záéíóúñ])(lechuga|espinaca|tomate|ceboll|zanahoria|repollo|br[oó]coli|pepino|piment[oó]n|pimiento|champi|calabac|calabaza|auyama|zucchini|ajo\b|apio|berenjena|coliflor|kale|r[uú]cula|esp[aá]rrago|habichuela|ejote|verdura|hojas|guisante|ma[ií]z|remolacha|r[aá]bano|puerro|jalape|vegetales)/i;
+const conVegetales = (r) => r.main.some(i => VEGETALES_RE.test(i.n));
+const VEG_FILTROS = [{ k: '', l: 'Todas' }, { k: 'con', l: 'Con vegetales' }, { k: 'sin', l: 'Sin vegetales' }];
+// La estrella de favorita (amarillo de la marca).
+const AMARILLO = '#F2C94C';
+const pildoraFav = (on) => ({
+  display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px 0 12px', borderRadius: 999,
+  border: on ? `1.5px solid ${AMARILLO}` : '1.5px solid rgba(31,31,31,0.12)', background: on ? 'rgba(242,201,76,0.2)' : '#FFFFFF',
+  color: on ? '#6B4E00' : '#1F1F1F', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer', marginTop: 10,
+});
+function BotonFavorita({ on, onClick }) {
+  return (
+    <button data-receta-favorita={on ? 'si' : 'no'} onClick={onClick} style={pildoraFav(on)} className="active:scale-[0.97] transition">
+      <EstrellaV2 size={18} weight={on ? 'fill' : 'regular'} color={on ? AMARILLO : '#1F1F1F'} />
+      {on ? 'En tus favoritas' : 'Guardar como favorita'}
+    </button>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // RECETAS — cargadas desde los PDFs del cliente. Nombres de ingredientes en
@@ -1285,6 +1308,87 @@ function cambiarComida(dia, slot, g, opts = {}, seed = Date.now()) {
 const RECETA_QUE_QUEDO = { 'choco-whey-pudding': 'chocolate-whey-pudding' };
 const recetaPorId = (id) => RECIPES.find(x => x.id === (RECETA_QUE_QUEDO[id] || id));
 
+// ── Buscar una receta por su NOMBRE (lo usa el chat) ──────────────────────
+// «Almorcé el bowl mexicano», «guarda el wrap de carne como favorita»: el
+// cliente no escribe el nombre exacto. Se compara palabra por palabra (sin
+// tildes, sin plurales y con una o dos letras de error) y gana la receta que
+// tiene casi todo lo que dijo. Si hay empate, `receta` queda vacía y vienen
+// las candidatas para que él elija. Entre empatadas, gana la que ya tiene
+// en favoritas.
+const _STOP_NOMBRE = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'con', 'y', 'en', 'mi', 'mis', 'al', 'a', 'un', 'una', 'unos', 'unas',
+  'receta', 'recetas', 'recetario', 'favorita', 'favoritas', 'favorito', 'favoritos', 'plato', 'comida', 'hoy', 'que', 'me', 'tu', 'tus',
+  'esa', 'ese', 'esta', 'este', 'por', 'para', 'lo', 'le', 'se', 'su', 'sus']);
+// Como lo dice la gente → como se llama en el recetario.
+const _SINONIMOS = { pancake: 'panqueque', pancakes: 'panqueques', hotcake: 'panqueque', hotcakes: 'panqueques', banano: 'banana', bananos: 'banana', cambur: 'banana', shake: 'malteada', parfai: 'parfait' };
+const _palabrasNombre = (t) => norm(t).replace(/[^a-z0-9ñ\s]/g, ' ').split(/\s+/).map(w => _SINONIMOS[w] || w).filter(w => w.length >= 2 && !_STOP_NOMBRE.has(w));
+const _raizN = (w) => w.length > 4 ? w.replace(/(es|s)$/, '') : w.replace(/s$/, '');
+function _distancia(a, b) {
+  const m = a.length, n = b.length;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+const _mismaPalabra = (q, n) => {
+  const a = _raizN(q), b = _raizN(n);
+  if (a === b) return true;
+  if (a.length >= 4 && b.length >= 4 && (a.startsWith(b) || b.startsWith(a))) return true;
+  const L = Math.max(a.length, b.length);
+  const tol = L >= 8 ? 2 : L >= 4 ? 1 : 0;
+  return tol > 0 && Math.abs(a.length - b.length) <= tol && _distancia(a, b) <= tol;
+};
+export function buscarRecetaPorNombre(texto, favIds = []) {
+  const Q = [...new Set(_palabrasNombre(texto))];
+  if (!Q.length) return { receta: null, candidatas: [], seguro: false };
+  const fav = new Set(favIds);
+  const puntos = RECIPES.map(r => {
+    const N = [...new Set(_palabrasNombre(r.name))];
+    const enQ = Q.filter(q => N.some(n => _mismaPalabra(q, n))).length;
+    const enN = N.filter(n => Q.some(q => _mismaPalabra(q, n))).length;
+    const sQ = enQ / Q.length, sN = enN / Math.max(1, N.length);
+    return { r, sQ, sN, s: sQ * 0.6 + sN * 0.4 + (fav.has(r.id) ? 0.05 : 0) };
+  }).filter(x => x.sQ >= 0.5).sort((a, b) => b.s - a.s);
+  const top = puntos[0];
+  if (!top) return { receta: null, candidatas: [], seguro: false };
+  const empatadas = puntos.filter(x => x.s >= top.s - 0.04);
+  const fuerte = top.sQ >= 0.66;
+  const receta = fuerte && empatadas.length === 1 ? { id: top.r.id, name: top.r.name } : null;
+  return {
+    receta,
+    // «seguro»: dijo casi todo el nombre (no solo un ingrediente suelto).
+    seguro: !!receta && top.sN >= 0.5,
+    candidatas: (empatadas.length > 1 ? empatadas : puntos).slice(0, 4).map(x => x.r.id),
+  };
+}
+
+// La entrada para el día, con la porción ajustada a su meta (la misma que
+// sale al abrir la receta). `slot` es la comida que dijo; si no, la de la receta.
+export function entradaRecetaPorId(id, goals, slot) {
+  const r = recetaPorId(id);
+  if (!r) return null;
+  const g = goals || { kcal: 2000, p: 150 };
+  const sc = scale(r, g.p * (SPLIT[r.slot] || 0.3));
+  return entradaDeReceta(r, sc, SLOT_ORDER.includes(slot) ? slot : r.slot);
+}
+export const nombreRecetaPorId = (id) => recetaPorId(id)?.name || '';
+
+// Las tarjetas del chat para unas recetas concretas (mismo formato que
+// resumenRecetasPorIngredientes).
+export function tarjetasRecetas(ids, goals) {
+  const g = goals || { kcal: 2000, p: 150 };
+  return ids.map(recetaPorId).filter(Boolean).map(r => {
+    const sc = scale(r, g.p * (SPLIT[r.slot] || 0.3));
+    return {
+      id: r.id, name: r.name, icon: r.icon, slot: displaySlot(r.slot), time: r.time,
+      kcal: r0(sc.totals.kcal), p: r0(sc.totals.p), c: r0(sc.totals.c), g: r0(sc.totals.g),
+      ing: r.main.slice(0, 3).map(i => i.n.toLowerCase()), nIng: r.main.length,
+    };
+  });
+}
+
 // Pone una receta concreta en un hueco (lo usa el armador manual).
 function ponerComida(dia, slot, recipeId, g) {
   const r = recetaPorId(recipeId);
@@ -1955,7 +2059,7 @@ function FotoReceta({ id, zoom = 1, style = {} }) {
 const tituloV2 = { fontSize: 17, fontWeight: 800, color: TEXT, letterSpacing: '-0.015em', margin: '0 0 10px' };
 const botonRedondoV2 = { width: 36, height: 36, borderRadius: 999, border: 'none', background: CREMA_V2, color: TEXT, fontSize: 19, fontWeight: 700, cursor: 'pointer', display: 'grid', placeItems: 'center', fontFamily: 'inherit' };
 
-function DetalleRecetaV2({ open, detail, g, manualK, kSuggested, fitRemaining, hasEatenToday, remaining, menos, mas, sugerida, adaptar }) {
+function DetalleRecetaV2({ open, detail, g, manualK, kSuggested, fitRemaining, hasEatenToday, remaining, menos, mas, sugerida, adaptar, favorita, alternarFav }) {
   const t = detail.totals;
   const datos = [displaySlot(open.slot), open.time, COST_LABELS[META[open.id].cost], META[open.id].diff].filter(Boolean);
   const macros = [['Proteína', t.p, g.p], ['Carbos', t.c, g.c], ['Grasas', t.g, g.g]];
@@ -1969,6 +2073,7 @@ function DetalleRecetaV2({ open, detail, g, manualK, kSuggested, fitRemaining, h
           <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 5, lineHeight: 1.35 }}>
             {datos.join(' · ')}{isHighProtein(open) && <> · <span style={{ color: VERDE_OSC_V2, fontWeight: 650 }}>Alta proteína</span></>}
           </div>
+          {alternarFav && <BotonFavorita on={favorita} onClick={alternarFav} />}
         </div>
       </div>
       {open.allergens.length > 0 && (
@@ -2071,6 +2176,16 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const [openId, setOpenId] = useState(null);
   const [manualK, setManualK] = useState(null);
   const [registered, setRegistered] = useState(false);
+  // Favoritas (la estrella) y el filtro de vegetales.
+  const [favs, setFavs] = useState(() => idsFavoritas());
+  const [soloFav, setSoloFav] = useState(false);
+  const [veg, setVeg] = useState('');               // '' | 'con' | 'sin'
+  useEffect(() => {
+    const leer = () => setFavs(idsFavoritas());
+    window.addEventListener(EVENTO_FAVORITAS, leer);
+    return () => window.removeEventListener(EVENTO_FAVORITAS, leer);
+  }, []);
+  const alternarFav = (id) => { haptic(10); marcarFavorita(id, !favs.includes(id)); setFavs(idsFavoritas()); };
   // ── Sección Menús ──
   // Visual nueva: se entra directo a las recetas; «Organiza tu día o tu
   // semana» y «Búsqueda avanzada» son botones arriba, no una portada aparte.
@@ -2115,6 +2230,8 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     // lista abre con esa pestaña marcada — no con "Todas".
     setFilterSlot(abrir.slot ? (abrir.slot === 'almuerzo' || abrir.slot === 'cena' ? 'principal' : abrir.slot) : 'todas');
     setOpenId(abrir.id || null);
+    setSoloFav(!!abrir.favoritas);
+    setVeg('');
     setManualK(null);
     setFitRemaining(false);
     // El detalle y la lista comparten scroller: si venías de una receta
@@ -2179,12 +2296,14 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
     } else if (filterSlot !== 'todas') {
       recs = RECIPES.filter(r => slotMatches(r.slot, filterSlot));
     }
+    if (soloFav) recs = recs.filter(r => favs.includes(r.id));
+    if (veg) recs = recs.filter(r => (veg === 'con') === conVegetales(r));
     const sorted = [...recs];
     if (sort === 'rapidos') sorted.sort((a, b) => META[a.id].min - META[b.id].min);
     else if (sort === 'economicos') sorted.sort((a, b) => META[a.id].cost - META[b.id].cost);
     else if (sort === 'proteina') sorted.sort((a, b) => b.totals.p - a.totals.p);
     return sorted.map(r => ({ recipe: r, sc: scale(r, targetP(r.slot)) }));
-  }, [filterSlot, query, sort, remaining, g]);
+  }, [filterSlot, query, sort, remaining, g, soloFav, veg, favs]);
 
   const open = openId ? recetaPorId(openId) : null;
   // Para el coach (Enganche en el CRM): qué recetas abre.
@@ -2304,9 +2423,11 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               menos={() => { haptic(6); const base = manualK ?? detail.k; setManualK(Math.max(kSuggested * 0.5, +(base / 1.15).toFixed(3))); }}
               mas={() => { haptic(6); const base = manualK ?? detail.k; setManualK(Math.min(kSuggested * 2, +(base * 1.15).toFixed(3))); }}
               sugerida={() => { haptic(6); setManualK(null); }}
-              adaptar={() => { haptic(8); setManualK(null); setFitRemaining(f => !f); }} />
+              adaptar={() => { haptic(8); setManualK(null); setFitRemaining(f => !f); }}
+              favorita={favs.includes(open.id)} alternarFav={() => alternarFav(open.id)} />
           ) : (<>
           <div style={{ color: TEXT, fontSize: '24px', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 }}>{open.name}</div>
+          <div style={{ marginTop: -6 }}><BotonFavorita on={favs.includes(open.id)} onClick={() => alternarFav(open.id)} /></div>
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center rounded-2xl" style={{ width: 46, height: 46, background: SURFACE_2, fontSize: 24 }}>{open.icon}</div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -3234,7 +3355,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             </button>
             <button onClick={() => { haptic(8); setAvanzada(true); }} style={botonV2}>
               <span style={iconoV2}><SlidersHorizontal size={19} /></span>
-              <span style={{ minWidth: 0 }}>Búsqueda avanzada{(filterSlot !== 'todas' || sort !== 'reco') ? ' · activa' : ''}</span>
+              <span style={{ minWidth: 0 }}>Búsqueda avanzada{(filterSlot !== 'todas' || sort !== 'reco' || veg) ? ' · activa' : ''}</span>
             </button>
           </div>
         )}
@@ -3265,10 +3386,17 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
             demasiados rectángulos ovalados y confundían. La opción activa
             va en grafito con subrayado oliva; el resto en gris. Todo cabe
             sin scroll horizontal hasta en un iPhone SE. */}
-        {v2 && (filterSlot !== 'todas' || sort !== 'reco') && !searching && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {filterSlot !== 'todas' && <button onClick={() => setFilterSlot('todas')} style={chipActivoV2}>{SLOT_FILTERS.find(f => f.key === filterSlot)?.label} ✕</button>}
-            {sort !== 'reco' && <button onClick={() => setSort('reco')} style={chipActivoV2}>{{ rapidos: 'Rápidas', economicos: 'Económicas', proteina: 'Alta proteína' }[sort]} ✕</button>}
+        {v2 && (
+          <div data-recetario-chips style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button data-filtro-favoritas={soloFav ? 'si' : 'no'} onClick={() => { haptic(6); setSoloFav(f => !f); }} style={soloFav
+              ? { ...chipActivoV2, background: 'rgba(242,201,76,0.24)', color: '#6B4E00', display: 'inline-flex', alignItems: 'center', gap: 5 }
+              : { ...chipActivoV2, background: '#FFFFFF', color: TEXT, boxShadow: SOMBRA_V2, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <EstrellaV2 size={15} weight={soloFav || favs.length ? 'fill' : 'regular'} color={soloFav || favs.length ? AMARILLO : TEXT_MUTED} />
+              Favoritas{favs.length ? ` · ${favs.length}` : ''}{soloFav ? ' ✕' : ''}
+            </button>
+            {veg && <button onClick={() => setVeg('')} style={chipActivoV2}>{veg === 'con' ? 'Con vegetales' : 'Sin vegetales'} ✕</button>}
+            {!searching && filterSlot !== 'todas' && <button onClick={() => setFilterSlot('todas')} style={chipActivoV2}>{SLOT_FILTERS.find(f => f.key === filterSlot)?.label} ✕</button>}
+            {!searching && sort !== 'reco' && <button onClick={() => setSort('reco')} style={chipActivoV2}>{{ rapidos: 'Rápidas', economicos: 'Económicas', proteina: 'Alta proteína' }[sort]} ✕</button>}
           </div>
         )}
         {!searching && !v2 && (
@@ -3287,6 +3415,27 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                         borderBottom: filterSlot === f.key ? `2px solid ${ACCENT}` : '2px solid transparent',
                         paddingBottom: '1px',
                       }}>{f.label}</button>
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-[12px] font-bold mb-1 px-1" style={{ color: TEXT_MUTED }}>Mostrar</div>
+              <div className="flex items-center flex-wrap px-1" style={{ rowGap: '6px' }}>
+                {[{ k: 'todas', l: 'Todas', on: !soloFav && !veg, f: () => { setSoloFav(false); setVeg(''); } },
+                  { k: 'fav', l: `★ Favoritas${favs.length ? ` (${favs.length})` : ''}`, on: soloFav, f: () => { setSoloFav(true); setVeg(''); } },
+                  { k: 'con', l: 'Con vegetales', on: !soloFav && veg === 'con', f: () => { setSoloFav(false); setVeg('con'); } },
+                  { k: 'sin', l: 'Sin vegetales', on: !soloFav && veg === 'sin', f: () => { setSoloFav(false); setVeg('sin'); } }].map((o, i) => (
+                  <React.Fragment key={o.k}>
+                    {i > 0 && <span style={{ width: 1, height: 12, background: BORDER, margin: '0 9px', flexShrink: 0 }} />}
+                    <button onClick={() => { haptic(4); o.f(); }}
+                      className="text-[12.5px] whitespace-nowrap transition active:scale-95"
+                      style={{
+                        color: o.on ? TEXT : TEXT_MUTED,
+                        fontWeight: o.on ? 700 : 500,
+                        borderBottom: o.on ? `2px solid ${ACCENT}` : '2px solid transparent',
+                        paddingBottom: '1px',
+                      }}>{o.l}</button>
                   </React.Fragment>
                 ))}
               </div>
@@ -3334,7 +3483,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               <div className="flex items-center justify-center" style={{ width: v2 && lote25() ? 44 : 48, height: v2 && lote25() ? 44 : 48, borderRadius: v2 ? 999 : 12, background: v2 ? ACCENT_PASTEL : SURFACE_2, fontSize: v2 && lote25() ? 22 : 24, flexShrink: 0 }}>{recipe.icon}</div>)}
               {v2 ? (
                 <div className="flex-1 min-w-0" data-receta-tarjeta-v2 style={conFoto ? { padding: '12px 14px 12px 0', alignSelf: 'center' } : undefined}>
-                  <div className="truncate" style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em' }}>{recipe.name}</div>
+                  <div className="truncate" style={{ fontSize: 15.5, fontWeight: 750, color: TEXT, letterSpacing: '-0.01em' }}>{favs.includes(recipe.id) && <EstrellaV2 data-tarjeta-favorita size={15} weight="fill" color={AMARILLO} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 5 }} />}{recipe.name}</div>
                   <div className="truncate" style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 2 }}>
                     {lote25() ? null : <>{displaySlot(recipe.slot)} · </>}{recipe.time} · {COST_LABELS[META[recipe.id].cost]}{isHighProtein(recipe) && <> · <span style={{ color: '#2F7F45', fontWeight: 650 }}>Alta proteína</span></>}
                   </div>
@@ -3354,7 +3503,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                 </div>
               ) : (
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{recipe.name}</div>
+                <div className="font-bold text-[14.5px] truncate" style={{ color: TEXT }}>{favs.includes(recipe.id) && <span style={{ color: AMARILLO, marginRight: 4 }}>★</span>}{recipe.name}</div>
                 <div className="flex items-center gap-2 text-[12px] mt-1" style={{ color: TEXT_MUTED }}>
                   <span className="px-2 py-0.5 rounded-full font-bold" style={{ background: ACCENT_PASTEL, color: ACCENT_DARK, fontSize: 12 }}>{displaySlot(recipe.slot)}</span>
                   <span className="flex items-center gap-1"><Clock size={10} /> {recipe.time}</span>
@@ -3387,7 +3536,9 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           })()}
           {list.length === 0 && (
             <div className="text-center py-10 text-[13px]" style={{ color: TEXT_LIGHT }}>
-              {searching ? `Sin resultados para “${query}”.` : `Aún no hay recetas sugeridas para ${(SLOT_FILTERS.find(f => f.key === filterSlot)?.label || 'esta comida').toLowerCase()}. Pronto agregamos más.`}
+              {soloFav && !favs.length ? 'Aún no tienes recetas favoritas. Abre una receta y toca «Guardar como favorita», o escríbele al chat: «guarda el bowl mexicano como favorita».'
+                : (soloFav || veg) ? 'Ninguna receta cumple esos filtros.'
+                : searching ? `Sin resultados para “${query}”.` : `Aún no hay recetas sugeridas para ${(SLOT_FILTERS.find(f => f.key === filterSlot)?.label || 'esta comida').toLowerCase()}. Pronto agregamos más.`}
             </div>
           )}
         </div>
@@ -3436,6 +3587,12 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
                 <button key={f.key} onClick={() => { haptic(4); setFilterSlot(f.key); }} aria-pressed={filterSlot === f.key} style={opcionV2(filterSlot === f.key)}>{f.label}</button>
               ))}
             </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, margin: '16px 2px 8px' }}>Vegetales</div>
+            <div data-filtro-vegetales style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              {VEG_FILTROS.map(o => (
+                <button key={o.k || 'todas'} onClick={() => { haptic(4); setVeg(o.k); }} aria-pressed={veg === o.k} style={{ ...opcionV2(veg === o.k), fontSize: 13.5 }}>{o.l}</button>
+              ))}
+            </div>
             <div style={{ fontSize: 13, fontWeight: 700, color: TEXT_MUTED, margin: '16px 2px 8px' }}>Ordenar según</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {[{ k: 'reco', l: 'Recomendadas' }, { k: 'rapidos', l: 'Rápidas' }, { k: 'economicos', l: 'Económicas' }, { k: 'proteina', l: 'Alta proteína' }].map(o => (
@@ -3443,7 +3600,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-              <button onClick={() => { setFilterSlot('todas'); setSort('reco'); }} style={{ flex: 1, height: 48, borderRadius: 16, border: 'none', background: '#fff', fontFamily: 'inherit', fontSize: 15, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>Limpiar</button>
+              <button onClick={() => { setFilterSlot('todas'); setSort('reco'); setVeg(''); setSoloFav(false); }} style={{ flex: 1, height: 48, borderRadius: 16, border: 'none', background: '#fff', fontFamily: 'inherit', fontSize: 15, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>Limpiar</button>
               <button onClick={() => setAvanzada(false)} style={{ flex: 2, height: 48, borderRadius: 16, border: 'none', background: TEXT, fontFamily: 'inherit', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>Ver {list.length} recetas</button>
             </div>
           </div>
