@@ -12,10 +12,11 @@
 //   3. El ejercicio TERMINADO se pliega en una sola línea con su check. Lo
 //      hecho deja de ocupar pantalla; se despliega con un toque si hace falta.
 //
-// Las repeticiones se muestran como las recetó el coach (6-12, 15, 30 s) y las
-// cajitas van VACÍAS: rellenarlas con la vez pasada confundía. Lo de la
-// última vez y el récord están a un toque, en sus botones. En los ejercicios
-// de peso corporal solo se piden reps.
+// Las repeticiones se muestran como las recetó el coach (6-12, 15, 30 s). Las
+// cajitas traen EN GRIS lo de la última vez en esa serie (reps y peso): con
+// el ✓ se guarda tal cual, o se escribe encima. Sin última vez van vacías.
+// El historial y el récord están a un toque, en sus botones. En los
+// ejercicios de peso corporal solo se piden reps.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Play, Check, CaretDown, CaretUp, Fire, Barbell, Wind, Trophy, Info, ChatCircleText, Timer, ArrowsClockwise, ClockCounterClockwise, ListBullets, PushPin, VideoCamera } from '@phosphor-icons/react';
@@ -967,7 +968,12 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   const anterior = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps, false);
   const anteriorLeido = sinCarga ? null : textoSerieAnterior(re, n, unidad, soloReps);
   const asumido = sinCarga || soloReps ? null : pesoAsumido(re, n, unidad);
-  const metaReps = /^\s*\d+\s*$/.test(String(re.reps || '')) ? Number(re.reps) : null;
+  // Una sola regla: lo gris de las cajitas es lo de la última vez EN ESA
+  // serie (reps y peso). Con el ✓ se guarda tal cual; si hizo otra cosa,
+  // escribe encima. Sin última vez no hay gris: se escribe (la meta del
+  // coach es una sugerencia, no se pone sola).
+  const previa = sinCarga ? null : valoresSerieAnterior(re, n, unidad);
+  const repsAsumidas = previa && previa.reps != null ? previa.reps : null;
   // Ya marcada: contra el peso de la última vez, «= igual», «▲ +1,25» o «▼ −2,5».
   const cambio = (() => {
     if (!hecha || asumido == null || marcada?.peso == null) return null;
@@ -983,15 +989,6 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
   // marcar» (el check gris lo dice; en ámbar parecía hecha) y al terminar la
   // rutina se pregunta por ellas.
   const escrita = !hecha && !sinCarga && !!(String(reps).trim() || String(peso).trim());
-  // Un toque en lo de la última vez rellena las cajitas (sin marcar).
-  const rellenar = () => {
-    const v = valoresSerieAnterior(re, n, unidad);
-    if (!v || hecha) return;
-    if (v.reps != null) setReps(String(v.reps));
-    if (!soloReps && v.peso != null) setPeso(coma(v.peso));
-    if (falta) setFalta(false);
-    vibrar(8);
-  };
   useEffect(() => { asegurarCSS(); }, []);
   const celebrar = () => { setPop(p => p + 1); vibrar(12); };
 
@@ -1011,9 +1008,9 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       celebrar();
       return;
     }
-    // Peso corporal: la meta (12) se ve en gris en la cajita; si hizo esas,
-    // basta con marcar. Si la meta es un rango (8-12), hay que escribirlas.
-    const r = numero(reps) ?? (soloReps ? metaReps : null);
+    // Sin escribir las reps se guardan las de la última vez en esa serie:
+    // ya se ven en gris en la cajita. Si no hay última vez, hay que escribirlas.
+    const r = numero(reps) ?? repsAsumidas;
     // Sin reps no se marca: no se inventa un número. Se lleva el dedo a la cajita.
     if (r == null) { setFalta(true); repsRef.current && repsRef.current.focus(); return; }
     setFalta(false);
@@ -1083,7 +1080,7 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
       <div style={CAJA}>
         <input ref={repsRef} inputMode="numeric" value={reps} className="rv2-campo"
           onChange={ev => { setReps(ev.target.value); if (falta) setFalta(false); }}
-          placeholder={soloReps && !hecha && metaReps != null ? String(metaReps) : undefined}
+          placeholder={!hecha && repsAsumidas != null ? String(repsAsumidas) : undefined}
           aria-label={`Repeticiones serie ${n}`}
           style={campo(falta)} disabled={hecha} />
       </div>
@@ -1094,17 +1091,10 @@ function SerieFilaV2({ n, re, marcada, descansoSeg, unidad, onMarcar, onDesmarca
           aria-label={`Peso serie ${n}`} style={campo(false)} disabled={hecha} />
       </div>
       )}
-      {/* Lo que hizo en esta serie la última vez, en gris: de recordatorio. */}
+      {/* Lo que hizo en esta serie la última vez, en gris: solo de dato (no
+          se toca: las cajitas ya traen esos números en gris). */}
       {!sinCarga && hayUltima(re) && (
-        anterior && !hecha ? (
-          // Con aire a la derecha: el dedo no debe alcanzar el check al tocar el texto.
-          <button type="button" data-serie-anterior onClick={(e) => { e.stopPropagation(); rellenar(); }} aria-label={`Usar lo de la última vez en la serie ${n}: ${anteriorLeido}`} style={{
-            width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#737373',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums',
-            border: 0, background: 'none', padding: '6px 10px 6px 0', margin: 0, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box',
-            textDecoration: 'underline dotted', textDecorationColor: '#C7C7CC', textUnderlineOffset: 3,
-          }}>{anterior}</button>
-        ) : (
+        (
           <div data-serie-anterior style={{ width: ANCHO_ULTIMA, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#737373',
             whiteSpace: 'nowrap', overflow: cambio ? 'visible' : 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>
             {cambio

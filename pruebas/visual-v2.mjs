@@ -1558,12 +1558,13 @@ try {
   await banca.getByLabel('Repeticiones serie 2').fill('9'); await espera(200);
   ok('serie con números sin marcar: el check sigue gris (falta marcarla; nada se marca solo)', (await banca.locator('[data-serie="re-e1:2"]').getAttribute('data-escrita')) === '1'
     && await banca.getByRole('button', { name: 'Marcar serie 2' }).evaluate(b => getComputedStyle(b).color === 'rgb(199, 199, 204)'));
-  await banca.locator('[data-serie="re-e1:3"] [data-serie-anterior]').click(); await espera(200);
-  ok('tocar lo de la última vez rellena reps y peso de esa serie (sin marcarla ni arrancar el descanso)', (await banca.getByLabel('Repeticiones serie 3').inputValue()) === '7'
-    && (await banca.getByLabel('Peso serie 3').inputValue()) === '157' && (await banca.getByRole('button', { name: 'Marcar serie 3' }).count()) === 1
-    && (await p.locator('[data-descanso]').count()) === 0
-    && await banca.locator('[data-serie="re-e1:3"]').evaluate(el => { const t = el.querySelector('[data-serie-anterior]').getBoundingClientRect(); const c = el.querySelector('button[aria-label="Marcar serie 3"]').getBoundingClientRect(); const r = document.createRange(); r.selectNodeContents(el.querySelector('[data-serie-anterior]')); return c.left - r.getBoundingClientRect().right >= 16; }),
-    `${await banca.getByLabel('Repeticiones serie 3').inputValue()} / ${await banca.getByLabel('Peso serie 3').inputValue()}`);
+  // Una sola regla: las cajitas traen en gris lo de la última vez (reps y
+  // peso); lo de «Última» es solo un dato, no se toca.
+  ok('las cajitas traen en gris las reps y el peso de la última vez en esa serie', (await banca.getByLabel('Repeticiones serie 3').getAttribute('placeholder')) === '7'
+    && (await banca.getByLabel('Peso serie 3').getAttribute('placeholder')) === '157' && (await banca.getByLabel('Repeticiones serie 3').inputValue()) === '',
+    `${await banca.getByLabel('Repeticiones serie 3').getAttribute('placeholder')} / ${await banca.getByLabel('Peso serie 3').getAttribute('placeholder')}`);
+  ok('lo de la última vez es un dato: ni botón ni subrayado', await banca.locator('[data-serie="re-e1:3"] [data-serie-anterior]').evaluate(el => el.tagName !== 'BUTTON' && !/underline/.test(getComputedStyle(el).textDecorationLine)));
+  await banca.getByLabel('Repeticiones serie 3').fill('7'); await banca.getByLabel('Peso serie 3').fill('157'); await espera(200);
   await foto(p, '04f5-escritas-ambar');
   await p.locator('[data-terminar]').click();
   await p.locator('[data-escritas]').waitFor({ timeout: 5000 });
