@@ -325,6 +325,11 @@ async function verPlan(cliente, hoy) {
       dias_semana: fase.dias_semana || [],
     },
     dias,
+    // Las rutinas de fuerza que ya TERMINÓ hoy (sin los bloques aparte): la
+    // app avisa antes de empezar una segunda el mismo día.
+    hechas_hoy: sesiones.filter(x => x.fecha === hoy && x.estado === 'completada' && x.rutina_id)
+      .map(x => lista.find(r => r.id === x.rutina_id)).filter(r => r && !esComplementaria(r))
+      .map(r => ({ id: r.id, nombre: r.nombre })),
     extra: { detalle: extraSemana, bono: bonoExtra(extraSemana), penal: penalSemana },
     // Rutinas que no cupieron en el calendario: el coach armó más días de
     // entreno que días declaró en la fase. Se muestran igual, sueltas, en vez

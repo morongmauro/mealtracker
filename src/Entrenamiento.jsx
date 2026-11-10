@@ -812,26 +812,53 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     fijarClaveTecleado(`${rutinaId}:${fecha}`);
     return () => fijarClaveTecleado(null);
   }, [rutinaId, fecha, planeada]);
-  // Vista en prueba: abierta desde OTRO día del calendario (sin moverla), al
-  // marcar lo primero se pregunta si se pasa a hoy. Una vez por rutina y día.
-  const [preguntaMover, setPreguntaMover] = useState(false);
-  const [movida, setMovida] = useState(null);       // { ok, texto } tras responder
+  // LA RUTINA SE ANOTA EL DÍA QUE LA HACE (sin preguntar). Si entrena hoy una
+  // rutina que era de otro día de esta semana, al marcar lo primero se pasa
+  // sola a hoy y se le dice. Reglas para que nada se le pierda de vista:
+  //   · hoy estaba libre → la rutina pasa a hoy;
+  //   · hoy tocaba otra y la que hace era de un día que VIENE → se cambian de
+  //     día (la de hoy queda para ese día) y el aviso dice a cuál;
+  //   · hoy tocaba otra y la que hace era de un día que YA PASÓ → no se mueve
+  //     nada: la de hoy sigue hoy. Igual cuenta como hecha esta semana (la
+  //     semana empareja lo entrenado con lo planeado: asignarSesiones).
+  // Una vez por rutina y día. Si luego quiere otro día, la arrastra en su
+  // calendario, como siempre.
+  const [movida, setMovida] = useState(null);       // { ok, texto } tras moverla
   const claveMover = `mt:preguntoMover:${rutinaId}:${fecha}`;
   const alEmpezar = useCallback(() => {
     if (!enPrueba()) return;
     guardarRutinaEnCurso({ id: rutinaId, fecha, nombre: (datos && datos.nombre) || '' });
-    if (!planeada || planeada === fecha) return;
+    const dias = (plan && plan.dias) || [];
+    const hoyD = dias.find(d => d.fecha === fecha) || null;
+    if (hoyD && hoyD.rutina && hoyD.rutina.id === rutinaId) return;          // hoy es su día
+    if (hoyD && hoyD.rutina && (hoyD.en_curso || hoyD.hecha)) return;        // la de hoy ya la empezó o la hizo: no se toca
+    const suDia = planeada || (dias.find(d => d.rutina && d.rutina.id === rutinaId && !d.hecha && d.fecha !== fecha) || {}).fecha || null;
+    if (!suDia || suDia === fecha) return;
+    const hoyLibre = !!hoyD && !hoyD.rutina;
+    if (!(suDia > fecha || hoyLibre)) return;                                // sin cambios hacia atrás
     try { if (localStorage.getItem(claveMover)) return; localStorage.setItem(claveMover, '1'); } catch (e) { /* sin almacenamiento */ }
-    setPreguntaMover(true);
-  }, [rutinaId, fecha, planeada, datos, claveMover]);
-  const pasarAHoy = async () => {
-    setPreguntaMover(false);
-    const r = await entrenoApi.mover(name, { desde: planeada, hasta: fecha, rutina_id: rutinaId }).catch(() => null);
-    setMovida(r && r.ok
-      ? { ok: true, texto: r.intercambio ? `Listo: quedó hoy, y ${r.intercambio.nombre} pasó al ${diaDe(planeada)}.` : 'Listo: quedó hoy en tu calendario.' }
-      : { ok: false, texto: r && r.motivo === 'semana_pasada' ? 'Ese día ya es de otra semana: queda como entreno de hoy.' : 'No se movió ahora. Lo que marques queda guardado igual.' });
-    setTimeout(() => setMovida(null), 4200);
-  };
+    entrenoApi.mover(name, { desde: suDia, hasta: fecha, rutina_id: rutinaId }).then((r) => {
+      if (!r || !r.ok) return;                                               // no se pudo: lo marcado queda guardado igual
+      const esta = (datos && datos.nombre) || 'Tu rutina';
+      setMovida({ ok: true, texto: r.intercambio ? `${esta} quedó hoy. ${r.intercambio.nombre} pasó al ${diaDe(suDia)}.` : `${esta} quedó hoy en tu calendario.` });
+      setTimeout(() => setMovida(null), 7000);
+    }).catch(() => {});
+  }, [rutinaId, fecha, planeada, datos, claveMover, plan, name]);
+  // DOS RUTINAS EL MISMO DÍA: si hoy ya terminó otra rutina de fuerza, al
+  // abrir esta se le pregunta antes (una vez por rutina y día). Los bloques
+  // aparte (un recovery) no cuentan ni preguntan.
+  const claveOtraHoy = `mt:otraHoy:${rutinaId}:${fecha}`;
+  const yaHoy = ((plan && plan.hechas_hoy) || []);
+  const [avisoOtraHoy, setAvisoOtraHoy] = useState(() => {
+    if (fechaSesion || fecha !== hoyLocal()) return null;
+    if (yaHoy.some(r => r.id === rutinaId)) return null;                     // esta ya está hecha hoy: la está viendo
+    if (((plan && plan.dias) || []).some(d => (d.complementarias || []).some(c => c.id === rutinaId))) return null;
+    const otra = yaHoy.find(r => r.id !== rutinaId);
+    if (!otra) return null;
+    try { if (localStorage.getItem(claveOtraHoy)) return null; } catch (e) { /* sin almacenamiento */ }
+    return otra.nombre;
+  });
+  const hacerOtraHoy = () => { try { localStorage.setItem(claveOtraHoy, '1'); } catch (e) { /* sin almacenamiento */ } setAvisoOtraHoy(null); };
   // Visual nueva: cuándo arrancó el entreno (la primera serie marcada), para
   // el reloj de la sesión. Se recuerda en el teléfono por si cierra y vuelve.
   const claveInicio = `mt:inicioEntreno:${rutinaId}:${fecha}`;
@@ -1537,18 +1564,16 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
     <>
       {/* Vista en prueba: la barra de avance va arriba del todo y trae el «Volver». */}
       {totalSeries > 0 && v2 && prueba ? <>{veloArriba}{barraAvance}</> : <Volver onClick={onVolver} />}
-      {/* Abierta desde otro día del calendario: ¿se pasa a hoy? */}
-      <Hoja abierta={preguntaMover} alCerrar={() => setPreguntaMover(false)} titulo="Rutina · ¿La pasas a hoy?" alto="80vh">
-        <div data-pregunta-mover style={{ fontSize: 15, lineHeight: 1.45, color: TEXT }}>
-          Esta rutina estaba para el <b>{planeada ? diaDe(planeada) : ''}</b>. Si la haces hoy, la paso a hoy para que tu calendario quede al día.
+      {/* Hoy ya terminó otra rutina: antes de empezar una segunda, se le pregunta. */}
+      <Hoja abierta={!!avisoOtraHoy} alCerrar={onVolver} titulo="Hoy ya entrenaste" alto="80vh">
+        <div data-otra-hoy style={{ fontSize: 15, lineHeight: 1.45, color: TEXT }}>
+          Hoy ya terminaste <b>{avisoOtraHoy}</b>. ¿Vas a hacer otra rutina hoy?
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
-          <Boton ancho onClick={pasarAHoy} data-pasar-hoy>Pasarla a hoy</Boton>
-          <Boton ancho variante="suave" data-dejarla onClick={() => setPreguntaMover(false)} style={{ border: 'none', background: 'rgba(118,118,128,0.12)' }}>Dejarla el {planeada ? diaDe(planeada) : ''}</Boton>
+          <Boton ancho onClick={onVolver} data-otra-hoy-volver>No, volver</Boton>
+          <Boton ancho variante="suave" data-otra-hoy-seguir onClick={hacerOtraHoy} style={{ border: 'none', background: 'rgba(118,118,128,0.12)' }}>Sí, hacer otra hoy</Boton>
         </div>
-        {/* El reloj del descanso arranca con la misma serie y flota abajo:
-            los botones quedan por encima de él. */}
-        <div aria-hidden="true" style={{ height: 'calc(var(--mt-reloj-alto, 0px) + 48px)' }} />
+        <div aria-hidden="true" style={{ height: 24 }} />
       </Hoja>
       {movida && createPortal(
         <div role="status" data-aviso-movida style={{

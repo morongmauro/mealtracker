@@ -2271,6 +2271,7 @@ try {
   {
     const u = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => { db.db.fases[0].fecha_inicio = hace(11); } });
     const av = u.p.locator('[data-aviso-ciclo]');
+    await u.ctx.clock.runFor(2500);   // la ventana sale 1,5 s después de abrir (el reloj de la prueba está congelado)
     await av.waitFor({ timeout: 10000 }).catch(() => {});
     await espera(600);
     ok('ciclo: en la última semana, al abrir, sale la ventana «Última semana. Ciérrala fuerte.» con la línea del ciclo y las cifras', (await av.count()) === 1
@@ -2927,23 +2928,69 @@ try {
     await foto(p, '40f-prueba-continuar');
     await p.locator('[data-continuar-rutina]').click(); await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }); await espera(500);
     ok('…«Continuar» vuelve a la rutina con lo marcado', (await p.locator('[data-avance-rutina] [data-segmento="hecho"]').count()) >= 1);
-    ok('rutina (prueba): la del lunes ya estaba hecha, así que no pregunta si se pasa a hoy', (await p.locator('[data-pregunta-mover]').count()) === 0);
-    // La del miércoles (sin hacer), abierta hoy martes: al marcar lo primero pregunta si se pasa a hoy.
+    ok('rutina: ya no existe la pregunta «¿La pasas a hoy?»', (await p.locator('[data-pregunta-mover]').count()) === 0);
+    // La del miércoles (sin hacer), abierta hoy martes, con la de hoy ya empezada: no se mueve nada (la de hoy no se toca).
     await p.locator('[data-volver-semana]').click(); await espera(1200);
     await p.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${sumarDiasISO(lunes, 2)}"] [data-chip]`).first().click(); await espera(1500);
     const sent = p.locator('[data-ejercicio="Barbell Back Squat"]');
     await sent.getByLabel('Repeticiones serie 1').fill('6');
-    await sent.getByRole('button', { name: 'Marcar serie 1' }).click();
-    await p.locator('[data-pregunta-mover]').waitFor({ timeout: 4000 }).catch(() => {});
-    const txtMover = await p.locator('[data-pregunta-mover]').innerText().catch(() => '');
-    ok('rutina (prueba): abierta desde otro día sin hacer, al marcar la primera serie pregunta si se pasa a hoy', /estaba para el miércoles \d+/.test(txtMover) && (await p.locator('[data-pasar-hoy]').count()) === 1, txtMover);
-    await foto(p, '40g-prueba-pasar-hoy');
-    await p.getByRole('button', { name: /^Dejarla el miércoles/ }).click().catch(() => {}); await espera(300);
-    await sent.getByLabel('Repeticiones serie 2').fill('6');
-    await sent.getByRole('button', { name: 'Marcar serie 2' }).click(); await espera(400);
-    ok('…pregunta una sola vez', (await p.locator('[data-pregunta-mover]').count()) === 0);
-    ok('sin errores de JavaScript (vista en prueba)', vp.errores.length === 0, vp.errores.join(' | '));
+    await sent.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(900);
+    ok('rutina de otro día con la de hoy ya empezada: ni pregunta ni mueve (la de hoy no se toca)', (await p.locator('[data-pregunta-mover]').count()) === 0
+      && (vp.db.db.rutina_movimientos || []).length === 0 && (await p.locator('[data-aviso-movida]').count()) === 0, JSON.stringify(vp.db.db.rutina_movimientos || []));
     await vp.ctx.close();
+    // Con la de hoy sin tocar: la del miércoles hecha hoy se pasa sola a hoy, y la de hoy queda para el miércoles (con aviso que lo dice).
+    {
+      let nomX = null, nomHoy = null;
+      const vm = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null, 'mt:avisoPesoIgual': '1', 'mt:tipIconosRutina': '1' }, ajustar: (db) => {
+        nomX = ((db.db.rutinas || []).find(r => (r.dias_semana || []).includes('X')) || {}).nombre || null;
+        nomHoy = ((db.db.rutinas || []).find(r => (r.dias_semana || []).includes('M')) || {}).nombre || null;
+      } });
+      const m = vm.p;
+      await vm.ctx.clock.runFor(3500); await espera(1500); await m.evaluate(() => document.body.classList.add('app-ready'));
+      await m.locator('[data-seccion-boton="entreno"]').first().click(); await espera(1500);
+      await m.locator('[data-barra-v2]').getByRole('button', { name: 'Calendario', exact: true }).first().click(); await espera(1800);
+      await m.locator(`[data-fecha="${sumarDiasISO(lunes, 2)}"]`).first().click(); await espera(1400);
+      await m.getByText(nomX, { exact: true }).last().click(); await vm.ctx.clock.runFor(1500); await espera(1800);
+      if (await m.locator('[data-entrenar-hoy]').count()) { await m.locator('[data-entrenar-hoy]').click(); await espera(1200); }
+      const hoyRut = nomHoy;
+      const sq = m.locator('[data-ejercicio="Barbell Back Squat"]');
+      await sq.getByLabel('Repeticiones serie 1').fill('6');
+      await sq.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(1200);
+      const mv = (vm.db.db.rutina_movimientos || [])[0];
+      const aviso = await m.locator('[data-aviso-movida]').innerText().catch(() => '');
+      ok('rutina de otro día (que viene), con la de hoy sin tocar: se pasa sola a hoy, sin preguntar', (await m.locator('[data-pregunta-mover]').count()) === 0
+        && !!mv && mv.desde === sumarDiasISO(lunes, 2) && mv.hasta === hoy, JSON.stringify(mv || null));
+      ok('…y el aviso dice dónde quedó cada una («… quedó hoy. … pasó al miércoles …»)', /quedó hoy/.test(aviso) && (!hoyRut || /pasó al miércoles/.test(aviso)), `${aviso} · hoy tocaba: ${hoyRut}`);
+      await foto(m, '40g-rutina-pasa-sola');
+      ok('sin errores de JavaScript (rutina de otro día)', vm.errores.length === 0, vm.errores.join(' | '));
+      await vm.ctx.close();
+    }
+    // Dos rutinas el mismo día: con una ya terminada hoy, al abrir otra pregunta antes.
+    {
+      let nomX2 = null;
+      const vo = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null, 'mt:avisoPesoIgual': '1', 'mt:tipIconosRutina': '1' }, ajustar: (db) => {
+        nomX2 = ((db.db.rutinas || []).find(r => (r.dias_semana || []).includes('X')) || {}).nombre || null;
+        const rHoy = (db.db.rutinas || []).find(r => (r.dias_semana || []).includes('M')) || (db.db.rutinas || [])[0];
+        db.db.sesiones.push({ id: 'ses-hoy-hecha', cliente_id: (db.db.sesiones[0] || {}).cliente_id || rHoy.cliente_id, rutina_id: rHoy.id, fase_id: rHoy.fase_id, fecha: hoy, estado: 'completada', finalizada_en: `${hoy}T15:00:00Z`, created_at: `${hoy}T14:00:00Z` });
+      } });
+      const o = vo.p;
+      await vo.ctx.clock.runFor(3500); await espera(1500); await o.evaluate(() => document.body.classList.add('app-ready'));
+      await o.locator('[data-seccion-boton="entreno"]').first().click(); await espera(1500);
+      await o.locator('[data-barra-v2]').getByRole('button', { name: 'Calendario', exact: true }).first().click(); await espera(1800);
+      await o.locator(`[data-fecha="${sumarDiasISO(lunes, 2)}"]`).first().click(); await espera(1400);
+      await o.getByText(nomX2, { exact: true }).last().click(); await vo.ctx.clock.runFor(1500); await espera(1800);
+      if (await o.locator('[data-entrenar-hoy]').count()) { await o.locator('[data-entrenar-hoy]').click(); await espera(1200); }
+      const txtOtra = await o.locator('[data-otra-hoy]').innerText().catch(() => '');
+      ok('dos rutinas el mismo día: al abrir otra con una ya terminada hoy, pregunta antes («Hoy ya terminaste …»), con «No, volver» primero',
+        /Hoy ya terminaste .+\. ¿Vas a hacer otra rutina hoy\?/.test(txtOtra.replace(/\s+/g, ' ')) && (await o.locator('[data-otra-hoy-volver]').count()) === 1
+        && await o.evaluate(() => { const a = document.querySelector('[data-otra-hoy-volver]'), b = document.querySelector('[data-otra-hoy-seguir]'); return !!a && !!b && a.getBoundingClientRect().top < b.getBoundingClientRect().top; }), txtOtra);
+      await foto(o, '40h-otra-rutina-hoy');
+      await o.locator('[data-otra-hoy-seguir]').click(); await espera(500);
+      ok('…«Sí, hacer otra hoy» la deja seguir y no vuelve a preguntar', (await o.locator('[data-otra-hoy]').count()) === 0 && (await o.locator('[data-ejercicio]').count()) >= 1);
+      ok('sin errores de JavaScript (dos rutinas el mismo día)', vo.errores.length === 0, vo.errores.join(' | '));
+      await vo.ctx.close();
+    }
+    ok('sin errores de JavaScript (vista en prueba)', vp.errores.length === 0, vp.errores.join(' | '));
   }
 
   // ── Vista compacta (por ahora solo Mauro): se activa en Configuración ──
