@@ -831,10 +831,10 @@ try {
     const q = vp.p;
     await q.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
     await q.evaluate(() => document.body.classList.add('app-ready'));
-    const btn = q.getByRole('button', { name: 'Profundiza en tu composición' });
+    const btn = q.locator('[data-ver-mas="composicion"]');
     await btn.waitFor({ timeout: 15000 });
     await btn.evaluate(el => el.scrollIntoView({ block: 'center' })); await espera(500);
-    ok('composición: el Dash trae «Profundiza en tu composición», como los otros', (await btn.count()) === 1);
+    ok('composición: el Dash trae su «Ver más ›» en el título, como los otros bloques', (await btn.count()) === 1);
     await foto(q, 'composicion-dash');
     await btn.click();
     const ref = q.locator('[data-referencia-grasa]');
@@ -999,11 +999,14 @@ try {
   ok('saludo que empuja (no «un día a la vez»)', (await dash.getByText(/Un día a la vez/).count()) === 0);
   ok('secciones: performance semanal, composición corporal y aprendizaje', (await dash.getByText('Composición corporal', { exact: true }).count()) === 1
     && (await dash.getByText('Aprendizaje', { exact: true }).count()) === 1 && (await dash.getByText('Tu cuerpo', { exact: true }).count()) === 0);
-  ok('entreno de la semana: fuerza, cardio, lo del coach y lo extra', /Días de cardio/.test(await dash.locator('[data-semana-entreno]').innerText())
-    && /Lo que te puso tu coach/.test(await dash.locator('[data-semana-entreno]').innerText()) && /Actividad extra/.test(await dash.locator('[data-semana-entreno]').innerText()));
-  ok('comida: promedio en % y en números, y días cerca / lejos', /%/.test(await dash.locator('[data-comida-promedio]').innerText())
+  ok('entreno de la semana: cardio y lo del coach; lo que está en cero o vacío no sale (actividad extra 0, intensidad sin marcar)', /Días de cardio/.test(await dash.locator('[data-semana-entreno]').innerText())
+    && /Lo que te puso tu coach/.test(await dash.locator('[data-semana-entreno]').innerText()) && !/Actividad extra|Sin marcar|Sin entrenos/.test(await dash.locator('[data-semana-entreno]').innerText()),
+    await dash.locator('[data-semana-entreno]').innerText());
+  ok('comida: promedio en % y en números, y los días cerca de la meta en una línea sin caja (ya no hay cajitas de «lejos» ni «sin registrar»)', /%/.test(await dash.locator('[data-comida-promedio]').innerText())
     && /de 2\.400 kcal/.test(await dash.locator('[data-comida-promedio]').innerText())
-    && (await dash.getByText(/cerca de tu meta/).count()) === 1 && (await dash.getByText(/lejos de tu meta/).count()) === 1);
+    && /^\d de 7 días cerca de tu meta$/.test((await dash.locator('[data-comida-cerca]').innerText()).replace(/\s+/g, ' ').trim())
+    && await dash.locator('[data-comida-cerca]').evaluate(el => getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)')
+    && (await dash.getByText(/lejos de tu meta/).count()) === 0, await dash.locator('[data-comida-cerca]').innerText().catch(() => 'sin línea'));
   // (El diálogo «No hay retos» se fue con el botón: Reto vuelve cuando haya un reto.)
   ok('Reto: sin reto no hay botón ni diálogo', (await p.getByRole('dialog', { name: 'Retos' }).count()) === 0);
   // El bloque HOY: primero lo que toca hoy (lo del coach, la comida), con
@@ -1020,9 +1023,21 @@ try {
   await verTodos.click(); await espera(250);
   ok('Dash HOY: los íconos son de línea, sin círculo de fondo (no parecen botones)', await dash.locator('[data-icono-hoy]').count() >= 1
     && await dash.locator('[data-icono-hoy]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)' && !!el.querySelector('svg')));
-  ok('Dash: los íconos de la tarjeta de Entrenamiento también son de línea, sin círculo', (await dash.locator('[data-icono-fila]').count()) >= 3
+  ok('Dash: los íconos de la tarjeta de Entrenamiento también son de línea, sin círculo', (await dash.locator('[data-icono-fila]').count()) >= 2
     && await dash.locator('[data-icono-fila]').first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)' && !!el.querySelector('svg')));
-  ok('Dash: «Profundiza» un tono más oscuro que los bloques crema', await dash.getByRole('button', { name: /Profundiza/ }).first().evaluate(el => getComputedStyle(el).backgroundColor === 'rgb(235, 230, 220)'));
+  ok('Dash claro: una sola puerta por bloque («Ver más ›» en píldora, a la derecha del título) y ningún botón largo «Profundiza…»', await dash.evaluate(() => {
+    const ps = [...document.querySelectorAll('[data-view="dash"] [data-ver-mas]')];
+    const prof = [...document.querySelectorAll('[data-view="dash"] button')].filter(b => /^Profundiza|^Ver el resumen completo/.test(b.innerText.trim()));
+    return ps.length >= 3 && prof.length === 0 && ps.every(b => { const cs = getComputedStyle(b), r = b.getBoundingClientRect(), fila = b.parentElement.getBoundingClientRect();
+      return /›/.test(b.textContent) && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(cs.borderTopLeftRadius) > 10 && fila.right - r.right < 12; });
+  }), JSON.stringify(await dash.evaluate(() => [...document.querySelectorAll('[data-view="dash"] [data-ver-mas]')].map(b => b.dataset.verMas))));
+  ok('Dash claro: un título por bloque (sin «Peso y % de grasa», «Centro de aprendizaje» ni «Resumen de…»)', await dash.evaluate(() => !/Peso y % de grasa|Centro de aprendizaje|Lo que has leído, visto|Resumen de /.test(document.querySelector('[data-view="dash"]').innerText)));
+  ok('Dash claro: los datos van sin caja (peso, % de grasa y las cifras del mes) y «+ Registrar» en píldora', await dash.evaluate(() => {
+    const plano = (el) => getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)';
+    const d = [...document.querySelectorAll('[data-view="dash"] [data-dato], [data-view="dash"] [data-cifra-mes]')];
+    const reg = document.querySelector('[data-view="dash"] [data-registrar-medida]');
+    return d.length >= 2 && d.every(plano) && !!reg && !plano(reg) && parseFloat(getComputedStyle(reg).borderTopLeftRadius) > 10;
+  }));
   ok('Dash: «Ver todo» despliega el resto (programa, cápsulas, videos)', (await dash.locator('[data-recordatorio]').count()) > nRec
     && /Sobre el programa|cápsula|video/i.test(await dash.locator('[data-recordatorios-dash]').innerText()));
   // El coach se entera de qué le sale: lo de hoy a la vista, y al abrir
@@ -1105,7 +1120,7 @@ try {
     && /Alimentación/.test(txtEx) && /\d de 7 días registrados/.test(txtEx) && /aprendizaje no entra/i.test(txtEx), txtEx);
   await foto(p, '01d-explicacion-semana');
   await p.keyboard.press('Escape'); await espera(300);
-  ok('Dash: intensidad sin raya cuando no hay entrenos', (await dash.locator('[data-sin-intensidad]').count()) === 1 && /Sin/.test(await dash.locator('[data-sin-intensidad]').innerText()));
+  ok('Dash: sin intensidad marcada, esa fila no sale (ni raya ni «Sin marcar»)', (await dash.locator('[data-sin-intensidad]').count()) === 0 && !/Intensidad promedio/.test(await dash.locator('[data-semana-entreno]').innerText()));
   // Respiración guiada: 1, 3 o 5 min, el disco que respira, sin guardar nada.
   {
     const antes = await p.evaluate(() => Object.keys(localStorage).filter(k => /respir|racha/i.test(k)).join('|'));
@@ -1171,7 +1186,7 @@ try {
     (await p.locator('[data-linea-peso] svg:not([data-pista-linea] svg)').count()) === 1 && (await p.locator('[data-linea-grasa] svg:not([data-pista-linea] svg)').count()) === 1
     && await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height <= 62),
     String(await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height)));
-  await p.getByRole('button', { name: /Profundiza en tus gráficas de entrenamiento/ }).click();
+  await p.locator('[data-ver-mas="entreno"]').click();
   await p.getByText('Fuerza · tu 1RM estimado', { exact: true }).waitFor({ timeout: 10000 });
   ok('Profundiza entrenamiento: primero constancia, luego intensidad, fuerza (1RM explicado) y progreso de pesos',
     await p.evaluate(() => {
@@ -1193,7 +1208,7 @@ try {
   await espera(400);
   await foto(p, '03b-profundiza-entreno');
   await p.getByRole('button', { name: /Dash/ }).first().click();
-  await p.getByRole('button', { name: /Profundiza en tus gráficas de alimentación/ }).click();
+  await p.locator('[data-ver-mas="comida"]').click();
   await p.getByText('Días registrados', { exact: true }).waitFor({ timeout: 10000 });
   await espera(400);
   await foto(p, '03c-profundiza-comida');
@@ -1217,11 +1232,11 @@ try {
   await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
   // Aprendizaje: la tarjeta y su «Profundiza»
   await p.locator('[data-aprende]').waitFor({ timeout: 8000 });
-  ok('aprendizaje: % completado con lo que vio del centro', /\d+ %/.test(await p.locator('[data-aprende]').innerText())
-    && /Sobre el programa\s*1\/4/.test(await p.locator('[data-aprende]').innerText()), await p.locator('[data-aprende]').innerText());
+  ok('aprendizaje: el avance por bloque en barras, sin el aro del «% completado»', !/completado/.test(await p.locator('[data-aprende]').innerText())
+    && /Sobre el programa\s*1\/4/.test(await p.locator('[data-aprende]').innerText()) && (await p.locator('[data-aprende] [data-aro-tocar]').count()) === 0, await p.locator('[data-aprende]').innerText());
   await p.locator('[data-aprende]').scrollIntoViewIfNeeded();
   await foto(p, '03e-dash-aprendizaje');
-  await p.getByRole('button', { name: /Profundiza en tu aprendizaje/ }).click();
+  await p.locator('[data-ver-mas="aprende"]').click();
   await p.getByText('Tu aprendizaje', { exact: true }).waitFor({ timeout: 5000 });
   ok('profundiza aprendizaje: pieza por pieza', (await p.getByText('El método y sus pilares').count()) === 1 && (await p.getByText('Seguir aprendiendo').count()) >= 1);
   await espera(300);

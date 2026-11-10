@@ -189,7 +189,7 @@ export function alimentosDestacados(detalle = {}, hoy = hoyLocal(), dias = 30) {
 // Cifra compacta: la etiqueta con el número al lado, y el cambio debajo.
 function Dato({ etiqueta, valor, unidad, pie, color }) {
   return (
-    <div data-dato style={{ flex: 1, minWidth: 0, background: CREMA, borderRadius: 14, padding: '8px 11px' }}>
+    <div data-dato style={{ flex: 1, minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
         <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_MUTED, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           {color && <span style={{ width: 7, height: 7, borderRadius: 99, background: color, flex: 'none' }} />}{etiqueta}
@@ -206,7 +206,24 @@ function Dato({ etiqueta, valor, unidad, pie, color }) {
 
 // Pastilla crema con ícono y texto en negrita: los atajos de arriba.
 
-// Botón de «Profundiza»: toda la fila se toca.
+// DASH CLARO · cinco reglas para que se sepa qué se toca y nada estorbe:
+//   A. Una sola puerta por bloque, siempre en el mismo sitio: «Ver más ›»,
+//      en píldora, arriba a la derecha (ya no hay botones largos al final).
+//   B. Si tiene relleno, se toca. Un dato va sin caja.
+//   C. Lo que está en cero o vacío no sale.
+//   D. Un título por bloque.
+//   E. Primero lo que invita (en Aprendizaje, «Lo próximo para ti»).
+function VerMas({ onClick, children = 'Ver más', que }) {
+  return (
+    <button type="button" data-ver-mas={que} onClick={onClick} style={{
+      border: 'none', background: 'rgba(118,118,128,0.13)', borderRadius: 999, padding: '5px 11px', display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: '#2F6CC4', cursor: 'pointer', whiteSpace: 'nowrap', flex: 'none', alignSelf: 'center',
+    }}>{children}<span aria-hidden="true" style={{ fontWeight: 800 }}>›</span></button>
+  );
+}
+
+// Botón de «Profundiza»: toda la fila se toca. (Lo usan las pantallas de
+// adentro; en el Dash la puerta es «Ver más ›».)
 function Profundiza({ children, onClick, color }) {
   return (
     <button onClick={onClick} style={{
@@ -270,16 +287,6 @@ function FilaSemana({ Icono, etiqueta, valor }) {
       </span>
       <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: TEXT_MUTED, lineHeight: 1.25 }}>{etiqueta}</span>
       <span style={{ fontSize: 15, fontWeight: 750, color: TEXT, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{valor}</span>
-    </div>
-  );
-}
-
-// Una pastillita de conteo: «5 días cerca de tu meta».
-function Conteo({ n, texto, color, fondo }) {
-  return (
-    <div style={{ flex: 1, minWidth: 0, background: fondo, borderRadius: 14, padding: '9px 11px' }}>
-      <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1, letterSpacing: '-0.02em' }}>{n ?? '—'}</div>
-      <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 3, lineHeight: 1.25 }}>{texto}</div>
     </div>
   );
 }
@@ -642,7 +649,8 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
 
       {/* Protagonista 1: entrenamiento */}
       {entrenoOn && (
-        <Tarjeta titulo="Entrenamiento" detalle={ent?.semana ? `Esta semana · ${fechaCorta(ent.semana.desde)} al ${fechaCorta(ent.semana.hasta)}` : 'Esta semana'}>
+        <Tarjeta titulo="Entrenamiento" accion={<VerMas que="entreno" onClick={() => setVista('entreno')} />}
+          detalle={ent?.semana ? `Esta semana · ${fechaCorta(ent.semana.desde)} al ${fechaCorta(ent.semana.hasta)}` : 'Esta semana'}>
           {falloEnt ? (
             <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>
               No pude traer tus datos. <button onClick={cargar} style={{ border: 'none', background: 'none', color: AZUL, fontWeight: 700, fontFamily: 'inherit', fontSize: 14, padding: 0, cursor: 'pointer' }}>Reintentar</button>
@@ -665,13 +673,11 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
                   })} />;
               })()}
               <div data-semana-entreno style={{ flex: 1, minWidth: 0 }}>
-                <FilaSemana Icono={Heartbeat} etiqueta="Días de cardio" valor={ent?.semana ? ent.semana.cardio.dias : '—'} />
-                <FilaSemana Icono={CalendarCheck} etiqueta="Lo que te puso tu coach"
-                  valor={ent?.semana ? (ent.semana.coach.total ? `${ent.semana.coach.hechos}/${ent.semana.coach.total}` : '—') : '—'} />
-                <FilaSemana Icono={Sparkle} etiqueta="Actividad extra" valor={ent?.semana ? `${ent.semana.extra.dias} ${ent.semana.extra.dias === 1 ? 'día' : 'días'}` : '—'} />
-                <FilaSemana Icono={Gauge} etiqueta="Intensidad promedio"
-                  valor={ent?.semana?.intensidad?.prom != null ? `${fmt(ent.semana.intensidad.prom, 1)}/10`
-                    : <span data-sin-intensidad style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT }}>{semana && semana.hechos > 0 ? 'Sin marcar' : 'Sin entrenos aún'}</span>} />
+                {/* Lo que está en cero o vacío no sale: una fila aparece cuando hay algo que contar. */}
+                {ent?.semana?.cardio?.dias > 0 && <FilaSemana Icono={Heartbeat} etiqueta="Días de cardio" valor={ent.semana.cardio.dias} />}
+                {ent?.semana?.coach?.total > 0 && <FilaSemana Icono={CalendarCheck} etiqueta="Lo que te puso tu coach" valor={`${ent.semana.coach.hechos}/${ent.semana.coach.total}`} />}
+                {ent?.semana?.extra?.dias > 0 && <FilaSemana Icono={Sparkle} etiqueta="Actividad extra" valor={`${ent.semana.extra.dias} ${ent.semana.extra.dias === 1 ? 'día' : 'días'}`} />}
+                {ent?.semana?.intensidad?.prom != null && <FilaSemana Icono={Gauge} etiqueta="Intensidad promedio" valor={`${fmt(ent.semana.intensidad.prom, 1)}/10`} />}
                 {(() => { const pe = progresoEntreno(semana); return pe && pe.pendientes > 0 && (
                   <div data-sin-hacer style={{ fontSize: 12.5, color: '#B4541D', fontWeight: 600, paddingTop: 7 }}>{pe.pendientes} rutina{pe.pendientes === 1 ? '' : 's'} que ya tocaba{pe.pendientes === 1 ? '' : 'n'} sin hacer</div>
                 ); })()}
@@ -680,11 +686,11 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
           )}
           {/* Lo que movió su performance aparte de la fuerza: el cardio y los
               deportes suman; lo del coach sin marcar resta poquito. */}
-          {!falloEnt && ent?.semana && (ent.semana.bono > 0 || ent.semana.penal > 0) && (
+          {/* El «+1 por cardio y deportes» ya no va suelto (no se entendía): se
+              explica al tocar el aro. Lo del coach sin marcar sí se dice. */}
+          {!falloEnt && ent?.semana && ent.semana.penal > 0 && (
             <div data-puntos-extra style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 10, lineHeight: 1.45 }}>
-              {ent.semana.bono > 0 && <span><b style={{ color: '#2F7F45' }}>+{ent.semana.bono}</b> por cardio y deportes</span>}
-              {ent.semana.bono > 0 && ent.semana.penal > 0 && ' · '}
-              {ent.semana.penal > 0 && <span><b style={{ color: '#B5552B' }}>−{String(ent.semana.penal).replace('.', ',')}</b> por lo de tu coach sin marcar</span>}
+              <span><b style={{ color: '#B5552B' }}>−{String(ent.semana.penal).replace('.', ',')}</b> por lo de tu coach sin marcar</span>
             </div>
           )}
           {/* Misma forma que la tarjeta de alimentación: anillo y cifras
@@ -696,12 +702,11 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
                 textoValor={(p) => p.curso ? `Esta semana: ${p.curso.texto}` : `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} extremos={(p) => `${p.v} % · ${fechaCorta(p.fecha)}`} />
             </div>
           )}
-          <Profundiza color={AZUL} onClick={() => setVista('entreno')}>Profundiza en tus gráficas de entrenamiento</Profundiza>
         </Tarjeta>
       )}
 
       {/* Protagonista 2: alimentación */}
-      <Tarjeta titulo="Alimentación" detalle="Tu promedio de los últimos 7 días registrados, contra tu meta.">
+      <Tarjeta titulo="Alimentación" accion={<VerMas que="comida" onClick={() => setVista('comida')} />} detalle="Tu promedio de los últimos 7 días registrados, contra tu meta.">
         {!comida.metaK ? (
           <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>Tu coach aún no carga tu meta. Cuando lo haga, aquí ves cómo vas con ella.</div>
         ) : !comida.registrados7 ? (
@@ -728,11 +733,14 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
                 <BarraPct etiqueta="Grasas" pct={comida.promedio.g?.pct} valor={comida.promedio.g?.valor} meta={comida.meta.g} color={C_FAT} />
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-              <Conteo n={comida.cerca} texto={`${comida.cerca === 1 ? 'día' : 'días'} cerca de tu meta`} color={VERDE} fondo="rgba(70,150,90,0.10)" />
-              <Conteo n={comida.lejos} texto={`${comida.lejos === 1 ? 'día' : 'días'} lejos de tu meta`} color={TEXT} fondo={CREMA} />
-              {comida.sinRegistro > 0 && <Conteo n={comida.sinRegistro} texto="sin registrar" color={TEXT_LIGHT} fondo={CREMA} />}
-            </div>
+            {/* Un dato, sin caja (las tres cajitas parecían botones): los días
+                cerca de la meta. Si no hubo ninguno, no sale. */}
+            {comida.cerca > 0 && (
+              <div data-comida-cerca style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14.5, color: TEXT, marginTop: 12 }}>
+                <span aria-hidden="true" style={{ width: 9, height: 9, borderRadius: 99, background: VERDE, flex: 'none' }} />
+                <span><b style={{ fontWeight: 750 }}>{comida.cerca} de {comida.cerca + comida.lejos + (comida.sinRegistro || 0)} días</b> cerca de tu meta</span>
+              </div>
+            )}
             {kcal14.length >= 2 && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Tus calorías, últimos 14 días</div>
@@ -742,20 +750,19 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
             )}
           </>
         )}
-        <Profundiza color={VERDE} onClick={() => setVista('comida')}>Profundiza en tus gráficas de alimentación</Profundiza>
       </Tarjeta>
 
       {/* Cuerpo */}
-      <Seccion>Composición corporal</Seccion>
-      <Cuerpo medidas={ent?.medidas || []} cargando={entrenoOn && !ent && !falloEnt} alMedir={() => setMidiendo(true)} alProfundizar={verComposicion(name) ? () => setVista('composicion') : null} />
+      <Seccion accion={verComposicion(name) ? <VerMas que="composicion" onClick={() => setVista('composicion')} /> : null}>Composición corporal</Seccion>
+      <Cuerpo medidas={ent?.medidas || []} cargando={entrenoOn && !ent && !falloEnt} alMedir={() => setMidiendo(true)} />
       <HojaMedida abierta={midiendo} nombre={name} alCerrar={() => setMidiendo(false)}
         alGuardar={() => { setMidiendo(false); cargar(); }} />
 
       {/* Aprendizaje: cuánto ha visto del centro de recursos */}
-      <Seccion>Aprendizaje</Seccion>
-      <TarjetaAprende aprende={aprende} alProfundizar={() => setVista('aprende')} alAbrir={enPrueba() ? acciones.abrirAprendizaje : null} />
+      <Seccion accion={<VerMas que="aprende" onClick={() => setVista('aprende')} />}>Aprendizaje</Seccion>
+      <TarjetaAprende aprende={aprende} alAbrir={enPrueba() ? acciones.abrirAprendizaje : null} />
 
-      {hayMes && <><Seccion>Tu mes</Seccion><TarjetaMes resumen={resumen} alAbrir={() => setVerMes(true)} /></>}
+      {hayMes && <><Seccion accion={<VerMas que="mes" onClick={() => setVerMes(true)}>Ver resumen</VerMas>}>Tu mes</Seccion><TarjetaMes resumen={resumen} /></>}
       {hayMes && verMes && <PantallaMes resumen={resumen} whatsapp={WHATSAPP_COACH} alCerrar={() => setVerMes(false)} />}
     </Marco>
   );
@@ -764,11 +771,11 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
 // ── Aprendizaje ───────────────────────────────────────────────────────────
 // Lo próximo que le toca del centro (la misma lista de Aprende › Hoy).
 const TIPO_PIEZA = { hub: 'Sobre el programa', guia: 'Guía de alimentación', capsula: 'Cápsula', podcast: 'Video' };
-function LoProximo({ aprende, alAbrir }) {
+function LoProximo({ aprende, alAbrir, arriba = false }) {
   const r = alAbrir && aprende ? recomendarAprendizaje(aprende, 1)[0] : null;
   if (!r) return null;
   return (
-    <button type="button" data-lo-proximo onClick={() => alAbrir(r.destino)} style={{ width: '100%', marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+    <button type="button" data-lo-proximo onClick={() => alAbrir(r.destino)} style={{ width: '100%', marginTop: arriba ? 0 : 14, marginBottom: arriba ? 6 : 0, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
       border: 'none', borderRadius: 18, background: 'rgba(238,132,52,0.10)', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
       <span style={{ flex: 'none', width: 40, height: 40, borderRadius: 12, background: '#fff', display: 'grid', placeItems: 'center' }}>
         {r.bloque === 'podcast' ? <VideoCamera size={20} color={NARANJA} /> : <BookOpenText size={20} color={NARANJA} />}
@@ -783,22 +790,20 @@ function LoProximo({ aprende, alAbrir }) {
   );
 }
 
-function TarjetaAprende({ aprende, alProfundizar, alAbrir = null }) {
+// Un título (el de la sección, afuera, con su «Ver más ›»). Primero lo que
+// invita: «Lo próximo para ti». El avance va en barras, sin el aro del «7 %»
+// (un porcentaje bajo de todo el programa desanimaba más de lo que decía).
+function TarjetaAprende({ aprende, alAbrir = null }) {
   return (
-    <Tarjeta titulo="Centro de aprendizaje" detalle="Lo que has leído, visto y escuchado del material de tu programa.">
-      {aprende === undefined ? (lote25() ? <div style={{ marginTop: 12 }}><CargandoModulo tono="aprende" barras={false} /></div> :
-        <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Cargando…</div>
+    <Tarjeta>
+      {aprende === undefined ? (lote25() ? <div><CargandoModulo tono="aprende" barras={false} /></div> :
+        <div style={{ fontSize: 14, color: TEXT_LIGHT }}>Cargando…</div>
       ) : !aprende ? (
-        <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>No pude traer tu avance ahora. Vuelve a intentarlo en un rato.</div>
+        <div style={{ fontSize: 14, color: TEXT_MUTED }}>No pude traer tu avance ahora. Vuelve a intentarlo en un rato.</div>
       ) : (
-        <div data-aprende style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
-          <Anillo valor={aprende.vistas} total={aprende.total} color={NARANJA} centro={`${aprende.pct} %`} pie="completado"
-            alTocar={() => setExplicarAro({
-              titulo: 'Tu aprendizaje', grande: `${aprende.pct} %`, que: `del material visto: ${aprende.vistas} de ${aprende.total} piezas`,
-              partes: aprende.bloques.map(b => ({ nombre: b.titulo, valor: `${b.vistas}/${b.total}` })),
-              nota: 'Es de todo el programa, no de la semana: por eso no entra en el aro de arriba.',
-            })} />
-          <div style={{ flex: 1, minWidth: 0 }}>
+        <div data-aprende>
+          <LoProximo aprende={aprende} alAbrir={alAbrir} arriba />
+          <div>
             {aprende.bloques.map(b => (
               <div key={b.k} style={{ marginTop: 7 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: TEXT }}>
@@ -813,30 +818,27 @@ function TarjetaAprende({ aprende, alProfundizar, alAbrir = null }) {
           </div>
         </div>
       )}
-      <LoProximo aprende={aprende} alAbrir={alAbrir} />
-      <Profundiza color={NARANJA} onClick={alProfundizar}>Profundiza en tu aprendizaje</Profundiza>
     </Tarjeta>
   );
 }
 
 // ── El resumen del mes pasado ─────────────────────────────────────────────
-// Al final del Dash: las cuatro primeras cifras y «Ver el resumen completo».
-function TarjetaMes({ resumen, alAbrir }) {
+// Al final del Dash: las cuatro primeras cifras, sin caja (son datos). La
+// puerta al resumen completo es «Ver resumen ›», en el título de la sección.
+function TarjetaMes({ resumen }) {
   return (
     <Tarjeta>
       <div data-tarjeta-mes>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: DASH_AZUL.base, }}>Resumen de {resumen.nombre}</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', marginTop: 3 }}>Tu {resumen.nombre}, con método.</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>Tu {resumen.nombre}, con método.</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 12px', marginTop: 12 }}>
           {resumen.filas.slice(0, 4).map(f => (
-            <div key={f.clave} style={{ background: CREMA, borderRadius: 16, padding: '11px 12px' }}>
+            <div key={f.clave} data-cifra-mes>
               <div style={{ fontSize: f.gris ? 17 : 21, fontWeight: 800, color: f.color, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{f.valor}</div>
               <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_MUTED, lineHeight: 1.25, marginTop: 1 }}>{f.corto}</div>
             </div>
           ))}
         </div>
       </div>
-      <Profundiza color={AZUL} onClick={alAbrir}>Ver el resumen completo</Profundiza>
     </Tarjeta>
   );
 }
@@ -927,10 +929,12 @@ function DetalleAprende({ aprende, alIr }) {
 // Título de sección con una línea fina encima: separa lo que es de otra cosa.
 // Sin línea: el título separa solo (como en Apple y Headspace), y el aire
 // de arriba y de abajo va más apretado para no desperdiciar pantalla.
-function Seccion({ children }) {
+// `accion`: la puerta del bloque («Ver más ›»), a la derecha del título.
+function Seccion({ children, accion = null }) {
   return (
-    <div data-seccion style={{ marginTop: 18 }}>
+    <div data-seccion style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingRight: accion ? 4 : 0 }}>
       <h2 style={{ fontSize: 22, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: '0 2px 0' }}>{children}</h2>
+      {accion}
     </div>
   );
 }
@@ -1358,21 +1362,22 @@ function Alineacion({ dias, meta }) {
 }
 
 
-function Cuerpo({ medidas, cargando, alMedir, alProfundizar = null }) {
+function Cuerpo({ medidas, cargando, alMedir }) {
   const conPeso = medidas.filter(m => m.peso != null);
   const conGrasa = medidas.filter(m => m.grasa_pct != null);
   const ultPeso = conPeso[conPeso.length - 1];
   const ultGrasa = conGrasa[conGrasa.length - 1];
   return (
-    <Tarjeta titulo="Peso y % de grasa"
-      accion={<button onClick={alMedir} style={{ border: 'none', background: 'transparent', padding: '11px 8px', margin: '-11px -8px', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: AMBAR, cursor: 'pointer' }}>+ Registrar</button>}>
-      {cargando ? (lote25() ? <div style={{ marginTop: 12 }}><CargandoModulo tono="dash" /></div> :
-        <div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 12 }}>Cargando…</div>
+    // Un título (el de la sección, afuera, con «Ver más ›»). Los dos datos
+    // van sin caja y «+ Registrar», que sí se toca, en píldora al final.
+    <Tarjeta>
+      {cargando ? (lote25() ? <div><CargandoModulo tono="dash" /></div> :
+        <div style={{ fontSize: 14, color: TEXT_LIGHT }}>Cargando…</div>
       ) : !medidas.length ? (
-        <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 6, lineHeight: 1.5 }}>Registra tu peso y tu % de grasa cuando te midas, y aquí ves cómo cambian.</div>
+        <div style={{ fontSize: 14, color: TEXT_MUTED, lineHeight: 1.5 }}>Registra tu peso y tu % de grasa cuando te midas, y aquí ves cómo cambian.</div>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <div style={{ display: 'flex', gap: 18 }}>
             <Dato etiqueta="Peso" color={AMBAR} valor={ultPeso ? fmt(ultPeso.peso, 1) : '—'} unidad="kg"
               pie={ultPeso ? <><Cambio desde={conPeso[0].peso} hasta={ultPeso.peso} unidad="kg" bueno={null} /> <span>· {fechaCorta(ultPeso.fecha)}</span></> : null} />
             <Dato etiqueta="% grasa" color={GRASA} valor={ultGrasa ? fmt(ultGrasa.grasa_pct, 1) : '—'} unidad="%"
@@ -1396,7 +1401,8 @@ function Cuerpo({ medidas, cargando, alMedir, alProfundizar = null }) {
           )}
         </>
       )}
-      {alProfundizar && <Profundiza color={AMBAR} onClick={alProfundizar}>Profundiza en tu composición</Profundiza>}
+      <button type="button" data-registrar-medida onClick={alMedir} style={{ marginTop: 14, border: 'none', background: 'rgba(118,118,128,0.13)', borderRadius: 999, padding: '7px 13px',
+        fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: AMBAR, cursor: 'pointer' }}>+ Registrar</button>
     </Tarjeta>
   );
 }
