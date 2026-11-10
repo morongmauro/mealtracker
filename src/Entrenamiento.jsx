@@ -34,7 +34,7 @@ import { diasConComida } from './resumenMes.js';
 import { motivoTexto } from './Ausencias.jsx';
 import { prepararSonido, sonarInicioDescanso, programarFinDescanso, programarAviso, sonarFinDescanso } from './sonidoDescanso.js';
 import { EjercicioV2, CircuitoV2, SeparadorMomento, fasesDeTramos, claseMomento, CuentaEjercicio, porLado, TipIconos, AvisoComentarios } from './EntrenoEjercicioV2.jsx';
-import { rutinaLigera, enPrueba, COLORES_MODULO, aclarar } from './vistaApp.js';
+import { rutinaLigera, enPrueba, COLORES_MODULO, aclarar, fondoBlanco } from './vistaApp.js';
 import { Trophy as TrophyV2, TrendUp as TrendUpV2 } from '@phosphor-icons/react';
 import { Dumbbell, Calendar, ChevronLeft, Check, Play, Loader2, Info, Timer, CloudOff } from 'lucide-react';
 import {
@@ -334,6 +334,16 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     return (
       <Envoltorio>
         <NavSi seccion={seccion} setSeccion={setSeccion} />
+        {/* Fotos no está en la barra: sin esto no había cómo regresar. */}
+        {seccion === 'fotos' && (
+          <button data-volver-fotos onClick={() => setSeccion('hoy')} aria-label="Volver" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 2, height: 32, padding: '0 12px 0 8px', borderRadius: 999, border: 0,
+            // Con el fondo claro la cabecera sube 46 px (FondoBlanco): se le
+            // deja ese espacio para que no se monte sobre el botón.
+            position: 'relative', zIndex: 2, marginBottom: fondoBlanco() ? 46 : 4,
+            background: 'rgba(118,118,128,0.14)', color: TEXT, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700,
+          }}><ChevronLeft size={16} /> Volver</button>
+        )}
         {/* La voz de la sección, con la letra de la marca y sin curva */}
         {/* Vista compacta: título y Hoy | Calendario, sin cabecera grande. */}
         {compacta && seccion === 'mes' ? <CabezaCompacta titulo="Entrenamiento" opciones={OPCIONES_COMPACTA} activa={seccion} alElegir={setSeccion} />
