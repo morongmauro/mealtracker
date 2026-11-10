@@ -623,6 +623,11 @@ function urlCentro(base, { uid, name, go, goId } = {}) {
   } catch (e) { return base; /* URL inválida: se abre tal cual */ }
 }
 
+// Notas del coach que SÍ se muestran: lo que el CRM manda solo, con su prefijo
+// (respuestas a un aviso o ausencia «resp-», pedir la medición «med-»). Las
+// notas sueltas que el coach escribía a mano desde Seguimiento no se muestran.
+const notaVisible = (r) => /^(resp|med)-/.test(String((r && r.id) || ''));
+
 export default function MealTracker() {
   const [view, setView] = useState('loading');
   const [goals, setGoals] = useState(null);
@@ -1072,6 +1077,10 @@ export default function MealTracker() {
   // CRM vía coach-data action=reminders). Versionados con reminders_updated
   // {at, by} — mismo patrón anti-pisado que las metas.
   const [coachReminders, setCoachReminders] = useState([]);
+  // Las notas sueltas que el coach escribía a mano desde Seguimiento (CRM) ya
+  // no se muestran en ninguna parte de la app. Se siguen guardando y
+  // sincronizando tal cual (nada se borra); solo no se pintan.
+  const notasCoach = useMemo(() => coachReminders.filter(notaVisible), [coachReminders]);
   const remindersMetaRef = useRef(null);
   const applyServerRemindersRef = useRef(() => {});
   // Ediciones de comidas hechas por el COACH desde su dashboard (cola de
@@ -1838,11 +1847,11 @@ export default function MealTracker() {
   useEffect(() => {
     if (activeModal !== 'reminders') return;
     setCoachReminders(rs => {
-      if (!rs.some(r => !r.done_at && !r.seen_at)) return rs;
+      if (!rs.some(r => notaVisible(r) && !r.done_at && !r.seen_at)) return rs;
       const ahora = new Date().toISOString();
       remindersMetaRef.current = { at: ahora, by: 'cliente' };
       window.storage.set('remindersMeta', JSON.stringify(remindersMetaRef.current)).catch(() => {});
-      return rs.map(r => (!r.done_at && !r.seen_at) ? { ...r, seen_at: ahora } : r);
+      return rs.map(r => (notaVisible(r) && !r.done_at && !r.seen_at) ? { ...r, seen_at: ahora } : r);
     });
   }, [activeModal]);
 
@@ -5837,7 +5846,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
   // demás secciones (ver FondoBlanco › CSS_L25).
   // La meta de comida (la cambia el coach): su firma.
   const firmaComida = firmaMetaComida;
-  const remSinVer = coachReminders.some(r => !r.done_at && !r.seen_at);
+  const remSinVer = notasCoach.some(r => !r.done_at && !r.seen_at);
   const subV2 = seccionV2 === 'entreno' ? entrenoSub
     : seccionV2 === 'aprende' ? aprendeSub
     : seccionV2 === 'comida' ? (showRecetario ? 'recetas' : (v2 && showPerformanceModal && goals) ? 'calendario' : tab) : null;
@@ -6602,7 +6611,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <FilaCristal style={{ marginTop: '-4px' }}>
                   {/* Recordatorios y mensualidad viven en el Dash; aquí, solo la
                       campanita, escribirle al coach y las opciones. */}
-                  <BotonCristal tono={TONO_ATAJOS.comida} icono={BellV2} color="#C95F17" rotulo="Avisos" badge={coachReminders.filter(r => !r.done_at).length + avisosSinLeer}
+                  <BotonCristal tono={TONO_ATAJOS.comida} icono={BellV2} color="#C95F17" rotulo="Avisos" badge={notasCoach.filter(r => !r.done_at).length + avisosSinLeer}
                     onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</BotonCristal>
                   {WHATSAPP_COACH && <BotonCristal tono={TONO_ATAJOS.comida} icono={enPrueba() ? WhatsappV2 : ChatV2} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
                   <BotonCristal tono={TONO_ATAJOS.comida} icono={OpcionesV2} color={SECCION.comida.base}
@@ -6785,7 +6794,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 // se rellena: tres herramientas se leen mejor que cuatro.
                 { label: 'Mis gráficas', icon: CalendarCheck, grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`, onClick: () => { haptic(8); if (!goals) { avisarMetaPendiente(); return; } setShowPerformanceModal(true); } },
                 { label: 'Reto', icon: Mountain, grad: 'linear-gradient(135deg, #E09479, #C05E44)', onClick: () => { haptic(8); window.location.href = '/ranking'; } },
-                { label: 'Recordat.', icon: Bell, ink: '#6B4E05', grad: 'linear-gradient(135deg, #FFD95C, #F0AE22)', badge: coachReminders.filter(r => !r.done_at).length, onClick: () => { haptic(8); setActiveModal('reminders'); } },
+                { label: 'Recordat.', icon: Bell, ink: '#6B4E05', grad: 'linear-gradient(135deg, #FFD95C, #F0AE22)', badge: notasCoach.filter(r => !r.done_at).length, onClick: () => { haptic(8); setActiveModal('reminders'); } },
               ].map(tl => (
                 <button key={tl.label} onClick={tl.onClick}
                   className="flex-1 rounded-[26px] py-3.5 px-1 text-center active:scale-95 transition relative"
@@ -6908,7 +6917,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <CapaActiva.Provider value={showTraining}>
           <Suspense fallback={null}>
             <Entrenamiento name={name} seccionV2={v2 ? entrenoSub : null} alSeccionV2={setEntrenoSub} compacta={compacta}
-              recordatorios={v2 ? { pendientes: coachReminders.filter(r => !r.done_at).length + avisosSinLeer, abrir: () => { haptic(8); setActiveModal('reminders'); } } : null} />
+              recordatorios={v2 ? { pendientes: notasCoach.filter(r => !r.done_at).length + avisosSinLeer, abrir: () => { haptic(8); setActiveModal('reminders'); } } : null} />
           </Suspense>
           </CapaActiva.Provider>
         </div>
@@ -6923,13 +6932,13 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             <Dash name={name} history={history} detalle={historyDetail} goals={goals} goalsHistory={goalsHistory} kcalHoy={totals?.kcal || 0} reinicio={dashReinicio} abrir={dashPedido}
               avisoPago={paymentDue && !paymentDue.bloqueo ? <PaymentNotice v2={v2} info={paymentDue} style={{ marginTop: '16px' }} /> : null}
               alIr={(sec, op) => irSubV2(sec, op)} entrenoOn={trainingOn}
-              racha={streak} pendientes={coachReminders.filter(r => !r.done_at).length}
+              racha={streak} pendientes={notasCoach.filter(r => !r.done_at).length}
               acciones={{
                 // Los atajos que antes vivían en «Tus herramientas» de Hoy.
                 recordatorios: () => { haptic(8); setActiveModal('reminders'); },
                 // La línea de recordatorios del Dash: los del coach y abrir
                 // una cápsula o un video concretos.
-                recordatoriosCoach: coachReminders,
+                recordatoriosCoach: notasCoach,
                 marcarRecordatorio: (id) => toggleCoachReminder(id),
                 abrirAprendizaje: (destino) => openLearning(destino),
                 // Configuración y Comunidad (visual nueva)
@@ -7179,7 +7188,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       {/* Solo en el chat: en Hoy ya existe el icono de Recordatorios entre
           las herramientas — la píldora ahí redundaba. */}
       {/* Visual nueva: los recordatorios viven en el Dash y en los «Hoy», no en el chat. */}
-      {!v2 && tab === 'chat' && !showRecetario && !showLearning && !showTraining && !showDash && coachReminders.some(r => !r.done_at) && (
+      {!v2 && tab === 'chat' && !showRecetario && !showLearning && !showTraining && !showDash && notasCoach.some(r => !r.done_at) && (
         <button
           onPointerDown={(e) => { e.preventDefault(); haptic(8); setActiveModal('reminders'); }}
           onClick={(e) => e.preventDefault()}
@@ -7201,7 +7210,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <Bell size={18} strokeWidth={2.4} style={{ color: '#6B4E05' }} />
           <span className="absolute rounded-full text-[12px] font-bold flex items-center justify-center"
             style={{ top: '-4px', right: '-4px', background: '#C75A4A', color: '#FFF', minWidth: '18px', height: '18px', padding: '0 4px', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
-            {coachReminders.filter(r => !r.done_at).length}
+            {notasCoach.filter(r => !r.done_at).length}
           </span>
         </button>
       )}
@@ -7289,7 +7298,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
             </>)}
             {/* Las acciones, una sola lista para las dos visuales. */}
             {(() => {
-              const pend = coachReminders.filter(r => !r.done_at).length;
+              const pend = notasCoach.filter(r => !r.done_at).length;
               const grupos = [
                 { titulo: 'Día a día', items: [
                   { L: ChefHat, P: ChefHatV2, label: 'Arma mi día', grad: `linear-gradient(135deg, #98A465, ${ACCENT_DARK})`,
@@ -7458,11 +7467,11 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
         // Visual nueva: la hoja de la marca, «Avisos de tu coach».
         v2 && lote25() ? (
           <AvisosCoach onClose={() => setActiveModal(null)} onActivate={activarPush}
-            coachReminders={coachReminders} onToggleReminder={toggleCoachReminder} ciclo={cicloUltima}
+            coachReminders={notasCoach} onToggleReminder={toggleCoachReminder} ciclo={cicloUltima}
             alDash={() => { if (irSubV2Ref.current) irSubV2Ref.current('dash'); }} />
         ) : (
         <RemindersModal onClose={() => setActiveModal(null)} onActivate={activarPush}
-          coachReminders={coachReminders} onToggleReminder={toggleCoachReminder} ciclo={v2 ? cicloUltima : null} />
+          coachReminders={notasCoach} onToggleReminder={toggleCoachReminder} ciclo={v2 ? cicloUltima : null} />
         )
       )}
 
