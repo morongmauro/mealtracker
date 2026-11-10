@@ -106,10 +106,10 @@ export default function AvisosCoach({ onClose, onActivate, coachReminders = [], 
     ),
   });
   const pendientes = coachReminders.filter(r => !r.done_at);
-  const cumplidas = coachReminders.filter(r => r.done_at);
+  // Las notas ya cumplidas no se muestran: la campanita es lo que falta, no un archivo.
   const todas = [...lista.map(filaAviso), ...pendientes.map(filaNota)];
   const nuevas = todas.filter(f => esNuevo(f.k));
-  const antes = [...todas.filter(f => !esNuevo(f.k)), ...cumplidas.map(filaNota)];
+  const antes = todas.filter(f => !esNuevo(f.k));
   const vacio = !nuevas.length && !antes.length && !ciclo;
 
   return (
