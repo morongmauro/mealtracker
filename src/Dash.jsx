@@ -1629,8 +1629,12 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#3C7BD6' }}>Ahora <span style={{ color: TEXT_MUTED, fontWeight: 600, letterSpacing: 0 }}>· {hoyHechos} de {hoyItems.length} hoy</span></span>
           {/* Nada se pierde: «Ver todo» abre la lista completa de siempre. */}
-          <button data-ver-recordatorios onClick={() => setTodos(true)} style={{ border: 0, background: 'none', padding: '10px 6px', margin: '-10px -6px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: TEXT_MUTED, cursor: 'pointer' }}>
-            Ver todo{items.length + hoyItems.length - 1 > 0 ? ` (${items.length + hoyItems.length - 1})` : ''}
+          {/* Píldora con flechita: se ve que se toca (la misma regla que «Ver resumen ›»). */}
+          {/* El botón es más alto que la píldora (se toca fácil sin que se vea grande). */}
+          <button data-ver-recordatorios onClick={() => setTodos(true)} style={{ border: 0, background: 'none', padding: '9px 0', margin: '-9px -4px -9px 0', fontFamily: 'inherit', cursor: 'pointer', flex: 'none' }}>
+            <span data-ver-todo-pildora style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(118,118,128,0.13)', borderRadius: 999, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, color: TEXT_MUTED, whiteSpace: 'nowrap' }}>
+              Ver todo{items.length + hoyItems.length - 1 > 0 ? ` (${items.length + hoyItems.length - 1})` : ''}<span aria-hidden="true" style={{ fontWeight: 800 }}>›</span>
+            </span>
           </button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>

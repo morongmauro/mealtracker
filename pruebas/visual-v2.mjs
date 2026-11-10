@@ -976,6 +976,7 @@ try {
   }));
   ok('Dash: sin el letrero «Toca la línea» (los valores ya están en cada punto)', (await dash.locator('[data-pista-linea]').count()) === 0);
   ok('cabecera: la sombra del blob es corta y tenue (no la grande de antes)', await p.locator('[data-cabecera-hoy="dash"] svg[data-blob]').evaluate(b => { const f = getComputedStyle(b).filter; return /drop-shadow/.test(f) && !/28px/.test(f) && (/12px/.test(f) || (b.hasAttribute('data-vidrio') && /24px/.test(f))); }));
+  ok('Dash: «Ver todo ›» va en píldora gris (se ve que se toca)', await dash.evaluate(() => { const b = document.querySelector('[data-prota-dash] [data-ver-todo-pildora]'); return !document.querySelector('[data-prota-dash]') || (!!b && /›/.test(b.textContent) && getComputedStyle(b).backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(getComputedStyle(b).borderTopLeftRadius) > 10); }));
   ok('Dash: «Ver todo» se toca en 44 px de alto (se ve igual de chico)', await dash.evaluate(() => { const b = document.querySelector('[data-ver-recordatorios]'); return !b || b.getBoundingClientRect().height >= 40; }));
   // La píldora de arriba: sin subtítulo, y se encoge al bajar / vuelve al subir.
   ok('píldora de marca: solo el nombre de la sección, sin «Entrena con Método» debajo', await p.locator('[data-pildora-marca]').evaluate(el => el.children.length === 1 && /DASH|INICIO|TU SEMANA|HOY/i.test(el.textContent) && !/Entrena con Método/.test(el.textContent)), await p.locator('[data-pildora-marca]').innerText());
@@ -1445,6 +1446,17 @@ try {
   }));
   ok('el botón de terminar se ve (cápsula grafito rellena, el principal de la pantalla)', await p.locator('[data-terminar]').evaluate(b => {
     const cs = getComputedStyle(b); return cs.backgroundColor === 'rgb(29, 29, 31)' && cs.color === 'rgb(255, 255, 255)' && parseFloat(cs.borderTopLeftRadius) >= 27;
+  }));
+  ok('rutina: «Ahora» es texto con un circulito amarillo (no una píldora), «kg ⇄» con borde y sin relleno, y el video centrado con el texto', await p.evaluate(() => {
+    const t = document.querySelector('[data-ahora="1"]'); const et = t && t.querySelector('[data-ahora-etiqueta]');
+    const kg = document.querySelector('[data-ejercicio] button[aria-label^="Cambiar a"]');
+    const mini = t && t.querySelector('button[aria-label^="Ver "]');
+    if (!et || !kg || !mini) return false;
+    const ck = getComputedStyle(kg), ce = getComputedStyle(et);
+    const caja = mini.parentElement.getBoundingClientRect(), fila = mini.parentElement.parentElement.getBoundingClientRect(), m = mini.getBoundingClientRect();
+    return ce.backgroundColor === 'rgba(0, 0, 0, 0)' && getComputedStyle(et.firstElementChild).backgroundColor === 'rgb(242, 201, 76)'
+      && ck.borderTopStyle === 'solid' && parseFloat(ck.borderTopWidth) >= 1 && ck.backgroundColor === 'rgba(0, 0, 0, 0)'
+      && Math.abs((m.top + m.bottom) / 2 - (fila.top + fila.bottom) / 2) <= 2;
   }));
   ok('rutina estilo Apple: el primer ejercicio sin terminar dice AHORA, video chico al lado, campos grises sin borde', await p.evaluate(() => {
     const ahora = document.querySelectorAll('[data-ahora="1"]');

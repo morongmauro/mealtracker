@@ -619,7 +619,9 @@ function CabeceraCajitas({ lado, unidad, onUnidad, soloReps = false, ultima = nu
       {!soloReps && <>
       <div style={{ ...CAJA, textAlign: 'center' }}>
         <button onClick={onUnidad} aria-label={`Cambiar a ${unidad === 'kg' ? 'libras' : 'kilos'}`} style={{
-          border: 'none', background: 'transparent', borderRadius: 999, padding: '2px 6px',
+          // Con borde gris y sin relleno (como los círculos de marcar): se ve
+          // que se toca y no se confunde con las cajitas grises de reps y peso.
+          border: '1.5px solid #D1D1D6', background: 'transparent', borderRadius: 999, padding: '2px 9px',
           fontSize: 12, fontWeight: 700, color: GRIS, letterSpacing: '.04em', cursor: 'pointer', fontFamily: 'inherit',
         }}>{unidad} ⇄</button>
       </div>
@@ -718,7 +720,10 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
         </div>
       ) : (<>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <Miniatura e={e} alTocar={() => setFicha(true)} enVivo={prueba && ahora && !ficha} />
+        {/* El video al centro del bloque de texto (de «Ahora» a lo recetado). */}
+        <div style={{ alignSelf: 'center', flex: 'none', display: 'flex' }}>
+          <Miniatura e={e} alTocar={() => setFicha(true)} enVivo={prueba && ahora && !ficha} />
+        </div>
         {/* Terminado y abierto: la flechita para volver a plegarlo. */}
         {completo && (
           <button data-plegar onClick={() => setPlegado(true)} aria-label="Plegar ejercicio" style={{
@@ -727,7 +732,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
           }}><CaretUp size={16} weight="bold" /></button>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {ahora && <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>Ahora</span>}
+          {ahora && <span data-ahora-etiqueta style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 800, letterSpacing: '0.01em', color: '#8A6A12', marginBottom: 4 }}><span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 99, background: AMARILLO, flex: 'none' }} />Ahora</span>}
           {/* Vista en prueba: Ficha · Historial · Nota arriba a la derecha, a la
               altura del nombre; el texto les da la vuelta (si el nombre no
               cabe, sigue en la línea de abajo) y nada queda detrás. */}
@@ -912,7 +917,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Miniatura e={e} ancho={54} alto={42} alTocar={() => setFicha(re)} enVivo={prueba && ahora === `${re.id}:${vi + 1}` && !ficha} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      {prueba && ahora === `${re.id}:${vi + 1}` && <span data-ahora-circuito style={{ display: 'inline-block', fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: GRAFITO, background: AMARILLO, padding: '2px 8px', borderRadius: 99, marginBottom: 5 }}>Ahora</span>}
+                      {prueba && ahora === `${re.id}:${vi + 1}` && <span data-ahora-circuito style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 800, letterSpacing: '0.01em', color: '#8A6A12', marginBottom: 4 }}><span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 99, background: AMARILLO, flex: 'none' }} />Ahora</span>}
                       {/* Vista en prueba: los íconos arriba a la derecha, como en Fuerza. */}
                       {vi === 0 && ligera && prueba && <div data-botones-arriba style={{ float: 'right', margin: '-2px -2px 4px 8px' }}><Botones soloIconos chicos items={botonesDe({
                         sinCarga, onNota: onNota ? () => onNota(re) : null, re,

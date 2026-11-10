@@ -8,8 +8,8 @@
 // lo que le queda del día (si ninguna cabe, tres de esa comida), con su
 // foto; al tocar una se abre esa receta, ya con la porción ajustada a su meta.
 //
-// No fastidia: «Ahora no» la esconde por el resto del día, y si la cierra 3
-// veces seguidas sin abrir ninguna, no vuelve a salir en una semana.
+// Sin «Ahora no»: si no la quiere, sigue de largo (el botón sobraba). Lo
+// que alguien ya había escondido antes se respeta hasta que vence.
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
@@ -70,11 +70,6 @@ export default function InvitaReceta({ entries = [], goals, consumed, alAbrir, d
   if (!visible || !lote || !lote.recetas.length) return null;
   const recetas = lote.recetas;
 
-  const ahoraNo = () => {
-    const seguidas = (estado.seguidas || 0) + 1;
-    const nuevo = { cerrada: { [`${hoy}:${llaveSlot}`]: 1 }, seguidas: seguidas >= 3 ? 0 : seguidas, ...(seguidas >= 3 ? { hasta: masDias(hoy, 7) } : {}) };
-    guardar(nuevo); setEstado(nuevo);
-  };
   // Abrir una receta (o el recetario) cuenta como que le sirvió.
   const abrir = (id) => { const nuevo = { ...estado, seguidas: 0 }; guardar(nuevo); setEstado(nuevo); alAbrir && alAbrir(id, slot); };
 
@@ -91,7 +86,6 @@ export default function InvitaReceta({ entries = [], goals, consumed, alAbrir, d
         {dentro
           ? <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.3 }}>¿Aún no? {lote.caben ? `${cuantas} que ${recetas.length === 1 ? 'cabe' : 'caben'} en lo que te queda` : `${cuantas} para tu ${NOMBRE[slot]}`}</div>
           : <div style={{ fontSize: 17, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em' }}>{titulo}</div>}
-        <button type="button" data-invita-ahora-no onClick={ahoraNo} style={{ border: 'none', background: 'none', padding: '6px 0 6px 10px', margin: '-6px 0', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: TEXT_LIGHT, cursor: 'pointer', flex: 'none' }}>Ahora no</button>
       </div>
       {!dentro && <div style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 3, lineHeight: 1.35 }}>{sub}</div>}
       <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
