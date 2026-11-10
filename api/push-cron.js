@@ -550,6 +550,14 @@ export default async function handler(req, res) {
           if (hoyEs && hoyEs.medicion) {
             payloads.push({ title: 'Tu coach', body: textoRegistro(hoyEs.registros, beta), tag: 'ecm-med' });
           }
+          // Su ciclo nuevo arranca hoy: un aviso, una sola vez (el turno de la
+          // mañana). Lo decide su interruptor «Ciclo o rutina nueva», no el
+          // del recordatorio del día.
+          if (hoyEs && hoyEs.cicloNuevo && permiteAviso(act.avisos, 'ciclo')) {
+            const c = hoyEs.cicloNuevo;
+            payloads.push({ title: 'Tu ciclo nuevo empieza hoy', propio: true, tag: 'ecm-ciclo', url: '/?ir=entreno',
+              body: `${c.nombre ? c.nombre + ' · ' : ''}${c.rutinas} ${c.rutinas === 1 ? 'rutina' : 'rutinas'}. Toca para verlo.` });
+          }
         }
       } else if (slot === 'n') {
         // Cierre del día (8pm): UN mensaje con lo que falte de comida y de
@@ -599,9 +607,10 @@ export default async function handler(req, res) {
         body: JSON.stringify({ last_slot: marca }),
       }).catch(() => {});
 
-      for (const p of (quiereDia ? payloads : [])) {
+      // `propio`: el aviso trae su propio interruptor (ya revisado arriba).
+      for (const { propio, ...p } of payloads.filter(x => quiereDia || x.propio)) {
         try {
-          await webpush.sendNotification(s.sub, JSON.stringify({ ...p, url: '/' }));
+          await webpush.sendNotification(s.sub, JSON.stringify({ ...p, url: p.url || '/' }));
           sent++;
         } catch (e) {
           const code = e && e.statusCode;

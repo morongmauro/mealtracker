@@ -146,6 +146,23 @@ await caso('peso y fotos el mismo día: el aviso dice las dos cosas', async () =
   if (!m || !/pesarte y tu registro fotográfico/.test(m.body)) throw new Error('aviso: ' + (m && m.body));
 });
 
+await caso('el ciclo arranca hoy: «Tu ciclo nuevo empieza hoy» en la mañana, una vez; si arrancó antes, no', async () => {
+  const db = base();
+  Object.assign(db.db.fases.find(f => f.id === 'f-c1'), { fecha_inicio: hoy, nombre: 'Ciclo 2' });
+  const a = await agendaDeHoy(sbDe(db), hoy);
+  igual(a.get('mauro moron').cicloNuevo, { nombre: 'Ciclo 2', rutinas: 1 }, 'Mauro: arranca hoy');
+  igual(a.get('otra persona').cicloNuevo, undefined, 'Otra: su ciclo arrancó la semana pasada');
+  globalThis.fetch = db.fetch;
+  enviados.length = 0;
+  const pasada = () => cron({ method: 'GET', query: { key: 'secreto' }, headers: {} }, { status() { return this; }, json() { return this; }, setHeader() {}, end() { return this; } });
+  await pasada();
+  const m = enviados.filter(e => e.tag === 'ecm-ciclo');
+  igual(m.map(e => e.a), ['Mauro'], 'solo a Mauro');
+  if (m[0].title !== 'Tu ciclo nuevo empieza hoy' || !/Ciclo 2 · 1 rutina\. Toca para verlo\./.test(m[0].body) || m[0].url !== '/?ir=entreno') throw new Error('aviso: ' + JSON.stringify(m[0]));
+  await pasada();
+  igual(enviados.filter(e => e.tag === 'ecm-ciclo').length, 1, 'la hora siguiente no lo repite');
+});
+
 const correr = async () => {
   let json = null;
   await cron({ method: 'GET', query: { key: 'secreto' }, headers: {} },

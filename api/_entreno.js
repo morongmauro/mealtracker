@@ -453,7 +453,7 @@ export function tocaAvisarAbierta(ultimaISO, ahoraMs, tz = 'America/Bogota') {
 export async function agendaDeHoy(sb, hoy) {
   const out = new Map();
   const clientes = await sb('clientes?select=id,nombre,nombres_alternos,estado');
-  const fases = await sb(`fases?select=id,cliente_id,semanas,fecha_inicio,dias_semana,orden,visible_cliente&${FASE_VISIBLE}&order=orden.desc`);
+  const fases = await sb(`fases?select=id,cliente_id,nombre,semanas,fecha_inicio,dias_semana,orden,visible_cliente&${FASE_VISIBLE}&order=orden.desc`);
   const faseDe = {};
   const porCliente = {};
   (Array.isArray(fases) ? fases : []).forEach(f => { (porCliente[f.cliente_id] = porCliente[f.cliente_id] || []).push(f); });
@@ -501,7 +501,15 @@ export async function agendaDeHoy(sb, hoy) {
     // Lo que toca registrar MAÑANA: el cierre de esta noche se lo anticipa.
     const manana = [...new Set((expandirEventos(evs, fase)[sumarDiasISO(hoy, 1)] || []).map(e => e.tipo))];
     // conPlan: tiene ciclo enviado → usa el módulo de entreno de la app.
-    const dato = { rutina, medicion, registros, manana, entrenoHoy, conPlan: !!fase };
+    // ¿Su ciclo arranca HOY? Desde que los ciclos se envían solos al crearlos
+    // (el CRM ya no pide «Enviar al cliente»), el aviso «tu ciclo nuevo» sale
+    // el día en que empieza, que es cuando de verdad lo ve en su app.
+    let cicloNuevo = null;
+    if (fase && String(fase.fecha_inicio || '').slice(0, 10) === hoy) {
+      const n = (Array.isArray(rutinas) ? rutinas : []).filter(r => r.fase_id === fase.id && rutinaVisible(r, fase) && !esComplementaria(r)).length;
+      if (n > 0) cicloNuevo = { nombre: String(fase.nombre || '').trim(), rutinas: n };
+    }
+    const dato = { rutina, medicion, registros, manana, entrenoHoy, conPlan: !!fase, ...(cicloNuevo ? { cicloNuevo } : {}) };
     [c.nombre, ...(Array.isArray(c.nombres_alternos) ? c.nombres_alternos : [])]
       .forEach(n => { const k = normalizeName(n); if (k) out.set(k, dato); });
   }
