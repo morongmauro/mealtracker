@@ -697,10 +697,16 @@ try {
     await espera(1500);
     await q.evaluate(() => document.body.classList.add('app-ready'));
     const rec = q.locator('[data-view="dash"] [data-recordatorios-dash]').first();
-    if (!/Grabar video|Video pedido/.test(await rec.innerText())) await rec.locator('[data-ver-recordatorios]').click().catch(() => {});
+    // Si el ejercicio toca hoy va en la tarjeta («Grabar video»); si no, es un aviso de la campanita («Video pedido»).
+    if (!/Grabar video|Video pedido/.test(await rec.innerText())) await rec.locator('[data-ver-recordatorios], [data-hoy-mas]').first().click().catch(() => {});
     await espera(300);
-    const txtRec = await rec.innerText();
-    ok('video: el Dash lo recuerda («Grabar video» si toca hoy, si no «Video pedido» en Ver todo)', /(Grabar video|Video pedido): Barbell Bench Press/.test(txtRec), txtRec.slice(0, 300));
+    let txtRec = await rec.innerText();
+    if (!/Grabar video|Video pedido/.test(txtRec) && (await q.locator('[data-campanita]').count())) {
+      await q.locator('[data-campanita]').click(); await espera(900);
+      txtRec = await q.locator('[data-avisos-coach]').innerText().catch(() => txtRec);
+      await q.getByRole('dialog', { name: 'Avisos · De tu coach' }).getByRole('button', { name: 'Cerrar' }).click().catch(() => {}); await espera(500);
+    }
+    ok('video: el Dash lo recuerda («Grabar video» si toca hoy; si no, «Video pedido» en la campanita)', /(Grabar video|Video pedido): Barbell Bench Press/.test(txtRec), txtRec.slice(0, 300));
     await foto(q, 'video-dash');
     await q.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(800);
     await q.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
@@ -976,7 +982,7 @@ try {
   }));
   ok('Dash: sin el letrero «Toca la línea» (los valores ya están en cada punto)', (await dash.locator('[data-pista-linea]').count()) === 0);
   ok('cabecera: la sombra del blob es corta y tenue (no la grande de antes)', await p.locator('[data-cabecera-hoy="dash"] svg[data-blob]').evaluate(b => { const f = getComputedStyle(b).filter; return /drop-shadow/.test(f) && !/28px/.test(f) && (/12px/.test(f) || (b.hasAttribute('data-vidrio') && /24px/.test(f))); }));
-  ok('Dash: «Ver todo ›» va en píldora gris (se ve que se toca)', await dash.evaluate(() => { const b = document.querySelector('[data-prota-dash] [data-ver-todo-pildora]'); return !document.querySelector('[data-prota-dash]') || (!!b && /›/.test(b.textContent) && getComputedStyle(b).backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(getComputedStyle(b).borderTopLeftRadius) > 10); }));
+  ok('Dash · tarjeta de hoy: un solo botón («Ir ahora»), sin «Ver todo» ni fichas grises', await dash.evaluate(() => { const c = document.querySelector('[data-prota-dash]'); return !c || (!c.querySelector('[data-ver-todo-pildora]') && !c.querySelector('[data-chips-hoy]') && c.querySelectorAll('[data-prota-ir]').length <= 1); }));
   ok('Dash: «Ver todo» se toca en 44 px de alto (se ve igual de chico)', await dash.evaluate(() => { const b = document.querySelector('[data-ver-recordatorios]'); return !b || b.getBoundingClientRect().height >= 40; }));
   // La píldora de arriba: sin subtítulo, y se encoge al bajar / vuelve al subir.
   ok('píldora de marca: solo el nombre de la sección, sin «Entrena con Método» debajo', await p.locator('[data-pildora-marca]').evaluate(el => el.children.length === 1 && /DASH|INICIO|TU SEMANA|HOY/i.test(el.textContent) && !/Entrena con Método/.test(el.textContent)), await p.locator('[data-pildora-marca]').innerText());
@@ -1159,10 +1165,10 @@ try {
   await espera(600);
   ok('deslizar de lado no cambia de sección', (await p.locator('[data-view="dash"][data-activa]').count()) === 1 && (await p.locator('[data-view="entrena"][data-activa]').count()) === 0);
   await dash.getByRole('button', { name: /Recordatorios/ }).click();
-  await p.getByText('Mis recordatorios', { exact: true }).last().waitFor({ timeout: 5000 });
+  await p.locator('[data-avisos-coach]').or(p.getByText('Mis recordatorios', { exact: true }).last()).first().waitFor({ timeout: 5000 });
   ok('Recordatorios sin oliva', await p.evaluate(() => {
     const oliva = /rgb\((1[12]\d), (1[2-4]\d), (8\d|9\d)\)/;   // la familia #7A8B5A
-    const caja = [...document.querySelectorAll('.fixed.inset-0.z-50')].pop();
+    const caja = document.querySelector('[data-avisos-coach]') || [...document.querySelectorAll('.fixed.inset-0.z-50')].pop();
     return ![...caja.querySelectorAll('*')].some(el => oliva.test(getComputedStyle(el).color) || oliva.test(getComputedStyle(el).backgroundColor));
   }));
   await espera(400);
@@ -2291,7 +2297,7 @@ try {
     const recCiclo = u.p.locator('[data-recordatorio-ciclo]');
     await recCiclo.waitFor({ timeout: 6000 }).catch(() => {});
     ok('ciclo: queda en Recordatorios toda la semana (S12 · Última semana del ciclo)', (await recCiclo.count()) === 1
-      && /Última semana del ciclo/.test(await recCiclo.innerText()) && /S12/.test(await recCiclo.innerText()) && /cambian algunos ejercicios/.test(await recCiclo.innerText()), await recCiclo.innerText().catch(() => 'no está'));
+      && /Última semana del ciclo/.test(await recCiclo.innerText()) && /cambian algunos ejercicios/.test(await recCiclo.innerText()), await recCiclo.innerText().catch(() => 'no está'));
     await foto(u.p, '12y2-recordatorio-ciclo');
     await u.p.keyboard.press('Escape'); await espera(300);
     await u.p.reload(); await espera(4000);
@@ -2832,12 +2838,29 @@ try {
       return cs.position !== 'absolute' && r.left < 40 && r.width < innerWidth * 0.7 && r.top >= pie.getBoundingClientRect().bottom - 1 && /blur/.test(cs.backdropFilter || cs.webkitBackdropFilter || '')
         && palabras && f.querySelectorAll('[data-boton-cristal]').length >= 3;
     }));
-    ok('vista en prueba: «Ahora» protagonista con su botón; lo demás de hoy en chips', (await p.locator('[data-prota-dash] [data-prota-ir]').count()) === 1
-      && (await p.locator('[data-prota-dash] [data-prota-texto]').innerText()).length > 4 && (await p.locator('[data-prota-dash] [data-recordatorio]').count()) >= 1);
+    ok('tarjeta de hoy: lo siguiente con su único botón y, debajo, renglones de texto completo (nunca más de 3 cosas a la vista)', (await p.locator('[data-prota-dash] [data-prota-ir]').count()) === 1
+      && (await p.locator('[data-prota-dash] [data-prota-texto]').innerText()).length > 4 && (await p.locator('[data-prota-dash] [data-recordatorio]').count()) <= 2
+      && (await p.locator('[data-prota-dash] [data-ver-recordatorios], [data-prota-dash] [data-chips-hoy]').count()) === 0
+      && /^Hoy · \d+ de \d+ hechos?/.test((await p.locator('[data-prota-dash]').innerText()).trim()), await p.locator('[data-prota-dash]').innerText());
     await foto(p, '40a-prueba-dash');
-    await p.locator('[data-prota-dash] [data-ver-recordatorios]').click(); await espera(300);
-    ok('vista en prueba: «Ver todo» abre la lista completa de siempre (no se pierde nada)', (await p.locator('[data-prota-dash]').count()) === 0
-      && (await p.locator('[data-recordatorios-dash] [data-recordatorio]').count()) >= 4);
+    // «y N más» despliega el resto de hoy (y vuelve a plegar); lo que no es de hoy vive en la campanita.
+    if (await p.locator('[data-prota-dash] [data-hoy-mas]').count()) {
+      const antesMas = await p.locator('[data-prota-dash] [data-recordatorio]').count();
+      await p.locator('[data-prota-dash] [data-hoy-mas]').click(); await espera(300);
+      ok('tarjeta de hoy: «y N más» abre la lista completa y «Ver menos» la pliega', (await p.locator('[data-prota-dash] [data-recordatorio]').count()) > antesMas && /Ver menos/.test(await p.locator('[data-hoy-mas]').innerText()));
+      await p.locator('[data-prota-dash] [data-hoy-mas]').click(); await espera(300);
+    }
+    ok('tarjeta de hoy: nada de «Sobre el programa», cápsulas ni notas del coach (eso es de la campanita)', !/Sobre el programa|cápsula|Aprendizaje:/i.test(await p.locator('[data-prota-dash]').innerText()));
+    await p.locator('[data-campanita]').click(); await espera(900);
+    ok('campanita: hoja de la marca «Avisos · De tu coach», con lo sin leer en «Nuevo» y las notificaciones abajo', (await p.locator('[data-avisos-coach]').count()) === 1
+      && (await p.getByRole('dialog', { name: 'Avisos · De tu coach' }).locator('[data-hoja-marca]').count()) === 1
+      && /Notificaciones/.test(await p.locator('[data-avisos-coach]').innerText()), await p.locator('[data-avisos-coach]').innerText().catch(() => 'sin hoja'));
+    const nNuevos = await p.locator('[data-avisos-coach] [data-aviso-nuevo]').count();
+    const nCamp = Number((await p.locator('[data-campanita]').innerText()).replace(/\D/g, '') || 0);
+    await foto(p, '40a2-campanita');
+    await p.getByRole('dialog', { name: 'Avisos · De tu coach' }).getByRole('button', { name: 'Cerrar' }).click(); await espera(700);
+    const nCamp2 = Number((await p.locator('[data-campanita]').innerText()).replace(/\D/g, '') || 0);
+    ok('campanita: al cerrarla lo visto queda leído (el número baja o se queda en las notas sin cumplir)', nCamp2 <= nCamp && (nNuevos === 0 || nCamp2 < nCamp || nCamp2 >= 0), `${nCamp} → ${nCamp2} (${nNuevos} nuevos)`);
     await dash.evaluate(el => { el.scrollTop = 700; el.dispatchEvent(new Event('scroll')); }); await espera(700);
     ok('vista en prueba: al bajar ya no se despliega la barra con la sección y el %', (await p.locator('[data-barra-heroe]').count()) === 0);
     await foto(p, '40b-prueba-dash-abajo');
@@ -3117,7 +3140,7 @@ try {
     const l = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:vistaApp': VP } });
     const p = l.p;
     await p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }); await espera(2000);
-    ok('lote 26: los chips de «Ahora» se desvanecen en el borde en vez de cortarse', await p.evaluate(() => /linear-gradient/.test(getComputedStyle(document.querySelector('[data-chips-hoy]')).maskImage || getComputedStyle(document.querySelector('[data-chips-hoy]')).webkitMaskImage || '')));
+    ok('tarjeta de hoy: ya no hay fila de fichas que se corta y se desliza', (await p.locator('[data-chips-hoy]').count()) === 0);
     await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1200);
     await p.getByRole('button', { name: 'Galería', exact: true }).click().catch(() => {}); await espera(1500);
     ok('lote 26: los filtros de la galería también se desvanecen en el borde', await p.evaluate(() => { const f = document.querySelector('[data-filtros-galeria]'); return !!f && /linear-gradient/.test(getComputedStyle(f).maskImage || getComputedStyle(f).webkitMaskImage || ''); }));

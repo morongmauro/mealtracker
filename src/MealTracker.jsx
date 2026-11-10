@@ -46,6 +46,9 @@ const AvisoCicloFin = lazy(() => import('./AvisoCicloFin.jsx'));
 import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
 import { repasoOfrecido } from './RepasoRecorrido.jsx';
 import { hayNovedad, marcarVisto } from './novedades.js';
+import { publicarAvisos, useAvisosCoach } from './avisosCoach.js';
+import AvisosCoach from './AvisosCoach.jsx';
+import { Barbell as BarbellAviso } from '@phosphor-icons/react';
 import { vozComida } from './vozCoach.js';
 import { idsFavoritas, marcarFavorita, adoptarFavoritasNube, favoritasParaNube } from './recetasFavoritas.js';
 import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2, ChatCircle as ChatV2 } from '@phosphor-icons/react';
@@ -882,6 +885,18 @@ export default function MealTracker() {
   // rutina abierta, el Chat, las Recetas y la Galería se quedan donde estaban:
   // ahí se estaba en medio de algo y perder el lugar molesta.
   const seccionScroll = showDash ? 'dash' : showTraining ? 'entreno' : showLearning ? 'aprende' : 'comida';
+  // La campanita («Avisos de tu coach»): cuánto falta por leer, y el aviso de
+  // que el coach cambió el entrenamiento (se va al entrar a Entreno).
+  const { sinLeer: avisosSinLeer } = useAvisosCoach();
+  const firmaEntreno = firmas.entreno;
+  useEffect(() => {
+    const nuevo = v2 && trainingOn && !showTraining && hayNovedad('entreno', firmaEntreno);
+    publicarAvisos('app', nuevo ? [{
+      id: `entreno:${firmaEntreno}`, texto: 'Actualizó tu entrenamiento', sub: 'Mira lo nuevo en Entreno',
+      Icono: BarbellAviso, color: '#5F6670', ir: () => { if (irSubV2Ref.current) irSubV2Ref.current('entreno', 'hoy'); },
+    }] : []);
+    // eslint-disable-next-line
+  }, [v2, firmaEntreno, showTraining, trainingOn]);
   const lugarGaleria = useRef({ y: 0, t: 0 });
   useEffect(() => {
     const el = capaEntrenaRef.current;
@@ -6595,7 +6610,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
                 <FilaCristal style={{ marginTop: '-4px' }}>
                   {/* Recordatorios y mensualidad viven en el Dash; aquí, solo la
                       campanita, escribirle al coach y las opciones. */}
-                  <BotonCristal tono={TONO_ATAJOS.comida} icono={BellV2} color="#C95F17" rotulo="Avisos" badge={coachReminders.filter(r => !r.done_at).length}
+                  <BotonCristal tono={TONO_ATAJOS.comida} icono={BellV2} color="#C95F17" rotulo="Avisos" badge={coachReminders.filter(r => !r.done_at).length + avisosSinLeer}
                     onClick={() => { haptic(8); setActiveModal('reminders'); }}>Recordatorios</BotonCristal>
                   {WHATSAPP_COACH && <BotonCristal tono={TONO_ATAJOS.comida} icono={enPrueba() ? WhatsappV2 : ChatV2} color="#25A35A" rotulo="Coach" href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau!')}`}>Escribirle al coach</BotonCristal>}
                   <BotonCristal tono={TONO_ATAJOS.comida} icono={OpcionesV2} color={SECCION.comida.base}
@@ -6901,7 +6916,7 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
           <CapaActiva.Provider value={showTraining}>
           <Suspense fallback={null}>
             <Entrenamiento name={name} seccionV2={v2 ? entrenoSub : null} alSeccionV2={setEntrenoSub} compacta={compacta}
-              recordatorios={v2 ? { pendientes: coachReminders.filter(r => !r.done_at).length, abrir: () => { haptic(8); setActiveModal('reminders'); } } : null} />
+              recordatorios={v2 ? { pendientes: coachReminders.filter(r => !r.done_at).length + avisosSinLeer, abrir: () => { haptic(8); setActiveModal('reminders'); } } : null} />
           </Suspense>
           </CapaActiva.Provider>
         </div>
@@ -7448,8 +7463,15 @@ EJEMPLO OUTPUT: {"intent":"log_meal","meal":"desayuno","items":[{"name":"Huevo r
       )}
 
       {activeModal === 'reminders' && (
+        // Visual nueva: la hoja de la marca, «Avisos de tu coach».
+        v2 && lote25() ? (
+          <AvisosCoach onClose={() => setActiveModal(null)} onActivate={activarPush}
+            coachReminders={coachReminders} onToggleReminder={toggleCoachReminder} ciclo={cicloUltima}
+            alDash={() => { if (irSubV2Ref.current) irSubV2Ref.current('dash'); }} />
+        ) : (
         <RemindersModal onClose={() => setActiveModal(null)} onActivate={activarPush}
           coachReminders={coachReminders} onToggleReminder={toggleCoachReminder} ciclo={v2 ? cicloUltima : null} />
+        )
       )}
 
       {activeModal === 'favorites' && (

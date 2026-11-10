@@ -10,6 +10,8 @@ import React, { useEffect, useState } from 'react';
 import { api } from './entrenoDatos.js';
 import { TEXT } from './theme.js';
 import { enVerComo } from './verComo.js';
+import { ChatCircle } from '@phosphor-icons/react';
+import { publicarAvisos } from './avisosCoach.js';
 
 const SOMBRA = '0 1px 2px rgba(40,40,30,.04), 0 8px 22px rgba(60,60,40,.06)';
 const AZUL = '#2F6CC4';
@@ -22,6 +24,18 @@ export default function RespuestaCoach({ name, whatsapp }) {
     if (name) api.respuestas(name).then(r => { if (vivo && r && r.ok && Array.isArray(r.respuestas)) setLista(r.respuestas); }).catch(() => {});
     return () => { vivo = false; };
   }, [name]);
+  // También en la campanita («Avisos de tu coach»): ahí queda a la mano
+  // hasta que toque «Entendido». Al tocarlo allá, vuelve a esta tarjeta.
+  const firma = lista.map(x => x.id).join(',');
+  useEffect(() => {
+    const corto = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > 70 ? `${x.slice(0, 68).trim()}…` : x; };
+    publicarAvisos('respuesta', lista.map(x => ({
+      id: `resp:${x.id}`, texto: 'Te respondió una nota', sub: x.texto ? `«${corto(x.texto)}»` : null,
+      Icono: ChatCircle, color: '#3C7BD6', enDash: true,
+      ir: () => { try { const el = document.querySelector('[data-view="dash"]'); if (el) el.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { /* sin scroll */ } },
+    })));
+    // eslint-disable-next-line
+  }, [firma]);
   const r = lista[0];
   if (!r) return null;
   const entendido = async () => {

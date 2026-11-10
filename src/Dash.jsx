@@ -19,9 +19,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, VideoCamera } from '@phosphor-icons/react';
+import { Briefcase, Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, VideoCamera, CaretUp } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import RespuestaCoach from './RespuestaCoach.jsx';
+import { publicarAvisos, useAvisosCoach } from './avisosCoach.js';
 import Configuracion from './Configuracion.jsx';
 import { leerAprendizaje, marcadaLocal, recomendarAprendizaje } from './aprendizaje.js';
 import { api, hoyLocal, sumarDias, aFecha, nombreCorto, useAlVolverRed, guardadoDeEstaSemana } from './entrenoDatos.js';
@@ -529,6 +530,8 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
     if (sc) sc.scrollTo({ top: 0 });
   }, [vista]);
 
+  // Lo que falta por leer en la campanita (además de las notas del coach sin cumplir).
+  const { sinLeer: sinLeerAvisos } = useAvisosCoach();
   const comida = useMemo(() => datosComida(history, goals, hoy), [history, goals, hoy]);
   // El resumen del mes pasado: se abre solo la primera vez que entra en el
   // mes nuevo (si hay algo que contar) y queda al final del Dash.
@@ -603,7 +606,7 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
         <BotonCristal tono={TONO_ATAJOS.dash} icono={UsersThree} color="#2F6CC4" ancho={54} badge={nuevosComunidad} data-abrir-comunidad rotulo="Comunidad"
           aria-label={`Comunidad${nuevosComunidad ? ` · ${nuevosComunidad} ${nuevosComunidad === 1 ? 'nueva' : 'nuevas'}` : ''}`}
           onClick={() => setVista('comunidad')}>Comunidad</BotonCristal>
-        {acciones.recordatorios && <BotonCristal tono={TONO_ATAJOS.dash} icono={Bell} color="#C95F17" ancho={54} badge={pendientes} rotulo="Avisos" onClick={acciones.recordatorios}>Recordatorios</BotonCristal>}
+        {acciones.recordatorios && <BotonCristal tono={TONO_ATAJOS.dash} icono={Bell} color="#C95F17" ancho={54} badge={pendientes + sinLeerAvisos} rotulo="Avisos" data-campanita onClick={acciones.recordatorios}>Recordatorios</BotonCristal>}
         <BotonCristal tono={TONO_ATAJOS.dash} icono={GearSix} color="#636366" ancho={54} data-abrir-config rotulo="Ajustes" onClick={() => setVista('config')}>Configuración</BotonCristal>
         {/* Solo el coach: el CRM dentro de la app (vistaCoach.js). */}
         {esCoach(name) && <BotonCristal tono={TONO_ATAJOS.dash} icono={Briefcase} color="#1F1F1F" ancho={54} data-vista-coach-btn rotulo="Coach" aria-label="Vista coach (CRM)" onClick={() => abrirVistaCoach(name)}>Vista coach</BotonCristal>}
@@ -1524,6 +1527,7 @@ function DetalleComposicion({ ent, cargando, alMedir }) {
 function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargandoMedidas, coach, alMarcarCoach, alPrograma, alMedir, alAbrir,
   plan = null, coachHoy = [], pedidosCoach = [], kcalHoy = 0, alIr = null, alAprende = null }) {
   const [todos, setTodos] = useState(false);
+  const [abierta, setAbierta] = useState(false);   // «y N más» de la tarjeta de hoy
   const hoyItems = [];
   const d = plan && Array.isArray(plan.dias) ? plan.dias.find(x => x.es_hoy || x.fecha === hoy) : null;
   // Sin la duración: ocupaba espacio. Se ve en Entreno › Hoy y al abrir la rutina.
@@ -1534,19 +1538,38 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   // «Ver todo». Se va solo cuando el coach lo marca como llegado.
   const videos = plan && Array.isArray(plan.videos) ? plan.videos : [];
   videos.filter(v => v.hoy).forEach(v => hoyItems.push({ id: `hoy-v-${v.id}`, texto: `Grabar video: ${v.nombre}`, hecho: false, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: VideoCamera, color: '#C9672B' }));
-  coachHoy.forEach(ev => {
-    const texto = ev.tipo === 'actividad' ? `${ev.titulo}${ev.duracion_min ? ` · ${ev.duracion_min} min` : ''}`
-      : ev.tipo === 'peso' ? 'Registrar tu peso' : ev.tipo === 'fotos' ? 'Enviar tus fotos' : 'Tu medición corporal';
-    // Lo atrasado (de días pasados, sin hacer) dice desde cuándo.
-    const desde = ev.atrasado && ev.fecha ? ` · desde el ${new Date(ev.fecha + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' }).replace('.', '')}` : '';
-    hoyItems.push({ id: `hoy-e-${ev.id}`, texto: texto + desde, hecho: !!ev.hecho, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: (p) => <IconoEvento tipo={ev.tipo} {...p} />, color: ev.tipo === 'actividad' ? AZUL : '#8E5BD8' });
+  // Lo atrasado (de días pasados, sin hacer) dice desde cuándo.
+  const desdeDe = (ev) => (ev.atrasado && ev.fecha ? ` · desde el ${new Date(ev.fecha + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' }).replace('.', '')}` : '');
+  const esMedida = (t) => t === 'peso' || t === 'medidas' || t === 'medicion';
+  // Primero lo que se hace (caminata, cardio); después lo que se registra (fotos).
+  coachHoy.filter(ev => !esMedida(ev.tipo)).sort((x, y) => (x.tipo === 'actividad' ? 0 : 1) - (y.tipo === 'actividad' ? 0 : 1)).forEach(ev => {
+    const texto = ev.tipo === 'actividad' ? `${ev.titulo}${ev.duracion_min ? ` · ${ev.duracion_min} min` : ''}` : ev.hecho ? 'Fotos registradas' : 'Registrar tus fotos';
+    hoyItems.push({ id: `hoy-e-${ev.id}`, texto: texto + desdeDe(ev), hecho: !!ev.hecho, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: (p) => <IconoEvento tipo={ev.tipo} {...p} />, color: ev.tipo === 'actividad' ? AZUL : '#8E5BD8' });
   });
+  // Pesarse y medirse (% de grasa) es UN solo registro: un renglón, como en
+  // Entreno › Hoy. Lo pendiente (de hoy o atrasado) va junto; lo hecho, aparte.
+  const medEvs = coachHoy.filter(ev => esMedida(ev.tipo));
+  const medPend = medEvs.filter(ev => !ev.hecho);
+  if (medPend.length) {
+    const viejo = medPend.filter(ev => ev.atrasado && ev.fecha).sort((x, y) => String(x.fecha).localeCompare(String(y.fecha)))[0];
+    hoyItems.push({ id: `hoy-e-${medPend[0].id}`, texto: (medPend.some(ev => ev.tipo !== 'peso') ? 'Registrar peso y % de grasa' : 'Registrar tu peso') + (viejo ? desdeDe(viejo) : ''),
+      hecho: false, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: (p) => <IconoEvento tipo="peso" {...p} />, color: '#8E5BD8' });
+  } else if (medEvs.length) {
+    hoyItems.push({ id: `hoy-e-${medEvs[0].id}`, texto: medEvs.some(ev => ev.tipo !== 'peso') ? 'Peso y % de grasa registrados' : 'Peso registrado',
+      hecho: true, ir: null, Icono: (p) => <IconoEvento tipo="peso" {...p} />, color: '#8E5BD8' });
+  }
   // Lo que el coach le pidió desde el CRM (fotos, peso, medidas): en Hoy hasta
   // que lo haga. Si ya está en su calendario como pendiente, no se repite.
   const TIPO_EV = { fotos: ['fotos'], peso: ['peso'], medidas: ['medidas', 'medicion'] };
   const yaEnHoy = (t) => coachHoy.some(ev => !ev.hecho && TIPO_EV[t].includes(ev.tipo));
-  pedidosCoach.filter(pc => TIPO_EV[pc.tipo] && !yaEnHoy(pc.tipo)).forEach(pc => {
-    const texto = pc.tipo === 'fotos' ? 'Enviar tus fotos · te las pidió tu coach' : pc.tipo === 'peso' ? 'Registrar tu peso · te lo pidió tu coach' : 'Tu medición corporal · te la pidió tu coach';
+  // Peso y medición pedidos: un solo renglón (y ninguno si ya hay uno pendiente del calendario).
+  const pedidoMedida = pedidosCoach.filter(pc => pc.tipo === 'peso' || pc.tipo === 'medidas');
+  const pedidosUnidos = [
+    ...pedidosCoach.filter(pc => pc.tipo === 'fotos'),
+    ...(pedidoMedida.length && !medPend.length ? [{ ...pedidoMedida[0], tipo: pedidoMedida.some(pc => pc.tipo === 'medidas') ? 'medidas' : 'peso' }] : []),
+  ];
+  pedidosUnidos.filter(pc => TIPO_EV[pc.tipo] && !yaEnHoy(pc.tipo)).forEach(pc => {
+    const texto = pc.tipo === 'fotos' ? 'Registrar tus fotos · te las pidió tu coach' : pc.tipo === 'peso' ? 'Registrar tu peso · te lo pidió tu coach' : 'Registrar peso y % de grasa · te lo pidió tu coach';
     // Las fotos van por WhatsApp (en la app no se suben); peso y medidas, en su hoja.
     const ir = pc.tipo === 'fotos' ? (WHATSAPP_COACH ? () => window.open(`https://wa.me/${WHATSAPP_COACH}`, '_blank', 'noopener') : null) : alMedir;
     hoyItems.push({ id: `hoy-p-${pc.id}`, texto, hecho: false, ir, Icono: (p) => <IconoEvento tipo={pc.tipo === 'medidas' ? 'medicion' : pc.tipo} {...p} />, color: '#8E5BD8' });
@@ -1564,7 +1587,9 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   // todo» y la del mes se podía tachar sin hacerla). Se quedan hasta que
   // registre su medición; no se pueden descartar con el circulito.
   const cierrePendiente = !!(cierre && !cierre.composicion);
-  const medidaPedida = hoyItems.some(i => !i.hecho && /^hoy-(p|e)-/.test(i.id) && /medición|peso/i.test(i.texto));
+  const medidaPedida = hoyItems.some(i => !i.hecho && /^hoy-(p|e)-/.test(i.id) && /medición|peso|grasa/i.test(i.texto));
+  // El cierre de ciclo ya pide la composición: no se repite con otro renglón de peso o medición.
+  if (cierrePendiente) for (let k = hoyItems.length - 1; k >= 0; k--) { const it = hoyItems[k]; if (!it.hecho && /^hoy-(p|e)-/.test(it.id) && /peso|medición|grasa/i.test(it.texto)) hoyItems.splice(k, 1); }
   if (cierrePendiente) hoyItems.push({ id: 'hoy-cierre', texto: `Fin de ciclo: actualiza tu composición corporal${cierre.fotos ? '' : ' y tus fotos'}`, hecho: false, ir: alMedir, Icono: Heartbeat, color: AMBAR });
   const medidaMes = (medidas || []).some(m => String(m.fecha || '').slice(0, 7) === ym);
   if (!cierrePendiente && !medidaPedida && !cargandoMedidas && medidas && !medidaMes) hoyItems.push({ id: 'hoy-medida', texto: 'Registra tu peso y composición de este mes', hecho: false, ir: alMedir, Icono: Heartbeat, color: AMBAR });
@@ -1593,6 +1618,13 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   };
   for (let k = 0; k < hoyItems.length; k++) hoyItems[k] = conToque(hoyItems[k], 'hoy');
   for (let k = 0; k < items.length; k++) items[k] = conToque(items[k], items[k].coach ? 'coach' : 'app');
+  // Lo que no es de hoy vive en la campanita («Avisos de tu coach»): se le
+  // publica aquí, menos las notas escritas del coach (esas ya las tiene ella).
+  const avisos = items.filter(i => !/^c-/.test(i.id)).map(i => ({
+    id: i.rid, texto: i.texto, Icono: i.Icono, color: i.color, ir: i.ir, enDash: i.id === 'aprende',
+  }));
+  const firmaAvisos = avisos.map(x => `${x.id}|${x.texto}`).join('¦');
+  useEffect(() => { publicarAvisos('dash', avisos); /* eslint-disable-next-line */ }, [firmaAvisos]);
   // Pendientes primero; lo hecho, al final y en gris con su chulo.
   const deHoy = [...hoyItems.filter(i => !i.hecho), ...hoyItems.filter(i => i.hecho)];
   const visibles = todos ? [...deHoy, ...items] : deHoy;
@@ -1620,7 +1652,8 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const pendHoy = hoyItems.filter(i => !i.hecho);
   // Qué le sale y qué de eso está en pantalla (lo demás queda en «Ver todo»):
   // se le cuenta al coach cuando cambia, con un respiro mientras carga.
-  const enPantalla = new Set((enPrueba() && pendHoy.length && !todos ? pendHoy : visibles).map(i => i.id));
+  const TOPE = 3;   // lo siguiente + dos renglones: nunca más de tres cosas a la vista
+  const enPantalla = new Set((enPrueba() ? (abierta ? deHoy : pendHoy.slice(0, TOPE)) : visibles).map(i => i.id));
   const reporte = [
     ...hoyItems.map(i => ({ id: i.rid, texto: i.texto, hecho: !!i.hecho, visible: enPantalla.has(i.id), tipo: 'hoy' })),
     ...items.map(i => ({ id: i.rid, texto: i.texto, hecho: false, visible: enPantalla.has(i.id), tipo: i.tipoRep })),
@@ -1630,36 +1663,49 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
     const t = setTimeout(() => reportarRecordatorios(hoy, JSON.parse(firmaReporte)), 2000);
     return () => clearTimeout(t);
   }, [firmaReporte, hoy]);
-  if (enPrueba() && pendHoy.length && !todos) {
-    const [p0, ...resto] = pendHoy;
-    return (
-      // Compacta: AHORA, la cuenta y «Ver todo» en una línea; lo que toca y
-      // su botón en otra; lo demás de hoy en una fila de chips que se desliza.
-      <section data-recordatorios-dash data-prota-dash data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 12, background: '#FFFFFF', borderRadius: 24, padding: '12px 14px 12px 16px',
-        boxShadow: '0 2px 4px rgba(20,20,30,.04), 0 14px 32px rgba(20,30,60,.08)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#3C7BD6' }}>Ahora <span style={{ color: TEXT_MUTED, fontWeight: 600, letterSpacing: 0 }}>· {hoyHechos} de {hoyItems.length} hoy</span></span>
-          {/* Nada se pierde: «Ver todo» abre la lista completa de siempre. */}
-          {/* Píldora con flechita: se ve que se toca (la misma regla que «Ver resumen ›»). */}
-          {/* El botón es más alto que la píldora (se toca fácil sin que se vea grande). */}
-          <button data-ver-recordatorios onClick={() => setTodos(true)} style={{ border: 0, background: 'none', padding: '9px 0', margin: '-9px -4px -9px 0', fontFamily: 'inherit', cursor: 'pointer', flex: 'none' }}>
-            <span data-ver-todo-pildora style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(118,118,128,0.13)', borderRadius: 999, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, color: TEXT_MUTED, whiteSpace: 'nowrap' }}>
-              Ver todo{items.length + hoyItems.length - 1 > 0 ? ` (${items.length + hoyItems.length - 1})` : ''}<span aria-hidden="true" style={{ fontWeight: 800 }}>›</span>
-            </span>
+  if (enPrueba() && hoyItems.length) {
+    const cab = (
+      <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.01em', color: '#3C7BD6' }}>Hoy <span style={{ color: TEXT_MUTED, fontWeight: 600, letterSpacing: 0 }}>· {hoyHechos} de {hoyItems.length} {hoyHechos === 1 ? 'hecho' : 'hechos'}</span></span>
+    );
+    const plegar = (texto, arriba) => (
+      <button data-hoy-mas onClick={() => setAbierta(a => !a)} style={{ width: '100%', minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, border: 0, borderTop: '1px solid #F0EDE6', background: 'none', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: TEXT_MUTED, cursor: 'pointer' }}>
+        {texto}{arriba ? <CaretUp size={13} weight="bold" /> : <CaretDown size={13} weight="bold" />}
+      </button>
+    );
+    const sombra = '0 2px 4px rgba(20,20,30,.04), 0 14px 32px rgba(20,30,60,.08)';
+    // Todo hecho: la tarjeta se encoge a una línea (al tocarla, lo que hizo).
+    if (!pendHoy.length) {
+      return (
+        <section data-recordatorios-dash data-prota-dash data-hoy-listo data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 12, background: '#FFFFFF', borderRadius: 24, padding: abierta ? '6px 16px 0' : '6px 16px', boxShadow: sombra }}>
+          <button data-hoy-mas onClick={() => setAbierta(a => !a)} style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', gap: 10, border: 0, background: 'none', padding: 0, fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+            <CheckCircle size={22} weight="fill" color="#46965A" style={{ flex: 'none' }} />
+            <span style={{ flex: 1, minWidth: 0, fontSize: 16, fontWeight: 750, color: TEXT }}>Hoy: todo listo <span style={{ fontWeight: 500, color: TEXT_MUTED }}>· {hoyHechos} de {hoyItems.length}</span></span>
+            {abierta ? <CaretUp size={15} color={TEXT_LIGHT} /> : <CaretDown size={15} color={TEXT_LIGHT} />}
           </button>
-        </div>
+          {abierta && <div style={{ borderTop: '1px solid #F0EDE6' }}>{deHoy.map((it, n) => fila(it, n, true))}</div>}
+        </section>
+      );
+    }
+    const [p0, ...resto] = pendHoy;
+    const hechosHoy = hoyItems.filter(i => i.hecho);
+    const aLaVista = abierta ? resto : resto.slice(0, TOPE - 1);
+    const ocultos = resto.length - (TOPE - 1);
+    return (
+      // Lo siguiente, con el único botón; debajo, hasta dos renglones de texto
+      // completo. Lo demás queda plegado en «y N más»: nunca un chorrero.
+      <section data-recordatorios-dash data-prota-dash data-hoy-hechos={`${hoyHechos}/${hoyItems.length}`} style={{ marginTop: 12, background: '#FFFFFF', borderRadius: 24, padding: `12px 16px ${aLaVista.length || ocultos > 0 ? 0 : 12}px`, boxShadow: sombra }}>
+        {cab}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
           <div data-prota-texto style={{ flex: 1, minWidth: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', color: TEXT, lineHeight: 1.18 }}>{p0.texto}</div>
           {(p0.ir || p0.marcar) && (
             <button data-prota-ir onClick={p0.ir || p0.marcar} style={{ flex: 'none', height: 40, padding: '0 16px', border: 'none', borderRadius: 999, background: TEXT, color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Ir ahora</button>
           )}
         </div>
-        {resto.length > 0 && (
-          <div data-chips-hoy style={{ display: 'flex', gap: 6, marginTop: 10, overflowX: 'auto', scrollbarWidth: 'none', margin: '10px -14px 0 -16px', padding: '0 14px 0 16px', ...(lote25() ? DESVANECIDO_BORDE : {}) }}>
-            {resto.map(it => (
-              <button key={it.id} data-recordatorio={it.id} onClick={it.ir || it.marcar || undefined} style={{ flex: 'none', border: 'none', borderRadius: 99, padding: '6px 11px', background: '#F2F3F5', color: '#5B5B61',
-                fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.texto}</button>
-            ))}
+        {(aLaVista.length > 0 || ocultos > 0) && (
+          <div data-hoy-renglones style={{ marginTop: 10, borderTop: '1px solid #F0EDE6' }}>
+            {aLaVista.map((it, n) => fila(it, n, false))}
+            {abierta && hechosHoy.map((it, n) => fila(it, aLaVista.length + n, true))}
+            {ocultos > 0 && plegar(abierta ? 'Ver menos' : `y ${ocultos} más`, abierta)}
           </div>
         )}
       </section>
