@@ -9,21 +9,28 @@
 // Los títulos llevan su grosor en estilos de cada componente; en vez de tocar
 // uno por uno, aquí se mira lo que se pinta y se ajusta. Lo nuevo que aparece
 // (al cambiar de sección o abrir una hoja) se ajusta al momento.
+//
+// 10 nov: en 600 se veían delgados frente al resto del texto. Los títulos
+// (17 px o más: el saludo, las secciones, los de tarjeta) suben un punto, a
+// 700, para que contrasten sin volver a lo grueso de antes (750–800). El
+// texto destacado más chico (15–16 px) sigue en 600.
 // ─────────────────────────────────────────────────────────────────────────
 const NUMERO = /^[\d\s.,/%:+\-–·]+$/;
-const GROSOR = '600';
+const GROSOR = '600';          // texto destacado de 15–16 px
+const GROSOR_TITULO = '700';   // títulos, de 17 px en adelante
 
 function tieneTexto(el) {
   for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim().length > 1) return true;
   return false;
 }
 function ajustarUno(el) {
-  if (el.style.getPropertyPriority('font-weight') === 'important' && el.style.getPropertyValue('font-weight') === GROSOR) return;
+  if (el.style.getPropertyPriority('font-weight') === 'important' && (el.style.getPropertyValue('font-weight') === GROSOR || el.style.getPropertyValue('font-weight') === GROSOR_TITULO)) return;
   if (!tieneTexto(el) || el.closest('button, [role="button"], input, textarea, select, svg')) return;
   const cs = getComputedStyle(el);
-  if (parseFloat(cs.fontSize) < 15 || Number(cs.fontWeight) < 650) return;
+  const tam = parseFloat(cs.fontSize);
+  if (tam < 15 || Number(cs.fontWeight) < 650) return;
   if (NUMERO.test(el.textContent.trim())) return;
-  el.style.setProperty('font-weight', GROSOR, 'important');
+  el.style.setProperty('font-weight', tam >= 17 ? GROSOR_TITULO : GROSOR, 'important');
 }
 function ajustar(raiz) {
   if (!raiz || raiz.nodeType !== 1) return;

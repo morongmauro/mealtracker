@@ -409,8 +409,26 @@ const Cambio = ({ desde, hasta, unidad, bueno = 'sube' }) => {
 
 // FUERA del componente a propósito: definido dentro, cada render de la app
 // crearía un componente nuevo y se perdería lo que se tocó en las gráficas.
-const Marco = React.forwardRef(({ children }, ref) => (
-  <div ref={ref} style={{
+// Menos aire en la página principal del Dash (10 nov): el interlineado que
+// se heredaba (1,5) baja a 1,3, los títulos van más pegados a lo suyo y los
+// espacios entre bloques y filas se acortan cerca de un tercio. Solo espacio
+// vertical: tamaños, colores y contenido no cambian. Las páginas de adentro
+// (gráficas, composición, configuración) quedan como estaban.
+const CSS_DASH_COMPACTO = `
+[data-dash-inicio]{line-height:1.3}
+[data-dash-inicio] h2{line-height:1.15!important}
+[data-dash-inicio] h3{line-height:1.2!important}
+[data-dash-inicio] [data-seccion]{margin-top:13px!important}
+[data-dash-inicio] section[data-tarjeta],[data-dash-inicio] section[data-tarjeta-semana]{padding-top:14px!important;padding-bottom:13px!important;margin-top:9px!important}
+[data-dash-inicio] section [style*="margin-top: 10px"]{margin-top:7px!important}
+[data-dash-inicio] section [style*="margin-top: 12px"]{margin-top:8px!important}
+[data-dash-inicio] section [style*="margin-top: 14px"]{margin-top:9px!important}
+[data-dash-inicio] section [style*="margin-top: 16px"]{margin-top:11px!important}
+[data-dash-inicio] section [style*="margin-top: 18px"]{margin-top:12px!important}
+[data-dash-inicio] section [style*="padding: 7px 0px"]{padding-top:4px!important;padding-bottom:4px!important}
+`;
+const Marco = React.forwardRef(({ children, inicio = false }, ref) => (
+  <div ref={ref} {...(inicio ? { 'data-dash-inicio': '' } : {})} style={{
     // Vista en prueba: 20 px a los lados, como Entrenamiento y Alimentación.
     position: 'relative', maxWidth: 560, margin: '0 auto', padding: enPrueba() ? '0 20px' : '0 16px',
     paddingTop: 'calc(62px + env(safe-area-inset-top, 0px))',
@@ -561,7 +579,8 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
   const kcal14 = comida.ultimos.filter(d => d.kcal != null).map(d => ({ v: d.kcal, fecha: d.fecha }));
 
   return (
-    <Marco ref={raizRef}>
+    <Marco ref={raizRef} inicio>
+      <style>{CSS_DASH_COMPACTO}</style>
       {/* Saludo: con la misma letra y la voz del coach de las cabeceras de Hoy. */}
       <CabeceraHoy tema="dash" sangria={enPrueba() ? '20px' : '16px'} arriba="calc(62px + env(safe-area-inset-top, 0px))"
         voz={{ etiqueta: etiquetaDia(hoy), a: `Hola${nombre ? `, ${nombre}` : ''}.`, b: racha >= 3 ? `${racha} días seguidos.` : 'Mira cómo vas.' }}
