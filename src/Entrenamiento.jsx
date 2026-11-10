@@ -1576,8 +1576,10 @@ function VistaRutina({ name, rutinaId, onVolver, plan = null, compacta = false, 
         <div aria-hidden="true" style={{ height: 24 }} />
       </Hoja>
       {movida && createPortal(
+        // Arriba, bajo la barra de avance: abajo lo tapaba el reloj del descanso,
+        // que arranca con la misma serie.
         <div role="status" data-aviso-movida style={{
-          position: 'fixed', left: 20, right: 20, bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex: 70, margin: '0 auto', maxWidth: 420,
+          position: 'fixed', left: 20, right: 20, top: 'calc(64px + env(safe-area-inset-top, 0px))', zIndex: 70, margin: '0 auto', maxWidth: 420,
           padding: '12px 16px', borderRadius: 18, background: 'rgba(31,31,31,0.92)', color: '#fff', fontSize: 14, fontWeight: 600, lineHeight: 1.35,
           boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
         }}>{movida.texto}</div>, document.body)}
