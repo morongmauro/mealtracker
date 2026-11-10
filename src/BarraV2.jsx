@@ -282,10 +282,11 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
             <div key={s.id} ref={grupoRef} className="bv2-grupo" role="group" aria-label={NOMBRE_SECCION[s.id]}
               style={{
                 flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 2,
-                // El color de la sección un poco más presente y un borde fino:
-                // se ve dónde empieza y dónde termina la sección abierta.
-                background: P ? c.tint.replace(/[\d.]+\)$/, '0.2)') : tinteSuave(c.tint),
-                boxShadow: P ? `inset 0 0 0 1.5px ${rgbaDe(c.ink, 0.34)}` : 'none',
+                // El color de la sección, transparente, y un halo suave por
+                // dentro (sin línea de borde): se ve dónde empieza y dónde
+                // termina la sección abierta sin encerrarla.
+                background: P ? c.tint.replace(/[\d.]+\)$/, '0.11)') : tinteSuave(c.tint),
+                boxShadow: P ? `inset 0 0 14px ${rgbaDe(c.ink, 0.13)}` : 'none',
                 borderRadius: 999, padding: P ? 5 : 4, overflowX: 'auto',
               }}>
               {/* El ícono de la sección se queda a la vista con sus opciones
