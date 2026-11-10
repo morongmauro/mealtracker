@@ -3,6 +3,7 @@ import { vibrar as vibrarL25 } from './vibrar.js';
 import { createPortal } from 'react-dom';
 import EntrenoMes, { HoySemana, precargarMeses, AvisoFlotante, ACTUALIZANDO } from './EntrenoMes.jsx';
 import EntrenoRutinas from './EntrenoRutinas.jsx';
+import VistaHecha from './EntrenoHecha.jsx';
 import EntrenoResumen from './EntrenoResumen.jsx';
 import EntrenoFotos from './EntrenoFotos.jsx';
 import EntrenoActividad, { ChipActividad, TarjetaCardioCoach } from './EntrenoActividad.jsx';
@@ -234,7 +235,10 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   // `rutinaFecha`: la rutina se abrió para TERMINAR la que dejó a medias
   // otro día (su sesión de ese día, con lo que marcó). Null = la de hoy.
   const [rutinaFecha, setRutinaFecha] = useState(null);
-  const abrirRutina = useCallback((id, planeada = null) => { setRutinaPlan(planeada || null); setRutinaFecha(null); setRutinaId(id); }, []);
+  // `rutinaHecha`: la fecha de un día que ya pasó en que la hizo. Se abre «Lo
+  // que hiciste ese día» (solo lectura) en vez de la rutina para entrenar.
+  const [rutinaHecha, setRutinaHecha] = useState(null);
+  const abrirRutina = useCallback((id, planeada = null, hechaEl = null) => { setRutinaPlan(planeada || null); setRutinaFecha(null); setRutinaHecha(hechaEl || null); setRutinaId(id); }, []);
   // Un aviso del teléfono («Tu Lower quedó abierta») abre esa rutina.
   useEffect(() => {
     // Un momento después de montar: al llegar desde el aviso, la barra
@@ -296,6 +300,15 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
     };
   };
 
+  if (rutinaId && rutinaHecha) {
+    return (
+      <Envoltorio>
+        <VistaHecha name={name} rutinaId={rutinaId} fecha={rutinaHecha}
+          onVolver={() => { setRutinaId(null); setRutinaHecha(null); }}
+          onEntrenar={() => setRutinaHecha(null)} />
+      </Envoltorio>
+    );
+  }
   if (rutinaId) {
     return (
       <Envoltorio>

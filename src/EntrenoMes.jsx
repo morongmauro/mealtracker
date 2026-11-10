@@ -320,7 +320,7 @@ function MesClasico({ nombre, alEntrenar }) {
         porFecha={porFecha}
         puedeMover={puedeMover(diaAbierto)}
         alCerrar={() => setAbierto(null)}
-        alEntrenar={(id, plan) => { setAbierto(null); alEntrenar(id, plan); }}
+        alEntrenar={(id, plan, hechaEl) => { setAbierto(null); alEntrenar(id, plan, hechaEl); }}
         alRegistrar={(fecha) => { setAbierto(null); setRegistrando(fecha); }}
         alMover={(hasta) => moverRutina(abierto, hasta)}
         alCambio={() => cargar(ym)}
@@ -470,6 +470,10 @@ function FilaViene({ dia, P, hoy, alTocar }) {
 }
 
 // ── El día, al tocarlo ───────────────────────────────────────────────────
+// Una rutina hecha un día que ya pasó: se abre «Lo que hiciste» (EntrenoHecha.jsx).
+// La de hoy no: se abre como siempre, con lo que marcó y editable.
+const hechaAntes = (dia, fecha) => (dia && dia.estado === 'completada' && fecha && fecha < hoyLocal() ? fecha : null);
+
 function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar, alEntrenar, alRegistrar, alMover, alCambio, fase = null,
   destinosSemana = null, alAgregarRutina = null, alQuitarRutina = null }) {
   const [eligiendo, setEligiendo] = useState(false);
@@ -494,7 +498,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
       {v2 && <AvisosDia dia={dia} fase={fase} P={P} />}
 
       {dia.rutina ? (
-        <Card onClick={() => alEntrenar(dia.rutina.id, !dia.extra && dia.estado !== 'completada' ? dia.fecha : null)} style={{ padding: 15 }}>
+        <Card onClick={() => alEntrenar(dia.rutina.id, !dia.extra && dia.estado !== 'completada' ? dia.fecha : null, hechaAntes(dia, dia.fecha))} style={{ padding: 15 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 800, fontSize: v2 ? 17 : 15.5 }}>{dia.rutina.nombre}</div>
@@ -584,9 +588,10 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
       )}
 
       {dia.hecho && (
-        <div style={{ fontSize: t.cuerpo, color: TEXT_MUTED, marginTop: dia.rutina ? 10 : 0 }}>
+        <div onClick={dia.hecho.id && dia.fecha < hoyLocal() ? () => alEntrenar(dia.hecho.id, null, dia.fecha) : undefined} data-hoja-hecho
+          style={{ fontSize: t.cuerpo, color: TEXT_MUTED, marginTop: dia.rutina ? 10 : 0, cursor: dia.hecho.id && dia.fecha < hoyLocal() ? 'pointer' : 'default' }}>
           <Marca estado="completada" /> Ese día entrenaste <b style={{ color: TEXT }}>{dia.hecho.nombre}</b>
-          {dia.rutina ? ' en su lugar.' : '.'}
+          {dia.rutina ? ' en su lugar.' : '.'}{dia.hecho.id && dia.fecha < hoyLocal() ? <span style={{ fontWeight: 700, color: TEXT }}> Ver lo que hiciste ›</span> : null}
         </div>
       )}
 
@@ -1250,7 +1255,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {}, videosHoy 
               return <FilaDiaV2 key={f} fecha={f} etiqueta={DIAS_V2[i]} dia={d} P={P} hoy={hoy} fase={fase} sinRegistrosHoy
                 sobre={arrastre && arrastre.sobre === f && arrastre.desde !== f} origen={arrastre && arrastre.desde === f}
                 arrastrable={arrastrable(d)}
-                alEntrenar={(id, plan) => tocar(() => alEntrenar(id, plan))} alEvento={(ev) => abrirEvento(ev, f)} />;
+                alEntrenar={(id, plan, hechaEl) => tocar(() => alEntrenar(id, plan, hechaEl))} alEvento={(ev) => abrirEvento(ev, f)} />;
             })}
           </div>
         </>
@@ -1386,7 +1391,7 @@ function MesV2({ nombre, alEntrenar, modo = 'mes', ejerciciosDe = {}, videosHoy 
         alAgregarRutina={abierto && puedeAgregar(porFecha[abierto]) ? () => setEligiendo(abierto) : null}
         alQuitarRutina={abierto && porFecha[abierto]?.extra ? () => quitarRutina(abierto) : null}
         alCerrar={() => setAbierto(null)}
-        alEntrenar={(id, plan) => { setAbierto(null); alEntrenar(id, plan); }}
+        alEntrenar={(id, plan, hechaEl) => { setAbierto(null); alEntrenar(id, plan, hechaEl); }}
         alRegistrar={(fecha) => { setAbierto(null); setRegistrando(fecha); }}
         alMover={(hasta) => moverRutina(abierto, hasta)}
         alCambio={() => recargar([abierto])}
@@ -1702,10 +1707,10 @@ function FilaDiaV2({ fecha, etiqueta, dia, P, hoy, fase, sobre, origen, arrastra
         {dia?.fin_ciclo && <Etiqueta Icono={FlagCheckered} color={P.ink} fondo={P.tint}>Último día de tu ciclo</Etiqueta>}
         {dia?.rutina && (
           <ChipRutina grande nombre={`${corto(dia.rutina)}${dia.extra ? ' · añadida' : ''}`} hecha={dia.estado === 'completada'} movida={dia.movida || dia.extra} P={P} arrastre={arrastrable}
-            alTocar={directo(alEntrenar && (() => alEntrenar(dia.rutina.id, !dia.extra && dia.estado !== 'completada' ? fecha : null)))} />
+            alTocar={directo(alEntrenar && (() => alEntrenar(dia.rutina.id, !dia.extra && dia.estado !== 'completada' ? fecha : null, hechaAntes(dia, fecha))))} />
         )}
         {dia?.hecho && <ChipRutina grande nombre={`${corto(dia.hecho)}${dia.rutina ? ' (en su lugar)' : ''}`} hecha P={P}
-          alTocar={directo(alEntrenar && dia.hecho.id && (() => alEntrenar(dia.hecho.id)))} />}
+          alTocar={directo(alEntrenar && dia.hecho.id && (() => alEntrenar(dia.hecho.id, null, fecha < hoyLocal() ? fecha : null)))} />}
         {bloquesDe(dia).map(b => <ChipBloque key={b.id} b={b} alTocar={directo(alEntrenar && (() => alEntrenar(b.id)))} />)}
         {/* En «Tu semana» lo de registrar de HOY no se repite: ya está arriba
             en «Hoy te toca» (los demás días sí lo anuncian). */}

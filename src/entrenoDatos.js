@@ -114,6 +114,8 @@ export function useAlVolverRed(fn) {
 export const api = {
   plan:     (name)     => pedir({ accion: 'plan', name }),
   rutina:   (name, id) => pedir({ accion: 'rutina', name, id }),
+  // Lo que hizo en una rutina un día que ya pasó (solo lectura).
+  hecha:    (name, rutina_id, fecha) => pedir({ accion: 'hecha', name, rutina_id, fecha }),
   mes:      (name, ym) => pedir({ accion: 'mes', name, ym }),
   rutinas:  (name)     => pedir({ accion: 'rutinas', name }),
   resumen:  (name)     => pedir({ accion: 'resumen', name }),

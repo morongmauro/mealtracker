@@ -88,7 +88,7 @@ async function buscarCliente(nombre) {
 // que a quien ya entró no se le pide nada. Sin contraseña todavía, pasa por
 // el nombre como siempre (el CRM dice quiénes faltan). El coach, en «ver
 // como cliente», trae el pase del CRM: vale solo para LEER a ese cliente.
-const LECTURAS_PASE_CRM = new Set(['plan', 'rutina', 'mes', 'rutinas', 'catalogo', 'resumen', 'dash', 'conteo', 'medidas', 'comunidad', 'fotos', 'ausencias', 'respuestas']);
+const LECTURAS_PASE_CRM = new Set(['plan', 'rutina', 'hecha', 'mes', 'rutinas', 'catalogo', 'resumen', 'dash', 'conteo', 'medidas', 'comunidad', 'fotos', 'ausencias', 'respuestas']);
 function paseValido(cliente, cuerpo, accion, nombrePedido) {
   if (cuerpo.pase) {
     const p = leerPase(String(cuerpo.pase));
@@ -139,6 +139,7 @@ export default async function handler(req, res) {
     if (accion === 'crm') return res.status(200).json(crmDelCoach(cliente, req));
     if (accion === 'plan') return res.status(200).json(await verPlan(cliente, hoy));
     if (accion === 'rutina') return res.status(200).json(await verRutina(cliente, cuerpo.id, hoy));
+    if (accion === 'hecha') return res.status(200).json(await verHecha(cliente, cuerpo.rutina_id, cuerpo.fecha, hoy));
     if (accion === 'mes') return res.status(200).json(await verMes(cliente, cuerpo.ym, hoy));
     if (accion === 'rutinas') return res.status(200).json(await verRutinas(cliente));
     if (accion === 'catalogo') return res.status(200).json(await verCatalogo());
@@ -508,6 +509,44 @@ async function verRutina(cliente, rutinaId, hoy) {
         ...(videoDe(videos, porId[x.ejercicio_id]) ? { video_pedido: videoDe(videos, porId[x.ejercicio_id]) } : {}),
       })),
     },
+  };
+}
+
+// ── LO QUE HIZO ESE DÍA (solo lectura) ──────────────────────────────────
+// Una rutina ya hecha otro día, tal como quedó: la sesión de esa fecha y sus
+// series marcadas, agrupadas por ejercicio en el orden de la rutina. Solo
+// lee: no crea ni toca ninguna sesión.
+async function verHecha(cliente, rutinaId, fecha, hoy) {
+  if (!rutinaId || !/^\d{4}-\d{2}-\d{2}$/.test(String(fecha || '')) || fecha > hoy) return { ok: false, motivo: 'sin_datos' };
+  const id = encodeURIComponent(rutinaId);
+  const rr = await sb(`rutinas?select=id,nombre&id=eq.${id}&cliente_id=eq.${cliente.id}&limit=1`);
+  const rutina = Array.isArray(rr) ? rr[0] : null;
+  if (!rutina) return { ok: false, motivo: 'no_es_suya' };
+  const ss = await sb(`sesiones?select=id,estado,rpe,notas_cliente,fecha,duracion_seg&cliente_id=eq.${cliente.id}&rutina_id=eq.${id}&fecha=eq.${fecha}&limit=1`);
+  const ses = Array.isArray(ss) ? ss[0] : null;
+  const limpia = { id: rutina.id, nombre: limpiarRutina(rutina).nombre || rutina.nombre };
+  if (!ses) return { ok: true, rutina: limpia, sesion: null, ejercicios: [] };
+  const series = await sb(`series_log?select=*&sesion_id=eq.${ses.id}&completada=is.true&order=serie_num.asc`).catch(() => []);
+  const lista = Array.isArray(series) ? series : [];
+  const res = await sb(`rutina_ejercicios?select=id,ejercicio_id,orden&rutina_id=eq.${id}`).catch(() => []);
+  const ordenRE = new Map((Array.isArray(res) ? res : []).map(x => [x.id, Number(x.orden) || 0]));
+  const ids = [...new Set(lista.map(s => s.ejercicio_id).filter(Boolean))];
+  const ejs = ids.length ? await sb(`ejercicios?select=id,nombre,alias&id=in.(${ids.join(',')})`).catch(() => []) : [];
+  const porId = new Map((Array.isArray(ejs) ? ejs : []).map(e => [e.id, e]));
+  const grupos = new Map();
+  lista.forEach((s, i) => {
+    const k = s.rutina_ejercicio_id || `e:${s.ejercicio_id}`;
+    if (!grupos.has(k)) grupos.set(k, { orden: ordenRE.has(s.rutina_ejercicio_id) ? ordenRE.get(s.rutina_ejercicio_id) : 1e6 + i, ejercicio: porId.get(s.ejercicio_id) || { id: s.ejercicio_id, nombre: 'Ejercicio' }, series: [] });
+    grupos.get(k).series.push({ serie_num: s.serie_num, reps: s.reps, peso: s.peso, unidad: s.unidad || 'kg', ...(s.rir != null ? { rir: s.rir } : {}) });
+  });
+  const ejercicios = [...grupos.values()].sort((a, b) => a.orden - b.orden).map(({ ejercicio, series: sr }) => ({
+    ejercicio: { id: ejercicio.id, nombre: ejercicio.nombre, alias: ejercicio.alias || null },
+    series: sr.sort((a, b) => (a.serie_num || 0) - (b.serie_num || 0)),
+  }));
+  return {
+    ok: true, rutina: limpia,
+    sesion: { fecha: ses.fecha, estado: ses.estado, rpe: ses.rpe ?? null, duracion_seg: ses.duracion_seg ?? null, notas: ses.notas_cliente || null },
+    ejercicios,
   };
 }
 

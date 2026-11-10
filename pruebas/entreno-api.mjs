@@ -935,5 +935,27 @@ await caso('ficha repetida cambiada: lo de Trainerize también se busca por el n
   igual([remo.ultima_vez && remo.ultima_vez.fecha, remo.ultima_vez && remo.ultima_vez.mejor_peso], ['2026-08-25', 70], 'última vez de Trainerize por el nombre viejo');
 });
 
+await caso('lo que hizo ese día: series por ejercicio en el orden de la rutina, solo lectura', async () => {
+  const sb = base();
+  Object.assign(sb.db.sesiones[0], { rpe: 7, duracion_seg: 2580, notas_cliente: 'Me sentí fuerte' });
+  sb.db.series_log.push(
+    { id: 'l1', sesion_id: 's0', rutina_ejercicio_id: 're2', ejercicio_id: 'e2', serie_num: 1, reps: 10, peso: 40, unidad: 'kg', completada: true },
+    { id: 'l2', sesion_id: 's0', rutina_ejercicio_id: 're1', ejercicio_id: 'e1', serie_num: 2, reps: 7, peso: 62.5, unidad: 'kg', completada: true },
+    { id: 'l3', sesion_id: 's0', rutina_ejercicio_id: 're1', ejercicio_id: 'e1', serie_num: 3, reps: 6, peso: 62.5, unidad: 'kg', completada: false },
+  );
+  globalThis.fetch = sb.fetch;
+  const antes = sb.db.sesiones.length;
+  const r = await llamar(handler, { accion: 'hecha', name: yo, rutina_id: 'r1', fecha: mas(lunes, -7) });
+  igual(r.ok, true, 'ok');
+  igual(r.rutina.nombre, 'Push', 'rutina');
+  igual(r.sesion, { fecha: mas(lunes, -7), estado: 'completada', rpe: 7, duracion_seg: 2580, notas: 'Me sentí fuerte' }, 'sesión');
+  igual(r.ejercicios.map(e => [e.ejercicio.nombre, e.series.map(x => `${x.reps}x${x.peso}`)]), [['Press banca', ['8x60', '7x62.5']], ['Remo', ['10x40']]], 'por ejercicio, en orden, sin la desmarcada');
+  igual(sb.db.sesiones.length, antes, 'no crea sesiones');
+  const vacia = await llamar(handler, { accion: 'hecha', name: yo, rutina_id: 'r2', fecha: mas(lunes, -7) });
+  igual([vacia.ok, vacia.sesion, vacia.ejercicios.length], [true, null, 0], 'sin sesión ese día');
+  const ajena = await llamar(handler, { accion: 'hecha', name: yo, rutina_id: 'r9', fecha: mas(lunes, -7) });
+  igual(ajena.ok, false, 'la rutina de otro cliente no se ve');
+});
+
 console.log(`\n${casos - fallos}/${casos} bien`);
 process.exit(fallos ? 1 : 0);
