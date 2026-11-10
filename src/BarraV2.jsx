@@ -11,7 +11,7 @@
 // separa la barra del contenido; no hace falta sombra pesada.
 // ─────────────────────────────────────────────────────────────────────────
 import { vibrar } from './vibrar.js';
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChartLineUp, ChartBar, Barbell, ForkKnife, GraduationCap, SquaresFour, Brain } from '@phosphor-icons/react';
 import { SECCION, DASH_AZUL } from './theme.js';
 import { enPrueba, lote25, tinteSuave } from './vistaApp.js';
@@ -29,6 +29,23 @@ const sinMovimiento = () => { try { return matchMedia('(prefers-reduced-motion: 
 // Duración del viaje del cristal entre secciones y de la pastilla entre opciones.
 const PASTILLA_MS = 260;
 const CURVA = 'cubic-bezier(.2,.8,.2,1)';
+
+// «#454B54» → «rgba(69,75,84,a)»: el borde de la sección abierta, en su color.
+const rgbaDe = (hex, a) => { const n = parseInt(String(hex).slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+// Cuánto mide un texto (para saber si los nombres caben antes de pintarlos).
+let lienzo = null;
+const anchoTexto = (t, px, peso, familia) => {
+  try {
+    lienzo = lienzo || document.createElement('canvas').getContext('2d');
+    lienzo.font = `${peso} ${px}px ${familia}`;
+    return lienzo.measureText(String(t)).width;
+  } catch (e) { return String(t).length * px * 0.62; }
+};
+// Los nombres de las secciones cerradas (12 px, la letra mínima de la app).
+const NOMBRE_PX = 12;
+const ANCHO_CERRADA = 30;
+// Con nombres, las opciones van a 12,5 px (por clase: la escala de letra no las sube a 13).
+const OPCION_PX = 12.5;
 
 // secciones: [{ id, subs: [{ id, label, icono? }] }] en el orden de la barra.
 // punto: { [seccionId]: true } para el aviso de novedad.
@@ -98,10 +115,64 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
   // para que el texto de abajo nunca se mezcle con el de la barra.
   const P = enPrueba();
   const conNombres = !subsAbiertas.length;
+
+  // ── Nombres en las secciones cerradas también con una sección abierta ──
+  // Solo si caben EN TODAS las secciones de este teléfono (para que no
+  // aparezcan en una y falten en otra): se mide el texto y se prueba con las
+  // opciones un poco más juntas. Si no caben (teléfonos angostos), la barra
+  // queda como siempre: las cerradas en su ícono.
+  const [anchoVentana, setAnchoVentana] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 390));
+  const [letraLista, setLetraLista] = useState(0);
+  useEffect(() => {
+    const f = () => setAnchoVentana(window.innerWidth);
+    window.addEventListener('resize', f);
+    // La letra de la marca puede llegar después del primer pintado: se vuelve a medir.
+    try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setLetraLista(1)); } catch (e) { /* nada */ }
+    return () => window.removeEventListener('resize', f);
+  }, []);
+  const claveSecciones = secciones.map(x => `${x.id}:${(x.subs || []).map(o => o.label || '·').join(',')}`).join('|');
+  const nombres = useMemo(() => {
+    if (typeof document === 'undefined') return null;
+    let familia = 'sans-serif';
+    try { familia = getComputedStyle(document.body).fontFamily || familia; } catch (e) { /* nada */ }
+    const disponible = Math.min(460, anchoVentana - 2 * (P ? 12 : 10)) - 2 * (P ? 6 : 5);
+    const anchos = {};
+    secciones.forEach(x => { anchos[x.id] = Math.max(ANCHO_CERRADA, Math.ceil(anchoTexto(CORTO_SECCION[x.id] || NOMBRE_SECCION[x.id], NOMBRE_PX, 650, familia)) + 2); });
+    // El relleno de las opciones, por sección: el más holgado que quepa
+    // (7 → 4). Si en alguna sección no cabe ni con 4, no hay nombres en ninguna.
+    const grupoDe = (x, r) => {
+      const subs = x.subs || [];
+      const icono = subs.filter(o => o.label).length >= 4 ? 0 : 25;
+      return 2 * (P ? 5 : 4) + icono + 2 * (subs.length - (icono ? 0 : 1))
+        + subs.reduce((n, o) => n + (o.label ? Math.ceil(anchoTexto(o.label, OPCION_PX, 700, familia)) + 2 * r : 18 + 2 * r), 0);
+    };
+    const huecos = 4 * (secciones.length - 1);
+    const conSubs = secciones.filter(x => (x.subs || []).length);
+    const relleno = {};
+    const todasCaben = conSubs.every(x => {
+      const cerradas = secciones.filter(y => y.id !== x.id).reduce((n, y) => n + anchos[y.id], 0);
+      relleno[x.id] = [7, 6, 5, 4].find(r => grupoDe(x, r) + cerradas + huecos <= disponible);
+      return !!relleno[x.id];
+    });
+    if (todasCaben) return { conNombres: true, relleno, anchos };
+    // Teléfono angosto: sin nombres, pero las opciones de la sección abierta
+    // se juntan lo justo para que ninguna quede cortada contra el borde.
+    const sin = {}; const cerrada = {};
+    conSubs.forEach(x => {
+      for (const c of [36, 32]) {
+        const r = [9, 7, 6, 5, 4].find(k => grupoDe(x, k) + c * (secciones.length - 1) + huecos <= disponible);
+        if (r) { sin[x.id] = r; cerrada[x.id] = c; return; }
+      }
+    });
+    return { conNombres: false, relleno: sin, cerrada };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveSecciones, anchoVentana, letraLista, P]);
   return (
     <div ref={barRef} data-barra-v2 className="fixed left-0 right-0 bottom-0" style={{
       zIndex: 45, pointerEvents: 'none',
-      padding: P ? '0 18px calc(14px + env(safe-area-inset-bottom, 0px))' : '0 10px calc(10px + env(safe-area-inset-bottom, 0px))',
+      // 12 px a los lados (antes 18): esos 12 px de más son los que dejan
+      // caber los nombres de las secciones en un teléfono de 390.
+      padding: P ? '0 12px calc(14px + env(safe-area-inset-bottom, 0px))' : '0 10px calc(10px + env(safe-area-inset-bottom, 0px))',
       display: oculta ? 'none' : 'block',
     }}>
       {P && <div aria-hidden="true" data-velo-barra style={{
@@ -146,6 +217,8 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
         .bv2-btn:active { transform: scale(.94); }
         @keyframes bv2Aparece { from { opacity: 0; } to { opacity: 1; } }
         .bv2-grupo { animation: bv2Aparece .3s ease-out; }
+        .bv2-op { font-size: ${OPCION_PX}px; }
+        .bv2-nombre { font-size: ${NOMBRE_PX}px; font-weight: 650; line-height: 1; letter-spacing: -0.02em; margin-top: 2px; white-space: nowrap; }
       `}</style>
       <nav ref={navRef} aria-label="Secciones" className="bv2-cristal" style={{
         pointerEvents: 'auto', maxWidth: 460, margin: '0 auto', borderRadius: 999, position: 'relative',
@@ -165,7 +238,12 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                   // Se encogen antes que el grupo abierto: en un teléfono
                   // angosto ceden espacio a las opciones, que son las que
                   // tienen texto.
-                  flex: muyApretada ? '1 1 34px' : apretada ? '1 1 38px' : '1 1 42px', minWidth: muyApretada ? 34 : apretada ? 36 : 40, height: P ? 54 : 48, borderRadius: 999, border: 'none',
+                  ...(nombres && nombres.conNombres && !conNombres
+                    ? { flex: `1 1 ${nombres.anchos[s.id]}px`, minWidth: nombres.anchos[s.id] }
+                    : nombres && !nombres.conNombres && nombres.cerrada[seccion]
+                    ? { flex: `1 1 ${nombres.cerrada[seccion]}px`, minWidth: nombres.cerrada[seccion] }
+                    : { flex: muyApretada ? '1 1 34px' : apretada ? '1 1 38px' : '1 1 42px', minWidth: muyApretada ? 34 : apretada ? 36 : 40 }),
+                  height: P ? 54 : 48, borderRadius: 999, border: 'none',
                   background: 'transparent', color: '#6A6860', position: 'relative',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   gap: 1, cursor: 'pointer', padding: 0, fontFamily: 'inherit',
@@ -178,6 +256,9 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                     corto debajo. Con las opciones de otra sección abiertas los
                     botones miden ~36 px y el nombre no cabe. */}
                 {conNombres && <span data-nombre-seccion style={{ fontSize: 12, fontWeight: 650, lineHeight: 1, letterSpacing: '-0.01em', marginTop: 2 }}>{CORTO_SECCION[s.id] || NOMBRE_SECCION[s.id]}</span>}
+                {/* Con otra sección abierta: el nombre también, si cabe en este
+                    teléfono (se midió arriba). Así nunca hay que adivinar el ícono. */}
+                {!conNombres && nombres && nombres.conNombres && <span data-nombre-seccion="corto" className="bv2-nombre">{CORTO_SECCION[s.id] || NOMBRE_SECCION[s.id]}</span>}
                 {punto[s.id] && (
                   // El puntito de novedad, en el color de la sección: se queda
                   // hasta que la persona entra a ver qué hay.
@@ -201,7 +282,11 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
             <div key={s.id} ref={grupoRef} className="bv2-grupo" role="group" aria-label={NOMBRE_SECCION[s.id]}
               style={{
                 flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 2,
-                background: tinteSuave(c.tint), borderRadius: 999, padding: P ? 5 : 4, overflowX: 'auto',
+                // El color de la sección un poco más presente y un borde fino:
+                // se ve dónde empieza y dónde termina la sección abierta.
+                background: P ? c.tint.replace(/[\d.]+\)$/, '0.2)') : tinteSuave(c.tint),
+                boxShadow: P ? `inset 0 0 0 1.5px ${rgbaDe(c.ink, 0.34)}` : 'none',
+                borderRadius: 999, padding: P ? 5 : 4, overflowX: 'auto',
               }}>
               {/* El ícono de la sección se queda a la vista con sus opciones
                   abiertas: se sabe en qué parte de la app se está. */}
@@ -214,18 +299,19 @@ export default function BarraV2({ secciones, seccion, sub, alSeccion, alSub, pun
                 const activo = o.id === sub || sinSubs;
                 const SubIcono = o.icono;
                 return (
-                  <button key={o.id} className="bv2-btn" data-activo={activo ? '1' : '0'}
+                  <button key={o.id} className={nombres && nombres.relleno[s.id] && !sinSubs ? 'bv2-btn bv2-op' : 'bv2-btn'} data-activo={activo ? '1' : '0'}
                     onClick={() => { vibrar('tic'); alSub(s.id, o.id); }}
                     aria-current={activo ? 'page' : undefined}
                     aria-label={o.aria || o.label}
                     style={{
                       flex: 'none', height: P ? 44 : 38, borderRadius: 999, border: 'none', cursor: 'pointer',
-                      padding: SubIcono && !o.label ? '0 9px' : SubIcono ? '0 12px 0 10px' : muyApretada ? '0 6px' : apretada ? '0 7px' : '0 9px',
+                      padding: nombres && nombres.relleno[s.id] && !sinSubs ? `0 ${nombres.relleno[s.id]}px`
+                        : SubIcono && !o.label ? '0 9px' : SubIcono ? '0 12px 0 10px' : muyApretada ? '0 6px' : apretada ? '0 7px' : '0 9px',
                       // La activa es una pastilla de cristal blanco con la letra
                       // en el color de la sección: se distingue sin gritar.
                       background: activo ? 'rgba(255,255,255,0.92)' : 'transparent',
                       color: c.ink, opacity: activo ? 1 : 0.8,
-                      fontFamily: 'inherit', fontSize: muyApretada ? 12 : apretada ? 12.5 : 13, fontWeight: activo ? 700 : 600,
+                      fontFamily: 'inherit', ...(nombres && nombres.relleno[s.id] && !sinSubs ? {} : { fontSize: muyApretada ? 12 : apretada ? 12.5 : 13 }), fontWeight: activo ? 700 : 600,
                       letterSpacing: '-0.01em', whiteSpace: 'nowrap',
                       display: 'flex', alignItems: 'center', gap: 5,
                       boxShadow: activo ? '0 1px 2px rgba(40,40,30,0.06), 0 4px 12px rgba(40,40,30,0.08)' : 'none',
