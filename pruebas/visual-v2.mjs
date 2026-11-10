@@ -464,6 +464,7 @@ try {
         if (quiere('entreno')) await tomar('entreno', { completa: !!v.completa });
         if (quiere('rutina')) {
           await p.locator(`[data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click().catch(() => {});
+          await p.locator('[data-entrenar-hoy]').click({ timeout: 3000 }).catch(() => {});
           await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 }).catch(() => {});
           await p.locator('[data-tip-entendido]').click().catch(() => {});
           await p.locator('[data-ejercicio="Barbell Bench Press"]').evaluate(el => el.scrollIntoView({ block: 'center' })).catch(() => {});
@@ -917,7 +918,10 @@ try {
     && (await p.locator('[data-cabecera-hoy="dash"] [data-firma-coach]').count()) === 0
     && (await p.locator('[data-cabecera-hoy="dash"] [data-banda]').count()) === 1
     && (await p.locator('[data-cabecera-hoy="dash"] .cab-m').count()) === (await p.evaluate(() => document.documentElement.hasAttribute('data-fondo-blanco')) ? 2 : 4));
-  ok('cabeceras: un objeto 3D por sección; en el Dash, la brújula animada (se pinta con una URL nueva para que arranque de cero)', await p.locator('[data-cabecera-hoy="dash"] [data-objeto-cabecera="dash"] img').evaluate(i => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0, null, { timeout: 8000 }).catch(() => false)
+  // Vista nueva (la que ven todos): dentro del aro va el ícono de la sección
+  // (barras en el Dash); la brújula 3D quedó solo en la vista clásica.
+  ok('cabeceras: en el Dash, dentro del aro, el ícono de barras (vista nueva) o el objeto de la sección (vista clásica)', ((await p.locator('[data-cabecera-hoy="dash"] [data-icono-blob="dash"]').count()) === 1
+      || (await p.locator('[data-cabecera-hoy="dash"] [data-aro-cabecera] [data-objeto-cabecera="dash"]').count()) === 1)
     && (await p.locator('[data-cabecera-hoy="dash"] svg[data-ilustracion]').count()) === 0);
   ok('Dash: el blob junto a la frase, con la brújula a dos colores y el porcentaje en grafito adentro del aro', await ilusBien(p, 'dash'));
   // Opción B de los aros: azul pleno y una luz continua (tajadas de medio grado) hacia el punto blanco; sin sombras.
@@ -941,6 +945,8 @@ try {
     const puntos = [...s.querySelectorAll('circle')].filter(c => (c.getAttribute('fill') || '').toUpperCase() === '#FFFFFF');
     return puntos.length === 1 && puntos.every(c => !c.getAttribute('stroke'));
   }));
+  await ctx.clock.runFor(3000).catch(() => {});   // el reloj de la página está quieto en la prueba
+  await espera(400);
   ok('Dash: los anillos se llenan al abrir (y terminan llenos)', await p.locator('[data-view="dash"] [data-anillo] circle[stroke-dashoffset]').first().evaluate(el => {
     const c = parseFloat(el.getAttribute('stroke-dasharray')); const o = parseFloat(el.getAttribute('stroke-dashoffset'));
     return getComputedStyle(el).transitionProperty.includes('stroke-dashoffset') && o < c;
@@ -953,17 +959,20 @@ try {
     const bs = [...document.querySelectorAll('[data-atajos] > *')];
     const tops = new Set(bs.map(b => Math.round(b.getBoundingClientRect().top)));
     const altos = new Set(bs.map(b => Math.round(b.getBoundingClientRect().height)));
-    return bs.length === 4 && tops.size === 1 && altos.size === 1 && bs.every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth - 16; });
+    // 4 para un cliente; Mauro (el coach) tiene uno más: «Vista coach (CRM)».
+    return bs.length >= 4 && tops.size === 1 && altos.size === 1 && bs.every(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth - 16; });
   }), await dash.evaluate(() => JSON.stringify([...document.querySelectorAll('[data-atajos] > *')].map(b => { const r = b.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), Math.round(r.height)]; }))));
-  ok('atajos del Dash: botones de cristal chicos (círculo de 42 px con el símbolo y la palabra debajo)', await dash.evaluate(() => {
+  // Con el fondo blanco (lo que ven todos) son círculos de 36 px en una
+  // píldora de cristal; el nombre queda como texto accesible (no se ve).
+  ok('atajos del Dash: botones de cristal chicos (círculo de 36-42 px con el símbolo; Coach, Comunidad, Avisos, Ajustes)', await dash.evaluate(() => {
     const bs = [...document.querySelectorAll('[data-atajos] [data-boton-cristal]')];
-    return bs.length === 4 && bs.every(b => { const c = b.querySelector('[data-circulo]').getBoundingClientRect(); const t = b.lastElementChild.getBoundingClientRect();
-      return Math.round(c.width) === 42 && Math.round(c.height) === 42 && t.top >= c.bottom && t.height > 0; })
-      && bs.map(b => b.lastElementChild.textContent).join(',') === 'Coach,Comunidad,Avisos,Ajustes';
+    return bs.length >= 4 && bs.every(b => { const c = b.querySelector('[data-circulo]').getBoundingClientRect();
+      return [36, 42].includes(Math.round(c.width)) && Math.round(c.width) === Math.round(c.height); })
+      && bs.slice(0, 4).map(b => b.lastElementChild.textContent).join(',') === 'Coach,Comunidad,Avisos,Ajustes';
   }));
   ok('atajos del Dash: el ícono va en el azul del Dash', await dash.evaluate(() => {
     const ics = [...document.querySelectorAll('[data-atajos] [data-boton-cristal] [data-tono-icono]')];
-    return ics.length === 4 && ics.every(i => i.getAttribute('data-tono-icono') === '#3C7BD6');
+    return ics.length >= 4 && ics.every(i => i.getAttribute('data-tono-icono') === '#3C7BD6');
   }));
   ok('Dash: sin el letrero «Toca la línea» (los valores ya están en cada punto)', (await dash.locator('[data-pista-linea]').count()) === 0);
   ok('cabecera: la sombra del blob es corta y tenue (no la grande de antes)', await p.locator('[data-cabecera-hoy="dash"] svg[data-blob]').evaluate(b => { const f = getComputedStyle(b).filter; return /drop-shadow/.test(f) && !/28px/.test(f) && (/12px/.test(f) || (b.hasAttribute('data-vidrio') && /24px/.test(f))); }));
@@ -1002,8 +1011,10 @@ try {
   const nRec = await dash.locator('[data-recordatorio]').count();
   const verTodos = dash.locator('[data-ver-recordatorios]');
   const txtHoy = await dash.locator('[data-recordatorios-dash]').innerText();
-  ok('Dash: bloque HOY con lo que importa hoy (peso, fotos, cardio del coach, comida) y su «N de M»', nRec >= 3
-    && /HOY · 0 de 4/.test(txtHoy) && /Registrar tu peso/.test(txtHoy) && /Enviar tus fotos/.test(txtHoy) && /Registrar lo que comiste/.test(txtHoy)
+  // En estos datos el peso y las fotos de hoy ya están hechos: lo que falta
+  // (el cardio del coach y la comida) va a la vista, con «2 de 4».
+  ok('Dash: bloque HOY con lo que importa hoy (lo que falta a la vista: cardio del coach, comida) y su «N de M»', nRec >= 1
+    && /2 de 4/.test(txtHoy) && /Caminadora/.test(txtHoy) && /Registrar lo que comiste/.test(txtHoy)
     && !/Sobre el programa|cápsula|video/i.test(txtHoy), txtHoy);
   await verTodos.click(); await espera(250);
   ok('Dash HOY: los íconos son de línea, sin círculo de fondo (no parecen botones)', await dash.locator('[data-icono-hoy]').count() >= 1
@@ -1014,8 +1025,10 @@ try {
   ok('Dash: «Ver todo» despliega el resto (programa, cápsulas, videos)', (await dash.locator('[data-recordatorio]').count()) > nRec
     && /Sobre el programa|cápsula|video/i.test(await dash.locator('[data-recordatorios-dash]').innerText()));
   // El coach se entera de qué le sale: lo de hoy a la vista, y al abrir
-  // «Ver todo» lo demás también cuenta como visto.
-  await espera(2600);
+  // «Ver todo» lo demás también cuenta como visto. (El aviso sale a los 2 s;
+  // el reloj de la página está quieto en la prueba: se adelanta.)
+  await ctx.clock.runFor(2500).catch(() => {});
+  await espera(800);
   const repRec = recordatoriosEnviados.filter(x => Array.isArray(x.items));
   const ultRec = repRec.at(-1) || { items: [] };
   ok('Dash: le cuenta al coach qué le sale (lo de hoy y lo de «Ver todo», a la vista tras abrirlo)', repRec.length >= 1
@@ -1026,8 +1039,17 @@ try {
   // con su propia base; al terminar se devuelve la de esta prueba).
   {
     const fetchAntes = globalThis.fetch;
-    const en = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => { db.db.clientes[0].fecha_inicio = hace(20); db.db.encuesta_app = []; } });
+    // La encuesta sale a los 15 días del PRIMER USO de la app y con 5 días de
+    // uso (tabla app_uso de la app). Aquí: usó la app 6 días desde hace 20.
+    const envAntes = [process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY];
+    const desdeAntes = process.env.ENCUESTA_DESDE;
+    process.env.SUPABASE_URL = 'https://crm.test'; process.env.SUPABASE_SERVICE_KEY = 'k';
+    process.env.ENCUESTA_DESDE = '';   // la prueba vive en septiembre; la encuesta arrancó el 2 nov
+    const conUso = (db) => { db.db.app_uso = [0, 3, 6, 9, 12, 15].map(k => ({ name: 'Mauro Morón', fecha: sumarDiasISO(hoy, -20 + k) })); };
+    const en = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => { db.db.clientes[0].fecha_inicio = hace(20); db.db.encuesta_app = []; conUso(db); } });
     const v = en.p.locator('[data-encuesta-app]');
+    // Sale a los segundos de abrir; el reloj de la página está quieto en la prueba.
+    await espera(2500); await en.ctx.clock.runFor(4000).catch(() => {});
     await v.waitFor({ timeout: 12000 }).catch(() => {});
     ok('encuesta: desde su segunda semana le sale al abrir, con las 4 preguntas (útil, fácil, agradable, recomendaría) y la abierta', (await v.count()) === 1
       && (await v.locator('[data-encuesta-pregunta]').count()) === 5 && /útil/.test(await v.innerText()) && /recomendarías/.test(await v.innerText()));
@@ -1049,7 +1071,8 @@ try {
     ok('sin errores de JavaScript (encuesta)', en.errores.length === 0, en.errores.join(' | '));
     await en.ctx.close();
     // «Ahora no»: no sale más esta semana.
-    const en2 = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => { db.db.clientes[0].fecha_inicio = hace(20); db.db.encuesta_app = []; } });
+    const en2 = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => { db.db.clientes[0].fecha_inicio = hace(20); db.db.encuesta_app = []; conUso(db); } });
+    await espera(2500); await en2.ctx.clock.runFor(4000).catch(() => {});
     await en2.p.locator('[data-encuesta-app]').waitFor({ timeout: 12000 }).catch(() => {});
     await en2.p.locator('[data-encuesta-luego]').click(); await espera(300);
     await en2.p.reload(); await espera(3500);
@@ -1057,11 +1080,16 @@ try {
       && !!(await en2.p.evaluate(() => localStorage.getItem('mt:encuestaLuego'))));
     await en2.ctx.close();
     // Cliente en su primera semana: todavía no.
-    const en3 = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => { db.db.clientes[0].fecha_inicio = hoy; db.db.encuesta_app = []; } });
-    await espera(4000);
-    ok('encuesta: en la primera semana del cliente no sale', (await en3.p.locator('[data-encuesta-app]').count()) === 0);
+    // Recién empezó a usar la app (hace 3 días): todavía no.
+    const en3 = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => { db.db.clientes[0].fecha_inicio = hoy; db.db.encuesta_app = []; db.db.app_uso = [{ name: 'Mauro Morón', fecha: sumarDiasISO(hoy, -3) }]; } });
+    await espera(2500); await en3.ctx.clock.runFor(4000).catch(() => {}); await espera(1000);
+    ok('encuesta: recién empezó a usar la app (3 días): no sale', (await en3.p.locator('[data-encuesta-app]').count()) === 0);
     await en3.ctx.close();
     globalThis.fetch = fetchAntes;
+    [process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY] = envAntes;
+    if (envAntes[0] === undefined) delete process.env.SUPABASE_URL;
+    if (envAntes[1] === undefined) delete process.env.SUPABASE_SERVICE_KEY;
+    if (desdeAntes === undefined) delete process.env.ENCUESTA_DESDE; else process.env.ENCUESTA_DESDE = desdeAntes;
   }
   // El aro de la cabecera se toca y explica qué lo compone, sin deuda.
   // El aro es el PROGRESO de la semana (no «sin deuda» siempre en 100 %): se
@@ -1232,6 +1260,7 @@ try {
   await conf.waitFor({ timeout: 5000 });
   // Relojes salió de Configuración (22 oct): queda guardado para cuando se conecten de verdad.
   ok('configuración: unidades, notificaciones, respira, recorrido, programa y coach (sin relojes)', JSON.stringify(await conf.locator('[data-config]').evaluateAll(els => els.map(e => e.dataset.config)))
+    .replace('"ciclo",', '')   // «Mi ciclo»: a prueba, solo Mauro
     === JSON.stringify(['unidades', 'notificaciones', 'respira', 'recorrido', 'programa', 'coach']), JSON.stringify(await conf.locator('[data-config]').evaluateAll(els => els.map(e => e.dataset.config))));
   await foto(p, '19b-configuracion');
   ok('configuración: ya no hay fila de Relojes', (await conf.locator('[data-config="relojes"]').count()) === 0);
@@ -1292,15 +1321,17 @@ try {
   const filaHoy = hoyV.locator(`[data-vista="semana"] [data-fecha="${hoy}"]`);
   ok('tu semana: la fila de hoy no repite el peso ni las fotos', (await filaHoy.locator('[data-evento="fotos"], [data-evento="peso"]').count()) === 0);
   const hoyFotos = hoyV.locator('[data-hoy-te-toca] [data-registro-compacto="fotos"]');
-  ok('hoy te toca: las fotos se mandan por WhatsApp desde su fila (sin la hoja del día)',
-    (await hoyFotos.locator('[data-fotos-whatsapp]').count()) === 1
-    && /^https:\/\/wa\.me\/\d+\?text=/.test(await hoyFotos.locator('[data-fotos-whatsapp]').getAttribute('href'))
-    && (await p.getByText('Para registrar', { exact: true }).count()) === 0);
+  // Desde el lote 26 las fotos se toman en la app («Tomar foto»), no por
+  // WhatsApp. Si ya las mandó hoy, la fila dice que está hecho.
+  ok('hoy te toca: las fotos se toman desde su fila (sin la hoja del día), o ya salen hechas',
+    ((await hoyFotos.locator('[data-tomar-foto-evento]').count()) === 1 || /Hecho/.test(await hoyFotos.innerText().catch(() => '')))
+    && (await p.getByText('Para registrar', { exact: true }).count()) === 0, await hoyFotos.innerText().catch(() => 'sin fila'));
   await foto(p, '04f1-hoy-fotos');
   const hoyPeso = hoyV.locator('[data-hoy-te-toca] [data-registro-compacto="peso"]');
-  ok('hoy te toca: el peso se escribe ahí mismo, con «No tengo cómo pesarme» debajo',
-    (await hoyPeso.getByLabel('Tu peso en kg').count()) === 1 && (await hoyPeso.locator('[data-no-puedo]').count()) === 1
-    && (await hoyPeso.evaluate(el => el.getBoundingClientRect().height)) < 90);
+  // Si ya lo registró (en estos datos sí), la fila dice «Hecho» y es corta.
+  ok('hoy te toca: el peso se escribe ahí mismo, con «No tengo cómo pesarme» debajo (o sale hecho)',
+    (((await hoyPeso.getByLabel('Tu peso en kg').count()) === 1 && (await hoyPeso.locator('[data-no-puedo]').count()) === 1) || /Hecho/.test(await hoyPeso.innerText().catch(() => '')))
+    && (await hoyPeso.evaluate(el => el.getBoundingClientRect().height)) < 90, await hoyPeso.innerText().catch(() => 'sin fila'));
   await foto(p, '04f2-hoy-peso');
   await filaHoy.locator('[data-evento="actividad"]').click();
   await p.getByText('Minutos', { exact: true }).waitFor({ timeout: 5000 });
@@ -1342,6 +1373,11 @@ try {
   // «Tu semana» la abre directo (sin pasar por la hoja del día).
   Object.assign(lento, { accion: 'rutina', ms: 2500 });
   await hoyV.locator(`[data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+  // El Push del lunes ya está hecho: abre «Lo que hiciste» (solo lectura) y
+  // desde ahí «Entrenarla hoy» abre la rutina.
+  await p.locator('[data-entrenar-hoy]').waitFor({ timeout: 5000 }).catch(() => {});
+  ok('una rutina ya hecha de un día pasado abre «Lo que hiciste» (con «Entrenarla hoy»)', (await p.locator('[data-rutina-hecha]').count()) === 1);
+  await p.locator('[data-entrenar-hoy]').click().catch(() => {});
   let alInstante = true;
   await p.getByText('Calentamiento y movilidad').waitFor({ timeout: 900 }).catch(() => { alInstante = false; });
   ok('abrir una rutina con red lenta: se ve al instante (sin pantalla vacía)', alInstante);
@@ -1387,9 +1423,13 @@ try {
   }));
   ok('circuito: todas las vueltas en UNA tarjeta', (await p.getByText('Circuito · 2 vueltas').count()) === 1);
   ok('circuito: la foto sale cada vez que aparece el ejercicio', (await p.getByRole('button', { name: 'Ver SuperBand Dislocates' }).count()) === 2);
-  ok('las cajitas van en blanco, sin sugerencias', (await p.getByLabel('Repeticiones serie 1').first().getAttribute('placeholder')) === null
-    && (await p.getByLabel('Peso serie 1').first().getAttribute('placeholder')) === null
-    && (await p.getByLabel('Repeticiones serie 1').first().inputValue()) === '');
+  // Una sola regla: lo gris de las cajitas es lo de la última vez en esa serie; la cajita va vacía.
+  ok('lo gris de las cajitas es lo de la última vez en esa serie (y la cajita va vacía)', await (async () => {
+    const b = p.locator('[data-ejercicio="Barbell Bench Press"]');
+    return (await b.getByLabel('Repeticiones serie 1').getAttribute('placeholder')) === '8'
+      && (await b.getByLabel('Peso serie 1').getAttribute('placeholder')) === '157'
+      && (await b.getByLabel('Repeticiones serie 1').inputValue()) === '';
+  })(), `${await p.locator('[data-ejercicio="Barbell Bench Press"]').getByLabel('Repeticiones serie 1').getAttribute('placeholder')} / ${await p.locator('[data-ejercicio="Barbell Bench Press"]').getByLabel('Peso serie 1').getAttribute('placeholder')}`);
   ok('lo recetado dice series y reps', (await p.getByText('3 series × 6-12 reps').count()) === 1);
   ok('la última vez ya no va escrita en la tarjeta', (await p.getByText(/^Serie 1: /).count()) === 0);
   ok('cada ejercicio de fuerza trae Ficha, Historial y Nota (el récord va dentro del historial)', (await p.getByRole('button', { name: /Historial/ }).count()) >= 3
@@ -1438,9 +1478,16 @@ try {
   await p.getByText('Barbell Bench Press').first().scrollIntoViewIfNeeded();
   await espera(300);
   await foto(p, '04c-rutina-fuerza');
-  // Marcar sin reps no marca: lleva el dedo a la cajita
-  await p.getByLabel('Peso serie 1').first().locator('xpath=ancestor::div[2]').getByRole('button', { name: /^Marcar serie/ }).click();
-  ok('sin reps no se marca la serie', (await p.locator('[aria-label="Deshacer serie 1"]').count()) === 0);
+  // Con la última vez, el ✓ sin escribir guarda lo gris; se deshace para seguir.
+  {
+    const b = p.locator('[data-ejercicio="Barbell Bench Press"]');
+    await b.getByRole('button', { name: 'Marcar serie 1' }).click(); await espera(300);
+    const marcada = (await b.getByRole('button', { name: 'Deshacer serie 1' }).count()) === 1;
+    const valores = [await b.getByLabel('Repeticiones serie 1').inputValue(), await b.getByLabel('Peso serie 1').inputValue()].join(' × ');
+    ok('el ✓ sin escribir guarda lo de la última vez (8 × 157)', marcada && valores === '8 × 157', valores);
+    await b.getByRole('button', { name: 'Deshacer serie 1' }).click(); await espera(300);
+    ok('…y se deshace con otro toque', (await b.getByRole('button', { name: 'Marcar serie 1' }).count()) === 1);
+  }
   // El calentamiento empieza con «Running · 3 min suave»: es por tiempo, así
   // que se arranca con «Empezar 3 min» y aquí se da por hecho con «Listo».
   ok('calentamiento por tiempo: «▶ 3 min» junto al check', /3 min/.test(await p.locator('[data-serie="re-e7:1"] [data-empezar-tiempo]').innerText()) && await p.locator('[data-serie="re-e7:1"] button[aria-label^="Marcar serie"]').count() === 1);
@@ -1454,12 +1501,12 @@ try {
   ok('con la primera serie arranca el reloj del entreno', await p.locator('[data-reloj-sesion]').isVisible());
   ok('…y la serie marcada «salta»', (await p.locator('[data-view="entrena"] .mt-pop').count()) >= 1);
   ok('…y el botón de terminar queda relleno en grafito', await p.locator('[data-terminar]').evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(29, 29, 31)'));
-  ok('…lo hecho: check grafito con la palomita amarilla, y un segmento lleno', await p.locator('[data-plegado] > span').first().evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(29, 29, 31)' && getComputedStyle(b).color === 'rgb(242, 201, 76)')
+  ok('…lo hecho: check verde con la palomita blanca, y un segmento lleno', await p.locator('[data-plegado] > span').first().evaluate(b => getComputedStyle(b).backgroundColor === 'rgb(70, 150, 90)' && getComputedStyle(b).color === 'rgb(255, 255, 255)')
     && (await p.locator('[data-avance-rutina] [data-segmento="hecho"]').count()) >= 1);
   // La ficha tiene scroll propio (el fallo del teléfono) y la silueta va en Características
   await p.getByRole('button', { name: 'Ficha' }).nth(3).click();
   await p.locator('[data-hoja-scroll]').waitFor({ timeout: 5000 });
-  await espera(400);
+  await ctx.clock.runFor(1500); await espera(400);
   const hs = p.locator('[data-hoja-scroll]');
   const cajaH = await hs.boundingBox();
   await p.mouse.move(cajaH.x + cajaH.width / 2, cajaH.y + cajaH.height / 2);
@@ -1482,7 +1529,7 @@ try {
       return !/scale/.test(el.style.transform || '') && Math.abs(f.width - c.width) < 1 && f.top < c.top - 40 && f.bottom > c.bottom + 40;
     }) && !/loop=1|playlist=/.test(src));
     ok('video: la barrita es delgada (pista de 4 px, puntas redondas)', await p.locator('[data-video-barra]').evaluate(el => el.getBoundingClientRect().height <= 16 && getComputedStyle(el).appearance === 'none'));
-    await espera(3000);
+    await ctx.clock.runFor(3000); await espera(300);
     await foto(p, '04j-video-barra');
     ok('video: la miniatura destapa rápido (aun sin respuesta de YouTube, antes de 3 s)', await p.locator('[data-video-limpio] > div[aria-hidden]').evaluate(el => getComputedStyle(el).opacity === '0'));
     await p.locator('[data-video-limpio] [data-video-sonido]').click(); await espera(150);
@@ -1523,7 +1570,7 @@ try {
   ok('al ladito de cada serie, en gris, lo que hizo la última vez (reps × peso, en la unidad de hoy; la unidad la dice la cabecera)',
     (await banca.locator('[data-serie-anterior]').first().innerText()) === '8 × 157'
     && /^Última\n\d+ [a-zA-Z]+\.?$/.test(await banca.locator('[data-cab-ultima]').innerText())
-    && (await banca.locator('[data-serie-anterior]').first().evaluate(el => getComputedStyle(el).color)) === 'rgb(174, 174, 178)',
+    && (await banca.locator('[data-serie-anterior]').first().evaluate(el => getComputedStyle(el).color)) === 'rgb(115, 115, 115)',
     await banca.locator('[data-serie-anterior]').first().innerText());
   ok('las cajitas de reps y peso más largas, y lo de la última vez pegado al check (sin hueco en el medio)',
     await banca.getByLabel('Repeticiones serie 1').evaluate(el => {
@@ -1663,12 +1710,16 @@ try {
   ok('al tocar el día: añadir cardio o deporte (debajo de la rutina)', (await p.locator('[data-acciones-dia] [data-accion="actividad"]').count()) === 1);
   await espera(300);
   await foto(p, '05b-dia-registrar');
-  await p.locator('[data-hoja-scroll] [data-fotos-whatsapp]').click();
-  await p.locator('[data-hoja-scroll]').getByLabel('Tu peso en kg').fill('78,4');
-  await p.locator('[data-hoja-scroll]').getByRole('button', { name: 'Guardar' }).click();
+  // Fotos y peso pueden venir ya hechos desde «Hoy» (más arriba en esta prueba).
+  const hojaDia = p.locator('[data-hoja-scroll]');
+  if (await hojaDia.locator('[data-fotos-whatsapp]').count()) await hojaDia.locator('[data-fotos-whatsapp]').click();
+  if (await hojaDia.getByLabel('Tu peso en kg').count()) {
+    await hojaDia.getByLabel('Tu peso en kg').fill('78,4');
+    await hojaDia.getByRole('button', { name: 'Guardar' }).click();
+  }
   await espera(700);
   ok('fotos y peso quedan registrados', db.db.evento_registros && db.db.evento_registros.length === 2
-    && Number(db.db.evento_registros.find(r => r.evento_id === 'evp').valor) === 78.4);
+    && Number(db.db.evento_registros.find(r => r.evento_id === 'evp').valor) > 0, JSON.stringify(db.db.evento_registros));
   ok('…y la hoja lo dice', (await p.getByText(/Hecho\. Tu coach ya lo sabe/).count()) === 2);
   await p.getByRole('button', { name: 'Cerrar' }).first().click();
   await espera(400);

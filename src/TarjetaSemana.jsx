@@ -5,7 +5,8 @@
 //     registrada, proteína contra su meta, cardio, intensidad) y su foco
 //     para la semana nueva, con una barra que avanza cada día.
 //   · Martes a sábado: CORTA — el titular de una línea y la barra del foco.
-//     «Ver resumen» la abre completa (y «Ver menos» la cierra).
+//     «Ver resumen ›» (píldora: se toca) la abre completa y «Ver menos» la
+//     cierra. «Tu foco» va sin caja: es información, no se toca.
 //   · Domingo: COMPARATIVO — esta semana contra la pasada, con flechas, y lo
 //     que todavía puede sumar hoy, con un botón directo.
 // Si no hay nada de la semana pasada (cliente nuevo) no sale.
@@ -51,12 +52,12 @@ const Comp = ({ Icono, color, etiqueta, a, b, va, vb }) => {
   );
 };
 const Foco = ({ foco, corto }) => (
-  <div data-semana-foco style={{ marginTop: 12, background: '#FBF3D9', borderRadius: corto ? 14 : 16, padding: corto ? '10px 12px' : '11px 13px', fontSize: 14, color: TXT, lineHeight: 1.45 }}>
+  <div data-semana-foco style={{ marginTop: 12, fontSize: 14, color: TXT, lineHeight: 1.45 }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
       <b style={{ fontWeight: 700 }}>{corto ? 'Tu foco' : 'Tu foco esta semana'}: {foco.titulo}</b>
       <b style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{foco.texto}</b>
     </div>
-    <div style={{ height: 7, borderRadius: 99, background: 'rgba(255,255,255,.75)', marginTop: 8, overflow: 'hidden' }}>
+    <div style={{ height: 7, borderRadius: 99, background: LINEA, marginTop: 8, overflow: 'hidden' }}>
       <div style={{ width: `${foco.pct}%`, height: '100%', borderRadius: 99, background: '#F2C94C' }} />
     </div>
     {!corto && <div style={{ fontSize: 12.5, color: MUT, marginTop: 6 }}>{foco.tip}</div>}
@@ -100,7 +101,7 @@ export default function TarjetaSemana({ semanas, history, goals, hoy, alIr }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
         <div style={{ fontSize: 14, color: MUT, lineHeight: 1.45 }}>Tu semana pasada · {rango(S.lunesPasado, S.domingoPasado)}</div>
         {S.modo === 'corta' && (
-          <button type="button" data-semana-ver onClick={() => setAbierta(!abierta)} style={{ border: 'none', background: 'none', padding: 0, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: AZUL, cursor: 'pointer', whiteSpace: 'nowrap' }}>{abierta ? 'Ver menos' : 'Ver resumen'}</button>
+          <button type="button" data-semana-ver onClick={() => setAbierta(!abierta)} style={{ border: 'none', background: 'rgba(118,118,128,0.13)', borderRadius: 999, padding: '5px 11px', display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: AZUL, cursor: 'pointer', whiteSpace: 'nowrap', flex: 'none' }}>{abierta ? 'Ver menos' : 'Ver resumen'}<span aria-hidden="true" style={{ fontWeight: 800, marginLeft: 2 }}>{abierta ? '‹' : '›'}</span></button>
         )}
       </div>
       <h3 style={{ margin: completa ? '3px 0 6px' : '3px 0 0', fontSize: completa ? 18 : 17, fontWeight: 600, color: TXT, letterSpacing: '-0.015em', lineHeight: 1.3 }}>{S.titular}</h3>

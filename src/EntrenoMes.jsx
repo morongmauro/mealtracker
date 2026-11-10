@@ -699,9 +699,10 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
   if (compacta) {
     const btn = { ...botonPrimario, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none', opacity: enviando ? 0.6 : 1 };
     return (
-      <div data-registro-compacto={ev.tipo} style={{ borderRadius: 14, padding: '9px 12px', background: hecho ? '#F1EEFA' : SURFACE, border: `1px solid ${hecho ? 'transparent' : '#DCD4F2'}` }}>
+      <div data-registro-compacto={ev.tipo} data-hecho={hecho ? 'si' : undefined} style={{ borderRadius: 14, padding: hecho ? '4px 12px' : '9px 12px', background: hecho ? 'transparent' : SURFACE, border: `1px solid ${hecho ? 'transparent' : '#DCD4F2'}` }}>
+        {/* Hecho: una línea limpia con el check verde (sin caja: ya no hay nada que tocar). */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ width: 30, height: 30, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center', flex: 'none' }}>
+          <span style={{ width: 30, height: 30, borderRadius: 99, background: hecho ? 'transparent' : '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center', flex: 'none' }}>
             <IconoEvento tipo={ev.tipo} size={16} />
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
