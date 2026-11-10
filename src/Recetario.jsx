@@ -28,6 +28,8 @@ const ACCENT_PASTEL = `var(--rec-accent-pastel, ${ACCENT_PASTEL_BASE})`;
 const ACCENT_LIGHT = `var(--rec-accent-light, ${ACCENT_LIGHT_BASE})`;
 const CREMA_V2 = '#F4F1EB';
 const SOMBRA_V2 = '0 1px 2px rgba(40,40,30,0.04), 0 8px 22px rgba(60,60,40,0.07)';
+// Dónde quedó la lista de recetas la última vez (ver «se quedan donde se dejaron»).
+const LUGAR_RECETAS = { y: 0, t: 0 };
 
 const haptic = (p = 10) => { if (typeof window !== 'undefined' && window.navigator?.vibrate) window.navigator.vibrate(p); };
 const r0 = (n) => Math.round(Number(n) || 0);
@@ -2320,6 +2322,25 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
   const rootRef = useRef(null);
   const detailRef = useRef(null);
 
+  const vistaRef = useRef(vista); vistaRef.current = vista;
+  // Las recetas se quedan donde se dejaron: se estaba eligiendo, y perder el
+  // lugar al ir a otra sección y volver molesta. Vale 15 minutos y solo para
+  // la lista (si se entra desde el chat a una receta o búsqueda, no aplica).
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const volver = !abrir && Date.now() - LUGAR_RECETAS.t < 15 * 60 * 1000 && LUGAR_RECETAS.y > 0;
+    if (volver) {
+      const y = LUGAR_RECETAS.y;
+      const poner = () => { try { el.scrollTop = y; } catch (e) {} };
+      requestAnimationFrame(poner); setTimeout(poner, 250);
+    }
+    const alMover = () => { if (vistaRef.current === 'recetas') { LUGAR_RECETAS.y = el.scrollTop; LUGAR_RECETAS.t = Date.now(); } };
+    el.addEventListener('scroll', alMover, { passive: true });
+    return () => el.removeEventListener('scroll', alMover);
+    // eslint-disable-next-line
+  }, []);
+
   // Re-tap en la pestaña Recetario (señal del MealTracker): volver al
   // principio de la página — del detalle si hay receta abierta, o de la lista.
   useEffect(() => {
@@ -3328,7 +3349,7 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
           {/* La voz de la sección, con la letra de la marca y sin curva */}
           <CabeceraHoy tema="comida" fondo={false} voz={vista === 'menus'
             ? { etiqueta: 'Organiza tu día', a: 'Tu día,', b: 'resuelto.', sub: 'Las recetas repartidas en tu día o tu semana, con su lista de mercado.' }
-            : { etiqueta: 'Recetas', a: 'Comer bien', b: 'también es rico.', sub: `${RECIPES.length} recetas, cada una al tamaño que le toca dentro de tu meta.` }} />
+            : { etiqueta: 'Recetas', a: 'Comer bien', b: 'también es rico.' }} />
         </div>
       ) : (
       <div className="relative w-full overflow-hidden" style={{
@@ -3400,7 +3421,10 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {/* Meta nutricional — píldora compacta de UNA fila (la meta la
             administra el coach desde el CRM; aquí solo se consulta). */}
         {v2 ? (
-        <div data-meta-v2 style={{ background: '#FFFFFF', boxShadow: SOMBRA_V2, borderRadius: 18, padding: '11px 16px', display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <div data-meta-v2 style={vista === 'recetas'
+          // En Recetas la meta es una línea, sin tarjeta: las recetas empiezan más arriba.
+          ? { padding: '0 4px', display: 'flex', alignItems: 'baseline', gap: 10 }
+          : { background: '#FFFFFF', boxShadow: SOMBRA_V2, borderRadius: 18, padding: '11px 16px', display: 'flex', alignItems: 'baseline', gap: 10 }}>
           <span style={{ fontSize: 13.5, fontWeight: 650, color: TEXT_MUTED, flex: 'none' }}>Tu meta de hoy</span>
           <span className="num" style={{ marginLeft: 'auto', fontSize: 13, color: TEXT_MUTED, whiteSpace: 'nowrap' }}>
             <b style={{ fontSize: 15, fontWeight: 800, color: TEXT }}>{g.kcal}</b> kcal · P {g.p} · C {g.c} · G {g.g}
@@ -3458,34 +3482,27 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
         {vista === 'menus' && (v2 && lote25() ? vistaMenusV2 : vistaMenus)}
 
         {vista === 'recetas' && (<>
-        {v2 && (
-          <div data-recetario-botones style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button onClick={() => { haptic(8); setVista('menus'); }} style={botonV2}>
-              <span style={iconoV2}><CalendarBlank size={19} /></span>
-              <span style={{ minWidth: 0 }}>Organiza tu día o semana</span>
-            </button>
-            <button onClick={() => { haptic(8); setAvanzada(true); }} style={botonV2}>
-              <span style={iconoV2}><SlidersHorizontal size={19} /></span>
-              <span style={{ minWidth: 0 }}>Búsqueda avanzada{(filterSlot !== 'todas' || sort !== 'reco' || veg) ? ' · activa' : ''}</span>
-            </button>
+        {/* Buscador. En la visual nueva lleva al lado el ícono de filtros
+            («Búsqueda avanzada»): antes eran dos botones grandes, una raya y
+            un segundo título «Recetas» antes de la primera receta. */}
+        <div data-recetario-botones={v2 ? '' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="flex items-center gap-2 rounded-2xl px-3.5 py-2.5" style={v2 ? { background: '#FFFFFF', boxShadow: SOMBRA_V2, flex: 1, minWidth: 0 } : { ...plainCard, flex: 1, minWidth: 0 }}>
+            <Search size={16} style={{ color: TEXT_LIGHT, flexShrink: 0 }} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar receta o ingrediente…" className="flex-1 bg-transparent outline-none text-[14px]" style={{ color: TEXT, minWidth: 0 }} />
+            {query && <button onClick={() => setQuery('')} className="p-0.5 rounded-full active:scale-90"><X size={15} style={{ color: TEXT_LIGHT }} /></button>}
           </div>
-        )}
-        {/* Visual nueva: una línea separa las herramientas (organizar,
-            búsqueda avanzada) de las recetas como tal. */}
-        {v2 && (
-          <div data-recetario-separador style={{ paddingTop: 6 }}>
-            <div style={{ height: 1, background: 'rgba(31,31,31,0.09)', margin: '0 2px 14px' }} />
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '0 2px' }}>
-              <h2 style={{ fontSize: 20, fontWeight: 750, color: TEXT, letterSpacing: '-0.02em', margin: 0 }}>Recetas</h2>
-              <span style={{ fontSize: 13, color: TEXT_MUTED }}>{list.length} {list.length === 1 ? 'receta' : 'recetas'}</span>
-            </div>
-          </div>
-        )}
-        {/* Buscador */}
-        <div className="flex items-center gap-2 rounded-2xl px-3.5 py-2.5" style={v2 ? { background: '#FFFFFF', boxShadow: SOMBRA_V2 } : plainCard}>
-          <Search size={16} style={{ color: TEXT_LIGHT, flexShrink: 0 }} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar receta o ingrediente…" className="flex-1 bg-transparent outline-none text-[14px]" style={{ color: TEXT }} />
-          {query && <button onClick={() => setQuery('')} className="p-0.5 rounded-full active:scale-90"><X size={15} style={{ color: TEXT_LIGHT }} /></button>}
+          {v2 && (() => {
+            const activa = filterSlot !== 'todas' || sort !== 'reco' || !!veg;
+            return (
+              <button data-filtros-recetas={activa ? 'activa' : 'no'} aria-label={activa ? 'Búsqueda avanzada · activa' : 'Búsqueda avanzada'}
+                onClick={() => { haptic(8); setAvanzada(true); }}
+                style={{ position: 'relative', width: 44, height: 44, flex: 'none', borderRadius: 999, border: 'none', display: 'grid', placeItems: 'center',
+                  background: '#FFFFFF', boxShadow: SOMBRA_V2, color: ACCENT_DARK, cursor: 'pointer' }}>
+                <SlidersHorizontal size={19} />
+                {activa && <span style={{ position: 'absolute', top: 9, right: 9, width: 8, height: 8, borderRadius: 999, background: AMARILLO }} />}
+              </button>
+            );
+          })()}
         </div>
 
         {/* El toggle de modo se eliminó: todas las recetas vienen ajustadas
@@ -3504,6 +3521,11 @@ export default function Recetario({ goals, consumed, onClose, onRegister, onChan
               : { ...chipActivoV2, background: '#FFFFFF', color: TEXT, boxShadow: SOMBRA_V2, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
               <EstrellaV2 size={15} weight={soloFav || favs.length ? 'fill' : 'regular'} color={soloFav || favs.length ? AMARILLO : TEXT_MUTED} />
               Favoritas{favs.length ? ` · ${favs.length}` : ''}{soloFav ? ' ✕' : ''}
+            </button>
+            <button data-organizar-semana onClick={() => { haptic(8); setVista('menus'); }}
+              style={{ ...chipActivoV2, background: '#FFFFFF', color: TEXT, boxShadow: SOMBRA_V2, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <CalendarBlank size={15} color={TEXT} />
+              Organizar mi semana
             </button>
             {veg && <button onClick={() => setVeg('')} style={chipActivoV2}>{veg === 'con' ? 'Con vegetales' : 'Sin vegetales'} ✕</button>}
             {!searching && filterSlot !== 'todas' && <button onClick={() => setFilterSlot('todas')} style={chipActivoV2}>{SLOT_FILTERS.find(f => f.key === filterSlot)?.label} ✕</button>}

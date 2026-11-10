@@ -371,7 +371,7 @@ export function ChipActividad({ actividad, catalogo, onClick }) {
 // ─────────────────────────────────────────────────────────────────────────
 // `conFuerza`: si ese día hay rutina de fuerza; sin ella, «después de
 // entrenar» no tiene sentido y se lee solo «de tu coach».
-export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambio, enRutina = false, conFuerza = true }) {
+export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambio, enRutina = false, conFuerza = true, plana = false }) {
   const [abierta, setAbierta] = useState(false);
   const [hecho, setHecho] = useState(!!ev.hecho);
   useEffect(() => { setHecho(!!ev.hecho); }, [ev.hecho, ev.id]);
@@ -385,11 +385,11 @@ export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambi
   const op = ev.opciones && ev.opciones.lista && ev.opciones.lista.length ? ev.opciones : null;
   if (op) return (
     <TarjetaCardioOpciones ev={ev} op={op} fecha={fecha} nombre={nombre} sesionId={sesionId} alCambio={alCambio}
-      enRutina={enRutina} hecho={hecho} setHecho={setHecho} abierta={abierta} setAbierta={setAbierta} futuro={futuro} cerrada={cerrada} />
+      enRutina={enRutina} hecho={hecho} setHecho={setHecho} abierta={abierta} setAbierta={setAbierta} futuro={futuro} cerrada={cerrada} plana={plana} />
   );
   return (
     <>
-      <div data-cardio-coach={ev.id} data-hecho={hecho ? 'si' : 'no'} style={{
+      <div data-cardio-coach={ev.id} data-hecho={hecho ? 'si' : 'no'} style={plana ? { display: 'flex', alignItems: 'center', gap: 11 } : {
         display: 'flex', alignItems: 'center', gap: 11,
         border: hecho ? `1px solid ${BORDER_SOFT}` : `1.5px solid ${v2 ? A.base : ACCENT}`,
         background: hecho ? SURFACE_2 : SURFACE, borderRadius: 16, padding: enRutina ? '13px 14px' : '11px 13px',
@@ -413,7 +413,7 @@ export function TarjetaCardioCoach({ ev, fecha, nombre, sesionId = null, alCambi
         ) : !futuro && !cerrada && (
           <button data-ya-lo-hice onClick={() => setAbierta(true)} style={{
             flexShrink: 0, border: 0, borderRadius: 999, padding: '9px 13px', cursor: 'pointer', fontFamily: 'inherit',
-            fontSize: 13.5, fontWeight: 750, background: v2 ? '#1D1D1F' : ACCENT, color: '#fff',
+            fontSize: 13.5, fontWeight: 750, background: plana ? '#EFF0F2' : v2 ? '#1D1D1F' : ACCENT, color: plana ? '#1F1F1F' : '#fff',
           }}>Ya lo hice</button>
         )}
       </div>
@@ -461,14 +461,14 @@ const textoMinutos = (ms) => {
   if (ms.length === 1) return `${ms[0]} min`;
   return `${ms.slice(0, -1).join(', ')} o ${ms[ms.length - 1]} min`;
 };
-function TarjetaCardioOpciones({ ev, op, fecha, nombre, sesionId, alCambio, enRutina, hecho, setHecho, abierta, setAbierta, futuro, cerrada }) {
+function TarjetaCardioOpciones({ ev, op, fecha, nombre, sesionId, alCambio, enRutina, hecho, setHecho, abierta, setAbierta, futuro, cerrada, plana = false }) {
   const v2 = v2Activa();
   const A = SECCION.entreno;
   const intensidad = op.intensidad ? INTENSIDAD_COACH[op.intensidad] : null;
   const minutos = textoMinutos(op.minutos) || (ev.duracion_min ? `${ev.duracion_min} min` : null);
   return (
     <>
-      <div data-cardio-coach={ev.id} data-cardio-opciones data-hecho={hecho ? 'si' : 'no'} style={{
+      <div data-cardio-coach={ev.id} data-cardio-opciones data-hecho={hecho ? 'si' : 'no'} style={plana ? null : {
         border: hecho ? `1px solid ${BORDER_SOFT}` : `1.5px solid ${v2 ? A.base : ACCENT}`,
         background: hecho ? SURFACE_2 : SURFACE, borderRadius: 16, padding: enRutina ? '13px 14px' : '12px 13px',
         margin: enRutina ? '10px 0 12px' : 0,
@@ -511,7 +511,7 @@ function TarjetaCardioOpciones({ ev, op, fecha, nombre, sesionId, alCambio, enRu
         {!hecho && !futuro && !cerrada && (
           <button data-ya-lo-hice onClick={() => setAbierta(true)} style={{
             marginTop: 11, width: '100%', border: 0, borderRadius: 999, padding: '10px 13px', cursor: 'pointer', fontFamily: 'inherit',
-            fontSize: 14.5, fontWeight: 750, background: v2 ? '#1D1D1F' : ACCENT, color: '#fff',
+            fontSize: 14.5, fontWeight: 750, background: plana ? '#EFF0F2' : v2 ? '#1D1D1F' : ACCENT, color: plana ? '#1F1F1F' : '#fff',
           }}>Ya lo hice</button>
         )}
       </div>

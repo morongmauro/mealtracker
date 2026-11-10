@@ -661,12 +661,14 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
 }
 
 // ── Medición corporal, peso o fotos: «ya lo hice» ────────────────────────
-function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio, compacta = false }) {
-  const q = REGISTRO[ev.tipo] || REGISTRO.medicion;
+function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio, compacta = false, plana = false, nombreFila = null }) {
+  const q = { ...(REGISTRO[ev.tipo] || REGISTRO.medicion), ...(nombreFila ? { nombre: nombreFila } : null) };
   const [hecho, setHecho] = useState(!!ev.hecho);
   const [peso, setPeso] = useState(ev.valor != null ? String(ev.valor).replace('.', ',') : '');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
+  const [midiendo, setMidiendo] = useState(false);
+  const esMedicion = ev.tipo === 'medidas' || ev.tipo === 'medicion';
   useEffect(() => { setHecho(!!ev.hecho); }, [ev.hecho]);
 
   const marcar = async (valor) => {
@@ -697,9 +699,9 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
   // Compacta (en «Hoy te toca»): una fila, el botón a la derecha; el peso con
   // su cajita al lado. Lo que ya está hecho se queda en una línea.
   if (compacta) {
-    const btn = { ...botonPrimario, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none', opacity: enviando ? 0.6 : 1 };
+    const btn = { ...botonPrimario, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none', opacity: enviando ? 0.6 : 1, ...(plana ? BOTON_GRIS : null) };
     return (
-      <div data-registro-compacto={ev.tipo} data-hecho={hecho ? 'si' : undefined} style={{ borderRadius: 14, padding: hecho ? '4px 12px' : '9px 12px', background: hecho ? 'transparent' : SURFACE, border: `1px solid ${hecho ? 'transparent' : '#DCD4F2'}` }}>
+      <div data-registro-compacto={ev.tipo} data-hecho={hecho ? 'si' : undefined} style={plana ? null : { borderRadius: 14, padding: hecho ? '4px 12px' : '9px 12px', background: hecho ? 'transparent' : SURFACE, border: `1px solid ${hecho ? 'transparent' : '#DCD4F2'}` }}>
         {/* Hecho: una línea limpia con el check verde (sin caja: ya no hay nada que tocar). */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ width: 30, height: 30, borderRadius: 99, background: hecho ? 'transparent' : '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center', flex: 'none' }}>
@@ -721,16 +723,21 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
                 <button disabled={enviando || !peso.trim()} onClick={() => marcar(peso)} style={{ ...btn, opacity: enviando || !peso.trim() ? 0.5 : 1 }}>Guardar</button>
               </div>
             ) : ev.tipo === 'fotos' && lote25() ? (
-              <button data-tomar-foto-evento disabled={enviando} onClick={() => { try { window.dispatchEvent(new CustomEvent('mt:irFotos')); } catch (e) {} }} style={btn}>Tomar foto</button>
+              <button data-tomar-foto-evento disabled={enviando} onClick={() => { try { window.dispatchEvent(new CustomEvent('mt:irFotos')); } catch (e) {} }} style={btn}>Registrar</button>
             ) : ev.tipo === 'fotos' && WHATSAPP_COACH ? (
               <a data-fotos-whatsapp href={`https://wa.me/${WHATSAPP_COACH}?text=${encodeURIComponent('Hola Mau! Te envío mis fotos de seguimiento 📸')}`}
                 target="_blank" rel="noopener noreferrer" onClick={() => { if (!enviando) marcar(null); }}
                 style={{ ...btn, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', boxSizing: 'border-box' }}>Enviar</a>
+            ) : esMedicion ? (
+              // Medirse no se marca con «ya lo hice»: se registra (peso y % de grasa) y ahí queda hecho.
+              <button data-registrar-medicion disabled={enviando} onClick={() => setMidiendo(true)} style={btn}>Registrar</button>
             ) : (
               <button disabled={enviando} onClick={() => marcar(null)} style={btn}>{q.boton}</button>
             )
           )}
         </div>
+        {esMedicion && <HojaMedida abierta={midiendo} nombre={nombre} evento={{ id: ev.id, fecha }} alCerrar={() => setMidiendo(false)}
+          alGuardar={() => { setMidiendo(false); setHecho(true); alCambio && alCambio(); }} />}
         {!hecho && !pasada && !futuro && ev.tipo === 'peso' && (
           <button data-no-puedo disabled={enviando} onClick={noPuedo} style={{ border: 'none', background: 'none', padding: '6px 0 0 40px', fontFamily: 'inherit', fontSize: 12.5, color: TEXT_MUTED, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, cursor: 'pointer' }}>
             No tengo cómo pesarme
@@ -791,6 +798,12 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
               {enviando ? 'Guardando…' : 'Enviar mis fotos por WhatsApp'}
             </a>
           </>
+        ) : esMedicion ? (
+          <>
+            <button data-registrar-medicion disabled={enviando} onClick={() => setMidiendo(true)} style={{ ...botonPrimario, width: '100%', marginTop: 10 }}>Registrar peso y % de grasa</button>
+            <HojaMedida abierta={midiendo} nombre={nombre} evento={{ id: ev.id, fecha }} alCerrar={() => setMidiendo(false)}
+              alGuardar={() => { setMidiendo(false); setHecho(true); alCambio && alCambio(); }} />
+          </>
         ) : (
           <button disabled={enviando} onClick={() => marcar(null)} style={{ ...botonPrimario, width: '100%', marginTop: 10, opacity: enviando ? 0.6 : 1 }}>
             {enviando ? 'Guardando…' : q.boton}
@@ -832,6 +845,66 @@ const botonPrimario = {
   height: 42, padding: '0 16px', borderRadius: 12, border: 'none', background: TEXT, color: '#fff',
   cursor: 'pointer', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700,
 };
+// Dentro de «También hoy» los botones van grises: el negro (o el color de la
+// sección) queda para lo principal del día.
+const BOTON_GRIS = { background: '#EFF0F2', color: TEXT };
+
+// Pesarse y medirse (% de grasa) es UN solo registro: una fila con «Registrar»
+// que abre el formulario de peso y % de grasa. Junta lo de hoy, lo que quedó
+// de días pasados y lo que pidió el coach; al guardar, todo queda hecho.
+const esMedida = (t) => t === 'peso' || t === 'medidas' || t === 'medicion';
+function FilaMedida({ eventos, coach, nombre, alCambio }) {
+  const [abierta, setAbierta] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [quitado, setQuitado] = useState(false);
+  const [error, setError] = useState(null);
+  const pesos = eventos.filter(e => e.tipo === 'peso');
+  const cierre = coach.find(x => x.id === 'cierre');
+  const conGrasa = eventos.some(e => e.tipo !== 'peso') || coach.some(x => x.tipo !== 'peso');
+  const titulo = cierre ? cierre.titulo : conGrasa ? 'Peso y % de grasa' : 'Peso';
+  const atras = eventos.map(e => e.fecha).filter(f => f < hoyLocal()).sort()[0];
+  const sub = cierre ? cierre.sub : atras ? `Pendiente desde el ${diaCorto(atras)}`
+    : (eventos.find(e => e.atrasado && e.detalle) || {}).detalle || (coach[0] && coach[0].sub) || '';
+  // «No tengo cómo pesarme»: se quita el compromiso y el coach se entera.
+  const noPuedo = async () => {
+    setEnviando(true); setError(null);
+    let bien = true;
+    for (const e of pesos) {
+      const r = await api.registrar(nombre, { evento_id: e.id, fecha: e.fecha, hecho: false, motivo: 'no_puedo' });
+      if (!r.ok) bien = false;
+    }
+    setEnviando(false);
+    if (!bien) { setError('No se guardó. Inténtalo en un momento.'); return; }
+    setQuitado(true);
+    alCambio && alCambio();
+  };
+  if (quitado && pesos.length === eventos.length && !coach.length) return (
+    <div data-registro-quitado style={{ fontSize: 13, color: TEXT_MUTED }}>Listo: no se te vuelve a pedir. Tu coach ya lo sabe.</div>
+  );
+  return (
+    <div data-fila-medida data-registro-compacto={conGrasa ? 'medidas' : 'peso'} data-eventos={eventos.map(e => e.id).join(',')}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ width: 30, height: 30, borderRadius: 99, background: '#EEE9FB', color: MORADO, display: 'grid', placeItems: 'center', flex: 'none' }}>
+          <IconoEvento tipo="peso" size={16} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{titulo}</div>
+          {sub && <div style={{ fontSize: 12, color: TEXT_LIGHT, lineHeight: 1.25 }}>{sub}</div>}
+        </div>
+        <button data-registrar-medida-hoy disabled={enviando} onClick={() => setAbierta(true)}
+          style={{ ...botonPrimario, ...BOTON_GRIS, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none' }}>Registrar</button>
+      </div>
+      {pesos.length > 0 && (
+        <button data-no-puedo disabled={enviando} onClick={noPuedo} style={{ border: 'none', background: 'none', padding: '6px 0 0 40px', fontFamily: 'inherit', fontSize: 12.5, color: TEXT_MUTED, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3, cursor: 'pointer' }}>
+          No tengo cómo pesarme
+        </button>
+      )}
+      {error && <div style={{ fontSize: 12.5, color: '#B4533F', marginTop: 6 }}>{error}</div>}
+      <HojaMedida abierta={abierta} nombre={nombre} eventos={eventos.map(e => ({ id: e.id, fecha: e.fecha }))}
+        alCerrar={() => setAbierta(false)} alGuardar={() => { setAbierta(false); alCambio && alCambio(); }} />
+    </div>
+  );
+}
 
 // ═════════════════════════════════════════════════════════════════════════
 // CALENDARIO · visual nueva
@@ -1419,7 +1492,7 @@ function AccionDirecta({ ev, fecha, nombre, alCerrar, alCambio }) {
     return <HojaCardioCoach abierta ev={ev} fecha={fecha} nombre={nombre} alCerrar={alCerrar}
       alGuardar={() => { alCerrar(); alCambio(); }} />;
   }
-  if ((ev.tipo === 'peso' || ev.tipo === 'medidas') && !ev.hecho && !pasada && !futuro) {
+  if (esMedida(ev.tipo) && !ev.hecho && !pasada && !futuro) {
     return <HojaMedida abierta nombre={nombre} evento={{ id: ev.id, fecha }}
       titulo={ev.tipo === 'peso' ? 'Actualiza tu peso' : 'Tu medición corporal'}
       alCerrar={alCerrar} alGuardar={() => { alCerrar(); alCambio(); }} />;
@@ -1454,7 +1527,6 @@ function filasDelCoach(delCoach, registros, pendientes) {
 
 function HoyTeToca({ dia, P, nombre, ejerciciosDe, videosHoy = [], alEntrenar, alReabrir, alRegistrarActividad, alAgregar, alQuitar, alCambio, pendientes = [], delCoach = null }) {
   const [reabriendo, setReabriendo] = useState(false);
-  const [midiendo, setMidiendo] = useState(false);
   const hoy = hoyLocal();
   const r = dia?.rutina;
   const hecha = dia?.estado === 'completada';
@@ -1529,67 +1601,88 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, videosHoy = [], alEntrenar, a
         )}
         {bloques.map(b => <TarjetaBloque key={b.id} b={b} P={P} n={ejerciciosDe[b.id]} alEntrenar={alEntrenar} />)}
 
-        {otros.filter(ev => ev.tipo === 'actividad').map(ev => (
-          <TarjetaCardioCoach key={ev.id} ev={ev} fecha={hoy} nombre={nombre} alCambio={alCambio} conFuerza={!!r} />
-        ))}
-
-        {registros.map(ev => (
-          <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 compacta alCambio={alCambio} />
-        ))}
-        {/* El video que pidió el coach de un ejercicio de la rutina de hoy:
-            su propia tarjeta, para que lo grabe al entrenar. */}
-        {videosHoy.length > 0 && r && !hecha && (
-          <div data-hoy-video style={{ borderRadius: 14, padding: '9px 12px', background: SURFACE, border: '1px solid #F6D2B4' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 30, height: 30, borderRadius: 99, background: '#FDEBDD', color: '#EE8434', display: 'grid', placeItems: 'center', flex: 'none' }}>
-                <VideoCamera size={16} weight="fill" />
+        {/* Una sola tarjeta, sin contornos y con una raya fina entre filas:
+            los recordatorios no pesan más que «Hoy te toca». Botones grises. */}
+        {(() => {
+          const medPend = [
+            ...registros.filter(e => esMedida(e.tipo) && !e.hecho).map(e => ({ ...e, fecha: hoy })),
+            ...pendientes.filter(e => esMedida(e.tipo)),
+          ];
+          const medCoach = delCoachFilas.filter(x => x.tipo !== 'fotos');
+          const medHechas = registros.filter(e => esMedida(e.tipo) && e.hecho);
+          const medHecha = medHechas.find(e => e.tipo === 'peso') || medHechas[0];
+          const filas = [];
+          otros.filter(ev => ev.tipo === 'actividad').forEach(ev => filas.push(
+            <TarjetaCardioCoach key={ev.id} ev={ev} fecha={hoy} nombre={nombre} alCambio={alCambio} conFuerza={!!r} plana />
+          ));
+          if (medPend.length || medCoach.length) filas.push(
+            <FilaMedida key="medida" eventos={medPend} coach={medCoach} nombre={nombre} alCambio={alCambio} />
+          );
+          registros.filter(e => !esMedida(e.tipo)).forEach(ev => filas.push(
+            <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 compacta plana alCambio={alCambio} />
+          ));
+          if (medHecha) filas.push(
+            <FilaRegistro key={`h-${medHecha.id}`} ev={medHecha} fecha={hoy} nombre={nombre} futuro={false} v2 compacta plana alCambio={alCambio}
+              nombreFila={medHechas.some(e => e.tipo !== 'peso') ? 'Peso y % de grasa' : null} />
+          );
+          // El video que pidió el coach de un ejercicio de la rutina de hoy.
+          if (videosHoy.length > 0 && r && !hecha) filas.push(
+            <div key="video" data-hoy-video>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 30, height: 30, borderRadius: 99, background: '#FDEBDD', color: '#EE8434', display: 'grid', placeItems: 'center', flex: 'none' }}>
+                  <VideoCamera size={16} weight="fill" />
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{videosHoy.length === 1 ? 'Hoy toca grabar' : `Hoy toca grabar ${videosHoy.length} videos`}</div>
+                  {/* Uno: el nombre debajo. Varios: uno por línea, hasta tres, y
+                      «y N más» (en la rutina cada ejercicio trae su marca). */}
+                  {videosHoy.slice(0, 3).map(v => (
+                    <div key={v.id || v.nombre} data-hoy-video-ej style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.35, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                      {videosHoy.length > 1 && <span style={{ width: 5, height: 5, borderRadius: 9, background: '#EE8434', flex: 'none', transform: 'translateY(-2px)' }} />}
+                      <span style={{ minWidth: 0 }}>{v.nombre}</span>
+                    </div>
+                  ))}
+                  {videosHoy.length > 3 && (
+                    <div data-hoy-video-mas style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.35, fontWeight: 650, marginTop: 1 }}>y {videosHoy.length - 3} más</div>
+                  )}
+                </div>
+                <button data-hoy-video-ir onClick={() => alEntrenar(r.id)} style={{ ...botonPrimario, ...BOTON_GRIS, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none' }}>Grabar</button>
+              </div>
+            </div>
+          );
+          // Las fotos que quedaron de días pasados: con su fecha, hasta que las registre.
+          pendientes.filter(p => !esMedida(p.tipo)).forEach(p => filas.push(
+            <div key={`p-${p.id}`} data-registro-pendiente={p.id}>
+              <FilaRegistro ev={{ ...p, detalle: `Pendiente desde el ${diaCorto(p.fecha)}` }} fecha={p.fecha} nombre={nombre} futuro={false} v2 compacta plana alCambio={alCambio} />
+            </div>
+          ));
+          delCoachFilas.filter(x => x.tipo === 'fotos').forEach(x => filas.push(
+            <div key={x.id} data-del-coach={x.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ width: 30, height: 30, borderRadius: 99, background: '#F1EAFB', color: '#8E5BD8', display: 'grid', placeItems: 'center', flex: 'none' }}>
+                <IconoEvento tipo="fotos" size={16} />
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{videosHoy.length === 1 ? 'Hoy toca grabar' : `Hoy toca grabar ${videosHoy.length} videos`}</div>
-                {/* Uno: el nombre debajo. Varios: uno por línea, hasta tres, y
-                    «y N más» (en la rutina cada ejercicio trae su marca). */}
-                {videosHoy.slice(0, 3).map(v => (
-                  <div key={v.id || v.nombre} data-hoy-video-ej style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.35, display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                    {videosHoy.length > 1 && <span style={{ width: 5, height: 5, borderRadius: 9, background: '#EE8434', flex: 'none', transform: 'translateY(-2px)' }} />}
-                    <span style={{ minWidth: 0 }}>{v.nombre}</span>
-                  </div>
-                ))}
-                {videosHoy.length > 3 && (
-                  <div data-hoy-video-mas style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.35, fontWeight: 650, marginTop: 1 }}>y {videosHoy.length - 3} más</div>
-                )}
+                <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{x.titulo}</div>
+                <div style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.35 }}>{x.sub}</div>
               </div>
-              <button data-hoy-video-ir onClick={() => alEntrenar(r.id)} style={{ ...botonPrimario, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none' }}>Grabar</button>
+              {WHATSAPP_COACH ? <a data-del-coach-ir href={`https://wa.me/${WHATSAPP_COACH}`} target="_blank" rel="noopener" style={{ ...botonPrimario, ...BOTON_GRIS, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Enviar</a> : null}
             </div>
-          </div>
-        )}
-        {/* Lo que quedó de días pasados (pesarse, fotos, medición): se queda
-            aquí, con su fecha, hasta que lo haga. */}
-        {pendientes.map(p => (
-          <div key={`p-${p.id}`} data-registro-pendiente={p.id}>
-            <FilaRegistro ev={{ ...p, detalle: `Pendiente desde el ${diaCorto(p.fecha)}` }} fecha={p.fecha} nombre={nombre} futuro={false} v2 compacta alCambio={alCambio} />
-          </div>
-        ))}
-        {delCoachFilas.map(x => (
-          <div key={x.id} data-del-coach={x.id} style={{ borderRadius: 14, padding: '9px 12px', background: SURFACE, border: '1px solid #E4DCF5', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ width: 30, height: 30, borderRadius: 99, background: '#F1EAFB', color: '#8E5BD8', display: 'grid', placeItems: 'center', flex: 'none' }}>
-              <IconoEvento tipo={x.tipo === 'medidas' ? 'medicion' : x.tipo} size={16} />
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{x.titulo}</div>
-              <div style={{ fontSize: 12.5, color: TEXT_MUTED, lineHeight: 1.35 }}>{x.sub}</div>
+          ));
+          otros.filter(ev => ev.tipo !== 'actividad').forEach(ev => filas.push(
+            <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14.5, lineHeight: 1.4, color: TEXT_MUTED }}>
+              <IconoEvento tipo={ev.tipo} size={18} />
+              <span><b style={{ color: TEXT }}>{ev.hora ? `${String(ev.hora).slice(0, 5)} · ` : ''}{ev.titulo}</b>{ev.detalle ? ` · ${ev.detalle}` : ''} <span style={{ color: TEXT_LIGHT }}>· de tu coach</span></span>
             </div>
-            {x.tipo === 'fotos'
-              ? (WHATSAPP_COACH ? <a data-del-coach-ir href={`https://wa.me/${WHATSAPP_COACH}`} target="_blank" rel="noopener" style={{ ...botonPrimario, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Enviar</a> : null)
-              : <button data-del-coach-ir onClick={() => setMidiendo(true)} style={{ ...botonPrimario, height: 36, padding: '0 14px', fontSize: 13.5, borderRadius: 11, flex: 'none' }}>Registrar</button>}
-          </div>
-        ))}
-        <HojaMedida abierta={midiendo} nombre={nombre} alCerrar={() => setMidiendo(false)} alGuardar={() => { setMidiendo(false); alCambio && alCambio(); }} />
-        {otros.filter(ev => ev.tipo !== 'actividad').map(ev => (
-          <div key={ev.id} style={{ ...cajaDia, fontSize: 14.5 }}>
-            <IconoEvento tipo={ev.tipo} size={18} />
-            <span><b style={{ color: TEXT }}>{ev.hora ? `${String(ev.hora).slice(0, 5)} · ` : ''}{ev.titulo}</b>{ev.detalle ? ` · ${ev.detalle}` : ''} <span style={{ color: TEXT_LIGHT }}>· de tu coach</span></span>
-          </div>
-        ))}
+          ));
+          if (!filas.length) return null;
+          return (
+            <div data-tambien-caja style={{ background: '#fff', borderRadius: 18, padding: '2px 14px', boxShadow: cajaDia.boxShadow }}>
+              {filas.map((f, n2) => (
+                <div key={f.key} style={{ padding: '12px 0', borderTop: n2 ? '1px solid rgba(31,31,31,0.08)' : 'none' }}>{f}</div>
+              ))}
+            </div>
+          );
+        })()}
 
         {(dia?.actividades || []).map(a => <ChipActividad key={a.id} actividad={a} />)}
 

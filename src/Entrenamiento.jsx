@@ -303,6 +303,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   if (rutinaId && rutinaHecha) {
     return (
       <Envoltorio>
+        <span data-rutina-abierta hidden />
         <VistaHecha name={name} rutinaId={rutinaId} fecha={rutinaHecha}
           onVolver={() => { setRutinaId(null); setRutinaHecha(null); }}
           onEntrenar={() => setRutinaHecha(null)} />
@@ -312,6 +313,8 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   if (rutinaId) {
     return (
       <Envoltorio>
+        {/* Marca para la app: con una rutina abierta no se sube al volver a Entreno. */}
+        <span data-rutina-abierta hidden />
         <VistaRutina
           key={`${rutinaId}:${rutinaFecha || ''}`}
           name={name} rutinaId={rutinaId} plan={plan} compacta={compacta} planeada={rutinaPlan}
@@ -397,9 +400,6 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
           <HoySemana nombre={name} alEntrenar={abrirRutina} videosHoy={(plan.videos || []).filter(v => v.hoy)}
             ejerciciosDe={Object.fromEntries((plan.dias || []).flatMap(d => [...(d.rutina ? [[d.rutina.id, d.rutina.ejercicios]] : []), ...(d.complementarias || []).map(c => [c.id, c.ejercicios])]))} />
           <Sueltas plan={plan} onAbrir={abrirRutina} />
-          {/* Acceso fijo a sus fotos y al comparativo (antes y ahora), estén
-              subidas desde la app o por su coach desde el CRM. */}
-          <AtajoFotos onClick={() => setSeccion('fotos')} />
         </>
       ) : (
         <>
@@ -2735,19 +2735,3 @@ const Vacio = ({ texto }) => (
   <p style={{ fontSize: 13, color: TEXT_MUTED, lineHeight: 1.55, margin: 0 }}>{texto}</p>
 );
 
-// ── Fotos de progreso: la entrada fija desde Hoy, al final ───────────────
-function AtajoFotos({ onClick }) {
-  return (
-    <button data-atajo-fotos onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginTop: 12, padding: '13px 14px', border: 0,
-      borderRadius: 18, background: '#FFFFFF', boxShadow: SHADOW_CARD, textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', color: TEXT,
-    }}>
-      <span style={{ width: 38, height: 38, borderRadius: 99, background: '#F1EFE9', display: 'grid', placeItems: 'center', flex: 'none' }}><Camera size={20} /></span>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 15.5, fontWeight: 750 }}>Fotos de progreso</span>
-        <span style={{ display: 'block', fontSize: 13, color: TEXT_MUTED, marginTop: 1 }}>Mírate con datos: antes y ahora, de la misma pose.</span>
-      </span>
-      <CaretRight size={18} color={TEXT_LIGHT} />
-    </button>
-  );
-}

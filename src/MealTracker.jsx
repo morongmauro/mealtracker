@@ -877,6 +877,39 @@ export default function MealTracker() {
   // Al volver al Dash desde la barra, el Dash se abre en su inicio (ver Dash.jsx).
   const [dashReinicio, setDashReinicio] = useState(0);
   useEffect(() => { if (v2 && !showTraining) pausarCapa(capaEntrenaRef.current); }, [v2, showTraining]);
+  // Scroll al volver a una sección. Las pantallas de «hoy» (Dash, Entreno ·
+  // Hoy, Alimentación · Hoy) empiezan arriba: lo importante está arriba. La
+  // rutina abierta, el Chat, las Recetas y la Galería se quedan donde estaban:
+  // ahí se estaba en medio de algo y perder el lugar molesta.
+  const seccionScroll = showDash ? 'dash' : showTraining ? 'entreno' : showLearning ? 'aprende' : 'comida';
+  const lugarGaleria = useRef({ y: 0, t: 0 });
+  useEffect(() => {
+    const el = capaEntrenaRef.current;
+    if (!el || !showTraining || entrenoSub !== 'galeria') return;
+    const alMover = () => { lugarGaleria.current = { y: el.scrollTop, t: Date.now() }; };
+    // Se empieza a anotar un momento después de entrar, para no guardar el salto de la entrada.
+    const t = setTimeout(() => el.addEventListener('scroll', alMover, { passive: true }), 400);
+    return () => { clearTimeout(t); el.removeEventListener('scroll', alMover); };
+  }, [showTraining, entrenoSub]);
+  useEffect(() => {
+    if (!v2) return;
+    try {
+      if (seccionScroll === 'dash') { const el = document.querySelector('[data-view="dash"]'); if (el) el.scrollTo({ top: 0 }); }
+      else if (seccionScroll === 'entreno') {
+        const el = capaEntrenaRef.current;
+        if (el && entrenoSub === 'hoy' && !el.querySelector('[data-rutina-abierta]')) el.scrollTo({ top: 0 });
+        // La Galería comparte la página con Hoy y Calendario: vuelve a su lugar.
+        else if (el && entrenoSub === 'galeria' && lugarGaleria.current.y > 0 && Date.now() - lugarGaleria.current.t < 15 * 60 * 1000) {
+          const y = lugarGaleria.current.y;
+          const poner = () => { try { if (capaEntrenaRef.current) capaEntrenaRef.current.scrollTop = y; } catch (e) {} };
+          requestAnimationFrame(poner); setTimeout(poner, 250);
+        }
+      } else if (seccionScroll === 'comida' && tab === 'hoy' && !showRecetario) {
+        if (hoyScrollRef.current) hoyScrollRef.current.scrollTo({ top: 0 });
+      }
+    } catch (e) {}
+    // eslint-disable-next-line
+  }, [seccionScroll, entrenoSub]);
   // Y se montan por adelantado, escondidas, en un rato libre después de la
   // entrada: Entrenamiento a los ~3 s y Aprendizaje (el centro, por detrás)
   // a los ~7 s. Así el PRIMER toque a cada sección también es un fundido

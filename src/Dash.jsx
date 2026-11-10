@@ -1401,8 +1401,13 @@ function Cuerpo({ medidas, cargando, alMedir }) {
           )}
         </>
       )}
-      <button type="button" data-registrar-medida onClick={alMedir} style={{ marginTop: 14, border: 'none', background: 'rgba(118,118,128,0.13)', borderRadius: 999, padding: '7px 13px',
-        fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: AMBAR, cursor: 'pointer' }}>+ Registrar</button>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+        <button type="button" data-registrar-medida onClick={alMedir} style={{ border: 'none', background: 'rgba(118,118,128,0.13)', borderRadius: 999, padding: '7px 13px',
+          fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: AMBAR, cursor: 'pointer' }}>+ Registrar</button>
+        {/* Sus fotos de progreso (antes y ahora): la entrada fija vive aquí, junto a su composición. */}
+        <button type="button" data-ver-fotos onClick={() => { try { window.dispatchEvent(new CustomEvent('mt:irFotos')); } catch (e) {} }} style={{ border: 'none', background: 'rgba(118,118,128,0.13)', borderRadius: 999, padding: '7px 13px',
+          fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: AMBAR, cursor: 'pointer' }}>Mis fotos</button>
+      </div>
     </Tarjeta>
   );
 }

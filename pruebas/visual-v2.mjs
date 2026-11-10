@@ -487,7 +487,7 @@ try {
         await p.getByRole('button', { name: 'Alimentación', exact: true }).click(); await espera(600);
         await p.getByRole('button', { name: 'Recetas', exact: true }).click();
         await p.locator('[data-recetario-botones]').waitFor({ timeout: 10000 }).catch(() => {});
-        await p.getByText('Organiza tu día o semana').first().click(); await espera(800);
+        await p.locator('[data-organizar-semana]').first().click(); await espera(800);
         if (quiere('menus')) {
           await p.locator('[data-menu-dia]').evaluate(el => el.scrollIntoView({ block: 'start' })).catch(() => {});
           await tomar('menus', { completa: !!v.completa });
@@ -1343,10 +1343,10 @@ try {
     ((await hoyFotos.locator('[data-tomar-foto-evento]').count()) === 1 || /Hecho/.test(await hoyFotos.innerText().catch(() => '')))
     && (await p.getByText('Para registrar', { exact: true }).count()) === 0, await hoyFotos.innerText().catch(() => 'sin fila'));
   await foto(p, '04f1-hoy-fotos');
-  const hoyPeso = hoyV.locator('[data-hoy-te-toca] [data-registro-compacto="peso"]');
+  const hoyPeso = hoyV.locator('[data-hoy-te-toca] [data-registro-compacto="peso"], [data-hoy-te-toca] [data-fila-medida]').first();
   // Si ya lo registró (en estos datos sí), la fila dice «Hecho» y es corta.
-  ok('hoy te toca: el peso se escribe ahí mismo, con «No tengo cómo pesarme» debajo (o sale hecho)',
-    (((await hoyPeso.getByLabel('Tu peso en kg').count()) === 1 && (await hoyPeso.locator('[data-no-puedo]').count()) === 1) || /Hecho/.test(await hoyPeso.innerText().catch(() => '')))
+  ok('hoy te toca: el peso trae «Registrar» (abre peso y % de grasa) con «No tengo cómo pesarme» debajo (o sale hecho)',
+    (((await hoyPeso.locator('[data-registrar-medida-hoy]').count()) === 1 && (await hoyPeso.locator('[data-no-puedo]').count()) === 1) || /Hecho/.test(await hoyPeso.innerText().catch(() => '')))
     && (await hoyPeso.evaluate(el => el.getBoundingClientRect().height)) < 90, await hoyPeso.innerText().catch(() => 'sin fila'));
   await foto(p, '04f2-hoy-peso');
   await filaHoy.locator('[data-evento="actividad"]').click();
@@ -1947,7 +1947,11 @@ try {
   await espera(500);
   await foto(p, '10-recetario');
   ok('Recetas: sin la marca tenue en la esquina', (await p.locator('[data-marca-esquina]').count()) === 0);
-  ok('recetario: una línea separa los botones de las recetas', (await p.locator('[data-recetario-separador]').count()) === 1);
+  ok('recetario: sin raya ni segundo título antes de las recetas', (await p.locator('[data-recetario-separador]').count()) === 0
+    && (await p.locator('[data-sub]').count()) === 0);
+  ok('recetario: la meta va en una línea, sin tarjeta', await p.locator('[data-meta-v2]').evaluate(el => getComputedStyle(el).boxShadow === 'none'));
+  ok('recetario: filtros como ícono junto al buscador y «Organizar mi semana» como ficha',
+    (await p.locator('[data-filtros-recetas]').count()) === 1 && (await p.locator('[data-organizar-semana]').count()) === 1);
   ok('recetario: sin la foto de portada', (await p.locator('img[src*="recetario-hero"]').count()) === 0);
   ok('recetario: las recetas se ven de una', (await p.getByText('Wrap crujiente de atún').count()) >= 1);
   // El detalle de una receta, con la visual de la app
@@ -3230,14 +3234,26 @@ try {
     const dashHoy = await p.locator('[data-recordatorios-dash]').innerText().catch(() => '');
     ok('Dash: el peso atrasado sale en Hoy con «desde el …»', /Registrar tu peso · desde el/.test(dashHoy), dashHoy.slice(0, 160));
     await p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
-    ok('Entreno · Hoy te toca: el peso atrasado, con su fecha', (await p.locator('[data-registro-pendiente="evp3"]').count()) === 1
-      && /Pendiente desde el/.test(await p.locator('[data-registro-pendiente="evp3"]').innerText()));
+    ok('Entreno · Hoy te toca: el peso atrasado, con su fecha', (await p.locator('[data-fila-medida][data-eventos*="evp3"]').count()) === 1
+      && /Pendiente desde el/.test(await p.locator('[data-fila-medida]').innerText()));
+    ok('«También hoy» es una sola tarjeta, sin contornos y con botones grises', await p.evaluate(() => {
+      const c = document.querySelector('[data-hoy-te-toca] [data-tambien-caja]'); if (!c) return false;
+      const filas = [...c.querySelectorAll('[data-cardio-coach], [data-registro-compacto], [data-fila-medida]')];
+      const sinBorde = filas.every(f => parseFloat(getComputedStyle(f).borderTopWidth) === 0);
+      const bs = [...c.querySelectorAll('button')].filter(b => /Registrar|Ya lo hice|Grabar/.test(b.innerText));
+      return filas.length >= 1 && sinBorde && bs.length >= 1 && bs.every(b => getComputedStyle(b).backgroundColor === 'rgb(239, 240, 242)');
+    }));
+    ok('Hoy: ya no hay «Ya me medí» ni «Tomar foto»; se registra', await p.locator('[data-hoy-te-toca]').evaluate(el => !/Ya me medí|Ya la hice|Tomar foto/.test(el.innerText)));
     ok('«Tu semana»: lo de registrar de HOY ya no se repite en la fila de hoy', (await p.locator(`[data-vista="semana"] [data-fecha="${hoy}"] [data-evento="peso"], [data-vista="semana"] [data-fecha="${hoy}"] [data-evento="fotos"]`).count()) === 0);
     ok('…pero los demás días sí lo anuncian (la medición del miércoles)', (await p.locator(`[data-vista="semana"] [data-fecha="${sumarDiasISO(hoy, 3)}"] [data-evento="medidas"]`).count()) >= 0);
     // Lo marca desde ahí: desaparece de Hoy.
-    await p.locator('[data-registro-pendiente="evp3"] input').fill('80,5');
-    await p.locator('[data-registro-pendiente="evp3"] button').first().click(); await espera(1200);
-    ok('al marcarlo (con la fecha en que tocaba) queda hecho', /Hecho/.test(await p.locator('[data-registro-pendiente="evp3"]').innerText().catch(() => 'Hecho')));
+    // «Registrar» abre el formulario de peso y % de grasa; al guardar queda hecho con la fecha en que tocaba.
+    await p.locator('[data-fila-medida] [data-registrar-medida-hoy]').click(); await espera(900);
+    ok('«Registrar» abre peso y % de grasa en un solo formulario', (await p.getByPlaceholder('72,5').count()) === 1 && (await p.getByPlaceholder('18').count()) === 1);
+    await p.getByPlaceholder('72,5').fill('80,5'); await p.getByPlaceholder('18').fill('17,5');
+    await p.getByRole('button', { name: /Guardar y enviar/ }).click(); await espera(600); await l.ctx.clock.runFor(1200); await espera(1500);
+    ok('al registrarlo (con la fecha en que tocaba) queda hecho y la fila se va', (await p.locator('[data-fila-medida]').count()) === 0
+      && !!(l.db.db.evento_registros || []).find(r => r.evento_id === 'evp3' && r.estado === 'hecho'), JSON.stringify((l.db.db.evento_registros || []).map(r => [r.evento_id, r.estado])));
     ok('las filas de registrar en Hoy son compactas (una línea, botón a la derecha)', (await p.locator('[data-hoy-te-toca] [data-registro-compacto]').count()) >= 1
       && (await p.locator('[data-hoy-te-toca] [data-registro-compacto="fotos"]').evaluate(el => el.getBoundingClientRect().height)) < 70);
     // «No tengo cómo pesarme»: con otro peso pendiente de hoy sin hacer
@@ -3247,8 +3263,8 @@ try {
     } });
     await q.p.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 }); await espera(1500);
     await q.p.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
-    await q.p.locator('[data-registro-pendiente="evp5"] [data-no-puedo]').waitFor({ timeout: 8000 });
-    await q.p.locator('[data-registro-pendiente="evp5"] [data-no-puedo]').click(); await espera(1500);
+    await q.p.locator('[data-fila-medida] [data-no-puedo]').waitFor({ timeout: 8000 });
+    await q.p.locator('[data-fila-medida] [data-no-puedo]').click(); await espera(1500);
     // Al quitarlo, la fila dice «no se te vuelve a pedir» y, al refrescar, desaparece.
     ok('«No tengo cómo pesarme» lo quita y avisa', ((await q.p.locator('[data-registro-pendiente="evp5"] [data-registro-quitado]').count()) === 1
       || (await q.p.locator('[data-registro-pendiente="evp5"]').count()) === 0)
