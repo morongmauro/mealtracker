@@ -3342,10 +3342,11 @@ try {
   ok('el recordatorio de texto del coach NO se anuncia en el chat', (await oa.p.getByText(/tu coach te dejó/).count()) === 0
     && (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 0);
   await oa.p.getByRole('button', { name: /Recordat/ }).first().click();
-  await oa.p.getByText('Haz 10 minutos de movilidad de cadera').waitFor({ timeout: 5000 }).catch(() => {});
-  const enRec = (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 1;
+  await espera(1200);
+  // Las notas sueltas del Seguimiento del CRM ya no se muestran en la app (se guardan igual).
+  const enRec = (await oa.p.getByText('Haz 10 minutos de movilidad de cadera').count()) === 0;
   if (!enRec) await foto(oa.p, '13c-recordatorios-FALLO');
-  ok('…pero está en Recordatorios', enRec, `pulls de la nube: ${oa.pulls ? oa.pulls() : '?'} · botones: ${(await oa.p.getByRole('button', { name: /Recordat/ }).allInnerTexts()).join(' | ')}`);
+  ok('…y tampoco en la campanita: las notas sueltas del Seguimiento ya no se muestran', enRec, `botones: ${(await oa.p.getByRole('button', { name: /Recordat/ }).allInnerTexts()).join(' | ')}`);
   await foto(oa.p, '13c-otra-persona-recordatorios');
   ok('sin errores de JavaScript (otra persona, aviso)', oa.errores.length === 0, oa.errores.join(' | '));
   await oa.ctx.close();
