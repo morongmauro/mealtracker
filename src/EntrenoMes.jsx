@@ -529,7 +529,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
             <Stack size={18} weight="bold" color={TEXT_MUTED} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 750, fontSize: v2 ? 15.5 : 14.5 }}>{b.nombre}</div>
-              <div style={{ fontSize: t.chico, color: TEXT_LIGHT }}>Bloque complementario{b.minutos ? ` · ~${b.minutos} min` : ''}</div>
+              <div style={{ fontSize: t.chico, color: TEXT_LIGHT }}>{b.opcional ? 'Opcional' : 'Bloque complementario'}{b.minutos ? ` · ~${b.minutos} min` : ''}</div>
             </div>
             {v2 ? <EstadoChip hecha={b.estado === 'completada'} P={P} /> : b.estado && <Marca estado={b.estado} style={{ fontSize: 17 }} />}
           </div>
@@ -1616,9 +1616,10 @@ const bloquesDe = (dia) => (Array.isArray(dia?.complementarias) ? dia.complement
 function TarjetaBloque({ b, P, n, alEntrenar }) {
   const hecha = b.estado === 'completada';
   const aMedias = b.estado === 'en_curso';
-  const meta = [n ? `${n} ejercicio${n === 1 ? '' : 's'}` : null, b.minutos ? `~${b.minutos} min` : null].filter(Boolean).join(' · ');
+  // Opcional: con la nota del coach («antes de la fuerza») y sin presión.
+  const meta = [n ? `${n} ejercicio${n === 1 ? '' : 's'}` : null, b.minutos ? `~${b.minutos} min` : null, b.opcional ? (b.nota || 'si no alcanzas, no pasa nada') : null].filter(Boolean).join(' · ');
   return (
-    <button data-hoy-bloque={b.id} onClick={() => alEntrenar(b.id)} style={{
+    <button data-hoy-bloque={b.id} data-opcional={b.opcional ? '1' : undefined} onClick={() => alEntrenar(b.id)} style={{
       ...cajaDia, width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '12px 14px',
       background: hecha ? '#FBF5E2' : '#fff',
     }}>
@@ -1627,7 +1628,9 @@ function TarjetaBloque({ b, P, n, alEntrenar }) {
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: TEXT_MUTED }}>
-          {hecha ? 'Bloque complementario · ya lo hiciste' : aMedias ? 'Bloque complementario · a medias' : 'Bloque complementario'}
+          {b.opcional
+            ? (hecha ? 'Opcional · ya lo hiciste' : aMedias ? 'Opcional · a medias' : 'Opcional · si te da el tiempo')
+            : (hecha ? 'Bloque complementario · ya lo hiciste' : aMedias ? 'Bloque complementario · a medias' : 'Bloque complementario')}
         </span>
         <span style={{ display: 'block', fontSize: 16.5, fontWeight: 800, color: TEXT, letterSpacing: '-0.01em', marginTop: 1 }}>{b.nombre}</span>
         {meta && <span style={{ display: 'block', fontSize: 13, color: TEXT_LIGHT, marginTop: 1 }}>{meta}</span>}

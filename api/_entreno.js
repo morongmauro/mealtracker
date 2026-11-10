@@ -71,13 +71,20 @@ export const diasDeRutina = (r) => {
 // sale debajo, en los días que diga su `dias_semana`. Sin días, queda suelto
 // («También en tu ciclo»), como antes. Sin la columna, ninguna lo es.
 export const esComplementaria = (r) => r?.complementaria === true;
+// Un bloque OPCIONAL (un handstand «si te da el tiempo»): sale en Hoy como los
+// complementarios, pero no cuenta como pendiente ni en el cumplimiento.
+// Columna `rutinas.opcional` (CRM: migraciones/bloque-opcional.sql).
+export const esOpcional = (r) => r?.opcional === true;
 
 // Las rutinas de una fase con su marca de complementaria. Si la columna aún
 // no existe (SQL sin correr), se leen sin ella y todo sigue como antes.
 export async function leerRutinas(sb, campos, filtro) {
   const leer = async (c) => { const x = await sb(`rutinas?select=${c}&${filtro}`); return Array.isArray(x) ? x : []; };
-  try { return await leer(`${campos},complementaria`); }
-  catch (e) { return leer(campos); }
+  try { return await leer(`${campos},complementaria,opcional`); }
+  catch (e) {
+    try { return await leer(`${campos},complementaria`); }
+    catch (e2) { return leer(campos); }
+  }
 }
 
 // Los bloques complementarios que caen en una fecha, en el orden del coach.

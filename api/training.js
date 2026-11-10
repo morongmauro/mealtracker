@@ -309,6 +309,8 @@ async function verPlan(cliente, hoy) {
         return {
           id: c.id, nombre: c.nombre, tipo: c.tipo_sesion, minutos: minDe[c.id] || c.duracion_estimada_min || null,
           ejercicios: conteo[c.id] || 0, hecha: !!(sc && sc.estado === 'completada'), en_curso: !!(sc && sc.estado === 'en_curso'),
+          // Opcional: lo hace si le da el tiempo; no cuenta como pendiente.
+          opcional: c.opcional === true, nota: c.opcional === true ? (c.descripcion || null) : undefined,
         };
       }),
     };
@@ -1363,7 +1365,7 @@ async function verMes(cliente, ym, hoy) {
 
   let porDia = {}, rutinas = [], rutinaDe = () => null;
   if (fase) {
-    const rr = await leerRutinas(sb, 'id,nombre,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente',
+    const rr = await leerRutinas(sb, 'id,nombre,descripcion,dia_orden,dia_semana,dias_semana,tipo_sesion,duracion_estimada_min,visible_cliente',
       `fase_id=eq.${fase.id}&archivada=is.false&order=dia_orden.asc`);
     rutinas = (Array.isArray(rr) ? rr : []).filter(r => rutinaVisible(r, fase));
     porDia = repartirPorDia(fase, rutinas);
@@ -1442,7 +1444,7 @@ async function verMes(cliente, ym, hoy) {
     const bloques = [...programados, ...sueltos].map(c => {
       const sc = sesiones.filter(x => x.fecha === fecha && x.rutina_id === c.id);
       const hecha = sc.find(x => x.estado === 'completada') || sc.find(x => x.estado === 'en_curso') || null;
-      return { id: c.id, nombre: c.nombre, corto: nombreCorto(c.nombre), minutos: minDe[c.id] || c.duracion_estimada_min || null, estado: hecha ? hecha.estado : null };
+      return { id: c.id, nombre: c.nombre, corto: nombreCorto(c.nombre), minutos: minDe[c.id] || c.duracion_estimada_min || null, estado: hecha ? hecha.estado : null, opcional: c.opcional === true, nota: c.opcional === true ? (c.descripcion || null) : null };
     });
     dias.push({
       fecha, dia: letra, es_hoy: fecha === hoy,

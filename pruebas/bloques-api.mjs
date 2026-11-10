@@ -21,14 +21,15 @@ const { agendaDeHoy } = await import('../api/_entreno.js');
 let mal = 0, n = 0;
 const ok = (nombre, c, extra = '') => { n++; if (!c) mal++; console.log(`  ${c ? 'ok ' : 'MAL'}  ${nombre}${c ? '' : '  ' + extra}`); };
 
-function base({ conColumna = true, sesiones = [] } = {}) {
+function base({ conColumna = true, sesiones = [], opcional = null, sinOpcional = false } = {}) {
   const rutinas = [
     { id: 'r1', cliente_id: 'c1', fase_id: 'f1', nombre: 'Push', dia_orden: 1, dias_semana: ['L', 'J'], archivada: false },
     { id: 'r2', cliente_id: 'c1', fase_id: 'f1', nombre: 'Lower', dia_orden: 2, dias_semana: ['M', 'V'], archivada: false },
     { id: 'rb', cliente_id: 'c1', fase_id: 'f1', nombre: 'Elbow Recovery', dia_orden: 3, dias_semana: ['L', 'M', 'X', 'J', 'V', 'S', 'D'], archivada: false, duracion_estimada_min: 9 },
-  ].map(r => (conColumna ? { ...r, complementaria: r.id === 'rb' } : r));
+  ].map(r => (conColumna ? { ...r, complementaria: r.id === 'rb' } : r))
+    .map(r => (opcional === null ? r : { ...r, opcional: r.id === 'rb' ? opcional : false, ...(r.id === 'rb' && opcional ? { descripcion: 'Antes de la fuerza' } : {}) }));
   return crearSupabaseFalso({
-    columnas: conColumna ? {} : { rutinas: ['id', 'cliente_id', 'fase_id', 'nombre', 'descripcion', 'dia_orden', 'dia_semana', 'dias_semana', 'tipo_sesion', 'duracion_estimada_min', 'visible_cliente', 'archivada'] },
+    columnas: conColumna ? (sinOpcional ? { rutinas: ['id', 'cliente_id', 'fase_id', 'nombre', 'descripcion', 'dia_orden', 'dia_semana', 'dias_semana', 'tipo_sesion', 'duracion_estimada_min', 'visible_cliente', 'complementaria', 'archivada'] } : {}) : { rutinas: ['id', 'cliente_id', 'fase_id', 'nombre', 'descripcion', 'dia_orden', 'dia_semana', 'dias_semana', 'tipo_sesion', 'duracion_estimada_min', 'visible_cliente', 'archivada'] },
     porDefecto: { sesiones: { estado: 'en_curso' }, series_log: { completada: true } },
     tablas: {
       clientes: [{ id: 'c1', user_id: 'coach-1', nombre: 'Santiago F', estado: 'activo' }],
@@ -85,6 +86,26 @@ const pedir = async (db, cuerpo) => { globalThis.fetch = db.fetch; return llamar
   const ag = await agendaDeHoy(db.fetch ? async (p) => { const r = await db.fetch(`https://crm.test/rest/v1/${p}`); if (!r.ok) throw new Error(String(r.status)); const t = await r.text(); return t ? JSON.parse(t) : null; } : null, '2026-09-28');
   const s = ag.get('santiago f');
   ok('aviso de la noche: hacer solo el bloque no cuenta como «ya entrenó hoy»', s && s.entrenoHoy === false && s.rutina === 'Push', JSON.stringify(s));
+}
+
+// Bloque OPCIONAL: sale igual en la semana y en el mes, marcado como opcional
+// y con la nota del coach; la fuerza y el conteo de la semana no cambian.
+{
+  const db = base({ opcional: true });
+  const r = await pedir(db, { accion: 'plan' });
+  const x = r.dias.find(d => d.dia === 'X');
+  ok('opcional: sale en la semana, marcado como opcional y con la nota del coach', x.complementarias.length === 1 && x.complementarias[0].opcional === true && x.complementarias[0].nota === 'Antes de la fuerza', JSON.stringify(x.complementarias));
+  const m = await pedir(db, { accion: 'mes', ym: '2026-09' });
+  const md = m.dias.find(d => d.fecha === '2026-09-30');
+  ok('opcional: en el mes también, como opcional', md.complementarias.length === 1 && md.complementarias[0].opcional === true && md.complementarias[0].nota === 'Antes de la fuerza', JSON.stringify(md.complementarias));
+  const r2 = await pedir(base({ opcional: false }), { accion: 'plan' });
+  ok('un complementario normal no sale como opcional', r2.dias.find(d => d.dia === 'X').complementarias[0].opcional === false);
+}
+// Con la columna de complementarios pero SIN la de opcional (SQL nuevo sin correr): todo como antes.
+{
+  const db = base({ sinOpcional: true });
+  const r = await pedir(db, { accion: 'plan' });
+  ok('sin la columna «opcional»: los bloques siguen saliendo como antes', r.ok && r.dias.find(d => d.dia === 'X').complementarias.length === 1);
 }
 
 // Sin la columna (migración sin correr): todo como antes.
