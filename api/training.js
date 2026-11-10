@@ -2324,6 +2324,20 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
     if (w) w.hechos++;
   });
 
+  // La semana en curso, día por día (lunes a domingo): si le tocaba fuerza y
+  // si entrenó. Es lo que dibujan los 7 círculos de «Tu semana» en el Dash.
+  {
+    const w = semanas[semanas.length - 1];
+    const f = fases.find(x => x.fecha_inicio && x.fecha_inicio <= w.hasta && finDeFase(x) >= w.desde);
+    const dias = new Set((f?.dias_semana || []).map(String));
+    const conEntreno = new Set(sesiones.filter(x => x.estado === 'completada' && !x.bloque).map(x => x.fecha));
+    w.dias_fuerza = LETRAS_SEM.map((letra, i) => {
+      const fecha = sumarDiasISO(w.desde, i);
+      const enFase = !!f && fecha >= f.fecha_inicio && fecha <= finDeFase(f);
+      return { fecha, plan: enFase && dias.has(letra) && !ausentes.has(fecha), hecho: conEntreno.has(fecha) };
+    });
+  }
+
   // Mejor e1RM de cada ejercicio en cada fecha, y el peso más alto que movió
   // ese día (con sus reps): lo segundo es la gráfica de «Progreso de pesos».
   const mejor = {};

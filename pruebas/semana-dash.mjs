@@ -45,5 +45,26 @@ ok('pocos días de comida → titular y foco de registro', /Hiciste 1 de 3 rutin
 const sinEntreno = armarSemana({ semanas: [], history, goals: { kcal: 2100, p: 100 }, hoy: '2026-11-11' });
 ok('sin entrenamiento (solo comida) también sale, sin la fila de rutinas', sinEntreno && sinEntreno.pasada.planeados === 0 && /Buena semana de comida/.test(sinEntreno.titular), JSON.stringify(sinEntreno && sinEntreno.titular));
 
+console.log('\nde informe a foco (los 7 círculos, la frase y el logro)');
+const sem2 = [semanas[0], { ...semanas[1], hechos: 1, dias_fuerza: [
+  { plan: true, hecho: true }, { plan: false, hecho: false }, { plan: true, hecho: false }, { plan: true, hecho: false }, { plan: false, hecho: false }, { plan: true, hecho: false }, { plan: false, hecho: false }] }];
+const h2 = { ...history, '2026-11-09': { kcal: 2000, p: 150 }, '2026-11-10': { kcal: 1800, p: 90 }, '2026-11-11': { kcal: 1700, p: 60 } };
+delete h2['2026-11-12']; delete h2['2026-11-13']; delete h2['2026-11-14'];
+S = armarSemana({ semanas: sem2, history: h2, goals, hoy: '2026-11-11' });
+ok('proteína: lunes cumplido, martes no llegó, hoy anillo, el resto por venir', S.dias.join() === 'ok,corto,hoy,futuro,futuro,futuro,futuro', S.dias.join());
+ok('nunca hay rojo: los estados son solo ok, hoy, corto, nada, futuro o libre', S.dias.every(e => ['ok', 'hoy', 'corto', 'nada', 'futuro', 'libre'].includes(e)));
+ok('la frase de hoy es concreta: «Hoy llevas 60 g: te faltan 80 g para tu meta.»', S.frase === 'Hoy llevas 60 g: te faltan 80 g para tu meta.', S.frase);
+ok('la cifra del foco es el promedio de esta semana contra la meta', S.nombreFoco === 'Proteína' && S.cifra.de === '/ 140 g al día', JSON.stringify(S.cifra));
+const hR = {}; ['02', '03', '04', '05', '06', '07', '08'].forEach(d => { hR[`2026-11-${d}`] = { kcal: 2000, p: 150 }; });
+const rut = armarSemana({ semanas: [{ ...semanas[0], hechos: 2 }, sem2[1]], history: hR, goals, hoy: '2026-11-12' });
+ok('foco rutinas: los días que no toca van con punto y el que se quedó, vacío', rut.foco.que === 'rutinas' && rut.dias.join() === 'ok,libre,nada,hoy,libre,futuro,libre', rut.foco.que + ' ' + rut.dias.join());
+ok('foco rutinas: «Hoy te toca entrenar: con esa vas 2 de 3.»', rut.frase === 'Hoy te toca entrenar: con esa vas 2 de 3.', rut.frase);
+const lun = armarSemana({ semanas, history, goals, hoy: '2026-11-09' });
+ok('lunes: primero el logro («Cumpliste tus 3 rutinas.»), sin el regaño en el titular', lun.logro === 'Cumpliste tus 3 rutinas.', lun.logro);
+ok('lunes: tres cifras; las rutinas cumplidas en verde, la proteína corta sin naranja (solo sin verde)', lun.fichasPasada.length === 3 && lun.fichasPasada[0].que === 'rutinas' && lun.fichasPasada[0].ok && !lun.fichasPasada.find(x => x.que === 'proteina').ok, JSON.stringify(lun.fichasPasada));
+const dom = armarSemana({ semanas, history, goals, hoy: '2026-11-15' });
+ok('domingo: lo que subió va primero y dice «subió»', dom.fichasActual[0].ok && /subió/.test(dom.fichasActual[0].txt), JSON.stringify(dom.fichasActual));
+ok('domingo: un paso posible hoy («Una rutina hoy y cierras con 3 de 3.»)', dom.paso && dom.paso.texto === 'Una rutina hoy y cierras con 3 de 3.' && dom.paso.ir === 'entreno', JSON.stringify(dom.paso));
+
 console.log(mal ? `\n${mal} MAL` : '\ntodo bien');
 process.exit(mal ? 1 : 0);
