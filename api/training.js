@@ -225,13 +225,22 @@ async function verPlan(cliente, hoy) {
   // (y cuáles: para saber si el video que pidió el coach toca hoy).
   const conteo = {};
   const ejsDe = {};
+  const filasDe = {};
+  const nombreEj = {};
   if (lista.length) {
     const ids = lista.map(r => r.id).join(',');
-    const re = await sb(`rutina_ejercicios?select=rutina_id,ejercicio_id&rutina_id=in.(${ids})`);
+    // Con series y reps: es la «huella» de cada rutina, para que la app le
+    // diga al cliente QUÉ cambió su coach (src/cambiosRutina.js).
+    const re = await sb(`rutina_ejercicios?select=rutina_id,ejercicio_id,series,reps,orden&rutina_id=in.(${ids})`)
+      .catch(() => sb(`rutina_ejercicios?select=rutina_id,ejercicio_id&rutina_id=in.(${ids})`));
     (Array.isArray(re) ? re : []).forEach(x => {
       conteo[x.rutina_id] = (conteo[x.rutina_id] || 0) + 1;
       (ejsDe[x.rutina_id] || (ejsDe[x.rutina_id] = new Set())).add(String(x.ejercicio_id));
+      (filasDe[x.rutina_id] || (filasDe[x.rutina_id] = [])).push(x);
     });
+    const idsEj = [...new Set((Array.isArray(re) ? re : []).map(x => x.ejercicio_id).filter(Boolean))];
+    const fichas = idsEj.length ? await sb(`ejercicios?select=id,nombre,alias&id=in.(${idsEj.join(',')})`).catch(() => []) : [];
+    (Array.isArray(fichas) ? fichas : []).forEach(e => { nombreEj[String(e.id)] = e.alias || e.nombre || ''; });
   }
 
   // Cuánto dura cada una: calculado (series, descansos, cambios) y aterrizado
@@ -330,6 +339,10 @@ async function verPlan(cliente, hoy) {
     hechas_hoy: sesiones.filter(x => x.fecha === hoy && x.estado === 'completada' && x.rutina_id)
       .map(x => lista.find(r => r.id === x.rutina_id)).filter(r => r && !esComplementaria(r))
       .map(r => ({ id: r.id, nombre: r.nombre })),
+    // La huella de cada rutina: [ejercicio, nombre, series, reps], en su orden.
+    huella: lista.map(r => ({ id: r.id, nombre: r.nombre,
+      ejercicios: (filasDe[r.id] || []).slice().sort((x, y) => (x.orden || 0) - (y.orden || 0))
+        .map(x => [String(x.ejercicio_id), nombreEj[String(x.ejercicio_id)] || '', x.series == null ? null : x.series, x.reps == null ? null : String(x.reps)]) })),
     extra: { detalle: extraSemana, bono: bonoExtra(extraSemana), penal: penalSemana },
     // Rutinas que no cupieron en el calendario: el coach armó más días de
     // entreno que días declaró en la fase. Se muestran igual, sueltas, en vez

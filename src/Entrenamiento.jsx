@@ -6,6 +6,7 @@ import EntrenoRutinas from './EntrenoRutinas.jsx';
 import VistaHecha from './EntrenoHecha.jsx';
 import EntrenoResumen from './EntrenoResumen.jsx';
 import EntrenoFotos from './EntrenoFotos.jsx';
+import { registrarCambiosPlan } from './cambiosRutina.js';
 import EntrenoActividad, { ChipActividad, TarjetaCardioCoach } from './EntrenoActividad.jsx';
 import EntrenoFicha from './EntrenoFicha.jsx';
 import EntrenoGaleria, { precargarGaleria } from './EntrenoGaleria.jsx';
@@ -271,7 +272,7 @@ export default function Entrenamiento({ name, seccionV2 = null, alSeccionV2, rec
   const cargarPlan = useCallback(async () => {
     if (!cachePlan.has(name) && !guardadoDeEstaSemana('plan', name)) setCargando(true);
     const r = await api({ accion: 'plan', name });
-    if (r && r.ok) { cachePlan.set(name, r); precargarRutinas(name, r); }
+    if (r && r.ok) { cachePlan.set(name, r); precargarRutinas(name, r); registrarCambiosPlan(name, r); }
     // Sin red y con algo guardado: se queda lo guardado, no un «sin plan».
     setPlan(r && r.ok ? r : (cachePlan.get(name) || guardadoDeEstaSemana('plan', name) || { ok: false }));
     setCargando(false);

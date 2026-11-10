@@ -11,21 +11,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CaretRight, Check, Note, Flag, BellSimple } from '@phosphor-icons/react';
 import { Hoja } from './entrenoUI.jsx';
 import { TEXT, TEXT_MUTED, TEXT_LIGHT } from './theme.js';
-import { useAvisosCoach, marcarAvisosLeidos } from './avisosCoach.js';
+import { useAvisosCoach, marcarAvisosLeidos, hace } from './avisosCoach.js';
 
 const AZUL = '#3C7BD6';
 const RAYA = '1px solid #F0EDE6';
 
-const hace = (iso) => {
-  const t = iso ? new Date(iso).getTime() : NaN;
-  if (!Number.isFinite(t)) return '';
-  const min = Math.max(0, Math.round((Date.now() - t) / 60000));
-  if (min < 60) return min <= 1 ? 'hace un momento' : `hace ${min} min`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `hace ${h} h`;
-  const d = Math.round(h / 24);
-  return d === 1 ? 'ayer' : `hace ${d} días`;
-};
 
 const Titulo = ({ children }) => <div style={{ fontSize: 13, fontWeight: 750, color: TEXT_MUTED, margin: '14px 0 2px' }}>{children}</div>;
 

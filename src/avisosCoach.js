@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { useEffect, useState } from 'react';
 
-const ORDEN = ['respuesta', 'app', 'dash'];
+const ORDEN = ['respuesta', 'cambios', 'app', 'dash'];
 const partes = {};
 const oyentes = new Set();
 const CLAVE = 'mt:avisosLeidos';
@@ -49,6 +49,18 @@ export function marcarAvisosLeidos(ids) {
 export function avisosSinLeer() {
   const s = leidos();
   return todosLosAvisos().filter(a => !s.has(String(a.id))).length;
+}
+
+// «hace 2 h», «ayer», «hace 3 días».
+export function hace(iso) {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  if (!Number.isFinite(t)) return '';
+  const min = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (min < 60) return min <= 1 ? 'hace un momento' : `hace ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.round(h / 24);
+  return d === 1 ? 'ayer' : `hace ${d} días`;
 }
 
 // Para pintar: la lista y cuántos faltan por leer, al día.

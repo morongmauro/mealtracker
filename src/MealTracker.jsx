@@ -46,9 +46,9 @@ const AvisoCicloFin = lazy(() => import('./AvisoCicloFin.jsx'));
 import { RECORRIDO_AUTO, recorridoHecho } from './recorridoEstado.js';
 import { repasoOfrecido } from './RepasoRecorrido.jsx';
 import { hayNovedad, marcarVisto } from './novedades.js';
-import { publicarAvisos, useAvisosCoach } from './avisosCoach.js';
+import { useAvisosCoach } from './avisosCoach.js';
 import AvisosCoach from './AvisosCoach.jsx';
-import { Barbell as BarbellAviso } from '@phosphor-icons/react';
+import { registrarCambiosPlan } from './cambiosRutina.js';
 import { vozComida } from './vozCoach.js';
 import { idsFavoritas, marcarFavorita, adoptarFavoritasNube, favoritasParaNube } from './recetasFavoritas.js';
 import { Bell as BellV2, WhatsappLogo as WhatsappV2, ChefHat as ChefHatV2, Repeat as RepeatV2, Star as StarV2, Basket as BasketV2, BookOpenText as BookOpenV2, PushPin as PushPinV2, ChartBar as ChartBarV2, FileText as FileTextV2, CalendarBlank as CalendarV2, Scales as ScalesV2, ArrowCounterClockwise as ReiniciarV2, SquaresFour as OpcionesV2, ChatCircle as ChatV2 } from '@phosphor-icons/react';
@@ -885,18 +885,8 @@ export default function MealTracker() {
   // rutina abierta, el Chat, las Recetas y la Galería se quedan donde estaban:
   // ahí se estaba en medio de algo y perder el lugar molesta.
   const seccionScroll = showDash ? 'dash' : showTraining ? 'entreno' : showLearning ? 'aprende' : 'comida';
-  // La campanita («Avisos de tu coach»): cuánto falta por leer, y el aviso de
-  // que el coach cambió el entrenamiento (se va al entrar a Entreno).
+  // La campanita («Avisos de tu coach»): cuánto falta por leer.
   const { sinLeer: avisosSinLeer } = useAvisosCoach();
-  const firmaEntreno = firmas.entreno;
-  useEffect(() => {
-    const nuevo = v2 && trainingOn && !showTraining && hayNovedad('entreno', firmaEntreno);
-    publicarAvisos('app', nuevo ? [{
-      id: `entreno:${firmaEntreno}`, texto: 'Actualizó tu entrenamiento', sub: 'Mira lo nuevo en Entreno',
-      Icono: BarbellAviso, color: '#5F6670', ir: () => { if (irSubV2Ref.current) irSubV2Ref.current('entreno', 'hoy'); },
-    }] : []);
-    // eslint-disable-next-line
-  }, [v2, firmaEntreno, showTraining, trainingOn]);
   const lugarGaleria = useRef({ y: 0, t: 0 });
   useEffect(() => {
     const el = capaEntrenaRef.current;
@@ -1001,6 +991,8 @@ export default function MealTracker() {
         const r = m.precargar && await m.precargar(name);
         // La firma del plan, para el puntito de novedad de Entrenamiento.
         if (r && m.firmaPlan) setFirmas(f => ({ ...f, entreno: m.firmaPlan(r) }));
+        // Qué cambió el coach en sus rutinas: a la campanita, con detalle.
+        registrarCambiosPlan(name, r, () => { if (irSubV2Ref.current) irSubV2Ref.current('entreno', 'hoy'); });
       }).catch(() => {});
     });
     return () => { if (window.cancelIdleCallback) try { window.cancelIdleCallback(t); } catch (e) {} };
