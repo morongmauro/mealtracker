@@ -23,7 +23,7 @@ const fechaPedido = (f) => {
   return `${d.getDate()} ${MESES[d.getMonth()]}`;
 };
 
-const PASOS = ['Grábate en una serie completa, con el peso de hoy.', 'De lado y de cuerpo entero.', 'Envíaselo por WhatsApp.'];
+const PASOS = ['Grábate en una serie completa, con el peso de hoy.', 'Envíaselo por WhatsApp.'];
 
 export default function HojaVideo({ re, alCerrar }) {
   const v = re && re.video_pedido;
