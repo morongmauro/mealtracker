@@ -727,7 +727,7 @@ try {
     const hoja = q.locator('[data-hoja-video]');
     await hoja.waitFor({ timeout: 5000 });
     const txtHoja = await hoja.innerText();
-    ok('video: la hoja recuerda grabarlo (3 pasos), qué corregir y que va por WhatsApp', (await hoja.locator('[data-video-paso]').count()) === 3
+    ok('video: la hoja recuerda grabarlo (2 pasos, sin «de lado y de cuerpo entero»), qué corregir y que va por WhatsApp', (await hoja.locator('[data-video-paso]').count()) === 2 && !/cuerpo entero/.test(txtHoja)
       && /Baja la barra más controlada/.test(txtHoja) && /otra vez/.test(txtHoja) && /2ª vez/.test(txtHoja) && /no se sube a la app, va por WhatsApp/.test(txtHoja)
       && (await hoja.locator('[data-video-whatsapp]').count()) === 1, txtHoja);
     ok('video: la hoja es la de la marca, con «Grabar video» arriba', /Grabar video/i.test(await q.locator('[data-hoja-marca]').last().innerText()));
