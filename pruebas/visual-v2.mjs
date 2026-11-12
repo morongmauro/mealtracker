@@ -710,6 +710,10 @@ try {
     await foto(q, 'video-dash');
     await q.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(800);
     await q.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await espera(1200);
+    // Si ese día ya está hecho, la tarjeta muestra lo que hizo: se abre la rutina con «Entrenarla hoy».
+    const entrenarla = q.getByRole('button', { name: 'Entrenarla hoy' });
+    if (await entrenarla.count()) { await entrenarla.first().click(); await espera(1200); }
     await q.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
     await q.locator('[data-tip-entendido]').click().catch(() => {});
     const banca = q.locator('[data-ejercicio="Barbell Bench Press"]').first();
