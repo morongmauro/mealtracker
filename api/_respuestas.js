@@ -15,7 +15,10 @@ export async function verRespuestas(sb, cliente, hoy) {
   const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - 21);
   const desde = d.toISOString().slice(0, 10);
   try {
-    const r = await sb(`respuestas_coach?select=id,contexto,nota,texto,created_at&cliente_id=eq.${cliente.id}&visto_en=is.null&created_at=gte.${desde}&order=created_at.desc&limit=3`);
+    // Las que el coach retiró desde el CRM («Mensajes enviados») no salen.
+    // Si la columna retirado_en todavía no existe, se pide como antes.
+    const base = `respuestas_coach?select=id,contexto,nota,texto,created_at&cliente_id=eq.${cliente.id}&visto_en=is.null&created_at=gte.${desde}&order=created_at.desc&limit=3`;
+    const r = await sb(`${base}&retirado_en=is.null`).catch(() => sb(base));
     return { ok: true, respuestas: Array.isArray(r) ? r : [] };
   } catch (e) { return { ok: true, respuestas: [] }; }
 }
