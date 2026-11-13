@@ -155,6 +155,41 @@ export function sesionValida(sesion, nombre, hash) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+// ── Cápsulas: la respuesta del cliente a la pregunta de su coach ──────────
+// El centro de recursos manda { accion: 'capsula_respuesta', name, capsula_id,
+// capsula_titulo, pregunta, texto }. Se guarda en capsulas_pedidas del CRM:
+// en la última cápsula pedida sin respuesta, o, si el coach no se la había
+// enviado, en una fila nueva marcada «por su cuenta» (no cuenta como toque).
+const recorta = (t, n) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, n);
+async function capsulaRespuesta(req, res, body) {
+  if (!CRM_URL || !CRM_KEY) return res.status(200).json({ ok: false, error: 'crm' });
+  const id = recorta(body.capsula_id, 80), texto = recorta(body.texto, 600);
+  if (!/^[a-z0-9-]+$/.test(id) || !texto) return res.status(400).json({ ok: false, error: 'datos' });
+  const rc = await enCrm('clientes?select=id,user_id,nombre,estado,nombres_alternos');
+  if (!rc.ok) return res.status(200).json({ ok: false, error: 'crm' });
+  const { fila } = porNombre(await rc.json(), body.name);
+  if (!fila || String(fila.estado || 'activo').toLowerCase() !== 'activo') return res.status(200).json({ ok: false, error: 'cliente' });
+  const ahora = new Date().toISOString();
+  // Primero con las marcas nuevas; si la columna aún no existe, sin ellas.
+  const intenta = async (ruta, opts, con, sin) => {
+    let r = await enCrm(ruta, { ...opts, body: JSON.stringify(con) });
+    if (!r.ok && r.status === 400) r = await enCrm(ruta, { ...opts, body: JSON.stringify(sin) });
+    return r;
+  };
+  const rp = await enCrm(`capsulas_pedidas?select=id,retirado_en&cliente_id=eq.${fila.id}&capsula_id=eq.${encodeURIComponent(id)}&respondio_en=is.null&order=enviada_en.desc&limit=5`);
+  const pend = rp.ok ? (await rp.json()).filter(x => !x.retirado_en)[0] : null;
+  let r;
+  if (pend) {
+    const base = { respondio_en: ahora, respuesta: texto };
+    r = await intenta(`capsulas_pedidas?id=eq.${pend.id}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' } }, { ...base, respondio_app: true }, base);
+  } else {
+    const base = { user_id: fila.user_id, cliente_id: fila.id, capsula_id: id, capsula_titulo: recorta(body.capsula_titulo, 160) || null,
+      pregunta: recorta(body.pregunta, 300) || null, enviada_en: ahora, respondio_en: ahora, respuesta: texto };
+    r = await intenta('capsulas_pedidas', { method: 'POST', headers: { Prefer: 'return=minimal' } }, { ...base, respondio_app: true, por_su_cuenta: true }, base);
+  }
+  return res.status(200).json({ ok: r.ok });
+}
+
 async function cuenta(req, res, body) {
   if (!CRM_URL || !CRM_KEY) return res.status(200).json({ ok: false, error: 'crm' });
   const { accion, name, email, clave } = body;
@@ -220,6 +255,7 @@ export default async function handler(req, res) {
   if (!guard(req, res, { key: 'authorize', limit: 20 })) return;
 
   const body = req.body || {};
+  if (body.accion === 'capsula_respuesta') return capsulaRespuesta(req, res, body);
   if (body.accion) return cuenta(req, res, body);
   const { name, sesion } = body;
   const normalized = normalizeName(name);

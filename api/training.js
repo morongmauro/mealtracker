@@ -378,8 +378,12 @@ async function verPlan(cliente, hoy) {
 // llegado o revisado, deja de salir. Si se lo pidió de nuevo tras revisarlo,
 // trae la nota de qué corregir y cuántas veces van.
 async function videosPedidos(cliente) {
-  const filas = await sb(`videos_tecnica?select=id,ejercicio_id,ejercicio_nombre,estado,pedido_en,pedido_de,nota,created_at`
-    + `&cliente_id=eq.${cliente.id}&order=pedido_en.asc`).catch(() => []);
+  // Con nota_retirada_en (el coach retiró el «Qué corregir» desde el CRM); si
+  // esa columna todavía no existe, se pide como antes.
+  const cols = 'id,ejercicio_id,ejercicio_nombre,estado,pedido_en,pedido_de,nota,created_at';
+  const filtro = `&cliente_id=eq.${cliente.id}&order=pedido_en.asc`;
+  const filas = await sb(`videos_tecnica?select=${cols},nota_retirada_en${filtro}`)
+    .catch(() => sb(`videos_tecnica?select=${cols}${filtro}`)).catch(() => []);
   if (!Array.isArray(filas) || !filas.length) return [];
   const clave = (f) => f.ejercicio_id ? String(f.ejercicio_id) : `n:${String(f.ejercicio_nombre || '').toLowerCase()}`;
   const ult = {};
@@ -390,7 +394,7 @@ async function videosPedidos(cliente) {
   const porId = Object.fromEntries(filas.map(f => [f.id, f]));
   return Object.values(ult).filter(f => f.estado === 'pedido').map(f => {
     let vez = 1, antes = f.pedido_de ? porId[f.pedido_de] : null;
-    const corregir = antes && (antes.estado === 'mejorar' || antes.estado === 'mal') && antes.nota ? antes.nota : null;
+    const corregir = antes && (antes.estado === 'mejorar' || antes.estado === 'mal') && antes.nota && !antes.nota_retirada_en ? antes.nota : null;
     for (let a = antes; a && vez < 20; a = a.pedido_de ? porId[a.pedido_de] : null) vez++;
     return { id: f.id, ejercicio_id: f.ejercicio_id || null, nombre: f.ejercicio_nombre || 'Ejercicio', pedido_en: f.pedido_en, corregir, vez };
   });
