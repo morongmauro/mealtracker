@@ -19,7 +19,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, Circle, BookOpenText, UsersThree, GearSix, Gauge, VideoCamera, CaretUp } from '@phosphor-icons/react';
+import { Briefcase, Bell, CaretDown, Barbell, Stack, ForkKnife, Mountains, WhatsappLogo, ChatCircle, CaretRight, CaretLeft, CalendarBlank, Heartbeat, CalendarCheck, Sparkle, CheckCircle, BookOpenText, UsersThree, GearSix, Gauge, VideoCamera, CaretUp } from '@phosphor-icons/react';
 import Comunidad, { leerComunidad, firmaComunidad } from './Comunidad.jsx';
 import RespuestaCoach from './RespuestaCoach.jsx';
 import { publicarAvisos, useAvisosCoach } from './avisosCoach.js';
@@ -577,8 +577,6 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
   if (vista === 'composicion') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <DetalleComposicion ent={ent} cargando={entrenoOn && !ent && !falloEnt} alMedir={() => setMidiendo(true)} />
     <HojaMedida abierta={midiendo} nombre={name} alCerrar={() => setMidiendo(false)} alGuardar={() => { setMidiendo(false); cargar(); }} /></Marco>;
-  if (vista === 'aprende') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
-    <DetalleAprende aprende={aprende} alIr={alIr} /></Marco>;
   if (vista === 'comunidad') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
     <Comunidad name={name} /></Marco>;
   if (vista === 'config') return <Marco ref={raizRef}><Volver alVolver={() => setVista('inicio')} />
@@ -627,7 +625,7 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
           campanita sigue; esto es una ayudita para quien no va a buscarla. */}
       <RecordatoriosLinea name={name} hoy={hoy} aprende={aprende} medidas={ent?.medidas} cierre={ent?.cierre} cargandoMedidas={entrenoOn && !ent && !falloEnt}
         coach={acciones.recordatoriosCoach || []} alMarcarCoach={acciones.marcarRecordatorio}
-        alPrograma={acciones.programa} alMedir={() => setMidiendo(true)} alAbrir={acciones.abrirAprendizaje} alAprende={() => setVista('aprende')}
+        alPrograma={acciones.programa} alMedir={() => setMidiendo(true)} alAbrir={acciones.abrirAprendizaje}
         plan={entrenoOn ? plan : null} coachHoy={entrenoOn ? (ent?.semana?.hoy || []) : []} pedidosCoach={entrenoOn ? (ent?.pedidos_coach || []) : []} kcalHoy={kcalHoy} alIr={alIr} />
 
       {explicar && (
@@ -766,8 +764,10 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
       <HojaMedida abierta={midiendo} nombre={name} alCerrar={() => setMidiendo(false)}
         alGuardar={() => { setMidiendo(false); cargar(); }} />
 
-      {/* Aprendizaje: cuánto ha visto del centro de recursos */}
-      <Seccion accion={<VerMas que="aprende" onClick={() => setVista('aprende')} />}>Aprendizaje</Seccion>
+      {/* Aprendizaje: solo el resumen (lo próximo y cuánto ha visto). Sin
+          «Ver más»: la otra pantalla confundía; para leer se va a la pieza
+          (o a la sección Aprendizaje de la barra). */}
+      <Seccion>Aprendizaje</Seccion>
       <TarjetaAprende aprende={aprende} alAbrir={enPrueba() ? acciones.abrirAprendizaje : null} />
 
       {cierre && <><Seccion accion={<VerMas que="cierre" onClick={() => setVerResumen('cierre')}>Ver cierre</VerMas>}>Tu último ciclo</Seccion><TarjetaCierre cierre={cierre} /></>}
@@ -868,51 +868,6 @@ function TarjetaBalance({ balance }) {
         </div>
       </div>
     </Tarjeta>
-  );
-}
-
-// Pieza por pieza: lo que ya vio, con su check, y lo que le falta.
-const SUB_APRENDE = { hub: 'onboarding', capsula: 'capsulas', guia: 'guia', podcast: 'podcast' };
-function DetalleAprende({ aprende, alIr }) {
-  const [abierto, setAbierto] = useState(null);
-  if (aprende === undefined && lote25()) return <><Titular>Tu aprendizaje</Titular><div style={{ marginTop: 16 }}><CargandoModulo tono="aprende" /></div></>;
-  if (!aprende) return <><Titular>Tu aprendizaje</Titular><div style={{ fontSize: 14, color: TEXT_LIGHT, marginTop: 16 }}>{aprende === undefined ? 'Cargando…' : 'No pude traer tu avance ahora.'}</div></>;
-  return (
-    <>
-      <Titular bajada={`Has completado ${aprende.vistas} de ${aprende.total} piezas del centro de aprendizaje.`}>Tu aprendizaje</Titular>
-      {aprende.bloques.map(b => {
-        const faltan = b.piezas.filter(x => !x.vista);
-        const ver = abierto === b.k;
-        return (
-          <Tarjeta key={b.k} titulo={b.titulo} detalle={b.bajada}
-            accion={<span style={{ fontSize: 15, fontWeight: 750, color: NARANJA, fontVariantNumeric: 'tabular-nums' }}>{b.vistas}/{b.total}</span>}>
-            <div style={{ height: 8, borderRadius: 99, background: rielDe(NARANJA, 0.07, CREMA), marginTop: 12, overflow: 'hidden' }}>
-              <div style={{ width: `${b.total ? (b.vistas / b.total) * 100 : 0}%`, height: '100%', borderRadius: 99, background: NARANJA }} />
-            </div>
-            <div style={{ marginTop: 10 }}>
-              {(ver ? b.piezas : b.piezas.slice(0, 4)).map(x => (
-                <div key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: `1px solid ${CREMA}` }}>
-                  {x.vista ? <CheckCircle size={19} weight="fill" color={NARANJA} /> : <Circle size={19} color={TEXT_LIGHT} />}
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: x.vista ? TEXT : TEXT_MUTED, lineHeight: 1.3 }}>{x.title}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              {b.piezas.length > 4 && (
-                <button onClick={() => setAbierto(ver ? null : b.k)} style={{ border: 'none', background: CREMA, borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: TEXT, cursor: 'pointer' }}>
-                  {ver ? 'Ver menos' : `Ver las ${b.piezas.length}`}
-                </button>
-              )}
-              {alIr && faltan.length > 0 && (
-                <button onClick={() => alIr('aprende', SUB_APRENDE[b.k] || 'home')} style={{ border: 'none', background: TEXT, borderRadius: 999, padding: '8px 14px', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 700, color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <BookOpenText size={15} /> Seguir aprendiendo
-                </button>
-              )}
-            </div>
-          </Tarjeta>
-        );
-      })}
-    </>
   );
 }
 
@@ -1512,7 +1467,7 @@ function DetalleComposicion({ ent, cargando, alMedir }) {
 // del coach, cierre de ciclo, medida del mes, cápsulas y videos) se despliega
 // con «Ver todo». Un recordatorio de leer no tapa el entreno de hoy.
 function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargandoMedidas, coach, alMarcarCoach, alPrograma, alMedir, alAbrir,
-  plan = null, coachHoy = [], pedidosCoach = [], kcalHoy = 0, alIr = null, alAprende = null }) {
+  plan = null, coachHoy = [], pedidosCoach = [], kcalHoy = 0, alIr = null }) {
   const [todos, setTodos] = useState(false);
   const [abierta, setAbierta] = useState(false);   // «y N más» de la tarjeta de hoy
   const hoyItems = [];
@@ -1590,12 +1545,13 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const cap = bloque('capsula'), pod = bloque('podcast');
   const sigCap = cap && cap.piezas.find(p => !p.vista);
   const sigPod = pod && pod.piezas.find(p => !p.vista);
-  // Una sola línea para lo de aprender (antes eran dos, cápsula y video, y
-  // pesaban mucho en la lista). Lleva a Aprendizaje en corto, dentro del Dash.
+  // Una sola línea para lo de aprender. Dice QUÉ toca (el título) y al
+  // tocarla abre esa pieza en Aprendizaje, no una pantalla intermedia.
   if (sigCap || sigPod) {
-    const que = sigCap && sigPod ? 'cápsula y video por ver' : sigCap ? 'cápsula por leer' : 'video por ver';
-    const ir = alAprende || (alAbrir ? () => alAbrir(sigCap ? `cap:${sigCap.id}` : `pod:${sigPod.id}`) : null);
-    items.push({ id: 'aprende', rid: `aprende:${sigCap ? sigCap.id : ''}:${sigPod ? sigPod.id : ''}`, texto: `Aprendizaje: ${que}`, ir, Icono: BookOpenText, color: '#C95F17' });
+    const texto = sigCap ? `Aprendizaje: lee «${sigCap.title}»` : `Aprendizaje: mira «${sigPod.title}»`;
+    const destino = sigCap ? `cap:${sigCap.id}` : `pod:${sigPod.id}`;
+    const ir = alAbrir ? () => alAbrir(destino) : (alIr ? () => alIr('aprende', sigCap ? 'lecturas' : 'videos') : null);
+    items.push({ id: 'aprende', rid: `aprende:${sigCap ? sigCap.id : ''}:${sigPod ? sigPod.id : ''}`, texto, ir, Icono: BookOpenText, color: '#C95F17' });
   }
   // Para el coach: cada toque se le cuenta (ver recordatoriosReporte.js).
   const conToque = (it, tipo) => {

@@ -1049,7 +1049,7 @@ try {
     return d.length >= 2 && d.every(plano) && !!reg && !plano(reg) && parseFloat(getComputedStyle(reg).borderTopLeftRadius) > 10;
   }));
   ok('Dash: «Ver todo» despliega el resto (programa, cápsulas, videos)', (await dash.locator('[data-recordatorio]').count()) > nRec
-    && /Sobre el programa|cápsula|video/i.test(await dash.locator('[data-recordatorios-dash]').innerText()));
+    && /Sobre el programa|cápsula|video|Aprendizaje: (lee|mira) «/i.test(await dash.locator('[data-recordatorios-dash]').innerText()));
   // El coach se entera de qué le sale: lo de hoy a la vista, y al abrir
   // «Ver todo» lo demás también cuenta como visto. (El aviso sale a los 2 s;
   // el reloj de la página está quieto en la prueba: se adelanta.)
@@ -1246,11 +1246,12 @@ try {
     && /Sobre el programa\s*1\/4/.test(await p.locator('[data-aprende]').innerText()) && (await p.locator('[data-aprende] [data-aro-tocar]').count()) === 0, await p.locator('[data-aprende]').innerText());
   await p.locator('[data-aprende]').scrollIntoViewIfNeeded();
   await foto(p, '03e-dash-aprendizaje');
-  await p.locator('[data-ver-mas="aprende"]').click();
-  await p.getByText('Tu aprendizaje', { exact: true }).waitFor({ timeout: 5000 });
-  ok('profundiza aprendizaje: pieza por pieza', (await p.getByText('El método y sus pilares').count()) === 1 && (await p.getByText('Seguir aprendiendo').count()) >= 1);
-  await espera(300);
-  await foto(p, '03f-profundiza-aprendizaje');
+  ok('aprendizaje: solo el resumen, sin «Ver más» (la pantalla intermedia confundía)', (await p.locator('[data-ver-mas="aprende"]').count()) === 0);
+  // El aviso de aprender dice qué pieza toca y abre ESA pieza en Aprendizaje.
+  const recAp = p.locator('[data-view="dash"] [data-recordatorio="aprende"]').first();
+  if (!(await recAp.count())) await p.locator('[data-view="dash"] [data-recordatorios-dash] button', { hasText: /Ver todo/ }).first().click().catch(() => {});
+  ok('aviso de aprendizaje: dice qué leer o ver («Aprendizaje: lee «…»»)', (await recAp.count()) === 1 && /Aprendizaje: (lee|mira) «.+»/.test(await recAp.innerText()), await p.locator('[data-view="dash"] [data-recordatorios-dash]').innerText().catch(() => ''));
+  if (await recAp.count()) { await recAp.scrollIntoViewIfNeeded(); await foto(p, '03f-aviso-aprendizaje'); }
   // ── Comunidad y Configuración, desde el Dash ──
   await p.getByRole('button', { name: 'Dash', exact: true }).click().catch(() => {});
   await p.goto('http://localhost:5198/');
