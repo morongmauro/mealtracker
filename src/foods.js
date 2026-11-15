@@ -95,6 +95,29 @@ export const FOODS = {
   'miel': { per100: { kcal: 304, p: 0.3, c: 82, g: 0 }, unidad: 7, aliases: ['miel de abejas'] },
 };
 
+// ── Lo que el cliente dice de su etiqueta ───────────────────────────────
+// Red de seguridad por si el modelo no marca «declarado»: qué campos trae el
+// mensaje con un número al lado («24 g de proteína», «210 kcal», «grasa: 5»).
+// Los números pueden venir en palabras (dictado por voz: «veinticuatro gramos
+// de proteína»).
+const _NUM = '(?:\\d+(?:[.,]\\d+)?|[a-záéíóúñ]+(?:\\s+y\\s+[a-záéíóúñ]+)?)';
+const _CAMPOS = [
+  ['p', 'prote[ií]nas?|prote'],
+  ['c', 'carbohidratos?|carbos?|carbs?|hidratos?'],
+  ['g', 'grasas?'],
+];
+export function macrosDeclarados(texto) {
+  const t = String(texto || '').toLowerCase();
+  const out = [];
+  for (const [k, pal] of _CAMPOS) {
+    const antes = new RegExp(`\\b${_NUM}\\s*(?:g|gr|grs|gramos?)\\s+(?:de\\s+)?(?:${pal})\\b`, 'i');
+    const despues = new RegExp(`\\b(?:${pal})\\s*[:=]?\\s*\\d+(?:[.,]\\d+)?\\s*(?:g|gr|gramos?)?\\b`, 'i');
+    if (antes.test(t) || despues.test(t)) out.push(k);
+  }
+  if (/\b\d+(?:[.,]\d+)?\s*(?:kcal|calor[ií]as?)\b|\b(?:kcal|calor[ií]as?)\s*[:=]?\s*\d+/i.test(t)) out.push('kcal');
+  return out;
+}
+
 // ── Normalización y matching ────────────────────────────────────────────
 const norm = (s) => String(s || '')
   .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -121,6 +144,10 @@ function buildIndex() {
 // crudo: aplicar la tabla de cocido a 200 g crudos daría de más.
 export function canonicalizeItem(it, { crudo = false } = {}) {
   try {
+    // Lo que el cliente dictó de SU etiqueta (kcal o macros) no se toca: la
+    // tabla solo completa lo que él no dijo. Ej: «380 g de yogur griego, 24 g
+    // de proteína» → la proteína queda en 24 (la tabla daría 38).
+    const dec = new Set((Array.isArray(it.declarado) ? it.declarado : []).filter(k => ['kcal', 'p', 'c', 'g'].includes(k)));
     if (!INDEX) buildIndex();
     const key = INDEX.get(norm(it.name));
     if (!key) return it;
@@ -157,6 +184,11 @@ export function canonicalizeItem(it, { crudo = false } = {}) {
 
     const f = grams / 100;
     const r1 = (n) => Math.round(n * 10) / 10;
+    if (dec.size) {
+      const v = (k) => (dec.has(k) && Number.isFinite(Number(it[k])) ? Number(it[k]) : r1(def.per100[k] * f));
+      const p = v('p'), c = v('c'), g = v('g');
+      return { ...it, p, c, g, kcal: dec.has('kcal') && Number.isFinite(Number(it.kcal)) ? Number(it.kcal) : Math.round(p * 4 + c * 4 + g * 9), etiqueta: true };
+    }
     return {
       ...it,
       kcal: Math.round(def.per100.kcal * f),

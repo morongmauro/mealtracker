@@ -12,8 +12,9 @@ const _num = { type: ['number', 'null'] };
 const _str = { type: ['string', 'null'] };
 export const ITEM_SCHEMA = {
   type: 'object', additionalProperties: false,
-  properties: { name: { type: 'string' }, amount: _str, kcal: _num, p: _num, c: _num, g: _num, fiber: _num, omega3: _num, sugar: _num, needs_quantity: { type: ['boolean', 'null'] } },
-  required: ['name', 'amount', 'kcal', 'p', 'c', 'g', 'fiber', 'omega3', 'sugar', 'needs_quantity'],
+  properties: { name: { type: 'string' }, amount: _str, kcal: _num, p: _num, c: _num, g: _num, fiber: _num, omega3: _num, sugar: _num, needs_quantity: { type: ['boolean', 'null'] },
+    declarado: { type: ['array', 'null'], items: { type: 'string', enum: ['kcal', 'p', 'c', 'g'] } } },
+  required: ['name', 'amount', 'kcal', 'p', 'c', 'g', 'fiber', 'omega3', 'sugar', 'needs_quantity', 'declarado'],
 };
 const TOTALS_SCHEMA = {
   type: 'object', additionalProperties: false,
@@ -173,6 +174,11 @@ Si una palabra dictada no calza con ningún alimento conocido, busca el alimento
 
 ═══ VALORES NUTRICIONALES ═══
 Usa SOLO valores reales (USDA, etiquetas comerciales). 1g P=4 kcal, 1g C=4 kcal, 1g G=9 kcal.
+DATOS QUE DA EL CLIENTE (su etiqueta) — MANDAN SOBRE TU ESTIMACIÓN: si el cliente dice las calorías o algún macro de lo que comió ("380 g de yogur griego que aportan 24 g de proteína", "una barra de 210 kcal", "el pan tiene 12 g de carbos por tajada"), ese número es el de SU producto (lo leyó en la etiqueta): úsalo EXACTO y ponlo en "declarado" de ese item (lista con los campos que él dio: "kcal", "p", "c", "g"). PROHIBIDO cambiarlo por un valor de referencia, aunque te parezca bajo o alto.
+  · Si da el valor POR PORCIÓN o por 100 g y comió otra cantidad ("cada porción de 170 g trae 15 g de proteína, me comí 340 g"), escálalo a lo que comió y márcalo igual en "declarado".
+  · Lo que NO dijo, complétalo tú con valores reales de ese alimento (no lo dejes en 0). Si no dio las calorías, kcal = 4×P + 4×C + 9×G con los macros finales.
+  · "quantity_warning": di en una frase qué fue suyo y qué estimaste. Ej: "Usé los 24 g de proteína de tu etiqueta; carbos y grasas son estimados."
+  · Si no dio ningún número de macros ni calorías → "declarado": null.
 Sanity: huevo grande ~75 kcal, 100g pollo cocido ~165 kcal, 100g arroz cocido ~130 kcal, 100g avena cruda ~380 kcal, 1 manzana ~95 kcal, 1 plátano ~105 kcal, 1 arepa media maíz blanco ~150 kcal.
 
 NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un HISTORIAL RECIENTE. Úsalos siempre.
@@ -291,4 +297,5 @@ NOTA: Junto al mensaje del cliente recibes un bloque CONTEXTO DEL CLIENTE y un H
 - COMIDA FUTURA ("mañana voy a desayunar X", "el lunes voy a comer Y", "regístramelo para mañana"): NO se registra nada — intent=off_topic con message cálido tipo "Eso te lo registro cuando lo comas 😉 — cuéntamelo en el momento y queda en su día. Si quieres dejarlo listo como menú, dime 'guárdalo como favorito'." OJO: "mañana" como MOMENTO del día ("en la mañana comí avena", "esta mañana desayuné") SÍ es registro normal de hoy.
 - DOS ACCIONES EN UN MENSAJE ("borra la cena y regístrame una manzana", "registra el desayuno y dime cómo voy"): tu intent solo puede ejecutar UNA. Ejecuta la PRINCIPAL (si una es registrar comida, esa es la principal) y llena "second_action_notice" con la acción que quedó pendiente. PROHIBIDO dejarla en silencio — el cliente cree que hiciste las dos.
 - Números enteros realistas. SIEMPRE llenar "preview" salvo en off_topic/clarify/name.
-- needs_quantity SIEMPRE false (estima si no se especifica, deja nota en quantity_warning).`;
+- needs_quantity SIEMPRE false (estima si no se especifica, deja nota en quantity_warning).
+- "declarado" en cada item: los campos que el cliente dictó de su etiqueta (ver DATOS QUE DA EL CLIENTE), o null.`;

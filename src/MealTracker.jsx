@@ -7,7 +7,7 @@ import {
   GraduationCap, Megaphone, Mountain, Repeat, ShoppingBasket, Pin, Scale, CalendarCheck, LayoutGrid, Bell,
   Home, MessageCircle, Dumbbell
 } from 'lucide-react';
-import { canonicalizeItem, azucarAnadidaDeItem } from './foods.js';
+import { canonicalizeItem, azucarAnadidaDeItem, macrosDeclarados } from './foods.js';
 
 // Chunk aparte: el Recetario (~30KB de recetas + UI) solo se descarga la
 // primera vez que el cliente lo abre, no en el arranque de la app.
@@ -688,6 +688,7 @@ export default function MealTracker() {
   // La última semana del ciclo, para Recordatorios (no ocupa «Hoy te toca»).
   const [cicloUltima, setCicloUltima] = useState(null);
   const kcalVistasRef = useRef(null);
+  const ultimoMsgRef = useRef('');   // el mensaje que se está procesando (para respetar lo que dicta de su etiqueta)
   const silenciarSumaRef = useRef(true);
   const [editingEntry, setEditingEntry] = useState(null);
   const [recording, setRecording] = useState(false);
@@ -4220,7 +4221,11 @@ ${dateTable}${pastDaysBlock}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}
 
   // Auto-correct items instead of rejecting. Returns sanitized items, never rejects valid inputs.
   const sanitizeItems = (items) => {
-    return items.map(raw => {
+    // Red de seguridad: si el mensaje trae calorías o macros con número y es
+    // UN solo alimento, son de su etiqueta aunque el modelo no lo marque.
+    const delMensaje = items.length === 1 ? macrosDeclarados(ultimoMsgRef.current) : [];
+    return items.map(raw0 => {
+      const raw = (!Array.isArray(raw0.declarado) || !raw0.declarado.length) && delMensaje.length ? { ...raw0, declarado: delMensaje } : raw0;
       // Capa determinística: si el alimento está en la tabla canónica
       // (src/foods.js) y su cantidad es determinable, los macros se
       // recalculan desde la tabla — el mismo número para todos los
@@ -4232,7 +4237,8 @@ ${dateTable}${pastDaysBlock}${lastEntrySnippet}${todayMealsDetail}${macroDeltas}
       const macroKcal = p * 4 + c * 4 + g * 9;
       // If declared kcal is wildly off from macros, trust macros
       let kcal = it.kcal || 0;
-      if (kcal > 0 && macroKcal > 0 && (kcal < macroKcal * 0.6 || kcal > macroKcal * 1.6)) {
+      const kcalDeEtiqueta = Array.isArray(it.declarado) && it.declarado.includes('kcal');
+      if (!kcalDeEtiqueta && kcal > 0 && macroKcal > 0 && (kcal < macroKcal * 0.6 || kcal > macroKcal * 1.6)) {
         kcal = Math.round(macroKcal);
       }
       // Round every macro to 1 decimal to avoid floating-point noise like 17.400000000000002
@@ -4434,6 +4440,7 @@ Dada una lista de alimentos, calcula cantidades exactas. Usa valores REALES (USD
 
   const handleSend = async (textOverride) => {
     const userMsg = (textOverride || inputApiRef.current?.getText() || '').trim();
+    ultimoMsgRef.current = userMsg;
     if (!userMsg || loading) return;
     if (!textOverride) inputApiRef.current?.clear();
     haptic(8);
