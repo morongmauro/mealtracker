@@ -49,7 +49,9 @@ import TarjetaSemana from './TarjetaSemana.jsx';
 import { TarjetaCiclo } from './MiCiclo.jsx';
 import { enPrueba, lote25, DESVANECIDO_BORDE, verComposicion } from './vistaApp.js';
 import { etiquetaDia } from './vozCoach.js';
-import { resumenDelMes, textoParaCoach, resumenVisto, marcarResumenVisto, resumenVistoEnServidor, marcarResumenEnServidor } from './resumenMes.js';
+import { resumenVistoEnServidor, marcarResumenEnServidor } from './resumenMes.js';
+import { cierreDelCiclo, balanceDe, vistoLocal, marcarLocal, fechaCortaC, num as numC, conSigno } from './cierreCiclo.js';
+import { PantallaCierre, PantallaBalance } from './CierreBalance.jsx';
 import { enVerComo } from './verComo.js';
 import { usoSeccion } from './usoApp.js';
 import { reportarRecordatorios, reportarToque } from './recordatoriosReporte.js';
@@ -533,26 +535,29 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
   // Lo que falta por leer en la campanita (además de las notas del coach sin cumplir).
   const { sinLeer: sinLeerAvisos } = useAvisosCoach();
   const comida = useMemo(() => datosComida(history, goals, hoy), [history, goals, hoy]);
-  // El resumen del mes pasado: se abre solo la primera vez que entra en el
-  // mes nuevo (si hay algo que contar) y queda al final del Dash.
-  const resumen = useMemo(() => (enPrueba() && ent ? resumenDelMes({ hoy, mes: ent.mes, medidas: ent.medidas || [], history, goals, goalsHistory }) : null),
-    [ent, history, goals, goalsHistory, hoy]);
-  const [verMes, setVerMes] = useState(false);
-  const hayMes = !!(resumen && resumen.filas.length && ent?.mes);
+  // El cierre del ciclo que terminó (se abre una vez al empezar el nuevo) y
+  // Tu balance (una vez por medición nueva). Uno a la vez; el cierre primero.
+  const cierre = useMemo(() => (enPrueba() && ent ? cierreDelCiclo({ ciclo: ent.ciclo, history, goals, goalsHistory }) : null),
+    [ent, history, goals, goalsHistory]);
+  const balance = useMemo(() => (enPrueba() && ent ? balanceDe(ent.medidas || [], hoy) : null), [ent, hoy]);
+  const [verResumen, setVerResumen] = useState(null);   // 'cierre' | 'balance' | null
   useEffect(() => {
-    if (!hayMes || vista !== 'inicio' || bienvenida || acciones.ventanaLibre === false || resumenVisto(name, resumen.clave)) return undefined;
-    // Antes de abrirlo, se pregunta si ya lo vio en otro teléfono o navegador.
+    if (verResumen || vista !== 'inicio' || bienvenida || acciones.ventanaLibre === false) return undefined;
+    const cola = [cierre && ['cierre', cierre.clave], balance && ['balance', balance.clave]].filter(Boolean)
+      .filter(([tipo, clave]) => !vistoLocal(tipo, name, clave));
+    if (!cola.length) return undefined;
+    const [tipo, clave] = cola[0];
     let vivo = true;
-    const clave = resumen.clave;
+    // Antes de abrirlo, se pregunta si ya lo vio en otro teléfono o navegador.
     resumenVistoEnServidor(name, clave).then(visto => {
-      if (!vivo || resumenVisto(name, clave)) return;
-      marcarResumenVisto(name, clave);
+      if (!vivo || vistoLocal(tipo, name, clave)) return;
+      marcarLocal(tipo, name, clave);
       if (visto) return;
       if (!enVerComo()) marcarResumenEnServidor(name, clave);
-      setVerMes(true);
+      setVerResumen(tipo);
     });
     return () => { vivo = false; };
-  }, [hayMes, vista, bienvenida, acciones.ventanaLibre]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cierre && cierre.clave, balance && balance.clave, vista, bienvenida, acciones.ventanaLibre, verResumen]);   // eslint-disable-line react-hooks/exhaustive-deps
   const destacados = useMemo(() => alimentosDestacados(detalle, hoy), [detalle, hoy]);
   const ultimaSemana = ent?.semanas?.[ent.semanas.length - 1];
   // La semana en curso, con el bono de su actividad extra (cardio, deportes…).
@@ -765,8 +770,10 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
       <Seccion accion={<VerMas que="aprende" onClick={() => setVista('aprende')} />}>Aprendizaje</Seccion>
       <TarjetaAprende aprende={aprende} alAbrir={enPrueba() ? acciones.abrirAprendizaje : null} />
 
-      {hayMes && <><Seccion accion={<VerMas que="mes" onClick={() => setVerMes(true)}>Ver resumen</VerMas>}>Tu mes</Seccion><TarjetaMes resumen={resumen} /></>}
-      {hayMes && verMes && <PantallaMes resumen={resumen} whatsapp={WHATSAPP_COACH} alCerrar={() => setVerMes(false)} />}
+      {cierre && <><Seccion accion={<VerMas que="cierre" onClick={() => setVerResumen('cierre')}>Ver cierre</VerMas>}>Tu último ciclo</Seccion><TarjetaCierre cierre={cierre} /></>}
+      {balance && <><Seccion accion={<VerMas que="balance" onClick={() => setVerResumen('balance')}>Ver balance</VerMas>}>Tu balance</Seccion><TarjetaBalance balance={balance} /></>}
+      {verResumen === 'cierre' && cierre && <PantallaCierre cierre={cierre} alCerrar={() => setVerResumen(null)} />}
+      {verResumen === 'balance' && balance && <PantallaBalance name={name} balance={balance} alCerrar={() => setVerResumen(null)} />}
     </Marco>
   );
 }
@@ -825,19 +832,19 @@ function TarjetaAprende({ aprende, alAbrir = null }) {
   );
 }
 
-// ── El resumen del mes pasado ─────────────────────────────────────────────
-// Al final del Dash: las cuatro primeras cifras, sin caja (son datos). La
-// puerta al resumen completo es «Ver resumen ›», en el título de la sección.
-function TarjetaMes({ resumen }) {
+// ── Tu último ciclo y Tu balance: lo esencial, sin caja (son datos). La
+// pantalla completa se abre desde «Ver cierre» / «Ver balance». ──
+function TarjetaCierre({ cierre }) {
+  const color = { logro: '#2F7F45', medio: '#24579F', aliento: '#B5561A' }[cierre.tono];
   return (
     <Tarjeta>
-      <div data-tarjeta-mes>
-        <div style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>Tu {resumen.nombre}, con método.</div>
+      <div data-tarjeta-cierre>
+        <div style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>{cierre.titulo[0]} <span style={{ color }}>{cierre.titulo[1]}</span></div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 12px', marginTop: 12 }}>
-          {resumen.filas.slice(0, 4).map(f => (
-            <div key={f.clave} data-cifra-mes>
-              <div style={{ fontSize: f.gris ? 17 : 21, fontWeight: 800, color: f.color, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{f.valor}</div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_MUTED, lineHeight: 1.25, marginTop: 1 }}>{f.corto}</div>
+          {cierre.filas.slice(0, 4).map(f => (
+            <div key={f.clave}>
+              <div style={{ fontSize: 21, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{f.valor}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_MUTED, lineHeight: 1.25, marginTop: 1 }}>{f.etiqueta}</div>
             </div>
           ))}
         </div>
@@ -845,42 +852,22 @@ function TarjetaMes({ resumen }) {
     </Tarjeta>
   );
 }
-
-// A pantalla completa: se abre sola una vez al empezar el mes, y desde la
-// tarjeta cuando quiera. «Compartir con mi coach» lo manda por WhatsApp.
-function PantallaMes({ resumen, whatsapp, alCerrar }) {
-  const wa = whatsapp ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(textoParaCoach(resumen))}` : null;
-  // Directo en el body: dentro del Dash quedaría debajo de la barra de abajo.
-  return createPortal(
-    <div data-pantalla-mes role="dialog" aria-label={`Resumen de ${resumen.nombre}`} style={{
-      position: 'fixed', inset: 0, zIndex: 95, overflowY: 'auto', fontFamily: 'inherit',
-      background: 'linear-gradient(170deg, #EAF1FB 0%, #FBF7EA 55%, #FCEFE4 100%)',
-    }}>
-      <div style={{ minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto',
-        padding: 'calc(env(safe-area-inset-top, 0px) + 52px) 24px calc(env(safe-area-inset-bottom, 0px) + 22px)' }}>
-        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.01em', color: DASH_AZUL.base, }}>Resumen del mes · {resumen.nombre}</div>
-        <div style={{ fontSize: 34, fontWeight: 800, color: TEXT, letterSpacing: '-0.03em', lineHeight: 1.05, marginTop: 6 }}>
-          Tu {resumen.nombre},<br /><span style={{ color: VERDE }}>con método.</span>
-        </div>
-        <div style={{ fontSize: 15.5, fontWeight: 500, color: '#55565B', marginTop: 10, lineHeight: 1.35 }}>Esto es lo que construiste este mes.</div>
-        <div style={{ marginTop: 10 }}>
-          {resumen.filas.map(f => (
-            <div key={f.clave} data-fila-mes={f.clave} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: '1px solid rgba(31,31,31,.08)' }}>
-              <span style={{ fontSize: 16, fontWeight: 600, color: '#3A3A3C', minWidth: 0 }}>{f.etiqueta}
-                {f.sub && <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#737373', marginTop: 2 }}>{f.sub}</span>}
-              </span>
-              <span style={{ flex: 'none', fontSize: f.gris ? 16 : 23, fontWeight: f.gris ? 600 : 800, color: f.color, letterSpacing: '-0.02em', textAlign: 'right' }}>{f.valor}</span>
+function TarjetaBalance({ balance }) {
+  return (
+    <Tarjeta>
+      <div data-tarjeta-balance>
+        <div style={{ fontSize: 20, fontWeight: 800, color: TEXT, letterSpacing: '-0.02em' }}>{balance.titulo.join(' ')}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_MUTED, marginTop: 2 }}>{fechaCortaC(balance.fecha)}{balance.previo ? ` · contra el ${fechaCortaC(balance.previo)}` : ''}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${balance.filas.length}, 1fr)`, gap: 12, marginTop: 12 }}>
+          {balance.filas.map(f => (
+            <div key={f.clave}>
+              <div style={{ fontSize: 21, fontWeight: 800, color: f.color, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{f.cambio != null ? conSigno(f.cambio) : `${numC(f.actual)}`}</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_MUTED, lineHeight: 1.25, marginTop: 1 }}>{f.etiqueta.toLowerCase()}{f.cambio == null ? ` (${f.unidad})` : ` · ${f.unidad === '%' ? 'pts' : f.unidad}`}</div>
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 'auto', paddingTop: 24, display: 'grid', gap: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#737373', textAlign: 'center', marginBottom: 4 }}>Lo vuelves a ver al final de tu Dash</div>
-          {wa && <a href={wa} target="_blank" rel="noreferrer" data-compartir-mes style={{ height: 52, borderRadius: 15, background: '#1D1D1F', color: '#fff', fontWeight: 700, fontSize: 15.5, display: 'grid', placeItems: 'center', textDecoration: 'none' }}>Compartir con mi coach</a>}
-          <button onClick={alCerrar} data-cerrar-mes style={{ height: 48, border: 'none', background: 'none', fontWeight: 700, fontSize: 15, fontFamily: 'inherit', color: '#3A3A3C', cursor: 'pointer' }}>Cerrar</button>
-        </div>
       </div>
-    </div>,
-    document.body,
+    </Tarjeta>
   );
 }
 

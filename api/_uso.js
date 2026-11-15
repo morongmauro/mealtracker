@@ -20,7 +20,7 @@ const TOPE_RECETAS = 40;
 // s: segundos, m: minutos elegidos, o: desde dónde } dentro de la misma
 // fila del día (secciones.respira), sin tabla nueva.
 const TOPE_RESPIRA = 20;
-const MES_OK = (m) => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m);
+const MES_OK = (m) => typeof m === 'string' && /^(\d{4}-\d{2}|[cb]:[A-Za-z0-9-]{1,60})$/.test(m);
 // Ficha del ejercicio: { h: 'HH:MM', e: id del ejercicio, n: su nombre }, en secciones.fichas.
 const TOPE_FICHAS = 40;
 const fichaValida = (x) => x && /^\d{2}:\d{2}$/.test(String(x.h || '')) && (x.e || x.n);
@@ -68,7 +68,7 @@ export default async function handler(req, res) {
     const q = (v) => `"${String(v).replace(/["\\]/g, '')}"`;
     const quien = [`clave.eq.${q(clave)}`, ...(name ? [`name.ilike.${q(name)}`] : [])].join(',');
     try {
-      const r = await fetch(`${tabla}?select=id&or=${encodeURIComponent(`(${quien})`)}&secciones->>resumen_mes=eq.${b.mes}&limit=1`, { headers: H() });
+      const r = await fetch(`${tabla}?select=id&or=${encodeURIComponent(`(${quien})`)}&secciones->>resumen_mes=eq.${encodeURIComponent(b.mes)}&limit=1`, { headers: H() });
       if (!r.ok) return res.status(200).json({ ok: false });
       const filas = await r.json();
       return res.status(200).json({ ok: true, visto: Array.isArray(filas) && filas.length > 0 });
