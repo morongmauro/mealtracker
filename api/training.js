@@ -2527,8 +2527,54 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   });
   const mes = { desde: mesDesde, hasta: mesHasta, rutinas: { hechos: mesHechos, planeados: mesPlaneados }, fuerza: mesFuerza };
 
+  // ── EL CICLO QUE ACABA DE TERMINAR (el cierre que se abre una vez al
+  //    empezar el ciclo nuevo) ────────────────────────────────────────────
+  //   rutinas  — hechas contra los días del ciclo (sin los días que estuvo fuera)
+  //   semanas  — cuántas semanas del ciclo cumplió completas
+  //   records  — los ejercicios en que superó su mejor marca de antes del
+  //              ciclo (1RM estimado), con el peso y las reps de su mejor serie
+  // Solo mientras el ciclo nuevo lleva menos de 3 semanas.
+  let ciclo = null;
+  const previa = fases.filter(x => x.fecha_inicio && x.semanas && finDeFase(x) < hoy)
+    .sort((x, y) => finDeFase(y).localeCompare(finDeFase(x)))[0];
+  const nueva = previa && fases.find(x => x.fecha_inicio && x.fecha_inicio > previa.fecha_inicio && x.fecha_inicio <= hoy);
+  if (previa && nueva && nueva.fecha_inicio >= sumarDiasISO(hoy, -20)) {
+    const ini = previa.fecha_inicio, fin = finDeFase(previa);
+    const dias = new Set((previa.dias_semana || []).map(String));
+    const hechasEn = (d, h) => sesiones.filter(x => x.estado === 'completada' && !x.bloque && x.fecha >= d && x.fecha <= h).length;
+    let planeados = 0, completas = 0;
+    for (let w = 0; w < previa.semanas; w++) {
+      const d = sumarDiasISO(ini, 7 * w), h = sumarDiasISO(d, 6);
+      let plan = 0;
+      for (let i = 0; i < 7; i++) {
+        const f = sumarDiasISO(d, i);
+        if (dias.has(LETRAS[(new Date(`${f}T12:00:00Z`).getUTCDay() + 6) % 7]) && !ausentes.has(f)) plan++;
+      }
+      planeados += plan;
+      if (plan > 0 && hechasEn(d, h) >= plan) completas++;
+    }
+    const records = [];
+    Object.entries(mejor).forEach(([id, porFecha]) => {
+      const fechas = Object.keys(porFecha).sort();
+      const enCiclo = fechas.filter(f => f >= ini && f <= fin);
+      const antes = fechas.filter(f => f < ini);
+      if (!enCiclo.length || !antes.length) return;
+      const base = Math.max(...antes.map(f => porFecha[f])), tope = Math.max(...enCiclo.map(f => porFecha[f]));
+      const sube = Math.round((tope - base) * 10) / 10;
+      if (!(sube > 0)) return;
+      const pesado = masPesado[id] || {};
+      const serie = enCiclo.map(f => pesado[f]).filter(Boolean).sort((x, y) => y.kg - x.kg || y.reps - x.reps)[0] || null;
+      records.push({ id, nombre: nombres[id] || 'Ejercicio', alias: alias[id] || null, antes: base, mejor: tope, sube,
+        kg: serie ? Math.round(serie.kg * 10) / 10 : null, reps: serie ? serie.reps : null });
+    });
+    records.sort((x, y) => y.sube - x.sube);
+    ciclo = { id: previa.id, desde: ini, hasta: fin, semanas: previa.semanas, nuevo_desde: nueva.fecha_inicio,
+      rutinas: { hechos: hechasEn(ini, fin), planeados }, semanas_completas: completas,
+      records: records.slice(0, 3), records_n: records.length };
+  }
+
   return {
-    ok: true, hoy, semanas, ejercicios, pesos, semana, intensidad, mes,
+    ok: true, hoy, semanas, ejercicios, pesos, semana, intensidad, mes, ciclo,
     medidas: medidas.slice().sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
       .map(m => ({ fecha: m.fecha, peso: m.peso == null ? null : Number(m.peso), grasa_pct: m.grasa_pct == null ? null : Number(m.grasa_pct) })),
   };
