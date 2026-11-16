@@ -517,6 +517,35 @@ try {
     }
     await b.close(); await vite.close(); process.exit(0);
   }
+  // BLOQUE=1: un bloque complementario opcional («Handstand», antes de la
+  // fuerza) todos los días: cómo lo ve el cliente en Hoy, en su semana, al
+  // abrirlo y dentro de la rutina de fuerza.
+  if (process.env.BLOQUE) {
+    const pv = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => {
+      db.db.fases[0].dias_semana = ['L', 'M', 'V'];
+      db.db.rutinas.find(r => r.id === 'r2').dias_semana = ['M'];
+      db.db.rutinas.push({ id: 'rb', cliente_id: 'c1', fase_id: 'f1', nombre: 'Handstand', descripcion: 'Antes de la fuerza', complementaria: true, opcional: true, dia_orden: 9, dias_semana: ['L', 'M', 'X', 'J', 'V', 'S', 'D'], archivada: false, duracion_estimada_min: 10 });
+      db.db.rutina_ejercicios.push({ id: 're-b1', rutina_id: 'rb', ejercicio_id: 'e8', orden: 1, series: 3, reps: '30 s', descanso_seg: 60 }, { id: 're-b2', rutina_id: 'rb', ejercicio_id: 'e9', orden: 2, series: 3, reps: '20 s', descanso_seg: 60 });
+    } });
+    await espera(4500);
+    await pv.p.addStyleTag({ content: '#splash,#splash2{display:none!important}' });
+    await pv.p.evaluate(() => { const b = document.querySelector('[data-seccion-boton="entreno"]'); if (b) b.click(); }); await espera(3500);
+    const th = pv.p.locator('[data-hoy-te-toca]').first();
+    await th.evaluate(el => el.scrollIntoView({ block: 'start' })).catch(() => {}); await espera(500);
+    await foto(pv.p, 'bloque-1-hoy');
+    console.log('HOY', JSON.stringify(await th.innerText().catch(() => '')));
+    const sem = pv.p.locator('[data-chip-bloque]').first();
+    if (await sem.count()) { await sem.evaluate(el => el.scrollIntoView({ block: 'center' })); await espera(500); await foto(pv.p, 'bloque-2-semana'); }
+    // El calendario del mes.
+    await pv.p.getByRole('button', { name: 'Calendario', exact: true }).first().click().catch(() => {}); await espera(2500);
+    await foto(pv.p, 'bloque-3-calendario');
+    await pv.p.evaluate(() => { const b = document.querySelector('[data-seccion-boton="entreno"]'); if (b) b.click(); }); await espera(800);
+    await pv.p.getByRole('button', { name: 'Hoy', exact: true }).first().click().catch(() => {}); await espera(2000);
+    // Abrir el bloque.
+    await pv.p.locator('[data-hoy-bloque="rb"]').first().click().catch(e => console.log('sin bloque', e.message)); await espera(2500);
+    await foto(pv.p, 'bloque-4-abierto');
+    console.log('errores', pv.errores.slice(0, 3)); await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
   // FOTOS_FIN=1: fin de ciclo con fotos pedidas en dos días (hoy y una
   // semana atrás) y sin composición: Entreno › Hoy y el Dash, con un solo
   // aviso de fotos y otro de composición.
