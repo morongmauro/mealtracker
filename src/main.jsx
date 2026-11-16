@@ -14,6 +14,7 @@ import Salvavidas from './Salvavidas.jsx';
 import { prepararVerComo } from './verComo.js';
 import { instalarBitacora } from './bitacora.js';
 import { titulosDelgados } from './titulosDelgados.js';
+import { letraLegible } from './letraLegible.js';
 // Vista coach (solo Mauro): abre el CRM dentro de la app al tocar un aviso.
 import './vistaCoach.js';
 
@@ -58,6 +59,8 @@ const verComo = prepararVerComo({ novedades: [NOVEDADES.version].filter(Boolean)
 if (!verComo) instalarBitacora();
 // Títulos un poco más delgados en toda la app (titulosDelgados.js).
 titulosDelgados();
+// Letra legible: frases a 15–16 px, series a 18 (letraLegible.js). Solo la app del cliente.
+if (!isCoach) letraLegible();
 if (verComo) verComo.then(r => { if (r.listo) montar(); });
 else if (esperaEntrada > 0) setTimeout(montar, esperaEntrada); else montar();
 
