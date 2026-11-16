@@ -420,22 +420,31 @@ function videoDe(videos, ejercicio) {
 //      siga libre. Con A-B-A-B, la segunda A de la semana va a la segunda A.
 // Una sesión sin rutina de la semana (una rutina suelta, un extra) no ocupa
 // ningún día: no es la que tocaba.
+// LO TERMINADO PRIMERO: antes, una sesión a medias en su fecha (marcó las
+// series y el «Terminar» no llegó) se quedaba el día aunque después hiciera
+// esa misma rutina COMPLETA otro día: el martes seguía «a medias» y el Lower
+// terminado el miércoles no contaba en ninguna parte (caso real: lo volvió a
+// marcar todo y «no se guardó»). Ahora se reparte por estado: primero lo
+// terminado (en su fecha y luego en el primer día libre de esa rutina),
+// después lo que quedó a medias, y al final lo saltado.
 export function asignarSesiones(huecos, sesiones) {
   const out = huecos.map(() => null);
   const usadas = new Set();
   const peso = (s) => (s.estado === 'completada' ? 0 : s.estado === 'en_curso' ? 1 : 2);
   const ordenadas = (sesiones || []).slice()
     .sort((a, b) => peso(a) - peso(b) || String(a.fecha).localeCompare(String(b.fecha)));
-
-  huecos.forEach((h, i) => {
-    if (!h.rutinaId) return;
-    const s = ordenadas.find(x => !usadas.has(x.id) && x.rutina_id === h.rutinaId && x.fecha === h.fecha);
-    if (s) { out[i] = s; usadas.add(s.id); }
-  });
-  ordenadas.forEach(s => {
-    if (usadas.has(s.id) || !s.rutina_id) return;
-    const i = huecos.findIndex((h, j) => !out[j] && h.rutinaId === s.rutina_id);
-    if (i >= 0) { out[i] = s; usadas.add(s.id); }
+  [0, 1, 2].forEach(nivel => {
+    const delNivel = ordenadas.filter(x => peso(x) === nivel);
+    huecos.forEach((h, i) => {
+      if (!h.rutinaId || out[i]) return;
+      const s = delNivel.find(x => !usadas.has(x.id) && x.rutina_id === h.rutinaId && x.fecha === h.fecha);
+      if (s) { out[i] = s; usadas.add(s.id); }
+    });
+    delNivel.forEach(s => {
+      if (usadas.has(s.id) || !s.rutina_id) return;
+      const i = huecos.findIndex((h, j) => !out[j] && h.rutinaId === s.rutina_id);
+      if (i >= 0) { out[i] = s; usadas.add(s.id); }
+    });
   });
   return out;
 }

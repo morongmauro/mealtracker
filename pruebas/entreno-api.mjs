@@ -889,6 +889,18 @@ await caso('un registro por día: fotos del fin de ciclo (auto) y las del coach 
   igual(d.semana.hoy.filter(x => ['fotos', 'peso', 'medidas'].includes(x.tipo)).map(x => x.id).sort(), ['evfa', 'evmc'], 'en lo de hoy, igual');
 });
 
+await caso('caso Carlos: el martes quedó «a medias» y el miércoles hizo ese Lower completo: el martes sale hecho (el mié)', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  // r2 (Lower) toca martes y viernes. El martes marcó series y el «Terminar» no llegó.
+  sb.db.sesiones.push({ id: 'sm', cliente_id: 'c1', rutina_id: 'r2', fase_id: 'f1', fecha: mas(lunes, 1), estado: 'en_curso', origen: 'cliente' });
+  sb.db.series_log.push({ id: 'lm', sesion_id: 'sm', rutina_ejercicio_id: 're4', ejercicio_id: 'e2', serie_num: 1, reps: 12, peso: 40, unidad: 'kg', completada: true });
+  sb.db.sesiones.push({ id: 'sx', cliente_id: 'c1', rutina_id: 'r2', fase_id: 'f1', fecha: mas(lunes, 2), estado: 'completada', origen: 'cliente' });
+  const p = await llamar(handler, { accion: 'plan', name: yo });
+  const mar = p.dias.find(d => d.dia === 'M');
+  igual([mar.hecha, mar.hecha_el], [true, mas(lunes, 2)], 'el martes: hecho, el miércoles');
+  igual(p.dias.find(d => d.dia === 'V').hecha, false, 'el viernes sigue pendiente');
+});
+
 await caso('«No tengo cómo pesarme»: lo quita de Hoy (mes y dash), no de la historia, y el coach se entera', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   sb.db.eventos = [
