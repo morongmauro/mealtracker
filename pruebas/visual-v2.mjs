@@ -742,6 +742,53 @@ try {
     console.log('errores', rr.errores.slice(0, 3));
     await rr.ctx.close(); await b.close(); await vite.close(); process.exit(0);
   }
+  // LETRA=1: tamaño de letra hoy vs propuesta (solo imágenes, no cambia la
+  // app). La propuesta se simula en la página: frases (3+ palabras) a 15–16,
+  // nada por debajo de 12, números de las series a 18. `on=false` la quita.
+  if (process.env.LETRA) {
+    const lp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null } });
+    const q = lp.p;
+    const letra = (on) => q.evaluate((on) => {
+      const els = document.querySelectorAll('body *');
+      if (!on) { els.forEach(e => { if (e.dataset.letraOrig != null) { e.style.fontSize = e.dataset.letraOrig; delete e.dataset.letraOrig; } }); return; }
+      const cambios = [];
+      els.forEach(e => {
+        if (e.closest('nav, [data-barra-app], svg')) return;
+        const px = parseFloat(getComputedStyle(e).fontSize);
+        let nuevo = null;
+        if (e.tagName === 'INPUT') nuevo = Math.max(px, 18);
+        else {
+          const propio = [...e.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ').trim();
+          if (!propio) return;
+          const palabras = propio.split(/\s+/).filter(Boolean).length;
+          if (palabras >= 3 && px < 14) nuevo = 15;
+          else if (palabras >= 3 && px < 16 && px >= 14) nuevo = 16;
+          else if (px < 12) nuevo = 12;
+        }
+        if (nuevo && nuevo !== px) cambios.push([e, nuevo]);
+      });
+      cambios.forEach(([e, n]) => { e.dataset.letraOrig = e.style.fontSize || ''; e.style.fontSize = n + 'px'; });
+    }, on);
+    const par = async (nombre) => { await espera(400); await foto(q, `letra-${nombre}-hoy`); await letra(true); await espera(400); await foto(q, `letra-${nombre}-prop`); await letra(false); };
+    await q.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
+    await espera(1500);
+    await q.evaluate(() => { document.body.classList.add('app-ready'); document.querySelectorAll('[data-pantalla-resumen]').forEach(e => e.remove()); });
+    await par('dash');
+    await q.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
+    await q.evaluate(() => window.scrollTo(0, 0));
+    await par('entreno');
+    await q.locator(`[data-view="entrena"] [data-vista="semana"] [data-fecha="${lunes}"] [data-chip]`).first().click();
+    await espera(1200);
+    const entrenarla = q.getByRole('button', { name: 'Entrenarla hoy' });
+    if (await entrenarla.count()) { await entrenarla.first().click(); await espera(1200); }
+    await q.getByText('Calentamiento y movilidad').waitFor({ timeout: 10000 });
+    await q.locator('[data-tip-entendido]').click().catch(() => {});
+    await q.locator('[data-ejercicio="Barbell Bench Press"]').first().evaluate(el => el.scrollIntoView({ block: 'start' }));
+    await q.evaluate(() => window.scrollBy(0, -90));
+    await par('ejercicio');
+    console.log('errores', lp.errores.slice(0, 3));
+    await lp.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
   // VIDEO=1: el video que pidió el coach (CRM → videos de técnica). En el
   // Dash, «Grabar video» en Hoy si ese ejercicio toca hoy (si no, en «Ver
   // todo»); en la rutina, el botón naranja del ejercicio y la hoja que
