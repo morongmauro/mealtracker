@@ -1481,11 +1481,14 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const videos = plan && Array.isArray(plan.videos) ? plan.videos : [];
   videos.filter(v => v.hoy).forEach(v => hoyItems.push({ id: `hoy-v-${v.id}`, texto: `Grabar video: ${v.nombre}`, hecho: false, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: VideoCamera, color: '#C9672B' }));
   // Lo atrasado (de días pasados, sin hacer) dice desde cuándo.
-  const desdeDe = (ev) => (ev.atrasado && ev.fecha ? ` · desde el ${new Date(ev.fecha + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' }).replace('.', '')}` : '');
+  const fechaDesde = (ev) => ev.desde || (ev.atrasado ? ev.fecha : null);
+  const desdeDe = (ev) => (fechaDesde(ev) && !ev.hecho ? ` · desde el ${new Date(fechaDesde(ev) + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' }).replace('.', '')}` : '');
+  // Fin de ciclo sin fotos: la fila de fotos lo dice («Fin de ciclo · tus fotos»).
+  const finFotos = !!(cierre && !cierre.composicion && !cierre.fotos);
   const esMedida = (t) => t === 'peso' || t === 'medidas' || t === 'medicion';
   // Primero lo que se hace (caminata, cardio); después lo que se registra (fotos).
   coachHoy.filter(ev => !esMedida(ev.tipo)).sort((x, y) => (x.tipo === 'actividad' ? 0 : 1) - (y.tipo === 'actividad' ? 0 : 1)).forEach(ev => {
-    const texto = ev.tipo === 'actividad' ? `${ev.titulo}${ev.duracion_min ? ` · ${ev.duracion_min} min` : ''}` : ev.hecho ? 'Fotos registradas' : 'Registrar tus fotos';
+    const texto = ev.tipo === 'actividad' ? `${ev.titulo}${ev.duracion_min ? ` · ${ev.duracion_min} min` : ''}` : ev.hecho ? 'Fotos registradas' : finFotos && ev.tipo === 'fotos' ? 'Fin de ciclo · tus fotos' : 'Registrar tus fotos';
     hoyItems.push({ id: `hoy-e-${ev.id}`, texto: texto + desdeDe(ev), hecho: !!ev.hecho, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: (p) => <IconoEvento tipo={ev.tipo} {...p} />, color: ev.tipo === 'actividad' ? AZUL : '#8E5BD8' });
   });
   // Pesarse y medirse (% de grasa) es UN solo registro: un renglón, como en
@@ -1493,7 +1496,7 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const medEvs = coachHoy.filter(ev => esMedida(ev.tipo));
   const medPend = medEvs.filter(ev => !ev.hecho);
   if (medPend.length) {
-    const viejo = medPend.filter(ev => ev.atrasado && ev.fecha).sort((x, y) => String(x.fecha).localeCompare(String(y.fecha)))[0];
+    const viejo = medPend.filter(ev => fechaDesde(ev)).sort((x, y) => String(fechaDesde(x)).localeCompare(String(fechaDesde(y))))[0];
     hoyItems.push({ id: `hoy-e-${medPend[0].id}`, texto: (medPend.some(ev => ev.tipo !== 'peso') ? 'Registrar peso y % de grasa' : 'Registrar tu peso') + (viejo ? desdeDe(viejo) : ''),
       hecho: false, ir: alIr ? () => alIr('entreno', 'hoy') : null, Icono: (p) => <IconoEvento tipo="peso" {...p} />, color: '#8E5BD8' });
   } else if (medEvs.length) {
@@ -1532,7 +1535,13 @@ function RecordatoriosLinea({ name, hoy, aprende, medidas, cierre = null, cargan
   const medidaPedida = hoyItems.some(i => !i.hecho && /^hoy-(p|e)-/.test(i.id) && /medición|peso|grasa/i.test(i.texto));
   // El cierre de ciclo ya pide la composición: no se repite con otro renglón de peso o medición.
   if (cierrePendiente) for (let k = hoyItems.length - 1; k >= 0; k--) { const it = hoyItems[k]; if (!it.hecho && /^hoy-(p|e)-/.test(it.id) && /peso|medición|grasa/i.test(it.texto)) hoyItems.splice(k, 1); }
-  if (cierrePendiente) hoyItems.push({ id: 'hoy-cierre', texto: `Fin de ciclo: actualiza tu composición corporal${cierre.fotos ? '' : ' y tus fotos'}`, hecho: false, ir: alMedir, Icono: Heartbeat, color: AMBAR });
+  const filaFotos = hoyItems.some(i => /fotos/i.test(i.texto));
+  // Junto a la de fotos (las dos del fin de ciclo, seguidas).
+  if (cierrePendiente) {
+    const filaCierre = { id: 'hoy-cierre', texto: `Fin de ciclo · tu composición${cierre.fotos || filaFotos ? '' : ' y tus fotos'}`, hecho: false, ir: alMedir, Icono: Heartbeat, color: AMBAR };
+    const k = hoyItems.findIndex(i => !i.hecho && /^Fin de ciclo · tus fotos/.test(i.texto));
+    if (k >= 0) hoyItems.splice(k, 0, filaCierre); else hoyItems.push(filaCierre);
+  }
   const medidaMes = (medidas || []).some(m => String(m.fecha || '').slice(0, 7) === ym);
   if (!cierrePendiente && !medidaPedida && !cargandoMedidas && medidas && !medidaMes) hoyItems.push({ id: 'hoy-medida', texto: 'Registra tu peso y composición de este mes', hecho: false, ir: alMedir, Icono: Heartbeat, color: AMBAR });
   const hoyHechos = hoyItems.filter(i => i.hecho).length;

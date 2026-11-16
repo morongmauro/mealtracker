@@ -661,7 +661,7 @@ function HojaDia({ dia, P, v2, nombre, catalogo, porFecha, puedeMover, alCerrar,
 }
 
 // ── Medición corporal, peso o fotos: «ya lo hice» ────────────────────────
-function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio, compacta = false, plana = false, nombreFila = null }) {
+function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio, compacta = false, plana = false, nombreFila = null, marca = null }) {
   const q = { ...(REGISTRO[ev.tipo] || REGISTRO.medicion), ...(nombreFila ? { nombre: nombreFila } : null) };
   const [hecho, setHecho] = useState(!!ev.hecho);
   const [peso, setPeso] = useState(ev.valor != null ? String(ev.valor).replace('.', ',') : '');
@@ -708,6 +708,7 @@ function FilaRegistro({ ev, fecha, nombre, futuro, pasada = false, v2, alCambio,
             <IconoEvento tipo={ev.tipo} size={16} />
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
+            {marca && !hecho && <div data-marca-fila style={{ fontSize: 11.5, fontWeight: 750, color: '#8A6A10', lineHeight: 1.2, marginBottom: 1 }}>{marca}</div>}
             <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{q.nombre}</div>
             <div style={{ fontSize: 12, color: TEXT_LIGHT, lineHeight: 1.25 }}>
               {hecho ? `${ev.tipo === 'peso' && peso ? `${peso} kg · ` : ''}Hecho. Tu coach ya lo sabe.`
@@ -862,7 +863,7 @@ function FilaMedida({ eventos, coach, nombre, alCambio }) {
   const cierre = coach.find(x => x.id === 'cierre');
   const conGrasa = eventos.some(e => e.tipo !== 'peso') || coach.some(x => x.tipo !== 'peso');
   const titulo = cierre ? cierre.titulo : conGrasa ? 'Peso y % de grasa' : 'Peso';
-  const atras = eventos.map(e => e.fecha).filter(f => f < hoyLocal()).sort()[0];
+  const atras = eventos.map(e => e.desde || e.pendiente_desde || e.fecha).filter(f => f < hoyLocal()).sort()[0];
   const sub = cierre ? cierre.sub : atras ? `Pendiente desde el ${diaCorto(atras)}`
     : (eventos.find(e => e.atrasado && e.detalle) || {}).detalle || (coach[0] && coach[0].sub) || '';
   // «No tengo cómo pesarme»: se quita el compromiso y el coach se entera.
@@ -888,6 +889,7 @@ function FilaMedida({ eventos, coach, nombre, alCambio }) {
           <IconoEvento tipo="peso" size={16} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
+          {cierre && cierre.marca && <div data-marca-fila style={{ fontSize: 11.5, fontWeight: 750, color: '#8A6A10', lineHeight: 1.2, marginBottom: 1 }}>{cierre.marca}</div>}
           <div style={{ fontSize: 14.5, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{titulo}</div>
           {sub && <div style={{ fontSize: 12, color: TEXT_LIGHT, lineHeight: 1.25 }}>{sub}</div>}
         </div>
@@ -1514,7 +1516,11 @@ function filasDelCoach(delCoach, registros, pendientes) {
   if (!delCoach) return [];
   const ya = new Set([...registros, ...pendientes].map(e => (e.tipo === 'medicion' ? 'medidas' : e.tipo)));
   const out = [];
-  if (delCoach.cierre) out.push({ id: 'cierre', tipo: 'medidas', titulo: `Fin de ciclo: actualiza tu composición${delCoach.cierre.fotos ? '' : ' y tus fotos'}`, sub: 'Para cerrar el ciclo con tus datos' });
+  // Fin de ciclo: la composición en su fila. Las fotos van en SU fila (la del
+  // calendario, con la misma marca «Fin de ciclo»); solo si no hay ninguna
+  // fila de fotos, esta las nombra también.
+  const hayFotos = registros.some(e => e.tipo === 'fotos') || pendientes.some(e => e.tipo === 'fotos');
+  if (delCoach.cierre) out.push({ id: 'cierre', tipo: 'medidas', marca: 'Fin de ciclo', titulo: delCoach.cierre.fotos || hayFotos ? 'Tu composición' : 'Tu composición y tus fotos', sub: 'Peso y % de grasa para cerrar el ciclo' });
   (delCoach.pedidos || []).filter(p => !ya.has(p.tipo) && !(p.tipo !== 'fotos' && delCoach.cierre)).forEach(p => out.push({
     id: `p-${p.id}`, tipo: p.tipo,
     titulo: p.tipo === 'fotos' ? 'Enviar tus fotos' : p.tipo === 'peso' ? 'Registrar tu peso' : 'Tu medición corporal',
@@ -1618,8 +1624,13 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, videosHoy = [], alEntrenar, a
           if (medPend.length || medCoach.length) filas.push(
             <FilaMedida key="medida" eventos={medPend} coach={medCoach} nombre={nombre} alCambio={alCambio} />
           );
+          // Fotos de fin de ciclo: una sola fila, con la marca y desde cuándo las debe.
+          const finFotos = !!(delCoach && delCoach.cierre && !delCoach.cierre.fotos);
+          const desdeTxt = (f) => `pendientes desde el ${diaCorto(f)}`;
           registros.filter(e => !esMedida(e.tipo)).forEach(ev => filas.push(
-            <FilaRegistro key={ev.id} ev={ev} fecha={hoy} nombre={nombre} futuro={false} v2 compacta plana alCambio={alCambio} />
+            <FilaRegistro key={ev.id} fecha={hoy} nombre={nombre} futuro={false} v2 compacta plana alCambio={alCambio}
+              ev={ev.pendiente_desde && !ev.hecho ? { ...ev, detalle: [ev.detalle || (ev.titulo && ev.titulo !== 'Fotos' ? ev.titulo : ''), desdeTxt(ev.pendiente_desde)].filter(Boolean).join(' · ') } : ev}
+              {...(ev.tipo === 'fotos' && finFotos ? { marca: 'Fin de ciclo', nombreFila: 'Tus fotos' } : {})} />
           ));
           if (medHecha) filas.push(
             <FilaRegistro key={`h-${medHecha.id}`} ev={medHecha} fecha={hoy} nombre={nombre} futuro={false} v2 compacta plana alCambio={alCambio}
@@ -1653,7 +1664,8 @@ function HoyTeToca({ dia, P, nombre, ejerciciosDe, videosHoy = [], alEntrenar, a
           // Las fotos que quedaron de días pasados: con su fecha, hasta que las registre.
           pendientes.filter(p => !esMedida(p.tipo)).forEach(p => filas.push(
             <div key={`p-${p.id}`} data-registro-pendiente={p.id}>
-              <FilaRegistro ev={{ ...p, detalle: `Pendiente desde el ${diaCorto(p.fecha)}` }} fecha={p.fecha} nombre={nombre} futuro={false} v2 compacta plana alCambio={alCambio} />
+              <FilaRegistro ev={{ ...p, detalle: `Pendiente desde el ${diaCorto(p.desde || p.fecha)}` }} fecha={p.fecha} nombre={nombre} futuro={false} v2 compacta plana alCambio={alCambio}
+                {...(p.tipo === 'fotos' && delCoach && delCoach.cierre && !delCoach.cierre.fotos ? { marca: 'Fin de ciclo', nombreFila: 'Tus fotos' } : {})} />
             </div>
           ));
           delCoachFilas.filter(x => x.tipo === 'fotos').forEach(x => filas.push(

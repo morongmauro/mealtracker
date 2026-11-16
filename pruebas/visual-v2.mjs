@@ -517,6 +517,39 @@ try {
     }
     await b.close(); await vite.close(); process.exit(0);
   }
+  // FOTOS_FIN=1: fin de ciclo con fotos pedidas en dos días (hoy y una
+  // semana atrás) y sin composición: Entreno › Hoy y el Dash, con un solo
+  // aviso de fotos y otro de composición.
+  if (process.env.FOTOS_FIN) {
+    const pv = await abrir('Mauro Morón', { caliente: true, ajustar: (db) => {
+      db.db.fases[0].semanas = 10;   // el ciclo termina esta semana
+      db.db.mediciones_corporales = db.db.mediciones_corporales.filter(m => m.fecha < lunes);
+      db.db.eventos = db.db.eventos.filter(e => e.id !== 'evp' && e.id !== 'evc');
+      db.db.evento_registros = []; db.db.fotos_progreso = [];
+      db.db.eventos.find(e => e.id === 'evf').detalle = 'Última semana del ciclo: frente, perfil y espalda';
+      db.db.eventos.push({ id: 'evf0', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Fotos de progreso', fecha: hace(1, 0), visible_cliente: true });
+      db.db.eventos.push({ id: 'evw', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Caminata corta', fecha: hoy, visible_cliente: true });
+    } });
+    await espera(4500);
+    await pv.p.addStyleTag({ content: '#splash,#splash2{display:none!important}' });
+    const hoyCard = pv.p.locator('[data-view="dash"] [data-recordatorios-dash]').first();
+    await hoyCard.scrollIntoViewIfNeeded().catch(() => {});
+    const verMas = hoyCard.locator('button', { hasText: /y \d+ más/ }).first();
+    if (await verMas.count()) await verMas.click().catch(() => {});
+    await espera(600);
+    console.log('DASH', JSON.stringify(await hoyCard.innerText().catch(() => '')));
+    await hoyCard.evaluate(el => el.scrollIntoView({ block: 'center' })); await espera(500);
+    await foto(pv.p, 'fotos-fin-dash');
+    await pv.p.keyboard.press('Escape').catch(() => {}); await espera(400);
+    await pv.p.evaluate(() => { const b = document.querySelector('[data-seccion-boton="entreno"]'); if (b) b.click(); }); await espera(3500);
+    const otros = await pv.p.evaluate(() => [...document.querySelectorAll('[role="dialog"]')].map(d => d.getAttribute('aria-label')));
+    console.log('DIALOGOS', JSON.stringify(otros));
+    const th = pv.p.locator('[data-hoy-te-toca]').first();
+    console.log('ENTRENO', JSON.stringify(await th.innerText().catch(() => '')));
+    await th.locator('[data-tambien-hoy]').evaluate(el => el.scrollIntoView({ block: 'start' })).catch(() => {}); await espera(500);
+    await foto(pv.p, 'fotos-fin-entreno');
+    console.log('errores', pv.errores.slice(0, 3)); await pv.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
   // VISTA=1: solo las fotos de la prueba de la gráfica grande en las cabeceras.
   if (process.env.VISTA) {
     // VISTA_PRUEBA=1: con la «Vista en prueba».

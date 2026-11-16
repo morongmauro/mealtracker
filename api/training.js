@@ -1505,6 +1505,11 @@ async function verMes(cliente, ym, hoy) {
   // del mes y el fin de ciclo: también en Entreno › Hoy (la vista compacta
   // cae aquí y el Dash queda en «Más»). Solo con el mes de hoy.
   const delCoach = mes === hoy.slice(0, 7) ? await delCoachHoy(cliente, hoy).catch(() => null) : null;
+  // Lo de hoy que también quedó pendiente de antes: dice desde cuándo lo debe.
+  const desdeHoy = (pendientes && pendientes.desdeHoy) || {};
+  if (Object.keys(desdeHoy).length) dias.filter(d => d.fecha === hoy).forEach(d => {
+    d.eventos = d.eventos.map(e => (e.registra && !e.hecho && desdeHoy[tipoReg(e.tipo)] ? { ...e, pendiente_desde: desdeHoy[tipoReg(e.tipo)] } : e));
+  });
   return {
     ok: true, mes, hoy, pendientes, del_coach: delCoach,
     fase: fase ? { nombre: nombreFase(fase.nombre), semanas: fase.semanas, desde: fase.fecha_inicio, hasta: finDeFase(fase) } : null,
@@ -1828,30 +1833,60 @@ async function conCargaDelCoach(regs, cliente, evs, fase, desde, hasta) {
 // también cae hoy, hoy ya lo pide por su cuenta. Lo saltado a propósito
 // («más tarde» no es saltar; saltar es decir que no) tampoco se queda.
 const ATRASO_DIAS = 365;
+// UN AVISO POR COSA: si las fotos (o el peso, o la medición) se le pidieron
+// en varios días y no las hizo, sale UNA sola fila, con desde cuándo las debe
+// (la fecha más vieja). Registrarlas una vez cumple todos esos pedidos: lo
+// hecho de ese mismo tipo en esa fecha o después los da por hechos. Y si hoy
+// también toca, hoy lo pide por su cuenta y lleva el «desde» (va en
+// lista.desdeHoy, por tipo; no viaja en el JSON de la lista).
+const tipoReg = (t) => (t === 'medicion' ? 'medidas' : t);
 async function pendientesRegistro(cliente, hoy, evs, fase, catalogo) {
   const desde = sumarDiasISO(hoy, -ATRASO_DIAS), ayer = sumarDiasISO(hoy, -1);
   const porFecha = expandirEventos(evs, fase);
   const ultima = {};
+  const tipoDe = {};
   Object.keys(porFecha).forEach(f => {
-    if (f < desde || f > ayer) return;
+    if (f < desde || f > hoy) return;
     porFecha[f].forEach(ev => {
       if (!TIPOS_REGISTRO.includes(ev.tipo)) return;
-      if (!ultima[ev.id] || f > ultima[ev.id].fecha) ultima[ev.id] = { ev, fecha: f };
+      tipoDe[ev.id] = tipoReg(ev.tipo);
+      if (f <= ayer && (!ultima[ev.id] || f > ultima[ev.id].fecha)) ultima[ev.id] = { ev, fecha: f };
     });
   });
-  const hoyIds = new Set((porFecha[hoy] || []).map(ev => ev.id));
+  const hoyEvs = (porFecha[hoy] || []).filter(ev => TIPOS_REGISTRO.includes(ev.tipo));
+  const hoyIds = new Set(hoyEvs.map(ev => ev.id));
   const ids = Object.keys(ultima).filter(id => !hoyIds.has(id));
-  if (!ids.length) return [];
+  const vacia = []; vacia.desdeHoy = {};
+  if (!ids.length) return vacia;
+  const todos = Object.keys(tipoDe);
   const regs = await conCargaDelCoach(await sb(`evento_registros?select=evento_id,fecha,estado&cliente_id=eq.${cliente.id}`
-    + `&fecha=gte.${desde}&fecha=lte.${ayer}&evento_id=in.(${ids.join(',')})`).catch(() => []), cliente, evs, fase, desde, ayer);
-  const marcado = new Set((Array.isArray(regs) ? regs : []).map(r => `${r.evento_id}:${r.fecha}`));
-  return ids.filter(id => !marcado.has(`${id}:${ultima[id].fecha}`))
-    .map(id => ({
+    + `&fecha=gte.${desde}&fecha=lte.${hoy}&evento_id=in.(${todos.join(',')})`).catch(() => []), cliente, evs, fase, desde, hoy);
+  const lista = Array.isArray(regs) ? regs : [];
+  const marcado = new Set(lista.map(r => `${r.evento_id}:${r.fecha}`));
+  const estadoDe = new Map(lista.map(r => [`${r.evento_id}:${r.fecha}`, r.estado]));
+  // Lo hecho por tipo (de cualquier evento de ese tipo): cumple lo pedido antes.
+  const hechoFechas = {};
+  lista.filter(r => r.estado === 'hecho' && tipoDe[r.evento_id]).forEach(r => { (hechoFechas[tipoDe[r.evento_id]] = hechoFechas[tipoDe[r.evento_id]] || []).push(r.fecha); });
+  const debe = ids.filter(id => !marcado.has(`${id}:${ultima[id].fecha}`))
+    .filter(id => !(hechoFechas[tipoDe[id]] || []).some(f => f >= ultima[id].fecha));
+  // Por tipo: el más reciente (es el que se marca al registrar) con «desde» el más viejo.
+  const grupos = {};
+  debe.forEach(id => { (grupos[tipoDe[id]] = grupos[tipoDe[id]] || []).push(id); });
+  // Lo que hoy también pide (y no lo hizo ni dijo que no puede): hoy manda.
+  const hoyPide = new Set(hoyEvs.filter(ev => !estadoDe.has(`${ev.id}:${hoy}`)).map(ev => tipoReg(ev.tipo)));
+  const out = []; out.desdeHoy = {};
+  Object.entries(grupos).forEach(([tipo, gids]) => {
+    gids.sort((x, y) => ultima[x].fecha.localeCompare(ultima[y].fecha));
+    const viejo = ultima[gids[0]].fecha, id = gids[gids.length - 1];
+    if (hoyPide.has(tipo)) { out.desdeHoy[tipo] = viejo; return; }
+    out.push({
       ...eventoParaApp(ultima[id].ev, ultima[id].fecha, catalogo, {}, {}),
-      fecha: ultima[id].fecha, atrasado: true,
-      dias: Math.round((Date.parse(ultima[id].fecha + 'T00:00:00Z') - Date.parse(hoy + 'T00:00:00Z')) / -86400000),
-    }))
-    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+      fecha: ultima[id].fecha, desde: viejo, atrasado: true,
+      dias: Math.round((Date.parse(viejo + 'T00:00:00Z') - Date.parse(hoy + 'T00:00:00Z')) / -86400000),
+    });
+  });
+  out.sort((a, b) => a.desde.localeCompare(b.desde));
+  return out;
 }
 
 // El cardio que el coach le dejó para DESPUÉS de la fuerza ese día: se le
@@ -2466,11 +2501,12 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   const saltadoRegistro = new Set(registros.filter(r => r.estado === 'saltado').map(r => `${r.evento_id}:${r.fecha}`));
   semana.hoy = (eventosSemana[hoy] || []).filter(ev => EVENTOS_QUE_SE_HACEN.includes(ev.tipo) && !saltadoRegistro.has(`${ev.id}:${hoy}`))
     .map(ev => ({ id: ev.id, tipo: ev.tipo, titulo: ev.titulo, duracion_min: ev.duracion_min || null,
-      hecho: hechoRegistro.has(`${ev.id}:${hoy}`) || hechoActividad.has(`${ev.id}:${hoy}`) }));
+      hecho: hechoRegistro.has(`${ev.id}:${hoy}`) || hechoActividad.has(`${ev.id}:${hoy}`),
+      ...((pendientes && pendientes.desdeHoy && pendientes.desdeHoy[ev.tipo === 'medicion' ? 'medidas' : ev.tipo]) ? { desde: pendientes.desdeHoy[ev.tipo === 'medicion' ? 'medidas' : ev.tipo] } : {}) }));
   // Y lo que quedó pendiente de días pasados (pesarse, fotos, medición):
   // sigue en Hoy, con su fecha, hasta que lo haga.
   (Array.isArray(pendientes) ? pendientes : []).forEach(p => {
-    semana.hoy.push({ id: p.id, tipo: p.tipo, titulo: p.titulo, duracion_min: null, hecho: false, atrasado: true, fecha: p.fecha, dias: p.dias });
+    semana.hoy.push({ id: p.id, tipo: p.tipo, titulo: p.titulo, duracion_min: null, hecho: false, atrasado: true, fecha: p.fecha, desde: p.desde || p.fecha, dias: p.dias });
   });
   // Lo que el coach programó (cardio, caminata, deporte) en días que ya
   // pasaron y no marcó: resta poquito (_actividad.js, penalSinMarcar).

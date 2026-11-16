@@ -846,6 +846,34 @@ await caso('lo de registrar que quedó de días pasados sigue en Hoy (mes y dash
 });
 
 
+await caso('un aviso por cosa: las fotos pedidas en dos días salen una vez (desde la más vieja) y registrarlas cumple las dos', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.eventos = [
+    { id: 'evfa', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Fotos', fecha: mas(hoy, -6), visible_cliente: true },
+    { id: 'evfb', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Última semana del ciclo', fecha: mas(hoy, -2), visible_cliente: true },
+  ];
+  let m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
+  igual(m.pendientes.map(p => [p.id, p.fecha, p.desde]), [['evfb', mas(hoy, -2), mas(hoy, -6)]], 'una sola fila de fotos, desde la más vieja');
+  const d = await llamar(handler, { accion: 'dash', name: yo });
+  igual(d.semana.hoy.filter(x => x.tipo === 'fotos').map(x => [x.id, x.desde]), [['evfb', mas(hoy, -6)]], 'en el dash también una');
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evfb', fecha: mas(hoy, -2), hecho: true })).ok, true, 'registra las fotos una vez');
+  m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
+  igual(m.pendientes, [], 'cumple las dos');
+  // Si hoy también toca fotos: hoy manda y dice desde cuándo las debe.
+  sb.db.evento_registros = [];
+  sb.db.eventos.push({ id: 'evfh', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Fotos de hoy', fecha: hoy, visible_cliente: true });
+  m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
+  igual(m.pendientes, [], 'hoy manda: no hay fila atrasada aparte');
+  const evHoy = m.dias.find(x => x.fecha === hoy).eventos.find(e => e.id === 'evfh');
+  igual(evHoy.pendiente_desde, mas(hoy, -6), 'la de hoy dice desde cuándo las debe');
+  const d2 = await llamar(handler, { accion: 'dash', name: yo });
+  igual(d2.semana.hoy.filter(x => x.tipo === 'fotos').map(x => [x.id, x.desde || null]), [['evfh', mas(hoy, -6)]], 'dash: una sola, la de hoy, con desde');
+  igual((await llamar(handler, { accion: 'registrar', name: yo, evento_id: 'evfh', fecha: hoy, hecho: true })).ok, true, 'las registra hoy');
+  m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
+  igual(m.pendientes, [], 'y lo de antes queda cumplido');
+  igual(m.dias.find(x => x.fecha === hoy).eventos.find(e => e.id === 'evfh').hecho, true, 'la de hoy, hecha');
+});
+
 await caso('«No tengo cómo pesarme»: lo quita de Hoy (mes y dash), no de la historia, y el coach se entera', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   sb.db.eventos = [
