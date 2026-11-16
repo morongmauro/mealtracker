@@ -747,7 +747,7 @@ try {
   // todo»); en la rutina, el botón naranja del ejercicio y la hoja que
   // recuerda grabarlo y mandarlo por WhatsApp.
   if (process.env.VIDEO) {
-    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null, 'mt:videoB': process.env.VIDEO_B ? '1' : null }, ajustar: (db) => {
+    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null }, ajustar: (db) => {
       const cid = db.db.clientes[0].id;
       db.db.videos_tecnica = [
         { id: 'vt1', cliente_id: cid, ejercicio_id: 'e1', ejercicio_nombre: 'Barbell Bench Press', estado: 'mal', pedido_en: hace(3), nota: 'Baja la barra más controlada, 2 segundos hasta el pecho.', created_at: hace(3) + 'T10:00:00Z' },
@@ -806,7 +806,7 @@ try {
   // el aviso al minimizar solo en descansos de 90 s o más; y el ejercicio
   // terminado dice «toca para abrir».
   if (process.env.AJUSTES) {
-    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null, 'mt:videoB': process.env.VIDEO_B ? '1' : null }, ajustar: (db) => {
+    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null }, ajustar: (db) => {
       // El Pull del viernes, con una sola serie: para ver que la última serie de la rutina no arranca descanso.
       db.db.rutina_ejercicios = db.db.rutina_ejercicios.filter(x => x.id !== 're-e6');
       Object.assign(db.db.rutina_ejercicios.find(x => x.id === 're-e3'), { series: 1, descanso_seg: 120 });
@@ -894,7 +894,7 @@ try {
   // COMPOSICION=1: «Profundiza en tu composición»: la tabla de referencia del
   // % de grasa de ISSA por sexo, con dónde está, y sus gráficas.
   if (process.env.COMPOSICION) {
-    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null, 'mt:videoB': process.env.VIDEO_B ? '1' : null }, ajustar: (db) => {
+    const vp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null }, ajustar: (db) => {
       const cid = db.db.clientes[0].id;
       db.db.clientes[0].sexo = 'M';
       db.db.mediciones_corporales = [
