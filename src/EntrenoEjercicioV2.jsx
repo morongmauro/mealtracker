@@ -231,11 +231,11 @@ function Botones({ items, chico = false, soloIconos = false, chicos = false }) {
   if (soloIconos) return (
     <div data-botones data-botones-iconos style={{ display: 'flex', gap: chicos ? 2 : 6, flex: 'none' }}>
       {items.map(({ Icono, texto, onClick, punto, fijo, video }) => (
-        <button key={texto} onClick={onClick} aria-label={punto ? `${texto} (${punto} sin leer de tu coach)` : fijo ? `${texto} (recordatorio fijo de tu coach)` : texto} title={texto} data-pildora-ejercicio data-pildora-video={video ? '1' : undefined} style={{
+        <button key={texto} onClick={onClick} aria-label={video ? `${texto} (tu coach te pidió un video)` : punto ? `${texto} (${punto} sin leer de tu coach)` : fijo ? `${texto} (recordatorio fijo de tu coach)` : texto} title={texto} data-pildora-ejercicio data-pildora-video={video ? '1' : undefined} style={{
           position: 'relative',
-          width: chicos ? 32 : 34, height: chicos ? 32 : 34, borderRadius: 999, border: 'none', background: video ? NARANJA_FONDO : '#FFFFFF', color: TEXT, cursor: 'pointer', padding: 0,
+          width: chicos ? 32 : 34, height: chicos ? 32 : 34, borderRadius: 999, border: 'none', background: video ? (videoFuerte() ? NARANJA_VIDEO : NARANJA_FONDO) : '#FFFFFF', color: TEXT, cursor: 'pointer', padding: 0,
           boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)', display: 'grid', placeItems: 'center', flex: 'none',
-        }}><Icono size={16} color={video ? NARANJA_VIDEO : GRAFITO} />{punto ? <PuntoCoach n={punto} /> : fijo ? <PinCoach /> : null}</button>
+        }}><Icono size={16} color={video ? (videoFuerte() ? '#FFFFFF' : NARANJA_VIDEO) : GRAFITO} />{video ? <AlertaVideo /> : punto ? <PuntoCoach n={punto} /> : fijo ? <PinCoach /> : null}</button>
       ))}
     </div>
   );
@@ -246,17 +246,32 @@ function Botones({ items, chico = false, soloIconos = false, chicos = false }) {
         return (
           <button key={texto} onClick={onClick} aria-label={visible !== texto ? texto : undefined} data-pildora-ejercicio data-pildora-video={video ? '1' : undefined} style={{
             position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: chico ? '0 10px' : '0 11px',
-            borderRadius: 999, border: 'none', background: video ? NARANJA_FONDO : '#FFFFFF', color: TEXT, cursor: 'pointer', fontFamily: 'inherit',
+            borderRadius: 999, border: 'none', background: video ? (videoFuerte() ? NARANJA_VIDEO : NARANJA_FONDO) : '#FFFFFF', color: video && videoFuerte() ? '#FFFFFF' : TEXT, cursor: 'pointer', fontFamily: 'inherit',
             boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 3px 10px rgba(30,40,60,0.09)',
             fontSize: 13, fontWeight: 650, whiteSpace: 'nowrap', minWidth: 0, flex: '0 1 auto',
           }}>
-            <Icono size={15} color={video ? NARANJA_VIDEO : GRAFITO} style={{ flex: 'none' }} />
+            <Icono size={15} color={video ? (videoFuerte() ? '#FFFFFF' : NARANJA_VIDEO) : GRAFITO} style={{ flex: 'none' }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{visible}</span>
-            {punto ? <PuntoCoach n={punto} /> : fijo ? <PinCoach /> : null}
+            {video ? <AlertaVideo /> : punto ? <PuntoCoach n={punto} /> : fijo ? <PinCoach /> : null}
           </button>
         );
       })}
     </div>
+  );
+}
+
+// VIDEO PEDIDO: el botón lleva un circulito naranja con «!» que late suave,
+// para que se vea mientras entrena (antes era solo el ícono en naranja claro
+// y pasaba de largo). Se va solo cuando el coach marca el video recibido.
+// (prueba: mt:videoB = botón naranja lleno además del circulito)
+const videoFuerte = () => { try { return localStorage.getItem('mt:videoB') === '1'; } catch (e) { return false; } };
+function AlertaVideo() {
+  return (
+    <span data-alerta-video aria-hidden="true" style={{
+      position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 99, background: '#EE8434',
+      color: '#fff', fontSize: 11, fontWeight: 900, lineHeight: '16px', textAlign: 'center', boxShadow: '0 0 0 2px #fff',
+      animation: 'mtLatidoVideo 1.8s ease-out infinite',
+    }}>!<style>{`@keyframes mtLatidoVideo{0%{box-shadow:0 0 0 2px #fff,0 0 0 2px rgba(238,132,52,.55)}70%{box-shadow:0 0 0 2px #fff,0 0 0 9px rgba(238,132,52,0)}100%{box-shadow:0 0 0 2px #fff,0 0 0 2px rgba(238,132,52,0)}}@media (prefers-reduced-motion:reduce){[data-alerta-video]{animation:none!important}}`}</style></span>
   );
 }
 
