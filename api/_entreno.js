@@ -373,24 +373,33 @@ export const aKg = (peso, unidad) => {
 // Quien marca sus series y cierra la app sin pulsar «Terminar» deja la sesión
 // «a medias» para siempre, y la adherencia del coach cuenta de menos.
 //
-// Pasados dos días sin tocarla (hoy y ayer siguen abiertos: la cola de la app
-// puede subir series de ayer), se cierra sola:
-//   · con series marcadas → COMPLETADA, con lo que dejó guardado y marcada
-//     como `cerrada_auto` para que el coach sepa que no la cerró él;
-//   · sin ninguna serie → se borra. Es una sesión vacía de alguien que abrió
-//     la rutina para mirarla (versiones viejas de la app): no dice nada.
+// Se cierra sola:
+//   · con series marcadas, cuando pasaron 5 h desde la última serie (el aviso
+//     al teléfono sale a las 2 h), o cuando es de antes de ayer → COMPLETADA,
+//     con lo que dejó guardado y marcada como `cerrada_auto` para que el coach
+//     sepa que no la cerró él. Antes esperaba dos días: al día siguiente la
+//     veía «a medias», creía que no se había guardado y la repetía en otra
+//     fecha (caso Carlos). Ahora al día siguiente ya sale hecha;
+//   · sin ninguna serie y de antes de ayer → se borra. Es una sesión vacía de
+//     alguien que abrió la rutina para mirarla: no dice nada. Las vacías de
+//     hoy y ayer no se tocan (puede estar entrenando, o la cola subir series).
+// Si vuelve a entrar a una que se cerró sola, ve lo que marcó y puede seguir
+// marcando: guardarSerie no mira el estado.
 // No es el «Mark as Complete» descartado: sin series reales no cuenta nada.
 //
 // `sb(path, opts)` es el cliente PostgREST del CRM de quien llama.
-export async function cerrarOlvidadas(sb, hoy) {
-  const limite = sumarDiasISO(hoy, -1);           // anteriores a ayer
-  const abiertas = await sb(`sesiones?select=id,fecha,origen&estado=eq.en_curso&fecha=lt.${limite}&limit=200`);
+export const HORAS_CIERRE_AUTO = 5;
+export async function cerrarOlvidadas(sb, hoy, ahoraMs = Date.now()) {
+  const limite = sumarDiasISO(hoy, -1);           // anteriores a ayer: se cierran siempre
+  const abiertas = await sb(`sesiones?select=id,fecha,origen&estado=eq.en_curso&fecha=lte.${hoy}&limit=300`);
   const lista = Array.isArray(abiertas) ? abiertas : [];
   const res = { cerradas: 0, borradas: 0 };
   for (const s of lista) {
-    const series = await sb(`series_log?select=created_at&sesion_id=eq.${s.id}&completada=is.true&order=created_at.asc`);
+    const vieja = String(s.fecha) < limite;
+    const series = await sb(`series_log?select=*&sesion_id=eq.${s.id}&completada=is.true&order=created_at.asc`);
     const hechas = Array.isArray(series) ? series : [];
     if (!hechas.length) {
+      if (!vieja) continue;                       // de hoy o ayer y vacía: puede estar empezando
       // Solo las del cliente: una importada vacía no se toca.
       if ((s.origen || 'cliente') === 'cliente') {
         await sb(`sesiones?id=eq.${s.id}&estado=eq.en_curso`, { method: 'DELETE' });
@@ -399,6 +408,10 @@ export async function cerrarOlvidadas(sb, hoy) {
       continue;
     }
     const ini = hechas[0].created_at, fin = hechas[hechas.length - 1].created_at;
+    // La de hoy o ayer: solo si ya pasaron 5 h desde su última serie (la
+    // hora del teléfono si la hay; si no, la de subida).
+    const ultima = Math.max(...hechas.map(x => Date.parse(x.marcada_en || x.created_at)).filter(Number.isFinite));
+    if (!vieja && !(Number.isFinite(ultima) && ahoraMs - ultima >= HORAS_CIERRE_AUTO * 3600e3)) continue;
     const cambios = {
       estado: 'completada',
       finalizada_en: fin,

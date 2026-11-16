@@ -95,14 +95,35 @@ const igual = (a, b, qué) => { if (JSON.stringify(a) !== JSON.stringify(b)) thr
 
 console.log(`cron de entrenamiento · hoy ${hoy} (${letra}) · turno de mañana en ${tzNueve}`);
 
-await caso('cierra la olvidada con series, borra la vacía y no toca ni la de ayer ni la importada', async () => {
+await caso('cierra la olvidada con series, borra la vacía y no toca ni la de ayer (2 h) ni la importada', async () => {
   const db = base();
-  const r = await cerrarOlvidadas(sbDe(db), hoy);
+  const r = await cerrarOlvidadas(sbDe(db), hoy, Date.parse('2026-01-01T12:00:00Z'));
   const est = Object.fromEntries(db.db.sesiones.map(s => [s.id, s.estado]));
   igual(r, { cerradas: 1, borradas: 1 }, 'resumen');
   igual([est.olvidada, est.vacia, est['de-ayer'], est.importada], ['completada', undefined, 'en_curso', 'en_curso'], 'estados');
   const o = db.db.sesiones.find(s => s.id === 'olvidada');
   igual([o.cerrada_auto, o.duracion_seg], [true, 2400], 'marca y duración (de la 1ª a la última serie)');
+});
+
+await caso('caso Carlos: la de ayer (o de hoy) con series se cierra a las 5 h de su última serie; vacía no se toca', async () => {
+  const db = base();
+  db.db.sesiones.push(
+    { id: 'de-hoy', cliente_id: 'c1', rutina_id: 'r-c1', fecha: hoy, estado: 'en_curso', origen: 'cliente' },
+    { id: 'hoy-reciente', cliente_id: 'c1', rutina_id: 'r-c3', fecha: hoy, estado: 'en_curso', origen: 'cliente' },
+    { id: 'hoy-vacia', cliente_id: 'c1', rutina_id: 'r-c2', fecha: hoy, estado: 'en_curso', origen: 'cliente' },
+  );
+  db.db.series_log.push(
+    { id: 'd', sesion_id: 'de-hoy', serie_num: 1, completada: true, created_at: '2026-01-01T09:00:00Z' },
+    { id: 'e', sesion_id: 'de-hoy', serie_num: 2, completada: true, created_at: '2026-01-01T10:30:00Z' },
+    // marcada sin señal a las 9, subió a las 15: cuenta la hora del teléfono
+    { id: 'f', sesion_id: 'hoy-reciente', serie_num: 1, completada: true, created_at: '2026-01-01T15:00:00Z', marcada_en: '2026-01-01T09:00:00Z' },
+    { id: 'g', sesion_id: 'hoy-reciente', serie_num: 2, completada: true, created_at: '2026-01-01T15:00:00Z', marcada_en: '2026-01-01T12:00:00Z' },
+  );
+  const r = await cerrarOlvidadas(sbDe(db), hoy, Date.parse('2026-01-01T16:00:00Z'));
+  const est = Object.fromEntries(db.db.sesiones.map(s => [s.id, s.estado]));
+  igual([est['de-ayer'], est['de-hoy'], est['hoy-reciente'], est['hoy-vacia']], ['completada', 'completada', 'en_curso', 'en_curso'], 'estados');
+  igual(r, { cerradas: 3, borradas: 1 }, 'resumen (olvidada, de-ayer y de-hoy)');
+  igual(db.db.sesiones.find(s => s.id === 'de-hoy').cerrada_auto, true, 'marcada como cerrada sola');
 });
 
 await caso('qué toca hoy: la rutina si no la hizo, y la medición', async () => {
@@ -182,7 +203,7 @@ await caso('en la mañana: solo la medición; nada de «registra tu comida» ni 
   // Otra tiene ciclo enviado: usa el módulo de entreno, así que se marca en la app.
   if (!/app/.test(de('Otra', 'ecm-med')[0].body)) throw new Error('con ciclo enviado, la medición se marca en la app: ' + de('Otra', 'ecm-med')[0].body);
   igual(de('Ya').length, 0, 'Ya no recibe nada');
-  igual(json.olvidadas, { cerradas: 1, borradas: 1 }, 'el cron también cerró las olvidadas');
+  igual(json.olvidadas, { cerradas: 2, borradas: 1 }, 'el cron también cerró las olvidadas (la de ayer, con su última serie hace más de 5 h, también)');
 });
 
 // Al cierre del día (20h locales). El falso de Supabase no proyecta
