@@ -310,7 +310,7 @@ export function expandirEventos(eventos, fase) {
     const visible = ev.visible_cliente == null ? !!fase?.visible_cliente : !!ev.visible_cliente;
     if (!visible) return;
     const meta = { id: ev.id, tipo: ev.tipo, titulo: ev.titulo, detalle: ev.detalle, hora: ev.hora, duracion_min: ev.duracion_min ?? null,
-      ...(ev.opciones ? { opciones: ev.opciones } : {}) };
+      ...(ev.opciones ? { opciones: ev.opciones } : {}), ...(ev.auto ? { auto: ev.auto } : {}) };
     if (ev.fecha) { (out[String(ev.fecha).slice(0, 10)] ||= []).push(meta); return; }
     if (!fase?.fecha_inicio || !fase?.semanas || ev.fase_id !== fase.id) return;
     // Los días que el coach le quitó (o movió) a la serie: ahí no cae.
@@ -327,7 +327,22 @@ export function expandirEventos(eventos, fase) {
       });
     }
   });
-  return out;
+  return unoPorRegistro(out);
+}
+
+// UN REGISTRO POR DÍA: si el mismo día caen dos fotos (la del fin de ciclo
+// que pone el sistema y la que puso el coach), o peso y medición corporal,
+// se deja uno solo. Gana el del fin de ciclo («auto»: con él se cierra el
+// ciclo); entre peso y medición, la medición (ya trae el peso).
+const grupoRegistro = (t) => (t === 'fotos' ? 'fotos' : (t === 'medidas' || t === 'medicion' || t === 'peso') ? 'comp' : null);
+const rangoRegistro = (ev) => (ev.auto ? 2 : 0) + (ev.tipo !== 'peso' ? 1 : 0);
+export function unoPorRegistro(porFecha) {
+  Object.keys(porFecha).forEach(f => {
+    const l = porFecha[f], gana = {};
+    l.forEach(ev => { const g = grupoRegistro(ev.tipo); if (g && (!gana[g] || rangoRegistro(ev) > rangoRegistro(gana[g]))) gana[g] = ev; });
+    if (Object.keys(gana).length) porFecha[f] = l.filter(ev => { const g = grupoRegistro(ev.tipo); return !g || gana[g] === ev; });
+  });
+  return porFecha;
 }
 
 export function sumarDiasISO(ymd, n) {
@@ -479,7 +494,8 @@ export async function agendaDeHoy(sb, hoy) {
   let eventos = [];
   // `fechas_excluidas` puede no existir (migracion-eventos-excluir.sql sin correr).
   const camposEv = 'id,cliente_id,fase_id,tipo,titulo,fecha,dias_semana,semanas,visible_cliente';
-  try { eventos = await sb(`eventos?select=${camposEv},fechas_excluidas&tipo=in.(${TIPOS_REGISTRO.join(',')})`)
+  try { eventos = await sb(`eventos?select=${camposEv},fechas_excluidas,auto&tipo=in.(${TIPOS_REGISTRO.join(',')})`)
+    .catch(() => sb(`eventos?select=${camposEv},fechas_excluidas&tipo=in.(${TIPOS_REGISTRO.join(',')})`))
     .catch(() => sb(`eventos?select=${camposEv}&tipo=in.(${TIPOS_REGISTRO.join(',')})`)); }
   catch (e) { eventos = []; }
 

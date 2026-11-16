@@ -1740,7 +1740,9 @@ async function eventosDelCliente(clienteId) {
     // migración no se corrió (fechas_excluidas, duracion_min).
     const campos = 'id,fase_id,tipo,titulo,detalle,hora,fecha,dias_semana,semanas,visible_cliente';
     // `opciones` (cardio a elegir) llega con migracion-cardio-opciones.sql.
-    const e = await sb(`eventos?select=${campos},duracion_min,fechas_excluidas,opciones&cliente_id=eq.${clienteId}`)
+    // `auto` (lo que pone el sistema al fin de ciclo): para no repetir con lo del coach ese día.
+    const e = await sb(`eventos?select=${campos},duracion_min,fechas_excluidas,opciones,auto&cliente_id=eq.${clienteId}`)
+      .catch(() => sb(`eventos?select=${campos},duracion_min,fechas_excluidas,opciones&cliente_id=eq.${clienteId}`))
       .catch(() => sb(`eventos?select=${campos},duracion_min,fechas_excluidas&cliente_id=eq.${clienteId}`))
       .catch(() => sb(`eventos?select=${campos},duracion_min&cliente_id=eq.${clienteId}`))
       .catch(() => sb(`eventos?select=${campos}&cliente_id=eq.${clienteId}`));
@@ -1839,7 +1841,8 @@ const ATRASO_DIAS = 365;
 // hecho de ese mismo tipo en esa fecha o después los da por hechos. Y si hoy
 // también toca, hoy lo pide por su cuenta y lleva el «desde» (va en
 // lista.desdeHoy, por tipo; no viaja en el JSON de la lista).
-const tipoReg = (t) => (t === 'medicion' ? 'medidas' : t);
+// Peso y medición son lo mismo para «ya lo hizo» (la medición trae el peso).
+const tipoReg = (t) => (t === 'fotos' ? 'fotos' : 'comp');
 async function pendientesRegistro(cliente, hoy, evs, fase, catalogo) {
   const desde = sumarDiasISO(hoy, -ATRASO_DIAS), ayer = sumarDiasISO(hoy, -1);
   const porFecha = expandirEventos(evs, fase);
@@ -2502,7 +2505,7 @@ export function armarDash({ hoy, fases = [], sesiones = [], series = [], nombres
   semana.hoy = (eventosSemana[hoy] || []).filter(ev => EVENTOS_QUE_SE_HACEN.includes(ev.tipo) && !saltadoRegistro.has(`${ev.id}:${hoy}`))
     .map(ev => ({ id: ev.id, tipo: ev.tipo, titulo: ev.titulo, duracion_min: ev.duracion_min || null,
       hecho: hechoRegistro.has(`${ev.id}:${hoy}`) || hechoActividad.has(`${ev.id}:${hoy}`),
-      ...((pendientes && pendientes.desdeHoy && pendientes.desdeHoy[ev.tipo === 'medicion' ? 'medidas' : ev.tipo]) ? { desde: pendientes.desdeHoy[ev.tipo === 'medicion' ? 'medidas' : ev.tipo] } : {}) }));
+      ...((pendientes && pendientes.desdeHoy && pendientes.desdeHoy[ev.tipo === 'fotos' ? 'fotos' : 'comp']) ? { desde: pendientes.desdeHoy[ev.tipo === 'fotos' ? 'fotos' : 'comp'] } : {}) }));
   // Y lo que quedó pendiente de días pasados (pesarse, fotos, medición):
   // sigue en Hoy, con su fecha, hasta que lo haga.
   (Array.isArray(pendientes) ? pendientes : []).forEach(p => {

@@ -874,6 +874,21 @@ await caso('un aviso por cosa: las fotos pedidas en dos días salen una vez (des
   igual(m.dias.find(x => x.fecha === hoy).eventos.find(e => e.id === 'evfh').hecho, true, 'la de hoy, hecha');
 });
 
+await caso('un registro por día: fotos del fin de ciclo (auto) y las del coach el mismo día salen una vez; peso y medición, solo la medición', async () => {
+  const sb = base(); globalThis.fetch = sb.fetch;
+  sb.db.eventos = [
+    { id: 'evfa', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Registro fotográfico', fecha: hoy, visible_cliente: true, auto: 'cierre_fotos' },
+    { id: 'evfc', cliente_id: 'c1', fase_id: null, tipo: 'fotos', titulo: 'Registro fotográfico', fecha: hoy, visible_cliente: true },
+    { id: 'evmc', cliente_id: 'c1', fase_id: null, tipo: 'medidas', titulo: 'Actualizar composición corporal', fecha: hoy, visible_cliente: true, auto: 'cierre_composicion' },
+    { id: 'evpc', cliente_id: 'c1', fase_id: null, tipo: 'peso', titulo: 'Pesarse', fecha: hoy, visible_cliente: true },
+  ];
+  const m = await llamar(handler, { accion: 'mes', name: yo, ym: hoy.slice(0, 7) });
+  const ids = m.dias.find(x => x.fecha === hoy).eventos.map(e => e.id).sort();
+  igual(ids, ['evfa', 'evmc'], 'en su calendario: una foto (la del fin de ciclo) y la medición');
+  const d = await llamar(handler, { accion: 'dash', name: yo });
+  igual(d.semana.hoy.filter(x => ['fotos', 'peso', 'medidas'].includes(x.tipo)).map(x => x.id).sort(), ['evfa', 'evmc'], 'en lo de hoy, igual');
+});
+
 await caso('«No tengo cómo pesarme»: lo quita de Hoy (mes y dash), no de la historia, y el coach se entera', async () => {
   const sb = base(); globalThis.fetch = sb.fetch;
   sb.db.eventos = [
