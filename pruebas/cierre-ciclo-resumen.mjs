@@ -71,7 +71,7 @@ await caso('cierre: a medias → «Buen ciclo, con margen»', async () => {
 await caso('balance: contra la anterior, con días; mismo peso y menos grasa', async () => {
   const b = balanceDe([{ fecha: '2026-10-12', peso: 78.2, grasa_pct: 24.5 }, { fecha: '2026-11-15', peso: 78.2, grasa_pct: 23.1 }], hoy);
   igual([b.dias, b.titulo[0]], [34, 'Mismo peso,'], 'días y título');
-  igual(b.filas.map(f => [f.clave, f.cambio]), [['peso', 0], ['grasa', -1.4], ['magra', 1.1]], 'cambios');
+  igual(b.filas.map(f => [f.clave, f.cambio]), [['peso', 0], ['grasa', -1.4], ['magra', 1.09]], 'cambios (restas con 2 decimales)');
 });
 await caso('balance: la primera medición es el punto de partida; una vieja (más de 3 semanas) no sale', async () => {
   igual(balanceDe([{ fecha: '2026-11-10', peso: 70 }], hoy).titulo, ['Tu punto', 'de partida.'], 'primera');

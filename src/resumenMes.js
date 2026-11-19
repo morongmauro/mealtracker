@@ -17,8 +17,9 @@ export const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'ju
 const CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 export const fechaCortaMes = (iso) => `${Number(iso.slice(8, 10))} ${CORTOS[Number(iso.slice(5, 7)) - 1]}`;
-const num = (v, dec = 1) => v.toFixed(dec).replace('.', ',').replace(/,0+$/, '');
-const conSigno = (v, dec = 1) => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v), dec);
+const num = (v, dec = 1) => v.toFixed(dec).replace('.', ',').replace(/(,\d*?)0+$/, '$1').replace(/,$/, '');
+// Restas de peso y % de grasa con 2 decimales (−1,65 kg, no −1,7).
+const conSigno = (v, dec = 2) => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v), dec);
 
 // El mes pasado de `hoy` (AAAA-MM-DD).
 export function mesPasado(hoy) {
@@ -50,7 +51,7 @@ export function medidaDelMes(medidas = [], campo, desde, hasta) {
   const fin = delMes[delMes.length - 1];
   const base = con.filter(m => m.fecha < desde).pop() || (delMes.length >= 2 ? delMes[0] : null);
   if (!base) return { valor: Number(fin[campo]), primero: fin.fecha };
-  return { valor: Number(fin[campo]), cambio: Math.round((Number(fin[campo]) - Number(base[campo])) * 10) / 10, desde: base.fecha, hasta: fin.fecha };
+  return { valor: Number(fin[campo]), cambio: Math.round((Number(fin[campo]) - Number(base[campo])) * 100) / 100, desde: base.fecha, hasta: fin.fecha };
 }
 
 // Las filas del resumen, en orden. Cada una: { clave, etiqueta, valor, sub,

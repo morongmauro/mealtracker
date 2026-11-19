@@ -17,8 +17,11 @@ const DIAS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oc
 export const fechaCortaC = (iso) => `${Number(iso.slice(8, 10))} ${DIAS[Number(iso.slice(5, 7)) - 1]}`;
 const sumar = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const entre = (a, b) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000);
-export const num = (v, dec = 1) => Number(v).toFixed(dec).replace('.', ',').replace(/,0+$/, '');
-export const conSigno = (v, dec = 1) => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v), dec);
+// Sin ceros de sobra al final: 1,50 → 1,5; 2,00 → 2.
+export const num = (v, dec = 1) => Number(v).toFixed(dec).replace('.', ',').replace(/(,\d*?)0+$/, '$1').replace(/,$/, '');
+// Las restas de peso y % de grasa van con 2 decimales (66,15 → 64,5 = −1,65),
+// para que cuadren con la cuenta que hace el cliente o su báscula.
+export const conSigno = (v, dec = 2) => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v), dec);
 
 function metaDe(goalsHistory, goals, fecha) {
   if (!Array.isArray(goalsHistory) || !goalsHistory.length) return goals || null;
@@ -90,7 +93,7 @@ export function balanceDe(medidas = [], hoy) {
   const magra = (m) => (m && m.peso != null && m.grasa_pct != null ? Number(m.peso) * (1 - Number(m.grasa_pct) / 100) : null);
   const fila = (clave, etiqueta, unidad, actual, previo, bueno) => {
     if (actual == null) return null;
-    const cambio = previo == null ? null : Math.round((actual - previo) * 10) / 10;
+    const cambio = previo == null ? null : Math.round((actual - previo) * 100) / 100;
     return { clave, etiqueta, unidad, actual, previo, cambio, color: cambio == null || cambio === 0 ? '#1F1F1F' : (bueno(cambio) ? '#2F7F45' : '#B5561A') };
   };
   const pPeso = prevDe('peso'), pGrasa = prevDe('grasa_pct');

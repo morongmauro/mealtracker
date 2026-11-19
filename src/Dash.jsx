@@ -404,15 +404,16 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos, valor, enDos = 
   );
 }
 
-const Cambio = ({ desde, hasta, unidad, bueno = 'sube' }) => {
+// `dec`: decimales de la resta (peso y % de grasa del cliente: 2).
+const Cambio = ({ desde, hasta, unidad, bueno = 'sube', dec = 1 }) => {
   if (desde == null || hasta == null) return null;
-  const dif = Math.round((hasta - desde) * 10) / 10;
+  const dif = Math.round((hasta - desde) * 10 ** dec) / 10 ** dec;
   if (dif === 0) return <span style={{ color: TEXT_MUTED }}>igual</span>;
   const sube = dif > 0;
   const esBueno = bueno === 'sube' ? sube : bueno === 'baja' ? !sube : null;
   return (
     <span style={{ color: esBueno == null ? TEXT_MUTED : esBueno ? '#3E6B3D' : TEXT_MUTED, fontWeight: 650 }}>
-      {sube ? '▲' : '▼'} {fmt(Math.abs(dif), 1)} {unidad}
+      {sube ? '▲' : '▼'} {fmt(Math.abs(dif), dec)} {unidad}
     </span>
   );
 };
@@ -1324,9 +1325,9 @@ function Cuerpo({ medidas, cargando, alMedir }) {
         <>
           <div style={{ display: 'flex', gap: 18 }}>
             <Dato etiqueta="Peso" color={AMBAR} valor={ultPeso ? fmt(ultPeso.peso, 1) : '—'} unidad="kg"
-              pie={ultPeso ? <><Cambio desde={conPeso[0].peso} hasta={ultPeso.peso} unidad="kg" bueno={null} /> <span>· {fechaCorta(ultPeso.fecha)}</span></> : null} />
+              pie={ultPeso ? <><Cambio desde={conPeso[0].peso} hasta={ultPeso.peso} unidad="kg" bueno={null} dec={2} /> <span>· {fechaCorta(ultPeso.fecha)}</span></> : null} />
             <Dato etiqueta="% grasa" color={GRASA} valor={ultGrasa ? fmt(ultGrasa.grasa_pct, 1) : '—'} unidad="%"
-              pie={ultGrasa ? <><Cambio desde={conGrasa[0].grasa_pct} hasta={ultGrasa.grasa_pct} unidad="pts" bueno="baja" /> <span>· {fechaCorta(ultGrasa.fecha)}</span></> : null} />
+              pie={ultGrasa ? <><Cambio desde={conGrasa[0].grasa_pct} hasta={ultGrasa.grasa_pct} unidad="pts" bueno="baja" dec={2} /> <span>· {fechaCorta(ultGrasa.fecha)}</span></> : null} />
           </div>
           {/* Dos líneas, una por medida: tienen unidades distintas y juntas
               en un mismo eje una aplastaría a la otra. */}

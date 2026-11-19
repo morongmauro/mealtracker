@@ -33,8 +33,9 @@ export function MisMedidas({ nombre }) {
   const dif = (a, b) => (a != null && b != null ? Number(a) - Number(b) : null);
   const dPeso = ultima && anterior ? dif(ultima.peso, anterior.peso) : null;
   const dGrasa = ultima && anterior ? dif(ultima.grasa_pct, anterior.grasa_pct) : null;
-  const es = (n) => Number(n).toLocaleString('es', { maximumFractionDigits: 1 });
-  const signo = (n) => (n > 0 ? '+' : '') + es(Number(n.toFixed(1)));
+  const es = (n) => Number(n).toLocaleString('es', { maximumFractionDigits: 2 });
+  // La resta con 2 decimales (−1,65 kg, no −1,7).
+  const signo = (n) => (n > 0 ? '+' : '') + es(Number(n.toFixed(2)));
 
   return (
     <>
