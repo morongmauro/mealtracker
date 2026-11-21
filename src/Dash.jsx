@@ -711,7 +711,7 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
               arriba, la línea de tendencia a lo ancho debajo. */}
           {!falloEnt && ochoSemanas.length >= 2 && (
             <div style={GRUPO}>
-              <div style={ROTULO_GRAFICA}>Fuerza, semana a semana{promedio8 != null ? <span style={{ fontWeight: 500, color: TEXT_MUTED }}> · {promedio8} % de lo planeado</span> : null}</div>
+              <div style={ROTULO_GRAFICA}>Fuerza por semana{promedio8 != null ? <span style={{ fontWeight: 500, color: TEXT_MUTED }}> · {promedio8} % de lo planeado</span> : null}</div>
               <Linea puntos={ochoSemanas} color={AZUL} alto={54} valor={(p) => `${p.v}%`}
                 textoValor={(p) => p.curso ? `Esta semana: ${p.curso.texto}` : `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} extremos={(p) => `${p.v} % · ${fechaCorta(p.fecha)}`} />
             </div>
@@ -756,8 +756,8 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
               </div>
             )}
             {kcal14.length >= 2 && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Tus calorías, últimos 14 días</div>
+              <div style={GRUPO}>
+                <div style={ROTULO_GRAFICA}>Tus calorías <span style={{ fontWeight: 500, color: TEXT_MUTED }}>· últimos 14 días</span></div>
                 <Linea puntos={kcal14} color={VERDE} alto={54} valor={(p) => `${(p.v / 1000).toFixed(1)}k`}
                   textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v)} kcal`} extremos={(p) => `${fmt(p.v)} kcal · ${fechaCorta(p.fecha)}`} />
               </div>
