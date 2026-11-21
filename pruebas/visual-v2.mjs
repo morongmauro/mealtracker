@@ -742,6 +742,31 @@ try {
     console.log('errores', rr.errores.slice(0, 3));
     await rr.ctx.close(); await b.close(); await vite.close(); process.exit(0);
   }
+  // ACTIVIDAD=<pref>: la hoja de registrar una actividad que puso el coach
+  // (squash, fuera del catálogo) y una de «Añadir cardio o deporte» desde cero.
+  if (process.env.ACTIVIDAD) {
+    const lp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null }, ajustar: (db) => {
+      db.db.eventos.push({ id: 'evsq', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Squash', duracion_min: 45, fecha: hoy, visible_cliente: true });
+    } });
+    const q = lp.p, pref = process.env.ACTIVIDAD;
+    await q.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
+    await espera(1200);
+    await q.evaluate(() => { document.body.classList.add('app-ready'); document.querySelectorAll('[data-pantalla-resumen]').forEach(e => e.remove()); });
+    await q.getByRole('button', { name: /Entreno|Entrenamiento/ }).first().click(); await espera(1500);
+    const b1 = q.locator('[data-cardio-coach="evsq"] [data-ya-lo-hice]').first();
+    await b1.scrollIntoViewIfNeeded(); await b1.click(); await espera(900);
+    await q.screenshot({ path: path.join(CAPTURAS, `actividad-${pref}-squash.png`) });
+    const hoja = q.getByRole('dialog', { name: 'Squash' });
+    const n = await hoja.locator('[data-actividad-declarada]').count();
+    console.log('declarada', n, 'chips', await hoja.locator('button', { hasText: 'Natación' }).count());
+    if (n) {
+      await hoja.locator('[data-actividad-kcal]').fill('420');
+      await hoja.getByRole('button', { name: 'Guardar' }).click(); await espera(700);
+      console.log('guardado', JSON.stringify(lp.db ? null : null), JSON.stringify((globalThis.__ultimaDb || {}).x || null));
+    }
+    console.log('errores', lp.errores.slice(0, 3));
+    await lp.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
   // DASHLEER=1: las tarjetas del Dash que se leen de corrido (entrenamiento,
   // alimentación y composición), cada una en su foto. Solo imágenes.
   if (process.env.DASHLEER) {
@@ -1567,7 +1592,7 @@ try {
   const hojaCardio = p.getByRole('dialog', { name: 'Caminadora con inclinación después de entrenar' });
   await hojaCardio.waitFor({ timeout: 3000 });
   ok('«Ya lo hice» abre la hoja con lo del coach, Caminadora elegida y sus 15 minutos', (await hojaCardio.locator('[data-nota-coach]').count()) === 1
-    && (await hojaCardio.locator('input[inputmode="numeric"]').inputValue()) === '15');
+    && (await hojaCardio.locator('input[inputmode="numeric"]').first().inputValue()) === '15');
   await hojaCardio.getByRole('button', { name: 'Guardar' }).click();
   await espera(600);
   const actCardio = db.db.actividades.find(a => a.evento_id === 'evc');
