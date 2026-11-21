@@ -70,6 +70,13 @@ const AMBAR = '#EE8434';                  // el cuerpo (peso): naranja de marca,
 const GRASA = C_FAT;                      // el % de grasa: el mismo tono de las grasas
 const NARANJA = SECCION.aprende.base;     // el aprendizaje
 const CREMA = '#F4F1EB';                  // pastillas y bloques internos
+// Lectura (21 nov): lo que es de lo mismo va pegado (interlineado 1,25–1,3) y
+// lo que es otra cosa va separado. Cada gráfica es un grupo: una línea fina
+// arriba, aire, su rótulo en oscuro y la gráfica pegada a él. Antes el rótulo
+// gris de una gráfica quedaba justo debajo de las fechas de la anterior y se
+// leía como su continuación.
+const GRUPO = { marginTop: 16, paddingTop: 14, borderTop: '1px solid #EFECE4' };
+const ROTULO_GRAFICA = { fontSize: 14, fontWeight: 700, color: TEXT, lineHeight: 1.25 };
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 const fmt = (n, dec = 0) => (n == null || !Number.isFinite(Number(n)) ? '—'
@@ -396,7 +403,7 @@ function Linea({ puntos, color, alto = 46, textoValor, extremos, valor, enDos = 
         <div data-extremos style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12.5, color: TEXT_MUTED, fontVariantNumeric: 'tabular-nums' }}>
           <span>{extremos(puntos[0])}</span>
           {curso
-            ? <span data-extremo-curso style={{ color: TEXT_LIGHT, fontWeight: 600 }}>En curso · {curso.texto}</span>
+            ? <span data-extremo-curso style={{ color: TEXT_LIGHT, fontWeight: 600 }}>Esta semana</span>
             : <span style={{ color: TEXT, fontWeight: 650 }}>{extremos(puntos[ult])}</span>}
         </div>
       )}
@@ -686,8 +693,13 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
                 {ent?.semana?.extra?.dias > 0 && <FilaSemana Icono={Sparkle} etiqueta="Actividad extra" valor={`${ent.semana.extra.dias} ${ent.semana.extra.dias === 1 ? 'día' : 'días'}`} />}
                 {ent?.semana?.intensidad?.prom != null && <FilaSemana Icono={Gauge} etiqueta="Intensidad promedio" valor={`${fmt(ent.semana.intensidad.prom, 1)}/10`} />}
                 {(() => { const pe = progresoEntreno(semana); return pe && pe.pendientes > 0 && (
-                  <div data-sin-hacer style={{ fontSize: 12.5, color: '#B4541D', fontWeight: 600, paddingTop: 7 }}>{pe.pendientes} rutina{pe.pendientes === 1 ? '' : 's'} que ya tocaba{pe.pendientes === 1 ? '' : 'n'} sin hacer</div>
+                  <div data-sin-hacer style={{ fontSize: 12.5, color: '#B4541D', fontWeight: 600, paddingTop: 7, lineHeight: 1.25 }}>{pe.pendientes} rutina{pe.pendientes === 1 ? '' : 's'} que ya tocaba{pe.pendientes === 1 ? '' : 'n'} sin hacer</div>
                 ); })()}
+                {!falloEnt && ent?.semana && ent.semana.penal > 0 && (
+                  <div data-puntos-extra style={{ fontSize: 12.5, color: TEXT_MUTED, paddingTop: 4, lineHeight: 1.25 }}>
+                    <b style={{ color: '#B5552B' }}>−{String(ent.semana.penal).replace('.', ',')}</b> por lo de tu coach sin marcar
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -695,16 +707,11 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
               deportes suman; lo del coach sin marcar resta poquito. */}
           {/* El «+1 por cardio y deportes» ya no va suelto (no se entendía): se
               explica al tocar el aro. Lo del coach sin marcar sí se dice. */}
-          {!falloEnt && ent?.semana && ent.semana.penal > 0 && (
-            <div data-puntos-extra style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 10, lineHeight: 1.45 }}>
-              <span><b style={{ color: '#B5552B' }}>−{String(ent.semana.penal).replace('.', ',')}</b> por lo de tu coach sin marcar</span>
-            </div>
-          )}
           {/* Misma forma que la tarjeta de alimentación: anillo y cifras
               arriba, la línea de tendencia a lo ancho debajo. */}
           {!falloEnt && ochoSemanas.length >= 2 && (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 13.5, color: TEXT_MUTED }}>Fuerza, semana a semana{promedio8 != null ? ` · ${promedio8} % de lo planeado` : ''}</div>
+            <div style={GRUPO}>
+              <div style={ROTULO_GRAFICA}>Fuerza, semana a semana{promedio8 != null ? <span style={{ fontWeight: 500, color: TEXT_MUTED }}> · {promedio8} % de lo planeado</span> : null}</div>
               <Linea puntos={ochoSemanas} color={AZUL} alto={54} valor={(p) => `${p.v}%`}
                 textoValor={(p) => p.curso ? `Esta semana: ${p.curso.texto}` : `Semana del ${fechaCorta(p.fecha)}: ${p.v} %`} extremos={(p) => `${p.v} % · ${fechaCorta(p.fecha)}`} />
             </div>
@@ -713,11 +720,11 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
       )}
 
       {/* Protagonista 2: alimentación */}
-      <Tarjeta titulo="Alimentación" accion={<VerMas que="comida" onClick={() => setVista('comida')} />} detalle="Tu promedio de los últimos 7 días registrados, contra tu meta.">
+      <Tarjeta titulo="Alimentación" accion={<VerMas que="comida" onClick={() => setVista('comida')} />} detalle={comida.metaK && comida.registrados7 ? 'Tu promedio de los últimos 7 días registrados, contra tu meta.' : null}>
         {!comida.metaK ? (
           <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>Tu coach aún no carga tu meta. Cuando lo haga, aquí ves cómo vas con ella.</div>
         ) : !comida.registrados7 ? (
-          <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 12 }}>Registra tu comida y aquí ves tu promedio contra tu meta.</div>
+          <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 8, lineHeight: 1.3 }}>Registra tu comida y aquí ves tu promedio de la semana contra tu meta.</div>
         ) : (
           <>
             <div data-comida-promedio style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 14 }}>
@@ -1325,22 +1332,22 @@ function Cuerpo({ medidas, cargando, alMedir }) {
         <>
           <div style={{ display: 'flex', gap: 18 }}>
             <Dato etiqueta="Peso" color={AMBAR} valor={ultPeso ? fmt(ultPeso.peso, 1) : '—'} unidad="kg"
-              pie={ultPeso ? <><Cambio desde={conPeso[0].peso} hasta={ultPeso.peso} unidad="kg" bueno={null} dec={2} /> <span>· {fechaCorta(ultPeso.fecha)}</span></> : null} />
+              pie={ultPeso ? (conPeso.length >= 2 ? <><Cambio desde={conPeso[0].peso} hasta={ultPeso.peso} unidad="kg" bueno={null} dec={2} /> <span>desde {fechaCorta(conPeso[0].fecha)}</span></> : <span>{fechaCorta(ultPeso.fecha)}</span>) : null} />
             <Dato etiqueta="% grasa" color={GRASA} valor={ultGrasa ? fmt(ultGrasa.grasa_pct, 1) : '—'} unidad="%"
-              pie={ultGrasa ? <><Cambio desde={conGrasa[0].grasa_pct} hasta={ultGrasa.grasa_pct} unidad="pts" bueno="baja" dec={2} /> <span>· {fechaCorta(ultGrasa.fecha)}</span></> : null} />
+              pie={ultGrasa ? (conGrasa.length >= 2 ? <><Cambio desde={conGrasa[0].grasa_pct} hasta={ultGrasa.grasa_pct} unidad="pts" bueno="baja" dec={2} /> <span>desde {fechaCorta(conGrasa[0].fecha)}</span></> : <span>{fechaCorta(ultGrasa.fecha)}</span>) : null} />
           </div>
           {/* Dos líneas, una por medida: tienen unidades distintas y juntas
               en un mismo eje una aplastaría a la otra. */}
           {conPeso.length >= 2 && (
-            <div data-linea-peso style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 13, color: TEXT_MUTED }}>Peso desde el {fechaCorta(conPeso[0].fecha)}</div>
+            <div data-linea-peso style={GRUPO}>
+              <div style={ROTULO_GRAFICA}>Peso <span style={{ fontWeight: 500, color: TEXT_MUTED }}>· desde el {fechaCorta(conPeso[0].fecha)}</span></div>
               <Linea puntos={conPeso.map(m => ({ v: m.peso, fecha: m.fecha }))} color={AMBAR} alto={52}
                 textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} kg`} extremos={(p) => `${fmt(p.v, 1)} kg · ${fechaCorta(p.fecha)}`} />
             </div>
           )}
           {conGrasa.length >= 2 && (
-            <div data-linea-grasa style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 13, color: TEXT_MUTED }}>% de grasa desde el {fechaCorta(conGrasa[0].fecha)}</div>
+            <div data-linea-grasa style={GRUPO}>
+              <div style={ROTULO_GRAFICA}>% de grasa <span style={{ fontWeight: 500, color: TEXT_MUTED }}>· desde el {fechaCorta(conGrasa[0].fecha)}</span></div>
               <Linea puntos={conGrasa.map(m => ({ v: m.grasa_pct, fecha: m.fecha }))} color={GRASA} alto={52} valor={(p) => `${fmt(p.v, 1)}%`}
                 textoValor={(p) => `${fechaCorta(p.fecha)}: ${fmt(p.v, 1)} %`} extremos={(p) => `${fmt(p.v, 1)} % · ${fechaCorta(p.fecha)}`} />
             </div>

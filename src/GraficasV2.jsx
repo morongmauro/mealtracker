@@ -45,7 +45,7 @@ function Tarjeta({ titulo, detalle, accion, children, style, colorTitulo = TEXT 
           {accion}
         </div>
       )}
-      {detalle && <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 3, lineHeight: 1.45 }}>{detalle}</div>}
+      {detalle && <div style={{ fontSize: 14, color: TEXT_MUTED, marginTop: 3, lineHeight: 1.3 }}>{detalle}</div>}
       {children}
     </section>
   );

@@ -742,6 +742,24 @@ try {
     console.log('errores', rr.errores.slice(0, 3));
     await rr.ctx.close(); await b.close(); await vite.close(); process.exit(0);
   }
+  // DASHLEER=1: las tarjetas del Dash que se leen de corrido (entrenamiento,
+  // alimentación y composición), cada una en su foto. Solo imágenes.
+  if (process.env.DASHLEER) {
+    const lp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null } });
+    const q = lp.p;
+    await q.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
+    await espera(1500);
+    await q.evaluate(() => { document.body.classList.add('app-ready'); document.querySelectorAll('[data-pantalla-resumen]').forEach(e => e.remove()); });
+    const pref = process.env.DASHLEER;
+    for (const [n, sel] of [['entreno', '[data-view="dash"] section[data-tarjeta="Entrenamiento"]'], ['comida', '[data-view="dash"] section[data-tarjeta="Alimentación"]'], ['cuerpo', '[data-view="dash"] section:has([data-linea-peso])']]) {
+      const el = q.locator(sel).first();
+      if (!(await el.count())) { console.log('sin', n); continue; }
+      await el.evaluate(e => e.scrollIntoView({ block: 'center' })); await espera(500);
+      await el.screenshot({ path: path.join(CAPTURAS, `dashleer-${pref}-${n}.png`) });
+    }
+    console.log('errores', lp.errores.slice(0, 3));
+    await lp.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
   // LETRA=1: tamaño de letra hoy vs propuesta (solo imágenes, no cambia la
   // app). La propuesta se simula en la página: frases (3+ palabras) a 15–16,
   // nada por debajo de 12, números de las series a 18. `on=false` la quita.
