@@ -2000,12 +2000,19 @@ async function guardarActividad(cliente, cuerpo, hoy) {
     distancia_km: num(cuerpo.distancia_km, 500),
     intensidad: ['suave', 'moderada', 'fuerte'].includes(cuerpo.intensidad) ? cuerpo.intensidad : null,
     rpe: (() => { const n = Number(cuerpo.rpe); return Number.isFinite(n) && n >= 1 && n <= 10 ? Math.round(n) : null; })(),
+    // Calorías que marcó su reloj (opcional). Columna nueva: carga/actividades-kcal.sql.
+    kcal: (() => { const n = num(cuerpo.kcal, 5000); return n != null ? Math.round(n) : null; })(),
     notas: cuerpo.notas ? String(cuerpo.notas).slice(0, 300) : null,
     evento_id: cuerpo.evento_id || null,
     sesion_id: cuerpo.sesion_id || null,
     origen: 'cliente',
   };
 
+  // Sin la columna kcal todavía (falta correr el SQL), se guarda igual sin ella.
+  const conFila = async (f) => {
+    try { return await f(fila); }
+    catch (e) { const { kcal, ...sin } = fila; return await f(sin); }
+  };
   try {
     // Editar en vez de duplicar: si manda el id de una que ya registró, se
     // corrige. Marcar dos veces la misma caminata la contaría dos veces en
@@ -2013,14 +2020,14 @@ async function guardarActividad(cliente, cuerpo, hoy) {
     if (cuerpo.id) {
       const mia = await sb(`actividades?select=id&id=eq.${encodeURIComponent(cuerpo.id)}&cliente_id=eq.${cliente.id}&limit=1`);
       if (!Array.isArray(mia) || !mia[0]) return { ok: false, motivo: 'no_es_suya' };
-      const upd = await sb(`actividades?id=eq.${mia[0].id}`, {
-        method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(fila),
-      });
+      const upd = await conFila(f => sb(`actividades?id=eq.${mia[0].id}`, {
+        method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(f),
+      }));
       return { ok: true, actividad: Array.isArray(upd) ? upd[0] : upd, actualizada: true };
     }
-    const ins = await sb('actividades', {
-      method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(fila),
-    });
+    const ins = await conFila(f => sb('actividades', {
+      method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(f),
+    }));
     return { ok: true, actividad: Array.isArray(ins) ? ins[0] : ins, actualizada: false };
   } catch (e) {
     return { ok: false, motivo: 'sin_tabla' };
