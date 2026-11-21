@@ -679,30 +679,28 @@ export default function Dash({ name, history, detalle = {}, goals, goalsHistory 
               {(() => {
                 const pe = progresoEntreno(semana);
                 return <Anillo valor={pe ? pe.hechas : 0} total={pe ? pe.planeadas : 0} color={AZUL}
-                  centro={pe ? `${pe.hechas}/${pe.planeadas}` : '—'} pie={pe ? 'rutinas · semana' : 'fuerza'}
+                  centro={pe ? `${pe.hechas}/${pe.planeadas}` : '—'} pie={pe ? 'rutinas' : 'fuerza'}
                   alTocar={() => setExplicarAro({
                     titulo: 'Entrenamiento de la semana', grande: pe ? `${pe.hechas} de ${pe.planeadas}` : '—',
                     que: pe ? 'rutinas de fuerza hechas esta semana' : 'sin rutinas planeadas esta semana',
                     partes: pe ? [
                       { nombre: 'Al día', valor: pe.pendientes ? `${pe.pendientes} sin hacer` : 'Sí', detalle: pe.pendientes ? `${pe.pendientes} rutina${pe.pendientes === 1 ? '' : 's'} que ya tocaba${pe.pendientes === 1 ? '' : 'n'} y no está${pe.pendientes === 1 ? '' : 'n'} hecha${pe.pendientes === 1 ? '' : 's'}.` : 'Todo lo que ya tocaba está hecho. Lo que viene después no te resta nada.' },
                       ...(Number(semana.bono) > 0 ? [{ nombre: 'Cardio y deportes', valor: `+${semana.bono}`, detalle: 'Suman a tu adherencia en el CRM de tu coach.' }] : []),
+                      // Antes iba suelto en la tarjeta («−3 por lo de tu coach sin marcar») y no se entendía: aquí se explica.
+                      ...(Number(ent?.semana?.penal) > 0 ? [{ nombre: 'Lo de tu coach', valor: `−${String(ent.semana.penal).replace('.', ',')}`, detalle: 'Lo que tu coach te asignó (cardio, actividades, registros) y no marcaste como hecho resta un poco a tu cumplimiento. Márcalo cuando lo hagas.' }] : []),
                     ] : [],
                   })} />;
               })()}
               <div data-semana-entreno style={{ flex: 1, minWidth: 0 }}>
                 {/* Lo que está en cero o vacío no sale: una fila aparece cuando hay algo que contar. */}
                 {ent?.semana?.cardio?.dias > 0 && <FilaSemana Icono={Heartbeat} etiqueta="Días de cardio" valor={ent.semana.cardio.dias} />}
-                {ent?.semana?.coach?.total > 0 && <FilaSemana Icono={CalendarCheck} etiqueta="Lo que te puso tu coach" valor={`${ent.semana.coach.hechos}/${ent.semana.coach.total}`} />}
+                {ent?.semana?.coach?.total > 0 && <FilaSemana Icono={CalendarCheck} etiqueta="De tu coach" valor={`${ent.semana.coach.hechos}/${ent.semana.coach.total}`} />}
                 {ent?.semana?.extra?.dias > 0 && <FilaSemana Icono={Sparkle} etiqueta="Actividad extra" valor={`${ent.semana.extra.dias} ${ent.semana.extra.dias === 1 ? 'día' : 'días'}`} />}
                 {ent?.semana?.intensidad?.prom != null && <FilaSemana Icono={Gauge} etiqueta="Intensidad promedio" valor={`${fmt(ent.semana.intensidad.prom, 1)}/10`} />}
                 {(() => { const pe = progresoEntreno(semana); return pe && pe.pendientes > 0 && (
-                  <div data-sin-hacer style={{ fontSize: 12.5, color: '#B4541D', fontWeight: 600, paddingTop: 7, lineHeight: 1.25 }}>{pe.pendientes} rutina{pe.pendientes === 1 ? '' : 's'} que ya tocaba{pe.pendientes === 1 ? '' : 'n'} sin hacer</div>
+                  <div data-sin-hacer style={{ fontSize: 12.5, color: '#B4541D', fontWeight: 600, paddingTop: 7, lineHeight: 1.25 }}>{pe.pendientes} rutina{pe.pendientes === 1 ? '' : 's'} pendiente{pe.pendientes === 1 ? '' : 's'}</div>
                 ); })()}
-                {!falloEnt && ent?.semana && ent.semana.penal > 0 && (
-                  <div data-puntos-extra style={{ fontSize: 12.5, color: TEXT_MUTED, paddingTop: 4, lineHeight: 1.25 }}>
-                    <b style={{ color: '#B5552B' }}>−{String(ent.semana.penal).replace('.', ',')}</b> por lo de tu coach sin marcar
-                  </div>
-                )}
+
               </div>
             </div>
           )}

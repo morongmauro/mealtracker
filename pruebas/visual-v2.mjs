@@ -742,6 +742,39 @@ try {
     console.log('errores', rr.errores.slice(0, 3));
     await rr.ctx.close(); await b.close(); await vite.close(); process.exit(0);
   }
+  // TITULOS=<pref>: cómo se ven los títulos en cada sección (tipo, tamaño,
+  // grosor), con foto de la parte de arriba de cada una.
+  if (process.env.TITULOS) {
+    const lp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null } });
+    const q = lp.p, pref = process.env.TITULOS;
+    await q.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
+    await espera(1500);
+    await q.evaluate(() => { document.body.classList.add('app-ready'); document.querySelectorAll('[data-pantalla-resumen]').forEach(e => e.remove()); });
+    const leer = (vista) => q.evaluate((vista) => {
+      const raiz = [...document.querySelectorAll(`[data-view="${vista}"]`)].filter(e => e.offsetParent || e.getClientRects().length).pop() || document.body;
+      const out = [];
+      raiz.querySelectorAll('h1,h2,h3,[role="heading"]').forEach(h => {
+        const r = h.getBoundingClientRect(); if (!r.width || r.top > innerHeight * 3) return;
+        const cs = getComputedStyle(h);
+        out.push([h.tagName, h.innerText.trim().replace(/\s+/g, ' ').slice(0, 34), cs.fontFamily.split(',')[0], cs.fontSize, cs.fontWeight, cs.letterSpacing, cs.lineHeight, cs.color].join(' | '));
+      });
+      return out;
+    }, vista);
+    const RX = { Entreno: /Entreno|Entrenamiento/, Comida: /Comida|Alimentación/, Aprende: /Aprende|Aprendizaje/ };
+    const nav = (n) => q.getByRole('button', { name: RX[n] }).last().click({ timeout: 8000 });
+    console.log('== DASH'); (await leer('dash')).forEach(l => console.log('  ' + l));
+    await q.screenshot({ path: path.join(CAPTURAS, `titulos-${pref}-dash.png`) });
+    for (const [n, v] of [['Entreno', 'entrena'], ['Comida', 'comida'], ['Aprende', 'aprende']]) {
+      await nav(n); await espera(1800);
+      console.log('== ' + n); (await leer(v)).forEach(l => console.log('  ' + l));
+      await q.screenshot({ path: path.join(CAPTURAS, `titulos-${pref}-${v}.png`) });
+    }
+    // Aprende tiene pestañas: las que estén a la vista
+    const pest = await q.locator('[data-view="aprende"] button, [data-aprende-tabs] button').allInnerTexts().catch(() => []);
+    console.log('pestañas aprende', JSON.stringify(pest.slice(0, 12)));
+    console.log('errores', lp.errores.slice(0, 3));
+    await lp.ctx.close(); await b.close(); await vite.close(); process.exit(0);
+  }
   // ACTIVIDAD=<pref>: la hoja de registrar una actividad que puso el coach
   // (squash, fuera del catálogo) y una de «Añadir cardio o deporte» desde cero.
   if (process.env.ACTIVIDAD) {
@@ -770,7 +803,12 @@ try {
   // DASHLEER=1: las tarjetas del Dash que se leen de corrido (entrenamiento,
   // alimentación y composición), cada una en su foto. Solo imágenes.
   if (process.env.DASHLEER) {
-    const lp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null } });
+    // DASHLEER_PEND=1: la semana con una rutina que ya tocaba sin hacer y algo
+    // del coach sin marcar (el caso de la foto de Mauro).
+    const lp = await abrir('Mauro Morón', { caliente: true, extra: { 'mt:pruebaTodos': null }, ajustar: process.env.DASHLEER_PEND ? (db) => {
+      db.db.sesiones = (db.db.sesiones || []).filter(x => x.fecha < lunes);
+      db.db.eventos.push({ id: 'evpen', cliente_id: 'c1', fase_id: null, tipo: 'actividad', titulo: 'Caminata', fecha: lunes, visible_cliente: true });
+    } : null });
     const q = lp.p;
     await q.locator('[data-view="dash"]').getByText('Tu semana', { exact: true }).waitFor({ timeout: 25000 });
     await espera(1500);
@@ -1165,7 +1203,7 @@ try {
   ok('secciones: performance semanal, composición corporal y aprendizaje', (await dash.getByText('Composición corporal', { exact: true }).count()) === 1
     && (await dash.getByText('Aprendizaje', { exact: true }).count()) === 1 && (await dash.getByText('Tu cuerpo', { exact: true }).count()) === 0);
   ok('entreno de la semana: cardio y lo del coach; lo que está en cero o vacío no sale (actividad extra 0, intensidad sin marcar)', /Días de cardio/.test(await dash.locator('[data-semana-entreno]').innerText())
-    && /Lo que te puso tu coach/.test(await dash.locator('[data-semana-entreno]').innerText()) && !/Actividad extra|Sin marcar|Sin entrenos/.test(await dash.locator('[data-semana-entreno]').innerText()),
+    && /De tu coach/.test(await dash.locator('[data-semana-entreno]').innerText()) && !/Actividad extra|Sin marcar|Sin entrenos/.test(await dash.locator('[data-semana-entreno]').innerText()),
     await dash.locator('[data-semana-entreno]').innerText());
   ok('comida: promedio en % y en números, y los días cerca de la meta en una línea sin caja (ya no hay cajitas de «lejos» ni «sin registrar»)', /%/.test(await dash.locator('[data-comida-promedio]').innerText())
     && /de 2\.400 kcal/.test(await dash.locator('[data-comida-promedio]').innerText())
