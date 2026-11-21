@@ -58,6 +58,12 @@ export default function Actividad({
   // catálogo entero («hice otra cosa»).
   const [opcion, setOpcion] = useState(null);
   const [verTodo, setVerTodo] = useState(false);
+  // YA DECLARADA: el coach la puso (caminata, squash, yoga…). No se le
+  // muestra el catálogo entero: ya se sabe qué es. Solo lo que hay que
+  // anotar (minutos, distancia si aplica, intensidad, calorías si las sabe).
+  // «Hice otra actividad» abre el catálogo por si cambió de planes.
+  const [cambiar, setCambiar] = useState(false);
+  const [kcal, setKcal] = useState('');
   const conOpciones = !!(opciones && opciones.lista && opciones.lista.length);
   // Por contenido: si los datos se vuelven a pedir, el objeto cambia pero no
   // lo que dijo el coach, y no se le debe borrar lo que ya tocó.
@@ -83,7 +89,7 @@ export default function Actividad({
     setFecha(fechaInicial || hoyLocal());
     setDuracion(duracionInicial ? String(duracionInicial) : ''); setDistancia(''); setIntensidad(null);
     setOtroNombre(otroInicial || ''); setError(null);
-    setOpcion(null); setVerTodo(false);
+    setOpcion(null); setVerTodo(false); setCambiar(false); setKcal('');
     if (opciones && opciones.lista && opciones.lista.length) {
       setTipo(null);
       setIntensidad(opciones.intensidad === 'alta' ? 'fuerte' : opciones.intensidad || null);
@@ -111,6 +117,8 @@ export default function Actividad({
   }, [lista]);
 
   const elegido = lista.find(x => x.slug === tipo);
+  const declarada = !!tipoInicial && !conOpciones && !cambiar;
+  const nombreDeclarada = tipoInicial === 'otro' ? (otroInicial || 'Actividad') : ((lista.find(x => x.slug === tipoInicial) || {}).nombre || titulo);
 
   const guardar = async () => {
     if (!tipo) return;
@@ -124,6 +132,7 @@ export default function Actividad({
       distancia_km: elegido?.pide_distancia && numero(distancia) != null
         ? (leerUnidades().distancia === 'm' ? numero(distancia) / 1000 : numero(distancia)) : null,
       intensidad,
+      kcal: numero(kcal) || null,
       sesion_id: sesionId, evento_id: eventoId,
     });
     setGuardando(false);
@@ -188,7 +197,19 @@ export default function Actividad({
               )}
             </div>
           )}
-          {(!conOpciones || verTodo) && Object.entries(porCategoria).map(([cat, items]) => (
+          {declarada && (
+            <div data-actividad-declarada style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 16 }}>
+              <span style={{ width: 40, height: 40, borderRadius: 13, flex: 'none', display: 'grid', placeItems: 'center', background: SECCION.entreno.tint, color: SECCION.entreno.ink }}>
+                <IconoActividad slug={tipoInicial === 'otro' ? null : tipoInicial} titulo={nombreDeclarada} size={21} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: 750, color: TEXT, lineHeight: 1.2 }}>{nombreDeclarada}</div>
+              <button data-hice-otra-actividad onClick={() => { setCambiar(true); setTipo(null); setOtroNombre(''); }} style={{
+                flex: 'none', border: 'none', background: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: 13.5, fontWeight: 650, color: TEXT_MUTED, textDecoration: 'underline',
+              }}>Hice otra</button>
+            </div>
+          )}
+          {!declarada && (!conOpciones || verTodo) && Object.entries(porCategoria).map(([cat, items]) => (
             <div key={cat} style={{ marginBottom: 14 }}>
               {NOMBRES_CATEGORIA[cat] && (
                 <div style={rotulo}>{NOMBRES_CATEGORIA[cat]}</div>
@@ -212,7 +233,7 @@ export default function Actividad({
             </div>
           ))}
 
-          {tipo === 'otro' && !(conOpciones && opcion != null) && (
+          {tipo === 'otro' && !declarada && !(conOpciones && opcion != null) && (
             <input
               value={otroNombre} onChange={(e) => setOtroNombre(e.target.value)}
               placeholder="¿Qué hiciste?" style={{ ...campo, marginBottom: 14 }} />
@@ -284,6 +305,12 @@ export default function Actividad({
                 )}
               </div>
 
+              <label style={{ display: 'block', marginBottom: 14 }}>
+                <div style={rotulo}>Calorías <span style={{ fontWeight: 600 }}>· opcional, si tu reloj las marca</span></div>
+                <input data-actividad-kcal inputMode="numeric" value={kcal} placeholder="350"
+                       onChange={(e) => setKcal(e.target.value.replace(/[^\d]/g, ''))}
+                       style={campo} />
+              </label>
               <div style={rotulo}>Intensidad</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
                 {INTENSIDADES.map(([id, lab, pista]) => (
@@ -317,8 +344,8 @@ export default function Actividad({
           </div>
 
           <div style={{ fontSize: 12, color: TEXT_LIGHT, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
-            Solo el tipo es obligatorio. Los minutos y la intensidad ayudan a tu coach,
-            pero si no te acuerdas, déjalos en blanco.
+            {declarada ? 'Los minutos y la intensidad ayudan a tu coach. Si no te acuerdas, déjalos en blanco.'
+              : 'Solo el tipo es obligatorio. Los minutos y la intensidad ayudan a tu coach, pero si no te acuerdas, déjalos en blanco.'}
           </div>
         </>
       )}

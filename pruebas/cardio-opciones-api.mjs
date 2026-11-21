@@ -51,6 +51,8 @@ const pedir = async (db, cuerpo) => { globalThis.fetch = db.fetch; return llamar
   const guardada = db.db.actividades[0];
   ok('al marcarlo se guarda cuál hizo, cuánto y que fue lo del coach', r.ok && guardada && guardada.tipo === 'cinta' && guardada.titulo === 'Caminadora caminando con inclinación'
     && Number(guardada.duracion_min) === 25 && guardada.evento_id === 'ev1', JSON.stringify(r) + JSON.stringify(guardada));
+  const rk = await pedir(db, { accion: 'actividad', tipo: 'otro', fecha: '2026-09-29', titulo: 'Squash', duracion_min: 45, kcal: '420' });
+  ok('las calorías del reloj se guardan (opcional)', rk.ok && Number(db.db.actividades[db.db.actividades.length - 1].kcal) === 420, JSON.stringify(rk));
   const m2 = await pedir(db, { accion: 'mes', ym: '2026-09' });
   ok('y ese día queda hecho', m2.dias.find(d => d.fecha === '2026-09-29').eventos.find(e => e.id === 'ev1').hecho === true);
 }
