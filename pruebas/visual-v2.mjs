@@ -1347,9 +1347,9 @@ try {
   await espera(300);
   await foto(p, '03-dash-final');
   ok('dash: la firma al final', await p.locator('[data-view="dash"] [data-firma]').isVisible());
-  ok('dash: composición corporal con la línea de peso y la de grasa, y cifras compactas',
+  ok('dash: composición corporal con la línea de peso y la de grasa, y cada dato en su columna (nombre, cifra y cambio; altura acotada)',
     (await p.locator('[data-linea-peso] svg:not([data-pista-linea] svg)').count()) === 1 && (await p.locator('[data-linea-grasa] svg:not([data-pista-linea] svg)').count()) === 1
-    && await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height <= 62),
+    && await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height <= 110),
     String(await p.locator('[data-dato]').first().evaluate(el => el.getBoundingClientRect().height)));
   await p.locator('[data-ver-mas="entreno"]').click();
   await p.getByText('Fuerza · tu 1RM estimado', { exact: true }).waitFor({ timeout: 10000 });

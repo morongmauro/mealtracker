@@ -197,19 +197,22 @@ export function alimentosDestacados(detalle = {}, hoy = hoyLocal(), dias = 30) {
 
 // ── Piezas ────────────────────────────────────────────────────────────────
 // Cifra compacta: la etiqueta con el número al lado, y el cambio debajo.
-function Dato({ etiqueta, valor, unidad, pie, color }) {
+// Un dato del cuerpo en su columna: el nombre arriba, la cifra grande debajo y
+// el cambio al pie, todo alineado a la izquierda. Antes nombre y cifra iban en
+// la misma línea, en los extremos: la cifra del peso quedaba pegada al nombre
+// «% grasa» de al lado y no se sabía cuál era cuál. La segunda columna lleva
+// una línea fina a su izquierda.
+function Dato({ etiqueta, valor, unidad, pie, color, segundo = false }) {
   return (
-    <div data-dato style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT_MUTED, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          {color && <span style={{ width: 7, height: 7, borderRadius: 99, background: color, flex: 'none' }} />}{etiqueta}
-        </span>
-        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 2 }}>
-          <span style={{ fontSize: 18, fontWeight: 750, color: TEXT, lineHeight: 1.1, letterSpacing: '-0.02em' }}>{valor}</span>
-          {unidad && <span style={{ fontSize: 12, fontWeight: 600, color: TEXT_MUTED }}>{unidad}</span>}
-        </span>
+    <div data-dato style={{ flex: 1, minWidth: 0, ...(segundo ? { borderLeft: '1px solid #EFECE4', paddingLeft: 16 } : { paddingRight: 16 }) }}>
+      <div style={{ fontSize: 13, fontWeight: 650, color: TEXT_MUTED, display: 'flex', alignItems: 'center', gap: 6, lineHeight: 1.2 }}>
+        {color && <span style={{ width: 8, height: 8, borderRadius: 99, background: color, flex: 'none' }} />}{etiqueta}
       </div>
-      {pie && <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pie}</div>}
+      <div style={{ marginTop: 4, display: 'flex', alignItems: 'baseline', gap: 3 }}>
+        <span style={{ fontSize: 26, fontWeight: 800, color: TEXT, lineHeight: 1.05, letterSpacing: '-0.03em' }}>{valor}</span>
+        {unidad && <span style={{ fontSize: 14, fontWeight: 650, color: TEXT_MUTED }}>{unidad}</span>}
+      </div>
+      {pie && <div style={{ fontSize: 12.5, color: TEXT_LIGHT, marginTop: 4, lineHeight: 1.25 }}>{pie}</div>}
     </div>
   );
 }
@@ -1330,11 +1333,11 @@ function Cuerpo({ medidas, cargando, alMedir }) {
         <div style={{ fontSize: 14, color: TEXT_MUTED, lineHeight: 1.5 }}>Registra tu peso y tu % de grasa cuando te midas, y aquí ves cómo cambian.</div>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 18 }}>
+          <div style={{ display: 'flex' }}>
             <Dato etiqueta="Peso" color={AMBAR} valor={ultPeso ? fmt(ultPeso.peso, 1) : '—'} unidad="kg"
-              pie={ultPeso ? (conPeso.length >= 2 ? <><Cambio desde={conPeso[0].peso} hasta={ultPeso.peso} unidad="kg" bueno={null} dec={2} /> <span>desde {fechaCorta(conPeso[0].fecha)}</span></> : <span>{fechaCorta(ultPeso.fecha)}</span>) : null} />
-            <Dato etiqueta="% grasa" color={GRASA} valor={ultGrasa ? fmt(ultGrasa.grasa_pct, 1) : '—'} unidad="%"
-              pie={ultGrasa ? (conGrasa.length >= 2 ? <><Cambio desde={conGrasa[0].grasa_pct} hasta={ultGrasa.grasa_pct} unidad="pts" bueno="baja" dec={2} /> <span>desde {fechaCorta(conGrasa[0].fecha)}</span></> : <span>{fechaCorta(ultGrasa.fecha)}</span>) : null} />
+              pie={ultPeso ? (conPeso.length >= 2 ? <><Cambio desde={conPeso[0].peso} hasta={ultPeso.peso} unidad="kg" bueno={null} dec={2} /> <span style={{ display: 'block', marginTop: 1 }}>desde el {fechaCorta(conPeso[0].fecha)}</span></> : <span>{fechaCorta(ultPeso.fecha)}</span>) : null} />
+            <Dato etiqueta="% de grasa" segundo color={GRASA} valor={ultGrasa ? fmt(ultGrasa.grasa_pct, 1) : '—'} unidad="%"
+              pie={ultGrasa ? (conGrasa.length >= 2 ? <><Cambio desde={conGrasa[0].grasa_pct} hasta={ultGrasa.grasa_pct} unidad="pts" bueno="baja" dec={2} /> <span style={{ display: 'block', marginTop: 1 }}>desde el {fechaCorta(conGrasa[0].fecha)}</span></> : <span>{fechaCorta(ultGrasa.fecha)}</span>) : null} />
           </div>
           {/* Dos líneas, una por medida: tienen unidades distintas y juntas
               en un mismo eje una aplastaría a la otra. */}
