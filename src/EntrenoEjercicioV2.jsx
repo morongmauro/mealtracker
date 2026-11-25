@@ -135,7 +135,7 @@ export function textoReps(re) {
   const conReps = /^\d+(\s*[-–]\s*\d+)?$/.test(r) ? `${r} reps` : r;
   return porLado(re) && !RE_LADO.test(r) ? `${conReps} por lado` : conReps;
 }
-export const textoDescanso = (seg) => (Number(seg) > 0 ? `Descanso ${Number(seg)} s` : 'Sin descanso');
+export const textoDescanso = (seg) => (Number(seg) > 0 ? `Descanso ${Number(seg)}\u00A0s` : 'Sin descanso');
 
 // Los ejercicios por tiempo («30 s», «45 seg», «1 min», «1:30 min»): cuántos
 // segundos dura cada uno (en un rango, el primero). Si no es por tiempo, null.
@@ -202,13 +202,20 @@ function Miniatura({ e, alTocar, ancho = 68, alto = 52, enVivo = false }) {
   );
 }
 
-function Nombres({ e, tam = 17 }) {
+// Tocar el nombre abre el video en grande, igual que la miniatura (antes solo
+// la miniatura lo abría y la gente tocaba el título).
+function Nombres({ e, tam = 17, alTocar }) {
   const n = nombresEj(e);
+  const tocable = alTocar ? {
+    role: 'button', tabIndex: 0, 'data-nombre-video': '1', 'aria-label': `Ver video de ${n.grande}`, onClick: alTocar,
+    onKeyDown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); alTocar(); } },
+    style: { cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
+  } : {};
   return (
-    <>
+    <div {...tocable}>
       <div style={{ fontSize: tam, fontWeight: 800, color: TEXT, lineHeight: 1.18, letterSpacing: '-0.02em' }}>{n.grande}</div>
       {n.chico && <div style={{ fontSize: 13, color: GRIS, marginTop: 2 }}>{n.chico}</div>}
-    </>
+    </div>
   );
 }
 
@@ -216,8 +223,8 @@ function Nombres({ e, tam = 17 }) {
 const textoDescansoCorto = (seg) => {
   const x = Number(seg);
   if (!(x > 0)) return 'Sin descanso';
-  if (x < 60) return `Descanso ${x} s`;
-  return x % 60 ? `Descanso ${Math.floor(x / 60)}:${String(x % 60).padStart(2, '0')} min` : `Descanso ${x / 60} min`;
+  if (x < 60) return `Descanso ${x}\u00A0s`;
+  return x % 60 ? `Descanso ${Math.floor(x / 60)}:${String(x % 60).padStart(2, '0')}\u00A0min` : `Descanso ${x / 60}\u00A0min`;
 };
 
 // ── Los botones de cada ejercicio ─────────────────────────────────────────
@@ -721,7 +728,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
           {/* Abierto = el que se está haciendo: el video corre en bucle, como en la completa. */}
           <Miniatura e={e} alTocar={() => setFicha(true)} ancho={50} alto={40} enVivo={prueba && !ficha} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: TEXT, lineHeight: 1.18, letterSpacing: '-0.02em' }}>{n.grande}</div>
+            <div role="button" data-nombre-video="1" onClick={() => setFicha(true)} style={{ fontSize: 16, fontWeight: 800, color: TEXT, lineHeight: 1.18, letterSpacing: '-0.02em', cursor: 'pointer' }}>{n.grande}</div>
             <div style={{ fontSize: 12.5, color: GRIS, marginTop: 2 }}>
               {recetado}{re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}{re.rir != null ? ` · RIR ${re.rir}` : ''} · {textoDescansoCorto(re.descanso_seg).toLowerCase()}
             </div>
@@ -753,7 +760,7 @@ export function EjercicioV2({ re, marcadas, onMarcar, onDesmarcar, unidad = 'kg'
               altura del nombre; el texto les da la vuelta (si el nombre no
               cabe, sigue en la línea de abajo) y nada queda detrás. */}
           {ligera && prueba && <div data-botones-arriba style={{ float: 'right', margin: '-2px -4px 4px 8px' }}><Botones soloIconos chicos items={botones} /></div>}
-          <Nombres e={e} />
+          <Nombres e={e} alTocar={() => setFicha(true)} />
           {/* Más liviana (a prueba): lo recetado y Ficha · Historial · Nota
               en UNA fila bajo el nombre, los botones solo con su ícono. */}
           {ligera && (
@@ -939,7 +946,7 @@ export function CircuitoV2({ tramo, marcadas, onMarcar, onDesmarcar, unidadDe, o
                         sinCarga, onNota: onNota ? () => onNota(re) : null, re,
                         abrirFicha: () => setFicha(re), abrirRecord: () => setRecord(re), abrirUltima: () => setVerUltima(re), abrirVideo: () => setVideo(re),
                       })} /></div>}
-                      <Nombres e={e} tam={15} />
+                      <Nombres e={e} tam={15} alTocar={() => setFicha(re)} />
                       <div style={{ fontSize: 13, color: '#3A3A3C', fontWeight: 600, marginTop: 3 }}>{textoReps(re)}</div>
                     </div>
                   </div>

@@ -2183,8 +2183,11 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
         </button>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15.5, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em' }}>{nombresEj(e).grande}</div>
-          {nombresEj(e).chico && <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 1 }}>{nombresEj(e).chico}</div>}
+          {/* El nombre también abre el video, como la miniatura. */}
+          <div role="button" data-nombre-video="1" onClick={() => setFicha(true)} style={{ cursor: 'pointer' }}>
+            <div style={{ fontSize: 15.5, fontWeight: 700, color: TEXT, letterSpacing: '-0.01em' }}>{nombresEj(e).grande}</div>
+            {nombresEj(e).chico && <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 1 }}>{nombresEj(e).chico}</div>}
+          </div>
           <div style={{ fontSize: 12.5, color: ACCENT_DARK, fontWeight: 600, marginTop: 3 }}>
             {re.series} × {re.reps}
             {re.peso_objetivo ? ` · ${re.peso_objetivo}` : ''}
@@ -2192,7 +2195,7 @@ function Ejercicio({ re, marcadas, onMarcar, onDesmarcar, serieUnica = null, com
           </div>
           <div style={{ fontSize: 12, color: TEXT_LIGHT, marginTop: 2 }}>
             {re.tempo ? `Tempo ${re.tempo} · ` : ''}
-            {re.descanso_seg ? `Descanso ${re.descanso_seg}s` : ''}
+            {re.descanso_seg ? `Descanso ${re.descanso_seg}\u00A0s` : ''}
           </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 7, flexWrap: 'wrap' }}>
             <button onClick={() => setFicha(true)} style={pildora}>Características</button>
